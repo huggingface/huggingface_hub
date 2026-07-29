@@ -15,8 +15,8 @@ from huggingface_hub import HfApi, constants
 from huggingface_hub._dataset_viewer import DatasetParquetEntry
 from huggingface_hub._jobs_api import JobInfo, JobOwner, _create_job_spec, _derive_job_volume_name
 from huggingface_hub._space_api import Volume
-from huggingface_hub.cli import _skills
-from huggingface_hub.cli._cli_utils import RepoType, parse_volumes
+from huggingface_hub.cli import _skills, system
+from huggingface_hub.cli._cli_utils import RepoType, _get_huggingface_hub_update_command, parse_volumes
 from huggingface_hub.cli._output import OutputFormat, out
 from huggingface_hub.cli.cache import CacheDeletionCounts
 from huggingface_hub.cli.download import download
@@ -4584,6 +4584,41 @@ class TestSkillUpdateCheck:
         skill_file.write_text("Generated with `huggingface_hub v0.0.1`.", encoding="utf-8")
         _skills.check_skill_update()
         assert capsys.readouterr().err == ""
+
+
+class TestUpdateSkillOptOut:
+    """`hf update` must not silently reinstall the `hf-cli` skill for users who opted out."""
+
+    @pytest.fixture(autouse=True)
+    def isolated_skills_dirs(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(constants, "AGENTS_SKILLS_GLOBAL_PATH", tmp_path / ".agents/skills")
+        monkeypatch.setattr(constants, "CLAUDE_SKILLS_GLOBAL_PATH", tmp_path / ".claude/skills")
+
+    @contextmanager
+    def _mocked_update(self) -> Generator[Mock, None, None]:
+        with (
+            patch("huggingface_hub.cli.system._fetch_latest_pypi_version", return_value="99.0.0"),
+            patch("huggingface_hub.cli.system.subprocess.call", return_value=0),
+            patch("huggingface_hub.cli.system.run_update", return_value=0) as mock_run_update,
+        ):
+            yield mock_run_update
+
+    def test_excludes_skill_when_not_installed(self) -> None:
+        with self._mocked_update() as mock_run_update:
+            system.update()
+        mock_run_update.assert_called_once_with(exclude_skill=True)
+
+    def test_keeps_skill_when_installed(self, tmp_path: Path) -> None:
+        (tmp_path / ".agents/skills/hf-cli").mkdir(parents=True)
+        with self._mocked_update() as mock_run_update:
+            system.update()
+        mock_run_update.assert_called_once_with(exclude_skill=False)
+
+    def test_installer_command_passes_the_flag(self) -> None:
+        flag = "-ExcludeSkill" if os.name == "nt" else "--exclude-skill"
+        with patch("huggingface_hub.cli._cli_utils.installation_method", return_value="hf_installer"):
+            assert flag in _get_huggingface_hub_update_command(exclude_skill=True)[-1]
+            assert flag not in _get_huggingface_hub_update_command(exclude_skill=False)[-1]
 
 
 @pytest.mark.xet

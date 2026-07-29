@@ -46,23 +46,24 @@ def update() -> None:
         out.text(f"hf is up to date ({__version__})")
         return
 
-    returncode = run_update()
+    # The standalone installer installs the `hf-cli` skill by default. If it's not installed at this
+    # point, the user opted out (or removed it): tell the installer to leave it alone instead of
+    # silently undoing that choice.
+    skill_installed = bool(
+        _installed_hf_cli_dirs(constants.AGENTS_SKILLS_GLOBAL_PATH, constants.CLAUDE_SKILLS_GLOBAL_PATH)
+    )
+
+    returncode = run_update(exclude_skill=not skill_installed)
     if returncode != 0:
         raise click.exceptions.Exit(code=returncode)
 
-    _update_global_skill()
-
-
-def _update_global_skill() -> None:
-    """Refresh the globally installed `hf-cli` skill so agents see the new command surface.
-
-    Runs in a subprocess: the skill is generated from the CLI code, which has just been
-    replaced on disk while this process still runs the previous version.
-    """
-    if not _installed_hf_cli_dirs(constants.AGENTS_SKILLS_GLOBAL_PATH, constants.CLAUDE_SKILLS_GLOBAL_PATH):
+    if not skill_installed:
         out.hint("Run `hf skills add -g --claude` to teach your AI agents how to use the `hf` CLI.")
         return
 
+    # Refresh the globally installed skill so agents see the new command surface. Runs in a
+    # subprocess: the skill is generated from the CLI code, which has just been replaced on disk
+    # while this process still runs the previous version.
     out.text(f"Updating the `{DEFAULT_SKILL_ID}` skill...")
     subprocess.call([*_hf_argv(), "skills", "update", DEFAULT_SKILL_ID, "-g", "--claude"])
 

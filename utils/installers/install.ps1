@@ -26,7 +26,7 @@ Skip installing the `hf-cli` skill for AI agents.
 
 .EXAMPLE
 powershell -c "irm https://hf.co/cli/install.ps1 | iex"
-powershell -c "irm https://hf.co/cli/install.ps1 | iex" -WithTransformers
+powershell -c "& ([scriptblock]::Create((irm https://hf.co/cli/install.ps1))) -WithTransformers"
 #>
 
 <#
