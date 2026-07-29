@@ -392,10 +392,7 @@ install_skills() {
     log_info "Installing the hf-cli skill for AI agents..."
     if ! "$BIN_DIR/hf" skills add hf-cli --global --claude --force; then
         log_warning "Failed to install the hf-cli skill. Install it later with: hf skills add -g --claude"
-        return
     fi
-    log_info "Installed automatically because of --include-skills. Remove it with:"
-    log_info "  rm -rf ~/.agents/skills/hf-cli ~/.claude/skills/hf-cli"
 }
 
 # Update PATH if needed

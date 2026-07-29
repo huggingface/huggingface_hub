@@ -351,10 +351,7 @@ function Install-Skills {
     & $hfExecutable skills add hf-cli --global --claude --force
     if (-not $?) {
         Write-Log "Failed to install the hf-cli skill. Install it later with: hf skills add -g --claude" "WARNING"
-        return
     }
-    Write-Log "Installed automatically because of -IncludeSkills. Remove it with:"
-    Write-Log "  Remove-Item -Recurse -Force '$env:USERPROFILE\.agents\skills\hf-cli', '$env:USERPROFILE\.claude\skills\hf-cli'"
 }
 
 function Update-Path {
