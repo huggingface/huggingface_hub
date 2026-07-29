@@ -203,6 +203,27 @@ When symlinks are not supported, a warning message is displayed to the user to a
 them they are using a degraded version of the cache-system. This warning can be disabled
 by setting the `HF_HUB_DISABLE_SYMLINKS_WARNING` environment variable to true.
 
+### Shared blobs across repos (experimental)
+
+By default, blobs are deduplicated within a repo but not across repos: the exact same file cached for two
+different repos is downloaded and stored twice. Set the
+[`HF_HUB_ENABLE_SHARED_BLOBS`](../package_reference/environment_variables#hfhubenablesharedblobs) environment
+variable to `1` to deduplicate Xet files (in practice, all large files on the Hub) across the entire cache.
+
+When enabled, downloaded Xet files are hardlinked into a content-addressed store at
+`<CACHE_DIR>/blobs/<prefix>/<xet_hash>`. If a file with the same Xet hash is later requested for another repo,
+it is hardlinked from the store instead of being downloaded: no bytes are transferred and no extra disk space
+is used.
+
+Since hardlinks are regular files, older versions of `huggingface_hub` and external tools reading the cache
+keep working unchanged, and deleting a repo can never corrupt another one. Store entries no longer referenced
+by any repo are cleaned up automatically by `hf cache rm` and `hf cache prune`.
+
+The store requires the symlink-based cache layout (it stays disabled in the degraded no-symlink mode described
+above) and hardlink support on the cache filesystem. New entries are only added by verified `hf_xet` downloads,
+and setting `HF_HUB_DISABLE_XET=1` disables the store entirely. When any of these is unavailable, downloads
+silently fall back to the regular behavior.
+
 ## Chunk-based caching (Xet)
 
 To provide more efficient file transfers, `hf_xet` adds a `xet` directory to the existing `huggingface_hub` cache, creating additional caching layer to enable chunk-based deduplication. This cache holds chunks (immutable byte ranges of files ~64KB in size) and shards (a data structure that maps files to chunks). For more information on the Xet Storage system, see this [section](https://huggingface.co/docs/hub/xet/index).
