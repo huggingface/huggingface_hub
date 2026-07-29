@@ -2592,6 +2592,19 @@ class TestHfApiPublicProduction:
         assert tensor.parameter_count == 4096
         assert info.parameter_count == {"BF16": 989888512}
 
+    def test_parse_safetensors_metadata_100kb_header(self, api: HfApi) -> None:
+        """Regression test for https://github.com/huggingface/huggingface_hub/issues/4602.
+
+        This file has a header of exactly 100_000 bytes, which used to be truncated: HTTP ranges are
+        inclusive, so `bytes=0-100000` only returns 99_993 header bytes after the 8-byte size prefix.
+        """
+        info = api.parse_safetensors_file_metadata(
+            "nvidia/GLM-5-NVFP4",
+            "model-00008-of-00282.safetensors",
+            revision="dc54ff55a7e9e71b85db953d8bc22eca894b44c6",
+        )
+        assert len(info.tensors) == 852
+
     def test_not_a_safetensors_file(self, api: HfApi) -> None:
         with pytest.raises(SafetensorsParsingError):
             api.parse_safetensors_file_metadata("HuggingFaceH4/zephyr-7b-beta", "pytorch_model-00001-of-00008.bin")
