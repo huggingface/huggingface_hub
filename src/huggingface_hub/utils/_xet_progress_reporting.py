@@ -6,7 +6,7 @@ from .tqdm import tqdm
 
 
 _NUM_OVERVIEW_BARS = 2  # data_processing + upload (always shown)
-_NUM_SHARD_BARS = 3  # shard_upload + shard_validation + shard_completed (lazy)
+_NUM_SHARD_BARS = 1  # single Validating bar (lazy; covers shard upload/validate/sync)
 
 
 class XetProgressReporter:
@@ -39,13 +39,14 @@ class XetProgressReporter:
             "bar_format": "{l_bar}{bar}| {n_fmt:>5}B / {total_fmt:>5}B{postfix:>12}",
         }
 
-        self.count_tqdm_settings = {
+        # Percentage only — validation-entry totals are opaque Xet internals.
+        self.percent_tqdm_settings = {
             "unit": "",
             "unit_scale": False,
             "leave": True,
             "nrows": _nrows,
             "miniters": 1,
-            "bar_format": "{l_bar}{bar}| {n_fmt:>6} / {total_fmt:<6}{postfix:>12}",
+            "bar_format": "{l_bar}{bar}| {percentage:3.0f}%{postfix:>12}",
         }
 
         # Overview bars (always shown)
@@ -57,13 +58,12 @@ class XetProgressReporter:
             total=0, desc=self.format_desc("New Data Upload", False), position=1, **self.tqdm_settings
         )
 
-        # Shard bars created lazily on the first shard event.
+        # Single Validating bar created lazily on the first shard event.
+        # Covers shard upload / validation / sync without exposing "shard" jargon.
         # In console mode: positioned after the n_lines per-file bars.
         # In notebook/GUI mode: positioned immediately after the overview bars (no per-file bars).
         self._shard_bar_offset = _NUM_OVERVIEW_BARS + (n_lines if self.per_file_progress else 0)
-        self.shard_upload_bar: "tqdm | None" = None
-        self.shard_validation_bar: "tqdm | None" = None
-        self.shard_completed_bar: "tqdm | None" = None
+        self.validating_bar: "tqdm | None" = None
 
         self.known_items: set[str] = set()
         self.completed_items: set[str] = set()
@@ -71,9 +71,7 @@ class XetProgressReporter:
         # Track previous absolute values to compute increments
         self._prev_bytes_completed: int = 0
         self._prev_transfer_bytes_completed: int = 0
-        self._prev_shard_bytes_completed: int = 0
         self._prev_shard_validation_completed: int = 0
-        self._prev_shards_completed: int = 0
 
         # Item bars (scrolling view); positions start at _NUM_OVERVIEW_BARS
         self.item_state: OrderedDict[str, Any] = OrderedDict()
@@ -97,29 +95,20 @@ class XetProgressReporter:
 
         return f"{padding}{name.ljust(width)}"
 
-    def _init_shard_bars(self) -> None:
-        """Create the three shard progress bars on first shard event."""
-        offset = self._shard_bar_offset
-        self.shard_upload_bar = tqdm(
-            total=0, desc=self.format_desc("Shard Upload", False), position=offset, **self.tqdm_settings
-        )
-        self.shard_validation_bar = tqdm(
+    def _init_validating_bar(self) -> None:
+        """Create the Validating progress bar on first shard event."""
+        self.validating_bar = tqdm(
             total=0,
-            desc=self.format_desc("Shard Validation", False),
-            position=offset + 1,
-            **self.count_tqdm_settings,
-        )
-        self.shard_completed_bar = tqdm(
-            total=0, desc=self.format_desc("Shards Synced", False), position=offset + 2, **self.count_tqdm_settings
+            desc=self.format_desc("Validating", False),
+            position=self._shard_bar_offset,
+            **self.percent_tqdm_settings,
         )
 
     def reset_for_next_commit(self):
         """Reset per-commit state so the reporter can be reused across multiple upload commits."""
         self._prev_bytes_completed = 0
         self._prev_transfer_bytes_completed = 0
-        self._prev_shard_bytes_completed = 0
         self._prev_shard_validation_completed = 0
-        self._prev_shards_completed = 0
         self.known_items.clear()
         self.completed_items.clear()
         self.item_state.clear()
@@ -218,40 +207,26 @@ class XetProgressReporter:
         self.upload_bar.set_postfix_str(postfix(group_report.total_transfer_bytes_completion_rate), refresh=False)
         self.upload_bar.update(transfer_inc)
 
-        # Update shard bars if shard progress data is available (v2 shard API).
-        # Bars are created on demand so they only appear when shard activity starts.
+        # Single Validating bar for shard finalization (v2 shard API).
+        # Driven by validation-entry counts — the long phase users wait on.
         shard = getattr(group_report, "shard", None)
         if shard is not None:
-            if self.shard_upload_bar is None:
-                self._init_shard_bars()
+            if self.validating_bar is None:
+                self._init_validating_bar()
 
-            assert self.shard_upload_bar is not None
-            assert self.shard_validation_bar is not None
-            assert self.shard_completed_bar is not None
+            assert self.validating_bar is not None
 
-            self.shard_upload_bar.total = shard.total_shard_bytes
-            shard_bytes_inc = shard.total_shard_bytes_upload_completed - self._prev_shard_bytes_completed
-            self._prev_shard_bytes_completed = shard.total_shard_bytes_upload_completed
-            self.shard_upload_bar.update(max(0, shard_bytes_inc))
-
-            self.shard_validation_bar.total = shard.total_shard_validation_entries or None
+            self.validating_bar.total = shard.total_shard_validation_entries or None
             shard_val_inc = shard.total_shard_validation_entries_completed - self._prev_shard_validation_completed
             self._prev_shard_validation_completed = shard.total_shard_validation_entries_completed
-            self.shard_validation_bar.update(max(0, shard_val_inc))
-
-            self.shard_completed_bar.total = shard.total_shards if shard.total_shards > 0 else None
-            shards_done_inc = shard.total_shards_completed - self._prev_shards_completed
-            self._prev_shards_completed = shard.total_shards_completed
-            self.shard_completed_bar.update(max(0, shards_done_inc))
+            self.validating_bar.update(max(0, shard_val_inc))
 
     def close(self):
         self.data_processing_bar.close()
         self.upload_bar.close()
 
-        if self.shard_upload_bar is not None:
-            self.shard_upload_bar.close()
-            self.shard_validation_bar.close()
-            self.shard_completed_bar.close()
+        if self.validating_bar is not None:
+            self.validating_bar.close()
 
         if self.per_file_progress:
             for bar in self.current_bars:
