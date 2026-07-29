@@ -213,9 +213,8 @@ When a library downloads several files one by one, each call has to resolve `rev
 [`HfApi.resolve_revision`] resolves the revision once and returns a [`RevisionStr`]:
 
 ```py
->>> from huggingface_hub import HfApi, hf_hub_download
->>> api = HfApi()
->>> revision = api.resolve_revision("openai-community/gpt2")
+>>> from huggingface_hub import resolve_revision
+>>> revision = resolve_revision("openai-community/gpt2")
 >>> revision
 RevisionStr(initial=None, resolved='607a30d783dfa663caf39e06633721c8d4cfcd7e')
 ```
@@ -232,6 +231,7 @@ True
 Download helpers ([`hf_hub_download`], [`snapshot_download`], [`get_cached_repo_tree`], [`file_exists`]) detect a [`RevisionStr`] and use the commit hash directly. Every file is guaranteed to come from the same commit, and once the files are cached no HTTP call is needed at all:
 
 ```py
+>>> from huggingface_hub import hf_hub_download
 >>> config = hf_hub_download("openai-community/gpt2", "config.json", revision=revision)
 >>> weights = hf_hub_download("openai-community/gpt2", "model.safetensors", revision=revision)
 ```
