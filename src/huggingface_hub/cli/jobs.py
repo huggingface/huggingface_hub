@@ -215,7 +215,7 @@ def _resolve_uv_job_config(
         env_map = {**script_env, **env_map}
 
         secrets_map = parse_env_map(secrets, secrets_file)
-        script_secrets = _resolve_script_secrets(header.secrets, secrets_map)
+        script_secrets = _resolve_script_secrets(header.secrets, secrets_map, dry_run=dry_run)
         from_script.update(f"secrets.{key}" for key in script_secrets)
         secrets_map = {**script_secrets, **secrets_map}
 
@@ -264,18 +264,24 @@ def _resolve_uv_job_config(
         yield config
 
 
-def _resolve_script_secrets(names: list[str], cli_secrets: dict[str, str | None]) -> dict[str, str]:
+def _resolve_script_secrets(
+    names: list[str], cli_secrets: dict[str, str | None], *, dry_run: bool = False
+) -> dict[str, str | None]:
     """Resolve the secrets requested by a script from the caller's environment.
 
     A script only lists secret *names*: values always come from whoever runs it (`HF_TOKEN` also
     resolves from `hf auth login`). A requested secret that is not set locally is an error rather than
     an empty value: forgetting to export a secret before launching is easy, and debugging the Job that
     results from it is not.
+
+    In `--dry-run` a missing secret is not an error but a `None` value, displayed as `<not set>` in the
+    summary: nothing is submitted, so the point is to see the full configuration of a script - including
+    one whose secrets are not provisioned locally (yet).
     """
     if not names:
         return {}
     environ = _get_extended_environ()
-    resolved: dict[str, str] = {}
+    resolved: dict[str, str | None] = {}
     missing: list[str] = []
     for name in names:
         if name in cli_secrets:  # an explicit `--secrets NAME=...` wins
@@ -284,7 +290,7 @@ def _resolve_script_secrets(names: list[str], cli_secrets: dict[str, str | None]
             resolved[name] = environ[name]
         else:
             missing.append(name)
-    if missing:
+    if missing and not dry_run:
         raise CLIError(
             f"The script requires the following secret(s), which are not set in your environment: {', '.join(missing)}."
             f" Export them locally (e.g. `export {missing[0]}=...`) or pass them explicitly"
@@ -292,10 +298,10 @@ def _resolve_script_secrets(names: list[str], cli_secrets: dict[str, str | None]
         )
     if resolved:
         out.warning(
-            f"The script's [{TABLE_NAME}] table requests {', '.join(resolved)}:"
-            " the value(s) from your local environment will be sent to the Job."
+            f"The script's [{TABLE_NAME}] table requests {', '.join(resolved)}: the value(s) from your local"
+            f" environment {'would be' if dry_run else 'will be'} sent to the Job."
         )
-    return resolved
+    return {**resolved, **dict.fromkeys(missing)}
 
 
 def _merge_volume_specs(cli_specs: list[str], script_specs: list[str]) -> tuple[list[str], list[str]]:
@@ -373,8 +379,16 @@ def _format_env(env: dict[str, str | None], *, from_script: Collection[str] = ()
 
 
 def _format_secrets(secrets: dict[str, str | None], *, from_script: Collection[str] = ()) -> str:
-    """Format secrets for display: names only, values always redacted."""
-    return _format_entries({key: f"{key}=***" for key in secrets}, "secrets", from_script)
+    """Format secrets for display: names only, values always redacted.
+
+    A secret with no value is one a script requests and the caller has not set locally, which only
+    happens in `--dry-run` (a real run errors out instead).
+    """
+    return _format_entries(
+        {key: f"{key}={'***' if value is not None else '<not set>'}" for key, value in secrets.items()},
+        "secrets",
+        from_script,
+    )
 
 
 def _format_labels(labels: dict[str, str], *, from_script: Collection[str] = ()) -> str:

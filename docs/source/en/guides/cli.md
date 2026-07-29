@@ -2149,13 +2149,13 @@ Values from the script are *defaults*: an explicit flag always wins, and `env`, 
 >>> hf jobs uv run --flavor a10g-large -e BATCH_SIZE=64 ocr.py in_ds out_ds
 ```
 
-`secrets` only lists secret *names*: values always come from the environment of whoever runs the script, never from the script itself (`HF_TOKEN` also resolves from `hf auth login`). A secret that is requested but not set locally is an error, rather than a Job silently receiving an empty value.
+`secrets` only lists secret *names*: values always come from the environment of whoever runs the script, never from the script itself (`HF_TOKEN` also resolves from `hf auth login`). A secret that is requested but not set locally is an error, rather than a Job silently receiving an empty value. With `--dry-run` it is shown as `<not set>` instead, so that the configuration of a script whose secrets are not provisioned yet remains visible.
 
 Every run echoes the configuration it submits, marking the values that come from the script. Use `--dry-run` to print it without launching anything:
 
 ```bash
 >>> hf jobs uv run --dry-run --flavor a10g-large ocr.py in_ds out_ds
-Warning: The script's [tool.hf-jobs] table requests HF_TOKEN: the value(s) from your local environment will be sent to the Job.
+Warning: The script's [tool.hf-jobs] table requests HF_TOKEN: the value(s) from your local environment would be sent to the Job.
 Job configuration:
   script   ocr.py
   args     in_ds out_ds

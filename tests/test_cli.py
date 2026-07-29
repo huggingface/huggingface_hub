@@ -12,7 +12,7 @@ import click
 import pytest
 from click.testing import CliRunner
 
-from huggingface_hub import HfApi
+from huggingface_hub import HfApi, constants
 from huggingface_hub._dataset_viewer import DatasetParquetEntry
 from huggingface_hub._jobs_api import JobInfo, JobOwner, _create_job_spec, _derive_job_volume_name
 from huggingface_hub._space_api import Volume
@@ -3141,7 +3141,9 @@ class TestJobsCommand:
             )[1]
             result = runner.invoke(app, ["jobs", "uv", "run", "--detach", "https://example.co/script.py"])
         assert result.exit_code == 0
-        session.return_value.get.assert_called_once_with("https://example.co/script.py")
+        session.return_value.get.assert_called_once_with(
+            "https://example.co/script.py", timeout=constants.DEFAULT_REQUEST_TIMEOUT
+        )
         # The downloaded copy is on disk while the Job is submitted (and cleaned up afterwards).
         assert downloaded == [("script.py", "print('hello')")]
         # The Job is still named after the URL, not after the temporary file it was downloaded to.
@@ -3764,6 +3766,19 @@ print("hello")
             result = runner.invoke(app, ["jobs", "uv", "run", script])
         assert result.exit_code == 1
         assert "MY_SECRET" in str(result.exception)
+        api.run_uv_job.assert_not_called()
+
+    def test_missing_secret_is_displayed_in_dry_run(self, runner: CliRunner, tmp_path: Path) -> None:
+        """A dry run submits nothing, so a missing secret is shown rather than raising."""
+        script = self._write_script(tmp_path, "# secrets = ['MY_SECRET']")
+        with (
+            patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
+            patch("huggingface_hub.cli.jobs._get_extended_environ", return_value={}),
+        ):
+            api = api_cls.return_value
+            result = runner.invoke(app, ["jobs", "uv", "run", "--dry-run", script])
+        assert result.exit_code == 0
+        assert "MY_SECRET=<not set> (from script)" in result.output
         api.run_uv_job.assert_not_called()
 
     def test_default_name_reflects_resolved_config(self, runner: CliRunner, tmp_path: Path) -> None:

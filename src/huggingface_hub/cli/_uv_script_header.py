@@ -45,6 +45,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
+from huggingface_hub import constants
 from huggingface_hub.errors import CLIError
 from huggingface_hub.utils import SoftTemporaryDirectory, get_session
 
@@ -149,7 +150,8 @@ def _download_script(url: str, dest_dir: Path) -> Path:
     name = Path(urlsplit(url).path).name
     local_path = dest_dir / (name if name.endswith(".py") else "script.py")
     try:
-        response = get_session().get(url)
+        # Timeout so that an unreachable URL fails the CLI instead of hanging it.
+        response = get_session().get(url, timeout=constants.DEFAULT_REQUEST_TIMEOUT)
         response.raise_for_status()
     except Exception as e:
         raise CLIError(f"Could not download the UV script from '{url}': {e}") from e
