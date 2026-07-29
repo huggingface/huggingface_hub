@@ -3744,6 +3744,9 @@ class HfApi:
                 except OSError as e:
                     logger.warning(f"Ignored error while caching commit hash for '{repo_id}': {e}.")
                 return RevisionStr(resolved=sha, initial=revision)
+            except httpx.ProxyError:
+                # Actually raise on proxy error: a misconfigured proxy is not an unreachable Hub
+                raise
             except (httpx.TransportError, OfflineModeIsEnabled) as e:
                 # Hub cannot be reached (offline mode, connection error, timeout, ...) => fallback on cache
                 error = e

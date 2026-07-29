@@ -403,6 +403,13 @@ class TestResolveRevision:
         mock.assert_not_called()
         assert snapshot_path.endswith(self.commit_hash)
 
+        # The `refs/` entry is not touched: it has been written by `resolve_revision` and might be more recent
+        # than the pinned commit hash.
+        ref_path = tmp_path / repo_folder_name(repo_id=self.repo_id, repo_type="model") / "refs" / "main"
+        ref_path.write_text(COMMIT_HASH)
+        snapshot_download(self.repo_id, revision=revision, cache_dir=tmp_path)
+        assert ref_path.read_text() == COMMIT_HASH
+
         # Everything is cached at this point => works offline as well
         with offline():
             assert hf_hub_download(self.repo_id, "dummy_file.txt", revision=revision, cache_dir=tmp_path).endswith(

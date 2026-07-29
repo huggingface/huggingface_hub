@@ -253,9 +253,9 @@ def snapshot_download(
     commit_hash: str | None = None
     if isinstance(revision, RevisionStr):
         # Revision has already been resolved to a commit hash (see [`HfApi.resolve_revision`]) => no need to ask
-        # the Hub again. Keep the initial revision as a string for the `refs/` entry and the error messages.
+        # the Hub again. `revision` is kept as is: its string value is the initial revision, which is what we want
+        # for the local paths and the error messages.
         commit_hash = revision.resolved
-        revision = str(revision)
 
     # If the commit hash is already known, the tree listing might be cached on disk => no network call at all.
     tree_entries = read_tree_cache(tree_cache_folder, commit_hash) if commit_hash is not None else None
@@ -411,8 +411,9 @@ def snapshot_download(
     snapshot_folder = os.path.join(storage_folder, "snapshots", commit_hash)
     # if passed revision is not identical to commit_hash
     # then revision has to be a branch name or tag name.
-    # In that case store a ref.
-    if revision != commit_hash:
+    # In that case store a ref. Nothing to do for an already resolved revision: the ref has been written by
+    # `resolve_revision` and the pinned commit hash might be older than the one currently cached.
+    if not isinstance(revision, RevisionStr) and revision != commit_hash:
         ref_path = os.path.join(storage_folder, "refs", revision)
         try:
             os.makedirs(os.path.dirname(ref_path), exist_ok=True)
