@@ -30,12 +30,6 @@ MARKETPLACE_PATH = "marketplace.json"
 # made by previous versions.
 MANAGED_MARKER_FILENAME = ".hf-skill-manifest.json"
 
-# Skills directories: `.agents/skills` is read by most agents, `.claude/skills` by Claude Code.
-CENTRAL_LOCAL = Path(".agents/skills")
-CENTRAL_GLOBAL = Path("~/.agents/skills")
-CLAUDE_LOCAL = Path(".claude/skills")
-CLAUDE_GLOBAL = Path("~/.claude/skills")
-
 SkillUpdateStatus = Literal["up_to_date", "unmanaged", "source_unreachable"]
 
 
@@ -355,8 +349,8 @@ def _check_skill_update() -> None:
     stamp_path.parent.mkdir(parents=True, exist_ok=True)
     stamp_path.touch()
 
-    global_dirs = _installed_hf_cli_dirs(CENTRAL_GLOBAL, CLAUDE_GLOBAL)
-    local_dirs = _installed_hf_cli_dirs(CENTRAL_LOCAL, CLAUDE_LOCAL)
+    global_dirs = _installed_hf_cli_dirs(constants.AGENTS_SKILLS_GLOBAL_PATH, constants.CLAUDE_SKILLS_GLOBAL_PATH)
+    local_dirs = _installed_hf_cli_dirs(constants.AGENTS_SKILLS_LOCAL_PATH, constants.CLAUDE_SKILLS_LOCAL_PATH)
 
     if not global_dirs and not local_dirs:
         out.hint(

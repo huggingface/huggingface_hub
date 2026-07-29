@@ -19,12 +19,12 @@ import sys
 
 import click
 
-from huggingface_hub import __version__
+from huggingface_hub import __version__, constants
 
 from ..utils import dump_environment_info, installation_method
 from ._cli_utils import _fetch_latest_pypi_version, run_update
 from ._output import out
-from ._skills import CENTRAL_GLOBAL, CLAUDE_GLOBAL, DEFAULT_SKILL_ID, _installed_hf_cli_dirs
+from ._skills import DEFAULT_SKILL_ID, _installed_hf_cli_dirs
 
 
 def env() -> None:
@@ -59,7 +59,7 @@ def _update_global_skill() -> None:
     Runs in a subprocess: the skill is generated from the CLI code, which has just been
     replaced on disk while this process still runs the previous version.
     """
-    if not _installed_hf_cli_dirs(CENTRAL_GLOBAL, CLAUDE_GLOBAL):
+    if not _installed_hf_cli_dirs(constants.AGENTS_SKILLS_GLOBAL_PATH, constants.CLAUDE_SKILLS_GLOBAL_PATH):
         out.hint("Run `hf skills add -g --claude` to teach your AI agents how to use the `hf` CLI.")
         return
 

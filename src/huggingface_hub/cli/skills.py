@@ -20,6 +20,7 @@ from typing import Annotated
 
 from click import Command, Context, Group
 
+from huggingface_hub import constants
 from huggingface_hub.errors import CLIError
 
 from ..utils import disable_progress_bars
@@ -27,13 +28,7 @@ from . import _skills
 from ._cli_utils import TokenOpt, _has_local_formatting_option, get_hf_api, typer_factory
 from ._framework import Argument, Option
 from ._output import out
-from ._skills import (
-    CENTRAL_GLOBAL,
-    CENTRAL_LOCAL,
-    CLAUDE_GLOBAL,
-    CLAUDE_LOCAL,
-    DEFAULT_SKILL_ID,
-)
+from ._skills import DEFAULT_SKILL_ID
 
 
 _SKILL_DESCRIPTION = (
@@ -352,9 +347,9 @@ def _resolve_update_roots(
             raise CLIError("--dest cannot be combined with --claude or --global.")
         return [dest.expanduser().resolve()]
 
-    roots: list[Path] = [CENTRAL_GLOBAL if global_ else CENTRAL_LOCAL]
+    roots: list[Path] = [constants.AGENTS_SKILLS_GLOBAL_PATH if global_ else constants.AGENTS_SKILLS_LOCAL_PATH]
     if claude:
-        roots.append(CLAUDE_GLOBAL if global_ else CLAUDE_LOCAL)
+        roots.append(constants.CLAUDE_SKILLS_GLOBAL_PATH if global_ else constants.CLAUDE_SKILLS_LOCAL_PATH)
     return [root.expanduser().resolve() for root in roots]
 
 
@@ -376,10 +371,10 @@ def skills_list(
 ) -> None:
     """List available skills from the Hugging Face marketplace."""
     install_locations: list[tuple[str, Path]] = [
-        ("project", CENTRAL_LOCAL),
-        ("project (claude)", CLAUDE_LOCAL),
-        ("global", CENTRAL_GLOBAL),
-        ("global (claude)", CLAUDE_GLOBAL),
+        ("project", constants.AGENTS_SKILLS_LOCAL_PATH),
+        ("project (claude)", constants.CLAUDE_SKILLS_LOCAL_PATH),
+        ("global", constants.AGENTS_SKILLS_GLOBAL_PATH),
+        ("global (claude)", constants.CLAUDE_SKILLS_GLOBAL_PATH),
     ]
     installed: dict[str, set[str]] = {}
     for label, root in install_locations:
@@ -460,12 +455,12 @@ def skills_add(
         return
 
     # Install to central location
-    central_path = CENTRAL_GLOBAL if global_ else CENTRAL_LOCAL
+    central_path = constants.AGENTS_SKILLS_GLOBAL_PATH if global_ else constants.AGENTS_SKILLS_LOCAL_PATH
     central_skill_path = _install_to(central_path, name, force)
     print(f"Installed '{name}' to central location: {central_skill_path}")
 
     if claude:
-        agent_target = CLAUDE_GLOBAL if global_ else CLAUDE_LOCAL
+        agent_target = constants.CLAUDE_SKILLS_GLOBAL_PATH if global_ else constants.CLAUDE_SKILLS_LOCAL_PATH
         link_path = _create_symlink(agent_target, name, central_skill_path, force)
         print(f"Created symlink: {link_path}")
 

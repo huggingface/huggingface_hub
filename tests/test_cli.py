@@ -4548,10 +4548,10 @@ class TestSkillUpdateCheck:
 
     @pytest.fixture(autouse=True)
     def isolated_skills_dirs(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-        monkeypatch.setattr(_skills, "CENTRAL_GLOBAL", tmp_path / "global/.agents/skills")
-        monkeypatch.setattr(_skills, "CLAUDE_GLOBAL", tmp_path / "global/.claude/skills")
-        monkeypatch.setattr(_skills, "CENTRAL_LOCAL", tmp_path / "local/.agents/skills")
-        monkeypatch.setattr(_skills, "CLAUDE_LOCAL", tmp_path / "local/.claude/skills")
+        monkeypatch.setattr(constants, "AGENTS_SKILLS_GLOBAL_PATH", tmp_path / "global/.agents/skills")
+        monkeypatch.setattr(constants, "CLAUDE_SKILLS_GLOBAL_PATH", tmp_path / "global/.claude/skills")
+        monkeypatch.setattr(constants, "AGENTS_SKILLS_LOCAL_PATH", tmp_path / "local/.agents/skills")
+        monkeypatch.setattr(constants, "CLAUDE_SKILLS_LOCAL_PATH", tmp_path / "local/.claude/skills")
         monkeypatch.setattr(constants, "CHECK_FOR_SKILL_UPDATE_DONE_PATH", str(tmp_path / ".check_done"))
         monkeypatch.setattr(constants, "HF_HUB_DISABLE_UPDATE_CHECK", False)
 
