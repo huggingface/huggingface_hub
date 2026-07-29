@@ -4651,6 +4651,14 @@ class TestHfApiInferenceCatalog:
         assert isinstance(endpoint, InferenceEndpoint)
         assert endpoint.name == "llama-3-2-3b-instruct-eey"
 
+    def test_create_inference_endpoint_from_catalog_rejects_token_false(self, api: HfApi) -> None:
+        # `token=False` means "do not authenticate", but this endpoint cannot be created without
+        # authentication. Reject it explicitly instead of silently falling back to a stored token.
+        with pytest.raises(ValueError, match="Cannot use `token=False`"):
+            api.create_inference_endpoint_from_catalog(
+                repo_id="meta-llama/Llama-3.2-3B-Instruct", namespace="Wauplin", token=False
+            )
+
 
 @pytest.mark.parametrize(
     "custom_image, expected_image_payload",
