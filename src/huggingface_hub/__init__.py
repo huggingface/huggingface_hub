@@ -102,6 +102,9 @@ _SUBMOD_ATTRS = {
         "attach_huggingface_oauth",
         "parse_huggingface_oauth",
     ],
+    "_revision": [
+        "RevisionStr",
+    ],
     "_sandbox": [
         "Sandbox",
         "SandboxCommandResult",
@@ -333,6 +336,7 @@ _SUBMOD_ATTRS = {
         "repo_type_and_id_from_hf_id",
         "request_space_hardware",
         "request_space_storage",
+        "resolve_revision",
         "restart_space",
         "resume_inference_endpoint",
         "resume_scheduled_job",
@@ -823,6 +827,7 @@ __all__ = [
     "RepoFolder",
     "RepoStorageInfo",
     "RepoUrl",
+    "RevisionStr",
     "Sandbox",
     "SandboxCommandResult",
     "SandboxPool",
@@ -1098,6 +1103,7 @@ __all__ = [
     "repo_type_and_id_from_hf_id",
     "request_space_hardware",
     "request_space_storage",
+    "resolve_revision",
     "restart_space",
     "resume_inference_endpoint",
     "resume_scheduled_job",
@@ -1294,6 +1300,7 @@ if TYPE_CHECKING:  # pragma: no cover
         attach_huggingface_oauth,  # noqa: F401
         parse_huggingface_oauth,  # noqa: F401
     )
+    from ._revision import RevisionStr  # noqa: F401
     from ._sandbox import (
         Sandbox,  # noqa: F401
         SandboxCommandResult,  # noqa: F401
@@ -1523,6 +1530,7 @@ if TYPE_CHECKING:  # pragma: no cover
         repo_type_and_id_from_hf_id,  # noqa: F401
         request_space_hardware,  # noqa: F401
         request_space_storage,  # noqa: F401
+        resolve_revision,  # noqa: F401
         restart_space,  # noqa: F401
         resume_inference_endpoint,  # noqa: F401
         resume_scheduled_job,  # noqa: F401

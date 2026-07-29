@@ -6,6 +6,7 @@ import httpx
 from tqdm.auto import tqdm as base_tqdm
 
 from . import constants
+from ._revision import RevisionStr
 from ._tree_cache import TreeCacheEntry, read_tree_cache, tree_cache_folder_for_local_dir, write_tree_cache
 from .errors import (
     CachedRepoTreeNotFoundError,
@@ -18,7 +19,7 @@ from .errors import (
     RevisionNotFoundError,
 )
 from .file_download import REGEX_COMMIT_HASH, DryRunFileInfo, hf_hub_download, repo_folder_name
-from .hf_api import DatasetInfo, HfApi, KernelInfo, ModelInfo, RepoFile, SpaceInfo
+from .hf_api import HfApi, RepoFile
 from .utils import OfflineModeIsEnabled, filter_repo_objects, logging, validate_hf_hub_args
 from .utils._xet_progress_reporting import (
     XET_BYTES_BAR_FORMAT,
@@ -249,13 +250,38 @@ def snapshot_download(
         token=token,
     )
 
-    repo_info: ModelInfo | DatasetInfo | SpaceInfo | KernelInfo | None = None
+    commit_hash: str | None = None
+    if isinstance(revision, RevisionStr):
+        # Revision has already been resolved to a commit hash (see [`HfApi.resolve_revision`]) => no need to ask
+        # the Hub again. Keep the initial revision as a string for the `refs/` entry and the error messages.
+        commit_hash = revision.resolved
+        revision = str(revision)
+
+    # If the commit hash is already known, the tree listing might be cached on disk => no network call at all.
+    tree_entries = read_tree_cache(tree_cache_folder, commit_hash) if commit_hash is not None else None
+
     api_call_error: Exception | None = None
-    if not local_files_only:
+    if tree_entries is None and not local_files_only:
         # try/except logic to handle different errors => taken from `hf_hub_download`
         try:
             # if we have internet connection we want to list files to download
-            repo_info = api.repo_info(repo_id=repo_id, repo_type=repo_type, revision=revision)
+            if commit_hash is None:
+                repo_info = api.repo_info(repo_id=repo_id, repo_type=repo_type, revision=revision)
+                assert repo_info.sha is not None, "Repo info returned from server must have a revision sha."
+                commit_hash = repo_info.sha
+            tree_entries = {
+                f.path: TreeCacheEntry(
+                    size=f.size,
+                    blob_id=f.blob_id,
+                    lfs_sha256=f.lfs.sha256 if f.lfs is not None else None,
+                    lfs_size=f.lfs.size if f.lfs is not None else None,
+                    xet_hash=f.xet_hash,
+                )
+                for f in api.list_repo_tree(repo_id=repo_id, recursive=True, revision=commit_hash, repo_type=repo_type)
+                if isinstance(f, RepoFile)
+            }
+            if not dry_run:
+                write_tree_cache(tree_cache_folder, commit_hash, tree_entries)
         except httpx.ProxyError:
             # Actually raise on proxy error
             raise
@@ -277,7 +303,7 @@ def snapshot_download(
             api_call_error = error
             pass
 
-    # At this stage, if `repo_info` is None it means either:
+    # At this stage, if we couldn't reach the Hub it means either:
     # - internet connection is down
     # - internet connection is deactivated (local_files_only=True or HF_HUB_OFFLINE=True)
     # - repo is private/gated and invalid/missing token sent
@@ -286,22 +312,22 @@ def snapshot_download(
     #    - if the specified revision is a commit hash, look inside "snapshots".
     #    - f the specified revision is a branch or tag, look inside "refs".
     # => if local_dir is not None, we will return the path to the local folder if it exists.
-    if repo_info is None:
+    if local_files_only or api_call_error is not None:
         if dry_run:
             raise DryRunError(
                 "Dry run cannot be performed as the repository cannot be accessed. Please check your internet connection or authentication token."
             ) from api_call_error
 
         # Try to get which commit hash corresponds to the specified revision
-        commit_hash = None
-        if REGEX_COMMIT_HASH.match(revision):
-            commit_hash = revision
-        else:
-            ref_path = os.path.join(storage_folder, "refs", revision)
-            if os.path.exists(ref_path):
-                # retrieve commit_hash from refs file
-                with open(ref_path) as f:
-                    commit_hash = f.read()
+        if commit_hash is None:
+            if REGEX_COMMIT_HASH.match(revision):
+                commit_hash = revision
+            else:
+                ref_path = os.path.join(storage_folder, "refs", revision)
+                if os.path.exists(ref_path):
+                    # retrieve commit_hash from refs file
+                    with open(ref_path) as f:
+                        commit_hash = f.read()
 
         # Try to locate snapshot folder for this commit hash
         if commit_hash is not None and local_dir is None:
@@ -367,27 +393,9 @@ def snapshot_download(
                 " and try again."
             ) from api_call_error
 
-    # At this stage, internet connection is up and running
+    # At this stage, the commit hash and the tree listing are known
     # => let's download the files!
-    assert repo_info.sha is not None, "Repo info returned from server must have a revision sha."
-    commit_hash = repo_info.sha
-
-    # Retrieve /tree listing from cache or fetch it
-    tree_entries = read_tree_cache(tree_cache_folder, commit_hash)
-    if tree_entries is None:
-        tree_entries = {
-            f.path: TreeCacheEntry(
-                size=f.size,
-                blob_id=f.blob_id,
-                lfs_sha256=f.lfs.sha256 if f.lfs is not None else None,
-                lfs_size=f.lfs.size if f.lfs is not None else None,
-                xet_hash=f.xet_hash,
-            )
-            for f in api.list_repo_tree(repo_id=repo_id, recursive=True, revision=commit_hash, repo_type=repo_type)
-            if isinstance(f, RepoFile)
-        }
-        if not dry_run:
-            write_tree_cache(tree_cache_folder, commit_hash, tree_entries)
+    assert commit_hash is not None and tree_entries is not None
 
     filtered_repo_files = list(
         filter_repo_objects(
@@ -643,7 +651,9 @@ def get_cached_repo_tree(
 
     # The tree cache is keyed by commit hash. Resolve the revision to a commit hash: either it already is one,
     # or it's a branch/tag name recorded in `refs/` by a previous download.
-    if REGEX_COMMIT_HASH.match(revision):
+    if isinstance(revision, RevisionStr):
+        commit_hash = revision.resolved
+    elif REGEX_COMMIT_HASH.match(revision):
         commit_hash = revision
     else:
         ref_path = os.path.join(storage_folder, "refs", revision)
