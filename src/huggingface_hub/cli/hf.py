@@ -124,7 +124,9 @@ def main():
         if not constants.HF_DEBUG:
             logging.set_verbosity_info()
         check_cli_update("huggingface_hub")
-        if sys.argv[1:2] != ["skills"]:  # don't nag while the user is already managing skills
+        # Don't nag while the user is already managing skills, nor on `hf update` which handles the
+        # skill itself (it would print a redundant or contradictory hint before doing so).
+        if sys.argv[1:2] not in (["skills"], ["update"]):
             check_skill_update()
 
     try:

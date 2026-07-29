@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 import warnings
 from contextlib import contextmanager
 from pathlib import Path
@@ -21,6 +22,7 @@ from huggingface_hub.cli._output import OutputFormat, out
 from huggingface_hub.cli.cache import CacheDeletionCounts
 from huggingface_hub.cli.download import download
 from huggingface_hub.cli.hf import app
+from huggingface_hub.cli.hf import main as hf_main
 from huggingface_hub.cli.jobs import _parse_and_sync_job_volumes, _parse_namespace_from_job_id
 from huggingface_hub.cli.skills import build_skill_md
 from huggingface_hub.cli.upload import _resolve_upload_paths, upload
@@ -4584,6 +4586,25 @@ class TestSkillUpdateCheck:
         skill_file.write_text("Generated with `huggingface_hub v0.0.1`.", encoding="utf-8")
         _skills.check_skill_update()
         assert capsys.readouterr().err == ""
+
+    @pytest.mark.parametrize(
+        "argv, expected_call_count",
+        [
+            (["hf", "version"], 1),
+            (["hf", "skills", "add"], 0),  # the user is already managing skills
+            (["hf", "update"], 0),  # `hf update` handles the skill itself
+        ],
+    )
+    def test_skipped_for_skills_and_update_commands(self, argv: list[str], expected_call_count: int) -> None:
+        with (
+            patch.object(sys, "argv", argv),
+            patch("huggingface_hub.cli.hf.logging"),
+            patch("huggingface_hub.cli.hf.check_cli_update"),
+            patch("huggingface_hub.cli.hf.app"),
+            patch("huggingface_hub.cli.hf.check_skill_update") as mock_check,
+        ):
+            hf_main()
+        assert mock_check.call_count == expected_call_count
 
 
 class TestUpdateSkillOptOut:
