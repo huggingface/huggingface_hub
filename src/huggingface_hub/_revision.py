@@ -41,7 +41,3 @@ class ResolvedRevision(str):
 
     def __repr__(self) -> str:
         return f"ResolvedRevision(initial={self.initial!r}, resolved={self.resolved!r})"
-
-    def __reduce__(self):
-        # Default `str` reduction would drop `initial`/`resolved` when pickling or deep-copying.
-        return (ResolvedRevision, (self.resolved, self.initial))
