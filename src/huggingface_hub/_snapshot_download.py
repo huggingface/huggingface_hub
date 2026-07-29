@@ -4,11 +4,11 @@ from typing import Literal, overload
 
 import httpx
 from tqdm.auto import tqdm as base_tqdm
-from tqdm.contrib.concurrent import thread_map
 
 from . import constants
 from ._tree_cache import TreeCacheEntry, read_tree_cache, tree_cache_folder_for_local_dir, write_tree_cache
 from .errors import (
+    CachedRepoTreeNotFoundError,
     DryRunError,
     GatedRepoError,
     HfHubHTTPError,
@@ -20,7 +20,14 @@ from .errors import (
 from .file_download import REGEX_COMMIT_HASH, DryRunFileInfo, hf_hub_download, repo_folder_name
 from .hf_api import DatasetInfo, HfApi, KernelInfo, ModelInfo, RepoFile, SpaceInfo
 from .utils import OfflineModeIsEnabled, filter_repo_objects, logging, validate_hf_hub_args
-from .utils.tqdm import _create_progress_bar
+from .utils._xet_progress_reporting import (
+    XET_BYTES_BAR_FORMAT,
+    XET_TRANSFER_BAR_FORMAT,
+    _finish_transfer_bar,
+    _set_aggregate_rate_postfix,
+    _update_transfer_bar,
+)
+from .utils.tqdm import _create_progress_bar, hf_thread_map
 from .utils.tqdm import tqdm as hf_tqdm
 
 
@@ -411,38 +418,51 @@ def snapshot_download(
     # User can use its own tqdm class or the default one from `huggingface_hub.utils`
     tqdm_class = tqdm_class or hf_tqdm
 
-    # Create a progress bar for the bytes downloaded
-    # This progress bar is shared across threads/files and gets updated each time we fetch
-    # metadata for a file.
-    bytes_progress = _create_progress_bar(
+    # Create progress bars for the bytes downloaded.
+    # Transfer bytes are received from the network; reconstruction bytes are written to disk.
+    transfer_progress = _create_progress_bar(
         cls=tqdm_class,
         log_level=logger.getEffectiveLevel(),
-        name="huggingface_hub.snapshot_download",
-        desc="Downloading (incomplete total...)",
+        name="huggingface_hub.snapshot_download.transfer",
+        desc="Downloading bytes",
         total=0,
         initial=0,
         unit="B",
         unit_scale=True,
+        bar_format=XET_TRANSFER_BAR_FORMAT,
+    )
+
+    reconstruct_progress = _create_progress_bar(
+        cls=tqdm_class,
+        log_level=logger.getEffectiveLevel(),
+        name="huggingface_hub.snapshot_download",
+        desc="Reconstructing (incomplete total...)",
+        total=0,
+        initial=0,
+        unit="B",
+        unit_scale=True,
+        bar_format=XET_BYTES_BAR_FORMAT,
     )
 
     class _AggregatedTqdm:
-        """Fake tqdm object to aggregate progress into the parent `bytes_progress` bar.
+        """Fake tqdm object to aggregate progress into the parent snapshot progress bars.
 
         In practice, the `_AggregatedTqdm` object won't be displayed; it's just used to update
-        the `bytes_progress` bar from each thread/file download.
+        the `reconstruct_progress` and `transfer_progress` bars from each thread/file download.
         """
 
         def __init__(self, *args, **kwargs):
             # Adjust the total of the parent progress bar
             total = kwargs.pop("total", None)
             if total is not None:
-                bytes_progress.total += total
-                bytes_progress.refresh()
+                reconstruct_progress.total = (reconstruct_progress.total or 0) + total
+                transfer_progress.total = (transfer_progress.total or 0) + total
+                reconstruct_progress.refresh()
 
             # Adjust initial of the parent progress bar
             initial = kwargs.pop("initial", 0)
             if initial:
-                bytes_progress.update(initial)
+                reconstruct_progress.update(initial)
 
         def __enter__(self):
             return self
@@ -450,8 +470,21 @@ def snapshot_download(
         def __exit__(self, exc_type, exc_value, traceback):
             pass
 
+        def close(self) -> None:
+            pass
+
         def update(self, n: int | float | None = 1) -> None:
-            bytes_progress.update(n)
+            reconstruct_progress.update(n)
+
+        def update_transfer(self, n: int | float | None = 1) -> None:
+            _update_transfer_bar(transfer_progress, int(n or 0))
+
+        def set_postfix_str(self, postfix: str, refresh: bool = False) -> None:
+            # Discard the caller's per-file rate; report the summed rate across all files instead.
+            _set_aggregate_rate_postfix(reconstruct_progress)
+
+        def set_transfer_postfix_str(self, postfix: str, refresh: bool = False) -> None:
+            _set_aggregate_rate_postfix(transfer_progress)
 
     # Pass the commit_hash as revision to hf_hub_download to skip network call if:
     # - file is cached
@@ -478,7 +511,7 @@ def snapshot_download(
             )
         )
 
-    thread_map(
+    hf_thread_map(
         _inner_hf_hub_download,
         filtered_repo_files,
         desc=tqdm_desc,
@@ -486,7 +519,9 @@ def snapshot_download(
         tqdm_class=tqdm_class,
     )
 
-    bytes_progress.set_description("Download complete")
+    _finish_transfer_bar(transfer_progress)
+    transfer_progress.set_description("Download complete")
+    reconstruct_progress.set_description("Reconstruction complete")
 
     if dry_run:
         assert all(isinstance(r, DryRunFileInfo) for r in results)
@@ -533,8 +568,106 @@ def _raise_if_incomplete_snapshot(
     raise IncompleteSnapshotError(
         f"The cached snapshot for '{repo_id}' (revision '{revision}', commit {commit_hash}) is incomplete: "
         f"{len(missing)} file(s) are missing ({sample}). {reason} Re-run the download with network access "
-        "to complete the snapshot."
+        "to complete the snapshot.",
+        snapshot_path=base_dir,
     ) from api_call_error
+
+
+@validate_hf_hub_args
+def get_cached_repo_tree(
+    repo_id: str,
+    *,
+    repo_type: str | None = None,
+    revision: str | None = None,
+    cache_dir: str | Path | None = None,
+    local_dir: str | Path | None = None,
+) -> list[RepoFile]:
+    """Return the cached tree listing of a repo at a given revision, without any network call.
+
+    The tree listing is the set of files (with their download metadata) of a repo at a commit. It is populated
+    on disk as a side effect of [`snapshot_download`] (see the `trees/<commit_hash>.json` cache files) and is
+    used to skip network calls on subsequent downloads. This function exposes that cache directly.
+
+    If you need the current tree listing of a repo on the Hub, use [`list_repo_tree`] instead.
+
+    Args:
+        repo_id (`str`):
+            A user or an organization name and a repo name separated by a `/`.
+        repo_type (`str`, *optional*):
+            Set to `"dataset"`, `"space"` or `"kernel"` if listing from a dataset, space or kernel repo,
+            `None` or `"model"` if listing from a model. Default is `None`.
+        revision (`str`, *optional*):
+            An optional Git revision id, which can be a branch name, a tag, or a commit hash. Defaults to the
+            default branch. Branch/tag names are resolved to a commit hash using the local cache (`refs/`).
+        cache_dir (`str`, `Path`, *optional*):
+            Path to the folder where cached files are stored. Defaults to the value of `HF_HUB_CACHE`.
+        local_dir (`str` or `Path`, *optional*):
+            If provided, read the tree listing cached by a `local_dir` download (from
+            `local_dir/.cache/huggingface/`) instead of the main cache. Branch/tag revisions are still resolved
+            to a commit hash using the main cache (`cache_dir`).
+
+    Returns:
+        `list[RepoFile]`: The list of [`RepoFile`] objects cached for this revision.
+
+    Raises:
+        [`~errors.CachedRepoTreeNotFoundError`]
+            If no tree listing is cached for the requested revision (e.g. the repo was never downloaded at this revision).
+
+    Example:
+        ```py
+        >>> from huggingface_hub import get_cached_repo_tree
+        >>> files = get_cached_repo_tree("openai-community/gpt2")
+        >>> [f.path for f in files]
+        ['.gitattributes', 'config.json', 'model.safetensors', ...]
+        ```
+    """
+    if cache_dir is None:
+        cache_dir = constants.HF_HUB_CACHE
+    cache_dir = str(Path(cache_dir).expanduser().resolve())
+    if local_dir is not None:
+        local_dir = str(Path(local_dir).expanduser().resolve())
+    if revision is None:
+        revision = constants.DEFAULT_REVISION
+    if repo_type is None:
+        repo_type = constants.REPO_TYPE_MODEL
+    if repo_type not in constants.REPO_TYPES_WITH_KERNEL:
+        raise ValueError(
+            f"Invalid repo type: {repo_type}. Accepted repo types are: {str(constants.REPO_TYPES_WITH_KERNEL)}"
+        )
+
+    storage_folder = os.path.join(cache_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type))
+
+    # For `local_dir` downloads the tree listing lives under `local_dir/.cache/huggingface/`; otherwise it lives
+    # in the per-repo `storage_folder`. Refs are always recorded in the main cache, so we resolve them there.
+    tree_cache_folder = tree_cache_folder_for_local_dir(local_dir) if local_dir is not None else storage_folder
+
+    # The tree cache is keyed by commit hash. Resolve the revision to a commit hash: either it already is one,
+    # or it's a branch/tag name recorded in `refs/` by a previous download.
+    if REGEX_COMMIT_HASH.match(revision):
+        commit_hash = revision
+    else:
+        ref_path = os.path.join(storage_folder, "refs", revision)
+        if not os.path.isfile(ref_path):
+            raise CachedRepoTreeNotFoundError(
+                f"No cached tree listing found for '{repo_id}' (revision '{revision}', repo_type '{repo_type}'): "
+                f"the revision is not a commit hash and no matching ref is cached in '{storage_folder}'. "
+                "Download the repo (e.g. with `snapshot_download`) to populate the cache first."
+            )
+        with open(ref_path) as f:
+            commit_hash = f.read()
+
+    tree_entries = read_tree_cache(tree_cache_folder, commit_hash)
+    if tree_entries is None:
+        raise CachedRepoTreeNotFoundError(
+            f"No cached tree listing found for '{repo_id}' (revision '{revision}', commit '{commit_hash}', "
+            f"repo_type '{repo_type}') in '{tree_cache_folder}'. Download the repo (e.g. with `snapshot_download`) "
+            "to populate the cache first."
+        )
+
+    return [
+        RepoFile(path=path, size=entry.size, oid=entry.blob_id, xetHash=entry.xet_hash)
+        for path, entry in tree_entries.items()
+    ]
 
 
 def _local_file_exists(base_dir: str, path: str) -> bool:

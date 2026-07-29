@@ -1258,13 +1258,9 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
             raise ValueError(f"HfFileSystemStreamFile only supports cache_type='none' but got {cache_type}")
         if "w" in mode:
             raise ValueError(f"HfFileSystemStreamFile only supports reading but got mode='{mode}'")
-        try:
-            self.resolved_path = fs.resolve_path(path, revision=revision)
-        except FileNotFoundError as e:
-            if "w" in kwargs.get("mode", ""):
-                raise FileNotFoundError(
-                    f"{e}.\nMake sure the repository and revision exist before writing data."
-                ) from e
+        # Let a missing repo/revision/file surface as FileNotFoundError (as the buffered
+        # `HfFileSystemFile` does) instead of an AttributeError on `self.resolved_path` below.
+        self.resolved_path = fs.resolve_path(path, revision=revision)
         # avoid an unnecessary .info() call to instantiate .details
         self.details = {"name": self.resolved_path.unresolve(), "size": None}
         super().__init__(

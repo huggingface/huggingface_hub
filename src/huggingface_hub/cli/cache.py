@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Annotated, Any
 
-import typer
+import click
 
 from huggingface_hub.errors import CLIError
 
@@ -37,6 +37,7 @@ from ..utils import (
 )
 from ..utils._parsing import parse_duration, parse_size
 from ._cli_utils import RepoIdArg, RepoTypeOpt, RevisionOpt, TokenOpt, get_hf_api, typer_factory
+from ._framework import Argument, Option
 from ._output import out
 
 
@@ -384,19 +385,19 @@ def _resolve_deletion_targets(hf_cache_info: HFCacheInfo, targets: list[str]) ->
 def ls(
     cache_dir: Annotated[
         str | None,
-        typer.Option(
+        Option(
             help="Cache directory to scan (defaults to Hugging Face cache).",
         ),
     ] = None,
     revisions: Annotated[
         bool,
-        typer.Option(
+        Option(
             help="Include revisions in the output instead of aggregated repositories.",
         ),
     ] = False,
     filter: Annotated[
         list[str] | None,
-        typer.Option(
+        Option(
             "-f",
             "--filter",
             help="Filter entries (e.g. 'size>1GB', 'type=model', 'accessed>7d'). Can be used multiple times.",
@@ -404,7 +405,7 @@ def ls(
     ] = None,
     sort: Annotated[
         SortOptions | None,
-        typer.Option(
+        Option(
             help="Sort entries by key. Supported keys: 'accessed', 'modified', 'name', 'size'. "
             "Append ':asc' or ':desc' to explicitly set the order (e.g., 'modified:asc'). "
             "Defaults: 'accessed', 'modified', 'size' default to 'desc' (newest/biggest first); "
@@ -413,10 +414,16 @@ def ls(
     ] = None,
     limit: Annotated[
         int | None,
-        typer.Option(
+        Option(
             help="Limit the number of results returned. Returns only the top N entries after sorting.",
         ),
     ] = None,
+    show_warnings: Annotated[
+        bool,
+        Option(
+            help="Show warnings about cache inconsistencies.",
+        ),
+    ] = False,
 ) -> None:
     """List cached repositories or revisions."""
     try:
@@ -430,7 +437,7 @@ def ls(
     try:
         filter_fns = [compile_cache_filter(expr, repo_refs_map) for expr in filters]
     except ValueError as exc:
-        raise typer.BadParameter(str(exc)) from exc
+        raise click.BadParameter(str(exc)) from exc
 
     now = time.time()
     for fn in filter_fns:
@@ -442,12 +449,12 @@ def ls(
             sort_key_fn, reverse = compile_cache_sort(sort.value)
             entries.sort(key=sort_key_fn, reverse=reverse)
         except ValueError as exc:
-            raise typer.BadParameter(str(exc)) from exc
+            raise click.BadParameter(str(exc)) from exc
 
     # Apply limit if requested
     if limit is not None:
         if limit < 0:
-            raise typer.BadParameter(f"Limit must be a positive integer, got {limit}.")
+            raise click.BadParameter(f"Limit must be a positive integer, got {limit}.")
         entries = entries[:limit]
 
     if revisions:
@@ -507,6 +514,15 @@ def ls(
             )
         )
 
+    if len(hf_cache_info.warnings):
+        if show_warnings:
+            for warning in hf_cache_info.warnings:
+                out.warning(str(warning).rstrip(".") + ". Repo ignored.")
+        else:
+            out.warning(
+                f"Found {len(hf_cache_info.warnings)} cache inconsistencies. Re-run with `--show-warnings` to display them."
+            )
+
     incomplete_files = hf_cache_info.incomplete_files
     if incomplete_files:
         out.hint(
@@ -528,19 +544,19 @@ def ls(
 def rm(
     targets: Annotated[
         list[str],
-        typer.Argument(
+        Argument(
             help="One or more repo IDs (e.g. model/bert-base-uncased), repo-level hf:// URIs, or revision hashes to delete.",
         ),
     ],
     cache_dir: Annotated[
         str | None,
-        typer.Option(
+        Option(
             help="Cache directory to scan (defaults to Hugging Face cache).",
         ),
     ] = None,
     yes: Annotated[
         bool,
-        typer.Option(
+        Option(
             "-y",
             "--yes",
             help="Skip confirmation prompt.",
@@ -548,7 +564,7 @@ def rm(
     ] = False,
     dry_run: Annotated[
         bool,
-        typer.Option(
+        Option(
             help="Preview deletions without removing anything.",
         ),
     ] = False,
@@ -567,7 +583,7 @@ def rm(
 
     if len(resolution.revisions) == 0:
         out.text("Nothing to delete.")
-        raise typer.Exit(code=0)
+        raise click.exceptions.Exit(code=0)
 
     strategy = hf_cache_info.delete_revisions(*sorted(resolution.revisions))
     counts = summarize_deletions(resolution.selected)
@@ -611,13 +627,13 @@ def rm(
 def prune(
     cache_dir: Annotated[
         str | None,
-        typer.Option(
+        Option(
             help="Cache directory to scan (defaults to Hugging Face cache).",
         ),
     ] = None,
     yes: Annotated[
         bool,
-        typer.Option(
+        Option(
             "-y",
             "--yes",
             help="Skip confirmation prompt.",
@@ -625,7 +641,7 @@ def prune(
     ] = False,
     dry_run: Annotated[
         bool,
-        typer.Option(
+        Option(
             help="Preview deletions without removing anything.",
         ),
     ] = False,
@@ -700,26 +716,26 @@ def verify(
     revision: RevisionOpt = None,
     cache_dir: Annotated[
         str | None,
-        typer.Option(
+        Option(
             help="Cache directory to use when verifying files from cache (defaults to Hugging Face cache).",
         ),
     ] = None,
     local_dir: Annotated[
         str | None,
-        typer.Option(
+        Option(
             help="If set, verify files under this directory instead of the cache.",
         ),
     ] = None,
     fail_on_missing_files: Annotated[
         bool,
-        typer.Option(
+        Option(
             "--fail-on-missing-files",
             help="Fail if some files exist on the remote but are missing locally.",
         ),
     ] = False,
     fail_on_extra_files: Annotated[
         bool,
-        typer.Option(
+        Option(
             "--fail-on-extra-files",
             help="Fail if some files exist locally but are not present on the remote revision.",
         ),
@@ -737,7 +753,7 @@ def verify(
 
     if local_dir is not None and cache_dir is not None:
         out.error("Cannot pass both --local-dir and --cache-dir. Use one or the other.")
-        raise typer.Exit(code=2)
+        raise click.exceptions.Exit(code=2)
 
     api = get_hf_api(token=token)
 
@@ -788,7 +804,7 @@ def verify(
         out.error(
             f"Verification failed for '{repo_id}' ({repo_type.value}) in {verified_location}.\n  Revision: {result.revision}"
         )
-        raise typer.Exit(code=exit_code)
+        raise click.exceptions.Exit(code=exit_code)
 
     out.result(
         f"Verified {result.checked_count} file(s) for {repo_type.value} '{repo_id}'. All checksums match.",

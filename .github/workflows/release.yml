@@ -642,13 +642,11 @@ jobs:
         run: |
           VERSION="${{ needs.prepare.outputs.version }}"
           BASE_VERSION=$(echo "$VERSION" | sed -E 's/\.rc.*//')
-          # Convert 1.7.0.rc0 -> 1.7.0rc0 for pip
-          RC_PIP_VERSION=$(echo "$VERSION" | sed -E 's/\.rc/rc/')
           # Create output directory (.release-notes/ is in .gitignore so absent after checkout)
           mkdir -p .release-notes
           python -m utils.release_notes.generate_slack_message \
             --version "v${BASE_VERSION}" \
-            --rc-version "${RC_PIP_VERSION}" \
+            --rc-version "${VERSION}" \
             --input notes.md
 
       - name: Print Slack message to summary
@@ -881,6 +879,16 @@ jobs:
           if [ "${{ matrix.target-repo }}" = "transformers" ]; then
             sed -i -E "s/\"huggingface-hub(>=|==)[^\"]*\"/\"huggingface-hub==${VERSION}\"/" src/transformers/dependency_versions_table.py
             git add src/transformers/dependency_versions_table.py
+
+            # The current Transformers PR CI delegates to reusable workflows from
+            # huggingface/transformers-ci. Copy those workflows into this test
+            # branch so the prerelease patch applies to the actual quality install.
+            curl -fsSL https://raw.githubusercontent.com/huggingface/transformers-ci/main/.github/workflows/pr-ci_dynamic_caller_example.yml \
+              -o .github/workflows/pr-ci_dynamic_caller_example.yml
+            curl -fsSL https://raw.githubusercontent.com/huggingface/transformers-ci/main/.github/workflows/pr-ci_reusable_test_job.yml \
+              -o .github/workflows/pr-ci_reusable_test_job.yml
+            sed -i -E "s|uses: huggingface/transformers-ci/\.github/workflows/pr-ci_dynamic_caller_example\.yml@[^[:space:]]+.*|uses: ./.github/workflows/pr-ci_dynamic_caller_example.yml # patched for hfh prerelease|" .github/workflows/pr-ci-caller.yml
+            git add .github/workflows/pr-ci-caller.yml .github/workflows/pr-ci_dynamic_caller_example.yml .github/workflows/pr-ci_reusable_test_job.yml
           fi
 
           # diffusers-specific
@@ -900,7 +908,7 @@ jobs:
           # --prerelease=allow would also pull in unrelated prereleases (e.g. tokenizers) that break
           # the latest transformers and cause spurious CI failures.
           if [ "${{ matrix.target-repo }}" != "sentence-transformers" ]; then
-            find .github/workflows/ -type f -exec sed -i 's/uv pip install /uv pip install --prerelease=allow /g' {} +
+            find .github/workflows/ -type f -exec perl -0pi -e 's/uv pip install (?!--prerelease=allow )/uv pip install --prerelease=allow /g' {} +
             git add .github/workflows/
           fi
 
@@ -1150,6 +1158,26 @@ jobs:
           RELEASE_URL: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ needs.prepare.outputs.tag }}
           REPO: ${{ github.repository }}
         run: |
+          # Best-effort by design: a single PR can fail for reasons unrelated to the others. We keep going through the
+          # whole list, retry each API call once, and only fail the job at the very end so that as many PRs as possible
+          # get notified. Buffer stdout and only echo it back for the attempt that succeeded: on an HTTP error
+          # `gh api` writes the raw error body to stdout (bypassing --jq), so forwarding a failed
+          # attempt's stdout would pollute the caller's output (e.g. make HAS_BOT_COMMENT non-empty).
+          retry() {
+            local output
+            if output=$("$@"); then
+              printf '%s' "$output"
+              return 0
+            fi
+            echo "  API call failed, retrying in 2s..." >&2
+            sleep 2
+            if output=$("$@"); then
+              printf '%s' "$output"
+              return 0
+            fi
+            return 1
+          }
+
           # Extract unique PR numbers from commit messages between the two tags
           PR_NUMBERS=$(git log "${SINCE_TAG}..${TAG}" --oneline | grep -oP '\(#\K[0-9]+(?=\))' | sort -un)
 
@@ -1161,11 +1189,16 @@ jobs:
           echo "Found PRs: $(echo $PR_NUMBERS | tr '\n' ' ')"
           COMMENTED=0
           SKIPPED=0
+          FAILED=()
 
           for PR_NUM in $PR_NUMBERS; do
             # Check if huggingface-hub-bot already commented on this PR
-            HAS_BOT_COMMENT=$(gh api "repos/${REPO}/issues/${PR_NUM}/comments" \
-              --paginate --jq '.[] | select(.user.login == "huggingface-hub-bot[bot]") | .id' | head -1)
+            if ! HAS_BOT_COMMENT=$(retry gh api "repos/${REPO}/issues/${PR_NUM}/comments" \
+              --paginate --jq '.[] | select(.user.login == "huggingface-hub-bot[bot]") | .id'); then
+              echo "::warning::Could not list comments on PR #${PR_NUM} — skipping it"
+              FAILED+=("$PR_NUM")
+              continue
+            fi
 
             if [[ -n "$HAS_BOT_COMMENT" ]]; then
               echo "Skipping PR #${PR_NUM} — bot already commented"
@@ -1175,13 +1208,21 @@ jobs:
 
             # Post comment
             BODY="This PR has been shipped as part of the [${TAG}](${RELEASE_URL}) release."
-            gh api "repos/${REPO}/issues/${PR_NUM}/comments" \
-              -f body="$BODY" > /dev/null
-            echo "Commented on PR #${PR_NUM}"
-            COMMENTED=$((COMMENTED + 1))
+            if retry gh api "repos/${REPO}/issues/${PR_NUM}/comments" -f body="$BODY" > /dev/null; then
+              echo "Commented on PR #${PR_NUM}"
+              COMMENTED=$((COMMENTED + 1))
+            else
+              echo "::warning::Could not comment on PR #${PR_NUM}"
+              FAILED+=("$PR_NUM")
+            fi
           done
 
-          echo "Done: ${COMMENTED} commented, ${SKIPPED} skipped"
+          echo "Done: ${COMMENTED} commented, ${SKIPPED} skipped, ${#FAILED[@]} failed"
+
+          if [[ ${#FAILED[@]} -gt 0 ]]; then
+            echo "::error::Could not notify ${#FAILED[@]} PR(s): ${FAILED[*]}"
+            exit 1
+          fi
 
       - name: Notify Slack
         if: ${{ always() && needs.prepare.outputs.message_ts }}

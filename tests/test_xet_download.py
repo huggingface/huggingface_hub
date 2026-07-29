@@ -14,10 +14,7 @@ from huggingface_hub.file_download import (
     try_to_load_from_cache,
     xet_get,
 )
-from huggingface_hub.utils import (
-    XetFileData,
-    refresh_xet_connection_info,
-)
+from huggingface_hub.utils import XetFileData
 
 from .testing_constants import (
     DUMMY_XET_FILE,
@@ -88,12 +85,7 @@ class TestXetFileDownload:
         metadata = get_hf_file_metadata(url)
         assert metadata.xet_file_data is not None
         assert metadata.xet_file_data.file_hash is not None
-
-        connection_info = refresh_xet_connection_info(file_data=metadata.xet_file_data, headers={})
-        assert connection_info is not None
-        assert connection_info.endpoint is not None
-        assert connection_info.access_token is not None
-        assert isinstance(connection_info.expiration_unix_epoch, int)
+        assert metadata.xet_file_data.refresh_route is not None
 
     def test_basic_download(self, tmp_path):
         # Make sure that xet_get is called
@@ -304,42 +296,3 @@ class TestXetSnapshotDownload:
 
             # Verify xet_get was not called (files were cached)
             mock_xet_get.assert_not_called()
-
-    def test_download_backward_compatibility(self, tmp_path):
-        """Test that xet download works with the old pointer file protocol.
-
-        Until the next major version of hf-xet is released, we need to support the old
-        pointer file based download to support old huggingface_hub versions.
-        """
-
-        file_path = os.path.join(tmp_path, DUMMY_XET_FILE)
-
-        file_metadata = get_hf_file_metadata(
-            hf_hub_url(
-                repo_id=DUMMY_XET_MODEL_ID,
-                filename=DUMMY_XET_FILE,
-            )
-        )
-
-        xet_file_data = file_metadata.xet_file_data
-
-        # Mock the response to not include xet metadata
-        from hf_xet import PyPointerFile, download_files
-
-        connection_info = refresh_xet_connection_info(file_data=xet_file_data, headers={})
-
-        def token_refresher() -> tuple[str, int]:
-            connection_info = refresh_xet_connection_info(file_data=xet_file_data, headers={})
-            return connection_info.access_token, connection_info.expiration_unix_epoch
-
-        pointer_files = [PyPointerFile(path=file_path, hash=xet_file_data.file_hash, filesize=file_metadata.size)]
-
-        download_files(
-            pointer_files,
-            endpoint=connection_info.endpoint,
-            token_info=(connection_info.access_token, connection_info.expiration_unix_epoch),
-            token_refresher=token_refresher,
-            progress_updater=None,
-        )
-
-        assert os.path.exists(file_path)

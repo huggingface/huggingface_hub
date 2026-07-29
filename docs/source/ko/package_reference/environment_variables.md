@@ -129,7 +129,7 @@ Hugging Face 생태계의 모든 환경 변수를 표준화하기 위해 일부 
 
 ### DO_NOT_TRACK[[donottrack]]
 
-불리언 값입니다. `hf_hub_disable_telemetry`에 해당합니다. True로 설정하면 Hugging Face Python 생태계(`transformers`, `diffusers`, `gradio` 등)에서 원격 측정이 전역적으로 비활성화됩니다. 자세한 내용은 https://consoledonottrack.com/ 을 참조하세요.
+불리언 값입니다. `hf_hub_disable_telemetry`에 해당합니다. True로 설정하면 Hugging Face Python 생태계(`transformers`, `diffusers`, `gradio` 등)에서 원격 측정이 전역적으로 비활성화됩니다. 자세한 내용은 https://donottrack.sh/ 을 참조하세요.
 
 ### NO_COLOR[[nocolor]]
 

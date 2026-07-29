@@ -118,17 +118,15 @@ from ._terminal import ANSI, StatusLine, select_choice, tabulate
 from ._typing import is_jsonable, is_simple_optional_type, unwrap_simple_optional_type
 from ._validators import validate_hf_hub_args, validate_repo_id
 from ._xet import (
-    XetConnectionInfo,
     XetFileData,
     XetTokenType,
-    fetch_xet_connection_info_from_repo_info,
     parse_xet_file_data_from_response,
-    refresh_xet_connection_info,
 )
 from .tqdm import (
     are_progress_bars_disabled,
     disable_progress_bars,
     enable_progress_bars,
+    hf_thread_map,
     is_tqdm_disabled,
     silent_tqdm,
     tqdm,

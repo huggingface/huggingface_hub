@@ -15,7 +15,7 @@ def get_version() -> str:
 HF_XET_VERSION = "hf-xet>=1.6.0.dev0,<2.0.0"
 
 install_requires = [
-    "click>=8.4.0",
+    "click>=8.4.2,<9.0.0",  # 8.4.0/8.4.1 shipped a broken fish completion script
     "filelock>=3.10.0",
     "fsspec>=2023.5.0",
     f"{HF_XET_VERSION}; platform_machine=='x86_64' or platform_machine=='amd64' or platform_machine=='AMD64' or platform_machine=='arm64' or platform_machine=='aarch64'",
@@ -23,7 +23,6 @@ install_requires = [
     "packaging>=20.9",
     "pyyaml>=5.1",
     "tqdm>=4.42.1",
-    "typer>=0.20.0,<0.26.0",
     "typing-extensions>=4.1.0",  # to be able to import TypeAlias, dataclass_transform
 ]
 
@@ -61,7 +60,9 @@ extras["testing"] = (
         "pytest-xdist",
         "pytest-vcr",  # to mock Inference
         "pytest-asyncio",  # for AsyncInferenceClient
-        "pytest-rerunfailures<16.0",  # to rerun flaky tests in CI
+        # 16.2 clears fixture finalizers when rerunning a test whose fixture failed at setup.
+        # Without it, any flaky fixture (e.g. a 502 from hub-ci) makes the rerun itself crash on pytest>=9.
+        "pytest-rerunfailures>=16.2",  # to rerun flaky tests in CI
         "pytest-mock",
         "urllib3<2.0",  # VCR.py broken with urllib3 2.0 (see https://urllib3.readthedocs.io/en/stable/v2-migration-guide.html)
         "soundfile",

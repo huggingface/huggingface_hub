@@ -18,19 +18,17 @@ import shutil
 from pathlib import Path
 from typing import Annotated
 
-import typer
 from click import Command, Context, Group
-from typer.main import get_command
 
 from huggingface_hub.errors import CLIError
 
 from ..utils import disable_progress_bars
 from . import _skills
 from ._cli_utils import TokenOpt, _has_local_formatting_option, get_hf_api, typer_factory
+from ._framework import Argument, Option
 from ._output import out
+from ._skills import DEFAULT_SKILL_ID
 
-
-DEFAULT_SKILL_ID = "hf-cli"
 
 _SKILL_DESCRIPTION = (
     "Hugging Face Hub CLI (`hf`) for downloading, uploading, and managing"
@@ -247,7 +245,7 @@ def build_skill_md() -> str:
     from huggingface_hub import __version__
     from huggingface_hub.cli.hf import app
 
-    click_app = get_command(app)
+    click_app = app  # the app is already a click.Group
     ctx = Context(click_app, info_name="hf")
 
     top_level: list[tuple[list[str], Command]] = []
@@ -322,6 +320,8 @@ def _remove_existing(path: Path, force: bool) -> None:
 def _install_to(skills_dir: Path, skill_name: str, force: bool) -> Path:
     """Install a marketplace skill into a skills directory. Returns the installed path."""
     try:
+        if skill_name.strip() == DEFAULT_SKILL_ID:
+            return _skills.install_generated_skill(build_skill_md(), skills_dir, force=force)
         return _skills.add_skill(skill_name, skills_dir, force=force)
     except FileExistsError as exc:
         raise CLIError(f"{exc}\nRe-run with --force to overwrite.") from exc
@@ -418,12 +418,12 @@ def skills_list(
 def skills_add(
     name: Annotated[
         str,
-        typer.Argument(help="Marketplace skill name.", show_default=False),
+        Argument(help="Marketplace skill name.", show_default=False),
     ] = DEFAULT_SKILL_ID,
-    claude: Annotated[bool, typer.Option("--claude", help="Install for Claude.")] = False,
+    claude: Annotated[bool, Option("--claude", help="Install for Claude.")] = False,
     global_: Annotated[
         bool,
-        typer.Option(
+        Option(
             "--global",
             "-g",
             help="Install globally (user-level) instead of in the current project directory.",
@@ -431,20 +431,22 @@ def skills_add(
     ] = False,
     dest: Annotated[
         Path | None,
-        typer.Option(
+        Option(
             help="Install into a custom destination (path to skills directory).",
         ),
     ] = None,
     force: Annotated[
         bool,
-        typer.Option(
+        Option(
             "--force",
             help="Overwrite existing skills in the destination.",
         ),
     ] = False,
 ) -> None:
-    """Download a Hugging Face skill and install it for an AI assistant.
+    """Install a Hugging Face skill for an AI assistant.
 
+    The default `hf-cli` skill is generated locally from the installed CLI version;
+    other skills are downloaded from the Hugging Face marketplace.
     Default location is in the current directory (.agents/skills) or user-level (~/.agents/skills).
     If `--claude` is specified, the skill is also symlinked into Claude's legacy skills directory.
     """
@@ -478,12 +480,12 @@ def skills_add(
 def skills_update(
     name: Annotated[
         str | None,
-        typer.Argument(help="Optional installed skill name to update.", show_default=False),
+        Argument(help="Optional installed skill name to update.", show_default=False),
     ] = None,
-    claude: Annotated[bool, typer.Option("--claude", help="Update skills installed for Claude.")] = False,
+    claude: Annotated[bool, Option("--claude", help="Update skills installed for Claude.")] = False,
     global_: Annotated[
         bool,
-        typer.Option(
+        Option(
             "--global",
             "-g",
             help="Use global skills directories instead of the current project.",
@@ -491,7 +493,7 @@ def skills_update(
     ] = False,
     dest: Annotated[
         Path | None,
-        typer.Option(
+        Option(
             help="Update skills in a custom skills directory.",
         ),
     ] = None,
@@ -499,7 +501,7 @@ def skills_update(
     """Update installed Hugging Face marketplace skills."""
     roots = _resolve_update_roots(claude=claude, global_=global_, dest=dest)
 
-    results = _skills.update_skills(roots, selector=name)
+    results = _skills.update_skills(roots, selector=name, hf_cli_content=build_skill_md())
     if not results:
         print("No installed skills found.")
         return
