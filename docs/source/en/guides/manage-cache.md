@@ -203,6 +203,41 @@ When symlinks are not supported, a warning message is displayed to the user to a
 them they are using a degraded version of the cache-system. This warning can be disabled
 by setting the `HF_HUB_DISABLE_SYMLINKS_WARNING` environment variable to true.
 
+## Pin a revision (advanced)
+
+> [!TIP]
+> If you are integrating the Hub in an ML library, a single [`snapshot_download`] call is still the recommended approach: it resolves the revision once, downloads everything in parallel and caches the file listing. What follows is only useful for complex libraries that download and load many components separately (config, weights, tokenizer, processor, adapters, ...) and cannot use a single call.
+
+When a library downloads several files one by one, each call has to resolve `revision="main"` into a commit hash again. This costs one HTTP call per file and, worse, two calls made a few seconds apart can land on two different commits if the repo is updated in between.
+
+[`HfApi.resolve_revision`] resolves the revision once and returns a [`ResolvedRevision`]:
+
+```py
+>>> from huggingface_hub import resolve_revision
+>>> revision = resolve_revision("openai-community/gpt2")
+>>> revision
+ResolvedRevision(initial=None, resolved='607a30d783dfa663caf39e06633721c8d4cfcd7e')
+```
+
+[`ResolvedRevision`] is a `str` subclass, so it can be passed to any `huggingface_hub` method taking a `revision` argument. Its string value is what the user initially requested (`"main"` here, hence readable error messages), while `.resolved` holds the commit hash:
+
+```py
+>>> revision == "main"
+True
+>>> revision.resolved
+'607a30d783dfa663caf39e06633721c8d4cfcd7e'
+```
+
+Download helpers ([`hf_hub_download`], [`snapshot_download`], [`get_cached_repo_tree`]) detect a [`ResolvedRevision`] and use the commit hash directly. Every file is guaranteed to come from the same commit, and once the files are cached no HTTP call is needed at all:
+
+```py
+>>> from huggingface_hub import hf_hub_download
+>>> config = hf_hub_download("openai-community/gpt2", "config.json", revision=revision)
+>>> weights = hf_hub_download("openai-community/gpt2", "model.safetensors", revision=revision)
+```
+
+The `revision` -> `commit hash` mapping is also written to the `refs/` folder of the cache (see [Refs](#refs)). This means that if the Hub cannot be reached later on (offline mode, connection error, timeout, Hub downtime), [`HfApi.resolve_revision`] transparently falls back to the cached value. If nothing is cached either, a [`~errors.RevisionResolutionError`] is raised.
+
 ## Chunk-based caching (Xet)
 
 To provide more efficient file transfers, `hf_xet` adds a `xet` directory to the existing `huggingface_hub` cache, creating additional caching layer to enable chunk-based deduplication. This cache holds chunks (immutable byte ranges of files ~64KB in size) and shards (a data structure that maps files to chunks). For more information on the Xet Storage system, see this [section](https://huggingface.co/docs/hub/xet/index).
