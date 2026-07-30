@@ -413,5 +413,5 @@ class TestResolveRevision:
         # Everything is cached at this point => works offline as well
         with offline():
             assert hf_hub_download(self.repo_id, "dummy_file.txt", revision=revision, cache_dir=tmp_path).endswith(
-                f"{self.commit_hash}/dummy_file.txt"
+                os.path.join(self.commit_hash, "dummy_file.txt")
             )
