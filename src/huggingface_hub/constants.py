@@ -94,6 +94,8 @@ HUGGINGFACE_HEADER_X_REPO_COMMIT = "X-Repo-Commit"
 HUGGINGFACE_HEADER_X_LINKED_ETAG = "X-Linked-Etag"
 HUGGINGFACE_HEADER_X_LINKED_SIZE = "X-Linked-Size"
 HUGGINGFACE_HEADER_X_BILL_TO = "X-HF-Bill-To"
+# Header sent on every HTTP call made while downloading files from the Hub (see `flag_as_download_call`).
+X_HF_DOWNLOAD_COUNTER = "X-HF-Download-Counter"
 
 INFERENCE_ENDPOINT = os.environ.get("HF_INFERENCE_ENDPOINT", "https://api-inference.huggingface.co")
 

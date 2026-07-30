@@ -51,7 +51,7 @@ from .utils._http import (
     _DEFAULT_RETRY_ON_STATUS_CODES,
     _adjust_range_header,
     _httpx_follow_relative_redirects_with_backoff,
-    as_download_call,
+    flag_as_download_call,
     http_stream_backoff,
 )
 from .utils._runtime import is_xet_available
@@ -827,7 +827,7 @@ def hf_hub_download(
 
 
 @validate_hf_hub_args
-@as_download_call
+@flag_as_download_call
 def hf_hub_download(
     repo_id: str,
     filename: str,
