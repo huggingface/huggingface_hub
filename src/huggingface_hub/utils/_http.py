@@ -249,8 +249,6 @@ def _parse_job_id_from_url(url: str) -> str | None:
     return match.group(1) if match else None
 
 
-# True while running inside a download (`hf_hub_download` / `snapshot_download`). Set for the current
-# context only, meaning it's both thread-safe and async-safe.
 _IS_DOWNLOAD_CALL: ContextVar[bool] = ContextVar("_IS_DOWNLOAD_CALL", default=False)
 
 
