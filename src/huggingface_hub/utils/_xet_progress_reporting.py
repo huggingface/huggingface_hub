@@ -233,9 +233,7 @@ class XetUploadProgressReporter:
 
         # Single Validating bar created lazily on the first shard event.
         # Covers shard upload / validation / sync without exposing "shard" jargon.
-        # In console mode: positioned after the n_lines per-file bars.
-        # In notebook/GUI mode: positioned immediately after the overview bars (no per-file bars).
-        self._shard_bar_offset = _NUM_OVERVIEW_BARS + (n_lines if self.per_file_progress else 0)
+        # Positioned dynamically after the active per-file bars (see _validating_bar_position).
         self.validating_bar: "tqdm | None" = None
 
         self.known_items: set[str] = set()
@@ -267,12 +265,19 @@ class XetUploadProgressReporter:
 
         return f"{padding}{name.ljust(width)}"
 
+    def _validating_bar_position(self) -> int:
+        """Place Validating right after overview bars and any active per-file bars."""
+        if not self.per_file_progress:
+            return _NUM_OVERVIEW_BARS
+        n_active = sum(1 for bar in self.current_bars if bar is not None)
+        return _NUM_OVERVIEW_BARS + n_active
+
     def _init_validating_bar(self) -> None:
         """Create the Validating progress bar on first shard event."""
         self.validating_bar = tqdm(
             total=0,
             desc=self.format_desc("Validating", False),
-            position=self._shard_bar_offset,
+            position=self._validating_bar_position(),
             **self.percent_tqdm_settings,
         )
 
@@ -404,6 +409,8 @@ class XetUploadProgressReporter:
 
             self.validating_bar.total = total_n or None
             self.validating_bar.n = done_n
+            # Keep Validating snug under the active file bars as more slots fill in.
+            self.validating_bar.pos = self._validating_bar_position()
             self.validating_bar.refresh()
 
     def close(self):
