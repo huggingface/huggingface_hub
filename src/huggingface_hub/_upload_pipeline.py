@@ -312,13 +312,8 @@ class _LiveDisplay:
             done_n, total_n = self._shard_val_done, self._shard_val_total
         else:
             done_n, total_n = self._shards_done, self._shards_total
-        finished = total_n > 0 and done_n >= total_n
-        # Also mark done once every registered shard has finished, even if entry totals lagged.
-        if self._shards_total > 0 and self._shards_done >= self._shards_total:
-            finished = True
-        done = " ✓" if finished else ""
         pct = min(100, round(100 * done_n / total_n)) if total_n > 0 else 0
-        return f"  Validating  {_bar(done_n, total_n)}  {pct}%{done}"
+        return f"  Validating  {_bar(done_n, total_n)}  {pct}%"
 
     def _line_committing(self) -> str:
         effective = self._total - self._ignored

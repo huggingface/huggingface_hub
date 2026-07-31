@@ -219,7 +219,7 @@ class XetUploadProgressReporter:
             "leave": True,
             "nrows": _nrows,
             "miniters": 1,
-            "bar_format": "{l_bar}{bar}| {percentage:3.0f}%{postfix:>12}",
+            "bar_format": "{desc}: {bar}| {percentage:3.0f}%{postfix:>12}",
         }
 
         # Overview bars (always shown)
