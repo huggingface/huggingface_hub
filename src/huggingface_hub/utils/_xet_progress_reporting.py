@@ -244,7 +244,6 @@ class XetUploadProgressReporter:
         # Track previous absolute values to compute increments
         self._prev_bytes_completed: int = 0
         self._prev_transfer_bytes_completed: int = 0
-        self._prev_shard_validation_completed: int = 0
 
         # Item bars (scrolling view); positions start at _NUM_OVERVIEW_BARS
         self.item_state: OrderedDict[str, Any] = OrderedDict()
@@ -281,10 +280,14 @@ class XetUploadProgressReporter:
         """Reset per-commit state so the reporter can be reused across multiple upload commits."""
         self._prev_bytes_completed = 0
         self._prev_transfer_bytes_completed = 0
-        self._prev_shard_validation_completed = 0
         self.known_items.clear()
         self.completed_items.clear()
         self.item_state.clear()
+        # Shard counters are absolute per commit — restart Validating at 0% for the next chunk.
+        if self.validating_bar is not None:
+            self.validating_bar.n = 0
+            self.validating_bar.total = 0
+            self.validating_bar.refresh()
 
     def update_progress(self, group_report, item_reports: dict):
         # Update all the per-item values.
@@ -381,7 +384,9 @@ class XetUploadProgressReporter:
         self.upload_bar.update(transfer_inc)
 
         # Single Validating bar for shard finalization (v2 shard API).
-        # Driven by validation-entry counts — the long phase users wait on.
+        # Prefer validation-entry counts (the long phase). Fall back to shard-completion
+        # counts when entries are absent (e.g. V1 synthetic Result with no Validating frames).
+        # Set absolute n/total for the current commit; reset_for_next_commit restarts at 0%.
         shard = getattr(group_report, "shard", None)
         if shard is not None:
             if self.validating_bar is None:
@@ -389,10 +394,17 @@ class XetUploadProgressReporter:
 
             assert self.validating_bar is not None
 
-            self.validating_bar.total = shard.total_shard_validation_entries or None
-            shard_val_inc = shard.total_shard_validation_entries_completed - self._prev_shard_validation_completed
-            self._prev_shard_validation_completed = shard.total_shard_validation_entries_completed
-            self.validating_bar.update(max(0, shard_val_inc))
+            if shard.total_shard_validation_entries > 0:
+                done_n, total_n = (
+                    shard.total_shard_validation_entries_completed,
+                    shard.total_shard_validation_entries,
+                )
+            else:
+                done_n, total_n = shard.total_shards_completed, shard.total_shards
+
+            self.validating_bar.total = total_n or None
+            self.validating_bar.n = done_n
+            self.validating_bar.refresh()
 
     def close(self):
         self.data_processing_bar.close()
