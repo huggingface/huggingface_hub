@@ -1,7 +1,7 @@
 import json
 import struct
 from pathlib import Path
-from typing import TYPE_CHECKING, Dict, List
+from typing import TYPE_CHECKING
 from unittest.mock import Mock
 
 import pytest
@@ -9,7 +9,6 @@ from pytest_mock import MockerFixture
 
 from huggingface_hub import constants
 from huggingface_hub.serialization import (
-    get_tf_storage_size,
     get_torch_storage_size,
     load_state_dict_from_file,
     load_torch_model,
@@ -20,8 +19,7 @@ from huggingface_hub.serialization import (
 )
 from huggingface_hub.serialization._base import parse_size_to_int
 from huggingface_hub.serialization._torch import _load_sharded_checkpoint
-
-from .testing_utils import requires
+from huggingface_hub.utils import is_torch_available
 
 
 if TYPE_CHECKING:
@@ -57,7 +55,7 @@ def is_dtensor_available():
 
 
 @pytest.fixture
-def dummy_state_dict() -> Dict[str, List[int]]:
+def dummy_state_dict() -> dict[str, list[int]]:
     return {
         "layer_1": [6],
         "layer_2": [10],
@@ -68,7 +66,7 @@ def dummy_state_dict() -> Dict[str, List[int]]:
 
 
 @pytest.fixture
-def torch_state_dict() -> Dict[str, "torch.Tensor"]:
+def torch_state_dict() -> dict[str, "torch.Tensor"]:
     try:
         import torch
 
@@ -105,7 +103,7 @@ def dummy_model():
 
 
 @pytest.fixture
-def torch_state_dict_tensor_subclass() -> Dict[str, "torch.Tensor"]:
+def torch_state_dict_tensor_subclass() -> dict[str, "torch.Tensor"]:
     try:
         import torch  # type: ignore[import]
         from torch.testing._internal.two_tensor import TwoTensor  # type: ignore[import]
@@ -124,7 +122,7 @@ def torch_state_dict_tensor_subclass() -> Dict[str, "torch.Tensor"]:
 
 
 @pytest.fixture
-def torch_state_dict_shared_layers() -> Dict[str, "torch.Tensor"]:
+def torch_state_dict_shared_layers() -> dict[str, "torch.Tensor"]:
     try:
         import torch  # type: ignore[import]
 
@@ -141,7 +139,7 @@ def torch_state_dict_shared_layers() -> Dict[str, "torch.Tensor"]:
 
 
 @pytest.fixture
-def torch_state_dict_shared_layers_tensor_subclass() -> Dict[str, "torch.Tensor"]:
+def torch_state_dict_shared_layers_tensor_subclass() -> dict[str, "torch.Tensor"]:
     try:
         import torch  # type: ignore[import]
         from torch.testing._internal.two_tensor import TwoTensor  # type: ignore[import]
@@ -224,7 +222,7 @@ def test_tensor_same_storage():
             "layer_4": [2],
             "layer_5": [1],
         },
-        get_storage_id=lambda x: (x[0]),  # dummy for test: storage id based on first element
+        get_storage_id=lambda x: x[0],  # dummy for test: storage id based on first element
         get_storage_size=_dummy_get_storage_size,
         max_shard_size=1,
         filename_pattern="model{suffix}.safetensors",
@@ -244,15 +242,29 @@ def test_tensor_same_storage():
     assert state_dict_split.metadata == {"total_size": 3}  # count them once
 
 
-@requires("tensorflow")
-def test_get_tf_storage_size():
-    import tensorflow as tf  # type: ignore[import]
+def test_single_shard_skips_string_tensors():
+    # String values can appear in a state dict when bnb serialization is used (see
+    # https://github.com/huggingface/transformers/pull/24416). They are skipped when building
+    # shards, so they must also be absent from the single-shard index, consistently with the
+    # multi-shard path.
+    state_dict_split = split_state_dict_into_shards_factory(
+        {
+            "layer_1": [6],
+            "bnb_string": "quantization_metadata",  # skipped, must not appear in the index
+            "layer_2": [10],
+        },
+        get_storage_id=_dummy_get_storage_id,
+        get_storage_size=_dummy_get_storage_size,
+        max_shard_size=100,  # large shard size => only one shard
+        filename_pattern="file{suffix}.dummy",
+    )
+    assert not state_dict_split.is_sharded
+    assert state_dict_split.filename_to_tensors == {"file.dummy": ["layer_1", "layer_2"]}
+    assert state_dict_split.tensor_to_filename == {"layer_1": "file.dummy", "layer_2": "file.dummy"}
+    assert state_dict_split.metadata == {"total_size": 16}
 
-    assert get_tf_storage_size(tf.constant([1, 2, 3, 4, 5], dtype=tf.float64)) == 5 * 8
-    assert get_tf_storage_size(tf.constant([1, 2, 3, 4, 5], dtype=tf.float16)) == 5 * 2
 
-
-@requires("torch")
+@pytest.mark.skipif(not is_torch_available(), reason="Test requires torch")
 def test_get_torch_storage_size():
     import torch  # type: ignore[import]
 
@@ -260,7 +272,7 @@ def test_get_torch_storage_size():
     assert get_torch_storage_size(torch.tensor([1, 2, 3, 4, 5], dtype=torch.float16)) == 5 * 2
 
 
-@requires("torch")
+@pytest.mark.skipif(not is_torch_available(), reason="Test requires torch")
 @pytest.mark.skipif(not is_dtensor_available(), reason="requires torch with dtensor available")
 def test_get_torch_storage_size_dtensor():
     # testing distributed sharded tensors isn't very easy, would need to subprocess call torchrun, so this should be good enough
@@ -287,7 +299,7 @@ def test_get_torch_storage_size_dtensor():
         dist.destroy_process_group()
 
 
-@requires("torch")
+@pytest.mark.skipif(not is_torch_available(), reason="Test requires torch")
 @pytest.mark.skipif(not is_wrapper_tensor_subclass_available(), reason="requires torch 2.1 or higher")
 def test_get_torch_storage_size_wrapper_tensor_subclass():
     import torch  # type: ignore[import]
@@ -341,14 +353,14 @@ def test_save_torch_model(mocker: MockerFixture, tmp_path: Path) -> None:
     )
 
 
-def test_save_torch_state_dict_not_sharded(tmp_path: Path, torch_state_dict: Dict[str, "torch.Tensor"]) -> None:
+def test_save_torch_state_dict_not_sharded(tmp_path: Path, torch_state_dict: dict[str, "torch.Tensor"]) -> None:
     """Save as safetensors without sharding."""
     save_torch_state_dict(torch_state_dict, tmp_path, max_shard_size="1GB")
     assert (tmp_path / "model.safetensors").is_file()
     assert not (tmp_path / "model.safetensors.index.json").is_file()
 
 
-def test_save_torch_state_dict_sharded(tmp_path: Path, torch_state_dict: Dict[str, "torch.Tensor"]) -> None:
+def test_save_torch_state_dict_sharded(tmp_path: Path, torch_state_dict: dict[str, "torch.Tensor"]) -> None:
     """Save as safetensors with sharding."""
     save_torch_state_dict(torch_state_dict, tmp_path, max_shard_size=30)
     assert not (tmp_path / "model.safetensors").is_file()
@@ -369,7 +381,7 @@ def test_save_torch_state_dict_sharded(tmp_path: Path, torch_state_dict: Dict[st
 
 
 def test_save_torch_state_dict_unsafe_not_sharded(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture, torch_state_dict: Dict[str, "torch.Tensor"]
+    tmp_path: Path, caplog: pytest.LogCaptureFixture, torch_state_dict: dict[str, "torch.Tensor"]
 ) -> None:
     """Save as pickle without sharding."""
     with caplog.at_level("WARNING"):
@@ -382,7 +394,7 @@ def test_save_torch_state_dict_unsafe_not_sharded(
 
 @pytest.mark.skipif(not is_wrapper_tensor_subclass_available(), reason="requires torch 2.1 or higher")
 def test_save_torch_state_dict_tensor_subclass_unsafe_not_sharded(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture, torch_state_dict_tensor_subclass: Dict[str, "torch.Tensor"]
+    tmp_path: Path, caplog: pytest.LogCaptureFixture, torch_state_dict_tensor_subclass: dict[str, "torch.Tensor"]
 ) -> None:
     """Save as pickle without sharding."""
     with caplog.at_level("WARNING"):
@@ -399,7 +411,7 @@ def test_save_torch_state_dict_tensor_subclass_unsafe_not_sharded(
 def test_save_torch_state_dict_shared_layers_tensor_subclass_unsafe_not_sharded(
     tmp_path: Path,
     caplog: pytest.LogCaptureFixture,
-    torch_state_dict_shared_layers_tensor_subclass: Dict[str, "torch.Tensor"],
+    torch_state_dict_shared_layers_tensor_subclass: dict[str, "torch.Tensor"],
 ) -> None:
     """Save as pickle without sharding."""
     with caplog.at_level("WARNING"):
@@ -413,7 +425,7 @@ def test_save_torch_state_dict_shared_layers_tensor_subclass_unsafe_not_sharded(
 
 
 def test_save_torch_state_dict_unsafe_sharded(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture, torch_state_dict: Dict[str, "torch.Tensor"]
+    tmp_path: Path, caplog: pytest.LogCaptureFixture, torch_state_dict: dict[str, "torch.Tensor"]
 ) -> None:
     """Save as pickle with sharding."""
     # Check logs
@@ -439,7 +451,7 @@ def test_save_torch_state_dict_unsafe_sharded(
 
 
 def test_save_torch_state_dict_shared_layers_not_sharded(
-    tmp_path: Path, torch_state_dict_shared_layers: Dict[str, "torch.Tensor"]
+    tmp_path: Path, torch_state_dict_shared_layers: dict[str, "torch.Tensor"]
 ) -> None:
     from safetensors.torch import load_file
 
@@ -461,7 +473,7 @@ def test_save_torch_state_dict_shared_layers_not_sharded(
 
 
 def test_save_torch_state_dict_shared_layers_sharded(
-    tmp_path: Path, torch_state_dict_shared_layers: Dict[str, "torch.Tensor"]
+    tmp_path: Path, torch_state_dict_shared_layers: dict[str, "torch.Tensor"]
 ) -> None:
     from safetensors.torch import load_file
 
@@ -480,7 +492,7 @@ def test_save_torch_state_dict_shared_layers_sharded(
 
 
 def test_save_torch_state_dict_discard_selected_sharded(
-    tmp_path: Path, torch_state_dict_shared_layers: Dict[str, "torch.Tensor"]
+    tmp_path: Path, torch_state_dict_shared_layers: dict[str, "torch.Tensor"]
 ) -> None:
     from safetensors.torch import load_file
 
@@ -502,7 +514,7 @@ def test_save_torch_state_dict_discard_selected_sharded(
 
 
 def test_save_torch_state_dict_discard_selected_not_sharded(
-    tmp_path: Path, torch_state_dict_shared_layers: Dict[str, "torch.Tensor"]
+    tmp_path: Path, torch_state_dict_shared_layers: dict[str, "torch.Tensor"]
 ) -> None:
     from safetensors.torch import load_file
 
@@ -529,7 +541,7 @@ def test_save_torch_state_dict_discard_selected_not_sharded(
 
 
 def test_split_torch_state_dict_into_shards(
-    tmp_path: Path, torch_state_dict_shared_layers_tensor_subclass: Dict[str, "torch.Tensor"]
+    tmp_path: Path, torch_state_dict_shared_layers_tensor_subclass: dict[str, "torch.Tensor"]
 ):
     # the model size is 72, setting max_shard_size to 32 means we'll shard the file
     state_dict_split = split_torch_state_dict_into_shards(
@@ -540,7 +552,7 @@ def test_split_torch_state_dict_into_shards(
     assert state_dict_split.is_sharded
 
 
-def test_save_torch_state_dict_custom_filename(tmp_path: Path, torch_state_dict: Dict[str, "torch.Tensor"]) -> None:
+def test_save_torch_state_dict_custom_filename(tmp_path: Path, torch_state_dict: dict[str, "torch.Tensor"]) -> None:
     """Custom filename pattern is respected."""
     # Not sharded
     save_torch_state_dict(torch_state_dict, tmp_path, filename_pattern="model.variant{suffix}.safetensors")
@@ -556,7 +568,7 @@ def test_save_torch_state_dict_custom_filename(tmp_path: Path, torch_state_dict:
 
 
 def test_save_torch_state_dict_delete_existing_files(
-    tmp_path: Path, torch_state_dict: Dict[str, "torch.Tensor"]
+    tmp_path: Path, torch_state_dict: dict[str, "torch.Tensor"]
 ) -> None:
     """Directory is cleaned before saving new files."""
     (tmp_path / "model.safetensors").touch()
@@ -590,7 +602,7 @@ def test_save_torch_state_dict_delete_existing_files(
 
 def test_save_torch_state_dict_not_main_process(
     tmp_path: Path,
-    torch_state_dict: Dict[str, "torch.Tensor"],
+    torch_state_dict: dict[str, "torch.Tensor"],
 ) -> None:
     """
     Test that previous files in the directory are not deleted when is_main_process=False.
@@ -612,8 +624,8 @@ def test_save_torch_state_dict_not_main_process(
     assert (tmp_path / "model.safetensors.index.json").is_file()
 
 
-@requires("torch")
-def test_load_state_dict_from_file(tmp_path: Path, torch_state_dict: Dict[str, "torch.Tensor"]):
+@pytest.mark.skipif(not is_torch_available(), reason="Test requires torch")
+def test_load_state_dict_from_file(tmp_path: Path, torch_state_dict: dict[str, "torch.Tensor"]):
     """Test saving and loading a state dict with both safetensors and pickle formats."""
     import torch  # type: ignore[import]
 
@@ -634,10 +646,10 @@ def test_load_state_dict_from_file(tmp_path: Path, torch_state_dict: Dict[str, "
         assert torch.equal(loaded_dict[key], torch_state_dict[key])
 
 
-@requires("torch")
+@pytest.mark.skipif(not is_torch_available(), reason="Test requires torch")
 def test_load_sharded_state_dict(
     tmp_path: Path,
-    torch_state_dict: Dict[str, "torch.Tensor"],
+    torch_state_dict: dict[str, "torch.Tensor"],
     dummy_model: "torch.nn.Module",
 ):
     """Test saving and loading a sharded state dict."""
@@ -664,9 +676,9 @@ def test_load_sharded_state_dict(
         assert torch.equal(loaded_state_dict[key], torch_state_dict[key])
 
 
-@requires("torch")
+@pytest.mark.skipif(not is_torch_available(), reason="Test requires torch")
 def test_load_from_directory_not_sharded(
-    tmp_path: Path, torch_state_dict: Dict[str, "torch.Tensor"], dummy_model: "torch.nn.Module"
+    tmp_path: Path, torch_state_dict: dict[str, "torch.Tensor"], dummy_model: "torch.nn.Module"
 ):
     import torch
 
@@ -810,7 +822,7 @@ def test_load_torch_model_with_filename_pattern(tmp_path, torch_state_dict, dumm
         ),  # custom filename pattern and safe=False -> load custom file index
     ],
 )
-@requires("torch")
+@pytest.mark.skipif(not is_torch_available(), reason="Test requires torch")
 def test_load_torch_model_index_selection(
     tmp_path: Path,
     filename_pattern,
@@ -837,3 +849,64 @@ def test_load_torch_model_index_selection(
     load_torch_model(model, tmp_path, safe=safe, filename_pattern=filename_pattern)
     mock_load.assert_called_once()
     assert mock_load.call_args.kwargs["filename_pattern"] == expected_filename_pattern
+
+
+class TestShardedCheckpointValidation:
+    """Regression tests for shard filename validation in sharded checkpoint loading.
+
+    See https://github.com/huggingface/hackerone/issues/141 for more details.
+
+    Ensures that crafted index files cannot trick the loader into deserializing
+    unsafe pickle payloads or accessing files outside the checkpoint directory.
+    """
+
+    def test_safetensors_index_rejects_bin_shard(self, tmp_path):
+        """A safetensors index file referencing a .bin shard must be rejected."""
+        index = {
+            "metadata": {"total_size": 100},
+            "weight_map": {
+                "layer_1": "model-00001-of-00001.bin",
+            },
+        }
+        (tmp_path / "model.safetensors.index.json").write_text(json.dumps(index))
+        (tmp_path / "model-00001-of-00001.bin").touch()
+
+        with pytest.raises(ValueError, match="Invalid shard filename.*Expected '.safetensors' extension"):
+            load_torch_model(Mock(), tmp_path)
+
+    def test_safetensors_index_rejects_path_traversal(self, tmp_path):
+        """A shard filename with '..' path traversal must be rejected."""
+        index = {
+            "metadata": {"total_size": 100},
+            "weight_map": {
+                "layer_1": "../malicious.safetensors",
+            },
+        }
+        (tmp_path / "model.safetensors.index.json").write_text(json.dumps(index))
+
+        with pytest.raises(ValueError, match="Invalid shard filename.*without '..' components"):
+            load_torch_model(Mock(), tmp_path)
+
+    @pytest.mark.parametrize(
+        "malicious_path",
+        [
+            "/tmp/malicious.safetensors",  # POSIX absolute
+            "\\malicious.safetensors",  # Windows rooted, no drive (resolves to C:\malicious on Windows)
+            "C:malicious.safetensors",  # Windows drive-only (relative to CWD of drive C)
+            "C:\\malicious.safetensors",  # Windows drive-absolute
+            "\\\\server\\share\\malicious.safetensors",  # Windows UNC
+            "..\\malicious.safetensors",  # Windows-style traversal (backslash as separator)
+        ],
+    )
+    def test_safetensors_index_rejects_absolute_path(self, tmp_path, malicious_path):
+        """A shard filename with an absolute path must be rejected on every host OS."""
+        index = {
+            "metadata": {"total_size": 100},
+            "weight_map": {
+                "layer_1": malicious_path,
+            },
+        }
+        (tmp_path / "model.safetensors.index.json").write_text(json.dumps(index))
+
+        with pytest.raises(ValueError, match="Invalid shard filename.*without '..' components"):
+            load_torch_model(Mock(), tmp_path)

@@ -1,0 +1,459 @@
+# coding=utf-8
+# Copyright 2026-present, the HuggingFace Inc. team.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import io
+import os
+import shutil
+import sys
+
+import pytest
+
+from huggingface_hub.cli._output import Output, OutputFormat, _ascii_safe, _to_header
+from huggingface_hub.errors import ConfirmationError
+
+
+HUMAN = OutputFormat.human
+AGENT = OutputFormat.agent
+JSON = OutputFormat.json
+QUIET = OutputFormat.quiet
+
+
+def _normalize(text: str) -> list[str]:
+    """
+    Turn a triple-quoted string (or captured output) into comparable lines.
+    """
+    lines = text.split("\n")
+    baseline = len(lines[-1]) - len(lines[-1].lstrip()) if lines else 0
+    return [line[baseline:].rstrip() for line in lines if line.strip()]
+
+
+@pytest.fixture
+def check(capsys, monkeypatch):
+    # Deterministic terminal width: human-mode table tests are width-sensitive.
+    monkeypatch.setattr(shutil, "get_terminal_size", lambda *_: os.terminal_size((80, 24)))
+
+    def _check(call, *, human, agent, json, quiet, stderr=False):
+        failures = []
+        for mode, expected in [(HUMAN, human), (AGENT, agent), (JSON, json), (QUIET, quiet)]:
+            o = Output()
+            o.set_mode(mode)
+            call(o)
+            captured = capsys.readouterr()
+            actual_lines = _normalize(captured.err if stderr else captured.out)
+            expected_lines = _normalize(expected)
+            if actual_lines != expected_lines:
+                failures.append(f"[{mode.value}] {actual_lines} != {expected_lines}")
+        if failures:
+            pytest.fail("\n".join(failures))
+
+    return _check
+
+
+# =============================================================================
+# set_mode
+# =============================================================================
+
+
+def test_auto_resolves_to_human():
+    assert Output().mode == HUMAN
+
+
+def test_auto_resolves_to_agent(monkeypatch):
+    # conftest pins an empty registry by default; override it so `AI_AGENT` is recognized.
+    from huggingface_hub.utils import _detect_agent
+
+    monkeypatch.setattr(_detect_agent, "_registry", {"standardEnvVars": ["AI_AGENT"], "harnesses": {}})
+    monkeypatch.setenv("AI_AGENT", "test")
+    assert Output().mode == AGENT
+
+
+def test_auto_resets_after_explicit():
+    o = Output()
+    o.set_mode(QUIET)
+    o.set_mode(OutputFormat.auto)
+    assert o.mode == HUMAN
+
+
+# =============================================================================
+# out.result()
+# =============================================================================
+
+
+def test_result(check):
+    check(
+        lambda out: out.result("Logged in", user="Wauplin", orgs="org1,org2", email=None),
+        human="""
+        ✓ Logged in
+          user: Wauplin
+          orgs: org1,org2
+        """,
+        agent="""
+        user=Wauplin orgs=org1,org2
+        """,
+        json="""
+        {"user": "Wauplin", "orgs": "org1,org2", "email": null}
+        """,
+        quiet="""
+        Wauplin
+        """,
+    )
+
+
+# =============================================================================
+# out.table()
+# =============================================================================
+
+
+def test_table(check):
+    items = [
+        {
+            "id": "openai/gpt-oss-120b",
+            "downloads": 4133088,
+            "likes": 4631,
+            "pipeline_tag": "text-generation",
+        },
+        {
+            "id": "CohereLabs/cohere-transcribe-03-2026",
+            "downloads": 58683,
+            "likes": 670,
+            "pipeline_tag": "automatic-speech-recognition",
+        },
+    ]
+    check(
+        lambda out: out.table(items, headers=["id", "downloads", "likes", "pipeline_tag"]),
+        human="""
+        ID                                  DOWNLOADS LIKES PIPELINE_TAG
+        ----------------------------------- --------- ----- ----------------------------
+        openai/gpt-oss-120b                   4133088  4631 text-generation
+        CohereLabs/cohere-transcribe-03-...     58683   670 automatic-speech-recognition
+        """,
+        agent="""
+        id\tdownloads\tlikes\tpipeline_tag
+        openai/gpt-oss-120b\t4133088\t4631\ttext-generation
+        CohereLabs/cohere-transcribe-03-2026\t58683\t670\tautomatic-speech-recognition
+        """,
+        json="""
+        [{"id": "openai/gpt-oss-120b", "downloads": 4133088, "likes": 4631, "pipeline_tag": "text-generation"}, {"id": "CohereLabs/cohere-transcribe-03-2026", "downloads": 58683, "likes": 670, "pipeline_tag": "automatic-speech-recognition"}]
+        """,
+        quiet="""
+        openai/gpt-oss-120b
+        CohereLabs/cohere-transcribe-03-2026
+        """,
+    )
+
+
+def test_table_empty(check):
+    check(
+        lambda out: out.table([]),
+        human="""
+        No results found.
+        """,
+        agent="""
+        No results found.
+        """,
+        json="""
+        []
+        """,
+        quiet="",
+    )
+
+
+def test_table_adaptive_shrinks_widest_column(monkeypatch, capsys):
+    """Narrow terminal: the wide column gets shrunk, naturally-narrow columns are preserved."""
+    monkeypatch.setattr(shutil, "get_terminal_size", lambda *_: os.terminal_size((40, 24)))
+
+    o = Output()
+    o.set_mode(HUMAN)
+    o.table([{"id": "some-org/some-very-long-model-name-here", "likes": 9}], headers=["id", "likes"])
+
+    captured = capsys.readouterr()
+    assert (
+        captured.out.strip()
+        == """
+ID                                 LIKES
+---------------------------------- -----
+some-org/some-very-long-model-n...     9
+""".strip()
+    )
+
+
+def test_table_no_truncate(monkeypatch, capsys):
+    """--no-truncate bypasses adaptive truncation even when the table overflows the terminal."""
+    monkeypatch.setattr(shutil, "get_terminal_size", lambda *_: os.terminal_size((40, 24)))
+
+    long_id = "some-org/some-very-long-model-name-here"
+    o = Output()
+    o.set_mode(HUMAN)
+    o.set_no_truncate(True)
+    o.table([{"id": long_id, "likes": 9}], headers=["id", "likes"])
+
+    captured = capsys.readouterr()
+    assert long_id in captured.out
+    assert "..." not in captured.out
+
+
+# =============================================================================
+# out.dict()
+# =============================================================================
+
+
+def test_dict(check):
+    data = {"id": "openai/gpt-oss-120b", "downloads": 4133088, "pipeline_tag": "text-generation"}
+    check(
+        lambda out: out.dict(data),
+        human="""
+        {
+          "id": "openai/gpt-oss-120b",
+          "downloads": 4133088,
+          "pipeline_tag": "text-generation"
+        }
+        """,
+        agent="""
+        {"id": "openai/gpt-oss-120b", "downloads": 4133088, "pipeline_tag": "text-generation"}
+        """,
+        json="""
+        {"id": "openai/gpt-oss-120b", "downloads": 4133088, "pipeline_tag": "text-generation"}
+        """,
+        quiet="""
+        {"id": "openai/gpt-oss-120b", "downloads": 4133088, "pipeline_tag": "text-generation"}
+        """,
+    )
+
+
+# =============================================================================
+# out.text()
+# =============================================================================
+
+
+def test_text(check):
+    check(
+        lambda out: out.text("hello"),
+        human="hello",
+        agent="hello",
+        json="",
+        quiet="",
+    )
+
+
+def test_text_human_only(check):
+    check(
+        lambda out: out.text(human="Hello, Human!"),
+        human="Hello, Human!",
+        agent="",
+        json="",
+        quiet="",
+    )
+
+
+def test_text_agent_only(check):
+    check(
+        lambda out: out.text(agent="Hello, Agent!"),
+        human="",
+        agent="Hello, Agent!",
+        json="",
+        quiet="",
+    )
+
+
+def test_text_agent_strips_ansi(check):
+    check(
+        lambda out: out.text("\033[1mbold\033[0m"),
+        human="""
+        \033[1mbold\033[0m
+        """,
+        agent="""
+        bold
+        """,
+        json="",
+        quiet="",
+    )
+
+
+# =============================================================================
+# warning / error / hint -> stderr in all modes
+# =============================================================================
+
+
+def test_warning(check):
+    check(
+        lambda out: out.warning("3 files were ignored by .gitignore patterns"),
+        stderr=True,
+        human="""
+        Warning: 3 files were ignored by .gitignore patterns
+        """,
+        agent="""
+        Warning: 3 files were ignored by .gitignore patterns
+        """,
+        json="""
+        Warning: 3 files were ignored by .gitignore patterns
+        """,
+        quiet="""
+        Warning: 3 files were ignored by .gitignore patterns
+        """,
+    )
+
+
+def test_error(check):
+    check(
+        lambda out: out.error("Not logged in"),
+        stderr=True,
+        human="""
+        Error: Not logged in
+        """,
+        agent="""
+        Error: Not logged in
+        """,
+        json="""
+        Error: Not logged in
+        """,
+        quiet="""
+        Error: Not logged in
+        """,
+    )
+
+
+def test_hint(check):
+    check(
+        lambda out: out.hint("Set HF_DEBUG=1 for full traceback."),
+        stderr=True,
+        human="""
+        Hint: Set HF_DEBUG=1 for full traceback.
+        """,
+        agent="""
+        Hint: Set HF_DEBUG=1 for full traceback.
+        """,
+        json="""
+        Hint: Set HF_DEBUG=1 for full traceback.
+        """,
+        quiet="",
+    )
+
+
+def test_log(check):
+    check(
+        lambda out: out.log("Set HF_DEBUG=1 for full traceback."),
+        stderr=True,
+        human="""
+        Set HF_DEBUG=1 for full traceback.
+        """,
+        agent="""
+        Set HF_DEBUG=1 for full traceback.
+        """,
+        json="""
+        Set HF_DEBUG=1 for full traceback.
+        """,
+        quiet="",
+    )
+
+
+# =============================================================================
+# out.confirm()
+# =============================================================================
+
+
+@pytest.mark.parametrize("mode", [HUMAN, AGENT, JSON, QUIET])
+def test_confirm_yes_skips(mode):
+    o = Output()
+    o.set_mode(mode)
+    o.confirm("Delete everything?", yes=True)  # should not raise
+
+
+@pytest.mark.parametrize("mode", [AGENT, JSON, QUIET])
+def test_confirm_non_human_raises(mode):
+    o = Output()
+    o.set_mode(mode)
+    with pytest.raises(ConfirmationError, match="Use --yes to skip confirmation"):
+        o.confirm("Delete everything?")
+
+
+# =============================================================================
+# out.status()
+# =============================================================================
+
+
+def test_status_only_enabled_for_humans(check, monkeypatch):
+    class FakeStatusLine:
+        def __init__(self, *, enabled=True):
+            self.enabled = enabled
+
+        def update(self, msg):
+            if self.enabled:
+                print(msg, file=sys.stderr)
+
+    monkeypatch.setattr("huggingface_hub.cli._output.StatusLine", FakeStatusLine)
+
+    check(
+        lambda out: out.status("Working"),
+        stderr=True,
+        human="Working",
+        agent="",
+        json="",
+        quiet="",
+    )
+
+
+# =============================================================================
+# helpers
+# =============================================================================
+
+
+@pytest.mark.parametrize(
+    ("input", "expected"),
+    [
+        ("camelCase", "CAMEL_CASE"),  # camelCase → SCREAMING_SNAKE
+        ("PascalCase", "PASCAL_CASE"),  # PascalCase → SCREAMING_SNAKE
+        ("ID", "ID"),  # already uppercase, unchanged
+    ],
+)
+def test_to_header(input, expected):
+    assert _to_header(input) == expected
+
+
+@pytest.fixture
+def stdout_encoding(monkeypatch):
+    """Swap `sys.stdout` for a stream with the given encoding, e.g. a legacy Windows code page."""
+
+    def _set(encoding: str) -> io.TextIOWrapper:
+        stream = io.TextIOWrapper(io.BytesIO(), encoding=encoding)
+        monkeypatch.setattr(sys, "stdout", stream)
+        return stream
+
+    _ascii_safe.cache_clear()  # cached per (char, fallback), not per stream
+    yield _set
+    _ascii_safe.cache_clear()
+
+
+@pytest.mark.parametrize(
+    ("encoding", "expected"),
+    [
+        ("utf-8", "✓"),
+        ("cp1252", "[OK]"),  # Windows ANSI code page, used when stdout is not a console
+        ("ascii", "[OK]"),
+    ],
+)
+def test_ascii_safe_falls_back_when_stdout_cannot_encode(stdout_encoding, encoding, expected):
+    stdout_encoding(encoding)
+    assert _ascii_safe("✓", "[OK]") == expected
+
+
+def test_result_uses_ascii_marker_on_legacy_windows_stdout(stdout_encoding):
+    stream = stdout_encoding("cp1252")
+
+    o = Output()
+    o.set_mode(HUMAN)
+    o.result("Logged in", user="Wauplin")
+
+    stream.flush()
+    assert "[OK] Logged in" in stream.buffer.getvalue().decode("cp1252")

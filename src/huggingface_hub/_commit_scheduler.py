@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from io import SEEK_END, SEEK_SET, BytesIO
 from pathlib import Path
 from threading import Lock, Thread
-from typing import Dict, List, Optional, Union
+from typing import Optional
 
 from .hf_api import DEFAULT_IGNORE_PATTERNS, CommitInfo, CommitOperationAdd, HfApi
 from .utils import filter_repo_objects
@@ -53,9 +53,9 @@ class CommitScheduler:
             Whether to make the repo private. If `None` (default), the repo will be public unless the organization's default is private. This value is ignored if the repo already exists.
         token (`str`, *optional*):
             The token to use to commit to the repo. Defaults to the token saved on the machine.
-        allow_patterns (`List[str]` or `str`, *optional*):
+        allow_patterns (`list[str]` or `str`, *optional*):
             If provided, only files matching at least one pattern are uploaded.
-        ignore_patterns (`List[str]` or `str`, *optional*):
+        ignore_patterns (`list[str]` or `str`, *optional*):
             If provided, files matching any of the patterns are not uploaded.
         squash_history (`bool`, *optional*):
             Whether to squash the history of the repo after each commit. Defaults to `False`. Squashing commits is
@@ -101,15 +101,15 @@ class CommitScheduler:
         self,
         *,
         repo_id: str,
-        folder_path: Union[str, Path],
-        every: Union[int, float] = 5,
-        path_in_repo: Optional[str] = None,
-        repo_type: Optional[str] = None,
-        revision: Optional[str] = None,
-        private: Optional[bool] = None,
-        token: Optional[str] = None,
-        allow_patterns: Optional[Union[List[str], str]] = None,
-        ignore_patterns: Optional[Union[List[str], str]] = None,
+        folder_path: str | Path,
+        every: int | float = 5,
+        path_in_repo: str | None = None,
+        repo_type: str | None = None,
+        revision: str | None = None,
+        private: bool | None = None,
+        token: str | None = None,
+        allow_patterns: list[str] | str | None = None,
+        ignore_patterns: list[str] | str | None = None,
         squash_history: bool = False,
         hf_api: Optional["HfApi"] = None,
     ) -> None:
@@ -138,7 +138,7 @@ class CommitScheduler:
         self.token = token
 
         # Keep track of already uploaded files
-        self.last_uploaded: Dict[Path, float] = {}  # key is local path, value is timestamp
+        self.last_uploaded: dict[Path, float] = {}  # key is local path, value is timestamp
 
         # Scheduler
         if not every > 0:
@@ -186,7 +186,7 @@ class CommitScheduler:
         """
         return self.api.run_as_future(self._push_to_hub)
 
-    def _push_to_hub(self) -> Optional[CommitInfo]:
+    def _push_to_hub(self) -> CommitInfo | None:
         if self.__stopped:  # If stopped, already scheduled commits are ignored
             return None
 
@@ -201,7 +201,7 @@ class CommitScheduler:
             logger.error(f"Error while pushing to Hub: {e}")  # Depending on the setup, error might be silenced
             raise
 
-    def push_to_hub(self) -> Optional[CommitInfo]:
+    def push_to_hub(self) -> CommitInfo | None:
         """
         Push folder to the Hub and return the commit info.
 
@@ -229,7 +229,7 @@ class CommitScheduler:
             prefix = f"{self.path_in_repo.strip('/')}/" if self.path_in_repo else ""
 
             # Filter with pattern + filter out unchanged files + retrieve current file size
-            files_to_upload: List[_FileToUpload] = []
+            files_to_upload: list[_FileToUpload] = []
             for relpath in filter_repo_objects(
                 relpath_to_abspath.keys(), allow_patterns=self.allow_patterns, ignore_patterns=self.ignore_patterns
             ):
@@ -296,7 +296,7 @@ class PartialFileIO(BytesIO):
             will be read (and uploaded).
     """
 
-    def __init__(self, file_path: Union[str, Path], size_limit: int) -> None:
+    def __init__(self, file_path: str | Path, size_limit: int) -> None:
         self._file_path = Path(file_path)
         self._file = self._file_path.open("rb")
         self._size_limit = min(size_limit, os.fstat(self._file.fileno()).st_size)
@@ -312,9 +312,12 @@ class PartialFileIO(BytesIO):
         return self._size_limit
 
     def __getattribute__(self, name: str):
-        if name.startswith("_") or name in ("read", "tell", "seek"):  # only 3 public methods supported
+        if name.startswith("_") or name in ("read", "tell", "seek", "fileno"):  # only 4 public methods supported
             return super().__getattribute__(name)
         raise NotImplementedError(f"PartialFileIO does not support '{name}'.")
+
+    def fileno(self):
+        raise AttributeError("PartialFileIO does not have a fileno.")
 
     def tell(self) -> int:
         """Return the current file position."""
@@ -335,7 +338,7 @@ class PartialFileIO(BytesIO):
             return self._file.seek(self._size_limit)
         return pos
 
-    def read(self, __size: Optional[int] = -1) -> bytes:
+    def read(self, __size: int | None = -1) -> bytes:
         """Read at most `__size` bytes from the file.
 
         Behavior is the same as a regular file, except that it is capped to the size limit.

@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 202-present, the HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,170 +11,215 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Contains command to download files from the Hub with the CLI.
-
-Usage:
-    hf download --help
-
-    # Download file
-    hf download gpt2 config.json
-
-    # Download entire repo
-    hf download fffiloni/zeroscope --repo-type=space --revision=refs/pr/78
-
-    # Download repo with filters
-    hf download gpt2 --include="*.safetensors"
-
-    # Download with token
-    hf download Wauplin/private-model --token=hf_***
-
-    # Download quietly (no progress bar, no warnings, only the returned path)
-    hf download gpt2 config.json --quiet
-
-    # Download to local dir
-    hf download gpt2 --local-dir=./models/gpt2
-"""
+"""Contains command to download files from the Hub with the CLI."""
 
 import warnings
-from argparse import Namespace, _SubParsersAction
-from typing import List, Optional
+from typing import Annotated
 
-from huggingface_hub import logging
+from huggingface_hub import constants
 from huggingface_hub._snapshot_download import snapshot_download
-from huggingface_hub.commands import BaseHuggingfaceCLICommand
-from huggingface_hub.file_download import hf_hub_download
-from huggingface_hub.utils import disable_progress_bars, enable_progress_bars
+from huggingface_hub.errors import CLIError
+from huggingface_hub.file_download import DryRunFileInfo, hf_hub_download
+from huggingface_hub.utils import _format_size, parse_hf_uri
+
+from ._cli_utils import RepoIdArg, RepoType, RepoTypeOptionalOpt, RevisionOpt, TokenOpt
+from ._framework import Argument, Option
+from ._output import out
 
 
-logger = logging.get_logger(__name__)
+DOWNLOAD_EXAMPLES = [
+    "hf download meta-llama/Llama-3.2-1B-Instruct",
+    "hf download meta-llama/Llama-3.2-1B-Instruct config.json tokenizer.json",
+    'hf download meta-llama/Llama-3.2-1B-Instruct --include "*.safetensors" --exclude "*.bin"',
+    "hf download meta-llama/Llama-3.2-1B-Instruct --local-dir ./models/llama",
+    "hf download HuggingFaceM4/FineVision art/ --repo-type dataset",
+    "hf download hf://datasets/HuggingFaceH4/ultrachat_200k",
+]
 
 
-class DownloadCommand(BaseHuggingfaceCLICommand):
-    @staticmethod
-    def register_subcommand(parser: _SubParsersAction):
-        download_parser = parser.add_parser("download", help="Download files from the Hub")
-        download_parser.add_argument(
-            "repo_id", type=str, help="ID of the repo to download from (e.g. `username/repo-name`)."
-        )
-        download_parser.add_argument(
-            "filenames", type=str, nargs="*", help="Files to download (e.g. `config.json`, `data/metadata.jsonl`)."
-        )
-        download_parser.add_argument(
-            "--repo-type",
-            choices=["model", "dataset", "space"],
-            default="model",
-            help="Type of repo to download from (defaults to 'model').",
-        )
-        download_parser.add_argument(
-            "--revision",
-            type=str,
-            help="An optional Git revision id which can be a branch name, a tag, or a commit hash.",
-        )
-        download_parser.add_argument(
-            "--include", nargs="*", type=str, help="Glob patterns to match files to download."
-        )
-        download_parser.add_argument(
-            "--exclude", nargs="*", type=str, help="Glob patterns to exclude from files to download."
-        )
-        download_parser.add_argument(
-            "--cache-dir", type=str, help="Path to the directory where to save the downloaded files."
-        )
-        download_parser.add_argument(
-            "--local-dir",
-            type=str,
-            help=(
-                "If set, the downloaded file will be placed under this directory. Check out"
-                " https://huggingface.co/docs/huggingface_hub/guides/download#download-files-to-local-folder for more"
-                " details."
-            ),
-        )
-        download_parser.add_argument(
-            "--force-download",
-            action="store_true",
+def download(
+    repo_id: RepoIdArg,
+    filenames: Annotated[
+        list[str] | None,
+        Argument(
+            help="Files to download (e.g. `config.json`, `data/metadata.jsonl`).",
+        ),
+    ] = None,
+    repo_type: RepoTypeOptionalOpt = None,
+    revision: RevisionOpt = None,
+    include: Annotated[
+        list[str] | None,
+        Option(
+            help="Glob patterns to include from files to download. eg: *.json",
+        ),
+    ] = None,
+    exclude: Annotated[
+        list[str] | None,
+        Option(
+            help="Glob patterns to exclude from files to download.",
+        ),
+    ] = None,
+    cache_dir: Annotated[
+        str | None,
+        Option(
+            help="Directory where to save files.",
+        ),
+    ] = None,
+    local_dir: Annotated[
+        str | None,
+        Option(
+            help="If set, the downloaded file will be placed under this directory. Check out https://huggingface.co/docs/huggingface_hub/guides/download#download-files-to-a-local-folder for more details.",
+        ),
+    ] = None,
+    force_download: Annotated[
+        bool,
+        Option(
             help="If True, the files will be downloaded even if they are already cached.",
-        )
-        download_parser.add_argument(
-            "--token", type=str, help="A User Access Token generated from https://huggingface.co/settings/tokens"
-        )
-        download_parser.add_argument(
-            "--quiet",
-            action="store_true",
-            help="If True, progress bars are disabled and only the path to the download files is printed.",
-        )
-        download_parser.add_argument(
-            "--max-workers",
-            type=int,
-            default=8,
+        ),
+    ] = False,
+    dry_run: Annotated[
+        bool,
+        Option(
+            help="If True, perform a dry run without actually downloading the file.",
+        ),
+    ] = False,
+    token: TokenOpt = None,
+    max_workers: Annotated[
+        int,
+        Option(
             help="Maximum number of workers to use for downloading files. Default is 8.",
+        ),
+    ] = 8,
+) -> None:
+    """Download files from the Hub."""
+    if local_dir is not None and cache_dir is not None:
+        raise CLIError(
+            "Cannot use both `--local-dir` and `--cache-dir` at the same time. "
+            "Use `--cache-dir` (or set the HF_HOME environment variable) for shared caching, "
+            "or `--local-dir` for a one-off download to a specific directory."
         )
-        download_parser.set_defaults(func=DownloadCommand)
 
-    def __init__(self, args: Namespace) -> None:
-        self.token = args.token
-        self.repo_id: str = args.repo_id
-        self.filenames: List[str] = args.filenames
-        self.repo_type: str = args.repo_type
-        self.revision: Optional[str] = args.revision
-        self.include: Optional[List[str]] = args.include
-        self.exclude: Optional[List[str]] = args.exclude
-        self.cache_dir: Optional[str] = args.cache_dir
-        self.local_dir: Optional[str] = args.local_dir
-        self.force_download: bool = args.force_download
-        self.quiet: bool = args.quiet
-        self.max_workers: int = args.max_workers
+    # `repo_id` may be a plain repo id or an `hf://` URI (e.g. `hf://datasets/my-org/my-dataset@v1.0/data/`).
+    # When a URI is provided, it is authoritative for the repo type, revision and (optionally) file path,
+    # so explicit `--repo-type` / `--revision` options are forbidden alongside it.
+    # We branch on the `hf://` prefix (the user's *intent*) rather than on whether the string parses as a
+    # valid URI: a malformed URI then surfaces a precise `HfUriError` (formatted globally in `cli/_errors.py`)
+    # instead of silently falling through to the plain-repo-id path and failing later with an opaque error.
+    if repo_id.startswith(constants.HF_PROTOCOL):
+        if repo_type is not None:
+            raise CLIError(f"'--repo-type' cannot be used with an 'hf://' URI ('{repo_id}').")
+        if revision is not None:
+            raise CLIError(f"'--revision' cannot be used with an 'hf://' URI ('{repo_id}').")
+        uri = parse_hf_uri(repo_id)
+        if uri.is_bucket:
+            raise CLIError("Buckets are not supported by `hf download`. Use `hf sync` instead.")
+        # The URI parser strips trailing slashes, but `hf download` uses a trailing '/' to denote a subfolder
+        # download (e.g. `data/` -> `data/**`). Re-append it when the URI explicitly ended with '/' so a folder
+        # URI keeps routing through the subfolder code path below.
+        path_in_repo = uri.path_in_repo
+        if path_in_repo and repo_id.endswith("/"):
+            path_in_repo += "/"
+        repo_id, repo_type_str, revision = uri.id, uri.type, uri.revision
+        if path_in_repo:
+            if filenames:
+                raise CLIError(
+                    f"Cannot combine a file path in the hf:// URI ('{path_in_repo}') with positional filenames {filenames}."
+                )
+            filenames = [path_in_repo]
+    else:
+        repo_type_str = (repo_type or RepoType.model).value
 
-    def run(self) -> None:
-        if self.quiet:
-            disable_progress_bars()
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                print(self._download())  # Print path to downloaded files
-            enable_progress_bars()
-        else:
-            logging.set_verbosity_info()
-            print(self._download())  # Print path to downloaded files
-            logging.set_verbosity_warning()
+    def run_download() -> str | DryRunFileInfo | list[DryRunFileInfo]:
+        filenames_list = filenames if filenames is not None else []
 
-    def _download(self) -> str:
-        # Warn user if patterns are ignored
-        if len(self.filenames) > 0:
-            if self.include is not None and len(self.include) > 0:
-                warnings.warn("Ignoring `--include` since filenames have being explicitly set.")
-            if self.exclude is not None and len(self.exclude) > 0:
-                warnings.warn("Ignoring `--exclude` since filenames have being explicitly set.")
+        # Separate subfolder patterns (ending with '/') from regular filenames
+        # Subfolders like "art/" are converted to include patterns like "art/**"
+        subfolders = [f for f in filenames_list if f.endswith("/")]
+        subfolder_patterns = [f"{f.rstrip('/')}/**" for f in subfolders]
+        regular_filenames = [f for f in filenames_list if not f.endswith("/")]
 
-        # Single file to download: use `hf_hub_download`
-        if len(self.filenames) == 1:
+        # Error if subfolder patterns are combined with --include/--exclude
+        # Guide user to use --include instead of subfolder argument
+        if len(subfolder_patterns) > 0:
+            if include is not None and len(include) > 0:
+                raise CLIError(
+                    f"Cannot combine subfolder argument ('{subfolders[0]}') with `--include`. "
+                    f'Please use `--include "{subfolders[0]}*"` instead.'
+                )
+            if exclude is not None and len(exclude) > 0:
+                raise CLIError(
+                    f"Cannot combine subfolder argument ('{subfolders[0]}') with `--exclude`. "
+                    f'Please use `--include "{subfolders[0]}*"` with `--exclude` instead.'
+                )
+
+        # Warn user if patterns are ignored (only if regular filenames are provided)
+        if len(regular_filenames) > 0:
+            if include is not None and len(include) > 0:
+                warnings.warn("Ignoring `--include` since filenames have been explicitly set.")
+            if exclude is not None and len(exclude) > 0:
+                warnings.warn("Ignoring `--exclude` since filenames have been explicitly set.")
+
+        # Single file to download (not a subfolder): use `hf_hub_download`
+        if len(regular_filenames) == 1 and len(subfolder_patterns) == 0:
             return hf_hub_download(
-                repo_id=self.repo_id,
-                repo_type=self.repo_type,
-                revision=self.revision,
-                filename=self.filenames[0],
-                cache_dir=self.cache_dir,
-                force_download=self.force_download,
-                token=self.token,
-                local_dir=self.local_dir,
-                library_name="hf",
+                repo_id=repo_id,
+                repo_type=repo_type_str,
+                revision=revision,
+                filename=regular_filenames[0],
+                cache_dir=cache_dir,
+                force_download=force_download,
+                token=token,
+                local_dir=local_dir,
+                library_name="huggingface-cli",
+                dry_run=dry_run,
             )
 
         # Otherwise: use `snapshot_download` to ensure all files comes from same revision
-        elif len(self.filenames) == 0:
-            allow_patterns = self.include
-            ignore_patterns = self.exclude
+        if len(regular_filenames) == 0 and len(subfolder_patterns) == 0:
+            # No filenames provided: use include/exclude patterns
+            allow_patterns = include
+            ignore_patterns = exclude
         else:
-            allow_patterns = self.filenames
+            # Combine regular filenames and subfolder patterns as allow_patterns
+            allow_patterns = regular_filenames + subfolder_patterns
             ignore_patterns = None
 
         return snapshot_download(
-            repo_id=self.repo_id,
-            repo_type=self.repo_type,
-            revision=self.revision,
+            repo_id=repo_id,
+            repo_type=repo_type_str,
+            revision=revision,
             allow_patterns=allow_patterns,
             ignore_patterns=ignore_patterns,
-            force_download=self.force_download,
-            cache_dir=self.cache_dir,
-            token=self.token,
-            local_dir=self.local_dir,
-            library_name="hf",
-            max_workers=self.max_workers,
+            force_download=force_download,
+            cache_dir=cache_dir,
+            token=token,
+            local_dir=local_dir,
+            library_name="huggingface-cli",
+            max_workers=max_workers,
+            dry_run=dry_run,
         )
+
+    def _print_result(result: str | DryRunFileInfo | list[DryRunFileInfo]) -> None:
+        if isinstance(result, str):
+            out.result("Downloaded", path=result)
+            return
+
+        # Print dry run info
+        if isinstance(result, DryRunFileInfo):
+            result = [result]
+        will_download = [r for r in result if r.will_download]
+        out.text(
+            f"[dry-run] Will download {len(will_download)} files"
+            f" (out of {len(result)})"
+            f" totalling {_format_size(sum(r.file_size for r in will_download))}."
+        )
+        items = [
+            {
+                "file": info.filename,
+                "size": _format_size(info.file_size) if info.will_download else "-",
+            }
+            for info in sorted(result, key=lambda x: x.filename)
+        ]
+        out.table(items)
+
+    _print_result(run_download())

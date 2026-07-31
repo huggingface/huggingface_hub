@@ -1,4 +1,4 @@
-from typing import Dict, Literal, Optional, Union
+from typing import Literal, Union
 
 from huggingface_hub.inference._providers.featherless_ai import (
     FeatherlessConversationalTask,
@@ -6,13 +6,18 @@ from huggingface_hub.inference._providers.featherless_ai import (
 )
 from huggingface_hub.utils import logging
 
-from ._common import TaskProviderHelper, _fetch_inference_provider_mapping
+from ._common import AutoRouterConversationalTask, TaskProviderHelper, _fetch_inference_provider_mapping
 from .baseten import BasetenConversationalTask
-from .black_forest_labs import BlackForestLabsTextToImageTask
 from .cerebras import CerebrasConversationalTask
 from .cohere import CohereConversationalTask
+from .deepinfra import (
+    DeepInfraAutomaticSpeechRecognitionTask,
+    DeepInfraConversationalTask,
+    DeepInfraTextGenerationTask,
+)
 from .fal_ai import (
     FalAIAutomaticSpeechRecognitionTask,
+    FalAIImageSegmentationTask,
     FalAIImageToImageTask,
     FalAIImageToVideoTask,
     FalAITextToImageTask,
@@ -27,22 +32,36 @@ from .hf_inference import (
     HFInferenceFeatureExtractionTask,
     HFInferenceTask,
 )
-from .hyperbolic import HyperbolicTextGenerationTask, HyperbolicTextToImageTask
-from .nebius import (
-    NebiusConversationalTask,
-    NebiusFeatureExtractionTask,
-    NebiusTextGenerationTask,
-    NebiusTextToImageTask,
-)
 from .novita import NovitaConversationalTask, NovitaTextGenerationTask, NovitaTextToVideoTask
 from .nscale import NscaleConversationalTask, NscaleTextToImageTask
 from .openai import OpenAIConversationalTask
+from .ovhcloud import OVHcloudConversationalTask
 from .publicai import PublicAIConversationalTask
-from .replicate import ReplicateImageToImageTask, ReplicateTask, ReplicateTextToImageTask, ReplicateTextToSpeechTask
-from .sambanova import SambanovaConversationalTask, SambanovaFeatureExtractionTask
+from .replicate import (
+    ReplicateAutomaticSpeechRecognitionTask,
+    ReplicateImageToImageTask,
+    ReplicateTask,
+    ReplicateTextToImageTask,
+    ReplicateTextToSpeechTask,
+)
 from .scaleway import ScalewayConversationalTask, ScalewayFeatureExtractionTask
-from .together import TogetherConversationalTask, TogetherTextGenerationTask, TogetherTextToImageTask
-from .zai_org import ZaiConversationalTask
+from .together import (
+    TogetherConversationalTask,
+    TogetherFeatureExtractionTask,
+    TogetherImageToImageTask,
+    TogetherImageToVideoTask,
+    TogetherTextGenerationTask,
+    TogetherTextToImageTask,
+    TogetherTextToSpeechTask,
+    TogetherTextToVideoTask,
+)
+from .wavespeed import (
+    WavespeedAIImageToImageTask,
+    WavespeedAIImageToVideoTask,
+    WavespeedAITextToImageTask,
+    WavespeedAITextToVideoTask,
+)
+from .zai_org import ZaiConversationalTask, ZaiTextToImageTask
 
 
 logger = logging.get_logger(__name__)
@@ -50,41 +69,44 @@ logger = logging.get_logger(__name__)
 
 PROVIDER_T = Literal[
     "baseten",
-    "black-forest-labs",
     "cerebras",
     "cohere",
+    "deepinfra",
     "fal-ai",
     "featherless-ai",
     "fireworks-ai",
     "groq",
     "hf-inference",
-    "hyperbolic",
-    "nebius",
     "novita",
     "nscale",
     "openai",
+    "ovhcloud",
     "publicai",
     "replicate",
-    "sambanova",
     "scaleway",
     "together",
+    "wavespeed",
     "zai-org",
 ]
 
 PROVIDER_OR_POLICY_T = Union[PROVIDER_T, Literal["auto"]]
 
-PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
+CONVERSATIONAL_AUTO_ROUTER = AutoRouterConversationalTask()
+
+PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
     "baseten": {
         "conversational": BasetenConversationalTask(),
-    },
-    "black-forest-labs": {
-        "text-to-image": BlackForestLabsTextToImageTask(),
     },
     "cerebras": {
         "conversational": CerebrasConversationalTask(),
     },
     "cohere": {
         "conversational": CohereConversationalTask(),
+    },
+    "deepinfra": {
+        "automatic-speech-recognition": DeepInfraAutomaticSpeechRecognitionTask(),
+        "conversational": DeepInfraConversationalTask(),
+        "text-generation": DeepInfraTextGenerationTask(),
     },
     "fal-ai": {
         "automatic-speech-recognition": FalAIAutomaticSpeechRecognitionTask(),
@@ -93,6 +115,7 @@ PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
         "text-to-video": FalAITextToVideoTask(),
         "image-to-video": FalAIImageToVideoTask(),
         "image-to-image": FalAIImageToImageTask(),
+        "image-segmentation": FalAIImageSegmentationTask(),
     },
     "featherless-ai": {
         "conversational": FeatherlessConversationalTask(),
@@ -132,17 +155,6 @@ PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
         "summarization": HFInferenceTask("summarization"),
         "visual-question-answering": HFInferenceBinaryInputTask("visual-question-answering"),
     },
-    "hyperbolic": {
-        "text-to-image": HyperbolicTextToImageTask(),
-        "conversational": HyperbolicTextGenerationTask("conversational"),
-        "text-generation": HyperbolicTextGenerationTask("text-generation"),
-    },
-    "nebius": {
-        "text-to-image": NebiusTextToImageTask(),
-        "conversational": NebiusConversationalTask(),
-        "text-generation": NebiusTextGenerationTask(),
-        "feature-extraction": NebiusFeatureExtractionTask(),
-    },
     "novita": {
         "text-generation": NovitaTextGenerationTask(),
         "conversational": NovitaConversationalTask(),
@@ -155,37 +167,47 @@ PROVIDERS: Dict[PROVIDER_T, Dict[str, TaskProviderHelper]] = {
     "openai": {
         "conversational": OpenAIConversationalTask(),
     },
+    "ovhcloud": {
+        "conversational": OVHcloudConversationalTask(),
+    },
     "publicai": {
         "conversational": PublicAIConversationalTask(),
     },
     "replicate": {
+        "automatic-speech-recognition": ReplicateAutomaticSpeechRecognitionTask(),
         "image-to-image": ReplicateImageToImageTask(),
         "text-to-image": ReplicateTextToImageTask(),
         "text-to-speech": ReplicateTextToSpeechTask(),
         "text-to-video": ReplicateTask("text-to-video"),
-    },
-    "sambanova": {
-        "conversational": SambanovaConversationalTask(),
-        "feature-extraction": SambanovaFeatureExtractionTask(),
     },
     "scaleway": {
         "conversational": ScalewayConversationalTask(),
         "feature-extraction": ScalewayFeatureExtractionTask(),
     },
     "together": {
-        "text-to-image": TogetherTextToImageTask(),
         "conversational": TogetherConversationalTask(),
+        "feature-extraction": TogetherFeatureExtractionTask(),
+        "image-to-image": TogetherImageToImageTask(),
+        "image-to-video": TogetherImageToVideoTask(),
         "text-generation": TogetherTextGenerationTask(),
+        "text-to-image": TogetherTextToImageTask(),
+        "text-to-speech": TogetherTextToSpeechTask(),
+        "text-to-video": TogetherTextToVideoTask(),
+    },
+    "wavespeed": {
+        "text-to-image": WavespeedAITextToImageTask(),
+        "text-to-video": WavespeedAITextToVideoTask(),
+        "image-to-image": WavespeedAIImageToImageTask(),
+        "image-to-video": WavespeedAIImageToVideoTask(),
     },
     "zai-org": {
         "conversational": ZaiConversationalTask(),
+        "text-to-image": ZaiTextToImageTask(),
     },
 }
 
 
-def get_provider_helper(
-    provider: Optional[PROVIDER_OR_POLICY_T], task: str, model: Optional[str]
-) -> TaskProviderHelper:
+def get_provider_helper(provider: PROVIDER_OR_POLICY_T | None, task: str, model: str | None) -> TaskProviderHelper:
     """Get provider helper instance by name and task.
 
     Args:
@@ -206,13 +228,19 @@ def get_provider_helper(
 
     if provider is None:
         logger.info(
-            "Defaulting to 'auto' which will select the first provider available for the model, sorted by the user's order in https://hf.co/settings/inference-providers."
+            "No provider specified for task `conversational`. Defaulting to server-side auto routing."
+            if task == "conversational"
+            else "Defaulting to 'auto' which will select the first provider available for the model, sorted by the user's order in https://hf.co/settings/inference-providers."
         )
         provider = "auto"
 
     if provider == "auto":
         if model is None:
             raise ValueError("Specifying a model is required when provider is 'auto'")
+        if task == "conversational":
+            # Special case: we have a dedicated auto-router for conversational models. No need to fetch provider mapping.
+            return CONVERSATIONAL_AUTO_ROUTER
+
         provider_mapping = _fetch_inference_provider_mapping(model)
         provider = next(iter(provider_mapping)).provider
 

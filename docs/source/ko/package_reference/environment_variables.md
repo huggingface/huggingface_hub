@@ -57,10 +57,6 @@ Hub에 인증하기 위한 사용자 액세스 토큰을 구성합니다. 이 �
 
 더 자세한 정보를 알아보고 싶다면, [logging reference](../package_reference/utilities#huggingface_hub.utils.logging.get_verbosity)를 살펴보세요.
 
-### HF_HUB_LOCAL_DIR_AUTO_SYMLINK_THRESHOLD[[hfhublocaldirautosymlinkthreshold]]
-
-이 환경 변수는 더 이상 사용되지 않으며 이제 `huggingface_hub`에서 무시됩니다. 로컬 디렉터리로 파일을 다운로드할 때 더 이상 심볼릭 링크에 의존하지 않습니다.
-
 ### HF_HUB_ETAG_TIMEOUT[[hfhubetagtimeout]]
 
 파일을 다운로드하기 전에 리포지토리에서 최신 메타데이터를 가져올 때 서버 응답을 기다리는 시간(초)을 정의하는 정수 값입니다. 요청 시간이 초과되면 `huggingface_hub`는 기본적으로 로컬에 캐시된 파일을 사용합니다. 값을 낮게 설정하면 이미 파일을 캐시한 연결 속도가 느린 컴퓨터의 워크플로 속도가 빨라집니다. 값이 클수록 더 많은 경우에서 메타데이터 호출이 성공할 수 있습니다. 기본값은 10초입니다.
@@ -112,28 +108,20 @@ Windows 머신을 사용하는 경우 개발자 모드를 활성화하거나 관
 
 ### HF_HUB_ENABLE_HF_TRANSFER[[hfhubenablehftransfer]]
 
-Hub에서 `hf_transfer`를 사용하여 더 빠르게 업로드 및 다운로드하려면 `True`로 설정하세요.
-기본적으로 `huggingface_hub`는 파이썬 기반 `requests.get` 및 `requests.post` 함수를 사용합니다.
-이 함수들은 안정적이고 다용도로 사용할 수 있지만 대역폭이 높은 머신에서는 가장 효율적인 선택이 아닐 수 있습니다. [`hf_transfer`](https://github.com/huggingface/hf_transfer)는 대용량 파일을 작은 부분으로 분할하여 사용 대역폭을 최대화하고
-여러 스레드를 사용하여 동시에 전송함으로써 대역폭을 최대화하기 위해 개발된 Rust 기반 패키지입니다. 이 접근 방식은 전송 속도를 거의 두 배로 높일 수 있습니다.
-`hf_transfer`를 사용하려면:
-
-1. `huggingface_hub`를 설치할 때 `hf_transfer`를 추가로 지정합니다.
-   (예시: `pip install huggingface_hub[hf_transfer]`).
-2. 환경 변수로 `HF_HUB_ENABLE_HF_TRANSFER=1`을 설정합니다.
-
-`hf_transfer`를 사용하면 특정 제한 사항이 있다는 점에 유의하세요. 순수 파이썬 기반이 아니므로 오류 디버깅이 어려울 수 있습니다. 또한 `hf_transfer`에는 다운로드 재개 및 프록시와 같은 몇 가지 사용자 친화적인 기능이 없습니다. 이런 부족한 부분은 Rust 로직의 단순성과 속도를 유지하기 위해 의도한 것입니다. 이런 이유들로, `hf_transfer`는 `huggingface_hub`에서 기본적으로 활성화되지 않습니다.
+> [!WARNING]
+> 이 환경 변수는 더 이상 사용되지 않습니다 (deprecated).
+> Hugging Face Hub는 이제 Xet 스토리지 백엔드를 사용하며, 모든 파일 전송은 `hf-xet` 바이너리 패키지를 통해 이루어집니다. 청크 기반 중복 제거 전략으로 효율적인 전송을 제공하며 `huggingface_hub`와 원활하게 통합됩니다.
+> `hf_transfer`는 더 이상 사용할 수 없습니다. 고성능 전송이 필요한 경우 [`HF_XET_HIGH_PERFORMANCE`](#hfxethighperformance) 섹션을 참조하세요.
 
 ## 사용되지 않는 환경 변수[[deprecated-environment-variables]]
 
 Hugging Face 생태계의 모든 환경 변수를 표준화하기 위해 일부 변수는 사용되지 않는 것으로 표시되었습니다. 해당 변수는 여전히 작동하지만 더 이상 대체한 변수보다 우선하지 않습니다. 다음 표에는 사용되지 않는 변수와 해당 대체 변수가 간략하게 설명되어 있습니다:
 
-| 사용되지 않는 변수 | 대체 변수 |
-| --- | --- |
-| `HUGGINGFACE_HUB_CACHE` | `HF_HUB_CACHE` |
-| `HUGGINGFACE_ASSETS_CACHE` | `HF_ASSETS_CACHE` |
-| `HUGGING_FACE_HUB_TOKEN` | `HF_TOKEN` |
-| `HUGGINGFACE_HUB_VERBOSITY` | `HF_HUB_VERBOSITY` |
+| 사용되지 않는 변수          | 대체 변수          |
+| --------------------------- | ------------------ |
+| `HUGGINGFACE_HUB_CACHE`     | `HF_HUB_CACHE`     |
+| `HUGGINGFACE_ASSETS_CACHE`  | `HF_ASSETS_CACHE`  |
+| `HUGGING_FACE_HUB_TOKEN`    | `HF_TOKEN`         |
 
 ## 외부 도구[[from-external-tools]]
 
@@ -141,7 +129,7 @@ Hugging Face 생태계의 모든 환경 변수를 표준화하기 위해 일부 
 
 ### DO_NOT_TRACK[[donottrack]]
 
-불리언 값입니다. `hf_hub_disable_telemetry`에 해당합니다. True로 설정하면 Hugging Face Python 생태계(`transformers`, `diffusers`, `gradio` 등)에서 원격 측정이 전역적으로 비활성화됩니다. 자세한 내용은 https://consoledonottrack.com/ 을 참조하세요.
+불리언 값입니다. `hf_hub_disable_telemetry`에 해당합니다. True로 설정하면 Hugging Face Python 생태계(`transformers`, `diffusers`, `gradio` 등)에서 원격 측정이 전역적으로 비활성화됩니다. 자세한 내용은 https://donottrack.sh/ 을 참조하세요.
 
 ### NO_COLOR[[nocolor]]
 

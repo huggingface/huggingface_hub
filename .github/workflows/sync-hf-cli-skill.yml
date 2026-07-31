@@ -1,0 +1,104 @@
+name: Sync HF CLI Skill
+
+on:
+  push:
+    tags:
+      - 'v*'
+      - '!v*rc*'
+  workflow_dispatch:
+
+jobs:
+  sync-skill:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout huggingface_hub
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -e .
+
+      - name: Generate skill docs
+        env:
+          HF_HOME: /tmp/hf-home
+        run: |
+          mkdir -p /tmp/hf-cli-skill
+          mkdir -p "$HF_HOME" && touch "$HF_HOME/.check_for_update_done"
+          hf skills preview > /tmp/hf-cli-skill/SKILL.md
+
+      - name: Determine PR title
+        id: pr_title
+        run: |
+          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref_type }}" == "tag" ]]; then
+            echo "title=Sync HF CLI Skill (${{ github.ref_name }})" >> $GITHUB_OUTPUT
+          else
+            echo "title=Sync HF CLI Skill (manual trigger)" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create GitHub App token
+        id: app_token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.APP_ID_HUB_SKILLS_REPO }}
+          private-key: ${{ secrets.APP_SECRET_PREM_HUB_SKILLS_REPO }}
+          repositories: skills
+
+      - name: Checkout skills repo
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          repository: huggingface/skills
+          token: ${{ steps.app_token.outputs.token }}
+          path: skills-repo
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+
+      - name: Copy generated files
+        run: cp /tmp/hf-cli-skill/SKILL.md skills-repo/skills/hf-cli/
+
+      - name: Check for HF CLI skill changes
+        id: check_changes
+        working-directory: skills-repo
+        # git diff returns zero if there is no diff
+        run: |
+          if git diff --quiet -- skills/hf-cli/SKILL.md; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No hf-cli skill changes; skipping PR"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Bump plugin version and regenerate skills repo artifacts
+        if: steps.check_changes.outputs.changed == 'true'
+        working-directory: skills-repo
+        run: |
+          uv run scripts/plugin_versions.py bump patch
+          ./scripts/publish.sh
+
+      - name: Create Pull Request
+        if: steps.check_changes.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        with:
+          token: ${{ steps.app_token.outputs.token }}
+          path: skills-repo
+          branch: sync/hf-cli-${{ github.run_id }}
+          delete-branch: true
+          title: ${{ steps.pr_title.outputs.title }}
+          reviewers: hanouticelina
+          body: |
+            Auto-generated from [huggingface_hub@${{ github.sha }}](https://github.com/huggingface/huggingface_hub/commit/${{ github.sha }})
+
+            Triggered by changes to `src/huggingface_hub/cli/`
+
+            ---
+            This PR was created automatically by the [sync-hf-cli-skill](https://github.com/huggingface/huggingface_hub/blob/main/.github/workflows/sync-hf-cli-skill.yml) workflow.
+          commit-message: "Sync HF CLI skill from huggingface_hub@${{ github.sha }}"
+          labels: |
+            automated
+            cli-sync

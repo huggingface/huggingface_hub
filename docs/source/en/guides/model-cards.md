@@ -247,7 +247,7 @@ By default, you cannot update a key that is already existing on the card. If you
 >>> metadata_update("username/my-cool-model", {"pipeline_tag": "text-generation"}, overwrite=True)
 ```
 
-It often happen that you want to suggest some changes to a repository
+It often happens that you want to suggest some changes to a repository
 on which you don't have write permission. You can do that by creating a PR on that repo which will allow the owners to
 review and merge your suggestions.
 

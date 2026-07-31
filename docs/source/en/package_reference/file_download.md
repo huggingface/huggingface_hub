@@ -18,6 +18,18 @@ rendered properly in your Markdown viewer.
 
 [[autodoc]] huggingface_hub.snapshot_download
 
+## Read the cached repo tree
+
+[[autodoc]] huggingface_hub.get_cached_repo_tree
+
+## Resolve a revision
+
+Resolve a branch/tag name to a commit hash once, then pass the result around to pin every download to the same commit. See [`HfApi.resolve_revision`] and the [cache-system guide](../guides/manage-cache#pin-a-revision-advanced).
+
+### ResolvedRevision
+
+[[autodoc]] huggingface_hub.ResolvedRevision
+
 ## Get metadata about a file
 
 ### get_hf_file_metadata
@@ -34,5 +46,4 @@ The methods displayed above are designed to work with a caching system that prev
 re-downloading files. The caching system was updated in v0.8.0 to become the central
 cache-system shared across libraries that depend on the Hub.
 
-Read the [cache-system guide](../guides/manage-cache) for a detailed presentation of caching at
-at HF.
+Read the [cache-system guide](../guides/manage-cache) for a detailed presentation of caching at HF.

@@ -9,7 +9,7 @@ all repos belonging to particular users/organizations you're interested in follo
 more about webhooks on the Huggingface Hub, you can read the Webhooks [guide](https://huggingface.co/docs/hub/webhooks).
 
 > [!TIP]
-> Check out this [guide](../guides/webhooks_server) for a step-by-step tutorial on how to setup your webhooks server and
+> Check out this [guide](../guides/webhooks_server) for a step-by-step tutorial on how to set up your webhooks server and
 > deploy it as a Space.
 
 > [!WARNING]

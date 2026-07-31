@@ -1,4 +1,4 @@
-from setuptools import find_packages, setup
+from setuptools import find_namespace_packages, setup
 
 
 def get_version() -> str:
@@ -11,26 +11,22 @@ def get_version() -> str:
     raise RuntimeError("Unable to find version string.")
 
 
+# hf-xet version used in both install_requires and extras["hf_xet"]
+HF_XET_VERSION = "hf-xet>=1.5.1,<2.0.0"
+
 install_requires = [
-    "filelock",
+    "click>=8.4.2,<9.0.0",  # 8.4.0/8.4.1 shipped a broken fish completion script
+    "filelock>=3.10.0",
     "fsspec>=2023.5.0",
-    "hf-xet>=1.1.3,<2.0.0; platform_machine=='x86_64' or platform_machine=='amd64' or platform_machine=='arm64' or platform_machine=='aarch64'",
+    f"{HF_XET_VERSION}; platform_machine=='x86_64' or platform_machine=='amd64' or platform_machine=='AMD64' or platform_machine=='arm64' or platform_machine=='aarch64'",
+    "httpx>=0.23.0, <1",
     "packaging>=20.9",
     "pyyaml>=5.1",
-    "requests",
     "tqdm>=4.42.1",
-    "typing-extensions>=3.7.4.3",  # to be able to import TypeAlias
+    "typing-extensions>=4.1.0",  # to be able to import TypeAlias, dataclass_transform
 ]
 
 extras = {}
-
-extras["cli"] = [
-    "InquirerPy==0.3.4",  # Note: installs `prompt-toolkit` in the background
-]
-
-extras["inference"] = [
-    "aiohttp",  # for AsyncInferenceClient
-]
 
 extras["oauth"] = [
     "authlib>=1.3.2",  # minimum version to include https://github.com/lepture/authlib/pull/644
@@ -43,63 +39,50 @@ extras["torch"] = [
     "torch",
     "safetensors[torch]",
 ]
-extras["hf_transfer"] = [
-    "hf_transfer>=0.1.4",  # Pin for progress bars
-]
 extras["fastai"] = [
     "toml",
     "fastai>=2.4",
     "fastcore>=1.3.27",
 ]
 
-extras["tensorflow"] = [
-    "tensorflow",
-    "pydot",
-    "graphviz",
-]
+extras["hf_xet"] = [HF_XET_VERSION]
 
-extras["tensorflow-testing"] = [
-    "tensorflow",
-    "keras<3.0",
-]
-
-extras["hf_xet"] = ["hf-xet>=1.1.2,<2.0.0"]
-
-extras["mcp"] = [
-    "mcp>=1.8.0",
-    "typer",
-] + extras["inference"]
+extras["mcp"] = ["mcp>=1.8.0"]
 
 extras["testing"] = (
-    extras["cli"]
-    + extras["inference"]
-    + extras["oauth"]
+    extras["oauth"]
     + [
         "jedi",
         "Jinja2",
-        "pytest>=8.1.1,<8.2.2",  # at least until 8.2.3 is released with https://github.com/pytest-dev/pytest/pull/12436
+        "pytest>=8.4.2",  # we need https://github.com/pytest-dev/pytest/pull/12436
         "pytest-cov",
         "pytest-env",
         "pytest-xdist",
         "pytest-vcr",  # to mock Inference
         "pytest-asyncio",  # for AsyncInferenceClient
-        "pytest-rerunfailures<16.0",  # to rerun flaky tests in CI
+        # 16.2 clears fixture finalizers when rerunning a test whose fixture failed at setup.
+        # Without it, any flaky fixture (e.g. a 502 from hub-ci) makes the rerun itself crash on pytest>=9.
+        "pytest-rerunfailures>=16.2",  # to rerun flaky tests in CI
         "pytest-mock",
         "urllib3<2.0",  # VCR.py broken with urllib3 2.0 (see https://urllib3.readthedocs.io/en/stable/v2-migration-guide.html)
         "soundfile",
         "Pillow",
-        "gradio>=4.0.0",  # to test webhooks # pin to avoid issue on Python3.12
         "numpy",  # for embeddings
+        "duckdb",  # for datasets SQL end-to-end tests
         "fastapi",  # To build the documentation
     ]
 )
+
+extras["gradio"] = [
+    "gradio>=5.0.0",
+    "requests",  # see https://github.com/gradio-app/gradio/pull/11830
+]
 
 # Typing extra dependencies list is duplicated in `.pre-commit-config.yaml`
 # Please make sure to update the list there when adding a new typing dependency.
 extras["typing"] = [
     "typing-extensions>=4.8.0",
     "types-PyYAML",
-    "types-requests",
     "types-simplejson",
     "types-toml",
     "types-tqdm",
@@ -108,8 +91,7 @@ extras["typing"] = [
 
 extras["quality"] = [
     "ruff>=0.9.0",
-    "mypy>=1.14.1,<1.15.0; python_version=='3.8'",
-    "mypy==1.15.0; python_version>='3.9'",
+    "mypy==1.15.0",
     "libcst>=1.4.0",
     "ty",
 ]
@@ -127,20 +109,20 @@ setup(
     long_description=open("README.md", "r", encoding="utf-8").read(),
     long_description_content_type="text/markdown",
     keywords="model-hub machine-learning models natural-language-processing deep-learning pytorch pretrained-models",
-    license="Apache",
+    license="Apache-2.0",
     url="https://github.com/huggingface/huggingface_hub",
     package_dir={"": "src"},
-    packages=find_packages("src"),
+    packages=find_namespace_packages("src"),
     extras_require=extras,
     entry_points={
         "console_scripts": [
-            "huggingface-cli=huggingface_hub.commands.huggingface_cli:main",
             "hf=huggingface_hub.cli.hf:main",
+            "huggingface-cli=huggingface_hub.cli.deprecated_cli:main",
             "tiny-agents=huggingface_hub.inference._mcp.cli:app",
         ],
         "fsspec.specs": "hf=huggingface_hub.HfFileSystem",
     },
-    python_requires=">=3.8.0",
+    python_requires=">=3.10.0",
     install_requires=install_requires,
     classifiers=[
         "Intended Audience :: Developers",
@@ -150,12 +132,11 @@ setup(
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
     ],
     include_package_data=True,

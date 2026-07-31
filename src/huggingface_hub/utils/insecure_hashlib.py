@@ -25,14 +25,8 @@
 #     ```
 import functools
 import hashlib
-import sys
 
 
-if sys.version_info >= (3, 9):
-    md5 = functools.partial(hashlib.md5, usedforsecurity=False)
-    sha1 = functools.partial(hashlib.sha1, usedforsecurity=False)
-    sha256 = functools.partial(hashlib.sha256, usedforsecurity=False)
-else:
-    md5 = hashlib.md5
-    sha1 = hashlib.sha1
-    sha256 = hashlib.sha256
+md5 = functools.partial(hashlib.md5, usedforsecurity=False)
+sha1 = functools.partial(hashlib.sha1, usedforsecurity=False)
+sha256 = functools.partial(hashlib.sha256, usedforsecurity=False)

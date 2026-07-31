@@ -18,7 +18,7 @@
 import argparse
 import re
 from pathlib import Path
-from typing import Dict, List, NoReturn
+from typing import NoReturn
 
 from huggingface_hub import _SUBMOD_ATTRS
 
@@ -26,7 +26,7 @@ from huggingface_hub import _SUBMOD_ATTRS
 INIT_FILE_PATH = Path(__file__).parents[1] / "src" / "huggingface_hub" / "__init__.py"
 
 
-def format_all_definition(submod_attrs: Dict[str, List[str]]) -> str:
+def format_all_definition(submod_attrs: dict[str, list[str]]) -> str:
     """
     Generate a formatted static __all__ definition with grouped comments.
     """
@@ -39,7 +39,7 @@ def format_all_definition(submod_attrs: Dict[str, List[str]]) -> str:
     return "\n".join(lines)
 
 
-def parse_all_definition(content: str) -> List[str]:
+def parse_all_definition(content: str) -> list[str]:
     """
     Extract the current __all__ contents from file content.
 

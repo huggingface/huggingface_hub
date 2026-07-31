@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2022-present, the HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,7 +14,8 @@
 """Contains a utility to iterate by chunks over an iterator."""
 
 import itertools
-from typing import Iterable, TypeVar
+from collections.abc import Iterable
+from typing import TypeVar
 
 
 T = TypeVar("T")

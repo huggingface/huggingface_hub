@@ -1,4 +1,4 @@
-- title: "शुरू हो जाओ"
+- title: "शुरुआत करें"
   sections:
     - local: index
       title: होम
@@ -6,7 +6,16 @@
       title: जल्दी शुरू
     - local: installation
       title: इंस्टालेशन
-- title: "संकल्पना मार्गदर्शिकाएँ"
+
+- title: "उपयोग मार्गदर्शिकाएँ"
   sections:
-    - local: concepts/git_vs_http
-      title: "संकल्पनाएँ/गिट_बनाम_एचटीटीपी"
+    - local: guides/overview
+      title: उपयोग मार्गदर्शिकाएँ
+    - local: guides/download
+      title: फ़ाइलें डाउनलोड करें
+    - local: guides/upload
+      title: फ़ाइलें अपलोड करें
+    - local: guides/repository
+      title: रिपॉजिटरी
+    - local: guides/search
+      title: खोज

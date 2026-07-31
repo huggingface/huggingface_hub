@@ -2,7 +2,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Dict, Optional, Union
+from typing import TYPE_CHECKING, Optional
 
 from huggingface_hub.errors import InferenceEndpointError, InferenceEndpointTimeoutError
 
@@ -30,8 +30,14 @@ class InferenceEndpointStatus(str, Enum):
 
 class InferenceEndpointType(str, Enum):
     PUBlIC = "public"
-    PROTECTED = "protected"
+    PROTECTED = "protected"  # deprecated, use AUTHENTICATED instead
+    AUTHENTICATED = "authenticated"
     PRIVATE = "private"
+
+
+class InferenceEndpointScalingMetric(str, Enum):
+    PENDING_REQUESTS = "pendingRequests"
+    HARDWARE_USAGE = "hardwareUsage"
 
 
 @dataclass
@@ -61,8 +67,8 @@ class InferenceEndpoint:
         updated_at (`datetime.datetime`):
             The timestamp of the last update of the Inference Endpoint.
         type ([`InferenceEndpointType`]):
-            The type of the Inference Endpoint (public, protected, private).
-        raw (`Dict`):
+            The type of the Inference Endpoint (public, authenticated, private).
+        raw (`dict`):
             The raw dictionary data returned from the API.
         token (`str` or `bool`, *optional*):
             Authentication token for the Inference Endpoint, if set when requesting the API. Will default to the
@@ -101,7 +107,7 @@ class InferenceEndpoint:
     repository: str = field(init=False)
     status: InferenceEndpointStatus = field(init=False)
     health_route: str = field(init=False)
-    url: Optional[str] = field(init=False)
+    url: str | None = field(init=False)
 
     # Other fields
     framework: str = field(repr=False, init=False)
@@ -112,15 +118,15 @@ class InferenceEndpoint:
     type: InferenceEndpointType = field(repr=False, init=False)
 
     # Raw dict from the API
-    raw: Dict = field(repr=False)
+    raw: dict = field(repr=False)
 
     # Internal fields
-    _token: Union[str, bool, None] = field(repr=False, compare=False)
+    _token: str | bool | None = field(repr=False, compare=False)
     _api: "HfApi" = field(repr=False, compare=False)
 
     @classmethod
     def from_raw(
-        cls, raw: Dict, namespace: str, token: Union[str, bool, None] = None, api: Optional["HfApi"] = None
+        cls, raw: dict, namespace: str, token: str | bool | None = None, api: Optional["HfApi"] = None
     ) -> "InferenceEndpoint":
         """Initialize object from raw dictionary."""
         if api is None:
@@ -156,7 +162,7 @@ class InferenceEndpoint:
 
         return InferenceClient(
             model=self.url,
-            token=self._token,  # type: ignore[arg-type] # boolean token shouldn't be possible. In practice it's ok.
+            token=self._token,  # type: ignore # boolean token shouldn't be possible. In practice it's ok.
         )
 
     @property
@@ -178,10 +184,10 @@ class InferenceEndpoint:
 
         return AsyncInferenceClient(
             model=self.url,
-            token=self._token,  # type: ignore[arg-type] # boolean token shouldn't be possible. In practice it's ok.
+            token=self._token,  # type: ignore # boolean token shouldn't be possible. In practice it's ok.
         )
 
-    def wait(self, timeout: Optional[int] = None, refresh_every: int = 5) -> "InferenceEndpoint":
+    def wait(self, timeout: int | None = None, refresh_every: int = 5) -> "InferenceEndpoint":
         """Wait for the Inference Endpoint to be deployed.
 
         Information from the server will be fetched every 1s. If the Inference Endpoint is not deployed after `timeout`
@@ -249,19 +255,19 @@ class InferenceEndpoint:
         self,
         *,
         # Compute update
-        accelerator: Optional[str] = None,
-        instance_size: Optional[str] = None,
-        instance_type: Optional[str] = None,
-        min_replica: Optional[int] = None,
-        max_replica: Optional[int] = None,
-        scale_to_zero_timeout: Optional[int] = None,
+        accelerator: str | None = None,
+        instance_size: str | None = None,
+        instance_type: str | None = None,
+        min_replica: int | None = None,
+        max_replica: int | None = None,
+        scale_to_zero_timeout: int | None = None,
         # Model update
-        repository: Optional[str] = None,
-        framework: Optional[str] = None,
-        revision: Optional[str] = None,
-        task: Optional[str] = None,
-        custom_image: Optional[Dict] = None,
-        secrets: Optional[Dict[str, str]] = None,
+        repository: str | None = None,
+        framework: str | None = None,
+        revision: str | None = None,
+        task: str | None = None,
+        custom_image: dict | None = None,
+        secrets: dict[str, str] | None = None,
     ) -> "InferenceEndpoint":
         """Update the Inference Endpoint.
 
@@ -293,10 +299,10 @@ class InferenceEndpoint:
                 The specific model revision to deploy on the Inference Endpoint (e.g. `"6c0e6080953db56375760c0471a8c5f2929baf11"`).
             task (`str`, *optional*):
                 The task on which to deploy the model (e.g. `"text-classification"`).
-            custom_image (`Dict`, *optional*):
+            custom_image (`dict`, *optional*):
                 A custom Docker image to use for the Inference Endpoint. This is useful if you want to deploy an
                 Inference Endpoint running on the `text-generation-inference` (TGI) framework (see examples).
-            secrets (`Dict[str, str]`, *optional*):
+            secrets (`dict[str, str]`, *optional*):
                 Secret values to inject in the container environment.
         Returns:
             [`InferenceEndpoint`]: the same Inference Endpoint, mutated in place with the latest data.
@@ -329,7 +335,7 @@ class InferenceEndpoint:
         """Pause the Inference Endpoint.
 
         A paused Inference Endpoint will not be charged. It can be resumed at any time using [`InferenceEndpoint.resume`].
-        This is different than scaling the Inference Endpoint to zero with [`InferenceEndpoint.scale_to_zero`], which
+        This is different from scaling the Inference Endpoint to zero with [`InferenceEndpoint.scale_to_zero`], which
         would be automatically restarted when a request is made to it.
 
         This is an alias for [`HfApi.pause_inference_endpoint`]. The current object is mutated in place with the
@@ -367,8 +373,8 @@ class InferenceEndpoint:
     def scale_to_zero(self) -> "InferenceEndpoint":
         """Scale Inference Endpoint to zero.
 
-        An Inference Endpoint scaled to zero will not be charged. It will be resume on the next request to it, with a
-        cold start delay. This is different than pausing the Inference Endpoint with [`InferenceEndpoint.pause`], which
+        An Inference Endpoint scaled to zero will not be charged. It will be resumed on the next request to it, with a
+        cold start delay. This is different from pausing the Inference Endpoint with [`InferenceEndpoint.pause`], which
         would require a manual resume with [`InferenceEndpoint.resume`].
 
         This is an alias for [`HfApi.scale_to_zero_inference_endpoint`]. The current object is mutated in place with the

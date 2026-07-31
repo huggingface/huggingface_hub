@@ -1,0 +1,284 @@
+import argparse
+import re
+from difflib import unified_diff
+from pathlib import Path
+
+import click
+
+
+PACKAGE_REFERENCE_PATH = Path(__file__).parents[1] / "docs" / "source" / "en" / "package_reference" / "cli.md"
+
+# Hidden (deprecated) commands that should not appear in the generated reference.
+HIDDEN_COMMANDS = ["repo-files"]
+
+WARNING_HEADER = """<!--
+# WARNING
+# This entire file has been generated from the `hf` CLI implementation.
+# To re-generate the code, run `make style` or `python ./utils/generate_cli_reference.py --update`.
+# WARNING
+-->"""
+
+
+def get_docs_for_click(
+    *, obj: click.Command, ctx: click.Context, indent: int = 0, name: str = "", call_prefix: str = ""
+) -> str:
+    """Render Markdown reference for a Click command tree.
+
+    Ported from ``typer.cli.get_docs_for_click`` (rich/HTML branches dropped) so the
+    generated reference no longer depends on Typer's ``utils docs`` command.
+    """
+    command_name = name or obj.name or ""
+    if call_prefix:
+        command_name = f"{call_prefix} {command_name}".strip()
+    title = f"`{command_name}`" if command_name else "CLI"
+    docs = "#" * (1 + indent) + f" {title}\n\n"
+    if obj.help:
+        docs += f"{obj.help}\n\n"
+
+    usage_pieces = obj.collect_usage_pieces(ctx)
+    if usage_pieces:
+        docs += "**Usage**:\n\n```console\n$ "
+        if command_name:
+            docs += f"{command_name} "
+        docs += f"{' '.join(usage_pieces)}\n```\n\n"
+
+    args, opts = [], []
+    for param in obj.get_params(ctx):
+        record = param.get_help_record(ctx)
+        if record is None:
+            continue
+        (args if param.param_type_name == "argument" else opts).append(record)
+    for header, records in (("Arguments", args), ("Options", opts)):
+        if records:
+            docs += f"**{header}**:\n\n"
+            for param_name, param_help in records:
+                docs += f"* `{param_name}`" + (f": {param_help}" if param_help else "") + "\n"
+            docs += "\n"
+
+    if obj.epilog:
+        docs += f"{obj.epilog}\n\n"
+
+    if isinstance(obj, click.Group):
+        commands = [(name, sub) for name in obj.list_commands(ctx) if (sub := obj.get_command(ctx, name)) is not None]
+        if commands:
+            docs += "**Commands**:\n\n"
+            for _, sub in commands:
+                short_help = sub.get_short_help_str()
+                docs += f"* `{sub.name}`" + (f": {short_help}" if short_help else "") + "\n"
+            docs += "\n"
+        for _, sub in commands:
+            docs += get_docs_for_click(obj=sub, ctx=ctx, indent=indent + 1, call_prefix=command_name)
+    return docs
+
+
+def print_colored_diff(expected: str, current: str) -> None:
+    """Print a colored line-by-line diff between expected and current content.
+
+    Auto-generated code by Cursor.
+    """
+    expected_lines = expected.splitlines(keepends=True)
+    current_lines = current.splitlines(keepends=True)
+
+    diff = unified_diff(
+        current_lines, expected_lines, fromfile="Current content", tofile="Expected content", lineterm=""
+    )
+
+    for line in diff:
+        line = line.rstrip("\n")
+        if line.startswith("+++"):
+            print(f"\033[92m{line}\033[0m")  # Green for additions
+        elif line.startswith("---"):
+            print(f"\033[91m{line}\033[0m")  # Red for deletions
+        elif line.startswith("@@"):
+            print(f"\033[96m{line}\033[0m")  # Cyan for context
+        elif line.startswith("+"):
+            print(f"\033[92m{line}\033[0m")  # Green for additions
+        elif line.startswith("-"):
+            print(f"\033[91m{line}\033[0m")  # Red for deletions
+        else:
+            print(line)  # Default color for context
+
+
+def _normalize_command_aliases(content: str) -> str:
+    """Transform pipe-separated aliases into proper documentation format.
+
+    Typer generates docs with pipe-separated command names (e.g. "list | ls") when
+    commands have aliases. This function transforms them into a cleaner format:
+    - Command list: `* `cmd | alias`: Desc` → `* `cmd`: Desc [alias: alias]`
+    - Section headers: `## `hf cmd | alias`` → `## `hf cmd`` with alias in description
+    - Usage examples: `$ hf cmd | alias [OPTIONS]` → `$ hf cmd [OPTIONS]`
+    """
+
+    def _format_aliases(aliases: list[str]) -> str:
+        return f"[alias: {', '.join(aliases)}]"
+
+    # Transform command list items: `* `cmd | alias`: Description`
+    # Only match simple command names (alphanumeric + hyphens), not options like `--format [table|json]`
+    def _transform_list_item(match: re.Match) -> str:
+        full_name = match.group(1)  # e.g. "list | ls"
+        description = match.group(2)  # e.g. "List files..."
+        parts = [p.strip() for p in full_name.split("|")]
+        primary = parts[0]
+        aliases = parts[1:]
+        if aliases:
+            return f"* `{primary}`: {description} {_format_aliases(aliases)}"
+        return match.group(0)
+
+    content = re.sub(
+        r"^\* `([\w-]+(?: \| [\w-]+)+)`: (.*)$",
+        _transform_list_item,
+        content,
+        flags=re.MULTILINE,
+    )
+
+    # Transform section headers: `## `hf repos | repo branch create`` → `## `hf repos branch create``
+    # Strip aliases from *all* segments in the command path, and append alias info for the
+    # *leaf* command only (the last segment that has aliases) to the description line.
+    def _transform_section(match: re.Match) -> str:
+        hashes = match.group(1)  # "##", "###", ...
+        command_path = match.group(2)  # "hf repos | repo branch create"
+        whitespace = match.group(3)  # newlines between header and description
+        description = match.group(4)  # first line of description
+
+        # Split path into segments, strip aliases from each.
+        # Only annotate the description when the *leaf* (last) segment has aliases.
+        segments = re.split(r"\s+", command_path)
+        primary_segments: list[str] = []
+        last_aliases: list[str] = []
+        i = 0
+        while i < len(segments):
+            seg = segments[i]
+            if i + 1 < len(segments) and segments[i + 1] == "|":
+                aliases = []
+                j = i + 1
+                while j < len(segments) and segments[j] == "|":
+                    aliases.append(segments[j + 1])
+                    j += 2
+                primary_segments.append(seg)
+                last_aliases = aliases
+                i = j
+            else:
+                primary_segments.append(seg)
+                last_aliases = []  # reset — a plain segment followed, so leaf has no alias
+                i += 1
+
+        new_header = f"{hashes} `{' '.join(primary_segments)}`"
+        if last_aliases:
+            new_description = f"{description} {_format_aliases(last_aliases)}"
+        else:
+            new_description = description
+        return f"{new_header}{whitespace}{new_description}"
+
+    content = re.sub(
+        r"^(#{2,}) `(hf(?: [\w-]+(?: \| [\w-]+)?)+(?: [\w-]+)*)`(\n+)([^\n#*]+)",
+        _transform_section,
+        content,
+        flags=re.MULTILINE,
+    )
+
+    # Transform usage examples in code blocks: `$ hf cmd | alias [OPTIONS]`.
+    # Strip aliases from all command segments (e.g. `repos | repo tag list | ls` -> `repos tag list`).
+    def _strip_usage_aliases(command: str) -> str:
+        previous = ""
+        normalized = command
+        while normalized != previous:
+            previous = normalized
+            normalized = re.sub(r"\b([\w-]+)\s+\|\s+[\w-]+\b", r"\1", normalized)
+        return re.sub(r" +", " ", normalized).strip()
+
+    def _transform_usage(match: re.Match) -> str:
+        command = match.group(1)  # "$ hf ...", potentially with aliases
+        suffix = match.group(2)  # " [OPTIONS]..." or " <ARG>..."
+        return f"{_strip_usage_aliases(command)}{suffix}"
+
+    content = re.sub(
+        r"^(\$ hf(?: [\w-]+(?: \| [\w-]+)?)*)((?: (?:\[|<).*)?)$",
+        _transform_usage,
+        content,
+        flags=re.MULTILINE,
+    )
+
+    return content
+
+
+def _strip_hidden_commands(content: str, hidden_commands: list[str]) -> str:
+    """Remove hidden/deprecated commands from the generated CLI reference.
+
+    Typer's `utils docs` generates documentation for all commands including hidden
+    ones. This function strips them from the output so they don't appear in the
+    published reference.
+    """
+    for cmd in hidden_commands:
+        # Remove bullet entry from top-level command list: `* `repo-files`: ...`
+        content = re.sub(rf"^\* `{re.escape(cmd)}`:.*\n", "", content, flags=re.MULTILINE)
+
+        # Remove the full section (## `hf <cmd>`) and any sub-sections (### `hf <cmd> ...`)
+        # up to the next section at the same or higher level (##).
+        content = re.sub(
+            rf"^## `hf {re.escape(cmd)}`\n(?:(?!^## ).*\n)*",
+            "",
+            content,
+            flags=re.MULTILINE,
+        )
+
+    return content
+
+
+def generate_cli_reference() -> str:
+    # Imported lazily: importing the CLI app pulls in the whole command tree.
+    from huggingface_hub.cli.hf import app
+
+    ctx = click.Context(app, info_name="hf")
+    content = get_docs_for_click(obj=app, ctx=ctx, name="hf")
+    content = _strip_hidden_commands(content, HIDDEN_COMMANDS)
+    content = _normalize_command_aliases(content)
+    return f"{WARNING_HEADER}\n\n{content}".rstrip() + "\n"
+
+
+def check_and_update_cli_reference(update: bool, verbose: bool = False) -> None:
+    new_content = generate_cli_reference()
+    if PACKAGE_REFERENCE_PATH.exists():
+        existing_content = PACKAGE_REFERENCE_PATH.read_text()
+        if existing_content == new_content:
+            print("✅ All good! (CLI reference)")
+            return
+    elif not update:
+        print(
+            f"❌ `{PACKAGE_REFERENCE_PATH}` does not exist yet.\n"
+            "   Please run `make style` or `python utils/generate_cli_reference.py --update` to generate it."
+        )
+        exit(1)
+
+    if update:
+        PACKAGE_REFERENCE_PATH.write_text(new_content)
+        print(
+            f"✅ CLI reference has been updated in `{PACKAGE_REFERENCE_PATH}`.\n   Please make sure the changes are accurate and commit them."
+        )
+    else:
+        print(
+            f"❌ Expected content mismatch in `{PACKAGE_REFERENCE_PATH}`.\n"
+            "   It is most likely that you've modified the CLI implementation and did not re-generate the docs.\n"
+            "   Please run `make style` or `python utils/generate_cli_reference.py --update`."
+        )
+
+        if verbose:
+            print("\n📋 Diff between current and expected content:")
+            print_colored_diff(new_content, existing_content)
+
+        exit(1)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--update",
+        action="store_true",
+        help=(f"Whether to re-generate `{PACKAGE_REFERENCE_PATH}` if a change is detected."),
+    )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Show detailed diff when content mismatch is detected.",
+    )
+    args = parser.parse_args()
+    check_and_update_cli_reference(update=args.update, verbose=args.verbose)

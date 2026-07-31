@@ -4,41 +4,74 @@ rendered properly in your Markdown viewer.
 
 # Command Line Interface (CLI)
 
-The `huggingface_hub` Python package comes with a built-in CLI called `hf`. This tool allows you to interact with the Hugging Face Hub directly from a terminal. For example, you can login to your account, create a repository, upload and download files, etc. It also comes with handy features to configure your machine or manage your cache. In this guide, we will have a look at the main features of the CLI and how to use them.
+The `huggingface_hub` Python package comes with a built-in CLI called `hf`. This tool allows you to interact with the Hugging Face Hub directly from a terminal. For example, you can log in to your account, create a repository, upload and download files, etc. It also comes with handy features to configure your machine or manage your cache. In this guide, we will have a look at the main features of the CLI and how to use them.
+
+> [!TIP]
+> This guide covers the most important features of the `hf` CLI.
+> For a complete reference of all commands and options, see the [CLI reference](../package_reference/cli.md).
+
+> [!TIP]
+> Using the `hf` CLI with AI agents? Install the Skill and check out the [Hugging Face CLI for AI Agents](https://huggingface.co/docs/hub/agents-cli) guide.
+> ```bash
+> # for Codex, Cursor, OpenCode, Pi and other agents that load skills from `.agents/skills`
+> hf skills add
+> # includes the above + Claude Code
+> hf skills add --claude
+> ```
 
 ## Getting started
 
-First of all, let's install the CLI:
+### Standalone installer (Recommended)
 
+You can install the `hf` CLI with a single command:
+
+On macOS and Linux:
+
+```bash
+>>> curl -LsSf https://hf.co/cli/install.sh | bash
 ```
->>> pip install -U "huggingface_hub[cli]"
+
+On Windows:
+
+```powershell
+>>> powershell -ExecutionPolicy ByPass -c "irm https://hf.co/cli/install.ps1 | iex"
 ```
 
-> [!TIP]
-> In the snippet above, we also installed the `[cli]` extra dependencies to make the user experience better, especially when using the `cache delete` command.
+Once installed, you can check that the CLI is correctly set up:
 
-Once installed, you can check that the CLI is correctly setup:
-
-```
+```bash
 >>> hf --help
-usage: hf <command> [<args>]
+Usage: hf [OPTIONS] COMMAND [ARGS]...
 
-positional arguments:
-  {auth,cache,download,repo,repo-files,upload,upload-large-folder,env,version,lfs-enable-largefiles,lfs-multipart-upload}
-                        hf command helpers
-    auth                Manage authentication (login, logout, etc.).
-    cache               Manage local cache directory.
-    download            Download files from the Hub
-    repo                Manage repos on the Hub.
-    repo-files          Manage files in a repo on the Hub.
-    upload              Upload a file or a folder to the Hub. Recommended for single-commit uploads.
-    upload-large-folder
-                        Upload a large folder to the Hub. Recommended for resumable uploads.
-    env                 Print information about the environment.
-    version             Print information about the hf version.
+  Hugging Face Hub CLI
 
-options:
-  -h, --help            show this help message and exit
+Options:
+  --install-completion  Install completion for the current shell.
+  --show-completion     Show completion for the current shell, to copy it or customize the installation.
+  -h, --help            Show this message and exit.
+
+Main commands:
+  auth                 Manage authentication (login, logout, etc.).
+  buckets              Commands to interact with buckets.
+  cache                Manage local cache directory.
+  collections          Interact with collections on the Hub.
+  datasets             Interact with datasets on the Hub.
+  download             Download files from the Hub.
+  endpoints            Manage Hugging Face Inference Endpoints.
+  extensions           Manage hf CLI extensions.
+  jobs                 Run and manage Jobs on the Hub.
+  models               Interact with models on the Hub.
+  papers               Interact with papers on the Hub.
+  repo                 Manage repos on the Hub.
+  skills               Manage skills for AI assistants.
+  spaces               Interact with spaces on the Hub.
+  sync                 Sync files between local directory and a bucket.
+  upload               Upload a file or a folder to the Hub.
+  upload-large-folder  [Deprecated] Use 'hf upload' instead.
+
+Help commands:
+  env      Print information about the environment.
+  version  Print information about the hf version.
 ```
 
 If the CLI is correctly installed, you should see a list of all the options available in the CLI. If you get an error message such as `command not found: hf`, please refer to the [Installation](../installation) guide.
@@ -46,63 +79,114 @@ If the CLI is correctly installed, you should see a list of all the options avai
 > [!TIP]
 > The `--help` option is very convenient for getting more details about a command. You can use it anytime to list all available options and their details. For example, `hf upload --help` provides more information on how to upload files using the CLI.
 
-### Alternative install
+### Using uv
 
-#### Using pkgx
+The easiest way to use the `hf` CLI is with [`uvx`](https://docs.astral.sh/uv/concepts/tools/). It always runs the latest version in an isolated environment - no installation needed!
 
-[Pkgx](https://pkgx.sh)  is a blazingly fast cross platform package manager that runs anything. You can install huggingface-cli using pkgx as follows:
+Make sure `uv` is installed first. See the [uv installation guide](https://docs.astral.sh/uv/getting-started/installation/) for instructions.
 
-```bash
->>> pkgx install huggingface-cli
-```
-
-Or you can run huggingface-cli directly:
+Then use the CLI directly:
 
 ```bash
->>> pkgx huggingface-cli --help
+>>> uvx hf auth login
+>>> uvx hf download
+>>> uvx hf ...
 ```
 
-Check out the pkgx huggingface page [here](https://pkgx.dev/pkgs/huggingface.co/) for more details.
+> [!TIP]
+> `uvx hf` uses the [`hf` PyPI package](https://pypi.org/project/hf/).
 
-#### Using Homebrew
+### Install with pip
+
+The CLI is also shipped with the core `huggingface_hub` package:
+
+```bash
+>>> pip install -U "huggingface_hub"
+```
+
+### Using Homebrew
 
 You can also install the CLI using [Homebrew](https://brew.sh/):
 
 ```bash
->>> brew install huggingface-cli
+>>> brew install hf
 ```
 
-Check out the Homebrew huggingface page [here](https://formulae.brew.sh/formula/huggingface-cli) for more details.
+Check out the Homebrew huggingface page [here](https://formulae.brew.sh/formula/hf) for more details.
+
+### Updating
+
+To upgrade to the latest version, run:
+
+```bash
+>>> hf update
+```
+
+This detects how `hf` was installed (Homebrew, standalone installer, or pip) and runs the matching update command.
+
+By default, the CLI also prints a one-line yellow warning to stderr when a newer version is available on PyPI. To silence it (e.g. in offline CI), set `HF_HUB_DISABLE_UPDATE_CHECK=1`.
+
+## Output formatting
+
+Most `hf` commands accept the same set of global formatting flags. They are documented in a dedicated `Formatting options` section in every `--help` page, and can be added to any command without having to declare them per-command:
+
+| Flag | Equivalent | Description |
+| ---- | ---------- | ----------- |
+| `--format <value>` | — | Pick the output format explicitly. Accepted values: `auto` (default), `human`, `agent`, `json`, `quiet`. |
+| `--json` | `--format json` | Print structured JSON. Useful for piping into `jq` or other scripts. |
+| `-q`, `--quiet` | `--format quiet` | Print only IDs (one per line). Useful for piping IDs into other commands. |
+| `--no-truncate` | — | Show full values in human tables instead of shortening long values with `...`. The table may overflow the terminal width. Use `--format json` for structured output of list/dict columns. |
+
+`auto` (the default) picks `human` for an interactive terminal and `agent` when the CLI is invoked by an AI agent. `human` adds colors and pretty tables; `agent` produces tab-separated values without truncation; `json` emits a compact JSON object or array. Mixing two output-mode flags (e.g. `--json` together with `--format table`) raises a usage error.
+
+Human tables auto-fit your terminal width: the widest columns are shortened only when the natural widths overflow the screen (so on a wide terminal you usually see full values without `...`). Pass `--no-truncate` to force full values regardless of width; use `--format json` for structured output of list/dict columns.
+
+```bash
+# JSON output for scripting
+>>> hf models ls --search bert --limit 2 --json | jq '.[].id'
+
+# IDs only, one per line
+>>> hf collections ls --owner nvidia -q
+nvidia/nemotron-supervised-fine-tuning-69eab9824c9120a3a3b1e25e
+nvidia/nvidia-nemotron-v3-69388dda16167bb1607171ea
+```
+
+> [!TIP]
 
 ## hf auth login
 
-In many cases, you must be logged in to a Hugging Face account to interact with the Hub (download private repos, upload files, create PRs, etc.). To do so, you need a [User Access Token](https://huggingface.co/docs/hub/security-tokens) from your [Settings page](https://huggingface.co/settings/tokens). The User Access Token is used to authenticate your identity to the Hub. Make sure to set a token with write access if you want to upload or modify content.
-
-Once you have your token, run the following command in your terminal:
+In many cases, you must be logged in to a Hugging Face account to interact with the Hub (download private repos, upload files, create PRs, etc.). To do so, run the following command in your terminal:
 
 ```bash
 >>> hf auth login
 ```
 
-This command will prompt you for a token. Copy-paste yours and press *Enter*. Then, you'll be asked if the token should also be saved as a git credential. Press *Enter* again (default to yes) if you plan to use `git` locally. Finally, it will call the Hub to check that your token is valid and save it locally.
+If you are already logged in, this command will skip the prompt and display a message. To force re-login (e.g. to switch tokens), use `--force`:
+
+```bash
+>>> hf auth login --force
+```
+
+By default, the command logs you in with your browser: it prints a URL and a short code. Open the URL, enter the code, approve the request, and the CLI retrieves and saves an access token on your machine. The token expires after a while but is refreshed automatically as long as you keep using it.
 
 ```
-_|    _|  _|    _|    _|_|_|    _|_|_|  _|_|_|  _|      _|    _|_|_|      _|_|_|_|    _|_|      _|_|_|  _|_|_|_|
-_|    _|  _|    _|  _|        _|          _|    _|_|    _|  _|            _|        _|    _|  _|        _|
-_|_|_|_|  _|    _|  _|  _|_|  _|  _|_|    _|    _|  _|  _|  _|  _|_|      _|_|_|    _|_|_|_|  _|        _|_|_|
-_|    _|  _|    _|  _|    _|  _|    _|    _|    _|    _|_|  _|    _|      _|        _|    _|  _|        _|
-_|    _|    _|_|      _|_|_|    _|_|_|  _|_|_|  _|      _|    _|_|_|      _|        _|    _|    _|_|_|  _|_|_|_|
+? How would you like to log in?  [Use arrows, Enter to confirm]
+> Log in with your browser
+  Paste an access token
 
-To log in, `huggingface_hub` requires a token generated from https://huggingface.co/settings/tokens .
-Enter your token (input will not be visible):
-Add token as git credential? (Y/n)
-Token is valid (permission: write).
-Your token has been saved in your configured git credential helpers (store).
+    Open this URL in your browser:
+        https://huggingface.co/oauth/device
+
+    And enter the code: ABCD-EFGH
+
+    Waiting for authorization...
+Token is valid.
+The token `oauth-wauplin` has been saved to /home/wauplin/.cache/huggingface/stored_tokens
 Your token has been saved to /home/wauplin/.cache/huggingface/token
-Login successful
+Login successful.
 ```
 
-Alternatively, if you want to log-in without being prompted, you can pass the token directly from the command line. To be more secure, we recommend passing your token as an environment variable to avoid pasting it in your command history.
+You can also choose to paste a [User Access Token](https://huggingface.co/docs/hub/security-tokens) generated from your [Settings page](https://huggingface.co/settings/tokens), either interactively (select *Paste an access token*) or directly from the command line. To be more secure, we recommend passing your token as an environment variable to avoid pasting it in your command history.
 
 ```bash
 # Or using an environment variable
@@ -114,6 +198,16 @@ Your token has been saved to /home/wauplin/.cache/huggingface/token
 Login successful
 The current active token is: `token_name`
 ```
+
+When run by an AI agent (auto-detected, or with `--format agent`), the command never prompts: it runs the browser flow and prints plain instructions the agent can relay to its user, then waits for the authorization:
+
+```bash
+>>> hf auth login --format agent
+Ask the user to open https://huggingface.co/oauth/device in a browser and enter the code ABCD-EFGH. The code expires in 900 seconds. Waiting for authorization...
+Login successful: logged in as wauplin (token saved as 'oauth-wauplin').
+```
+
+`hf auth login` is interactive, so `--format json` and `--format quiet` are not supported: pass `--token` for scripted, non-interactive logins.
 
 For more details about authentication, check out [this section](../quick-start#authentication).
 
@@ -137,7 +231,6 @@ This command will not log you out if you are logged in using the `HF_TOKEN` envi
 
 ## hf download
 
-
 Use the `hf download` command to download files from the Hub directly. Internally, it uses the same [`hf_hub_download`] and [`snapshot_download`] helpers described in the [Download](./download) guide and prints the returned path to the terminal. In the examples below, we will walk through the most common use cases. For a full list of available options, you can run:
 
 ```bash
@@ -146,7 +239,7 @@ hf download --help
 
 ### Download a single file
 
-To download a single file from a repo, simply provide the repo_id and filename as follow:
+To download a single file from a repo, simply provide the repo_id and filename as follows:
 
 ```bash
 >>> hf download gpt2 config.json
@@ -222,6 +315,26 @@ The examples above show how to download from the latest commit on the main branc
 ...
 ```
 
+### Use an hf:// URI
+
+Instead of passing the repo type, revision and file path as separate arguments and options, you can provide a single `hf://` URI. The URI encodes everything at once, following the grammar `hf://[<TYPE>/]<ID>[@<REVISION>][/<PATH>]` (see the [HF URIs reference](../package_reference/hf_uris) for the full syntax):
+
+```bash
+# Equivalent to: hf download bigcode/the-stack --repo-type dataset --revision v1.1
+>>> hf download hf://datasets/bigcode/the-stack@v1.1
+
+# Download a single file from a specific revision
+>>> hf download hf://datasets/HuggingFaceM4/FineVision@refs/pr/1/data/train.parquet
+
+# Download a subfolder (note the trailing slash)
+>>> hf download hf://datasets/HuggingFaceM4/FineVision/art/
+
+# A bare id still works and defaults to a model repo
+>>> hf download hf://openai-community/gpt2/config.json
+```
+
+When a URI is given, `--repo-type` and `--revision` cannot be set as well since they are already part of the URI (an error is raised otherwise), and a file path embedded in the URI cannot be combined with positional filenames. A trailing `/` on the path denotes a subfolder (as with the positional argument). Branch names that contain a `/` must be URL-encoded as `%2F` (e.g. `hf://my-org/my-model@feature%2Ffoo`).
+
 ### Download to a local folder
 
 The recommended (and default) way to download files from the Hub is to use the cache-system. However, in some cases you want to download files and move them to a specific folder. This is useful to get a workflow closer to what git commands offer. You can do that using the `--local-dir` option.
@@ -236,6 +349,46 @@ A `.cache/huggingface/` folder is created at the root of your local directory co
 ...
 fuyu/model-00001-of-00002.safetensors
 ```
+
+### Dry-run mode
+
+In some cases, you would like to check which files would be downloaded before actually downloading them. You can check this using the `--dry-run` parameter. It lists all files to download on the repo and checks whether they are already downloaded or not. This gives an idea of how many files have to be downloaded and their sizes.
+
+```sh
+>>> hf download openai-community/gpt2 --dry-run
+[dry-run] Fetching 26 files: 100%|█████████████| 26/26 [00:04<00:00,  6.26it/s]
+[dry-run] Will download 11 files (out of 26) totalling 5.6G.
+File                              Bytes to download
+--------------------------------- -----------------
+.gitattributes                    -
+64-8bits.tflite                   125.2M
+64-fp16.tflite                    248.3M
+64.tflite                         495.8M
+README.md                         -
+config.json                       -
+flax_model.msgpack                497.8M
+generation_config.json            -
+merges.txt                        -
+model.safetensors                 548.1M
+onnx/config.json                  -
+onnx/decoder_model.onnx           653.7M
+onnx/decoder_model_merged.onnx    655.2M
+onnx/decoder_with_past_model.onnx 653.7M
+onnx/generation_config.json       -
+onnx/merges.txt                   -
+onnx/special_tokens_map.json      -
+onnx/tokenizer.json               -
+onnx/tokenizer_config.json        -
+onnx/vocab.json                   -
+pytorch_model.bin                 548.1M
+rust_model.ot                     702.5M
+tf_model.h5                       497.9M
+tokenizer.json                    -
+tokenizer_config.json             -
+vocab.json                        -
+```
+
+For more details, check out the [download guide](./download.md#dry-run-mode).
 
 ### Specify cache directory
 
@@ -268,11 +421,13 @@ By default, the `hf download` command will be verbose. It will print details suc
 ### Download timeout
 
 On machines with slow connections, you might encounter timeout issues like this one:
+
 ```bash
-`requests.exceptions.ReadTimeout: (ReadTimeoutError("HTTPSConnectionPool(host='cdn-lfs-us-1.huggingface.co', port=443): Read timed out. (read timeout=10)"), '(Request ID: a33d910c-84c6-4514-8362-c705e2039d38)')`
+`httpx.TimeoutException: (TimeoutException("HTTPSConnectionPool(host='cdn-lfs-us-1.huggingface.co', port=443): Read timed out. (read timeout=10)"), '(Request ID: a33d910c-84c6-4514-8362-c705e2039d38)')`
 ```
 
 To mitigate this issue, you can set the `HF_HUB_DOWNLOAD_TIMEOUT` environment variable to a higher value (default is 10):
+
 ```bash
 export HF_HUB_DOWNLOAD_TIMEOUT=30
 ```
@@ -375,6 +530,20 @@ By default, files are uploaded to the `main` branch. If you want to upload files
 
 **Note:** if `revision` does not exist and `--create-pr` is not set, a branch will be created automatically from the `main` branch.
 
+### Use an hf:// URI
+
+As with `hf download`, the destination can be expressed as a single `hf://` URI following the grammar `hf://[<TYPE>/]<ID>[@<REVISION>][/<PATH>]` (see the [HF URIs reference](../package_reference/hf_uris) for the full syntax). The repo type, revision and `path_in_repo` are all read from the URI:
+
+```bash
+# Equivalent to: hf upload Wauplin/my-cool-dataset ./train.csv data/train.csv --repo-type dataset --revision my-branch
+>>> hf upload hf://datasets/Wauplin/my-cool-dataset@my-branch/data/train.csv ./train.csv
+
+# Upload a whole folder to the root of a model repo
+>>> hf upload hf://Wauplin/my-cool-model ./models
+```
+
+When a URI is given, `--repo-type` and `--revision` cannot be set as well since they are already part of the URI (an error is raised otherwise), and a path embedded in the URI cannot be combined with the `path_in_repo` argument.
+
 ### Upload and create a PR
 
 If you don't have the permission to push to a repo, you must open a PR and let the authors know about the changes you want to make. This can be done by setting the `--create-pr` option:
@@ -423,75 +592,1104 @@ By default, the `hf upload` command will be verbose. It will print details such 
 https://huggingface.co/Wauplin/my-cool-model/tree/main
 ```
 
-## hf repo-files
+## hf upload-large-folder
 
-If you want to delete files from a Hugging Face repository, use the `hf repo-files` command.
+> [!WARNING]
+> `hf upload-large-folder` is deprecated and will be removed in a future release. Use [`hf upload`](#hf-upload) instead. It now handles very large folders out of the box and resumes automatically on re-run.
 
-### Delete files
-
-The `hf repo-files delete <repo_id>` sub-command allows you to delete files from a repository. Here are some usage examples.
-
-Delete a folder :
 ```bash
->>> hf repo-files delete Wauplin/my-cool-model folder/
+# Upload a large folder to a model repository
+>>> hf upload Wauplin/my-cool-model ./large_model_dir
+
+# Upload a dataset
+>>> hf upload Wauplin/my-cool-dataset ./large_data_dir --repo-type dataset
+```
+
+## hf buckets
+
+Use `hf buckets` to manage buckets on the Hugging Face Hub. Buckets provide S3-like object storage on Hugging Face, powered by the Xet storage backend. Unlike repositories (which are git-based and track file history), buckets are remote object storage containers designed for large-scale files with content-addressable deduplication. They are designed for use cases where you need simple, fast, mutable storage such as storing training checkpoints, logs, intermediate artifacts, or any large collection of files that doesn't need version control. In the examples below, we will walk through the most common use cases. For a complete guide, see the [Buckets guide](./buckets).
+
+### Create a bucket
+
+To create a new bucket, use `hf buckets create`. The bucket will be created under your namespace by default:
+
+```bash
+>>> hf buckets create my-bucket
+```
+
+You can also create a private bucket using the `--private` flag:
+
+```bash
+>>> hf buckets create my-bucket --private
+```
+
+### List and inspect buckets
+
+To list all your buckets, use `hf buckets list` (or its shorthand `hf buckets ls`). You can also list buckets in a specific organization:
+
+```bash
+>>> hf buckets list
+ID                   PRIVATE       SIZE TOTAL_FILES CREATED_AT
+-------------------- ------- ---------- ----------- ----------
+username/my-bucket                   32           5 2026-02-16
+username/checkpoints         117609095         700 2026-02-13
+username/logs                321757477        2000 2026-02-13
+
+# Human-readable sizes
+>>> hf buckets list -h
+ID                   PRIVATE     SIZE TOTAL_FILES CREATED_AT
+-------------------- ------- -------- ----------- ----------
+username/my-bucket               32 B           5 2026-02-16
+username/checkpoints         117.6 MB         700 2026-02-13
+username/logs                321.8 MB        2000 2026-02-13
+
+# List buckets in a specific namespace
+>>> hf buckets ls my-org
+
+# Filter buckets by name
+>>> hf buckets list --search "checkpoint"
+```
+
+To get detailed information about a specific bucket (returned as JSON), use `hf buckets info`:
+
+```bash
+>>> hf buckets info username/my-bucket
+{
+  "id": "username/my-bucket",
+  "private": false,
+  "created_at": "2026-02-16T15:28:32+00:00",
+  "size": 32,
+  "total_files": 5
+}
+```
+
+### Delete a bucket
+
+To delete a bucket, use `hf buckets delete`. You will be prompted for confirmation unless you pass `--yes`:
+
+```bash
+>>> hf buckets delete username/my-bucket --yes
+```
+
+### Remove files
+
+Use `hf buckets remove` (or its shorthand `hf buckets rm`) to remove files from a bucket.
+
+To remove a single file, specify its path:
+
+```bash
+>>> hf buckets rm username/my-bucket/old-model.bin
+```
+
+To remove all files under a prefix, use `--recursive`:
+
+```bash
+>>> hf buckets rm username/my-bucket/logs/ --recursive
+```
+
+You can also target all files in a bucket without a prefix:
+
+```bash
+>>> hf buckets rm username/my-bucket --recursive --include "*.tmp"
+```
+
+Use `--dry-run` to preview what would be deleted without actually deleting anything:
+
+```bash
+>>> hf buckets rm username/my-bucket/checkpoints/ --recursive --dry-run
+```
+
+### Browse files
+
+Use `hf buckets list` with a bucket ID to list files in a bucket:
+
+```bash
+>>> hf buckets list username/my-bucket
+        2048  2026-01-15 10:30:00  big.bin
+           5  2026-01-15 10:30:00  file.txt
+              2026-01-15 10:30:00  sub/
+```
+
+Add `-R` for a recursive listing and `-h` for human-readable file sizes and short dates. You can also display an ASCII tree view with `--tree`, or use `--tree --quiet` for a clean tree without metadata:
+
+```bash
+# Recursive with human-readable sizes
+>>> hf buckets list username/my-bucket -R -h
+      2.0 KB         Jan 15 10:30  big.bin
+         5 B         Jan 15 10:30  file.txt
+        14 B         Jan 15 10:30  sub/nested.txt
+         4 B         Jan 15 10:30  sub/deep/file.txt
+
+# Tree with human-readable sizes
+>>> hf buckets list username/my-bucket --tree -h -R
+2.0 KB  Jan 15 10:30  ├── big.bin
+   5 B  Jan 15 10:30  ├── file.txt
+                      └── sub/
+                          ├── deep/
+   4 B  Jan 15 10:30  │       └── file.txt
+  14 B  Jan 15 10:30  └── nested.txt
+
+# Clean tree without metadata
+>>> hf buckets list username/my-bucket --tree --quiet -R
+├── big.bin
+├── file.txt
+└── sub/
+    ├── deep/
+    │   └── file.txt
+    └── nested.txt
+```
+
+To filter by prefix, append the prefix to the bucket path:
+
+```bash
+>>> hf buckets list username/my-bucket/sub -R
+```
+
+### Copy files
+
+Use `hf cp` to copy a single file between your local machine, repositories, and buckets. The source and destination can each be a local path, an `hf://` URI (repo or bucket), or `-` (stdin/stdout).
+
+> [!TIP]
+> `hf cp` is also exposed as `hf repos cp` and `hf buckets cp` — all three are the exact same command. Use whichever reads best for your workflow.
+
+To upload a file (local → repo or bucket):
+
+```bash
+# To a repository
+>>> hf cp ./model.safetensors hf://username/my-model/model.safetensors
+
+# To a bucket (uses the local filename when the destination ends with /)
+>>> hf cp ./data.csv hf://buckets/username/my-bucket/logs/
+```
+
+To download a file (repo or bucket → local):
+
+```bash
+# From a repository
+>>> hf cp hf://datasets/username/my-dataset@refs/pr/1/data.csv ./data.csv
+
+# From a bucket, to the current directory (destination omitted)
+>>> hf cp hf://buckets/username/my-bucket/config.json
+```
+
+You can also stream to stdout or from stdin using `-`:
+
+```bash
+# Download to stdout
+>>> hf cp hf://buckets/username/my-bucket/config.json - | jq .
+
+# Upload from stdin
+>>> echo "hello" | hf cp - hf://username/my-model/hello.txt
+```
+
+To copy between two locations on the Hub (repo/bucket → repo/bucket):
+
+```bash
+# Repo to repo
+>>> hf cp hf://username/source-model/config.json hf://username/dest-model/config.json
+
+# Repo to bucket
+>>> hf cp hf://datasets/username/my-dataset/data/train/ hf://buckets/username/my-bucket/datasets/train/
+
+# Bucket to bucket
+>>> hf cp hf://buckets/username/source-bucket/logs/ hf://buckets/username/archive-bucket/logs/
+```
+
+When copying folders between two Hub locations, a trailing `/` on the source path controls whether the folder itself is nested or only its contents are copied (rsync-style):
+
+```bash
+# Without trailing slash: "logs" dir is nested => archive/logs/...
+>>> hf cp hf://buckets/username/my-bucket/logs hf://buckets/username/archive-bucket/
+
+# With trailing slash: only contents of "logs" are copied => archive/...
+>>> hf cp hf://buckets/username/my-bucket/logs/ hf://buckets/username/archive-bucket/
+```
+
+Notes:
+
+- `hf cp` copies a single file when a local path is involved. To copy whole directories to/from local, use `hf upload`/`hf download` (repos) or `hf buckets sync` (buckets).
+- Bucket-to-repo copy is not yet supported.
+- Local-to-local copy is not supported (use your shell's `cp`).
+- Copies between two Hub locations only work within the same [storage region](https://huggingface.co/docs/hub/storage-regions).
+
+### Sync directories
+
+Use `hf buckets sync` to synchronize directories between your local machine and a bucket. It compares source and destination and transfers only changed files.
+
+To upload a local directory to a bucket:
+
+```bash
+>>> hf buckets sync ./data hf://buckets/username/my-bucket
+```
+
+To download from a bucket to a local directory:
+
+```bash
+>>> hf buckets sync hf://buckets/username/my-bucket ./data
+```
+
+Use `--delete` to remove destination files that are not present in the source:
+
+```bash
+>>> hf buckets sync ./data hf://buckets/username/my-bucket --delete
+```
+
+You can filter which files to sync using `--include` and `--exclude` patterns:
+
+```bash
+>>> hf buckets sync ./data hf://buckets/username/my-bucket --include "*.safetensors" --exclude "*.tmp"
+```
+
+To only update existing files (skip new ones), use `--existing`. To only create new files (skip existing ones), use `--ignore-existing`:
+
+```bash
+>>> hf buckets sync ./data hf://buckets/username/my-bucket --existing
+>>> hf buckets sync ./data hf://buckets/username/my-bucket --ignore-existing
+```
+
+For extra safety, you can generate a plan for review before executing, and then apply it:
+
+```bash
+# Generate a plan
+>>> hf buckets sync ./data hf://buckets/username/my-bucket --plan sync-plan.jsonl
+
+# Review and apply the plan
+>>> hf buckets sync --apply sync-plan.jsonl
+```
+
+Use `--dry-run` to print the sync plan as JSONL to stdout without executing anything. This is handy for piping into `jq` or other tools:
+
+```bash
+>>> hf buckets sync ./data hf://buckets/username/my-bucket --dry-run | jq .
+```
+
+> [!TIP]
+> `hf sync` is a convenient top-level alias for `hf buckets sync`. See the [Buckets guide](./buckets#sync-directories) for full details on all sync options.
+
+## hf models
+
+Use `hf models` to list models on the Hub and get detailed information about a specific model.
+
+### List models
+
+```bash
+# List trending models
+>>> hf models ls
+
+# Search for models
+>>> hf models ls --search "lora"
+
+# Filter by author
+>>> hf models ls --author Qwen
+
+# Filter by pipeline tag
+>>> hf models ls --pipeline-tag summarization
+
+# Filter by parameter count
+>>> hf models ls --num-parameters min:6B,max:128B
+
+# Only non-gated models
+>>> hf models ls --no-gated --author google
+
+# Only models runnable by a given app
+>>> hf models ls --apps llama.cpp
+
+# Sort by downloads
+>>> hf models ls --sort downloads --limit 10
+```
+
+When called with a model ID, `hf models ls` lists files in that model repo:
+
+```bash
+# List files in a model repo
+>>> hf models ls meta-llama/Llama-3.2-1B-Instruct
+
+# List files recursively
+>>> hf models ls meta-llama/Llama-3.2-1B-Instruct -R
+
+# Tree view with human-readable sizes
+>>> hf models ls meta-llama/Llama-3.2-1B-Instruct --tree -h
+
+# List files at a specific revision
+>>> hf models ls meta-llama/Llama-3.2-1B-Instruct --revision main
+```
+
+### Get model info
+
+```bash
+>>> hf models info Lightricks/LTX-2
+```
+
+Use `--expand` to fetch additional properties like `downloads`, `likes`, `tags`, etc.
+
+### Get model card
+
+Use `hf models card` to fetch the model card (README) for a model. By default, prints the full card content to stdout.
+
+```bash
+# Full card (metadata + text)
+>>> hf models card google/gemma-4-31B-it
+
+# Just the metadata (from the YAML frontmatter)
+>>> hf models card google/gemma-4-31B-it --metadata
+
+# Metadata as JSON (useful for scripting and agents)
+>>> hf models card google/gemma-4-31B-it --metadata --format json
+
+# Just the text body (no YAML frontmatter)
+>>> hf models card google/gemma-4-31B-it --text
+```
+
+## hf datasets
+
+Use `hf datasets` to list datasets on the Hub and get detailed information about a specific dataset.
+
+### List datasets
+
+```bash
+# List trending datasets
+>>> hf datasets ls
+
+# Search for datasets
+>>> hf datasets ls --search "code"
+
+# List official benchmark datasets
+>>> hf datasets ls --filter benchmark:official
+
+# Sort by downloads
+>>> hf datasets ls --sort downloads --limit 10
+```
+
+When called with a dataset ID, `hf datasets ls` lists files in that dataset repo:
+
+```bash
+# List files in a dataset repo
+>>> hf datasets ls HuggingFaceFW/fineweb
+
+# List files recursively with human-readable sizes
+>>> hf datasets ls HuggingFaceFW/fineweb -R -h
+
+# Tree view
+>>> hf datasets ls HuggingFaceFW/fineweb --tree
+```
+
+### List a dataset leaderboard
+
+Use `hf datasets leaderboard` to show model scores submitted to a benchmark dataset, so you can find the best models for a task or compare models by benchmark scores.
+
+```bash
+>>> hf datasets leaderboard SWE-bench/SWE-bench_Verified
+>>> hf datasets leaderboard SWE-bench/SWE-bench_Verified --limit 5 --format json
+```
+
+### Get dataset info
+
+```bash
+>>> hf datasets info HuggingFaceFW/fineweb
+```
+
+### Get dataset card
+
+Use `hf datasets card` to fetch the dataset card (README) for a dataset. By default, prints the full card content to stdout.
+
+```bash
+# Full card (metadata + text)
+>>> hf datasets card HuggingFaceFW/fineweb
+
+# Just the metadata (from the YAML frontmatter)
+>>> hf datasets card HuggingFaceFW/fineweb --metadata
+
+# Metadata as JSON (useful for scripting and agents)
+>>> hf datasets card HuggingFaceFW/fineweb --metadata --format json
+
+# Just the text body (no YAML frontmatter)
+>>> hf datasets card HuggingFaceFW/fineweb --text
+```
+
+### List parquet URLs
+
+Use `hf datasets parquet` to discover parquet file URLs for a dataset before writing SQL queries.
+Datasets on the Hub are auto-converted to Parquet on the backend by the Dataset Viewer service (for eligible datasets).
+See the [Parquet conversion guide](https://huggingface.co/docs/dataset-viewer/parquet) for details.
+
+```bash
+>>> hf datasets parquet cfahlgren1/hub-stats
+>>> hf datasets parquet cfahlgren1/hub-stats --subset models
+>>> hf datasets parquet cfahlgren1/hub-stats --split train
+>>> hf datasets parquet cfahlgren1/hub-stats --format json
+```
+
+The default table output includes subset, split, and parquet file URL from the Hub API.
+
+### Run SQL on dataset parquet
+
+Use `hf datasets sql` to execute raw SQL queries with DuckDB against dataset parquet URLs.
+Discover URLs first with `hf datasets parquet`, then query them directly with `read_parquet(...)`.
+
+```bash
+>>> hf datasets sql "SELECT COUNT(*) AS rows FROM read_parquet('https://huggingface.co/api/datasets/cfahlgren1/hub-stats/parquet/models/train/0.parquet')"
+>>> hf datasets sql "SELECT * FROM read_parquet('https://huggingface.co/api/datasets/cfahlgren1/hub-stats/parquet/models/train/0.parquet') LIMIT 5" --format json
+```
+
+Install DuckDB first if needed:
+
+```bash
+# Python package
+>>> pip install duckdb
+
+# or standalone DuckDB CLI (Homebrew: macOS/Linux)
+>>> brew install duckdb
+```
+
+## hf spaces
+
+Use `hf spaces` to list Spaces on the Hub and get detailed information about a specific Space.
+
+### List Spaces
+
+```bash
+# List trending Spaces
+>>> hf spaces ls
+
+# Search for Spaces
+>>> hf spaces ls --search "3d"
+
+# Sort by likes
+>>> hf spaces ls --sort likes --limit 10
+```
+
+When called with a Space ID, `hf spaces ls` lists files in that Space repo:
+
+```bash
+# List files in a Space repo
+>>> hf spaces ls victor/deepsite
+
+# List files recursively with tree view
+>>> hf spaces ls victor/deepsite --tree -R -h
+```
+
+### Get Space info
+
+```bash
+>>> hf spaces info victor/deepsite
+```
+
+### Get Space card
+
+Use `hf spaces card` to fetch the Space card (README) for a Space. By default, prints the full card content to stdout.
+
+```bash
+# Full card (metadata + text)
+>>> hf spaces card mteb/leaderboard
+
+# Just the card metadata (from the YAML frontmatter)
+>>> hf spaces card mteb/leaderboard --metadata
+
+# Card metadata as JSON
+>>> hf spaces card mteb/leaderboard --metadata --format json
+
+# Just the text body (no YAML frontmatter)
+>>> hf spaces card mteb/leaderboard --text
+```
+
+> [!TIP]
+> Pausing or restarting a Space tears down its container, so anything written to the ephemeral filesystem is lost. To persist data across restarts, mount a Volume or bucket with `hf spaces volumes set` (run `hf spaces volumes --help` for details).
+
+### Pause a Space
+
+Use `hf spaces pause` to pause a Space when you are not using it (paused time is not billed). Restart it later with `hf spaces restart`.
+
+```bash
+>>> hf spaces pause username/my-space
+```
+
+### Restart a Space
+
+Use `hf spaces restart` to restart a Space. Pass `--factory-reboot` to rebuild the Space from scratch without using the build cache.
+
+```bash
+>>> hf spaces restart username/my-space
+>>> hf spaces restart username/my-space --factory-reboot
+```
+
+### Wait for a Space
+
+Use `hf spaces wait` to block until a Space finishes building/starting and reaches a settled stage. Exits with code 0 if the Space is `RUNNING`, or non-zero otherwise (e.g. `BUILD_ERROR`). Handy for scripting after a restart or hardware change.
+
+```bash
+>>> hf spaces wait username/my-space
+
+# With a timeout
+>>> hf spaces wait username/my-space --timeout 5m
+
+# Chain with restart
+>>> hf spaces restart username/my-space && hf spaces wait username/my-space
+```
+
+### List available hardware
+
+Use `hf spaces hardware` to list all available hardware options for Spaces, including pricing.
+
+```bash
+>>> hf spaces hardware
+```
+
+### Update Space settings
+
+Use `hf spaces settings` to update the settings of a Space.
+
+```bash
+>>> hf spaces settings username/my-space --sleep-time 3600
+>>> hf spaces settings username/my-space --hardware t4-medium
+```
+
+- `--sleep-time`: idle time in seconds before the Space sleeps. Use `-1` to never sleep. Only available on upgraded hardware (see the [Spaces sleep time docs](https://huggingface.co/docs/hub/spaces-gpus#sleep-time)).
+- `--hardware`: hardware flavor (e.g. `cpu-basic`, `t4-medium`, `l4x4`). Run `hf spaces hardware` to see all options.
+
+### Manage Space secrets
+
+Use `hf spaces secrets ls` to list secrets on a Space, `hf spaces secrets add` to add or update one or more secrets, and `hf spaces secrets delete` to remove one. Pass `--secrets-file PATH` to load secrets from a `.env`-style file. Existing keys are overwritten.
+
+```bash
+>>> hf spaces secrets ls username/my-space
+>>> hf spaces secrets add username/my-space -s OPENAI_API_KEY=sk-...
+>>> hf spaces secrets add username/my-space --secrets-file .env.secrets
+>>> hf spaces secrets delete username/my-space OPENAI_API_KEY --yes
+```
+
+> [!NOTE]
+> Secret values are write-only so `hf spaces secrets ls` shows keys, descriptions, and update timestamps, but never the secret values themselves.
+
+### Manage Space environment variables
+
+Use `hf spaces variables` to manage non-secret environment variables on a Space. Unlike secrets, variables are readable, so `ls` shows both keys and values. Pass `--env-file PATH` on `add` to load from a `.env`-style file.
+
+```bash
+>>> hf spaces variables ls username/my-space
+>>> hf spaces variables add username/my-space -e MODEL_ID=gpt2 -e MAX_TOKENS=512
+>>> hf spaces variables add username/my-space --env-file .env
+>>> hf spaces variables delete username/my-space MAX_TOKENS --yes
+```
+
+### SSH into a Space (Dev Mode)
+
+Use `hf spaces ssh` to open an SSH session into a Space's Dev Mode container. If Dev Mode is not enabled, the CLI will prompt you to enable it (or use `--auto` to skip the prompt).
+
+Your SSH public key must be registered [in your settings](https://huggingface.co/settings/keys). See the [Dev Mode documentation](https://huggingface.co/docs/hub/spaces-dev-mode) for more details.
+
+```bash
+# SSH into a Space
+>>> hf spaces ssh username/my-space
+
+# Print the SSH command without running it
+>>> hf spaces ssh username/my-space --dry-run
+
+# Auto-enable Dev Mode if disabled
+>>> hf spaces ssh username/my-space --auto
+
+# Use a specific SSH key
+>>> hf spaces ssh username/my-space -i ~/.ssh/id_ed25519
+```
+
+## hf papers
+
+Use `hf papers` to list, search, get structured info, and read the markdown content of papers on the Hub.
+
+### List papers
+
+```bash
+# List most recent daily papers
+>>> hf papers ls
+
+# List trending papers
+>>> hf papers ls --sort=trending
+
+# List papers from a specific date
+>>> hf papers ls --date=2025-01-23
+
+# List today's papers
+>>> hf papers ls --date=today
+
+# List papers from a specific week
+>>> hf papers ls --week=2025-W09
+
+# List papers from a specific month
+>>> hf papers ls --month=2025-02
+
+# List papers submitted by a specific user
+>>> hf papers ls --submitter=akhaliq
+
+# Limit results
+>>> hf papers ls --sort=trending --limit=5
+```
+
+### Search papers
+
+```bash
+# Search papers by keyword
+>>> hf papers search "vision language"
+
+# Limit search results
+>>> hf papers search "diffusion models" --limit=10
+
+# Output as JSON
+>>> hf papers search "attention" --format=json
+```
+
+### Get paper info
+
+```bash
+# Get structured metadata for a paper (returns JSON)
+>>> hf papers info 2601.15621
+```
+
+### Read paper as markdown
+
+```bash
+# Read the full paper content as markdown
+>>> hf papers read 2601.15621
+```
+
+## hf discussions
+
+Use `hf discussions` to manage discussions and pull requests on Hub repositories directly from your terminal. You can list, view, create, comment on, close, reopen, and merge both discussions and PRs. For a full guide on how the Hub's community features work, see the [Discussions and Pull Requests guide](./community).
+
+### List discussions
+
+To list open discussions and PRs on a repository, pass the repo ID to `hf discussions list` (or its shorthand `hf discussions ls`):
+
+```bash
+>>> hf discussions list username/my-model
+```
+
+You can narrow the results by kind (`discussion` or `pull_request`), status (`open`, `closed`, `merged`, or `all`), or author:
+
+```bash
+>>> hf discussions list username/my-model --kind pull_request --status merged
+>>> hf discussions list username/my-model --author alice
+```
+
+For scripting, use `--format json` to get structured output, or `--quiet` to print only discussion numbers (one per line):
+
+```bash
+>>> hf discussions list username/my-model --format json
+>>> hf discussions ls username/my-model --quiet
+```
+
+### Get info for a discussion or PR
+
+To inspect a specific discussion or PR, pass the repo ID and the discussion number:
+
+```bash
+>>> hf discussions info username/my-model 5
+```
+
+By default, only the discussion metadata (title, status, author, etc.) is shown. Add `--comments` to include the full conversation thread, or `--diff` to display the PR diff:
+
+```bash
+>>> hf discussions info username/my-model 5 --comments
+>>> hf discussions info username/my-model 5 --diff
+```
+
+Use `--format json` for machine-readable output, and `--no-color` to strip ANSI colors when piping to other tools.
+
+### Create a discussion or PR
+
+To open a new discussion, provide a title with `--title`. You can optionally include a description inline with `--body`, or load it from a file with `--body-file`:
+
+```bash
+>>> hf discussions create username/my-model --title "Bug report"
+>>> hf discussions create username/my-model --title "Feature request" --body "Please add X"
+>>> hf discussions create username/my-model --title "Report" --body-file report.md
+```
+
+To create a pull request instead of a plain discussion, add the `--pull-request` flag:
+
+```bash
+>>> hf discussions create username/my-model --title "Fix typo" --pull-request
+```
+
+### Comment on a discussion or PR
+
+Add a comment to an existing discussion or PR by specifying its number. The comment body can be passed inline with `--body`, read from a file with `--body-file`, or piped from stdin using `--body-file -`:
+
+```bash
+>>> hf discussions comment username/my-model 5 --body "Thanks for reporting!"
+>>> hf discussions comment username/my-model 5 --body-file review.md
+>>> echo "LGTM" | hf discussions comment username/my-model 5 --body-file -
+```
+
+### Edit a comment
+
+Edit an existing comment in place by passing the discussion number and the comment ID. Comment IDs can be retrieved with `hf discussions info`:
+
+```bash
+>>> hf discussions edit username/my-model 5 abc123 --body "Updated comment."
+>>> hf discussions edit username/my-model 5 abc123 --body-file fixed.md
+```
+
+### Close, reopen, and merge
+
+You can close a discussion or PR with `hf discussions close`. By default, you will be prompted for confirmation. Pass `--yes` to skip the prompt, and `--comment` to leave a closing message:
+
+```bash
+>>> hf discussions close username/my-model 5
+>>> hf discussions close username/my-model 5 --yes --comment "Resolved"
+```
+
+To reopen a previously closed discussion, use `hf discussions reopen`:
+
+```bash
+>>> hf discussions reopen username/my-model 5 --yes
+```
+
+To merge a pull request, use `hf discussions merge`:
+
+```bash
+>>> hf discussions merge username/my-model 5 --yes
+```
+
+### Rename and diff
+
+You can rename a discussion by providing the new title:
+
+```bash
+>>> hf discussions rename username/my-model 5 "Updated title"
+```
+
+To view the diff of a pull request directly in your terminal, use `hf discussions diff`:
+
+```bash
+>>> hf discussions diff username/my-model 5
+```
+
+## hf repos
+
+`hf repos` lets you list, create, delete, move repositories, update their settings, and delete files on the Hugging Face Hub. It also includes subcommands to manage branches and tags.
+
+### List repos
+
+Use `hf repos ls` to list all your repositories (models, datasets, spaces, and buckets) with storage information, sorted by storage usage. By default, only the first 30 repos are shown:
+
+```bash
+# List all your repos (first 30)
+>>> hf repos ls
+REPOSITORY                TYPE     UPDATED      VISIBILITY   STORAGE  % OF TOTAL
+------------------------  -------  ----------   ----------  --------  ----------
+username/bucket-raw       bucket   2026-04-29   public        1.7 TB       72.3%
+username/my-model         model    2026-05-06   public        4.8 GB       18.1%
+username/my-dataset       dataset  2024-09-14   private     598.4 MB        5.2%
+Hint: Showing 30 of 42 repos. Use `--limit 0` to list all.
+```
+
+Filter by repository type, search by name, or adjust the limit:
+
+```bash
+# List only models
+>>> hf repos ls --type model
+
+# Search by name
+>>> hf repos ls --search "bert"
+
+# List repos from an organization
+>>> hf repos ls --namespace my-org
+
+# Combine filters
+>>> hf repos ls --namespace my-org --type dataset --search "train"
+
+# List all repos (no limit)
+>>> hf repos ls --limit 0
+```
+
+Use `--format json` for scripting or `-q` for IDs only. When piping, use `--limit 0` to export all repos:
+
+```bash
+>>> hf repos ls --limit 0 --format json | jq '.[].id'
+>>> hf repos ls -q
+```
+
+### Create a repo
+
+```bash
+>>> hf repos create Wauplin/my-cool-model
+Successfully created Wauplin/my-cool-model on the Hub.
+Your repo is now available at https://huggingface.co/Wauplin/my-cool-model
+```
+
+Create a private dataset or a Space:
+
+```bash
+>>> hf repos create my-cool-dataset --repo-type dataset --private
+>>> hf repos create my-gradio-space --repo-type space --sdk gradio
+```
+
+Use `--exist-ok` if the repo may already exist, and `--resource-group-id` to target an Enterprise resource group.
+
+Create a repo in a specific region:
+
+```bash
+>>> hf repos create my-model --region us
+```
+
+### Delete a repo
+
+```bash
+>>> hf repos delete Wauplin/my-cool-model
+```
+
+Datasets and Spaces:
+
+```bash
+>>> hf repos delete my-cool-dataset --repo-type dataset
+>>> hf repos delete my-gradio-space --repo-type space
+```
+
+### Move a repo
+
+```bash
+>>> hf repos move old-namespace/my-model new-namespace/my-model
+```
+
+### Update repo settings
+
+```bash
+>>> hf repos settings Wauplin/my-cool-model --gated auto
+>>> hf repos settings Wauplin/my-cool-model --private true
+>>> hf repos settings Wauplin/my-cool-model --private false
+```
+
+- `--gated`: one of `auto`, `manual`, `false`
+- `--private true|false`: set repository privacy
+
+### Delete files from a repo
+
+The `hf repos delete-files <repo_id>` sub-command allows you to delete files from a repository. Here are some usage examples.
+
+Delete a folder:
+
+```bash
+>>> hf repos delete-files Wauplin/my-cool-model folder/
 Files correctly deleted from repo. Commit: https://huggingface.co/Wauplin/my-cool-mo...
 ```
 
 Delete multiple files:
+
 ```bash
->>> hf repo-files delete Wauplin/my-cool-model file.txt folder/pytorch_model.bin
+>>> hf repos delete-files Wauplin/my-cool-model file.txt folder/pytorch_model.bin
 Files correctly deleted from repo. Commit: https://huggingface.co/Wauplin/my-cool-mo...
 ```
 
-Use Unix-style wildcards to delete sets of files:
+Use wildcard patterns to delete sets of files. Patterns are Standard Wildcards (globbing patterns) as documented [here](https://tldp.org/LDP/GNU-Linux-Tools-Summary/html/x11655.htm). The pattern matching is based on [`fnmatch`](https://docs.python.org/3/library/fnmatch.html).
+
+> [!WARNING]
+> Note that `fnmatch` matches `*` across path boundaries, unlike traditional Unix shell globbing. For example, `"data/*.json"` will match both `data/file.json` **and** `data/subdir/file.json`. To match only files in the immediate directory, you need to list them explicitly or use more specific patterns.
+
 ```bash
->>> hf repo-files delete Wauplin/my-cool-model "*.txt" "folder/*.bin"
+>>> hf repos delete-files Wauplin/my-cool-model "*.txt" "folder/*.bin"
 Files correctly deleted from repo. Commit: https://huggingface.co/Wauplin/my-cool-mo...
 ```
-
-### Specify a token
 
 To delete files from a repo you must be authenticated and authorized. By default, the token saved locally (using `hf auth login`) will be used. If you want to authenticate explicitly, use the `--token` option:
 
 ```bash
->>> hf repo-files delete --token=hf_**** Wauplin/my-cool-model file.txt
+>>> hf repos delete-files --token=hf_**** Wauplin/my-cool-model file.txt
 ```
 
-## hf cache scan
+### hf repos branch
 
-Scanning your cache directory is useful if you want to know which repos you have downloaded and how much space it takes on your disk. You can do that by running `hf cache scan`:
+Use `hf repos branch` to create and delete branches for repositories on the Hub.
 
 ```bash
->>> hf cache scan
-REPO ID                     REPO TYPE SIZE ON DISK NB FILES LAST_ACCESSED LAST_MODIFIED REFS                LOCAL PATH
---------------------------- --------- ------------ -------- ------------- ------------- ------------------- -------------------------------------------------------------------------
-glue                        dataset         116.3K       15 4 days ago    4 days ago    2.4.0, main, 1.17.0 /home/wauplin/.cache/huggingface/hub/datasets--glue
-google/fleurs               dataset          64.9M        6 1 week ago    1 week ago    refs/pr/1, main     /home/wauplin/.cache/huggingface/hub/datasets--google--fleurs
-Jean-Baptiste/camembert-ner model           441.0M        7 2 weeks ago   16 hours ago  main                /home/wauplin/.cache/huggingface/hub/models--Jean-Baptiste--camembert-ner
-bert-base-cased             model             1.9G       13 1 week ago    2 years ago                       /home/wauplin/.cache/huggingface/hub/models--bert-base-cased
-t5-base                     model            10.1K        3 3 months ago  3 months ago  main                /home/wauplin/.cache/huggingface/hub/models--t5-base
-t5-small                    model           970.7M       11 3 days ago    3 days ago    refs/pr/1, main     /home/wauplin/.cache/huggingface/hub/models--t5-small
+# Create a branch
+>>> hf repos branch create Wauplin/my-cool-model dev
 
-Done in 0.0s. Scanned 6 repo(s) for a total of 3.4G.
-Got 1 warning(s) while scanning. Use -vvv to print details.
+# Create a branch from a specific revision
+>>> hf repos branch create Wauplin/my-cool-model release-1 --revision refs/pr/104
+
+# Delete a branch
+>>> hf repos branch delete Wauplin/my-cool-model dev
 ```
 
-For more details about how to scan your cache directory, please refer to the [Manage your cache](./manage-cache#scan-cache-from-the-terminal) guide.
+> [!TIP]
+> All commands accept `--repo-type` (one of `model`, `dataset`, `space`) and `--token` if you need to authenticate explicitly. Use `--help` on any command to see all options.
 
-## hf cache delete
+## hf cache
 
-`hf cache delete` is a tool that helps you delete parts of your cache that you don't use anymore. This is useful for saving and freeing disk space. To learn more about using this command, please refer to the [Manage your cache](./manage-cache#clean-cache-from-the-terminal) guide.
+Use `hf cache` to manage your local Hugging Face cache directory. The cache stores downloaded models, datasets, and other files from the Hub.
 
-## hf repo tag create
+```bash
+# List cached repositories
+>>> hf cache ls
 
-The `hf repo tag create` command allows you to tag, untag, and list tags for repositories.
+# List cached revisions
+>>> hf cache ls --revisions
+
+# Remove specific items from cache
+>>> hf cache rm model/gpt2
+
+# Remove unreferenced revisions
+>>> hf cache prune
+
+# Verify cached file checksums
+>>> hf cache verify gpt2
+```
+
+### hf cache ls
+
+Use `hf cache ls` to inspect what is stored locally in your Hugging Face cache. By default it aggregates information by repository:
+
+```bash
+>>> hf cache ls
+ID                          SIZE     LAST_ACCESSED LAST_MODIFIED REFS
+--------------------------- -------- ------------- ------------- -----------
+dataset/nyu-mll/glue          157.4M 2 days ago    2 days ago    main script
+model/LiquidAI/LFM2-VL-1.6B     3.2G 4 days ago    4 days ago    main
+model/microsoft/UserLM-8b      32.1G 4 days ago    4 days ago    main
+
+Found 3 repo(s) for a total of 5 revision(s) and 35.5G on disk.
+```
+
+Add `--revisions` to drill down to specific snapshots, and chain filters to focus on what matters:
+
+```bash
+>>> hf cache ls --filter "size>30g" --revisions
+ID                        REVISION                                 SIZE     LAST_MODIFIED REFS
+------------------------- ---------------------------------------- -------- ------------- ----
+model/microsoft/UserLM-8b be8f2069189bdf443e554c24e488ff3ff6952691    32.1G 4 days ago    main
+
+Found 1 repo(s) for a total of 1 revision(s) and 32.1G on disk.
+```
+
+The command supports several output formats for scripting: `--format json` prints structured objects, `--format csv` writes comma-separated rows, and `--quiet` prints only IDs. Use `--sort` to order entries by `accessed`, `modified`, `name`, or `size` (append `:asc` or `:desc` to control order), and `--limit` to restrict results to the top N entries. Combine these with `--cache-dir` to target alternative cache locations. See the [Manage your cache](./manage-cache) guide for advanced workflows.
+
+Delete cache entries selected with `hf cache ls --q` by piping the IDs into `hf cache rm`:
+
+```bash
+>>> hf cache rm $(hf cache ls --filter "accessed>1y" -q) -y
+About to delete 2 repo(s) totalling 5.31G.
+  - model/meta-llama/Llama-3.2-1B-Instruct (entire repo)
+  - model/hexgrad/Kokoro-82M (entire repo)
+Delete repo: ~/.cache/huggingface/hub/models--meta-llama--Llama-3.2-1B-Instruct
+Delete repo: ~/.cache/huggingface/hub/models--hexgrad--Kokoro-82M
+Cache deletion done. Saved 5.31G.
+Deleted 2 repo(s) and 2 revision(s); freed 5.31G.
+```
+
+### hf cache rm
+
+`hf cache rm` removes cached repositories or individual revisions. Pass one or more repo IDs (`model/bert-base-uncased`), repo-level `hf://` URIs, or revision hashes:
+
+```bash
+>>> hf cache rm model/LiquidAI/LFM2-VL-1.6B
+About to delete 1 repo(s) totalling 3.2G.
+  - model/LiquidAI/LFM2-VL-1.6B (entire repo)
+Proceed with deletion? [y/N]: y
+Delete repo: ~/.cache/huggingface/hub/models--LiquidAI--LFM2-VL-1.6B
+Cache deletion done. Saved 3.2G.
+Deleted 1 repo(s) and 2 revision(s); freed 3.2G.
+```
+
+Repo-level `hf://` URIs are also supported:
+
+```bash
+>>> hf cache rm hf://models/openai-community/gpt2 --dry-run
+About to delete 1 repo(s) totalling 1.1G.
+  - model/openai-community/gpt2 (entire repo)
+Dry run: no files were deleted.
+```
+
+Mix repositories and specific revisions in the same call. Use `--dry-run` to preview the impact, or `--yes` to skip the confirmation prompt—handy in automated scripts:
+
+```bash
+>>> hf cache rm model/t5-small 8f3ad1c --dry-run
+About to delete 1 repo(s) and 1 revision(s) totalling 1.1G.
+  - model/t5-small:
+      8f3ad1c [main] 1.1G
+Dry run: no files were deleted.
+```
+
+When working outside the default cache location, pair the command with `--cache-dir PATH`.
+
+### hf cache prune
+
+`hf cache prune` is a convenience shortcut that reclaims space taken by cache garbage: every detached (unreferenced) revision (keeping only revisions still reachable through a branch or tag) and any leftover `.incomplete` files from interrupted downloads:
+
+```bash
+>>> hf cache prune
+About to delete 3 unreferenced revision(s) and 2 incomplete download(s) (2.4G total).
+  - model/t5-small:
+      1c610f6b [refs/pr/1] 820.1M
+      d4ec9b72 [(detached)] 640.5M
+  - dataset/google/fleurs:
+      2b91c8dd [(detached)] 937.6M
+Proceed? [y/N]: y
+Deleted 3 unreferenced revision(s) and 2 incomplete download(s); freed 2.4G.
+```
+
+`.incomplete` files are partial downloads left behind when a download is interrupted. They are not tracked by `hf cache ls`/`rm` (which work at the revision level), so `hf cache ls` points them out with a hint and `hf cache prune` removes them automatically.
+
+As with the other cache commands, `--dry-run`, `--yes`, and `--cache-dir` are available. Refer to the [Manage your cache](./manage-cache) guide for more examples.
+
+### hf cache verify
+
+Use `hf cache verify` to validate local files against their checksums on the Hub. You can verify either a cache snapshot or a regular local directory.
+
+Examples:
+
+```bash
+# Verify main revision of a model in cache
+>>> hf cache verify deepseek-ai/DeepSeek-OCR
+
+# Verify a specific revision
+>>> hf cache verify deepseek-ai/DeepSeek-OCR --revision refs/pr/5
+>>> hf cache verify deepseek-ai/DeepSeek-OCR --revision ef93bf4a377c5d5ed9dca78e0bc4ea50b26fe6a4
+
+# Verify a private repo
+>>> hf cache verify me/private-model --token hf_***
+
+# Verify a dataset
+>>> hf cache verify karpathy/fineweb-edu-100b-shuffle --repo-type dataset
+
+# Verify files in a local directory
+>>> hf cache verify deepseek-ai/DeepSeek-OCR --local-dir /path/to/repo
+```
+
+By default, the command warns about missing or extra files. Use flags to turn these warnings into errors:
+
+```bash
+>>> hf cache verify deepseek-ai/DeepSeek-OCR --fail-on-missing-files --fail-on-extra-files
+```
+
+On success, you will see a summary:
+
+```text
+✅ Verified 13 file(s) for 'deepseek-ai/DeepSeek-OCR' (model) in ~/.cache/huggingface/hub/models--meta-llama--Llama-3.2-1B-Instruct/snapshots/9213176726f574b556790deb65791e0c5aa438b6
+  All checksums match.
+```
+
+If mismatches are detected, the command prints a detailed list and exits with a non-zero status.
+
+### hf repos tag
+
+Use `hf repos tag` to create, list, and delete tags for repositories on the Hub.
+
+```bash
+# Create a tag
+>>> hf repos tag create my-model v1.0
+
+# List tags
+>>> hf repos tag list my-model
+
+# Delete a tag
+>>> hf repos tag delete my-model v1.0
+```
 
 ### Tag a model
 
 To tag a repo, you need to provide the `repo_id` and the `tag` name:
 
 ```bash
->>> hf repo tag create Wauplin/my-cool-model v1.0
+>>> hf repos tag create Wauplin/my-cool-model v1.0
 You are about to create tag v1.0 on model Wauplin/my-cool-model
 Tag v1.0 created on Wauplin/my-cool-model
 ```
@@ -501,7 +1699,7 @@ Tag v1.0 created on Wauplin/my-cool-model
 If you want to tag a specific revision, you can use the `--revision` option. By default, the tag will be created on the `main` branch:
 
 ```bash
->>> hf repo tag create Wauplin/my-cool-model v1.0 --revision refs/pr/104
+>>> hf repos tag create Wauplin/my-cool-model v1.0 --revision refs/pr/104
 You are about to create tag v1.0 on model Wauplin/my-cool-model
 Tag v1.0 created on Wauplin/my-cool-model
 ```
@@ -511,17 +1709,17 @@ Tag v1.0 created on Wauplin/my-cool-model
 If you want to tag a dataset or Space, you must specify the `--repo-type` option:
 
 ```bash
->>> hf repo tag create bigcode/the-stack v1.0 --repo-type dataset
+>>> hf repos tag create bigcode/the-stack v1.0 --repo-type dataset
 You are about to create tag v1.0 on dataset bigcode/the-stack
 Tag v1.0 created on bigcode/the-stack
 ```
 
 ### List tags
 
-To list all tags for a repository, use the `-l` or `--list` option:
+To list all tags for a repository, use the `list` (or `ls`) subcommand:
 
 ```bash
->>> hf repo tag create Wauplin/gradio-space-ci -l --repo-type space
+>>> hf repos tag list Wauplin/gradio-space-ci --repo-type space
 Tags for space Wauplin/gradio-space-ci:
 0.2.2
 0.2.1
@@ -533,10 +1731,10 @@ Tags for space Wauplin/gradio-space-ci:
 
 ### Delete a tag
 
-To delete a tag, use the `-d` or `--delete` option:
+To delete a tag, use the `delete` subcommand:
 
 ```bash
->>> hf repo tag create -d Wauplin/my-cool-model v1.0
+>>> hf repos tag delete Wauplin/my-cool-model v1.0
 You are about to delete tag v1.0 on model Wauplin/my-cool-model
 Proceed? [Y/n] y
 Tag v1.0 deleted on Wauplin/my-cool-model
@@ -553,40 +1751,36 @@ The `hf env` command prints details about your machine setup. This is useful whe
 
 Copy-and-paste the text below in your GitHub issue.
 
-- huggingface_hub version: 0.19.0.dev0
-- Platform: Linux-6.2.0-36-generic-x86_64-with-glibc2.35
-- Python version: 3.10.12
+- huggingface_hub version: 1.0.0.rc6
+- Platform: Linux-6.8.0-85-generic-x86_64-with-glibc2.35
+- Python version: 3.11.14
 - Running in iPython ?: No
 - Running in notebook ?: No
 - Running in Google Colab ?: No
+- Running in Google Colab Enterprise ?: No
 - Token path ?: /home/wauplin/.cache/huggingface/token
 - Has saved token ?: True
 - Who am I ?: Wauplin
 - Configured git credential helpers: store
-- FastAI: N/A
-- Tensorflow: 2.11.0
-- Torch: 1.12.1
-- Jinja2: 3.1.2
-- Graphviz: 0.20.1
-- Pydot: 1.4.2
-- Pillow: 9.2.0
-- hf_transfer: 0.1.3
-- gradio: 4.0.2
-- tensorboard: 2.6
-- numpy: 1.23.2
-- pydantic: 2.4.2
-- aiohttp: 3.8.4
+- Installation method: unknown
+- Torch: N/A
+- httpx: 0.28.1
+- hf_xet: 1.1.10
+- gradio: 5.41.1
+- tensorboard: N/A
+- pydantic: 2.11.7
 - ENDPOINT: https://huggingface.co
 - HF_HUB_CACHE: /home/wauplin/.cache/huggingface/hub
 - HF_ASSETS_CACHE: /home/wauplin/.cache/huggingface/assets
 - HF_TOKEN_PATH: /home/wauplin/.cache/huggingface/token
+- HF_STORED_TOKENS_PATH: /home/wauplin/.cache/huggingface/stored_tokens
 - HF_HUB_OFFLINE: False
 - HF_HUB_DISABLE_TELEMETRY: False
 - HF_HUB_DISABLE_PROGRESS_BARS: None
 - HF_HUB_DISABLE_SYMLINKS_WARNING: False
 - HF_HUB_DISABLE_EXPERIMENTAL_WARNING: False
 - HF_HUB_DISABLE_IMPLICIT_TOKEN: False
-- HF_HUB_ENABLE_HF_TRANSFER: False
+- HF_HUB_DISABLE_XET: False
 - HF_HUB_ETAG_TIMEOUT: 10
 - HF_HUB_DOWNLOAD_TIMEOUT: 10
 ```
@@ -597,35 +1791,28 @@ Run compute jobs on Hugging Face infrastructure with a familiar Docker-like inte
 
 `hf jobs` is a command-line tool that lets you run anything on Hugging Face's infrastructure (including GPUs and TPUs!) with simple commands. Think `docker run`, but for running code on A100s.
 
+**For a general overview of Jobs and pricing, see the [Hub Jobs documentation](https://huggingface.co/docs/hub/jobs).** For Python API usage alongside the CLI, see the [Run and manage Jobs guide](./jobs).
+
 ```bash
 # Directly run Python code
->>> hf jobs run python:3.12 python -c 'print("Hello from the cloud!")'
+>>> hf jobs run --name hello-world python:3.12 python -c 'print("Hello from the cloud!")'
 
 # Use GPUs without any setup
 >>> hf jobs run --flavor a10g-small pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel \
 ... python -c "import torch; print(torch.cuda.get_device_name())"
 
 # Run in an organization account
->>> hf jobs run --namespace my-org-name python:3.12 python -c "print('Running in an org account')"
+>>> hf jobs run --namespace my-org-name python:3.12 python -c 'print("Running in an org account")'
 
 # Run from Hugging Face Spaces
->>> hf jobs run hf.co/spaces/lhoestq/duckdb duckdb -c "select 'hello world'"
+>>> hf jobs run hf.co/spaces/lhoestq/duckdb duckdb -c 'select "hello world"'
 
 # Run a Python script with `uv` (experimental)
->>> hf jobs uv run my_script.py
+>>> hf jobs uv run --name my-script my_script.py
 ```
 
-### ✨ Key Features
-
-- 🐳 **Docker-like CLI**: Familiar commands (`run`, `ps`, `logs`, `inspect`) to run and manage jobs
-- 🔥 **Any Hardware**: From CPUs to A100 GPUs and TPU pods - switch with a simple flag
-- 📦 **Run Anything**: Use Docker images, HF Spaces, or your custom containers
-- 🔐 **Simple Auth**: Just use your HF token
-- 📊 **Live Monitoring**: Stream logs in real-time, just like running locally
-- 💰 **Pay-as-you-go**: Only pay for the seconds you use
-
 > [!TIP]
-> **Hugging Face Jobs** are available only to [Pro users](https://huggingface.co/pro) and [Team or Enterprise organizations](https://huggingface.co/enterprise). Upgrade your plan to get started!
+> **Hugging Face Jobs** are available to any user or organization with [pre-paid credits](https://huggingface.co/settings/billing).
 
 ### Quick Start
 
@@ -633,7 +1820,7 @@ Run compute jobs on Hugging Face infrastructure with a familiar Docker-like inte
 
 ```bash
 # Run a simple Python script
->>> hf jobs run python:3.12 python -c "print('Hello from HF compute!')"
+>>> hf jobs run python:3.12 python -c 'print("Hello from HF compute!")'
 ```
 
 This command runs the job and shows the logs. You can pass `--detach` to run the Job in the background and only print the Job ID.
@@ -642,7 +1829,9 @@ This command runs the job and shows the logs. You can pass `--detach` to run the
 
 ```bash
 # List your running jobs
->>> hf jobs ps
+>>> hf jobs ls
+# List all jobs
+>>> hf jobs ls -a
 
 # Inspect the status of a job
 >>> hf jobs inspect <job_id>
@@ -650,8 +1839,25 @@ This command runs the job and shows the logs. You can pass `--detach` to run the
 # View logs from a job
 >>> hf jobs logs <job_id>
 
+# View resources usage stats and metrics of running jobs
+>>> hf jobs stats
+# View resources usage stats and metrics of some jobs
+>>> hf jobs stats [job_ids]...
+
 # Cancel a job
 >>> hf jobs cancel <job_id>
+
+# Wait until one or more jobs finish (exit code 0 only if all jobs completed successfully)
+>>> hf jobs wait <job_id> [<job_id>...]
+
+# Wait for all currently running jobs
+>>> hf jobs ls -q | xargs hf jobs wait
+```
+
+Non-detached `hf jobs run` and `hf jobs wait` exit with a non-zero code if a Job fails, so you can chain commands with `&&`:
+
+```bash
+>>> hf jobs run python:3.12 python train.py && echo "training succeeded"
 ```
 
 #### 3. Run on GPU
@@ -661,7 +1867,7 @@ You can also run jobs on GPUs or TPUs with the `--flavor` option. For example, t
 ```bash
 # Use an A10G GPU to check PyTorch CUDA
 >>> hf jobs run --flavor a10g-small pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel \
-... python -c "import torch; print(f"This code ran with the following GPU: {torch.cuda.get_device_name()}")"
+... python -c 'import torch; print(f"This code ran with the following GPU: {torch.cuda.get_device_name()}")'
 ```
 
 Running this will show the following output!
@@ -669,6 +1875,8 @@ Running this will show the following output!
 ```bash
 This code ran with the following GPU: NVIDIA A10G
 ```
+
+A `--` can be used to separate the command from jobs options for clarity, e.g., `hf jobs run --flavor a10g-small -- python -c '...'`
 
 That's it! You're now running code on Hugging Face's infrastructure.
 
@@ -683,32 +1891,75 @@ That's it! You're now running code on Hugging Face's infrastructure.
 
 ### Pass Environment variables and Secrets
 
-You can pass environment variables to your job using 
+You can pass environment variables to your job using
 
 ```bash
 # Pass environment variables
->>> hf jobs run -e FOO=foo -e BAR=bar python:3.12 python -c "import os; print(os.environ['FOO'], os.environ['BAR'])"
+>>> hf jobs run -e FOO=foo -e BAR=bar python:3.12 python -c 'import os; print(os.environ["FOO"], os.environ["BAR"])'
 ```
 
 ```bash
 # Pass an environment from a local .env file
->>> hf jobs run --env-file .env python:3.12 python -c "import os; print(os.environ['FOO'], os.environ['BAR'])"
+>>> hf jobs run --env-file .env python:3.12 python -c 'import os; print(os.environ["FOO"], os.environ["BAR"])'
 ```
 
 ```bash
 # Pass secrets - they will be encrypted server side
->>> hf jobs run -s MY_SECRET=psswrd python:3.12 python -c "import os; print(os.environ['MY_SECRET'])"
+>>> hf jobs run -s MY_SECRET=psswrd python:3.12 python -c 'import os; print(os.environ["MY_SECRET"])'
 ```
 
 ```bash
 # Pass secrets from a local .env.secrets file - they will be encrypted server side
->>> hf jobs run --secrets-file .env.secrets python:3.12 python -c "import os; print(os.environ['MY_SECRET'])"
+>>> hf jobs run --secrets-file .env.secrets python:3.12 python -c 'import os; print(os.environ["MY_SECRET"])'
 ```
 
 > [!TIP]
 > Use `--secrets HF_TOKEN` to pass your local Hugging Face token implicitly.
 > With this syntax, the secret is retrieved from the environment variable.
 > For `HF_TOKEN`, it may read the token file located in the Hugging Face home folder if the environment variable is unset.
+
+#### Built-in Environment Variables
+
+Inside the job container, the following environment variables are automatically available:
+
+| Variable      | Description                                                                                             |
+| ------------- | ------------------------------------------------------------------------------------------------------- |
+| `JOB_ID`      | The unique identifier of the current job. Use this to reference the job programmatically.               |
+| `ACCELERATOR` | The type of accelerator available (e.g., `t4-medium`, `a10g-small`, `a100x4`). Empty if no accelerator. |
+| `CPU_CORES`   | The number of CPU cores available to the job (e.g., `2`, `4`, `8`).                                     |
+| `MEMORY`      | The amount of memory available to the job (e.g., `16Gi`, `32Gi`).                                       |
+
+```bash
+# Access job environment information
+>>> hf jobs run python:3.12 python -c "import os; print(f'Job: {os.environ.get(\"JOB_ID\")}, CPU: {os.environ.get(\"CPU_CORES\")}, Mem: {os.environ.get(\"MEMORY\")}')"
+```
+
+### Job Timeout
+
+Jobs have a default timeout of 30 mins, after which they automatically stop. For long-running tasks like model training, set a custom timeout using the `--timeout` option:
+
+```bash
+# Set timeout in seconds (default unit)
+>>> hf jobs run --timeout 7200 python:3.12 python train.py
+
+# Use time units: s (seconds), m (minutes), h (hours), d (days)
+>>> hf jobs run --timeout 2h pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel python train.py
+>>> hf jobs run --timeout 90m python:3.12 python process_data.py
+>>> hf jobs run --timeout 1.5h python:3.12 python train.py  # floats are supported
+```
+
+The `--timeout` option also works with UV scripts and scheduled jobs:
+
+```bash
+# UV script with timeout
+>>> hf jobs uv run --timeout 2h training_script.py
+
+# Scheduled job with timeout
+>>> hf jobs scheduled run @daily --timeout 4h python:3.12 python daily_task.py
+```
+
+> [!WARNING]
+> If your job exceeds the timeout, it will be automatically terminated. Always set an appropriate timeout with some buffer for long-running tasks to avoid unexpected job terminations.
 
 ### Hardware
 
@@ -720,19 +1971,136 @@ Available `--flavor` options:
 
 (updated in 07/2025 from Hugging Face [suggested_hardware docs](https://huggingface.co/docs/hub/en/spaces-config-reference))
 
+## Volumes
+
+Mount a volume on the Job's disk using `-v` or `--volume`.
+
+You can mount any Hugging Face Repository (model/dataset/space) or [Storage Bucket](/docs/hub/storage-buckets) using the `hf://` URL scheme. For example:
+
+* mount a model repository: `-v hf://openai/gpt-oss-120b:/model`
+* mount a dataset repository: `-v hf://datasets/HuggingFaceFW/fineweb:/data`
+* mount a storage bucket: `-v hf://buckets/username/my-bucket:/mnt`
+* mount a space: `-v hf://spaces/username/my-space:/app`
+* mount a subfolder inside a repo: `-v hf://datasets/org/ds/train:/data`
+
+Then you can use the mounted volume as a local directory:
+
+```bash
+# Docker Job with a mounted volume as input
+>>> hf jobs run -v hf://datasets/HuggingFaceFW/fineweb:/dataset \
+...     duckdb/duckdb duckdb -c "SELECT * FROM '/dataset/**/*.parquet' LIMIT 5"
+
+# UV Job with a mounted volume to save checkpoints when training a model
+>>> hf jobs uv run -v hf://buckets/username/my-bucket:/training-outputs \
+...     sft.py --output-dir /training-outputs/training-v3-final ...
+```
+
+Models, datasets and spaces are always mounted read-only. Storage buckets are read+write by default — this is especially useful for data that changes frequently, as files can be overwritten or deleted in place.
+
+Use `:ro` to enable read-only:
+
+* mount a storage bucket in read-only: `-v hf://buckets/username/my-bucket:/mnt:ro`
+
+### Mount local data
+
+The source side of `-v` can also be a local directory. It is first synced to your `jobs-artifacts` [Storage Bucket](/docs/hub/storage-buckets) and the resulting bucket folder is mounted in the Job:
+
+```bash
+>>> hf jobs uv run -v ./my-data:/data process.py
+```
+
+Re-running the command only uploads new or modified files. Local directories are mounted read-only by default. Use `:rw` to let the Job write to the volume, e.g. to retrieve outputs after the Job completes (an empty local directory works too):
+
+```bash
+>>> hf jobs uv run -v ./pdfs:/input -v ./md-out:/output:rw ocr.py
+...
+Hint: Volume '/output' is mounted read-write. Once the job is over, pull back its data with:
+  hf buckets sync hf://buckets/username/jobs-artifacts/md-out-a1b2c3d4 ./md-out
+```
+
+### Labels
+
+Add labels to a Job using `-l` or `--label`. Labels are a key=value pairs that applies metadata to a Job. To label a Job with two labels, repeat the label flag (`-l` or `--label`):
+
+```bash
+>>> hf jobs run -l my-label --label foo=bar ubuntu echo "This Job has multiple labels"
+```
+
+The my-label key doesn't specify a value so its value defaults to an empty string ("").
+
+Use `--name` to add the `name` label when creating a Job. Names make Jobs easier to find and identify in the UI; they are optional and do not have to be unique. If you don't pass `--name`, a name is derived automatically from the Docker image or the script, plus a short hash of the command so reruns of the same command share a name (e.g. `python:3.12 foo --truc` → `python-3-12-1a2b3c4d`). You can also rename an existing Job:
+
+```bash
+>>> hf jobs run --name training-v2 python:3.12 python train.py
+>>> hf jobs labels <job_id> --name training-v2
+```
+
+Use `--status`, `--label` and `--name` in `hf jobs ls` to filter Jobs. `--status` takes one or more statuses, `--label` takes `key=value` pairs, and `--name` is a shortcut for `--label name=NAME`. A Job must match every filter to be listed. The Job name is also shown as its own `NAME` column:
+
+```bash
+# Show completed Jobs
+>>> hf jobs ls -a --status completed
+
+# Show running or scheduling Jobs
+>>> hf jobs ls --status running,scheduling
+
+# Show Jobs named `training-v2`
+>>> hf jobs ls -a --name training-v2
+
+# Show Jobs with the `model=Qwen3-06B` label
+>>> hf jobs ls -a --label model=Qwen3-06B
+
+# Combine filters: running Jobs labelled both `env=prod` and `team=ml`
+>>> hf jobs ls --status running --label env=prod --label team=ml
+```
+
+By default `hf jobs ps` displays at most 100 Jobs to avoid bloating the terminal. Use `--limit` to change this, or `--limit 0` to show all of them:
+
+```bash
+# Show up to 500 Jobs
+>>> hf jobs ps -a --limit 500
+
+# Show all Jobs (no limit)
+>>> hf jobs ps -a --limit 0
+```
+
+> [!WARNING]
+> `-f`/`--filter` is deprecated in favor of `--status` and `--label`. Matching is exact: glob patterns (`data-*`) and negation (`key!=value`) are not supported, and filtering by `id`, `image` or `command` is not available.
+
+
+### SSH into a Job
+
+Pass `--ssh` to `hf jobs run` (or `hf jobs uv run`) to make the Job's container reachable over SSH, then connect with `hf jobs ssh`:
+
+```bash
+# Start a job with SSH enabled
+>>> hf jobs run --ssh --detach python:3.12 sleep infinity
+
+# Open an SSH session into it
+>>> hf jobs ssh <job_id>
+
+# Print the SSH command instead of running it
+>>> hf jobs ssh <job_id> --dry-run
+
+# Use a specific identity file
+>>> hf jobs ssh <job_id> -i ~/.ssh/id_ed25519
+```
+
+Only users with write access to the Job's namespace are allowed in (the Job creator, or members of the owner organization), authenticated by an SSH public key registered at https://huggingface.co/settings/keys.
+
 ### UV Scripts (Experimental)
 
-Run UV scripts (Python scripts with inline dependencies) on HF infrastructure:
+Run UV scripts (Python scripts with inline dependencies) on HF infrastructure. UV scripts are Python scripts that include their dependencies directly in the file using a special comment syntax.
 
 ```bash
 # Run a UV script (creates temporary repo)
 >>> hf jobs uv run my_script.py
 
 # Run with persistent repo
->>> hf jobs uv run my_script.py --repo my-uv-scripts
+>>> hf jobs uv run --repo my-uv-scripts my_script.py
 
 # Run with GPU
->>> hf jobs uv run ml_training.py --flavor gpu-t4-small
+>>> hf jobs uv run --flavor gpu-t4-small ml_training.py
 
 # Pass arguments to script
 >>> hf jobs uv run process.py input.csv output.parquet
@@ -744,12 +2112,14 @@ Run UV scripts (Python scripts with inline dependencies) on HF infrastructure:
 >>> hf jobs uv run https://huggingface.co/datasets/username/scripts/resolve/main/example.py
 
 # Run a command
->>> hf jobs uv run --with lighteval python -c "import lighteval"
+>>> hf jobs uv run --with lighteval python -c 'import lighteval'
 ```
 
 UV scripts are Python scripts that include their dependencies directly in the file using a special comment syntax. This makes them perfect for self-contained tasks that don't require complex project setups. Learn more about UV scripts in the [UV documentation](https://docs.astral.sh/uv/guides/scripts/).
 
-### Scheduled Jobs
+A `--` can be used to separate the command from jobs/uv options for clarity, e.g., `hf jobs uv run --flavor gpu-t4-small --with torch -- python -c '...'`
+
+### hf jobs scheduled
 
 Schedule and manage jobs that will run on HF infrastructure.
 
@@ -757,7 +2127,7 @@ The schedule should be one of `@annually`, `@yearly`, `@monthly`, `@weekly`, `@d
 
 ```bash
 # Schedule a job that runs every hour
->>> hf jobs scheduled run @hourly python:3.12 python -c 'print("This runs every hour!")'
+>>> hf jobs scheduled run @hourly --name hourly-task python:3.12 python -c 'print("This runs every hour!")'
 
 # Use the CRON syntax
 >>> hf jobs scheduled run "*/5 * * * *" python:3.12 python -c 'print("This runs every 5 minutes!")'
@@ -767,7 +2137,7 @@ The schedule should be one of `@annually`, `@yearly`, `@monthly`, `@weekly`, `@d
 ... python -c "import torch; print(f"This code ran with the following GPU: {torch.cuda.get_device_name()}")"
 
 # Schedule a UV script
->>> hf jobs scheduled uv run @hourly my_script.py
+>>> hf jobs scheduled uv run @hourly --name hourly-script my_script.py
 ```
 
 Use the same parameters as `hf jobs run` to pass environment variables, secrets, timeout, etc.
@@ -776,7 +2146,7 @@ Manage scheduled jobs using
 
 ```bash
 # List your active scheduled jobs
->>> hf jobs scheduled ps
+>>> hf jobs scheduled ls
 
 # Inspect the status of a job
 >>> hf jobs scheduled inspect <scheduled_job_id>
@@ -787,6 +2157,173 @@ Manage scheduled jobs using
 # Resume a scheduled job
 >>> hf jobs scheduled resume <scheduled_job_id>
 
+# Trigger a scheduled job to run right now (does not change the schedule)
+>>> hf jobs scheduled trigger <scheduled_job_id>
+
 # Delete a scheduled job
 >>> hf jobs scheduled delete <scheduled_job_id>
+```
+
+## hf sandbox
+
+`hf sandbox` spins up isolated cloud machines built on Jobs: create one, run commands with live-streamed output, and copy files in and out. Any Docker image with `/bin/sh` works. See the [Sandboxes guide](./sandbox) for the Python API, and the [conceptual guide](../concepts/sandbox) for how it works under the hood.
+
+```bash
+# Create a sandbox (waits until it is ready, prints its id)
+>>> hf sandbox create
+✓ Sandbox ready id=687f911eaea852de79c4a50a image=python:3.12 elapsed=6.0s
+
+# Run commands inside it (output is streamed, exit code is propagated)
+>>> hf sandbox exec 687f911eaea852de79c4a50a -- python -c "print('hi')"
+hi
+
+# Copy files in and out (docker-style)
+>>> hf sandbox cp data.csv 687f911eaea852de79c4a50a:/data/data.csv
+>>> hf sandbox cp 687f911eaea852de79c4a50a:/app/results.json results.json
+
+# Terminate a sandbox
+>>> hf sandbox kill 687f911eaea852de79c4a50a
+```
+
+Use `--flavor` to pick hardware (e.g. `a10g-small`), `--idle-timeout` to bound the sandbox lifetime, and `-e` / `--secrets` for environment variables. To fan out many cheap CPU sandboxes, warm a pool with `hf sandbox pool create` and spawn into it with `hf sandbox create --pool <id>` (see the [Sandboxes guide](./sandbox#from-the-cli)).
+
+## hf webhooks
+
+`hf webhooks` lets you manage webhooks on the Hugging Face Hub directly from the terminal. Webhooks allow you to listen for events (pushes, discussions, etc.) on repos, users, or organizations and trigger actions — either by pinging a remote URL or by running a Job on Hugging Face infrastructure.
+
+### List webhooks
+
+```bash
+>>> hf webhooks ls
+ID           URL                                DISABLED  DOMAINS  WATCHED
+wh-abc123    https://example.com/hook            False     repo     model:bert-base-uncased
+wh-def456    https://example.com/other-hook      False     repo     org:HuggingFace
+```
+
+Use `--format json` for machine-readable output, or `-q` to print only IDs:
+
+```bash
+>>> hf webhooks ls --format json
+>>> hf webhooks ls -q
+```
+
+### Get webhook info
+
+```bash
+>>> hf webhooks info wh-abc123
+```
+
+Prints full webhook details as JSON.
+
+### Create a webhook
+
+Create a webhook that sends payloads to a URL:
+
+```bash
+>>> hf webhooks create --url https://example.com/hook --watch model:bert-base-uncased
+>>> hf webhooks create --url https://example.com/hook --watch org:HuggingFace --watch model:gpt2 --domain repo
+```
+
+Or create a webhook that triggers a Job instead:
+
+```bash
+>>> hf webhooks create --job-id 687f911eaea852de79c4a50a --watch user:julien-c
+```
+
+The `--watch` option uses the format `type:name` where type is one of `model`, `dataset`, `space`, `org`, or `user`. It can be repeated to watch multiple items. Use `--domain` to filter events to `repo` or `discussions`, and `--secret` to set a signing secret.
+
+### Update a webhook
+
+```bash
+>>> hf webhooks update wh-abc123 --url https://new-url.com/hook
+>>> hf webhooks update wh-abc123 --watch model:gpt2 --domain repo
+```
+
+Only the provided options are changed. Note that `--watch` replaces the entire watched list when specified.
+
+### Enable / disable a webhook
+
+```bash
+>>> hf webhooks enable wh-abc123
+>>> hf webhooks disable wh-abc123
+```
+
+### Delete a webhook
+
+```bash
+>>> hf webhooks delete wh-abc123
+Are you sure you want to delete webhook 'wh-abc123'? [y/N]: y
+Webhook deleted: wh-abc123
+```
+
+Use `--yes` to skip the confirmation prompt:
+
+```bash
+>>> hf webhooks delete wh-abc123 --yes
+```
+
+> [!TIP]
+> All commands accept `--token` to override authentication. Use `--help` on any command to see all options.
+
+## hf endpoints
+
+Use `hf endpoints` to list, deploy, describe, and manage Inference Endpoints directly from the terminal. The legacy
+`hf inference-endpoints` alias remains available for compatibility.
+
+```bash
+# Lists endpoints in your namespace
+>>> hf endpoints ls
+
+# Deploy an endpoint from Model Catalog
+>>> hf endpoints catalog deploy --repo openai/gpt-oss-120b --name my-endpoint
+
+# Deploy an endpoint from the Hugging Face Hub
+>>> hf endpoints deploy my-endpoint --repo gpt2 --framework pytorch --accelerator cpu --instance-size x2 --instance-type intel-icl
+
+# List catalog entries
+>>> hf endpoints catalog ls
+
+# Show status and metadata
+>>> hf endpoints describe my-endpoint
+
+# Pause the endpoint
+>>> hf endpoints pause my-endpoint
+
+# Delete without confirmation prompt
+>>> hf endpoints delete my-endpoint --yes
+```
+
+> [!TIP]
+> Add `--namespace` to target an organization, `--token` to override authentication.
+
+#### Deploy a custom container
+
+To deploy your own Docker image instead of a Hugging Face managed one, pass `--framework custom` together with `--custom-image`. The model repository is mounted at `/repository` inside the container. Use `--container-args` (and optionally `--container-command`) to pass a quoted launch string, `--env`/`--secrets` to inject environment variables, and `--type` to set the access type (`public`, `authenticated` or `private`):
+
+```bash
+>>> hf endpoints deploy nex-n2-pro \
+      --repo nex-agi/Nex-N2-Pro \
+      --framework custom \
+      --accelerator gpu --vendor aws --region us-east-1 \
+      --instance-type nvidia-h200 --instance-size x8 \
+      --custom-image nexagi/sglang:v0.5.12 \
+      --health-route /health --port 30000 \
+      --container-args "--reasoning-parser qwen3 --tool-call-parser qwen3_coder --mamba-scheduler-strategy extra_buffer --tp 8" \
+      --env MODEL_ID=/repository \
+      --type authenticated
+```
+
+### hf endpoints catalog
+
+Use `hf endpoints catalog` to interact with the Inference Endpoints Model Catalog. Deploy models directly from the catalog with optimized configurations.
+
+```bash
+# List available catalog models
+>>> hf endpoints catalog ls
+
+# Deploy a model from the catalog
+>>> hf endpoints catalog deploy --repo meta-llama/Llama-3.2-1B-Instruct
+
+# Deploy with a custom name
+>>> hf endpoints catalog deploy --repo meta-llama/Llama-3.2-1B-Instruct --name my-llama-endpoint
 ```

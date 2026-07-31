@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from typing import AsyncGenerator, Dict, Iterable, List, Optional, Union
+from typing import AsyncGenerator, Iterable, Optional, Union
 
 from huggingface_hub import ChatCompletionInputMessage, ChatCompletionStreamOutput, MCPClient
 
@@ -21,7 +21,7 @@ class Agent(MCPClient):
         model (`str`, *optional*):
             The model to run inference with. Can be a model id hosted on the Hugging Face Hub, e.g. `meta-llama/Meta-Llama-3-8B-Instruct`
             or a URL to a deployed Inference Endpoint or other local or remote endpoint.
-        servers (`Iterable[Dict]`):
+        servers (`Iterable[dict]`):
             MCP servers to connect to. Each server is a dictionary containing a `type` key and a `config` key. The `type` key can be `"stdio"` or `"sse"`, and the `config` key is a dictionary of arguments for the server.
         provider (`str`, *optional*):
             Name of the provider to use for inference. Defaults to "auto" i.e. the first of the providers available for the model, sorted by the user's order in https://hf.co/settings/inference-providers.
@@ -46,7 +46,7 @@ class Agent(MCPClient):
     ):
         super().__init__(model=model, provider=provider, base_url=base_url, api_key=api_key)
         self._servers_cfg = list(servers)
-        self.messages: List[Union[Dict, ChatCompletionInputMessage]] = [
+        self.messages: list[Union[dict, ChatCompletionInputMessage]] = [
             {"role": "system", "content": prompt or DEFAULT_SYSTEM_PROMPT}
         ]
 

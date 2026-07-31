@@ -1,22 +1,12 @@
-# JSONDecodeError was introduced in requests=2.27 released in 2022.
-# This allows us to support older requests for users
-# More information: https://github.com/psf/requests/pull/5856
-try:
-    from requests import JSONDecodeError  # type: ignore  # noqa: F401
-except ImportError:
-    try:
-        from simplejson import JSONDecodeError  # type: ignore # noqa: F401
-    except ImportError:
-        from json import JSONDecodeError  # type: ignore  # noqa: F401
 import contextlib
 import os
 import shutil
 import stat
 import tempfile
 import time
+from collections.abc import Callable, Generator
 from functools import partial
 from pathlib import Path
-from typing import Callable, Generator, Optional, Union
 
 import yaml
 from filelock import BaseFileLock, FileLock, SoftFileLock, Timeout
@@ -42,9 +32,9 @@ yaml_dump: Callable[..., str] = partial(yaml.dump, stream=None, allow_unicode=Tr
 
 @contextlib.contextmanager
 def SoftTemporaryDirectory(
-    suffix: Optional[str] = None,
-    prefix: Optional[str] = None,
-    dir: Optional[Union[Path, str]] = None,
+    suffix: str | None = None,
+    prefix: str | None = None,
+    dir: Path | str | None = None,
     **kwargs,
 ) -> Generator[Path, None, None]:
     """
@@ -84,20 +74,20 @@ def _set_write_permission_and_retry(func, path, excinfo):
 
 
 @contextlib.contextmanager
-def WeakFileLock(
-    lock_file: Union[str, Path], *, timeout: Optional[float] = None
-) -> Generator[BaseFileLock, None, None]:
+def WeakFileLock(lock_file: str | Path, *, timeout: float | None = None) -> Generator[BaseFileLock, None, None]:
     """A filelock with some custom logic.
 
     This filelock is weaker than the default filelock in that:
     1. It won't raise an exception if release fails.
     2. It will default to a SoftFileLock if the filesystem does not support flock.
+    3. Lock files are created with mode 0o664 (group-writable) instead of the default 0o644.
+       This allows multiple users sharing a cache directory to wait for locks.
 
     An INFO log message is emitted every 10 seconds if the lock is not acquired immediately.
     If a timeout is provided, a `filelock.Timeout` exception is raised if the lock is not acquired within the timeout.
     """
     log_interval = constants.FILELOCK_LOG_EVERY_SECONDS
-    lock = FileLock(lock_file, timeout=log_interval)
+    lock = FileLock(lock_file, timeout=log_interval, mode=0o664)
     start_time = time.time()
 
     while True:

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import List
 
 from huggingface_hub import ChatCompletionInputTool
 
@@ -12,7 +11,7 @@ PROMPT_FILENAMES = ("PROMPT.md", "AGENTS.md")
 
 DEFAULT_AGENT = {
     "model": "Qwen/Qwen2.5-72B-Instruct",
-    "provider": "nebius",
+    "provider": "novita",
     "servers": [
         {
             "type": "stdio",
@@ -48,7 +47,7 @@ problem and think insightfully.
 
 MAX_NUM_TURNS = 10
 
-TASK_COMPLETE_TOOL: ChatCompletionInputTool = ChatCompletionInputTool.parse_obj(  # type: ignore[assignment]
+TASK_COMPLETE_TOOL: ChatCompletionInputTool = ChatCompletionInputTool.parse_obj(  # type: ignore
     {
         "type": "function",
         "function": {
@@ -62,7 +61,7 @@ TASK_COMPLETE_TOOL: ChatCompletionInputTool = ChatCompletionInputTool.parse_obj(
     }
 )
 
-ASK_QUESTION_TOOL: ChatCompletionInputTool = ChatCompletionInputTool.parse_obj(  # type: ignore[assignment]
+ASK_QUESTION_TOOL: ChatCompletionInputTool = ChatCompletionInputTool.parse_obj(  # type: ignore
     {
         "type": "function",
         "function": {
@@ -76,7 +75,7 @@ ASK_QUESTION_TOOL: ChatCompletionInputTool = ChatCompletionInputTool.parse_obj( 
     }
 )
 
-EXIT_LOOP_TOOLS: List[ChatCompletionInputTool] = [TASK_COMPLETE_TOOL, ASK_QUESTION_TOOL]
+EXIT_LOOP_TOOLS: list[ChatCompletionInputTool] = [TASK_COMPLETE_TOOL, ASK_QUESTION_TOOL]
 
 
 DEFAULT_REPO_ID = "tiny-agents/tiny-agents"

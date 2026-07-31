@@ -1,0 +1,5459 @@
+<!--
+# WARNING
+# This entire file has been generated from the `hf` CLI implementation.
+# To re-generate the code, run `make style` or `python ./utils/generate_cli_reference.py --update`.
+# WARNING
+-->
+
+# `hf`
+
+Hugging Face Hub CLI
+
+**Usage**:
+
+```console
+$ hf [OPTIONS] [COMMAND] [ARGS]...
+```
+
+**Options**:
+
+* `--install-completion`: Install completion for the current shell.
+* `--show-completion`: Show completion for the current shell, to copy it or customize the installation.
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `auth`: Manage authentication (login, logout, etc.).
+* `buckets`: Commands to interact with buckets.
+* `cache`: Manage local cache directory.
+* `collections`: Interact with collections on the Hub.
+* `cp`: Copy files between local paths,...
+* `datasets`: Interact with datasets on the Hub.
+* `discussions`: Manage discussions and pull requests on...
+* `download`: Download files from the Hub.
+* `endpoints`: Manage Hugging Face Inference Endpoints.
+* `env`: Print information about the environment.
+* `extensions`: Manage hf CLI extensions. [alias: ext]
+* `jobs`: Run and manage Jobs on the Hub.
+* `lfs-enable-largefiles`: Configure your repository to enable upload...
+* `lfs-multipart-upload`: Internal git-lfs custom transfer agent for...
+* `models`: Interact with models on the Hub.
+* `papers`: Interact with papers on the Hub.
+* `repos`: Manage repos on the Hub. [alias: repo]
+* `sandbox`: Run and manage sandboxes on Hugging Face...
+* `skills`: Manage skills for AI assistants.
+* `spaces`: Interact with spaces on the Hub.
+* `sync`: Sync files between local directory and a...
+* `update`: Update the `hf` CLI to the latest version.
+* `upload`: Upload a file or a folder to the Hub.
+* `upload-large-folder`: [Deprecated] Upload a large folder to the...
+* `version`: Print information about the hf version.
+* `webhooks`: Manage webhooks on the Hub.
+
+## `hf auth`
+
+Manage authentication (login, logout, etc.).
+
+**Usage**:
+
+```console
+$ hf auth [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `list`: List all stored access tokens. [alias: ls]
+* `login`: Login from your browser, or using a token...
+* `logout`: Logout from a specific token.
+* `switch`: Switch between access tokens.
+* `token`: Print the current access token to stdout.
+* `whoami`: Find out which huggingface.co account you...
+
+### `hf auth list`
+
+List all stored access tokens. [alias: ls]
+
+**Usage**:
+
+```console
+$ hf auth list [OPTIONS]
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf auth list
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf auth login`
+
+Login from your browser, or using a token from huggingface.co/settings/tokens.
+
+**Usage**:
+
+```console
+$ hf auth login [OPTIONS]
+```
+
+**Options**:
+
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--add-to-git-credential / --no-add-to-git-credential`: Save to git credential helper. Useful only if you plan to run git commands directly.  [default: no-add-to-git-credential]
+* `--force / --no-force`: Force re-login even if already logged in.  [default: no-force]
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf auth login
+  $ hf auth login --token $HF_TOKEN
+  $ hf auth login --token $HF_TOKEN --add-to-git-credential
+  $ hf auth login --force
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf auth logout`
+
+Logout from a specific token.
+
+**Usage**:
+
+```console
+$ hf auth logout [OPTIONS]
+```
+
+**Options**:
+
+* `--token-name TEXT`: Name of token to logout
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf auth logout
+  $ hf auth logout --token-name my-token
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf auth switch`
+
+Switch between access tokens.
+
+**Usage**:
+
+```console
+$ hf auth switch [OPTIONS]
+```
+
+**Options**:
+
+* `--token-name TEXT`: Name of the token to switch to
+* `--add-to-git-credential / --no-add-to-git-credential`: Save to git credential helper. Useful only if you plan to run git commands directly.  [default: no-add-to-git-credential]
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf auth switch
+  $ hf auth switch --token-name my-token
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf auth token`
+
+Print the current access token to stdout.
+
+**Usage**:
+
+```console
+$ hf auth token [OPTIONS]
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf auth token
+  $ hf auth token | xargs curl -H 'Authorization: Bearer {}'
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf auth whoami`
+
+Find out which huggingface.co account you are logged in as.
+
+**Usage**:
+
+```console
+$ hf auth whoami [OPTIONS]
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf auth whoami
+  $ hf auth whoami --format json
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+## `hf buckets`
+
+Commands to interact with buckets.
+
+**Usage**:
+
+```console
+$ hf buckets [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `cp`: Copy files between local paths,...
+* `create`: Create a new bucket.
+* `delete`: Delete a bucket.
+* `info`: Get info about a bucket.
+* `list`: List buckets or files in a bucket. [alias: ls]
+* `move`: Move (rename) a bucket to a new name or...
+* `remove`: Remove files from a bucket. [alias: rm]
+* `sync`: Sync files between local directory and a...
+
+### `hf buckets cp`
+
+Copy files between local paths, repositories, and buckets.
+
+Handles uploads (local/stdin -> repo/bucket), downloads (repo/bucket -> local/stdout) and
+remote-to-remote copies (repo/bucket -> repo/bucket). Bucket-to-repo and local-to-local
+copies are not supported. For directories, use `hf upload`/`hf download` (repos) or
+`hf buckets sync` (buckets). Remote-to-remote copies only work within the same storage
+region (https://huggingface.co/docs/hub/storage-regions).
+
+**Usage**:
+
+```console
+$ hf buckets cp [OPTIONS] SRC [DST]
+```
+
+**Arguments**:
+
+* `SRC`: Source: local file, hf:// URI (repo or bucket), or - for stdin.  [required]
+* `[DST]`: Destination: local path, hf:// URI (repo or bucket), or - for stdout.
+
+**Options**:
+
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf buckets cp hf://buckets/username/my-bucket/config.json config.json
+  $ hf buckets cp hf://buckets/username/my-bucket/data.csv data/
+  $ hf buckets cp hf://buckets/username/my-bucket/config.json -
+  $ hf buckets cp model.safetensors hf://buckets/username/my-bucket/model.safetensors
+  $ hf buckets cp config.json hf://buckets/username/my-bucket/logs/
+  $ hf buckets cp - hf://buckets/username/my-bucket/config.json
+  $ hf buckets cp hf://buckets/username/my-bucket/data.csv hf://buckets/username/dest-bucket/
+  $ hf buckets cp hf://buckets/username/source-bucket/logs/ hf://buckets/username/dest-bucket/logs/
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf buckets create`
+
+Create a new bucket.
+
+**Usage**:
+
+```console
+$ hf buckets create [OPTIONS] BUCKET_ID
+```
+
+**Arguments**:
+
+* `BUCKET_ID`: Bucket ID: bucket_name, namespace/bucket_name, or hf://buckets/namespace/bucket_name  [required]
+
+**Options**:
+
+* `--private`: Create a private bucket.
+* `--region [us|eu]`: Cloud region in which to create the bucket. Can be one of 'us' or 'eu'. Requires Team plan or above.
+* `--exist-ok`: Do not raise an error if the bucket already exists.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf buckets create my-bucket
+  $ hf buckets create user/my-bucket
+  $ hf buckets create hf://buckets/user/my-bucket
+  $ hf buckets create user/my-bucket --private
+  $ hf buckets create user/my-bucket --exist-ok
+  $ hf buckets create user/my-bucket --region us
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf buckets delete`
+
+Delete a bucket.
+
+This deletes the entire bucket and all its contents. Use `hf buckets rm` to remove individual files.
+
+**Usage**:
+
+```console
+$ hf buckets delete [OPTIONS] BUCKET_ID
+```
+
+**Arguments**:
+
+* `BUCKET_ID`: Bucket ID: namespace/bucket_name or hf://buckets/namespace/bucket_name  [required]
+
+**Options**:
+
+* `-y, --yes`: Skip confirmation prompt.
+* `--missing-ok`: Do not raise an error if the bucket does not exist.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf buckets delete user/my-bucket
+  $ hf buckets delete hf://buckets/user/my-bucket
+  $ hf buckets delete user/my-bucket --yes
+  $ hf buckets delete user/my-bucket --missing-ok
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf buckets info`
+
+Get info about a bucket.
+
+**Usage**:
+
+```console
+$ hf buckets info [OPTIONS] BUCKET_ID
+```
+
+**Arguments**:
+
+* `BUCKET_ID`: Bucket ID: namespace/bucket_name or hf://buckets/namespace/bucket_name  [required]
+
+**Options**:
+
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf buckets info user/my-bucket
+  $ hf buckets info hf://buckets/user/my-bucket
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf buckets list`
+
+List buckets or files in a bucket. [alias: ls]
+
+When called with no argument or a namespace, lists buckets.
+When called with a bucket ID (namespace/bucket_name), lists files in the bucket.
+
+**Usage**:
+
+```console
+$ hf buckets list [OPTIONS] [ARGUMENT]
+```
+
+**Arguments**:
+
+* `[ARGUMENT]`: Namespace (user or org) to list buckets, or bucket ID (namespace/bucket_name(/prefix) or hf://buckets/...) to list files.
+
+**Options**:
+
+* `-h, --human-readable`: Show sizes in human readable format.
+* `--tree`: List files in tree format (only for listing files).
+* `-R, --recursive`: List files recursively (only for listing files).
+* `--search TEXT`: Search query.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf buckets list
+  $ hf buckets list huggingface
+  $ hf buckets list --search "my-prefix"
+  $ hf buckets list user/my-bucket
+  $ hf buckets list user/my-bucket -R
+  $ hf buckets list user/my-bucket -h
+  $ hf buckets list user/my-bucket --tree
+  $ hf buckets list user/my-bucket --tree -h
+  $ hf buckets list hf://buckets/user/my-bucket
+  $ hf buckets list user/my-bucket/sub -R
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf buckets move`
+
+Move (rename) a bucket to a new name or namespace.
+
+**Usage**:
+
+```console
+$ hf buckets move [OPTIONS] FROM_ID TO_ID
+```
+
+**Arguments**:
+
+* `FROM_ID`: Source bucket ID: namespace/bucket_name or hf://buckets/namespace/bucket_name  [required]
+* `TO_ID`: Destination bucket ID: namespace/bucket_name or hf://buckets/namespace/bucket_name  [required]
+
+**Options**:
+
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf buckets move user/old-bucket user/new-bucket
+  $ hf buckets move user/my-bucket my-org/my-bucket
+  $ hf buckets move hf://buckets/user/old-bucket hf://buckets/user/new-bucket
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf buckets remove`
+
+Remove files from a bucket. [alias: rm]
+
+To delete an entire bucket, use `hf buckets delete` instead.
+
+**Usage**:
+
+```console
+$ hf buckets remove [OPTIONS] ARGUMENT
+```
+
+**Arguments**:
+
+* `ARGUMENT`: Bucket path: namespace/bucket_name/path or hf://buckets/namespace/bucket_name/path. With --recursive, namespace/bucket_name is also accepted to target all files.  [required]
+
+**Options**:
+
+* `-R, --recursive`: Remove files recursively under the given prefix.
+* `-y, --yes`: Skip confirmation prompt.
+* `--dry-run`: Preview what would be deleted without actually deleting.
+* `--include TEXT`: Include only files matching pattern (can specify multiple). Requires --recursive.
+* `--exclude TEXT`: Exclude files matching pattern (can specify multiple). Requires --recursive.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf buckets remove user/my-bucket/file.txt
+  $ hf buckets rm hf://buckets/user/my-bucket/file.txt
+  $ hf buckets rm user/my-bucket/logs/ --recursive
+  $ hf buckets rm user/my-bucket --recursive --include "*.tmp"
+  $ hf buckets rm user/my-bucket/data/ --recursive --dry-run
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf buckets sync`
+
+Sync files between local directory and a bucket.
+
+**Usage**:
+
+```console
+$ hf buckets sync [OPTIONS] [SOURCE] [DEST]
+```
+
+**Arguments**:
+
+* `[SOURCE]`: Source path: local directory or hf://buckets/namespace/bucket_name(/prefix)
+* `[DEST]`: Destination path: local directory or hf://buckets/namespace/bucket_name(/prefix)
+
+**Options**:
+
+* `--delete / --no-delete`: Delete destination files not present in source.  [default: no-delete]
+* `--ignore-times`: Skip files only based on size, ignoring modification times.
+* `--ignore-sizes`: Skip files only based on modification times, ignoring sizes.
+* `--plan TEXT`: Save sync plan to JSONL file for review instead of executing.
+* `--apply TEXT`: Apply a previously saved plan file.
+* `--dry-run`: Print sync plan to stdout as JSONL without executing.
+* `--include TEXT`: Include files matching pattern (can specify multiple).
+* `--exclude TEXT`: Exclude files matching pattern (can specify multiple).
+* `--filter-from TEXT`: Read include/exclude patterns from file.
+* `--existing`: Skip creating new files on receiver (only update existing files).
+* `--ignore-existing`: Skip updating files that exist on receiver (only create new files).
+* `-v, --verbose`: Show detailed logging with reasoning.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf buckets sync ./data hf://buckets/user/my-bucket
+  $ hf buckets sync hf://buckets/user/my-bucket ./data
+  $ hf buckets sync ./data hf://buckets/user/my-bucket --delete
+  $ hf buckets sync hf://buckets/user/my-bucket ./data --include "*.safetensors" --exclude "*.tmp"
+  $ hf buckets sync ./data hf://buckets/user/my-bucket --plan sync-plan.jsonl
+  $ hf buckets sync --apply sync-plan.jsonl
+  $ hf buckets sync ./data hf://buckets/user/my-bucket --dry-run
+  $ hf buckets sync ./data hf://buckets/user/my-bucket --dry-run | jq .
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+## `hf cache`
+
+Manage local cache directory.
+
+**Usage**:
+
+```console
+$ hf cache [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `list`: List cached repositories or revisions. [alias: ls]
+* `prune`: Remove detached revisions and incomplete...
+* `rm`: Remove cached repositories or revisions.
+* `verify`: Verify checksums for a single repo...
+
+### `hf cache list`
+
+List cached repositories or revisions. [alias: ls]
+
+**Usage**:
+
+```console
+$ hf cache list [OPTIONS]
+```
+
+**Options**:
+
+* `--cache-dir TEXT`: Cache directory to scan (defaults to Hugging Face cache).
+* `--revisions / --no-revisions`: Include revisions in the output instead of aggregated repositories.  [default: no-revisions]
+* `-f, --filter TEXT`: Filter entries (e.g. 'size>1GB', 'type=model', 'accessed>7d'). Can be used multiple times.
+* `--sort [accessed|accessed:asc|accessed:desc|modified|modified:asc|modified:desc|name|name:asc|name:desc|size|size:asc|size:desc]`: Sort entries by key. Supported keys: 'accessed', 'modified', 'name', 'size'. Append ':asc' or ':desc' to explicitly set the order (e.g., 'modified:asc'). Defaults: 'accessed', 'modified', 'size' default to 'desc' (newest/biggest first); 'name' defaults to 'asc' (alphabetical).
+* `--limit INTEGER`: Limit the number of results returned. Returns only the top N entries after sorting.
+* `--show-warnings / --no-show-warnings`: Show warnings about cache inconsistencies.  [default: no-show-warnings]
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf cache ls
+  $ hf cache ls --revisions
+  $ hf cache ls --filter "size>1GB" --limit 20
+  $ hf cache ls --format json
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf cache prune`
+
+Remove detached revisions and incomplete downloads from the cache.
+
+**Usage**:
+
+```console
+$ hf cache prune [OPTIONS]
+```
+
+**Options**:
+
+* `--cache-dir TEXT`: Cache directory to scan (defaults to Hugging Face cache).
+* `-y, --yes`: Skip confirmation prompt.
+* `--dry-run / --no-dry-run`: Preview deletions without removing anything.  [default: no-dry-run]
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf cache prune
+  $ hf cache prune --dry-run
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf cache rm`
+
+Remove cached repositories or revisions.
+
+**Usage**:
+
+```console
+$ hf cache rm [OPTIONS] TARGETS...
+```
+
+**Arguments**:
+
+* `TARGETS...`: One or more repo IDs (e.g. model/bert-base-uncased), repo-level hf:// URIs, or revision hashes to delete.  [required]
+
+**Options**:
+
+* `--cache-dir TEXT`: Cache directory to scan (defaults to Hugging Face cache).
+* `-y, --yes`: Skip confirmation prompt.
+* `--dry-run / --no-dry-run`: Preview deletions without removing anything.  [default: no-dry-run]
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf cache rm model/gpt2
+  $ hf cache rm hf://models/openai-community/gpt2
+  $ hf cache rm <revision_hash>
+  $ hf cache rm model/gpt2 --dry-run
+  $ hf cache rm model/gpt2 --yes
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf cache verify`
+
+Verify checksums for a single repo revision from cache or a local directory.
+
+Examples:
+  - Verify main revision in cache: `hf cache verify gpt2`
+  - Verify specific revision: `hf cache verify gpt2 --revision refs/pr/1`
+  - Verify dataset: `hf cache verify karpathy/fineweb-edu-100b-shuffle --repo-type dataset`
+  - Verify local dir: `hf cache verify deepseek-ai/DeepSeek-OCR --local-dir /path/to/repo`
+
+**Usage**:
+
+```console
+$ hf cache verify [OPTIONS] REPO_ID
+```
+
+**Arguments**:
+
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
+
+**Options**:
+
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
+* `--cache-dir TEXT`: Cache directory to use when verifying files from cache (defaults to Hugging Face cache).
+* `--local-dir TEXT`: If set, verify files under this directory instead of the cache.
+* `--fail-on-missing-files`: Fail if some files exist on the remote but are missing locally.
+* `--fail-on-extra-files`: Fail if some files exist locally but are not present on the remote revision.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf cache verify gpt2
+  $ hf cache verify gpt2 --revision refs/pr/1
+  $ hf cache verify my-dataset --repo-type dataset
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+## `hf collections`
+
+Interact with collections on the Hub.
+
+**Usage**:
+
+```console
+$ hf collections [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `add-item`: Add an item to a collection.
+* `create`: Create a new collection on the Hub.
+* `delete`: Delete a collection from the Hub.
+* `delete-item`: Delete an item from a collection.
+* `info`: Get info about a collection on the Hub.
+* `list`: List collections on the Hub. [alias: ls]
+* `update`: Update a collection's metadata on the Hub.
+* `update-item`: Update an item in a collection.
+
+### `hf collections add-item`
+
+Add an item to a collection.
+
+**Usage**:
+
+```console
+$ hf collections add-item [OPTIONS] COLLECTION_SLUG ITEM_ID ITEM_TYPE:{model|dataset|space|paper|collection|bucket}
+```
+
+**Arguments**:
+
+* `COLLECTION_SLUG`: The collection slug (e.g., 'username/collection-slug').  [required]
+* `ITEM_ID`: The ID of the item to add (repo_id for repos, paper ID for papers).  [required]
+* `ITEM_TYPE:{model|dataset|space|paper|collection|bucket}`: The type of item (model, dataset, space, paper, collection, or bucket).  [required]
+
+**Options**:
+
+* `--note TEXT`: A note to attach to the item (max 500 characters).
+* `--exists-ok / --no-exists-ok`: Do not raise an error if the item is already in the collection.  [default: no-exists-ok]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf collections add-item username/my-collection moonshotai/kimi-k2 model
+  $ hf collections add-item username/my-collection Qwen/DeepPlanning dataset --note "Useful dataset"
+  $ hf collections add-item username/my-collection Tongyi-MAI/Z-Image space
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf collections create`
+
+Create a new collection on the Hub.
+
+**Usage**:
+
+```console
+$ hf collections create [OPTIONS] TITLE
+```
+
+**Arguments**:
+
+* `TITLE`: The title of the collection.  [required]
+
+**Options**:
+
+* `--namespace TEXT`: The namespace (username or organization). Defaults to the authenticated user.
+* `--description TEXT`: A description for the collection (max 150 characters).
+* `--private / --no-private`: Create a private collection.  [default: no-private]
+* `--exists-ok / --no-exists-ok`: Do not raise an error if the collection already exists.  [default: no-exists-ok]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf collections create "My Models"
+  $ hf collections create "My Models" --description "A collection of my favorite models" --private
+  $ hf collections create "Org Collection" --namespace my-org
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf collections delete`
+
+Delete a collection from the Hub.
+
+**Usage**:
+
+```console
+$ hf collections delete [OPTIONS] COLLECTION_SLUG
+```
+
+**Arguments**:
+
+* `COLLECTION_SLUG`: The collection slug (e.g., 'username/collection-slug').  [required]
+
+**Options**:
+
+* `--missing-ok / --no-missing-ok`: Do not raise an error if the collection doesn't exist.  [default: no-missing-ok]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf collections delete username/my-collection
+  $ hf collections delete username/my-collection --missing-ok
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf collections delete-item`
+
+Delete an item from a collection.
+
+**Usage**:
+
+```console
+$ hf collections delete-item [OPTIONS] COLLECTION_SLUG ITEM_OBJECT_ID
+```
+
+**Arguments**:
+
+* `COLLECTION_SLUG`: The collection slug (e.g., 'username/collection-slug').  [required]
+* `ITEM_OBJECT_ID`: The ID of the item in the collection (retrieved from `item_object_id` field returned by 'hf collections info'.  [required]
+
+**Options**:
+
+* `--missing-ok / --no-missing-ok`: Do not raise an error if the item doesn't exist.  [default: no-missing-ok]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+### `hf collections info`
+
+Get info about a collection on the Hub.
+
+**Usage**:
+
+```console
+$ hf collections info [OPTIONS] COLLECTION_SLUG
+```
+
+**Arguments**:
+
+* `COLLECTION_SLUG`: The collection slug (e.g., 'username/collection-slug').  [required]
+
+**Options**:
+
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf collections info username/my-collection-slug
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf collections list`
+
+List collections on the Hub. [alias: ls]
+
+**Usage**:
+
+```console
+$ hf collections list [OPTIONS]
+```
+
+**Options**:
+
+* `--owner TEXT`: Filter by owner username or organization.
+* `--item TEXT`: Filter collections containing a specific item (e.g., "models/gpt2", "datasets/squad", "papers/2311.12983").
+* `--sort [lastModified|trending|upvotes]`: Sort results by last modified, trending, or upvotes.
+* `--limit INTEGER`: Limit the number of results.  [default: 10]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf collections ls
+  $ hf collections ls --owner nvidia
+  $ hf collections ls --item models/teknium/OpenHermes-2.5-Mistral-7B --limit 10
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf collections update`
+
+Update a collection's metadata on the Hub.
+
+**Usage**:
+
+```console
+$ hf collections update [OPTIONS] COLLECTION_SLUG
+```
+
+**Arguments**:
+
+* `COLLECTION_SLUG`: The collection slug (e.g., 'username/collection-slug').  [required]
+
+**Options**:
+
+* `--title TEXT`: The new title for the collection.
+* `--description TEXT`: The new description for the collection (max 150 characters).
+* `--position INTEGER`: The new position of the collection in the owner's list.
+* `--private / --no-private`: Whether the collection should be private.
+* `--theme TEXT`: The theme color for the collection (e.g., 'green', 'blue').
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf collections update username/my-collection --title "New Title"
+  $ hf collections update username/my-collection --description "Updated description"
+  $ hf collections update username/my-collection --private --theme green
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf collections update-item`
+
+Update an item in a collection.
+
+**Usage**:
+
+```console
+$ hf collections update-item [OPTIONS] COLLECTION_SLUG ITEM_OBJECT_ID
+```
+
+**Arguments**:
+
+* `COLLECTION_SLUG`: The collection slug (e.g., 'username/collection-slug').  [required]
+* `ITEM_OBJECT_ID`: The ID of the item in the collection (from 'item_object_id' field, not the repo_id).  [required]
+
+**Options**:
+
+* `--note TEXT`: A new note for the item (max 500 characters).
+* `--position INTEGER`: The new position of the item in the collection.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf collections update-item username/my-collection ITEM_OBJECT_ID --note "Updated note"
+  $ hf collections update-item username/my-collection ITEM_OBJECT_ID --position 0
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+## `hf cp`
+
+Copy files between local paths, repositories, and buckets.
+
+Handles uploads (local/stdin -> repo/bucket), downloads (repo/bucket -> local/stdout) and
+remote-to-remote copies (repo/bucket -> repo/bucket). Bucket-to-repo and local-to-local
+copies are not supported. For directories, use `hf upload`/`hf download` (repos) or
+`hf buckets sync` (buckets). Remote-to-remote copies only work within the same storage
+region (https://huggingface.co/docs/hub/storage-regions).
+
+**Usage**:
+
+```console
+$ hf cp [OPTIONS] SRC [DST]
+```
+
+**Arguments**:
+
+* `SRC`: Source: local file, hf:// URI (repo or bucket), or - for stdin.  [required]
+* `[DST]`: Destination: local path, hf:// URI (repo or bucket), or - for stdout.
+
+**Options**:
+
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf cp hf://username/my-model/config.json
+  $ hf cp hf://username/my-model/config.json ./config.json
+  $ hf cp hf://datasets/username/my-dataset/data.csv ./data/
+  $ hf cp hf://buckets/username/my-bucket/config.json -
+  $ hf cp ./model.safetensors hf://username/my-model/model.safetensors
+  $ hf cp ./config.json hf://buckets/username/my-bucket/logs/
+  $ hf cp - hf://buckets/username/my-bucket/config.json
+  $ hf cp hf://username/source-model/ hf://username/dest-model/
+  $ hf cp hf://datasets/username/my-dataset/processed/ hf://buckets/username/my-bucket/processed/
+  $ hf cp hf://buckets/username/my-bucket/logs/ hf://buckets/username/archive-bucket/  # copies contents only
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+## `hf datasets`
+
+Interact with datasets on the Hub.
+
+**Usage**:
+
+```console
+$ hf datasets [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `card`: Get the dataset card (README) for a...
+* `info`: Get info about a dataset on the Hub.
+* `leaderboard`: List model scores from a dataset leaderboard.
+* `list`: List datasets on the Hub, or files in a... [alias: ls]
+* `parquet`: List parquet file URLs available for a...
+* `sql`: Execute a raw SQL query with DuckDB...
+
+### `hf datasets card`
+
+Get the dataset card (README) for a dataset on the Hub.
+
+**Usage**:
+
+```console
+$ hf datasets card [OPTIONS] DATASET_ID
+```
+
+**Arguments**:
+
+* `DATASET_ID`: The dataset ID (e.g. `username/repo-name`).  [required]
+
+**Options**:
+
+* `--metadata`: Output only the metadata from the card.
+* `--text`: Output only the text body (no metadata).
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf datasets card HuggingFaceFW/fineweb
+  $ hf datasets card HuggingFaceFW/fineweb --metadata
+  $ hf datasets card HuggingFaceFW/fineweb --metadata --format json
+  $ hf datasets card HuggingFaceFW/fineweb --text
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf datasets info`
+
+Get info about a dataset on the Hub.
+
+**Usage**:
+
+```console
+$ hf datasets info [OPTIONS] DATASET_ID
+```
+
+**Arguments**:
+
+* `DATASET_ID`: The dataset ID (e.g. `username/repo-name`).  [required]
+
+**Options**:
+
+* `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
+* `--expand TEXT`: Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=downloads,likes,tags'. Valid: author, cardData, citation, createdAt, description, disabled, downloads, downloadsAllTime, gated, lastModified, likes, mainSize, paperswithcode_id, private, resourceGroup, sha, siblings, tags, trendingScore, usedStorage.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf datasets info HuggingFaceFW/fineweb
+  $ hf datasets info my-dataset --expand downloads,likes,tags
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf datasets leaderboard`
+
+List model scores from a dataset leaderboard. This command helps find the best models for a task or compare models by benchmark scores. Use 'hf datasets ls --filter benchmark:official' to list available leaderboards.
+
+**Usage**:
+
+```console
+$ hf datasets leaderboard [OPTIONS] DATASET_ID
+```
+
+**Arguments**:
+
+* `DATASET_ID`: The benchmark dataset ID (e.g. `SWE-bench/SWE-bench_Verified`).  [required]
+
+**Options**:
+
+* `--limit INTEGER`: Limit the number of results.  [default: 20]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf datasets leaderboard SWE-bench/SWE-bench_Verified
+  $ hf datasets leaderboard SWE-bench/SWE-bench_Verified --limit 5 --format json
+  $ hf datasets ls --filter benchmark:official  # list available leaderboards
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf datasets list`
+
+List datasets on the Hub, or files in a dataset repo. [alias: ls]
+
+When called with no argument, lists datasets on the Hub.
+When called with a dataset ID, lists files in that dataset repo.
+
+**Usage**:
+
+```console
+$ hf datasets list [OPTIONS] [REPO_ID]
+```
+
+**Arguments**:
+
+* `[REPO_ID]`: Dataset ID (e.g. `username/repo-name`) to list files from. If omitted, lists datasets.
+
+**Options**:
+
+* `--search TEXT`: Search query.
+* `--author TEXT`: Filter by author or organization.
+* `--filter TEXT`: Filter by tags (e.g. 'text-classification'). Can be used multiple times.
+* `--sort [created_at|downloads|last_modified|likes|trending_score]`: Sort results.
+* `--limit INTEGER`: Limit the number of results.  [default: 30]
+* `--expand TEXT`: Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=downloads,likes,tags'. Valid: author, cardData, citation, createdAt, description, disabled, downloads, downloadsAllTime, gated, lastModified, likes, mainSize, paperswithcode_id, private, resourceGroup, sha, siblings, tags, trendingScore, usedStorage.
+* `-h, --human-readable`: Show sizes in human readable format (only for listing files).
+* `--tree`: List files in tree format (only for listing files).
+* `-R, --recursive`: List files recursively (only for listing files).
+* `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf datasets ls
+  $ hf datasets ls --sort downloads --limit 10
+  $ hf datasets ls --search "code"
+  $ hf datasets ls --filter benchmark:official
+  $ hf datasets ls HuggingFaceFW/fineweb
+  $ hf datasets ls HuggingFaceFW/fineweb -R
+  $ hf datasets ls HuggingFaceFW/fineweb --tree -h
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf datasets parquet`
+
+List parquet file URLs available for a dataset.
+
+**Usage**:
+
+```console
+$ hf datasets parquet [OPTIONS] DATASET_ID
+```
+
+**Arguments**:
+
+* `DATASET_ID`: The dataset ID (e.g. `username/repo-name`).  [required]
+
+**Options**:
+
+* `--subset TEXT`: Filter parquet entries by subset/config.
+* `--split TEXT`: Filter parquet entries by split.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf datasets parquet cfahlgren1/hub-stats
+  $ hf datasets parquet cfahlgren1/hub-stats --subset models
+  $ hf datasets parquet cfahlgren1/hub-stats --split train
+  $ hf datasets parquet cfahlgren1/hub-stats --format json
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf datasets sql`
+
+Execute a raw SQL query with DuckDB against dataset parquet URLs.
+
+**Usage**:
+
+```console
+$ hf datasets sql [OPTIONS] SQL
+```
+
+**Arguments**:
+
+* `SQL`: Raw SQL query to execute.  [required]
+
+**Options**:
+
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf datasets sql "SELECT COUNT(*) AS rows FROM read_parquet('https://huggingface.co/api/datasets/cfahlgren1/hub-stats/parquet/models/train/0.parquet')"
+  $ hf datasets sql "SELECT * FROM read_parquet('https://huggingface.co/api/datasets/cfahlgren1/hub-stats/parquet/models/train/0.parquet') LIMIT 5" --format json
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+## `hf discussions`
+
+Manage discussions and pull requests on the Hub.
+
+**Usage**:
+
+```console
+$ hf discussions [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `close`: Close a discussion or pull request.
+* `comment`: Comment on a discussion or pull request.
+* `create`: Create a new discussion or pull request on...
+* `diff`: Show the diff of a pull request.
+* `edit`: Edit an existing comment on a discussion...
+* `info`: Get info about a discussion or pull request.
+* `list`: List discussions and pull requests on a repo. [alias: ls]
+* `merge`: Merge a pull request.
+* `rename`: Rename a discussion or pull request.
+* `reopen`: Reopen a closed discussion or pull request.
+
+### `hf discussions close`
+
+Close a discussion or pull request.
+
+**Usage**:
+
+```console
+$ hf discussions close [OPTIONS] REPO_ID NUM
+```
+
+**Arguments**:
+
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
+* `NUM`: The discussion or pull request number.  [required]
+
+**Options**:
+
+* `--comment TEXT`: An optional comment to post when closing.
+* `-y, --yes`: Skip confirmation prompt.
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf discussions close username/my-model 5
+  $ hf discussions close username/my-model 5 --comment "Closing as resolved."
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf discussions comment`
+
+Comment on a discussion or pull request.
+
+**Usage**:
+
+```console
+$ hf discussions comment [OPTIONS] REPO_ID NUM
+```
+
+**Arguments**:
+
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
+* `NUM`: The discussion or pull request number.  [required]
+
+**Options**:
+
+* `--body TEXT`: The comment text (supports Markdown).
+* `--body-file PATH`: Read the comment from a file. Use '-' for stdin.
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf discussions comment username/my-model 5 --body "Thanks for reporting!"
+  $ hf discussions comment username/my-model 5 --body "LGTM!"
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf discussions create`
+
+Create a new discussion or pull request on a repo.
+
+**Usage**:
+
+```console
+$ hf discussions create [OPTIONS] REPO_ID
+```
+
+**Arguments**:
+
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
+
+**Options**:
+
+* `--title TEXT`: The title of the discussion or pull request.  [required]
+* `--body TEXT`: The description (supports Markdown).
+* `--body-file PATH`: Read the description from a file. Use '-' for stdin.
+* `--pull-request, --pr`: Create a pull request instead of a discussion.
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf discussions create username/my-model --title "Bug report"
+  $ hf discussions create username/my-model --title "Feature request" --body "Please add X"
+  $ hf discussions create username/my-model --title "Fix typo" --pull-request
+  $ hf discussions create username/my-dataset --type dataset --title "Data quality issue"
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf discussions diff`
+
+Show the diff of a pull request.
+
+**Usage**:
+
+```console
+$ hf discussions diff [OPTIONS] REPO_ID NUM
+```
+
+**Arguments**:
+
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
+* `NUM`: The discussion or pull request number.  [required]
+
+**Options**:
+
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf discussions diff username/my-model 5
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf discussions edit`
+
+Edit an existing comment on a discussion or pull request.
+
+**Usage**:
+
+```console
+$ hf discussions edit [OPTIONS] REPO_ID NUM COMMENT_ID
+```
+
+**Arguments**:
+
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
+* `NUM`: The discussion or pull request number.  [required]
+* `COMMENT_ID`: The ID of the comment to edit (see 'hf discussions info ... --format json').  [required]
+
+**Options**:
+
+* `--body TEXT`: The new comment text (supports Markdown).
+* `--body-file PATH`: Read the new comment from a file. Use '-' for stdin.
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf discussions edit username/my-model 5 abc123 --body "Updated comment."
+  $ hf discussions edit username/my-model 5 abc123 --body-file fixed.md
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf discussions info`
+
+Get info about a discussion or pull request.
+
+**Usage**:
+
+```console
+$ hf discussions info [OPTIONS] REPO_ID NUM
+```
+
+**Arguments**:
+
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
+* `NUM`: The discussion or pull request number.  [required]
+
+**Options**:
+
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf discussions info username/my-model 5
+  $ hf discussions info username/my-model 5 --format json
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf discussions list`
+
+List discussions and pull requests on a repo. [alias: ls]
+
+**Usage**:
+
+```console
+$ hf discussions list [OPTIONS] REPO_ID
+```
+
+**Arguments**:
+
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
+
+**Options**:
+
+* `-s, --status [open|closed|merged|draft|all]`: Filter by status (open, closed, merged, draft, all).  [default: open]
+* `-k, --kind [all|discussion|pull_request]`: Filter by kind (discussion, pull_request, all).  [default: all]
+* `--author TEXT`: Filter by author or organization.
+* `--limit INTEGER`: Limit the number of results.  [default: 30]
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf discussions list username/my-model
+  $ hf discussions list username/my-model --kind pull_request --status merged
+  $ hf discussions list username/my-dataset --type dataset --status closed
+  $ hf discussions list username/my-model --author alice --format json
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf discussions merge`
+
+Merge a pull request.
+
+**Usage**:
+
+```console
+$ hf discussions merge [OPTIONS] REPO_ID NUM
+```
+
+**Arguments**:
+
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
+* `NUM`: The discussion or pull request number.  [required]
+
+**Options**:
+
+* `--comment TEXT`: An optional comment to post when merging.
+* `-y, --yes`: Skip confirmation prompt.
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf discussions merge username/my-model 5
+  $ hf discussions merge username/my-model 5 --comment "Merging, thanks!"
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf discussions rename`
+
+Rename a discussion or pull request.
+
+**Usage**:
+
+```console
+$ hf discussions rename [OPTIONS] REPO_ID NUM NEW_TITLE
+```
+
+**Arguments**:
+
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
+* `NUM`: The discussion or pull request number.  [required]
+* `NEW_TITLE`: The new title.  [required]
+
+**Options**:
+
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf discussions rename username/my-model 5 "Updated title"
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf discussions reopen`
+
+Reopen a closed discussion or pull request.
+
+**Usage**:
+
+```console
+$ hf discussions reopen [OPTIONS] REPO_ID NUM
+```
+
+**Arguments**:
+
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
+* `NUM`: The discussion or pull request number.  [required]
+
+**Options**:
+
+* `--comment TEXT`: An optional comment to post when reopening.
+* `-y, --yes`: Skip confirmation prompt.
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf discussions reopen username/my-model 5
+  $ hf discussions reopen username/my-model 5 --comment "Reopening for further investigation."
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+## `hf download`
+
+Download files from the Hub.
+
+**Usage**:
+
+```console
+$ hf download [OPTIONS] REPO_ID [FILENAMES]...
+```
+
+**Arguments**:
+
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
+* `[FILENAMES]...`: Files to download (e.g. `config.json`, `data/metadata.jsonl`).
+
+**Options**:
+
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: (model)]
+* `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
+* `--include TEXT`: Glob patterns to include from files to download. eg: *.json
+* `--exclude TEXT`: Glob patterns to exclude from files to download.
+* `--cache-dir TEXT`: Directory where to save files.
+* `--local-dir TEXT`: If set, the downloaded file will be placed under this directory. Check out https://huggingface.co/docs/huggingface_hub/guides/download#download-files-to-a-local-folder for more details.
+* `--force-download / --no-force-download`: If True, the files will be downloaded even if they are already cached.  [default: no-force-download]
+* `--dry-run / --no-dry-run`: If True, perform a dry run without actually downloading the file.  [default: no-dry-run]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--max-workers INTEGER`: Maximum number of workers to use for downloading files. Default is 8.  [default: 8]
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf download meta-llama/Llama-3.2-1B-Instruct
+  $ hf download meta-llama/Llama-3.2-1B-Instruct config.json tokenizer.json
+  $ hf download meta-llama/Llama-3.2-1B-Instruct --include "*.safetensors" --exclude "*.bin"
+  $ hf download meta-llama/Llama-3.2-1B-Instruct --local-dir ./models/llama
+  $ hf download HuggingFaceM4/FineVision art/ --repo-type dataset
+  $ hf download hf://datasets/HuggingFaceH4/ultrachat_200k
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+## `hf endpoints`
+
+Manage Hugging Face Inference Endpoints.
+
+**Usage**:
+
+```console
+$ hf endpoints [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `catalog`: Interact with the Inference Endpoints...
+* `delete`: Delete an Inference Endpoint permanently.
+* `deploy`: Deploy an Inference Endpoint from a Hub...
+* `describe`: Get information about an existing endpoint.
+* `list`: Lists all Inference Endpoints for the... [alias: ls]
+* `list-catalog`: List available Catalog models.
+* `pause`: Pause an Inference Endpoint.
+* `resume`: Resume an Inference Endpoint.
+* `scale-to-zero`: Scale an Inference Endpoint to zero.
+* `update`: Update an existing endpoint.
+
+### `hf endpoints catalog`
+
+Interact with the Inference Endpoints catalog.
+
+**Usage**:
+
+```console
+$ hf endpoints catalog [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `deploy`: Deploy an Inference Endpoint from the...
+* `list`: List available Catalog models. [alias: ls]
+
+#### `hf endpoints catalog deploy`
+
+Deploy an Inference Endpoint from the Model Catalog.
+
+**Usage**:
+
+```console
+$ hf endpoints catalog deploy [OPTIONS]
+```
+
+**Options**:
+
+* `--repo TEXT`: The name of the model repository associated with the Inference Endpoint (e.g. 'openai/gpt-oss-120b').  [required]
+* `--name TEXT`: Endpoint name.
+* `--accelerator TEXT`: The hardware accelerator to be used for inference (e.g. 'cpu', 'gpu', 'neuron').
+* `--namespace TEXT`: The namespace associated with the Inference Endpoint. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf endpoints catalog deploy --repo meta-llama/Llama-3.2-1B-Instruct
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+#### `hf endpoints catalog list`
+
+List available Catalog models. [alias: ls]
+
+**Usage**:
+
+```console
+$ hf endpoints catalog list [OPTIONS]
+```
+
+**Options**:
+
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf endpoints catalog ls
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf endpoints delete`
+
+Delete an Inference Endpoint permanently.
+
+**Usage**:
+
+```console
+$ hf endpoints delete [OPTIONS] NAME
+```
+
+**Arguments**:
+
+* `NAME`: Endpoint name.  [required]
+
+**Options**:
+
+* `--namespace TEXT`: The namespace associated with the Inference Endpoint. Defaults to the current user's namespace.
+* `--yes`: Skip confirmation prompts.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf endpoints delete my-endpoint
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf endpoints deploy`
+
+Deploy an Inference Endpoint from a Hub repository.
+
+**Usage**:
+
+```console
+$ hf endpoints deploy [OPTIONS] NAME
+```
+
+**Arguments**:
+
+* `NAME`: Endpoint name.  [required]
+
+**Options**:
+
+* `--repo TEXT`: The name of the model repository associated with the Inference Endpoint (e.g. 'openai/gpt-oss-120b').  [required]
+* `--framework TEXT`: The machine learning framework used for the model (e.g. 'vllm').  [required]
+* `--accelerator TEXT`: The hardware accelerator to be used for inference (e.g. 'cpu').  [required]
+* `--instance-size TEXT`: The size or type of the instance to be used for hosting the model (e.g. 'x4').  [required]
+* `--instance-type TEXT`: The cloud instance type where the Inference Endpoint will be deployed (e.g. 'intel-icl').  [required]
+* `--region TEXT`: The cloud region in which the Inference Endpoint will be created (e.g. 'us-east-1').  [required]
+* `--vendor TEXT`: The cloud provider or vendor where the Inference Endpoint will be hosted (e.g. 'aws').  [required]
+* `--namespace TEXT`: The namespace associated with the Inference Endpoint. Defaults to the current user's namespace.
+* `--task TEXT`: The task on which to deploy the model (e.g. 'text-classification').
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--min-replica INTEGER`: The minimum number of replicas (instances) to keep running for the Inference Endpoint.  [default: 1]
+* `--max-replica INTEGER`: The maximum number of replicas (instances) to scale to for the Inference Endpoint.  [default: 1]
+* `--scale-to-zero-timeout INTEGER`: The duration in minutes before an inactive endpoint is scaled to zero.
+* `--scaling-metric [pendingRequests|hardwareUsage]`: The metric reference for scaling.
+* `--scaling-threshold FLOAT`: The scaling metric threshold used to trigger a scale up. Ignored when scaling metric is not provided.
+* `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
+* `--custom-image TEXT`: Docker image URL for a custom container (e.g. 'nexagi/sglang:v0.5.12'). Requires '--framework custom'.
+* `--health-route TEXT`: Health check route exposed by the custom container (e.g. '/health'). Requires --custom-image.
+* `--port INTEGER`: Port the custom container listens on (e.g. 30000). Requires --custom-image.
+* `--container-command TEXT`: Override the container entrypoint, as a quoted string split into tokens (e.g. "python -m sglang.launch_server"). Requires --custom-image.
+* `--container-args TEXT`: Arguments appended to the container entrypoint, as a quoted string split into tokens (e.g. "--tp 8 --reasoning-parser qwen3"). Requires --custom-image.
+* `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
+* `--env-file TEXT`: Read in a file of environment variables.
+* `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
+* `--secrets-file TEXT`: Read in a file of secret environment variables.
+* `--type [public|protected|authenticated|private]`: Endpoint access type. Defaults to 'authenticated' (token-gated, publicly reachable).
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf endpoints deploy my-endpoint --repo gpt2 --framework pytorch ...
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf endpoints describe`
+
+Get information about an existing endpoint.
+
+**Usage**:
+
+```console
+$ hf endpoints describe [OPTIONS] NAME
+```
+
+**Arguments**:
+
+* `NAME`: Endpoint name.  [required]
+
+**Options**:
+
+* `--namespace TEXT`: The namespace associated with the Inference Endpoint. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf endpoints describe my-endpoint
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf endpoints list`
+
+Lists all Inference Endpoints for the given namespace. [alias: ls]
+
+**Usage**:
+
+```console
+$ hf endpoints list [OPTIONS]
+```
+
+**Options**:
+
+* `--namespace TEXT`: The namespace associated with the Inference Endpoint. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf endpoints ls
+  $ hf endpoints ls --namespace my-org
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf endpoints list-catalog`
+
+List available Catalog models.
+
+**Usage**:
+
+```console
+$ hf endpoints list-catalog [OPTIONS]
+```
+
+**Options**:
+
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+### `hf endpoints pause`
+
+Pause an Inference Endpoint.
+
+**Usage**:
+
+```console
+$ hf endpoints pause [OPTIONS] NAME
+```
+
+**Arguments**:
+
+* `NAME`: Endpoint name.  [required]
+
+**Options**:
+
+* `--namespace TEXT`: The namespace associated with the Inference Endpoint. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf endpoints pause my-endpoint
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf endpoints resume`
+
+Resume an Inference Endpoint.
+
+**Usage**:
+
+```console
+$ hf endpoints resume [OPTIONS] NAME
+```
+
+**Arguments**:
+
+* `NAME`: Endpoint name.  [required]
+
+**Options**:
+
+* `--namespace TEXT`: The namespace associated with the Inference Endpoint. Defaults to the current user's namespace.
+* `--fail-if-already-running`: If `True`, the method will raise an error if the Inference Endpoint is already running.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf endpoints resume my-endpoint
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf endpoints scale-to-zero`
+
+Scale an Inference Endpoint to zero.
+
+**Usage**:
+
+```console
+$ hf endpoints scale-to-zero [OPTIONS] NAME
+```
+
+**Arguments**:
+
+* `NAME`: Endpoint name.  [required]
+
+**Options**:
+
+* `--namespace TEXT`: The namespace associated with the Inference Endpoint. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf endpoints scale-to-zero my-endpoint
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf endpoints update`
+
+Update an existing endpoint.
+
+**Usage**:
+
+```console
+$ hf endpoints update [OPTIONS] NAME
+```
+
+**Arguments**:
+
+* `NAME`: Endpoint name.  [required]
+
+**Options**:
+
+* `--namespace TEXT`: The namespace associated with the Inference Endpoint. Defaults to the current user's namespace.
+* `--repo TEXT`: The name of the model repository associated with the Inference Endpoint (e.g. 'openai/gpt-oss-120b').
+* `--accelerator TEXT`: The hardware accelerator to be used for inference (e.g. 'cpu').
+* `--instance-size TEXT`: The size or type of the instance to be used for hosting the model (e.g. 'x4').
+* `--instance-type TEXT`: The cloud instance type where the Inference Endpoint will be deployed (e.g. 'intel-icl').
+* `--framework TEXT`: The machine learning framework used for the model (e.g. 'custom').
+* `--revision TEXT`: The specific model revision to deploy on the Inference Endpoint (e.g. '6c0e6080953db56375760c0471a8c5f2929baf11').
+* `--task TEXT`: The task on which to deploy the model (e.g. 'text-classification').
+* `--min-replica INTEGER`: The minimum number of replicas (instances) to keep running for the Inference Endpoint.
+* `--max-replica INTEGER`: The maximum number of replicas (instances) to scale to for the Inference Endpoint.
+* `--scale-to-zero-timeout INTEGER`: The duration in minutes before an inactive endpoint is scaled to zero.
+* `--scaling-metric [pendingRequests|hardwareUsage]`: The metric reference for scaling.
+* `--scaling-threshold FLOAT`: The scaling metric threshold used to trigger a scale up. Ignored when scaling metric is not provided.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf endpoints update my-endpoint --min-replica 2
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+## `hf env`
+
+Print information about the environment.
+
+**Usage**:
+
+```console
+$ hf env [OPTIONS]
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+## `hf extensions`
+
+Manage hf CLI extensions. [alias: ext]
+
+Security Warning: extensions are third-party executables or Python packages. Install only from sources you trust.
+
+**Usage**:
+
+```console
+$ hf extensions [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `exec`: Execute an installed extension.
+* `install`: Install an extension from a public GitHub...
+* `list`: List installed extension commands. [alias: ls]
+* `remove`: Remove an installed extension. [alias: rm]
+* `search`: Search extensions available on GitHub...
+* `update`: Update installed extension(s) to their...
+
+### `hf extensions exec`
+
+Execute an installed extension.
+
+**Usage**:
+
+```console
+$ hf extensions exec [OPTIONS] NAME
+```
+
+**Arguments**:
+
+* `NAME`: Extension name (with or without `hf-` prefix).  [required]
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf extensions exec claude -- --help
+  $ hf extensions exec claude --model zai-org/GLM-5
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf extensions install`
+
+Install an extension from a public GitHub repository.
+
+Security warning: this installs a third-party executable or Python package.
+Install only from sources you trust.
+
+**Usage**:
+
+```console
+$ hf extensions install [OPTIONS] REPO_ID
+```
+
+**Arguments**:
+
+* `REPO_ID`: GitHub extension repository in `[OWNER/]hf-<name>` format.  [required]
+
+**Options**:
+
+* `--force`: Overwrite if already installed.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf extensions install hf-claude
+  $ hf extensions install hanouticelina/hf-claude
+  $ hf extensions install alvarobartt/hf-mem
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf extensions list`
+
+List installed extension commands. [alias: ls]
+
+**Usage**:
+
+```console
+$ hf extensions list [OPTIONS]
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf extensions list
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf extensions remove`
+
+Remove an installed extension. [alias: rm]
+
+**Usage**:
+
+```console
+$ hf extensions remove [OPTIONS] NAME
+```
+
+**Arguments**:
+
+* `NAME`: Extension name to remove (with or without `hf-` prefix).  [required]
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf extensions remove claude
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf extensions search`
+
+Search extensions available on GitHub (tagged with 'hf-extension' topic).
+
+**Usage**:
+
+```console
+$ hf extensions search [OPTIONS]
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf extensions search
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf extensions update`
+
+Update installed extension(s) to their latest version.
+
+**Usage**:
+
+```console
+$ hf extensions update [OPTIONS] [NAME]
+```
+
+**Arguments**:
+
+* `[NAME]`: Extension to update (with or without `hf-` prefix, optionally as `OWNER/hf-<name>`). If omitted, all installed extensions are checked and the outdated ones are updated.
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf extensions update
+  $ hf extensions update hf-claude
+  $ hf extensions update alvarobartt/hf-mem
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+## `hf jobs`
+
+Run and manage Jobs on the Hub.
+
+**Usage**:
+
+```console
+$ hf jobs [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `cancel`: Cancel a Job
+* `hardware`: List available hardware options for Jobs
+* `inspect`: Display detailed information on one or...
+* `labels`: Update labels on a Job.
+* `list`: List Jobs. [alias: ls, ps]
+* `logs`: Fetch the logs of a Job.
+* `run`: Run a Job.
+* `scheduled`: Create and manage scheduled Jobs on the Hub.
+* `ssh`: SSH into a running Job.
+* `stats`: Fetch the resource usage statistics and...
+* `uv`: Run UV scripts (Python with inline...
+* `wait`: Wait for one or more Jobs to reach a...
+
+### `hf jobs cancel`
+
+Cancel a Job
+
+**Usage**:
+
+```console
+$ hf jobs cancel [OPTIONS] JOB_ID
+```
+
+**Arguments**:
+
+* `JOB_ID`: Job ID (or 'namespace/job_id')  [required]
+
+**Options**:
+
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf jobs cancel <job_id>
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf jobs hardware`
+
+List available hardware options for Jobs
+
+**Usage**:
+
+```console
+$ hf jobs hardware [OPTIONS]
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf jobs hardware
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf jobs inspect`
+
+Display detailed information on one or more Jobs
+
+**Usage**:
+
+```console
+$ hf jobs inspect [OPTIONS] JOB_IDS...
+```
+
+**Arguments**:
+
+* `JOB_IDS...`: Job IDs to inspect (or 'namespace/job_id')  [required]
+
+**Options**:
+
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf jobs inspect <job_id>
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf jobs labels`
+
+Update labels on a Job. Passing --label replaces all existing labels; passing --name alone keeps them.
+
+**Usage**:
+
+```console
+$ hf jobs labels [OPTIONS] JOB_ID
+```
+
+**Arguments**:
+
+* `JOB_ID`: Job ID (or 'namespace/job_id')  [required]
+
+**Options**:
+
+* `--name TEXT`: Name the Job. Stored as the `name` label. Names do not have to be unique. Defaults to the image or script name plus a short hash of the command.
+* `-l, --label TEXT`: Set labels. E.g. --label KEY=VALUE or --label LABEL
+* `--clear`: Remove all labels from the job.
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf jobs labels <job_id> --name training-v2
+  $ hf jobs labels <job_id> --label env=prod --label team=ml
+  $ hf jobs labels <job_id> --clear
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf jobs list | ls | ps`
+
+List Jobs.
+
+Use `--status` to filter by status (see [`JobStage`] for possible values) and `--label` to filter by `key=value`
+labels. A Job must match every filter to be listed.
+
+**Usage**:
+
+```console
+$ hf jobs list | ls | ps [OPTIONS]
+```
+
+**Options**:
+
+* `-a, --all`: Show all Jobs (default shows running and scheduling). Cannot be combined with --status.
+* `--status [COMPLETED|CANCELED|ERROR|DELETED|SCHEDULING|RUNNING]`: Only show Jobs with the given status. Comma-separated or repeated, e.g. `--status running,scheduling`.
+* `-l, --label TEXT`: Only show Jobs with the given `key=value` label. Repeat to require several labels, e.g. `--label env=prod --label team=ml`.
+* `--name TEXT`: Only show Jobs with the given name (shortcut for `--label name=NAME`).
+* `--limit INTEGER`: Maximum number of Jobs to display. Set to 0 to show all (no limit).  [default: 100]
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `-f, --filter TEXT`: (Deprecated) Use `--status` and `--label` instead.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf jobs ls
+  $ hf jobs ls -a
+  $ hf jobs ls --status running,scheduling
+  $ hf jobs ls --name training-v2
+  $ hf jobs ls --label env=prod --label team=ml
+  $ hf jobs ls --all --label hf-sandbox=1
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf jobs logs`
+
+Fetch the logs of a Job.
+
+By default, prints currently available logs and exits (non-blocking).
+Use --follow/-f to stream logs in real-time until the job completes.
+Use --tail/-n to limit the number of lines returned (server-side when supported).
+
+Note: following exits when the log stream ends, regardless of whether the Job
+succeeded or failed. Run `hf jobs inspect <job_id>` to check the final status.
+
+**Usage**:
+
+```console
+$ hf jobs logs [OPTIONS] JOB_ID
+```
+
+**Arguments**:
+
+* `JOB_ID`: Job ID (or 'namespace/job_id')  [required]
+
+**Options**:
+
+* `-f, --follow`: Follow log output (stream until the job completes). Without this flag, only currently available logs are printed.
+* `-n, --tail INTEGER`: Number of lines to show from the end of the logs. When combined with --follow, starts streaming from the last N lines.
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf jobs logs <job_id>
+  $ hf jobs logs -f <job_id>
+  $ hf jobs logs --tail 20 <job_id>
+  $ hf jobs logs -f --tail 100 <job_id>
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf jobs run`
+
+Run a Job.
+
+**Usage**:
+
+```console
+$ hf jobs run [OPTIONS] IMAGE COMMAND...
+```
+
+**Arguments**:
+
+* `IMAGE`: The Docker image to use.  [required]
+* `COMMAND...`: The command to run.  [required]
+
+**Options**:
+
+* `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
+* `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
+* `--name TEXT`: Name the Job. Stored as the `name` label. Names do not have to be unique. Defaults to the image or script name plus a short hash of the command.
+* `-l, --label TEXT`: Set labels. E.g. --label KEY=VALUE or --label LABEL
+* `-v, --volume TEXT`: Mount one or more volumes. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro|:rw] or LOCAL_DIR:/MOUNT_PATH[:ro|:rw]. TYPE is one of: models, datasets, spaces, buckets. TYPE defaults to models if omitted. models, datasets and spaces are always mounted read-only. buckets are read+write by default. A local directory source is first synced to a bucket and mounted read-only by default. E.g. -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro or -v ./inputs:/inputs
+* `--env-file TEXT`: Read in a file of environment variables.
+* `--secrets-file TEXT`: Read in a file of secret environment variables.
+* `--flavor [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|rtx-pro-6000|rtx-pro-6000x2|rtx-pro-6000x4|rtx-pro-6000x8]`: Flavor for the hardware. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.
+* `--timeout TEXT`: Max duration: int with s (seconds, default), m (minutes), h (hours) or d (days).
+* `-d, --detach`: Run the Job in the background and print the Job ID.
+* `--expose INTEGER`: Expose a container port through the jobs proxy. Repeat the flag for multiple ports (e.g. `--expose 8000 --expose 8001`). Each exposed port is reachable on the public jobs domain; access requires an HF token with read access to the job's namespace.
+* `--ssh`: Make the job's container reachable over SSH. Connect with `hf jobs ssh <job_id>`. Requires an SSH public key registered on https://huggingface.co/settings/keys.
+* `--resource-group-id TEXT`: The ID of the resource group to create the Job in. Used to control access to resources within an organization and for cost attribution/spending-limit features.
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf jobs run --name hello-world python:3.12 python -c 'print("Hello!")'
+  $ hf jobs run --detach python:3.12 python script.py
+  $ hf jobs run -e FOO=foo python:3.12 python script.py
+  $ hf jobs run --secrets HF_TOKEN python:3.12 python script.py
+  $ hf jobs run -v hf://org/my-model:/data -v hf://buckets/org/b:/mnt python:3.12 python script.py
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf jobs scheduled`
+
+Create and manage scheduled Jobs on the Hub.
+
+**Usage**:
+
+```console
+$ hf jobs scheduled [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `delete`: Delete a scheduled Job.
+* `inspect`: Display detailed information on one or...
+* `labels`: Update labels on a scheduled Job.
+* `list`: List scheduled Jobs [alias: ls, ps]
+* `resume`: Resume (unpause) a scheduled Job.
+* `run`: Schedule a Job.
+* `suspend`: Suspend (pause) a scheduled Job.
+* `trigger`: Trigger a scheduled Job to run immediately...
+* `uv`: Schedule UV scripts on HF infrastructure.
+
+#### `hf jobs scheduled delete`
+
+Delete a scheduled Job.
+
+**Usage**:
+
+```console
+$ hf jobs scheduled delete [OPTIONS] SCHEDULED_JOB_ID
+```
+
+**Arguments**:
+
+* `SCHEDULED_JOB_ID`: Scheduled Job ID (or 'namespace/scheduled_job_id')  [required]
+
+**Options**:
+
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf jobs scheduled delete <id>
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+#### `hf jobs scheduled inspect`
+
+Display detailed information on one or more scheduled Jobs
+
+**Usage**:
+
+```console
+$ hf jobs scheduled inspect [OPTIONS] SCHEDULED_JOB_IDS...
+```
+
+**Arguments**:
+
+* `SCHEDULED_JOB_IDS...`: Scheduled Job IDs to inspect (or 'namespace/scheduled_job_id')  [required]
+
+**Options**:
+
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf jobs scheduled inspect <id>
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+#### `hf jobs scheduled labels`
+
+Update labels on a scheduled Job. Passing --label replaces all existing labels; passing --name alone keeps them.
+
+**Usage**:
+
+```console
+$ hf jobs scheduled labels [OPTIONS] SCHEDULED_JOB_ID
+```
+
+**Arguments**:
+
+* `SCHEDULED_JOB_ID`: Scheduled Job ID (or 'namespace/scheduled_job_id')  [required]
+
+**Options**:
+
+* `--name TEXT`: Name the Job. Stored as the `name` label. Names do not have to be unique. Defaults to the image or script name plus a short hash of the command.
+* `-l, --label TEXT`: Set labels. E.g. --label KEY=VALUE or --label LABEL
+* `--clear`: Remove all labels from the scheduled job.
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf jobs scheduled labels <id> --name daily-script
+  $ hf jobs scheduled labels <id> --label env=prod --label team=ml
+  $ hf jobs scheduled labels <id> --clear
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+#### `hf jobs scheduled list | ls | ps`
+
+List scheduled Jobs
+
+**Usage**:
+
+```console
+$ hf jobs scheduled list | ls | ps [OPTIONS]
+```
+
+**Options**:
+
+* `-a, --all`: Show all scheduled Jobs (default hides suspended)
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `-f, --filter TEXT`: Filter output based on conditions provided (format: key=value)
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf jobs scheduled ls
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+#### `hf jobs scheduled resume`
+
+Resume (unpause) a scheduled Job.
+
+**Usage**:
+
+```console
+$ hf jobs scheduled resume [OPTIONS] SCHEDULED_JOB_ID
+```
+
+**Arguments**:
+
+* `SCHEDULED_JOB_ID`: Scheduled Job ID (or 'namespace/scheduled_job_id')  [required]
+
+**Options**:
+
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf jobs scheduled resume <id>
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+#### `hf jobs scheduled run`
+
+Schedule a Job.
+
+**Usage**:
+
+```console
+$ hf jobs scheduled run [OPTIONS] SCHEDULE IMAGE COMMAND...
+```
+
+**Arguments**:
+
+* `SCHEDULE`: One of annually, yearly, monthly, weekly, daily, hourly, or a CRON schedule expression.  [required]
+* `IMAGE`: The Docker image to use.  [required]
+* `COMMAND...`: The command to run.  [required]
+
+**Options**:
+
+* `--suspend / --no-suspend`: Suspend (pause) the scheduled Job
+* `--concurrency / --no-concurrency`: Allow multiple instances of this Job to run concurrently
+* `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
+* `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
+* `--name TEXT`: Name the Job. Stored as the `name` label. Names do not have to be unique. Defaults to the image or script name plus a short hash of the command.
+* `-l, --label TEXT`: Set labels. E.g. --label KEY=VALUE or --label LABEL
+* `-v, --volume TEXT`: Mount one or more volumes. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro|:rw] or LOCAL_DIR:/MOUNT_PATH[:ro|:rw]. TYPE is one of: models, datasets, spaces, buckets. TYPE defaults to models if omitted. models, datasets and spaces are always mounted read-only. buckets are read+write by default. A local directory source is first synced to a bucket and mounted read-only by default. E.g. -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro or -v ./inputs:/inputs
+* `--env-file TEXT`: Read in a file of environment variables.
+* `--secrets-file TEXT`: Read in a file of secret environment variables.
+* `--flavor [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|rtx-pro-6000|rtx-pro-6000x2|rtx-pro-6000x4|rtx-pro-6000x8]`: Flavor for the hardware. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.
+* `--timeout TEXT`: Max duration: int with s (seconds, default), m (minutes), h (hours) or d (days).
+* `--expose INTEGER`: Expose a container port through the jobs proxy. Repeat the flag for multiple ports (e.g. `--expose 8000 --expose 8001`). Each exposed port is reachable on the public jobs domain; access requires an HF token with read access to the job's namespace.
+* `--resource-group-id TEXT`: The ID of the resource group to create the Job in. Used to control access to resources within an organization and for cost attribution/spending-limit features.
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf jobs scheduled run "0 0 * * *" --name daily-script python:3.12 python script.py
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+#### `hf jobs scheduled suspend`
+
+Suspend (pause) a scheduled Job.
+
+**Usage**:
+
+```console
+$ hf jobs scheduled suspend [OPTIONS] SCHEDULED_JOB_ID
+```
+
+**Arguments**:
+
+* `SCHEDULED_JOB_ID`: Scheduled Job ID (or 'namespace/scheduled_job_id')  [required]
+
+**Options**:
+
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf jobs scheduled suspend <id>
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+#### `hf jobs scheduled trigger`
+
+Trigger a scheduled Job to run immediately (does not change the schedule).
+
+**Usage**:
+
+```console
+$ hf jobs scheduled trigger [OPTIONS] SCHEDULED_JOB_ID
+```
+
+**Arguments**:
+
+* `SCHEDULED_JOB_ID`: Scheduled Job ID (or 'namespace/scheduled_job_id')  [required]
+
+**Options**:
+
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf jobs scheduled trigger <id>
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+#### `hf jobs scheduled uv`
+
+Schedule UV scripts on HF infrastructure.
+
+**Usage**:
+
+```console
+$ hf jobs scheduled uv [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `run`: Run a UV script (local file or URL) on HF...
+
+##### `hf jobs scheduled uv run`
+
+Run a UV script (local file or URL) on HF infrastructure
+
+**Usage**:
+
+```console
+$ hf jobs scheduled uv run [OPTIONS] SCHEDULE SCRIPT [SCRIPT_ARGS]...
+```
+
+**Arguments**:
+
+* `SCHEDULE`: One of annually, yearly, monthly, weekly, daily, hourly, or a CRON schedule expression.  [required]
+* `SCRIPT`: UV script to run (local file or URL)  [required]
+* `[SCRIPT_ARGS]...`: Arguments for the script
+
+**Options**:
+
+* `--suspend / --no-suspend`: Suspend (pause) the scheduled Job
+* `--concurrency / --no-concurrency`: Allow multiple instances of this Job to run concurrently
+* `--image TEXT`: Use a custom Docker image with `uv` installed.
+* `--flavor [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|rtx-pro-6000|rtx-pro-6000x2|rtx-pro-6000x4|rtx-pro-6000x8]`: Flavor for the hardware. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.
+* `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
+* `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
+* `--name TEXT`: Name the Job. Stored as the `name` label. Names do not have to be unique. Defaults to the image or script name plus a short hash of the command.
+* `-l, --label TEXT`: Set labels. E.g. --label KEY=VALUE or --label LABEL
+* `-v, --volume TEXT`: Mount one or more volumes. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro|:rw] or LOCAL_DIR:/MOUNT_PATH[:ro|:rw]. TYPE is one of: models, datasets, spaces, buckets. TYPE defaults to models if omitted. models, datasets and spaces are always mounted read-only. buckets are read+write by default. A local directory source is first synced to a bucket and mounted read-only by default. E.g. -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro or -v ./inputs:/inputs
+* `--env-file TEXT`: Read in a file of environment variables.
+* `--secrets-file TEXT`: Read in a file of secret environment variables.
+* `--timeout TEXT`: Max duration: int with s (seconds, default), m (minutes), h (hours) or d (days).
+* `--expose INTEGER`: Expose a container port through the jobs proxy. Repeat the flag for multiple ports (e.g. `--expose 8000 --expose 8001`). Each exposed port is reachable on the public jobs domain; access requires an HF token with read access to the job's namespace.
+* `--resource-group-id TEXT`: The ID of the resource group to create the Job in. Used to control access to resources within an organization and for cost attribution/spending-limit features.
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--with TEXT`: Run with the given packages installed
+* `-p, --python TEXT`: The Python interpreter to use for the run environment
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf jobs scheduled uv run "0 0 * * *" --name daily-script script.py
+  $ hf jobs scheduled uv run "0 0 * * *" script.py --with pandas
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf jobs ssh`
+
+SSH into a running Job.
+
+If the Job is not yet running, waits until it reaches the RUNNING state before
+connecting. Requires the Job to be started with SSH enabled (`hf jobs run --ssh ...`)
+and your SSH public key to be registered at https://huggingface.co/settings/keys.
+
+**Usage**:
+
+```console
+$ hf jobs ssh [OPTIONS] JOB_ID
+```
+
+**Arguments**:
+
+* `JOB_ID`: Job ID (or 'namespace/job_id')  [required]
+
+**Options**:
+
+* `-i, --identity-file PATH`: Path to the SSH identity file (forwarded to `ssh -i`).
+* `--dry-run`: Print the SSH command instead of running it.
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf jobs ssh <job_id>
+  $ hf jobs ssh <job_id> --dry-run
+  $ hf jobs ssh <job_id> -i ~/.ssh/id_ed25519
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf jobs stats`
+
+Fetch the resource usage statistics and metrics of Jobs
+
+**Usage**:
+
+```console
+$ hf jobs stats [OPTIONS] [JOB_IDS]...
+```
+
+**Arguments**:
+
+* `[JOB_IDS]...`: Job IDs (or 'namespace/job_id')
+
+**Options**:
+
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf jobs stats <job_id>
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf jobs uv`
+
+Run UV scripts (Python with inline dependencies) on HF infrastructure.
+
+**Usage**:
+
+```console
+$ hf jobs uv [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `run`: Run a UV script (local file or URL) on HF...
+
+#### `hf jobs uv run`
+
+Run a UV script (local file or URL) on HF infrastructure
+
+**Usage**:
+
+```console
+$ hf jobs uv run [OPTIONS] SCRIPT [SCRIPT_ARGS]...
+```
+
+**Arguments**:
+
+* `SCRIPT`: UV script to run (local file or URL)  [required]
+* `[SCRIPT_ARGS]...`: Arguments for the script
+
+**Options**:
+
+* `--image TEXT`: Use a custom Docker image with `uv` installed.
+* `--flavor [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|rtx-pro-6000|rtx-pro-6000x2|rtx-pro-6000x4|rtx-pro-6000x8]`: Flavor for the hardware. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.
+* `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
+* `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
+* `--name TEXT`: Name the Job. Stored as the `name` label. Names do not have to be unique. Defaults to the image or script name plus a short hash of the command.
+* `-l, --label TEXT`: Set labels. E.g. --label KEY=VALUE or --label LABEL
+* `-v, --volume TEXT`: Mount one or more volumes. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro|:rw] or LOCAL_DIR:/MOUNT_PATH[:ro|:rw]. TYPE is one of: models, datasets, spaces, buckets. TYPE defaults to models if omitted. models, datasets and spaces are always mounted read-only. buckets are read+write by default. A local directory source is first synced to a bucket and mounted read-only by default. E.g. -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro or -v ./inputs:/inputs
+* `--env-file TEXT`: Read in a file of environment variables.
+* `--secrets-file TEXT`: Read in a file of secret environment variables.
+* `--timeout TEXT`: Max duration: int with s (seconds, default), m (minutes), h (hours) or d (days).
+* `-d, --detach`: Run the Job in the background and print the Job ID.
+* `--expose INTEGER`: Expose a container port through the jobs proxy. Repeat the flag for multiple ports (e.g. `--expose 8000 --expose 8001`). Each exposed port is reachable on the public jobs domain; access requires an HF token with read access to the job's namespace.
+* `--ssh`: Make the job's container reachable over SSH. Connect with `hf jobs ssh <job_id>`. Requires an SSH public key registered on https://huggingface.co/settings/keys.
+* `--resource-group-id TEXT`: The ID of the resource group to create the Job in. Used to control access to resources within an organization and for cost attribution/spending-limit features.
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--with TEXT`: Run with the given packages installed
+* `-p, --python TEXT`: The Python interpreter to use for the run environment
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf jobs uv run --name my-script my_script.py
+  $ hf jobs uv run --detach my_script.py
+  $ hf jobs uv run ml_training.py --flavor a10g-small
+  $ hf jobs uv run --with transformers train.py
+  $ hf jobs uv run -v hf://org/my-model:/data -v hf://buckets/org/b:/mnt script.py
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf jobs wait`
+
+Wait for one or more Jobs to reach a terminal state.
+
+Blocks until every Job has finished, then exits with code 0 if all Jobs completed
+successfully, or a non-zero exit code if any Job was canceled, errored or deleted.
+
+All Jobs must belong to the same namespace.
+
+**Usage**:
+
+```console
+$ hf jobs wait [OPTIONS] JOB_IDS...
+```
+
+**Arguments**:
+
+* `JOB_IDS...`: Job IDs to wait for (or 'namespace/job_id').  [required]
+
+**Options**:
+
+* `--timeout TEXT`: Max time to wait: int with s (seconds, default), m (minutes), h (hours) or d (days).
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf jobs wait <job_id>
+  $ hf jobs wait <job_id_1> <job_id_2>
+  $ hf jobs ls -q | xargs hf jobs wait
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+## `hf lfs-enable-largefiles`
+
+Configure your repository to enable upload of files > 5GB.
+
+This command sets up git-lfs to use the custom multipart transfer agent
+which enables efficient uploading of large files in chunks.
+
+**Usage**:
+
+```console
+$ hf lfs-enable-largefiles [OPTIONS] PATH
+```
+
+**Arguments**:
+
+* `PATH`: Local path to repository you want to configure.  [required]
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+## `hf lfs-multipart-upload`
+
+Internal git-lfs custom transfer agent for multipart uploads.
+
+This function implements the custom transfer protocol for git-lfs multipart uploads.
+Handles chunked uploads of large files to Hugging Face Hub.
+
+**Usage**:
+
+```console
+$ hf lfs-multipart-upload [OPTIONS]
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+## `hf models`
+
+Interact with models on the Hub.
+
+**Usage**:
+
+```console
+$ hf models [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `card`: Get the model card (README) for a model on...
+* `info`: Get info about a model on the Hub.
+* `list`: List models on the Hub, or files in a... [alias: ls]
+
+### `hf models card`
+
+Get the model card (README) for a model on the Hub.
+
+**Usage**:
+
+```console
+$ hf models card [OPTIONS] MODEL_ID
+```
+
+**Arguments**:
+
+* `MODEL_ID`: The model ID (e.g. `username/repo-name`).  [required]
+
+**Options**:
+
+* `--metadata`: Output only the metadata from the card.
+* `--text`: Output only the text body (no metadata).
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf models card google/gemma-4-31B-it
+  $ hf models card google/gemma-4-31B-it --metadata
+  $ hf models card google/gemma-4-31B-it --metadata --format json
+  $ hf models card google/gemma-4-31B-it --text
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf models info`
+
+Get info about a model on the Hub.
+
+**Usage**:
+
+```console
+$ hf models info [OPTIONS] MODEL_ID
+```
+
+**Arguments**:
+
+* `MODEL_ID`: The model ID (e.g. `username/repo-name`).  [required]
+
+**Options**:
+
+* `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
+* `--expand TEXT`: Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=downloads,likes,tags'. Valid: author, baseModels, cardData, childrenModelCount, config, createdAt, disabled, downloads, downloadsAllTime, evalResults, gated, gguf, inference, inferenceProviderMapping, lastModified, library_name, likes, mask_token, model-index, pipeline_tag, private, resourceGroup, safetensors, sha, siblings, spaces, tags, transformersInfo, trendingScore, usedStorage, widgetData.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf models info meta-llama/Llama-3.2-1B-Instruct
+  $ hf models info Qwen/Qwen3.5-9B --expand downloads,likes,tags
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf models list`
+
+List models on the Hub, or files in a model repo. [alias: ls]
+
+When called with no argument, lists models on the Hub.
+When called with a model ID, lists files in that model repo.
+
+**Usage**:
+
+```console
+$ hf models list [OPTIONS] [REPO_ID]
+```
+
+**Arguments**:
+
+* `[REPO_ID]`: Model ID (e.g. `username/repo-name`) to list files from. If omitted, lists models.
+
+**Options**:
+
+* `--search TEXT`: Search query.
+* `--author TEXT`: Filter by author or organization.
+* `--filter TEXT`: Filter by tags (e.g. 'text-classification'). Can be used multiple times.
+* `--pipeline-tag TEXT`: Filter by pipeline tag (canonical task), e.g. 'summarization'.
+* `--gated / --no-gated`: Filter by gated status. '--gated' for gated only, '--no-gated' for non-gated only.
+* `--apps TEXT`: Filter by app(s) that can run the model, e.g. 'ollama' or 'vllm'.
+* `--num-parameters TEXT`: Filter by parameter count, e.g. 'min:6B,max:128B'.
+* `--inference-provider [cerebras|cohere|deepinfra|fal-ai|featherless-ai|fireworks-ai|groq|hf-inference|novita|nscale|openai|ovhcloud|publicai|replicate|scaleway|together|wavespeed|zai-org]`: Filter by inference provider(s) serving the model, e.g. 'fireworks-ai'.
+* `--warm`: Only list models currently served by at least one inference provider.
+* `--sort [created_at|downloads|last_modified|likes|trending_score]`: Sort results.
+* `--limit INTEGER`: Limit the number of results.  [default: 30]
+* `--expand TEXT`: Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=downloads,likes,tags'. Valid: author, baseModels, cardData, childrenModelCount, config, createdAt, disabled, downloads, downloadsAllTime, evalResults, gated, gguf, inference, inferenceProviderMapping, lastModified, library_name, likes, mask_token, model-index, pipeline_tag, private, resourceGroup, safetensors, sha, siblings, spaces, tags, transformersInfo, trendingScore, usedStorage, widgetData.
+* `-h, --human-readable`: Show sizes in human readable format (only for listing files).
+* `--tree`: List files in tree format (only for listing files).
+* `-R, --recursive`: List files recursively (only for listing files).
+* `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf models ls --sort downloads --limit 10
+  $ hf models ls --search "llama" --author meta-llama
+  $ hf models ls --pipeline-tag text-generation --warm
+  $ hf models ls --num-parameters min:6B,max:128B --sort likes
+  $ hf models ls --no-gated --author google
+  $ hf models ls --apps llama.cpp --apps vllm
+  $ hf models ls --inference-provider fireworks-ai --sort downloads
+  $ hf models ls --warm --search llama
+  $ hf models ls meta-llama/Llama-3.2-1B-Instruct
+  $ hf models ls meta-llama/Llama-3.2-1B-Instruct -R
+  $ hf models ls meta-llama/Llama-3.2-1B-Instruct --tree -h
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+## `hf papers`
+
+Interact with papers on the Hub.
+
+**Usage**:
+
+```console
+$ hf papers [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `info`: Get info about a paper on the Hub.
+* `list`: List daily papers on the Hub. [alias: ls]
+* `read`: Read a paper as markdown.
+* `search`: Search papers on the Hub.
+
+### `hf papers info`
+
+Get info about a paper on the Hub.
+
+**Usage**:
+
+```console
+$ hf papers info [OPTIONS] PAPER_ID
+```
+
+**Arguments**:
+
+* `PAPER_ID`: The arXiv paper ID (e.g. '2502.08025').  [required]
+
+**Options**:
+
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf papers info 2601.15621
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf papers list`
+
+List daily papers on the Hub. [alias: ls]
+
+**Usage**:
+
+```console
+$ hf papers list [OPTIONS]
+```
+
+**Options**:
+
+* `--date TEXT`: Date in ISO format (YYYY-MM-DD) or 'today'.
+* `--week TEXT`: ISO week to filter by, e.g. '2025-W09'.
+* `--month TEXT`: Month to filter by in ISO format (YYYY-MM), e.g. '2025-02'.
+* `--submitter TEXT`: Filter by username of the submitter.
+* `--sort [publishedAt|trending]`: Sort results.
+* `--limit INTEGER`: Limit the number of results.  [default: 50]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf papers ls
+  $ hf papers ls --sort trending
+  $ hf papers ls --date 2025-01-23
+  $ hf papers ls --week 2025-W09
+  $ hf papers ls --submitter akhaliq
+  $ hf papers ls --format json
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf papers read`
+
+Read a paper as markdown.
+
+**Usage**:
+
+```console
+$ hf papers read [OPTIONS] PAPER_ID
+```
+
+**Arguments**:
+
+* `PAPER_ID`: The arXiv paper ID (e.g. '2502.08025').  [required]
+
+**Options**:
+
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf papers read 2601.15621
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf papers search`
+
+Search papers on the Hub.
+
+**Usage**:
+
+```console
+$ hf papers search [OPTIONS] QUERY
+```
+
+**Arguments**:
+
+* `QUERY`: Search query string.  [required]
+
+**Options**:
+
+* `--limit INTEGER`: Limit the number of results.  [default: 20]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf papers search "vision language"
+  $ hf papers search "attention mechanism" --limit 10
+  $ hf papers search "diffusion" --format json
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+## `hf repos`
+
+Manage repos on the Hub. [alias: repo]
+
+**Usage**:
+
+```console
+$ hf repos [OPTIONS] [COMMAND] [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `branch`: Manage branches for a repo on the Hub.
+* `cp`: Copy files between local paths,...
+* `create`: Create a new repo on the Hub.
+* `delete`: Delete a repo from the Hub.
+* `delete-files`: Delete files from a repo on the Hub.
+* `duplicate`: Duplicate a repo on the Hub (model,...
+* `list`: List all repos (models, datasets, spaces,... [alias: ls]
+* `move`: Move a repository from a namespace to...
+* `settings`: Update the settings of a repository.
+* `tag`: Manage tags for a repo on the Hub.
+
+### `hf repos branch`
+
+Manage branches for a repo on the Hub.
+
+**Usage**:
+
+```console
+$ hf repos branch [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `create`: Create a new branch for a repo on the Hub.
+* `delete`: Delete a branch from a repo on the Hub.
+
+#### `hf repos branch create`
+
+Create a new branch for a repo on the Hub.
+
+**Usage**:
+
+```console
+$ hf repos branch create [OPTIONS] REPO_ID BRANCH
+```
+
+**Arguments**:
+
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
+* `BRANCH`: The name of the branch to create.  [required]
+
+**Options**:
+
+* `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--exist-ok / --no-exist-ok`: If set to True, do not raise an error if branch already exists.  [default: no-exist-ok]
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf repos branch create my-model dev
+  $ hf repos branch create my-model dev --revision abc123
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+#### `hf repos branch delete`
+
+Delete a branch from a repo on the Hub.
+
+**Usage**:
+
+```console
+$ hf repos branch delete [OPTIONS] REPO_ID BRANCH
+```
+
+**Arguments**:
+
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
+* `BRANCH`: The name of the branch to delete.  [required]
+
+**Options**:
+
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf repos branch delete my-model dev
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf repos cp`
+
+Copy files between local paths, repositories, and buckets.
+
+Handles uploads (local/stdin -> repo/bucket), downloads (repo/bucket -> local/stdout) and
+remote-to-remote copies (repo/bucket -> repo/bucket). Bucket-to-repo and local-to-local
+copies are not supported. For directories, use `hf upload`/`hf download` (repos) or
+`hf buckets sync` (buckets). Remote-to-remote copies only work within the same storage
+region (https://huggingface.co/docs/hub/storage-regions).
+
+**Usage**:
+
+```console
+$ hf repos cp [OPTIONS] SRC [DST]
+```
+
+**Arguments**:
+
+* `SRC`: Source: local file, hf:// URI (repo or bucket), or - for stdin.  [required]
+* `[DST]`: Destination: local path, hf:// URI (repo or bucket), or - for stdout.
+
+**Options**:
+
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf repos cp hf://username/my-model/config.json config.json
+  $ hf repos cp hf://datasets/username/my-dataset/data.csv data/
+  $ hf repos cp hf://username/my-model/config.json -
+  $ hf repos cp model.safetensors hf://username/my-model/model.safetensors
+  $ hf repos cp config.json hf://username/my-model/logs/
+  $ hf repos cp - hf://username/my-model/config.json
+  $ hf repos cp hf://username/source-model/config.json hf://username/dest-model/config.json
+  $ hf repos cp hf://datasets/username/my-dataset/processed/ hf://datasets/username/dest-dataset/processed/
+  $ hf repos cp hf://username/my-model/logs/ hf://username/archive-model/logs/
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf repos create`
+
+Create a new repo on the Hub.
+
+**Usage**:
+
+```console
+$ hf repos create [OPTIONS] REPO_ID
+```
+
+**Arguments**:
+
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
+
+**Options**:
+
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--sdk, --space-sdk TEXT`: Hugging Face Spaces SDK type. Required when --type is set to 'space'.
+* `--template TEXT`: Create a Space from an official template. Pass a template repo id (e.g. 'SpacesExamples/jupyterlab') or its short name (e.g. 'JupyterLab'). List available templates with `hf spaces templates`. Spaces only.
+* `--private / --no-private`: Whether to create a private repo if repo doesn't exist on the Hub. Ignored if the repo already exists.
+* `--public`: Whether to make the repo public. Ignored if the repo already exists.
+* `--protected`: Whether to make the Space protected (Spaces only). Ignored if the repo already exists.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--exist-ok / --no-exist-ok`: Do not raise an error if repo already exists.  [default: no-exist-ok]
+* `--resource-group-id TEXT`: Resource group in which to create the repo. Resource groups is only available for Enterprise Hub organizations.
+* `--region [us|eu]`: Cloud region in which to create the repo. Can be one of 'us' or 'eu'. Requires Team plan or above.
+* `--flavor [cpu-basic|cpu-upgrade|zero-a10g|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8]`: Space hardware flavor (e.g. 'cpu-basic', 't4-medium', 'l4x4'). Only for Spaces.
+* `--storage [small|medium|large]`: (Deprecated, use volumes instead) Space persistent storage tier ('small', 'medium', or 'large'). Only for Spaces.
+* `--sleep-time INTEGER`: Seconds of inactivity before the Space is put to sleep. Use -1 to disable. Only for Spaces.
+* `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
+* `--secrets-file TEXT`: Read in a file of secret environment variables.
+* `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
+* `--env-file TEXT`: Read in a file of environment variables.
+* `-v, --volume TEXT`: Mount one or more volumes. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. TYPE is one of: models, datasets, spaces, buckets. TYPE defaults to models if omitted. models, datasets and spaces are always mounted read-only. buckets are read+write by default. E.g. -v hf://org/m:/data or -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf repos create my-model
+  $ hf repos create my-dataset --repo-type dataset --private
+  $ hf repos create my-space --type space --sdk gradio --flavor t4-medium --secrets HF_TOKEN -e THEME=dark --protected
+  $ hf repos create my-jupyterlab --type space --template SpacesExamples/jupyterlab
+  $ hf repos create my-space --type space --sdk gradio -v hf://org/my-model:/models -v hf://buckets/org/b:/data
+  $ hf repos create my-model --region us
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf repos delete`
+
+Delete a repo from the Hub. This is an irreversible operation.
+
+**Usage**:
+
+```console
+$ hf repos delete [OPTIONS] REPO_ID
+```
+
+**Arguments**:
+
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
+
+**Options**:
+
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--missing-ok / --no-missing-ok`: If set to True, do not raise an error if repo does not exist.  [default: no-missing-ok]
+* `-y, --yes`: Answer Yes to prompt automatically.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf repos delete my-model
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf repos delete-files`
+
+Delete files from a repo on the Hub.
+
+**Usage**:
+
+```console
+$ hf repos delete-files [OPTIONS] REPO_ID PATTERNS...
+```
+
+**Arguments**:
+
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
+* `PATTERNS...`: Glob patterns to match files to delete. Based on fnmatch, '*' matches files recursively.  [required]
+
+**Options**:
+
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
+* `--commit-message TEXT`: The summary / title / first line of the generated commit.
+* `--commit-description TEXT`: The description of the generated commit.
+* `--create-pr / --no-create-pr`: Whether to create a new Pull Request for these changes.  [default: no-create-pr]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf repos delete-files my-model file.txt
+  $ hf repos delete-files my-model "*.json"
+  $ hf repos delete-files my-model folder/
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf repos duplicate`
+
+Duplicate a repo on the Hub (model, dataset, or Space).
+
+**Usage**:
+
+```console
+$ hf repos duplicate [OPTIONS] FROM_ID [TO_ID]
+```
+
+**Arguments**:
+
+* `FROM_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
+* `[TO_ID]`: Destination repo ID (e.g. `myorg/my-copy`). Defaults to your namespace with the same repo name.
+
+**Options**:
+
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--private / --no-private`: Whether to create a private repo if repo doesn't exist on the Hub. Ignored if the repo already exists.
+* `--public`: Whether to make the repo public. Ignored if the repo already exists.
+* `--protected`: Whether to make the Space protected (Spaces only). Ignored if the repo already exists.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--exist-ok / --no-exist-ok`: Do not raise an error if repo already exists.  [default: no-exist-ok]
+* `--flavor [cpu-basic|cpu-upgrade|zero-a10g|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8]`: Space hardware flavor (e.g. 'cpu-basic', 't4-medium', 'l4x4'). Only for Spaces.
+* `--storage [small|medium|large]`: (Deprecated, use volumes instead) Space persistent storage tier ('small', 'medium', or 'large'). Only for Spaces.
+* `--sleep-time INTEGER`: Seconds of inactivity before the Space is put to sleep. Use -1 to disable. Only for Spaces.
+* `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
+* `--secrets-file TEXT`: Read in a file of secret environment variables.
+* `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
+* `--env-file TEXT`: Read in a file of environment variables.
+* `-v, --volume TEXT`: Mount one or more volumes. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. TYPE is one of: models, datasets, spaces, buckets. TYPE defaults to models if omitted. models, datasets and spaces are always mounted read-only. buckets are read+write by default. E.g. -v hf://org/m:/data or -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf repos duplicate openai/gdpval --type dataset
+  $ hf repos duplicate multimodalart/dreambooth-training my-dreambooth --type space --flavor l4x4 --secrets HF_TOKEN --private
+  $ hf repos duplicate org/my-space my-space --type space -v hf://org/my-model:/models -v hf://buckets/org/b:/data
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf repos list`
+
+List all repos (models, datasets, spaces, buckets) with storage info. [alias: ls]
+
+**Usage**:
+
+```console
+$ hf repos list [OPTIONS]
+```
+
+**Options**:
+
+* `--namespace TEXT`: Organization name. If not provided, lists repos for the authenticated user.
+* `--type, --repo-type [model|dataset|space|bucket]`: Filter by repository type (model, dataset, space, or bucket).
+* `--search TEXT`: Search query.
+* `--limit INTEGER`: Limit the number of results.  [default: 30]
+* `--explore`: Explore your repos as an interactive 3D city.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf repos ls
+  $ hf repos ls --explore
+  $ hf repos ls --namespace my-org --search bert
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf repos move`
+
+Move a repository from a namespace to another namespace.
+
+**Usage**:
+
+```console
+$ hf repos move [OPTIONS] FROM_ID TO_ID
+```
+
+**Arguments**:
+
+* `FROM_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
+* `TO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
+
+**Options**:
+
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf repos move old-namespace/my-model new-namespace/my-model
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf repos settings`
+
+Update the settings of a repository.
+
+**Usage**:
+
+```console
+$ hf repos settings [OPTIONS] REPO_ID
+```
+
+**Arguments**:
+
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
+
+**Options**:
+
+* `--gated [auto|manual|false]`: The gated status for the repository.
+* `--private / --no-private`: Whether to create a private repo if repo doesn't exist on the Hub. Ignored if the repo already exists.
+* `--public`: Whether to make the repo public. Ignored if the repo already exists.
+* `--protected`: Whether to make the Space protected (Spaces only). Ignored if the repo already exists.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf repos settings my-model --private
+  $ hf repos settings my-model --gated auto
+  $ hf repos settings my-space --repo-type space --protected
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf repos tag`
+
+Manage tags for a repo on the Hub.
+
+**Usage**:
+
+```console
+$ hf repos tag [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `create`: Create a tag for a repo.
+* `delete`: Delete a tag for a repo.
+* `list`: List tags for a repo. [alias: ls]
+
+#### `hf repos tag create`
+
+Create a tag for a repo.
+
+**Usage**:
+
+```console
+$ hf repos tag create [OPTIONS] REPO_ID TAG
+```
+
+**Arguments**:
+
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
+* `TAG`: The name of the tag to create.  [required]
+
+**Options**:
+
+* `-m, --message TEXT`: The description of the tag to create.
+* `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf repos tag create my-model v1.0
+  $ hf repos tag create my-model v1.0 -m "First release"
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+#### `hf repos tag delete`
+
+Delete a tag for a repo.
+
+**Usage**:
+
+```console
+$ hf repos tag delete [OPTIONS] REPO_ID TAG
+```
+
+**Arguments**:
+
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
+* `TAG`: The name of the tag to delete.  [required]
+
+**Options**:
+
+* `-y, --yes`: Answer Yes to prompt automatically
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf repos tag delete my-model v1.0
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+#### `hf repos tag list`
+
+List tags for a repo. [alias: ls]
+
+**Usage**:
+
+```console
+$ hf repos tag list [OPTIONS] REPO_ID
+```
+
+**Arguments**:
+
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
+
+**Options**:
+
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf repos tag list my-model
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+## `hf sandbox`
+
+Run and manage sandboxes on Hugging Face Jobs.
+
+**Usage**:
+
+```console
+$ hf sandbox [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `cp`: Copy a file between the local machine and...
+* `create`: Create a sandbox: a dedicated VM by...
+* `exec`: Run a command in a sandbox, streaming output.
+* `kill`: Terminate a sandbox, a whole shared host,...
+* `pool`: Warm pools of host VMs and spawn cheap...
+* `process`: List and stop background processes running...
+* `spawn`: Start a long-running command in the...
+
+### `hf sandbox cp`
+
+Copy a file between the local machine and a sandbox (docker-style).
+
+**Usage**:
+
+```console
+$ hf sandbox cp [OPTIONS] SRC DST
+```
+
+**Arguments**:
+
+* `SRC`: Source: a local path or <sandbox_id>:<path>.  [required]
+* `DST`: Destination: a local path or <sandbox_id>:<path>.  [required]
+
+**Options**:
+
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf sandbox cp data.csv <sandbox_id>:/data/data.csv
+  $ hf sandbox cp <sandbox_id>:/app/result.json result.json
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf sandbox create`
+
+Create a sandbox: a dedicated VM by default, or a cheap shared one with `--pool`.
+
+Env and idle-timeout apply to the sandbox in both modes. With `--pool`, the image and
+flavor come from the pool, so passing them here is an error; `--secrets` is also
+rejected since pooled sandboxes have no encrypted-secrets channel (use `--env`). Define
+a pool first with `hf sandbox pool create`.
+
+**Usage**:
+
+```console
+$ hf sandbox create [OPTIONS] [IMAGE]
+```
+
+**Arguments**:
+
+* `[IMAGE]`: Docker image (needs /bin/sh).
+
+**Options**:
+
+* `--pool TEXT`: Spawn a cheap shared sandbox in this pool (from `hf sandbox pool create`).
+* `--flavor [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|rtx-pro-6000|rtx-pro-6000x2|rtx-pro-6000x4|rtx-pro-6000x8]`: Flavor for the hardware. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.
+* `--idle-timeout TEXT`: Auto-terminate the sandbox after this much inactivity (e.g. '10m'). Defaults to 10m.
+* `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
+* `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
+* `--env-file TEXT`: Read in a file of environment variables.
+* `--secrets-file TEXT`: Read in a file of secret environment variables.
+* `-v, --volume TEXT`: Mount one or more volumes. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. TYPE is one of: models, datasets, spaces, buckets. TYPE defaults to models if omitted. models, datasets and spaces are always mounted read-only. buckets are read+write by default. E.g. -v hf://org/m:/data or -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--forward-hf-token`: Inject your HF token as HF_TOKEN in the sandbox.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf sandbox create
+  $ hf sandbox create ubuntu:24.04
+  $ hf sandbox create --flavor a10g-small
+  $ hf sandbox create --pool pool-ab12cd34ef56 --env LOG_LEVEL=debug
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf sandbox exec`
+
+Run a command in a sandbox, streaming output. Exits with the command's exit code.
+
+To start a long-running command in the background instead of waiting for it, use
+`hf sandbox spawn`.
+
+**Usage**:
+
+```console
+$ hf sandbox exec [OPTIONS] SANDBOX_ID COMMAND...
+```
+
+**Arguments**:
+
+* `SANDBOX_ID`: The sandbox id as printed by `hf sandbox create`.  [required]
+* `COMMAND...`: The command to run.  [required]
+
+**Options**:
+
+* `-w, --workdir TEXT`: Working directory.
+* `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
+* `--env-file TEXT`: Read in a file of environment variables.
+* `--timeout FLOAT`: Kill the command after this many seconds.
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf sandbox exec <sandbox_id> -- python -c "print(42)"
+  $ hf sandbox exec -w /app <sandbox_id> -- pytest -x
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf sandbox kill`
+
+Terminate a sandbox, a whole shared host, or everything (--all).
+
+**Usage**:
+
+```console
+$ hf sandbox kill [OPTIONS] [SANDBOX_ID]
+```
+
+**Arguments**:
+
+* `[SANDBOX_ID]`: The sandbox or host id to terminate.
+
+**Options**:
+
+* `--all`: Terminate every sandbox and host in the namespace.
+* `-y, --yes`: Answer Yes to prompts automatically.
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf sandbox kill <sandbox_id>
+  $ hf sandbox kill <host_id>   # kills a whole shared host (all its sandboxes)
+  $ hf sandbox kill --all
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf sandbox pool`
+
+Warm pools of host VMs and spawn cheap shared sandboxes from them.
+
+**Usage**:
+
+```console
+$ hf sandbox pool [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `create`: Warm a pool: boot one host VM now, tagged...
+* `delete`: Terminate every host VM of a pool (and... [alias: rm]
+* `ls`: List running sandbox pools (grouped from... [alias: list]
+
+#### `hf sandbox pool create`
+
+Warm a pool: boot one host VM now, tagged so it can be found later by its pool id.
+
+**Usage**:
+
+```console
+$ hf sandbox pool create [OPTIONS] [IMAGE]
+```
+
+**Arguments**:
+
+* `[IMAGE]`: Docker image for the hosts (needs /bin/sh).
+
+**Options**:
+
+* `--flavor [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|rtx-pro-6000|rtx-pro-6000x2|rtx-pro-6000x4|rtx-pro-6000x8]`: Flavor for the hardware. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.
+* `--per-host INTEGER RANGE`: Sandboxes packed per host VM (default 50).  [default: 50; x>=1]
+* `--max-hosts INTEGER RANGE`: Optional cap on the number of host VMs.  [x>=1]
+* `--idle-timeout TEXT`: Shut a host down once it has had no sandboxes for this long (e.g. '10m'). Defaults to 10m.
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf sandbox pool create
+  $ hf sandbox pool create python:3.12 --flavor cpu-basic
+  $ hf sandbox pool create --per-host 50 --idle-timeout 30m
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+#### `hf sandbox pool delete`
+
+Terminate every host VM of a pool (and therefore all its sandboxes). [alias: rm]
+
+**Usage**:
+
+```console
+$ hf sandbox pool delete [OPTIONS] POOL_ID
+```
+
+**Arguments**:
+
+* `POOL_ID`: Pool id to delete.  [required]
+
+**Options**:
+
+* `-y, --yes`: Answer Yes to prompts automatically.
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf sandbox pool delete <pool_id>
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+#### `hf sandbox pool ls`
+
+List running sandbox pools (grouped from their host VMs). [alias: list]
+
+**Usage**:
+
+```console
+$ hf sandbox pool ls [OPTIONS]
+```
+
+**Options**:
+
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf sandbox pool ls
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf sandbox process`
+
+List and stop background processes running in a sandbox.
+
+**Usage**:
+
+```console
+$ hf sandbox process [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `kill`: Stop a background process running in a...
+* `ls`: List the background processes running in a... [alias: list]
+
+#### `hf sandbox process kill`
+
+Stop a background process running in a sandbox.
+
+**Usage**:
+
+```console
+$ hf sandbox process kill [OPTIONS] SANDBOX_ID PID
+```
+
+**Arguments**:
+
+* `SANDBOX_ID`: The sandbox id as printed by `hf sandbox create`.  [required]
+* `PID`: The pid as printed by `hf sandbox process ls`.  [required]
+
+**Options**:
+
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf sandbox process kill <sandbox_id> <pid>
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+#### `hf sandbox process ls`
+
+List the background processes running in a sandbox (started with `hf sandbox spawn`). [alias: list]
+
+**Usage**:
+
+```console
+$ hf sandbox process ls [OPTIONS] SANDBOX_ID
+```
+
+**Arguments**:
+
+* `SANDBOX_ID`: The sandbox id as printed by `hf sandbox create`.  [required]
+
+**Options**:
+
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf sandbox process ls <sandbox_id>
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf sandbox spawn`
+
+Start a long-running command in the background and return its pid (don't wait).
+
+List a sandbox's processes with `hf sandbox process ls` and stop one with
+`hf sandbox process kill`.
+
+**Usage**:
+
+```console
+$ hf sandbox spawn [OPTIONS] SANDBOX_ID COMMAND...
+```
+
+**Arguments**:
+
+* `SANDBOX_ID`: The sandbox id as printed by `hf sandbox create`.  [required]
+* `COMMAND...`: The command to run in the background.  [required]
+
+**Options**:
+
+* `-w, --workdir TEXT`: Working directory.
+* `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
+* `--env-file TEXT`: Read in a file of environment variables.
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf sandbox spawn <sandbox_id> -- python -m http.server 8000
+  $ hf sandbox spawn -w /app <sandbox_id> -- uvicorn app:app
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+## `hf skills`
+
+Manage skills for AI assistants.
+
+**Usage**:
+
+```console
+$ hf skills [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `add`: Install a Hugging Face skill for an AI...
+* `list`: List available skills from the Hugging... [alias: ls]
+* `preview`: Print the generated `hf-cli` SKILL.md to...
+* `update`: Update installed Hugging Face marketplace...
+
+### `hf skills add`
+
+Install a Hugging Face skill for an AI assistant.
+
+The default `hf-cli` skill is generated locally from the installed CLI version;
+other skills are downloaded from the Hugging Face marketplace.
+Default location is in the current directory (.agents/skills) or user-level (~/.agents/skills).
+If `--claude` is specified, the skill is also symlinked into Claude's legacy skills directory.
+
+**Usage**:
+
+```console
+$ hf skills add [OPTIONS] [NAME]
+```
+
+**Arguments**:
+
+* `[NAME]`: Marketplace skill name.
+
+**Options**:
+
+* `--claude`: Install for Claude.
+* `-g, --global`: Install globally (user-level) instead of in the current project directory.
+* `--dest PATH`: Install into a custom destination (path to skills directory).
+* `--force`: Overwrite existing skills in the destination.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf skills add
+  $ hf skills add huggingface-gradio --dest=~/my-skills
+  $ hf skills add --global
+  $ hf skills add --claude
+  $ hf skills add huggingface-gradio --claude --global
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf skills list`
+
+List available skills from the Hugging Face marketplace. [alias: ls]
+
+**Usage**:
+
+```console
+$ hf skills list [OPTIONS]
+```
+
+**Options**:
+
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf skills list
+  $ hf skills list --format json
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf skills preview`
+
+Print the generated `hf-cli` SKILL.md to stdout.
+
+**Usage**:
+
+```console
+$ hf skills preview [OPTIONS]
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+### `hf skills update`
+
+Update installed Hugging Face marketplace skills.
+
+**Usage**:
+
+```console
+$ hf skills update [OPTIONS] [NAME]
+```
+
+**Arguments**:
+
+* `[NAME]`: Optional installed skill name to update.
+
+**Options**:
+
+* `--claude`: Update skills installed for Claude.
+* `-g, --global`: Use global skills directories instead of the current project.
+* `--dest PATH`: Update skills in a custom skills directory.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf skills update
+  $ hf skills update hf-cli
+  $ hf skills update huggingface-gradio --dest=~/my-skills
+  $ hf skills update --claude
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+## `hf spaces`
+
+Interact with spaces on the Hub.
+
+**Usage**:
+
+```console
+$ hf spaces [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `card`: Get the Space card (README) for a Space on...
+* `dev-mode`: Enable or disable dev mode on a Space.
+* `hardware`: List available hardware options for Spaces.
+* `hot-reload`: Hot-reload any Python file of a Space...
+* `info`: Get info about a space on the Hub.
+* `list`: List spaces on the Hub, or files in a... [alias: ls]
+* `logs`: Fetch the run or build logs of a Space.
+* `pause`: Pause a Space.
+* `restart`: Restart a Space.
+* `search`: Search spaces on the Hub using semantic...
+* `secrets`: Manage secrets for a Space on the Hub.
+* `settings`: Update the settings of a Space.
+* `ssh`: SSH into a Space's Dev Mode container.
+* `templates`: List the available Space templates.
+* `variables`: Manage environment variables for a Space...
+* `volumes`: Manage volumes for a Space on the Hub.
+* `wait`: Wait for a Space to finish building/starting.
+
+### `hf spaces card`
+
+Get the Space card (README) for a Space on the Hub.
+
+**Usage**:
+
+```console
+$ hf spaces card [OPTIONS] SPACE_ID
+```
+
+**Arguments**:
+
+* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+
+**Options**:
+
+* `--metadata`: Output only the metadata from the card.
+* `--text`: Output only the text body (no metadata).
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces card mteb/leaderboard
+  $ hf spaces card mteb/leaderboard --metadata
+  $ hf spaces card mteb/leaderboard --metadata --format json
+  $ hf spaces card mteb/leaderboard --text
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf spaces dev-mode`
+
+Enable or disable dev mode on a Space.
+
+Spaces Dev Mode eases the debugging of your application and makes iterating on Spaces faster by allowing you to
+restart your application without stopping the Space container itself. This feature is available as part of a PRO
+or Team & Enterprise plan.
+
+See docs: https://huggingface.co/docs/hub/spaces-dev-mode
+
+**Usage**:
+
+```console
+$ hf spaces dev-mode [OPTIONS] SPACE_ID
+```
+
+**Arguments**:
+
+* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+
+**Options**:
+
+* `--stop / --no-stop`: Stop dev mode.  [default: no-stop]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces dev-mode my-user-name/deepsite
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf spaces hardware`
+
+List available hardware options for Spaces.
+
+**Usage**:
+
+```console
+$ hf spaces hardware [OPTIONS]
+```
+
+**Options**:
+
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces hardware
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf spaces hot-reload`
+
+Hot-reload any Python file of a Space without a full rebuild + restart.
+
+⚠ This feature is experimental ⚠
+
+Only works with Gradio SDK (6.1+)
+Opens an interactive editor unless --local-file/-f is specified.
+
+This command patches the live Python process using https://github.com/breuleux/jurigged
+(AST-based diffing, in-place function updates, etc.), integrated with Gradio's native hot-reload support
+(meaning that Gradio demo object changes are reflected in the UI)
+
+The command creates a remote commit.
+If you are working from a local clone, run `git pull --autostash` afterwards
+to bring the commit back and keep your local git state in sync.
+
+**Usage**:
+
+```console
+$ hf spaces hot-reload [OPTIONS] SPACE_ID [FILENAME]
+```
+
+**Arguments**:
+
+* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+* `[FILENAME]`: Path to the Python file in the Space repository. Can be omitted when --local-file is specified and path in repository matches.
+
+**Options**:
+
+* `-f, --local-file PATH`: Path of local file. Interactive editor mode if not specified
+* `--skip-checks / --no-skip-checks`: Skip hot-reload compatibility checks.  [default: no-skip-checks]
+* `--skip-summary / --no-skip-summary`: Skip summary display after hot-reload is triggered  [default: no-skip-summary]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces hot-reload username/repo-name app.py     # Open an interactive editor to the remote app.py file
+  $ hf spaces hot-reload username/repo-name -f app.py  # Take local version from ./app.py and patch app.py remotely
+  $ hf spaces hot-reload username/repo-name app.py -f src/app.py # Take local version from ./src/app.py
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf spaces info`
+
+Get info about a space on the Hub.
+
+**Usage**:
+
+```console
+$ hf spaces info [OPTIONS] SPACE_ID
+```
+
+**Arguments**:
+
+* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+
+**Options**:
+
+* `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
+* `--expand TEXT`: Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=likes,tags'. Valid: author, cardData, createdAt, datasets, disabled, lastModified, likes, models, private, resourceGroup, runtime, sdk, sha, siblings, subdomain, tags, trendingScore, usedStorage.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces info enzostvs/deepsite
+  $ hf spaces info gradio/theme_builder --expand sdk,runtime,likes
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf spaces list`
+
+List spaces on the Hub, or files in a space repo. [alias: ls]
+
+When called with no argument, lists spaces on the Hub.
+When called with a space ID, lists files in that space repo.
+
+**Usage**:
+
+```console
+$ hf spaces list [OPTIONS] [REPO_ID]
+```
+
+**Arguments**:
+
+* `[REPO_ID]`: Space ID (e.g. `username/repo-name`) to list files from. If omitted, lists spaces.
+
+**Options**:
+
+* `--search TEXT`: Search query.
+* `--author TEXT`: Filter by author or organization.
+* `--filter TEXT`: Filter by tags (e.g. 'text-classification'). Can be used multiple times.
+* `--sort [created_at|last_modified|likes|trending_score]`: Sort results.
+* `--limit INTEGER`: Limit the number of results.  [default: 30]
+* `--expand TEXT`: Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=likes,tags'. Valid: author, cardData, createdAt, datasets, disabled, lastModified, likes, models, private, resourceGroup, runtime, sdk, sha, siblings, subdomain, tags, trendingScore, usedStorage.
+* `-h, --human-readable`: Show sizes in human readable format (only for listing files).
+* `--tree`: List files in tree format (only for listing files).
+* `-R, --recursive`: List files recursively (only for listing files).
+* `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces ls --limit 10
+  $ hf spaces ls --search "chatbot" --author huggingface
+  $ hf spaces ls victor/deepsite
+  $ hf spaces ls victor/deepsite -R
+  $ hf spaces ls victor/deepsite --tree -h
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf spaces logs`
+
+Fetch the run or build logs of a Space.
+
+By default, prints currently available run logs and exits (non-blocking, like
+`docker logs`). Use --follow/-f to stream until the server closes the stream.
+Use --build to see the container build logs instead (useful when a Space is
+stuck in BUILD_ERROR).
+
+**Usage**:
+
+```console
+$ hf spaces logs [OPTIONS] SPACE_ID
+```
+
+**Arguments**:
+
+* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+
+**Options**:
+
+* `--build`: Fetch the container build logs instead of the run logs. Useful when a Space is stuck in BUILD_ERROR.
+* `-f, --follow`: Follow log output (stream until the server closes the stream). Without this flag, only currently available logs are printed.
+* `-n, --tail INTEGER`: Number of lines to show from the end of the logs.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces logs username/my-space
+  $ hf spaces logs username/my-space --build
+  $ hf spaces logs -f username/my-space
+  $ hf spaces logs -n 50 username/my-space
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf spaces pause`
+
+Pause a Space.
+
+**Usage**:
+
+```console
+$ hf spaces pause [OPTIONS] SPACE_ID
+```
+
+**Arguments**:
+
+* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+
+**Options**:
+
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces pause username/my-space
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf spaces restart`
+
+Restart a Space.
+
+**Usage**:
+
+```console
+$ hf spaces restart [OPTIONS] SPACE_ID
+```
+
+**Arguments**:
+
+* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+
+**Options**:
+
+* `--factory-reboot`: Rebuild the Space from scratch without using the build cache.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces restart username/my-space
+  $ hf spaces restart username/my-space --factory-reboot
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf spaces search`
+
+Search spaces on the Hub using semantic search.
+
+**Usage**:
+
+```console
+$ hf spaces search [OPTIONS] QUERY
+```
+
+**Arguments**:
+
+* `QUERY`: Search query.  [required]
+
+**Options**:
+
+* `--filter TEXT`: Filter by tags (e.g. 'text-classification'). Can be used multiple times.
+* `--sdk TEXT`: Filter by SDK (e.g. gradio, docker, static).
+* `--include-non-running / --no-include-non-running`: Include non-running spaces in results.  [default: no-include-non-running]
+* `--description / --no-description`: Show AI-generated descriptions.  [default: no-description]
+* `--limit INTEGER`: Limit the number of results.  [default: 10]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces search "generate image"
+  $ hf spaces search "identify objects in pictures" --sdk gradio --limit 5
+  $ hf spaces search "remove background from photo" --description --json
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf spaces secrets`
+
+Manage secrets for a Space on the Hub.
+
+**Usage**:
+
+```console
+$ hf spaces secrets [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `add`: Add or update secrets for a Space.
+* `delete`: Remove a secret from a Space.
+* `list`: List secrets for a Space. [alias: ls]
+
+#### `hf spaces secrets add`
+
+Add or update secrets for a Space.
+
+**Usage**:
+
+```console
+$ hf spaces secrets add [OPTIONS] SPACE_ID
+```
+
+**Arguments**:
+
+* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+
+**Options**:
+
+* `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
+* `--secrets-file TEXT`: Read in a file of secret environment variables.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces secrets add username/my-space -s HF_TOKEN
+  $ hf spaces secrets add username/my-space -s OPENAI_API_KEY=sk-... -s ANTHROPIC_API_KEY=sk-...
+  $ hf spaces secrets add username/my-space --secrets-file .env.secrets
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+#### `hf spaces secrets delete`
+
+Remove a secret from a Space.
+
+**Usage**:
+
+```console
+$ hf spaces secrets delete [OPTIONS] SPACE_ID KEY
+```
+
+**Arguments**:
+
+* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+* `KEY`: Name of the secret to remove.  [required]
+
+**Options**:
+
+* `-y, --yes`: Answer Yes to prompt automatically.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces secrets delete username/my-space HF_TOKEN
+  $ hf spaces secrets delete username/my-space HF_TOKEN --yes
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+#### `hf spaces secrets list`
+
+List secrets for a Space. Secret values are write-only and not returned. [alias: ls]
+
+**Usage**:
+
+```console
+$ hf spaces secrets list [OPTIONS] SPACE_ID
+```
+
+**Arguments**:
+
+* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+
+**Options**:
+
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces secrets ls username/my-space
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf spaces settings`
+
+Update the settings of a Space.
+
+**Usage**:
+
+```console
+$ hf spaces settings [OPTIONS] SPACE_ID
+```
+
+**Arguments**:
+
+* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+
+**Options**:
+
+* `--sleep-time INTEGER`: Idle time in seconds after which the Space goes to sleep. Use -1 to never sleep. Only available on upgraded hardware.
+* `--hardware [cpu-basic|cpu-upgrade|zero-a10g|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8]`: Space hardware flavor (e.g. 'cpu-basic', 't4-medium', 'l4x4'). Run 'hf spaces hardware' to list available options.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces settings username/my-space --sleep-time 300
+  $ hf spaces settings username/my-space --hardware t4-medium
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf spaces ssh`
+
+SSH into a Space's Dev Mode container.
+
+Requires Dev Mode to be running on the Space and your SSH public key to be registered at https://huggingface.co/settings/keys.
+
+See: https://huggingface.co/docs/hub/spaces-dev-mode
+
+**Usage**:
+
+```console
+$ hf spaces ssh [OPTIONS] SPACE_ID
+```
+
+**Arguments**:
+
+* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+
+**Options**:
+
+* `-i, --identity-file PATH`: Path to the SSH identity file (forwarded to `ssh -i`).
+* `--dry-run`: Print the SSH command instead of running it.
+* `--auto`: Enable Dev Mode without prompting if not already enabled.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces ssh username/my-space
+  $ hf spaces ssh username/my-space --dry-run
+  $ hf spaces ssh username/my-space -i ~/.ssh/id_ed25519
+  $ hf spaces ssh username/my-space --auto
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf spaces templates`
+
+List the available Space templates.
+
+The `repo_id` (or `name`) of a template can be passed to `hf repos create --template ...` to
+create a new Space from that template.
+
+**Usage**:
+
+```console
+$ hf spaces templates [OPTIONS]
+```
+
+**Options**:
+
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces templates
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf spaces variables`
+
+Manage environment variables for a Space on the Hub.
+
+**Usage**:
+
+```console
+$ hf spaces variables [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `add`: Add or update environment variables for a...
+* `delete`: Remove an environment variable from a Space.
+* `list`: List environment variables for a Space. [alias: ls]
+
+#### `hf spaces variables add`
+
+Add or update environment variables for a Space.
+
+**Usage**:
+
+```console
+$ hf spaces variables add [OPTIONS] SPACE_ID
+```
+
+**Arguments**:
+
+* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+
+**Options**:
+
+* `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
+* `--env-file TEXT`: Read in a file of environment variables.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces variables add username/my-space -e DEBUG=1
+  $ hf spaces variables add username/my-space -e MODEL_ID=gpt2 -e MAX_TOKENS=512
+  $ hf spaces variables add username/my-space --env-file .env
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+#### `hf spaces variables delete`
+
+Remove an environment variable from a Space.
+
+**Usage**:
+
+```console
+$ hf spaces variables delete [OPTIONS] SPACE_ID KEY
+```
+
+**Arguments**:
+
+* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+* `KEY`: Name of the variable to remove.  [required]
+
+**Options**:
+
+* `-y, --yes`: Answer Yes to prompt automatically.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces variables delete username/my-space DEBUG
+  $ hf spaces variables delete username/my-space DEBUG --yes
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+#### `hf spaces variables list`
+
+List environment variables for a Space. [alias: ls]
+
+**Usage**:
+
+```console
+$ hf spaces variables list [OPTIONS] SPACE_ID
+```
+
+**Arguments**:
+
+* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+
+**Options**:
+
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces variables ls username/my-space
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf spaces volumes`
+
+Manage volumes for a Space on the Hub.
+
+**Usage**:
+
+```console
+$ hf spaces volumes [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `delete`: Remove all volumes from a Space.
+* `list`: List volumes mounted in a Space. [alias: ls]
+* `set`: Set (replace) volumes for a Space.
+
+#### `hf spaces volumes delete`
+
+Remove all volumes from a Space.
+
+**Usage**:
+
+```console
+$ hf spaces volumes delete [OPTIONS] SPACE_ID
+```
+
+**Arguments**:
+
+* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+
+**Options**:
+
+* `-y, --yes`: Answer Yes to prompt automatically.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces volumes delete username/my-space
+  $ hf spaces volumes delete username/my-space --yes
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+#### `hf spaces volumes list`
+
+List volumes mounted in a Space. [alias: ls]
+
+**Usage**:
+
+```console
+$ hf spaces volumes list [OPTIONS] SPACE_ID
+```
+
+**Arguments**:
+
+* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+
+**Options**:
+
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces volumes ls username/my-space
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+#### `hf spaces volumes set`
+
+Set (replace) volumes for a Space.
+
+**Usage**:
+
+```console
+$ hf spaces volumes set [OPTIONS] SPACE_ID
+```
+
+**Arguments**:
+
+* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+
+**Options**:
+
+* `-v, --volume TEXT`: Mount one or more volumes. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. TYPE is one of: models, datasets, spaces, buckets. TYPE defaults to models if omitted. models, datasets and spaces are always mounted read-only. buckets are read+write by default. E.g. -v hf://org/m:/data or -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces volumes set username/my-space -v hf://models/username/my-model:/models
+  $ hf spaces volumes set username/my-space -v hf://buckets/username/my-bucket:/data -v hf://datasets/username/my-dataset:/datasets:ro
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf spaces wait`
+
+Wait for a Space to finish building/starting.
+
+Blocks until the Space leaves an intermediate stage (BUILDING, APP_STARTING, etc.)
+and reaches a settled stage. Exits with code 0 if the Space is RUNNING,
+or a non-zero exit code otherwise (e.g. BUILD_ERROR, RUNTIME_ERROR).
+
+**Usage**:
+
+```console
+$ hf spaces wait [OPTIONS] SPACE_ID
+```
+
+**Arguments**:
+
+* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+
+**Options**:
+
+* `--timeout TEXT`: Max time to wait: int with s (seconds, default), m (minutes), h (hours) or d (days).
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces wait username/my-space
+  $ hf spaces wait username/my-space --timeout 5m
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+## `hf sync`
+
+Sync files between local directory and a bucket.
+
+**Usage**:
+
+```console
+$ hf sync [OPTIONS] [SOURCE] [DEST]
+```
+
+**Arguments**:
+
+* `[SOURCE]`: Source path: local directory or hf://buckets/namespace/bucket_name(/prefix)
+* `[DEST]`: Destination path: local directory or hf://buckets/namespace/bucket_name(/prefix)
+
+**Options**:
+
+* `--delete / --no-delete`: Delete destination files not present in source.  [default: no-delete]
+* `--ignore-times`: Skip files only based on size, ignoring modification times.
+* `--ignore-sizes`: Skip files only based on modification times, ignoring sizes.
+* `--plan TEXT`: Save sync plan to JSONL file for review instead of executing.
+* `--apply TEXT`: Apply a previously saved plan file.
+* `--dry-run`: Print sync plan to stdout as JSONL without executing.
+* `--include TEXT`: Include files matching pattern (can specify multiple).
+* `--exclude TEXT`: Exclude files matching pattern (can specify multiple).
+* `--filter-from TEXT`: Read include/exclude patterns from file.
+* `--existing`: Skip creating new files on receiver (only update existing files).
+* `--ignore-existing`: Skip updating files that exist on receiver (only create new files).
+* `-v, --verbose`: Show detailed logging with reasoning.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+## `hf update`
+
+Update the `hf` CLI to the latest version.
+
+**Usage**:
+
+```console
+$ hf update [OPTIONS]
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+## `hf upload`
+
+Upload a file or a folder to the Hub. Recommended for single-commit uploads.
+
+**Usage**:
+
+```console
+$ hf upload [OPTIONS] REPO_ID [LOCAL_PATH] [PATH_IN_REPO]
+```
+
+**Arguments**:
+
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
+* `[LOCAL_PATH]`: Local path to the file or folder to upload. Wildcard patterns are supported. Defaults to current directory.
+* `[PATH_IN_REPO]`: Path of the file or folder in the repo. Defaults to the relative path of the file or folder.
+
+**Options**:
+
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: (model)]
+* `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
+* `--private / --no-private`: Whether to create a private repo if repo doesn't exist on the Hub. Ignored if the repo already exists.
+* `--include TEXT`: Glob patterns to match files to upload.
+* `--exclude TEXT`: Glob patterns to exclude from files to upload.
+* `--delete TEXT`: Glob patterns for file to be deleted from the repo while committing.
+* `--commit-message TEXT`: The summary / title / first line of the generated commit.
+* `--commit-description TEXT`: The description of the generated commit.
+* `--create-pr / --no-create-pr`: Whether to upload content as a new Pull Request.  [default: no-create-pr]
+* `--every FLOAT`: If set, a background job is scheduled to create commits every `every` minutes.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf upload my-cool-model . .
+  $ hf upload Wauplin/my-cool-model ./models/model.safetensors
+  $ hf upload Wauplin/my-cool-dataset ./data /train --repo-type=dataset
+  $ hf upload Wauplin/my-cool-model ./models . --commit-message="Epoch 34/50" --commit-description="Val accuracy: 68%"
+  $ hf upload bigcode/the-stack . . --repo-type dataset --create-pr
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+## `hf upload-large-folder`
+
+[Deprecated] Upload a large folder to the Hub. Use `hf upload` instead.
+
+**Usage**:
+
+```console
+$ hf upload-large-folder [OPTIONS] REPO_ID LOCAL_PATH
+```
+
+**Arguments**:
+
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
+* `LOCAL_PATH`: Local path to the folder to upload.  [required]
+
+**Options**:
+
+* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
+* `--private / --no-private`: Whether to create a private repo if repo doesn't exist on the Hub. Ignored if the repo already exists.
+* `--include TEXT`: Glob patterns to match files to upload.
+* `--exclude TEXT`: Glob patterns to exclude from files to upload.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--num-workers INTEGER`: Number of workers to use to hash, upload and commit files.
+* `--no-report / --no-no-report`: Whether to disable regular status report.  [default: no-no-report]
+* `--no-bars / --no-no-bars`: Whether to disable progress bars.  [default: no-no-bars]
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf upload-large-folder Wauplin/my-cool-model ./large_model_dir
+  $ hf upload-large-folder Wauplin/my-cool-model ./large_model_dir --revision v1.0
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+## `hf version`
+
+Print information about the hf version.
+
+**Usage**:
+
+```console
+$ hf version [OPTIONS]
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+## `hf webhooks`
+
+Manage webhooks on the Hub.
+
+**Usage**:
+
+```console
+$ hf webhooks [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `create`: Create a new webhook.
+* `delete`: Delete a webhook permanently.
+* `disable`: Disable an active webhook.
+* `enable`: Enable a disabled webhook.
+* `info`: Show full details for a single webhook.
+* `list`: List all webhooks for the current user. [alias: ls]
+* `update`: Update an existing webhook.
+
+### `hf webhooks create`
+
+Create a new webhook.
+
+Provide either --url (to ping a remote server) or --job-id (to trigger a Job), but not both.
+
+**Usage**:
+
+```console
+$ hf webhooks create [OPTIONS]
+```
+
+**Options**:
+
+* `--watch TEXT`: Item to watch, in 'type:name' format (e.g. 'model:bert-base-uncased'). Repeatable.  [required]
+* `--url TEXT`: URL to send webhook payloads to. Mutually exclusive with --job-id.
+* `--job-id TEXT`: ID of a Job to trigger (from job.id) instead of pinging a URL. Mutually exclusive with --url.
+* `--domain [repo|discussions]`: Domain to watch: 'repo' or 'discussions'. Repeatable. Defaults to all domains.
+* `--secret TEXT`: Optional secret used to sign webhook payloads.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf webhooks create --url https://example.com/hook --watch model:bert-base-uncased
+  $ hf webhooks create --url https://example.com/hook --watch org:HuggingFace --watch model:gpt2 --domain repo
+  $ hf webhooks create --job-id 687f911eaea852de79c4a50a --watch user:julien-c
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf webhooks delete`
+
+Delete a webhook permanently.
+
+**Usage**:
+
+```console
+$ hf webhooks delete [OPTIONS] WEBHOOK_ID
+```
+
+**Arguments**:
+
+* `WEBHOOK_ID`: The ID of the webhook to delete.  [required]
+
+**Options**:
+
+* `-y, --yes`: Skip confirmation prompt.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf webhooks delete abc123
+  $ hf webhooks delete abc123 --yes
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf webhooks disable`
+
+Disable an active webhook.
+
+**Usage**:
+
+```console
+$ hf webhooks disable [OPTIONS] WEBHOOK_ID
+```
+
+**Arguments**:
+
+* `WEBHOOK_ID`: The ID of the webhook to disable.  [required]
+
+**Options**:
+
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf webhooks disable abc123
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf webhooks enable`
+
+Enable a disabled webhook.
+
+**Usage**:
+
+```console
+$ hf webhooks enable [OPTIONS] WEBHOOK_ID
+```
+
+**Arguments**:
+
+* `WEBHOOK_ID`: The ID of the webhook to enable.  [required]
+
+**Options**:
+
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf webhooks enable abc123
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf webhooks info`
+
+Show full details for a single webhook.
+
+**Usage**:
+
+```console
+$ hf webhooks info [OPTIONS] WEBHOOK_ID
+```
+
+**Arguments**:
+
+* `WEBHOOK_ID`: The ID of the webhook.  [required]
+
+**Options**:
+
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf webhooks info abc123
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf webhooks list`
+
+List all webhooks for the current user. [alias: ls]
+
+**Usage**:
+
+```console
+$ hf webhooks list [OPTIONS]
+```
+
+**Options**:
+
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf webhooks ls
+  $ hf webhooks ls --format json
+  $ hf webhooks ls --format quiet
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf webhooks update`
+
+Update an existing webhook. Only provided options are changed.
+
+**Usage**:
+
+```console
+$ hf webhooks update [OPTIONS] WEBHOOK_ID
+```
+
+**Arguments**:
+
+* `WEBHOOK_ID`: The ID of the webhook to update.  [required]
+
+**Options**:
+
+* `--url TEXT`: New URL to send webhook payloads to.
+* `--watch TEXT`: New list of items to watch, in 'type:name' format. Repeatable. Replaces the entire existing watched list.
+* `--domain [repo|discussions]`: New list of domains to watch: 'repo' or 'discussions'. Repeatable.
+* `--secret TEXT`: New secret used to sign webhook payloads.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf webhooks update abc123 --url https://new-url.com/hook
+  $ hf webhooks update abc123 --watch model:gpt2 --domain repo
+  $ hf webhooks update abc123 --secret newsecret
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli

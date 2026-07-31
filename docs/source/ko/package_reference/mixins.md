@@ -20,16 +20,6 @@ ML 프레임워크를 Hub와 통합하는 방법은 [통합 가이드](../guides
 
 [[autodoc]] PyTorchModelHubMixin
 
-### Keras[[huggingface_hub.KerasModelHubMixin]]
-
-[[autodoc]] KerasModelHubMixin
-
-[[autodoc]] from_pretrained_keras
-
-[[autodoc]] push_to_hub_keras
-
-[[autodoc]] save_pretrained_keras
-
 ### Fastai[[huggingface_hub.from_pretrained_fastai]]
 
 [[autodoc]] from_pretrained_fastai

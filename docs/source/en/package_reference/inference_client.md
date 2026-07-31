@@ -20,30 +20,10 @@ for more information on how to use it.
 
 ## Async Inference Client
 
-An async version of the client is also provided, based on `asyncio` and `aiohttp`.
-To use it, you can either install `aiohttp` directly or use the `[inference]` extra:
-
-```sh
-pip install --upgrade huggingface_hub[inference]
-# or
-# pip install aiohttp
-```
+An async version of the client is also provided, based on `asyncio` and `httpx`.
 
 [[autodoc]] AsyncInferenceClient
 
 ## InferenceTimeoutError
 
 [[autodoc]] InferenceTimeoutError
-
-## InferenceAPI
-
-[`InferenceAPI`] is the legacy way to call the Inference API. The interface is more simplistic and requires knowing
-the input parameters and output format for each task. It also lacks the ability to connect to other services like
-Inference Endpoints or AWS SageMaker. [`InferenceAPI`] will soon be deprecated so we recommend using [`InferenceClient`]
-whenever possible. Check out [this guide](../guides/inference#legacy-inferenceapi-client) to learn how to switch from
-[`InferenceAPI`] to [`InferenceClient`] in your scripts.
-
-[[autodoc]] InferenceApi
-    - __init__
-    - __call__
-    - all

@@ -4,25 +4,19 @@ import signal
 import traceback
 from typing import Optional
 
-import typer
-from rich import print
+import click
 
+from ...utils import ANSI
 from ._cli_hacks import _async_prompt, _patch_anyio_open_process
 from .agent import Agent
 from .utils import _load_agent_config
 
 
-app = typer.Typer(
-    rich_markup_mode="rich",
-    help="A squad of lightweight composable AI applications built on Hugging Face's Inference Client and MCP stack.",
+@click.group(
+    help="A squad of lightweight composable AI applications built on Hugging Face's Inference Client and MCP stack."
 )
-
-run_cli = typer.Typer(
-    name="run",
-    help="Run the Agent in the CLI",
-    invoke_without_command=True,
-)
-app.add_typer(run_cli, name="run")
+def app() -> None:
+    pass
 
 
 async def run_agent(
@@ -55,10 +49,10 @@ async def run_agent(
         if first_sigint:
             first_sigint = False
             abort_event.set()
-            print("\n[red]Interrupted. Press Ctrl+C again to quit.[/red]", flush=True)
+            print(ANSI.red("\nInterrupted. Press Ctrl+C again to quit."), flush=True)
             return
 
-        print("\n[red]Exiting...[/red]", flush=True)
+        print(ANSI.red("\nExiting..."), flush=True)
         exit_event.set()
 
     try:
@@ -75,8 +69,12 @@ async def run_agent(
 
         if len(inputs) > 0:
             print(
-                "[bold blue]Some initial inputs are required by the agent. "
-                "Please provide a value or leave empty to load from env.[/bold blue]"
+                ANSI.bold(
+                    ANSI.blue(
+                        "Some initial inputs are required by the agent. "
+                        "Please provide a value or leave empty to load from env."
+                    )
+                )
             )
             for input_item in inputs:
                 input_id = input_item["id"]
@@ -98,15 +96,17 @@ async def run_agent(
 
                 if not input_usages:
                     print(
-                        f"[yellow]Input '{input_id}' defined in config but not used by any server or as an API key."
-                        " Skipping.[/yellow]"
+                        ANSI.yellow(
+                            f"Input '{input_id}' defined in config but not used by any server or as an API key."
+                            " Skipping."
+                        )
                     )
                     continue
 
                 # Prompt user for input
                 env_variable_key = input_id.replace("-", "_").upper()
                 print(
-                    f"[blue] • {input_id}[/blue]: {description}. (default: load from {env_variable_key}).",
+                    ANSI.blue(f" • {input_id}") + f": {description}. (default: load from {env_variable_key}).",
                     end=" ",
                 )
                 user_input = (await _async_prompt(exit_event=exit_event)).strip()
@@ -118,10 +118,12 @@ async def run_agent(
                 if not final_value:
                     final_value = os.getenv(env_variable_key, "")
                     if final_value:
-                        print(f"[green]Value successfully loaded from '{env_variable_key}'[/green]")
+                        print(ANSI.green(f"Value successfully loaded from '{env_variable_key}'"))
                     else:
                         print(
-                            f"[yellow]No value found for '{env_variable_key}' in environment variables. Continuing.[/yellow]"
+                            ANSI.yellow(
+                                f"No value found for '{env_variable_key}' in environment variables. Continuing."
+                            )
                         )
                 resolved_inputs[input_id] = final_value
 
@@ -142,7 +144,7 @@ async def run_agent(
             config["apiKey"] = substituted_api_key
         # Main agent loop
         async with Agent(
-            provider=config.get("provider"),  # type: ignore[arg-type]
+            provider=config.get("provider"),  # type: ignore
             model=config.get("model"),
             base_url=config.get("endpointUrl"),  # type: ignore[arg-type]
             api_key=config.get("apiKey"),
@@ -150,9 +152,9 @@ async def run_agent(
             prompt=prompt,
         ) as agent:
             await agent.load_tools()
-            print(f"[bold blue]Agent loaded with {len(agent.available_tools)} tools:[/bold blue]")
+            print(ANSI.bold(ANSI.blue("Agent loaded with {} tools:".format(len(agent.available_tools)))))
             for t in agent.available_tools:
-                print(f"[blue] • {t.function.name}[/blue]")
+                print(ANSI.blue(f" • {t.function.name}"))
 
             while True:
                 abort_event.clear()
@@ -165,13 +167,13 @@ async def run_agent(
                     user_input = await _async_prompt(exit_event=exit_event)
                     first_sigint = True
                 except EOFError:
-                    print("\n[red]EOF received, exiting.[/red]", flush=True)
+                    print(ANSI.red("\nEOF received, exiting."), flush=True)
                     break
                 except KeyboardInterrupt:
                     if not first_sigint and abort_event.is_set():
                         continue
                     else:
-                        print("\n[red]Keyboard interrupt during input processing.[/red]", flush=True)
+                        print(ANSI.red("\nKeyboard interrupt during input processing."), flush=True)
                         break
 
                 try:
@@ -195,7 +197,7 @@ async def run_agent(
                                         print(f"{call.function.arguments}", end="")
                         else:
                             print(
-                                f"\n\n[green]Tool[{chunk.name}] {chunk.tool_call_id}\n{chunk.content}[/green]\n",
+                                ANSI.green(f"\n\nTool[{chunk.name}] {chunk.tool_call_id}\n{chunk.content}\n"),
                                 flush=True,
                             )
 
@@ -203,12 +205,12 @@ async def run_agent(
 
                 except Exception as e:
                     tb_str = traceback.format_exc()
-                    print(f"\n[bold red]Error during agent run: {e}\n{tb_str}[/bold red]", flush=True)
+                    print(ANSI.red(f"\nError during agent run: {e}\n{tb_str}"), flush=True)
                     first_sigint = True  # Allow graceful interrupt for the next command
 
     except Exception as e:
         tb_str = traceback.format_exc()
-        print(f"\n[bold red]An unexpected error occurred: {e}\n{tb_str}[/bold red]", flush=True)
+        print(ANSI.red(f"\nAn unexpected error occurred: {e}\n{tb_str}"), flush=True)
         raise e
 
     finally:
@@ -221,25 +223,21 @@ async def run_agent(
             signal.signal(signal.SIGINT, original_sigint_handler)
 
 
-@run_cli.callback()
-def run(
-    path: Optional[str] = typer.Argument(
-        None,
-        help=(
-            "Path to a local folder containing an agent.json file or a built-in agent "
-            "stored in the 'tiny-agents/tiny-agents' Hugging Face dataset "
-            "(https://huggingface.co/datasets/tiny-agents/tiny-agents)"
-        ),
-        show_default=False,
-    ),
-):
+@app.command("run", help="Run the Agent in the CLI")
+@click.argument("path", required=False)
+def run(path: Optional[str]) -> None:
+    """
+    Run the agent from PATH: a local folder containing an agent.json file or a built-in agent
+    stored in the 'tiny-agents/tiny-agents' Hugging Face dataset
+    (https://huggingface.co/datasets/tiny-agents/tiny-agents).
+    """
     try:
         asyncio.run(run_agent(path))
     except KeyboardInterrupt:
-        print("\n[red]Application terminated by KeyboardInterrupt.[/red]", flush=True)
-        raise typer.Exit(code=130)
+        print(ANSI.red("\nApplication terminated by KeyboardInterrupt."), flush=True)
+        raise click.exceptions.Exit(code=130)
     except Exception as e:
-        print(f"\n[bold red]An unexpected error occurred: {e}[/bold red]", flush=True)
+        print(ANSI.red(f"\nAn unexpected error occurred: {e}"), flush=True)
         raise e
 
 

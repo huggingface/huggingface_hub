@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2022-present, the HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,11 +14,13 @@
 """Check presence of installed packages at runtime."""
 
 import importlib.metadata
+import importlib.util
 import os
 import platform
 import sys
 import warnings
-from typing import Any, Dict
+from pathlib import Path
+from typing import Any, Literal
 
 from .. import __version__, constants
 
@@ -35,9 +36,9 @@ _CANDIDATES = {
     "fastcore": {"fastcore"},
     "gradio": {"gradio"},
     "graphviz": {"graphviz"},
-    "hf_transfer": {"hf_transfer"},
     "hf_xet": {"hf_xet"},
     "jinja": {"Jinja2"},
+    "httpx": {"httpx"},
     "keras": {"keras"},
     "numpy": {"numpy"},
     "pillow": {"Pillow"},
@@ -143,13 +144,13 @@ def get_graphviz_version() -> str:
     return _get_version("graphviz")
 
 
-# hf_transfer
-def is_hf_transfer_available() -> bool:
-    return is_package_available("hf_transfer")
+# httpx
+def is_httpx_available() -> bool:
+    return is_package_available("httpx")
 
 
-def get_hf_transfer_version() -> str:
-    return _get_version("hf_transfer")
+def get_httpx_version() -> str:
+    return _get_version("httpx")
 
 
 # xet
@@ -312,7 +313,61 @@ def is_colab_enterprise() -> bool:
     return os.environ.get("VERTEX_PRODUCT") == "COLAB_ENTERPRISE"
 
 
-def dump_environment_info() -> Dict[str, Any]:
+# Check how huggingface_hub has been installed
+
+
+def installation_method() -> Literal["brew", "hf_installer", "pip", "unknown"]:
+    """Return the installation method of the current environment.
+
+    - "hf_installer" if installed via the official installer script
+    - "brew" if installed via Homebrew
+    - "pip" if pip is available (default fallback for standard Python environments)
+    - "unknown" otherwise
+    """
+    # hf_installer check must come first: the installer creates a venv using the
+    # system Python, which may be Homebrew's. Checking brew first would false-positive
+    # when the resolved sys.executable points to /opt/homebrew/... inside a venv.
+    if _is_hf_installer_installation():
+        return "hf_installer"
+    if _is_brew_installation():
+        return "brew"
+    if _is_pip_available():
+        return "pip"
+    return "unknown"
+
+
+def _is_brew_installation() -> bool:
+    """Check if running from a Homebrew installation.
+
+    Homebrew installs the `hf` formula into a Cellar directory and creates a
+    libexec virtualenv at e.g. /opt/homebrew/Cellar/hf/0.30.0/libexec/.
+    We check `sys.prefix` (the venv/prefix root) for "/Cellar/hf/" rather
+    than checking `sys.executable` — the latter resolves to Homebrew's Python
+    (e.g. /opt/homebrew/Cellar/python@3.12/...) even for non-brew installs
+    when the system Python happens to come from Homebrew.
+    """
+    prefix = str(Path(sys.prefix).resolve())
+    return "/Cellar/hf/" in prefix
+
+
+def _is_hf_installer_installation() -> bool:
+    """Return `True` if the current environment was set up via the official hf installer script.
+
+    i.e. using one of
+        curl -LsSf https://hf.co/cli/install.sh | bash
+        powershell -ExecutionPolicy ByPass -c "irm https://hf.co/cli/install.ps1 | iex"
+    """
+    venv = sys.prefix  # points to venv root if active
+    marker = Path(venv) / ".hf_installer_marker"
+    return marker.exists()
+
+
+def _is_pip_available() -> bool:
+    """Return `True` if pip is importable in the current environment."""
+    return importlib.util.find_spec("pip") is not None
+
+
+def dump_environment_info() -> dict[str, Any]:
     """Dump information about the machine to help debugging issues.
 
     Similar helper exist in:
@@ -321,12 +376,12 @@ def dump_environment_info() -> Dict[str, Any]:
     - `transformers` (https://github.com/huggingface/transformers/blob/main/src/transformers/commands/env.py)
     """
     from huggingface_hub import get_token, whoami
-    from huggingface_hub.utils import list_credential_helpers
+    from huggingface_hub.utils import is_agent, list_credential_helpers
 
     token = get_token()
 
     # Generic machine info
-    info: Dict[str, Any] = {
+    info: dict[str, Any] = {
         "huggingface_hub version": get_hf_hub_version(),
         "Platform": platform.platform(),
         "Python version": get_python_version(),
@@ -356,22 +411,16 @@ def dump_environment_info() -> Dict[str, Any]:
     except Exception:
         pass
 
+    info["Run by AI agent ?"] = "Yes" if is_agent() else "No"
+
+    # How huggingface_hub has been installed?
+    info["Installation method"] = installation_method()
+
     # Installed dependencies
-    info["FastAI"] = get_fastai_version()
-    info["Tensorflow"] = get_tf_version()
-    info["Torch"] = get_torch_version()
-    info["Jinja2"] = get_jinja_version()
-    info["Graphviz"] = get_graphviz_version()
-    info["keras"] = get_keras_version()
-    info["Pydot"] = get_pydot_version()
-    info["Pillow"] = get_pillow_version()
-    info["hf_transfer"] = get_hf_transfer_version()
+    info["httpx"] = get_httpx_version()
+    info["hf_xet"] = get_xet_version()
     info["gradio"] = get_gradio_version()
     info["tensorboard"] = get_tensorboard_version()
-    info["numpy"] = get_numpy_version()
-    info["pydantic"] = get_pydantic_version()
-    info["aiohttp"] = get_aiohttp_version()
-    info["hf_xet"] = get_xet_version()
 
     # Environment variables
     info["ENDPOINT"] = constants.ENDPOINT
@@ -382,13 +431,14 @@ def dump_environment_info() -> Dict[str, Any]:
     info["HF_HUB_OFFLINE"] = constants.HF_HUB_OFFLINE
     info["HF_HUB_DISABLE_TELEMETRY"] = constants.HF_HUB_DISABLE_TELEMETRY
     info["HF_HUB_DISABLE_PROGRESS_BARS"] = constants.HF_HUB_DISABLE_PROGRESS_BARS
+    info["HF_HUB_DISABLE_SYMLINKS"] = constants.HF_HUB_DISABLE_SYMLINKS
     info["HF_HUB_DISABLE_SYMLINKS_WARNING"] = constants.HF_HUB_DISABLE_SYMLINKS_WARNING
     info["HF_HUB_DISABLE_EXPERIMENTAL_WARNING"] = constants.HF_HUB_DISABLE_EXPERIMENTAL_WARNING
     info["HF_HUB_DISABLE_IMPLICIT_TOKEN"] = constants.HF_HUB_DISABLE_IMPLICIT_TOKEN
     info["HF_HUB_DISABLE_XET"] = constants.HF_HUB_DISABLE_XET
-    info["HF_HUB_ENABLE_HF_TRANSFER"] = constants.HF_HUB_ENABLE_HF_TRANSFER
     info["HF_HUB_ETAG_TIMEOUT"] = constants.HF_HUB_ETAG_TIMEOUT
     info["HF_HUB_DOWNLOAD_TIMEOUT"] = constants.HF_HUB_DOWNLOAD_TIMEOUT
+    info["HF_XET_HIGH_PERFORMANCE"] = constants.HF_XET_HIGH_PERFORMANCE
 
     print("\nCopy-and-paste the text below in your GitHub issue.\n")
     print("\n".join([f"- {prop}: {val}" for prop, val in info.items()]) + "\n")

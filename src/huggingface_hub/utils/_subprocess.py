@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2021 The HuggingFace Inc. team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,10 +16,11 @@
 import os
 import subprocess
 import sys
+from collections.abc import Generator
 from contextlib import contextmanager
 from io import StringIO
 from pathlib import Path
-from typing import IO, Generator, List, Optional, Tuple, Union
+from typing import IO
 
 from .logging import get_logger
 
@@ -51,8 +51,8 @@ def capture_output() -> Generator[StringIO, None, None]:
 
 
 def run_subprocess(
-    command: Union[str, List[str]],
-    folder: Optional[Union[str, Path]] = None,
+    command: str | list[str],
+    folder: str | Path | None = None,
     check=True,
     **kwargs,
 ) -> subprocess.CompletedProcess:
@@ -62,7 +62,7 @@ def run_subprocess(
     be captured.
 
     Args:
-        command (`str` or `List[str]`):
+        command (`str` or `list[str]`):
             The command to execute as a string or list of strings.
         folder (`str`, *optional*):
             The folder in which to run the command. Defaults to current working
@@ -70,7 +70,7 @@ def run_subprocess(
         check (`bool`, *optional*, defaults to `True`):
             Setting `check` to `True` will raise a `subprocess.CalledProcessError`
             when the subprocess has a non-zero exit code.
-        kwargs (`Dict[str]`):
+        kwargs (`dict[str]`):
             Keyword arguments to be passed to the `subprocess.run` underlying command.
 
     Returns:
@@ -84,8 +84,7 @@ def run_subprocess(
 
     return subprocess.run(
         command,
-        stderr=subprocess.PIPE,
-        stdout=subprocess.PIPE,
+        capture_output=True,
         check=check,
         encoding="utf-8",
         errors="replace",  # if not utf-8, replace char by �
@@ -96,23 +95,23 @@ def run_subprocess(
 
 @contextmanager
 def run_interactive_subprocess(
-    command: Union[str, List[str]],
-    folder: Optional[Union[str, Path]] = None,
+    command: str | list[str],
+    folder: str | Path | None = None,
     **kwargs,
-) -> Generator[Tuple[IO[str], IO[str]], None, None]:
+) -> Generator[tuple[IO[str], IO[str]], None, None]:
     """Run a subprocess in an interactive mode in a context manager.
 
     Args:
-        command (`str` or `List[str]`):
+        command (`str` or `list[str]`):
             The command to execute as a string or list of strings.
         folder (`str`, *optional*):
             The folder in which to run the command. Defaults to current working
             directory (from `os.getcwd()`).
-        kwargs (`Dict[str]`):
+        kwargs (`dict[str]`):
             Keyword arguments to be passed to the `subprocess.run` underlying command.
 
     Returns:
-        `Tuple[IO[str], IO[str]]`: A tuple with `stdin` and `stdout` to interact
+        `tuple[IO[str], IO[str]]`: A tuple with `stdin` and `stdout` to interact
         with the process (input and output are utf-8 encoded).
 
     Example:

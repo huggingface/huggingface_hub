@@ -18,7 +18,6 @@ import os
 import string
 import time
 from pathlib import Path
-from typing import List
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -56,16 +55,16 @@ from huggingface_hub.inference._common import (
 from huggingface_hub.inference._providers import get_provider_helper
 from huggingface_hub.inference._providers.hf_inference import _build_chat_completion_url
 
-from .testing_utils import with_production_testing
+from .testing_constants import ENDPOINT_PRODUCTION
+
+
+pytestmark = pytest.mark.inference
 
 
 # Avoid calling APIs in VCRed tests
 _RECOMMENDED_MODELS_FOR_VCR = {
     "baseten": {
-        "conversational": "moonshotai/Kimi-K2-Instruct-0905",
-    },
-    "black-forest-labs": {
-        "text-to-image": "black-forest-labs/FLUX.1-dev",
+        "conversational": "moonshotai/Kimi-K3",
     },
     "cerebras": {
         "conversational": "meta-llama/Llama-3.3-70B-Instruct",
@@ -107,25 +106,15 @@ _RECOMMENDED_MODELS_FOR_VCR = {
         "zero-shot-classification": "facebook/bart-large-mnli",
         "zero-shot-image-classification": "openai/clip-vit-base-patch32",
     },
-    "hyperbolic": {
-        "text-generation": "meta-llama/Llama-3.1-405B",
-        "conversational": "meta-llama/Llama-3.2-3B-Instruct",
-        "text-to-image": "stabilityai/stable-diffusion-2",
-    },
-    "nebius": {
-        "conversational": "meta-llama/Llama-3.1-8B-Instruct",
-        "text-generation": "Qwen/Qwen2.5-32B-Instruct",
-        "text-to-image": "stabilityai/stable-diffusion-xl-base-1.0",
-    },
     "novita": {
         "text-generation": "NousResearch/Nous-Hermes-Llama2-13b",
         "conversational": "meta-llama/Llama-3.1-8B-Instruct",
     },
+    "ovhcloud": {
+        "conversational": "meta-llama/Llama-3.1-8B-Instruct",
+    },
     "replicate": {
         "text-to-image": "ByteDance/SDXL-Lightning",
-    },
-    "sambanova": {
-        "conversational": "meta-llama/Llama-3.1-8B-Instruct",
     },
 }
 
@@ -218,7 +207,24 @@ CHAT_COMPLETION_RESPONSE_FORMAT = {
 }
 
 
-def list_clients(task: str) -> List[pytest.param]:
+def test_feature_extraction_accepts_list_inputs():
+    helper = MagicMock()
+    helper.prepare_request.return_value = MagicMock()
+    helper.get_response.return_value = [[1.0, 2.0], [3.0, 4.0]]
+    client = InferenceClient(model="sentence-transformers/all-MiniLM-L6-v2")
+
+    with (
+        patch("huggingface_hub.inference._client.get_provider_helper", return_value=helper),
+        patch.object(InferenceClient, "_inner_post", return_value=b"ignored"),
+    ):
+        embedding = client.feature_extraction(["Hi, who are you?", "How are you?"])
+
+    helper.prepare_request.assert_called_once()
+    assert helper.prepare_request.call_args.kwargs["inputs"] == ["Hi, who are you?", "How are you?"]
+    np.testing.assert_array_equal(embedding, np.array([[1.0, 2.0], [3.0, 4.0]], dtype="float32"))
+
+
+def list_clients(task: str) -> list[pytest.param]:
     """Get list of clients for a specific task, with proper skip handling."""
     clients = []
     for provider, tasks in _RECOMMENDED_MODELS_FOR_VCR.items():
@@ -234,7 +240,6 @@ def list_clients(task: str) -> List[pytest.param]:
 
 
 @pytest.fixture()
-@with_production_testing
 def client(request):
     """
     Fixture to create client with proper skip handling.
@@ -258,21 +263,24 @@ def client(request):
 
 # Define fixtures for the files
 @pytest.fixture(scope="module")
-@with_production_testing
 def audio_file():
-    return hf_hub_download(repo_id="Narsil/image_dummy", repo_type="dataset", filename="sample1.flac")
+    return hf_hub_download(
+        repo_id="Narsil/image_dummy", repo_type="dataset", filename="sample1.flac", endpoint=ENDPOINT_PRODUCTION
+    )
 
 
 @pytest.fixture(scope="module")
-@with_production_testing
 def image_file():
-    return hf_hub_download(repo_id="Narsil/image_dummy", repo_type="dataset", filename="lena.png")
+    return hf_hub_download(
+        repo_id="Narsil/image_dummy", repo_type="dataset", filename="lena.png", endpoint=ENDPOINT_PRODUCTION
+    )
 
 
 @pytest.fixture(scope="module")
-@with_production_testing
 def document_file():
-    return hf_hub_download(repo_id="impira/docquery", repo_type="space", filename="contract.jpeg")
+    return hf_hub_download(
+        repo_id="impira/docquery", repo_type="space", filename="contract.jpeg", endpoint=ENDPOINT_PRODUCTION
+    )
 
 
 class TestBase:
@@ -290,7 +298,7 @@ class TestBase:
         monkeypatch.setattr("huggingface_hub.inference._providers.hf_inference._fetch_recommended_models", mock_fetch)
 
 
-@with_production_testing
+@pytest.mark.production
 @pytest.mark.skip("Temporary skipping tests for InferenceClient")
 class TestInferenceClient(TestBase):
     @pytest.mark.parametrize("client", list_clients("audio-classification"), indirect=True)
@@ -897,11 +905,11 @@ class TestHeadersAndCookies(TestBase):
         response = client.text_to_image("An astronaut riding a horse")
         assert response == bytes_to_image_mock.return_value
 
-        headers = get_session_mock().post.call_args_list[0].kwargs["headers"]
+        headers = get_session_mock().stream.call_args_list[0].kwargs["headers"]
         assert headers["Accept"] == "image/png"
 
 
-@with_production_testing
+@pytest.mark.production
 @pytest.mark.skip("Temporary skipping tests for TestOpenAICompatibility")
 class TestOpenAICompatibility(TestBase):
     def test_base_url_and_api_key(self):
@@ -996,20 +1004,20 @@ class TestOpenAICompatibility(TestBase):
 @pytest.mark.parametrize(
     "stop_signal",
     [
-        b"data: [DONE]",
-        b"data: [DONE]\n",
-        b"data: [DONE] ",
+        "data: [DONE]",
+        "data: [DONE]\n",
+        "data: [DONE] ",
     ],
 )
 def test_stream_text_generation_response(stop_signal: bytes):
     data = [
-        b'data: {"index":1,"token":{"id":4560,"text":" trying","logprob":-2.078125,"special":false},"generated_text":null,"details":null}',
-        b"",  # Empty line is skipped
-        b"\n",  # Newline is skipped
-        b'data: {"index":2,"token":{"id":311,"text":" to","logprob":-0.026245117,"special":false},"generated_text":" trying to","details":null}',
+        'data: {"index":1,"token":{"id":4560,"text":" trying","logprob":-2.078125,"special":false},"generated_text":null,"details":null}',
+        "",  # Empty line is skipped
+        "\n",  # Newline is skipped
+        'data: {"index":2,"token":{"id":311,"text":" to","logprob":-0.026245117,"special":false},"generated_text":" trying to","details":null}',
         stop_signal,  # Stop signal
         # Won't parse after
-        b'data: {"index":2,"token":{"id":311,"text":" to","logprob":-0.026245117,"special":false},"generated_text":" trying to","details":null}',
+        'data: {"index":2,"token":{"id":311,"text":" to","logprob":-0.026245117,"special":false},"generated_text":" trying to","details":null}',
     ]
     output = list(_stream_text_generation_response(data, details=False))
     assert len(output) == 2
@@ -1019,20 +1027,20 @@ def test_stream_text_generation_response(stop_signal: bytes):
 @pytest.mark.parametrize(
     "stop_signal",
     [
-        b"data: [DONE]",
-        b"data: [DONE]\n",
-        b"data: [DONE] ",
+        "data: [DONE]",
+        "data: [DONE]\n",
+        "data: [DONE] ",
     ],
 )
 def test_stream_chat_completion_response(stop_signal: bytes):
     data = [
-        b'data: {"object":"chat.completion.chunk","id":"","created":1721737661,"model":"","system_fingerprint":"2.1.2-dev0-sha-5fca30e","choices":[{"index":0,"delta":{"role":"assistant","content":"Both"},"logprobs":null,"finish_reason":null}]}',
-        b"",  # Empty line is skipped
-        b"\n",  # Newline is skipped
-        b'data: {"object":"chat.completion.chunk","id":"","created":1721737661,"model":"","system_fingerprint":"2.1.2-dev0-sha-5fca30e","choices":[{"index":0,"delta":{"role":"assistant","content":" Rust"},"logprobs":null,"finish_reason":null}]}',
+        'data: {"object":"chat.completion.chunk","id":"","created":1721737661,"model":"","system_fingerprint":"2.1.2-dev0-sha-5fca30e","choices":[{"index":0,"delta":{"role":"assistant","content":"Both"},"logprobs":null,"finish_reason":null}]}',
+        "",  # Empty line is skipped
+        "\n",  # Newline is skipped
+        'data: {"object":"chat.completion.chunk","id":"","created":1721737661,"model":"","system_fingerprint":"2.1.2-dev0-sha-5fca30e","choices":[{"index":0,"delta":{"role":"assistant","content":" Rust"},"logprobs":null,"finish_reason":null}]}',
         stop_signal,  # Stop signal
         # Won't parse after
-        b'data: {"index":2,"token":{"id":311,"text":" to","logprob":-0.026245117,"special":false},"generated_text":" trying to","details":null}',
+        'data: {"index":2,"token":{"id":311,"text":" to","logprob":-0.026245117,"special":false},"generated_text":" trying to","details":null}',
     ]
     output = list(_stream_chat_completion_response(data))
     assert len(output) == 2
@@ -1046,8 +1054,8 @@ def test_chat_completion_error_in_stream():
     When an error is encountered in the stream, it should raise a TextGenerationError (e.g. a ValidationError).
     """
     data = [
-        b'data: {"object":"chat.completion.chunk","id":"","created":1721737661,"model":"","system_fingerprint":"2.1.2-dev0-sha-5fca30e","choices":[{"index":0,"delta":{"role":"assistant","content":"Both"},"logprobs":null,"finish_reason":null}]}',
-        b'data: {"error":"Input validation error: `inputs` tokens + `max_new_tokens` must be <= 4096. Given: 6 `inputs` tokens and 4091 `max_new_tokens`","error_type":"validation"}',
+        'data: {"object":"chat.completion.chunk","id":"","created":1721737661,"model":"","system_fingerprint":"2.1.2-dev0-sha-5fca30e","choices":[{"index":0,"delta":{"role":"assistant","content":"Both"},"logprobs":null,"finish_reason":null}]}',
+        'data: {"error":"Input validation error: `inputs` tokens + `max_new_tokens` must be <= 4096. Given: 6 `inputs` tokens and 4091 `max_new_tokens`","error_type":"validation"}',
     ]
     with pytest.raises(ValidationError):
         for token in _stream_chat_completion_response(data):

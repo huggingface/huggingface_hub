@@ -2,7 +2,7 @@ import json
 import os
 from pathlib import Path
 from pickle import DEFAULT_PROTOCOL, PicklingError
-from typing import Any, Dict, List, Optional, Union
+from typing import Any
 
 from packaging import version
 
@@ -16,7 +16,6 @@ from huggingface_hub.utils import (
 )
 
 from .utils import logging, validate_hf_hub_args
-from .utils._runtime import _PY_VERSION  # noqa: F401 # for backward compatibility...
 
 
 logger = logging.get_logger(__name__)
@@ -236,8 +235,8 @@ def _create_model_pyproject(repo_dir: Path):
 
 def _save_pretrained_fastai(
     learner,
-    save_directory: Union[str, Path],
-    config: Optional[Dict[str, Any]] = None,
+    save_directory: str | Path,
+    config: dict[str, Any] | None = None,
 ):
     """
     Saves a fastai learner to `save_directory` in pickle format using the default pickle protocol for the version of python used.
@@ -290,7 +289,7 @@ def _save_pretrained_fastai(
 @validate_hf_hub_args
 def from_pretrained_fastai(
     repo_id: str,
-    revision: Optional[str] = None,
+    revision: str | None = None,
 ):
     """
     Load pretrained fastai model from the Hub or from a local directory.
@@ -338,15 +337,15 @@ def push_to_hub_fastai(
     *,
     repo_id: str,
     commit_message: str = "Push FastAI model using huggingface_hub.",
-    private: Optional[bool] = None,
-    token: Optional[str] = None,
-    config: Optional[dict] = None,
-    branch: Optional[str] = None,
-    create_pr: Optional[bool] = None,
-    allow_patterns: Optional[Union[List[str], str]] = None,
-    ignore_patterns: Optional[Union[List[str], str]] = None,
-    delete_patterns: Optional[Union[List[str], str]] = None,
-    api_endpoint: Optional[str] = None,
+    private: bool | None = None,
+    token: str | None = None,
+    config: dict | None = None,
+    branch: str | None = None,
+    create_pr: bool | None = None,
+    allow_patterns: list[str] | str | None = None,
+    ignore_patterns: list[str] | str | None = None,
+    delete_patterns: list[str] | str | None = None,
+    api_endpoint: str | None = None,
 ):
     """
     Upload learner checkpoint files to the Hub.
@@ -378,11 +377,11 @@ def push_to_hub_fastai(
             Defaults to `False`.
         api_endpoint (`str`, *optional*):
             The API endpoint to use when pushing the model to the hub.
-        allow_patterns (`List[str]` or `str`, *optional*):
+        allow_patterns (`list[str]` or `str`, *optional*):
             If provided, only files matching at least one pattern are pushed.
-        ignore_patterns (`List[str]` or `str`, *optional*):
+        ignore_patterns (`list[str]` or `str`, *optional*):
             If provided, files matching any of the patterns are not pushed.
-        delete_patterns (`List[str]` or `str`, *optional*):
+        delete_patterns (`list[str]` or `str`, *optional*):
             If provided, remote files matching any of the patterns will be deleted from the repo.
 
     Returns:

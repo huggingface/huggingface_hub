@@ -1,9 +1,8 @@
 import os
 import re
 from pathlib import Path
-from typing import Any, Dict, Literal, Optional, Type, Union
+from typing import Any, Literal
 
-import requests
 import yaml
 
 from huggingface_hub.file_download import hf_hub_download
@@ -17,7 +16,7 @@ from huggingface_hub.repocard_data import (
     eval_results_to_model_index,
     model_index_to_eval_results,
 )
-from huggingface_hub.utils import get_session, is_jinja_available, yaml_dump
+from huggingface_hub.utils import HfHubHTTPError, get_session, hf_raise_for_status, is_jinja_available, yaml_dump
 
 from . import constants
 from .errors import EntryNotFoundError
@@ -32,7 +31,7 @@ TEMPLATE_DATASETCARD_PATH = Path(__file__).parent / "templates" / "datasetcard_t
 
 # exact same regex as in the Hub server. Please keep in sync.
 # See https://github.com/huggingface/moon-landing/blob/main/server/lib/ViewMarkdown.ts#L18
-REGEX_YAML_BLOCK = re.compile(r"^(\s*---[\r\n]+)([\S\s]*?)([\r\n]+---(\r\n|\n|$))")
+REGEX_YAML_BLOCK = re.compile(r"^(\s*---(?:\r\n|\r|\n))([\S\s]*?)((?:\r\n|\r|\n)---[ \t]*(\r\n|\n|$))")
 
 
 class RepoCard:
@@ -113,7 +112,7 @@ class RepoCard:
     def __str__(self):
         return self.content
 
-    def save(self, filepath: Union[Path, str]):
+    def save(self, filepath: Path | str):
         r"""Save a RepoCard to a file.
 
         Args:
@@ -136,9 +135,9 @@ class RepoCard:
     @classmethod
     def load(
         cls,
-        repo_id_or_path: Union[str, Path],
-        repo_type: Optional[str] = None,
-        token: Optional[str] = None,
+        repo_id_or_path: str | Path,
+        repo_type: str | None = None,
+        token: str | None = None,
         ignore_metadata_errors: bool = False,
     ):
         """Initialize a RepoCard from a Hugging Face Hub repo's README.md or a local filepath.
@@ -147,7 +146,7 @@ class RepoCard:
             repo_id_or_path (`Union[str, Path]`):
                 The repo ID associated with a Hugging Face Hub repo or a local filepath.
             repo_type (`str`, *optional*):
-                The type of Hugging Face repo to push to. Defaults to None, which will use use "model". Other options
+                The type of Hugging Face repo to push to. Defaults to None, which will use "model". Other options
                 are "dataset" and "space". Not used when loading from a local filepath. If this is called from a child
                 class, the default value will be the child class's `repo_type`.
             token (`str`, *optional*):
@@ -187,7 +186,7 @@ class RepoCard:
         with card_path.open(mode="r", newline="", encoding="utf-8") as f:
             return cls(f.read(), ignore_metadata_errors=ignore_metadata_errors)
 
-    def validate(self, repo_type: Optional[str] = None):
+    def validate(self, repo_type: str | None = None):
         """Validates card against Hugging Face Hub's card validation logic.
         Using this function requires access to the internet, so it is only called
         internally by [`huggingface_hub.repocard.RepoCard.push_to_hub`].
@@ -216,24 +215,24 @@ class RepoCard:
         headers = {"Accept": "text/plain"}
 
         try:
-            r = get_session().post("https://huggingface.co/api/validate-yaml", body, headers=headers)
-            r.raise_for_status()
-        except requests.exceptions.HTTPError as exc:
-            if r.status_code == 400:
-                raise ValueError(r.text)
+            response = get_session().post("https://huggingface.co/api/validate-yaml", json=body, headers=headers)
+            hf_raise_for_status(response)
+        except HfHubHTTPError as exc:
+            if response.status_code == 400:
+                raise ValueError(response.text)
             else:
                 raise exc
 
     def push_to_hub(
         self,
         repo_id: str,
-        token: Optional[str] = None,
-        repo_type: Optional[str] = None,
-        commit_message: Optional[str] = None,
-        commit_description: Optional[str] = None,
-        revision: Optional[str] = None,
-        create_pr: Optional[bool] = None,
-        parent_commit: Optional[str] = None,
+        token: str | None = None,
+        repo_type: str | None = None,
+        commit_message: str | None = None,
+        commit_description: str | None = None,
+        revision: str | None = None,
+        create_pr: bool | None = None,
+        parent_commit: str | None = None,
     ):
         """Push a RepoCard to a Hugging Face Hub repo.
 
@@ -259,7 +258,7 @@ class RepoCard:
                 If specified and `create_pr` is `False`, the commit will fail if `revision` does not point to `parent_commit`.
                 If specified and `create_pr` is `True`, the pull request will be created from `parent_commit`.
                 Specifying `parent_commit` ensures the repo has not changed before committing the changes, and can be
-                especially useful if the repo is updated / committed to concurrently.
+                especially useful if the repo is updated / committed too concurrently.
         Returns:
             `str`: URL of the commit which updated the card metadata.
         """
@@ -291,8 +290,8 @@ class RepoCard:
     def from_template(
         cls,
         card_data: CardData,
-        template_path: Optional[str] = None,
-        template_str: Optional[str] = None,
+        template_path: str | None = None,
+        template_str: str | None = None,
         **template_kwargs,
     ):
         """Initialize a RepoCard from a template. By default, it uses the default template.
@@ -306,6 +305,9 @@ class RepoCard:
             template_path (`str`, *optional*):
                 A path to a markdown file with optional Jinja template variables that can be filled
                 in with `template_kwargs`. Defaults to the default template.
+            template_str (`str`, *optional*):
+                A raw Jinja template string with optional variables. Used when neither `template_path`
+                nor the default template is appropriate. Ignored if `template_path` is also provided.
 
         Returns:
             [`huggingface_hub.repocard.RepoCard`]: A RepoCard instance with the specified card data and content from the
@@ -332,7 +334,7 @@ class RepoCard:
 
 
 class ModelCard(RepoCard):
-    card_data_class = ModelCardData
+    card_data_class = ModelCardData  # type: ignore[assignment]
     default_template_path = TEMPLATE_MODELCARD_PATH
     repo_type = "model"
 
@@ -340,8 +342,8 @@ class ModelCard(RepoCard):
     def from_template(  # type: ignore # violates Liskov property but easier to use
         cls,
         card_data: ModelCardData,
-        template_path: Optional[str] = None,
-        template_str: Optional[str] = None,
+        template_path: str | None = None,
+        template_str: str | None = None,
         **template_kwargs,
     ):
         """Initialize a ModelCard from a template. By default, it uses the default template, which can be found here:
@@ -356,6 +358,9 @@ class ModelCard(RepoCard):
             template_path (`str`, *optional*):
                 A path to a markdown file with optional Jinja template variables that can be filled
                 in with `template_kwargs`. Defaults to the default template.
+            template_str (`str`, *optional*):
+                A raw Jinja template string with optional variables. Used when neither `template_path`
+                nor the default template is appropriate. Ignored if `template_path` is also provided.
 
         Returns:
             [`huggingface_hub.ModelCard`]: A ModelCard instance with the specified card data and content from the
@@ -413,7 +418,7 @@ class ModelCard(RepoCard):
 
 
 class DatasetCard(RepoCard):
-    card_data_class = DatasetCardData
+    card_data_class = DatasetCardData  # type: ignore[assignment]
     default_template_path = TEMPLATE_DATASETCARD_PATH
     repo_type = "dataset"
 
@@ -421,8 +426,8 @@ class DatasetCard(RepoCard):
     def from_template(  # type: ignore # violates Liskov property but easier to use
         cls,
         card_data: DatasetCardData,
-        template_path: Optional[str] = None,
-        template_str: Optional[str] = None,
+        template_path: str | None = None,
+        template_str: str | None = None,
         **template_kwargs,
     ):
         """Initialize a DatasetCard from a template. By default, it uses the default template, which can be found here:
@@ -437,6 +442,9 @@ class DatasetCard(RepoCard):
             template_path (`str`, *optional*):
                 A path to a markdown file with optional Jinja template variables that can be filled
                 in with `template_kwargs`. Defaults to the default template.
+            template_str (`str`, *optional*):
+                A raw Jinja template string with optional variables. Used when neither `template_path`
+                nor the default template is appropriate. Ignored if `template_path` is also provided.
 
         Returns:
             [`huggingface_hub.DatasetCard`]: A DatasetCard instance with the specified card data and content from the
@@ -478,7 +486,7 @@ class DatasetCard(RepoCard):
 
 
 class SpaceCard(RepoCard):
-    card_data_class = SpaceCardData
+    card_data_class = SpaceCardData  # type: ignore[assignment]
     default_template_path = TEMPLATE_MODELCARD_PATH
     repo_type = "space"
 
@@ -504,7 +512,7 @@ def _detect_line_ending(content: str) -> Literal["\r", "\n", "\r\n", None]:  # n
         return "\n"
 
 
-def metadata_load(local_path: Union[str, Path]) -> Optional[Dict]:
+def metadata_load(local_path: str | Path) -> dict | None:
     content = Path(local_path).read_text()
     match = REGEX_YAML_BLOCK.search(content)
     if match:
@@ -517,7 +525,7 @@ def metadata_load(local_path: Union[str, Path]) -> Optional[Dict]:
         return None
 
 
-def metadata_save(local_path: Union[str, Path], data: Dict) -> None:
+def metadata_save(local_path: str | Path, data: dict) -> None:
     """
     Save the metadata dict in the upper YAML part Trying to preserve newlines as
     in the existing file. Docs about open() with newline="" parameter:
@@ -528,7 +536,7 @@ def metadata_save(local_path: Union[str, Path], data: Dict) -> None:
     content = ""
     # try to detect existing newline character
     if os.path.exists(local_path):
-        with open(local_path, "r", newline="", encoding="utf8") as readme:
+        with open(local_path, newline="", encoding="utf8") as readme:
             content = readme.read()
             if isinstance(readme.newlines, tuple):
                 line_break = readme.newlines[0]
@@ -559,13 +567,13 @@ def metadata_eval_result(
     metrics_value: Any,
     dataset_pretty_name: str,
     dataset_id: str,
-    metrics_config: Optional[str] = None,
+    metrics_config: str | None = None,
     metrics_verified: bool = False,
-    dataset_config: Optional[str] = None,
-    dataset_split: Optional[str] = None,
-    dataset_revision: Optional[str] = None,
-    metrics_verification_token: Optional[str] = None,
-) -> Dict:
+    dataset_config: str | None = None,
+    dataset_split: str | None = None,
+    dataset_revision: str | None = None,
+    metrics_verification_token: str | None = None,
+) -> dict:
     """
     Creates a metadata dict with the result from a model evaluated on a dataset.
 
@@ -680,20 +688,20 @@ def metadata_eval_result(
 @validate_hf_hub_args
 def metadata_update(
     repo_id: str,
-    metadata: Dict,
+    metadata: dict,
     *,
-    repo_type: Optional[str] = None,
+    repo_type: str | None = None,
     overwrite: bool = False,
-    token: Optional[str] = None,
-    commit_message: Optional[str] = None,
-    commit_description: Optional[str] = None,
-    revision: Optional[str] = None,
+    token: str | None = None,
+    commit_message: str | None = None,
+    commit_description: str | None = None,
+    revision: str | None = None,
     create_pr: bool = False,
-    parent_commit: Optional[str] = None,
+    parent_commit: str | None = None,
 ) -> str:
     """
     Updates the metadata in the README.md of a repository on the Hugging Face Hub.
-    If the README.md file doesn't exist yet, a new one is created with metadata and an
+    If the README.md file doesn't exist yet, a new one is created with metadata and
     the default ModelCard or DatasetCard template. For `space` repo, an error is thrown
     as a Space cannot exist without a `README.md` file.
 
@@ -726,7 +734,7 @@ def metadata_update(
             If specified and `create_pr` is `False`, the commit will fail if `revision` does not point to `parent_commit`.
             If specified and `create_pr` is `True`, the pull request will be created from `parent_commit`.
             Specifying `parent_commit` ensures the repo has not changed before committing the changes, and can be
-            especially useful if the repo is updated / committed to concurrently.
+            especially useful if the repo is updated / committed too concurrently.
     Returns:
         `str`: URL of the commit which updated the card metadata.
 
@@ -748,7 +756,7 @@ def metadata_update(
     commit_message = commit_message if commit_message is not None else "Update metadata with huggingface_hub"
 
     # Card class given repo_type
-    card_class: Type[RepoCard]
+    card_class: type[RepoCard]
     if repo_type is None or repo_type == "model":
         card_class = ModelCard
     elif repo_type == "dataset":
@@ -768,7 +776,7 @@ def metadata_update(
 
         # Initialize a ModelCard or DatasetCard from default template and no data.
         # Cast to the concrete expected card type to satisfy type checkers.
-        card = card_class.from_template(CardData())  # type: ignore[return-value]
+        card = card_class.from_template(CardData())  # type: ignore
 
     for key, value in metadata.items():
         if key == "model-index":

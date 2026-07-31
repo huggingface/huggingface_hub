@@ -6,7 +6,7 @@ import time
 import urllib.parse
 import warnings
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Dict, List, Literal, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Literal
 
 from . import constants
 from .hf_api import whoami
@@ -33,13 +33,13 @@ class OAuthOrgInfo:
             The org's username. OpenID Connect field.
         picture (`str`):
             The org's profile picture URL. OpenID Connect field.
-        is_enterprise (`bool`):
-            Whether the org is an enterprise org. Hugging Face field.
+        plan (`str`, *optional*):
+            The org's plan (e.g., "enterprise", "team"). Hugging Face field.
         can_pay (`Optional[bool]`, *optional*):
             Whether the org has a payment method set up. Hugging Face field.
         role_in_org (`Optional[str]`, *optional*):
             The user's role in the org. Hugging Face field.
-        security_restrictions (`Optional[List[Literal["ip", "token-policy", "mfa", "sso"]]]`, *optional*):
+        security_restrictions (`Optional[list[Literal["ip", "token-policy", "mfa", "sso"]]]`, *optional*):
             Array of security restrictions that the user hasn't completed for this org. Possible values: "ip", "token-policy", "mfa", "sso". Hugging Face field.
     """
 
@@ -47,10 +47,10 @@ class OAuthOrgInfo:
     name: str
     preferred_username: str
     picture: str
-    is_enterprise: bool
-    can_pay: Optional[bool] = None
-    role_in_org: Optional[str] = None
-    security_restrictions: Optional[List[Literal["ip", "token-policy", "mfa", "sso"]]] = None
+    plan: str | None = None
+    can_pay: bool | None = None
+    role_in_org: str | None = None
+    security_restrictions: list[Literal["ip", "token-policy", "mfa", "sso"]] | None = None
 
 
 @dataclass
@@ -79,21 +79,21 @@ class OAuthUserInfo:
             Whether the user is a pro user. Hugging Face field.
         can_pay (`Optional[bool]`, *optional*):
             Whether the user has a payment method set up. Hugging Face field.
-        orgs (`Optional[List[OrgInfo]]`, *optional*):
+        orgs (`Optional[list[OrgInfo]]`, *optional*):
             List of organizations the user is part of. Hugging Face field.
     """
 
     sub: str
     name: str
     preferred_username: str
-    email_verified: Optional[bool]
-    email: Optional[str]
+    email_verified: bool | None
+    email: str | None
     picture: str
     profile: str
-    website: Optional[str]
+    website: str | None
     is_pro: bool
-    can_pay: Optional[bool]
-    orgs: Optional[List[OAuthOrgInfo]]
+    can_pay: bool | None
+    orgs: list[OAuthOrgInfo] | None
 
 
 @dataclass
@@ -117,7 +117,7 @@ class OAuthInfo:
     access_token: str
     access_token_expires_at: datetime.datetime
     user_info: OAuthUserInfo
-    state: Optional[str]
+    state: str | None
     scope: str
 
 
@@ -167,7 +167,7 @@ def attach_huggingface_oauth(app: "fastapi.FastAPI", route_prefix: str = "/"):
         ) from e
     session_secret = (constants.OAUTH_CLIENT_SECRET or "") + "-v1"
     app.add_middleware(
-        SessionMiddleware,  # type: ignore[arg-type]
+        SessionMiddleware,  # type: ignore
         secret_key=hashlib.sha256(session_secret.encode()).hexdigest(),
         same_site="none",
         https_only=True,
@@ -188,9 +188,9 @@ def attach_huggingface_oauth(app: "fastapi.FastAPI", route_prefix: str = "/"):
         _add_mocked_oauth_routes(app, route_prefix=route_prefix)
 
 
-def parse_huggingface_oauth(request: "fastapi.Request") -> Optional[OAuthInfo]:
+def parse_huggingface_oauth(request: "fastapi.Request") -> OAuthInfo | None:
     """
-    Returns the information from a logged in user as a [`OAuthInfo`] object.
+    Returns the information from a logged-in user as a [`OAuthInfo`] object.
 
     For flexibility and future-proofing, this method is very lax in its parsing and does not raise errors.
     Missing fields are set to `None` without a warning.
@@ -215,7 +215,7 @@ def parse_huggingface_oauth(request: "fastapi.Request") -> Optional[OAuthInfo]:
                 name=org.get("name"),
                 preferred_username=org.get("preferred_username"),
                 picture=org.get("picture"),
-                is_enterprise=org.get("isEnterprise"),
+                plan=org.get("plan"),
                 can_pay=org.get("canPay"),
                 role_in_org=org.get("roleInOrg"),
                 security_restrictions=org.get("securityRestrictions"),
@@ -306,7 +306,7 @@ def _add_oauth_routes(app: "fastapi.FastAPI", route_prefix: str) -> None:
             target_url = request.query_params.get("_target_url")
 
             # Build redirect URI with the same query params as before and bump nb_redirects count
-            query_params: Dict[str, Union[int, str]] = {"_nb_redirects": nb_redirects + 1}
+            query_params: dict[str, int | str] = {"_nb_redirects": nb_redirects + 1}
             if target_url:
                 query_params["_target_url"] = target_url
 
@@ -406,7 +406,7 @@ def _get_redirect_target(request: "fastapi.Request", default_target: str = "/") 
     return request.query_params.get("_target_url", default_target)
 
 
-def _get_mocked_oauth_info() -> Dict:
+def _get_mocked_oauth_info() -> dict:
     token = get_token()
     if token is None:
         raise ValueError(
@@ -449,7 +449,7 @@ def _get_mocked_oauth_info() -> Dict:
     }
 
 
-def _get_oauth_uris(route_prefix: str = "/") -> Tuple[str, str, str]:
+def _get_oauth_uris(route_prefix: str = "/") -> tuple[str, str, str]:
     route_prefix = route_prefix.strip("/")
     if route_prefix:
         route_prefix = f"/{route_prefix}"

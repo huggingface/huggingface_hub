@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2023-present, the HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,8 +16,9 @@
 import atexit
 import inspect
 import os
+from collections.abc import Callable
 from functools import wraps
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from .utils import experimental, is_fastapi_available, is_gradio_available
 
@@ -32,10 +32,10 @@ if is_fastapi_available():
     from fastapi.responses import JSONResponse
 else:
     # Will fail at runtime if FastAPI is not available
-    FastAPI = Request = JSONResponse = None  # type: ignore [misc, assignment]
+    FastAPI = Request = JSONResponse = None  # type: ignore
 
 
-_global_app: Optional["WebhooksServer"] = None
+_global_app: Optional["WebhooksServer"] = None  # ty: ignore[invalid-type-form]
 _is_local = os.environ.get("SPACE_ID") is None
 
 
@@ -50,7 +50,7 @@ class WebhooksServer:
     It is recommended to accept [`WebhookPayload`] as the first argument of the webhook function. It is a Pydantic
     model that contains all the information about the webhook event. The data will be parsed automatically for you.
 
-    Check out the [webhooks guide](../guides/webhooks_server) for a step-by-step tutorial on how to setup your
+    Check out the [webhooks guide](../guides/webhooks_server) for a step-by-step tutorial on how to set up your
     WebhooksServer and deploy it on a Space.
 
     > [!WARNING]
@@ -88,7 +88,7 @@ class WebhooksServer:
         ```
     """
 
-    def __new__(cls, *args, **kwargs) -> "WebhooksServer":
+    def __new__(cls, *args, **kwargs) -> "WebhooksServer":  # ty: ignore[invalid-type-form]
         if not is_gradio_available():
             raise ImportError(
                 "You must have `gradio` installed to use `WebhooksServer`. Please run `pip install --upgrade gradio`"
@@ -104,15 +104,15 @@ class WebhooksServer:
     def __init__(
         self,
         ui: Optional["gr.Blocks"] = None,
-        webhook_secret: Optional[str] = None,
+        webhook_secret: str | None = None,
     ) -> None:
         self._ui = ui
 
         self.webhook_secret = webhook_secret or os.getenv("WEBHOOK_SECRET")
-        self.registered_webhooks: Dict[str, Callable] = {}
+        self.registered_webhooks: dict[str, Callable] = {}
         _warn_on_empty_secret(self.webhook_secret)
 
-    def add_webhook(self, path: Optional[str] = None) -> Callable:
+    def add_webhook(self, path: str | None = None) -> Callable:
         """
         Decorator to add a webhook to the [`WebhooksServer`] server.
 
@@ -224,14 +224,14 @@ class WebhooksServer:
 
 
 @experimental
-def webhook_endpoint(path: Optional[str] = None) -> Callable:
+def webhook_endpoint(path: str | None = None) -> Callable:
     """Decorator to start a [`WebhooksServer`] and register the decorated function as a webhook endpoint.
 
     This is a helper to get started quickly. If you need more flexibility (custom landing page or webhook secret),
     you can use [`WebhooksServer`] directly. You can register multiple webhook endpoints (to the same server) by using
     this decorator multiple times.
 
-    Check out the [webhooks guide](../guides/webhooks_server) for a step-by-step tutorial on how to setup your
+    Check out the [webhooks guide](../guides/webhooks_server) for a step-by-step tutorial on how to set up your
     server and deploy it on a Space.
 
     > [!WARNING]
@@ -301,14 +301,14 @@ def webhook_endpoint(path: Optional[str] = None) -> Callable:
     return _inner
 
 
-def _get_global_app() -> WebhooksServer:
+def _get_global_app() -> WebhooksServer:  # ty: ignore[invalid-type-form]
     global _global_app
     if _global_app is None:
         _global_app = WebhooksServer()
     return _global_app
 
 
-def _warn_on_empty_secret(webhook_secret: Optional[str]) -> None:
+def _warn_on_empty_secret(webhook_secret: str | None) -> None:
     if webhook_secret is None:
         print("Webhook secret is not defined. This means your webhook endpoints will be open to everyone.")
         print(

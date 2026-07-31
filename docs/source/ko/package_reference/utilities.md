@@ -84,16 +84,6 @@ True
 
 [[autodoc]] huggingface_hub.utils.enable_progress_bars
 
-## HTTP 백엔드 구성[[huggingface_hub.configure_http_backend]]
-
-일부 환경에서는 HTTP 호출이 이루어지는 방식을 구성할 수 있습니다. 예를 들어, 프록시를 사용하는 경우가 그렇습니다. `huggingface_hub`는 [`configure_http_backend`]를 사용하여 전역적으로 이를 구성할 수 있게 합니다. 그러면 Hub로의 모든 요청이 사용자가 설정한 설정을 사용합니다. 내부적으로 `huggingface_hub`는 `requests.Session`을 사용하므로 사용 가능한 매개변수에 대해 자세히 알아보려면 [requests 문서](https://requests.readthedocs.io/en/latest/user/advanced)를 참조하는 것이 좋습니다.
-
-`requests.Session`이 스레드 안전을 보장하지 않기 때문에 `huggingface_hub`는 스레드당 하나의 세션 인스턴스를 생성합니다. 세션을 사용하면 HTTP 호출 사이에 연결을 유지하고 최종적으로 시간을 절약할 수 있습니다. `huggingface_hub`를 서드 파티 라이브러리에 통합하고 사용자 지정 호출을 Hub로 만들려는 경우, [`get_session`]을 사용하여 사용자가 구성한 세션을 가져옵니다 (즉, 모든 `requests.get(...)` 호출을 `get_session().get(...)`으로 대체합니다).
-
-[[autodoc]] configure_http_backend
-
-[[autodoc]] get_session
-
 
 ## HTTP 오류 다루기[[handle-http-errors]]
 
@@ -125,39 +115,43 @@ except HfHubHTTPError as e:
 
 여기에는 `huggingface_hub`에서 발생하는 HTTP 오류 목록이 있습니다.
 
-#### HfHubHTTPError[[huggingface_hub.utils.HfHubHTTPError]]
+#### HfHubHTTPError[[huggingface_hub.errors.HfHubHTTPError]]
 
 `HfHubHTTPError`는 HF Hub HTTP 오류에 대한 부모 클래스입니다. 이 클래스는 서버 응답을 구문 분석하고 오류 메시지를 형식화하여 사용자에게 가능한 많은 정보를 제공합니다.
 
-[[autodoc]] huggingface_hub.utils.HfHubHTTPError
+[[autodoc]] huggingface_hub.errors.HfHubHTTPError
 
-#### RepositoryNotFoundError[[huggingface_hub.utils.RepositoryNotFoundError]]
+#### RepositoryNotFoundError[[huggingface_hub.errors.RepositoryNotFoundError]]
 
-[[autodoc]] huggingface_hub.utils.RepositoryNotFoundError
+[[autodoc]] huggingface_hub.errors.RepositoryNotFoundError
 
-#### GatedRepoError[[huggingface_hub.utils.GatedRepoError]]
+#### GatedRepoError[[huggingface_hub.errors.GatedRepoError]]
 
-[[autodoc]] huggingface_hub.utils.GatedRepoError
+[[autodoc]] huggingface_hub.errors.GatedRepoError
 
-#### RevisionNotFoundError[[huggingface_hub.utils.RevisionNotFoundError]]
+#### RevisionNotFoundError[[huggingface_hub.errors.RevisionNotFoundError]]
 
-[[autodoc]] huggingface_hub.utils.RevisionNotFoundError
+[[autodoc]] huggingface_hub.errors.RevisionNotFoundError
 
-#### EntryNotFoundError[[huggingface_hub.utils.EntryNotFoundError]]
+#### BadRequestError[[huggingface_hub.errors.BadRequestError]]
 
-[[autodoc]] huggingface_hub.utils.EntryNotFoundError
+[[autodoc]] huggingface_hub.errors.BadRequestError
 
-#### BadRequestError[[huggingface_hub.utils.BadRequestError]]
+#### EntryNotFoundError[[huggingface_hub.errors.EntryNotFoundError]]
 
-[[autodoc]] huggingface_hub.utils.BadRequestError
+[[autodoc]] huggingface_hub.errors.EntryNotFoundError
 
-#### LocalEntryNotFoundError[[huggingface_hub.utils.LocalEntryNotFoundError]]
+#### RemoteEntryNotFoundError[[huggingface_hub.errors.RemoteEntryNotFoundError]]
 
-[[autodoc]] huggingface_hub.utils.LocalEntryNotFoundError
+[[autodoc]] huggingface_hub.errors.RemoteEntryNotFoundError
 
-#### OfflineModeIsEnabledd[[huggingface_hub.utils.OfflineModeIsEnabled]]
+#### LocalEntryNotFoundError[[huggingface_hub.errors.LocalEntryNotFoundError]]
 
-[[autodoc]] huggingface_hub.utils.OfflineModeIsEnabled
+[[autodoc]] huggingface_hub.errors.LocalEntryNotFoundError
+
+#### OfflineModeIsEnabledd[[huggingface_hub.errors.OfflineModeIsEnabled]]
+
+[[autodoc]] huggingface_hub.errors.OfflineModeIsEnabled
 
 ## 원격 측정[[huggingface_hub.utils.send_telemetry]]
 
@@ -195,20 +189,6 @@ huggingface_hub.utils._validators.HFValidationError: Cannot have -- or .. in rep
 
 >>> my_cool_method(repo_id="other..repo..id")
 huggingface_hub.utils._validators.HFValidationError: Cannot have -- or .. in repo_id: 'other..repo..id'.
-
->>> @validate_hf_hub_args
-... def my_cool_auth_method(token: str):
-...     print(token)
-
->>> my_cool_auth_method(token="a token")
-"a token"
-
->>> my_cool_auth_method(use_auth_token="a use_auth_token")
-"a use_auth_token"
-
->>> my_cool_auth_method(token="a token", use_auth_token="a use_auth_token")
-UserWarning: Both `token` and `use_auth_token` are passed (...). `use_auth_token` value will be ignored.
-"a token"
 ```
 
 #### validate_hf_hub_args[[huggingface_hub.utils.validate_hf_hub_args]]
@@ -226,9 +206,3 @@ UserWarning: Both `token` and `use_auth_token` are passed (...). `use_auth_token
 #### repo_id[[huggingface_hub.utils.validate_repo_id]]
 
 [[autodoc]] utils.validate_repo_id
-
-#### smoothly_deprecate_use_auth_token[[huggingface_hub.utils.smoothly_deprecate_use_auth_token]]
-
-정확히 검증기는 아니지만, 잘 실행됩니다.
-
-[[autodoc]] utils.smoothly_deprecate_use_auth_token

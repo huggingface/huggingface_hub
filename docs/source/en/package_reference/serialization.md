@@ -128,11 +128,7 @@ If you want to save a state dictionary (e.g. a mapping between layer names and r
 [[autodoc]] huggingface_hub.save_torch_state_dict
 
 
-The `serialization` module also contains low-level helpers to split a state dictionary into several shards, while creating a proper index in the process. These helpers are available for `torch` and `tensorflow` tensors and are designed to be easily extended to any other ML frameworks.
-
-### split_tf_state_dict_into_shards
-
-[[autodoc]] huggingface_hub.split_tf_state_dict_into_shards
+The `serialization` module also contains low-level helpers to split a state dictionary into several shards, while creating a proper index in the process. These helpers are available for `torch` tensors and are designed to be easily extended to any other ML frameworks.
 
 ### split_torch_state_dict_into_shards
 
@@ -155,7 +151,6 @@ The loading helpers support both single-file and sharded checkpoints in either s
 ### load_state_dict_from_file
 
 [[autodoc]] huggingface_hub.load_state_dict_from_file
-
 
 ## Tensors helpers
 

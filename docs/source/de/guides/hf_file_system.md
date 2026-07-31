@@ -9,26 +9,25 @@ Zusätzlich zur [`HfApi`] bietet die `huggingface_hub` Bibliothek [`HfFileSystem
 ## Verwendung
 
 ```python
->>> from huggingface_hub import HfFileSystem
->>> fs = HfFileSystem()
+>>> from huggingface_hub import hffs
 
 >>> # Alle Dateien in einem Verzeichnis auflisten
->>> fs.ls("datasets/my-username/my-dataset-repo/data", detail=False)
+>>> hffs.ls("datasets/my-username/my-dataset-repo/data", detail=False)
 ['datasets/my-username/my-dataset-repo/data/train.csv', 'datasets/my-username/my-dataset-repo/data/test.csv']
 
 >>> # Alle ".csv"-Dateien in einem Repo auflisten
->>> fs.glob("datasets/my-username/my-dataset-repo/**.csv")
+>>> hffs.glob("datasets/my-username/my-dataset-repo/**.csv")
 ['datasets/my-username/my-dataset-repo/data/train.csv', 'datasets/my-username/my-dataset-repo/data/test.csv']
 
 >>> # Eine entfernte Datei lesen
->>> with fs.open("datasets/my-username/my-dataset-repo/data/train.csv", "r") as f:
+>>> with hffs.open("datasets/my-username/my-dataset-repo/data/train.csv", "r") as f:
 ...     train_data = f.readlines()
 
 >>> # Den Inhalt einer entfernten Datei als Zeichenkette / String lesen
->>> train_data = fs.read_text("datasets/my-username/my-dataset-repo/data/train.csv", revision="dev")
+>>> train_data = hffs.read_text("datasets/my-username/my-dataset-repo/data/train.csv", revision="dev")
 
 >>> # Eine entfernte Datei schreiben
->>> with fs.open("datasets/my-username/my-dataset-repo/data/validation.csv", "w") as f:
+>>> with hffs.open("datasets/my-username/my-dataset-repo/data/validation.csv", "w") as f:
 ...     f.write("text,label")
 ...     f.write("Fantastic movie!,good")
 ```
@@ -104,7 +103,7 @@ Es ist auch möglich, sich programmatisch anzumelden, indem Sie Ihr `token` als 
 
 ```python
 >>> from huggingface_hub import HfFileSystem
->>> fs = HfFileSystem(token=token)
+>>> hffs = HfFileSystem(token=token)
 ```
 
 Wenn Sie sich auf diese Weise anmelden, seien Sie vorsichtig, das Token nicht versehentlich zu veröffentlichen, wenn Sie Ihren Quellcode teilen!

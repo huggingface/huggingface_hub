@@ -21,16 +21,6 @@ how to integrate any ML framework with the Hub.
 
 [[autodoc]] PyTorchModelHubMixin
 
-### Keras
-
-[[autodoc]] KerasModelHubMixin
-
-[[autodoc]] from_pretrained_keras
-
-[[autodoc]] push_to_hub_keras
-
-[[autodoc]] save_pretrained_keras
-
 ### Fastai
 
 [[autodoc]] from_pretrained_fastai

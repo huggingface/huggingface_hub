@@ -11,34 +11,40 @@ rendered properly in your Markdown viewer.
 먼저, CLI를 설치해 보세요:
 
 ```
->>> pip install -U "huggingface_hub[cli]"
+>>> pip install -U "huggingface_hub"
 ```
 
 > [!TIP]
-> 위의 코드에서 사용자 경험을 높이기 위해 `[cli]` 추가 종속성을 포함하였습니다. 이는 `cache delete` 명령을 사용할 때 특히 유용합니다.
+> CLI는 기본 `huggingface_hub` 패키지에 포함되어 있습니다.
 
 설치가 완료되면, CLI가 올바르게 설정되었는지 확인할 수 있습니다:
 
 ```
 >>> hf --help
-usage: hf <command> [<args>]
+Usage: hf [OPTIONS] COMMAND [ARGS]...
 
-positional arguments:
-  {auth,cache,download,repo,repo-files,upload,upload-large-folder,env,version,lfs-enable-largefiles,lfs-multipart-upload}
-                        hf command helpers
-    auth                Manage authentication (login, logout, etc.).
-    cache               Manage local cache directory.
-    download            Download files from the Hub
-    repo                Manage repos on the Hub.
-    repo-files          Manage files in a repo on the Hub.
-    upload              Upload a file or a folder to the Hub. Recommended for single-commit uploads.
-    upload-large-folder
-                        Upload a large folder to the Hub. Recommended for resumable uploads.
-    env                 Print information about the environment.
-    version             Print information about the hf version.
+  Hugging Face Hub CLI
 
-options:
-  -h, --help            show this help message and exit
+Options:
+  --install-completion  Install completion for the current shell.
+  --show-completion     Show completion for the current shell, to copy it or
+                        customize the installation.
+  --help                Show this message and exit.
+
+Commands:
+  auth                 Manage authentication (login, logout, etc.).
+  cache                Manage local cache directory.
+  datasets             Interact with datasets on the Hub.
+  download             Download files from the Hub.
+  endpoints            Manage Hugging Face Inference Endpoints.
+  env                  Print information about the environment.
+  jobs                 Run and manage Jobs on the Hub.
+  models               Interact with models on the Hub.
+  repo                 Manage repos on the Hub.
+  spaces               Interact with spaces on the Hub.
+  upload               Upload a file or a folder to the Hub.
+  upload-large-folder  Upload a large folder to the Hub.
+  version              Print information about the hf version.
 ```
 
 CLI가 제대로 설치되었다면 CLI에서 사용 가능한 모든 옵션 목록이 출력됩니다. `command not found: hf`와 같은 오류 메시지가 표시된다면 [설치](../installation) 가이드를 확인하세요.
@@ -48,31 +54,36 @@ CLI가 제대로 설치되었다면 CLI에서 사용 가능한 모든 옵션 목
 
 ### 다른 방법으로 설치하기 [[alternative-install]]
 
-#### pkgx 사용하기 [[using-pkgx]]
+#### uv 사용하기 [[using-uv]]
 
-[Pkgx](https://pkgx.sh)는 다양한 플랫폼에서 빠르게 작동하는 패키지 매니저입니다. 다음과 같이 pkgx를 사용하여 huggingface-cli를 설치할 수 있습니다:
-
-```bash
->>> pkgx install huggingface-cli
-```
-
-또는 pkgx를 통해 huggingface-cli를 직접 실행할 수도 있습니다:
+[uv](https://docs.astral.sh/uv/)를 사용하면 `hf` CLI를 설치하거나, 설치 없이 바로 실행할 수 있습니다. 먼저 uv를 설치하세요 (PATH에 `uv`와 `uvx`가 추가됩니다):
 
 ```bash
->>> pkgx huggingface-cli --help
+>>> curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-pkgx huggingface에 대한 자세한 내용은 [여기](https://pkgx.dev/pkgs/huggingface.co/)에서 확인할 수 있습니다.
+영구적으로 도구를 설치해 어디에서나 사용하려면:
+
+```bash
+>>> uv tool install "huggingface_hub"
+>>> hf --help
+```
+
+전역 설치 없이 일회성으로 실행하려면 `uvx`를 사용하세요:
+
+```bash
+>>> uvx --from huggingface_hub hf --help
+```
 
 #### Homebrew 사용하기 [[using-homebrew]]
 
 [Homebrew](https://brew.sh/)를 사용하여 CLI를 설치할 수도 있습니다:
 
 ```bash
->>> brew install huggingface-cli
+>>> brew install hf
 ```
 
-Homebrew huggingface에 대한 자세한 내용은 [여기](https://formulae.brew.sh/formula/huggingface-cli)에서 확인할 수 있습니다.
+Homebrew huggingface에 대한 자세한 내용은 [여기](https://formulae.brew.sh/formula/hf)에서 확인할 수 있습니다.
 
 ## hf auth login [[hf-login]]
 
@@ -130,10 +141,9 @@ orgs:  huggingface,eu-test,OAuthTesters,hf-accelerate,HFSmolCluster
 
 이 명령어를 사용하여 로그아웃할 수 있습니다. 실제로는 컴퓨터에 저장된 토큰을 삭제합니다.
 
-하지만 `HF_TOKEN` 환경 변수를 사용하여 로그인했다면, 이 명령어로는 로그아웃할 수 없습니다([참조]((../package_reference/environment_variables#hftoken))). 대신 컴퓨터의 환경 설정에서 `HF_TOKEN` 변수를 제거하면 됩니다.
+하지만 `HF_TOKEN` 환경 변수를 사용하여 로그인했다면, 이 명령어로는 로그아웃할 수 없습니다([참조](<(../package_reference/environment_variables#hftoken)>)). 대신 컴퓨터의 환경 설정에서 `HF_TOKEN` 변수를 제거하면 됩니다.
 
 ## hf download [[hf-download]]
-
 
 `hf download` 명령어를 사용하여 Hub에서 직접 파일을 다운로드할 수 있습니다. [다운로드](./download) 가이드에서 설명된 [`hf_hub_download`], [`snapshot_download`] 헬퍼 함수를 사용하여 반환된 경로를 터미널에 출력합니다. 우리는 아래 예시에서 가장 일반적인 사용 사례를 살펴볼 것입니다. 사용 가능한 모든 옵션을 보려면 아래 명령어를 실행해보세요:
 
@@ -398,30 +408,58 @@ https://huggingface.co/Wauplin/my-cool-model/tree/main
 https://huggingface.co/Wauplin/my-cool-model/tree/main
 ```
 
-## hf cache scan [[hf-cache-scan]]
+## hf cache ls [[hf-cache-ls]]
 
-캐시 디렉토리를 스캔하여 다운로드한 리포지토리가 무엇인지와 디스크에서 차지하는 공간을 알 수 있습니다. `hf cache scan` 명령어를 사용하여 이를 확인해보세요:
+로컬 캐시에 어떤 리포지토리나 수정 버전이 저장되어 있는지 확인하려면 `hf cache ls`를 사용하세요. 기본 출력은 리포지토리 단위 요약입니다.
 
 ```bash
->>> hf cache scan
-REPO ID                     REPO TYPE SIZE ON DISK NB FILES LAST_ACCESSED LAST_MODIFIED REFS                LOCAL PATH
---------------------------- --------- ------------ -------- ------------- ------------- ------------------- -------------------------------------------------------------------------
-glue                        dataset         116.3K       15 4 days ago    4 days ago    2.4.0, main, 1.17.0 /home/wauplin/.cache/huggingface/hub/datasets--glue
-google/fleurs               dataset          64.9M        6 1 week ago    1 week ago    refs/pr/1, main     /home/wauplin/.cache/huggingface/hub/datasets--google--fleurs
-Jean-Baptiste/camembert-ner model           441.0M        7 2 weeks ago   16 hours ago  main                /home/wauplin/.cache/huggingface/hub/models--Jean-Baptiste--camembert-ner
-bert-base-cased             model             1.9G       13 1 week ago    2 years ago                       /home/wauplin/.cache/huggingface/hub/models--bert-base-cased
-t5-base                     model            10.1K        3 3 months ago  3 months ago  main                /home/wauplin/.cache/huggingface/hub/models--t5-base
-t5-small                    model           970.7M       11 3 days ago    3 days ago    refs/pr/1, main     /home/wauplin/.cache/huggingface/hub/models--t5-small
+>>> hf cache ls
+ID                                   SIZE   LAST_ACCESSED LAST_MODIFIED REFS
+------------------------------------ ------- ------------- ------------- -------------------
+dataset/glue                         116.3K 4 days ago     4 days ago     2.4.0 main 1.17.0
+dataset/google/fleurs                 64.9M 1 week ago     1 week ago     main refs/pr/1
+model/Jean-Baptiste/camembert-ner    441.0M 2 weeks ago    16 hours ago   main
+model/bert-base-cased                  1.9G 1 week ago     2 years ago
+model/t5-base                          10.1K 3 months ago   3 months ago   main
+model/t5-small                        970.7M 3 days ago     3 days ago     main refs/pr/1
 
-Done in 0.0s. Scanned 6 repo(s) for a total of 3.4G.
-Got 1 warning(s) while scanning. Use -vvv to print details.
+Found 6 repo(s) for a total of 12 revision(s) and 3.4G on disk.
 ```
 
-캐시 디렉토리 스캔에 대한 자세한 내용을 알고 싶다면, [캐시 관리](./manage-cache#scan-cache-from-the-terminal) 가이드를 확인해보세요.
+`--revisions` 옵션과 `--filter` 표현식을 조합하면 특정 스냅샷만 추려 볼 수 있습니다.
 
-## hf cache delete [[hf-cache-delete]]
+```bash
+>>> hf cache ls --revisions --filter "size>1GB" --filter "accessed>30d"
+ID                                   REVISION            SIZE   LAST_MODIFIED REFS
+------------------------------------ ------------------ ------- ------------- -------------------
+model/bert-base-cased                6d1d7a1a2a6cf4c2    1.9G  2 years ago
+model/t5-small                       1c610f6b3f5e7d8a    1.1G  3 months ago  main
 
-사용하지 않는 캐시를 삭제하고 싶다면 `hf cache delete`를 사용해보세요. 이는 디스크 공간을 절약하고 확보하는 데 유용합니다. 이에 대한 자세한 내용은 [캐시 관리](./manage-cache#clean-cache-from-the-terminal) 가이드에서 확인할 수 있습니다.
+Found 2 repo(s) for a total of 2 revision(s) and 3.0G on disk.
+```
+
+`--format json`, `--format csv`, `--quiet`, `--cache-dir` 등 다양한 옵션으로 출력 형식을 조정할 수 있습니다. 자세한 내용은 [캐시 관리](./manage-cache#scan-your-cache) 가이드를 참고하세요.
+
+`hf cache ls --quiet`로 추린 식별자를 `hf cache rm`에 바로 파이프하면 오래된 항목을 한 번에 정리할 수 있습니다.
+
+```bash
+>>> hf cache rm $(hf cache ls --filter "accessed>1y" -q) -y
+About to delete 2 repo(s) totalling 5.31G.
+  - model/meta-llama/Llama-3.2-1B-Instruct (entire repo)
+  - model/hexgrad/Kokoro-82M (entire repo)
+Delete repo: ~/.cache/huggingface/hub/models--meta-llama--Llama-3.2-1B-Instruct
+Delete repo: ~/.cache/huggingface/hub/models--hexgrad--Kokoro-82M
+Cache deletion done. Saved 5.31G.
+Deleted 2 repo(s) and 2 revision(s); freed 5.31G.
+```
+
+## hf cache rm [[hf-cache-rm]]
+
+캐시에서 특정 리포지토리나 수정 버전을 삭제하려면 `hf cache rm`을 사용합니다. 리포지토리 식별자나 수정 버전 해시를 하나 이상 전달하면 됩니다. `--dry-run`으로 미리보기, `--yes`로 확인창 건너뛰기, `--cache-dir`로 다른 경로 지정이 가능합니다.
+
+## hf cache prune [[hf-cache-prune]]
+
+참조되지 않는(detached) 수정 버전만 한꺼번에 제거하려면 `hf cache prune`을 실행하세요. `--dry-run`, `--yes`, `--cache-dir` 옵션 역시 동일하게 사용할 수 있습니다.
 
 ## hf env [[hf-env]]
 
@@ -443,7 +481,6 @@ Copy-and-paste the text below in your GitHub issue.
 - Who am I ?: Wauplin
 - Configured git credential helpers: store
 - FastAI: N/A
-- Tensorflow: 2.11.0
 - Torch: 1.12.1
 - Jinja2: 3.1.2
 - Graphviz: 0.20.1
@@ -465,7 +502,6 @@ Copy-and-paste the text below in your GitHub issue.
 - HF_HUB_DISABLE_SYMLINKS_WARNING: False
 - HF_HUB_DISABLE_EXPERIMENTAL_WARNING: False
 - HF_HUB_DISABLE_IMPLICIT_TOKEN: False
-- HF_HUB_ENABLE_HF_TRANSFER: False
 - HF_HUB_ETAG_TIMEOUT: 10
 - HF_HUB_DOWNLOAD_TIMEOUT: 10
 ```

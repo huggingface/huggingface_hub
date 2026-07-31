@@ -11,26 +11,25 @@
 ## 使用方法
 
 ```python
->>> from huggingface_hub import HfFileSystem
->>> fs = HfFileSystem()
+>>> from huggingface_hub import hffs
 
 >>> # 列出目录中的所有文件
->>> fs.ls("datasets/my-username/my-dataset-repo/data", detail=False)
+>>> hffs.ls("datasets/my-username/my-dataset-repo/data", detail=False)
 ['datasets/my-username/my-dataset-repo/data/train.csv', 'datasets/my-username/my-dataset-repo/data/test.csv']
 
 >>> # 列出仓库中的所有 ".csv" 文件
->>> fs.glob("datasets/my-username/my-dataset-repo/**/*.csv")
+>>> hffs.glob("datasets/my-username/my-dataset-repo/**/*.csv")
 ['datasets/my-username/my-dataset-repo/data/train.csv', 'datasets/my-username/my-dataset-repo/data/test.csv']
 
 >>> # 读取远程文件
->>> with fs.open("datasets/my-username/my-dataset-repo/data/train.csv", "r") as f:
+>>> with hffs.open("datasets/my-username/my-dataset-repo/data/train.csv", "r") as f:
 ...     train_data = f.readlines()
 
 >>> # 远程文件内容读取为字符串
->>> train_data = fs.read_text("datasets/my-username/my-dataset-repo/data/train.csv", revision="dev")
+>>> train_data = hffs.read_text("datasets/my-username/my-dataset-repo/data/train.csv", revision="dev")
 
 >>> # 写入远程文件
->>> with fs.open("datasets/my-username/my-dataset-repo/data/validation.csv", "w") as f:
+>>> with hffs.open("datasets/my-username/my-dataset-repo/data/validation.csv", "w") as f:
 ...     f.write("text,label")
 ...     f.write("Fantastic movie!,good")
 ```
@@ -109,7 +108,7 @@ hf://[<repo_type_prefix>]<repo_id>[@<revision>]/<path/in/repo>
 
 ```python
 >>> from huggingface_hub import HfFileSystem
->>> fs = HfFileSystem(token=token)
+>>> hffs = HfFileSystem(token=token)
 ```
 
 如果您以这种方式登录，请注意在共享源代码时不要意外泄露令牌！ 

@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2023-present, the HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,117 +11,73 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Contains command to update or delete files in a repository using the CLI.
+"""Legacy `hf repo-files` command.
 
-Usage:
-    # delete all
-    hf repo-files delete <repo_id> "*"
-
-    # delete single file
-    hf repo-files delete <repo_id> file.txt
-
-    # delete single folder
-    hf repo-files delete <repo_id> folder/
-
-    # delete multiple
-    hf repo-files delete <repo_id> file.txt folder/ file2.txt
-
-    # delete multiple patterns
-    hf repo-files delete <repo_id> file.txt "*.json" "folder/*.parquet"
-
-    # delete from different revision / repo-type
-    hf repo-files delete <repo_id> file.txt --revision=refs/pr/1 --repo-type=dataset
+Kept for backward compatibility. Users are nudged to use `hf repos delete-files` instead.
 """
 
-from argparse import _SubParsersAction
-from typing import List, Optional
+from typing import Annotated
 
-from huggingface_hub import logging
-from huggingface_hub.commands import BaseHuggingfaceCLICommand
-from huggingface_hub.hf_api import HfApi
-
-
-logger = logging.get_logger(__name__)
-
-
-class DeleteFilesSubCommand:
-    def __init__(self, args) -> None:
-        self.args = args
-        self.repo_id: str = args.repo_id
-        self.repo_type: Optional[str] = args.repo_type
-        self.revision: Optional[str] = args.revision
-        self.api: HfApi = HfApi(token=args.token, library_name="hf")
-        self.patterns: List[str] = args.patterns
-        self.commit_message: Optional[str] = args.commit_message
-        self.commit_description: Optional[str] = args.commit_description
-        self.create_pr: bool = args.create_pr
-        self.token: Optional[str] = args.token
-
-    def run(self) -> None:
-        logging.set_verbosity_info()
-        url = self.api.delete_files(
-            delete_patterns=self.patterns,
-            repo_id=self.repo_id,
-            repo_type=self.repo_type,
-            revision=self.revision,
-            commit_message=self.commit_message,
-            commit_description=self.commit_description,
-            create_pr=self.create_pr,
-        )
-        print(f"Files correctly deleted from repo. Commit: {url}.")
-        logging.set_verbosity_warning()
+from ._cli_utils import (
+    RepoIdArg,
+    RepoType,
+    RepoTypeOpt,
+    RevisionOpt,
+    TokenOpt,
+    get_hf_api,
+    typer_factory,
+)
+from ._framework import Argument, Option
+from ._output import out
 
 
-class RepoFilesCommand(BaseHuggingfaceCLICommand):
-    @staticmethod
-    def register_subcommand(parser: _SubParsersAction):
-        repo_files_parser = parser.add_parser("repo-files", help="Manage files in a repo on the Hub.")
-        repo_files_subparsers = repo_files_parser.add_subparsers(
-            help="Action to execute against the files.",
-            required=True,
-        )
-        delete_subparser = repo_files_subparsers.add_parser(
-            "delete",
-            help="Delete files from a repo on the Hub",
-        )
-        delete_subparser.set_defaults(func=lambda args: DeleteFilesSubCommand(args))
-        delete_subparser.add_argument(
-            "repo_id", type=str, help="The ID of the repo to manage (e.g. `username/repo-name`)."
-        )
-        delete_subparser.add_argument(
-            "patterns",
-            nargs="+",
-            type=str,
-            help="Glob patterns to match files to delete.",
-        )
-        delete_subparser.add_argument(
-            "--repo-type",
-            choices=["model", "dataset", "space"],
-            default="model",
-            help="Type of the repo to upload to (e.g. `dataset`).",
-        )
-        delete_subparser.add_argument(
-            "--revision",
-            type=str,
-            help=(
-                "An optional Git revision to push to. It can be a branch name "
-                "or a PR reference. If revision does not"
-                " exist and `--create-pr` is not set, a branch will be automatically created."
-            ),
-        )
-        delete_subparser.add_argument(
-            "--commit-message", type=str, help="The summary / title / first line of the generated commit."
-        )
-        delete_subparser.add_argument(
-            "--commit-description", type=str, help="The description of the generated commit."
-        )
-        delete_subparser.add_argument(
-            "--create-pr", action="store_true", help="Whether to create a new Pull Request for these changes."
-        )
-        delete_subparser.add_argument(
-            "--token",
-            type=str,
-            help="A User Access Token generated from https://huggingface.co/settings/tokens",
-        )
+repo_files_cli = typer_factory(
+    help="(Deprecated) Manage files in a repo on the Hub. Use `hf repos delete-files` instead."
+)
 
-        repo_files_parser.set_defaults(func=RepoFilesCommand)
+
+@repo_files_cli.command(
+    "delete",
+)
+def repo_files_delete(
+    repo_id: RepoIdArg,
+    patterns: Annotated[
+        list[str],
+        Argument(
+            help="Glob patterns to match files to delete. Based on fnmatch, '*' matches files recursively.",
+        ),
+    ],
+    repo_type: RepoTypeOpt = RepoType.model,
+    revision: RevisionOpt = None,
+    commit_message: Annotated[
+        str | None,
+        Option(
+            help="The summary / title / first line of the generated commit.",
+        ),
+    ] = None,
+    commit_description: Annotated[
+        str | None,
+        Option(
+            help="The description of the generated commit.",
+        ),
+    ] = None,
+    create_pr: Annotated[
+        bool,
+        Option(
+            help="Whether to create a new Pull Request for these changes.",
+        ),
+    ] = False,
+    token: TokenOpt = None,
+) -> None:
+    out.warning("`hf repo-files delete` is deprecated. Use `hf repos delete-files` instead.")
+    api = get_hf_api(token=token)
+    url = api.delete_files(
+        delete_patterns=patterns,
+        repo_id=repo_id,
+        repo_type=repo_type.value,
+        revision=revision,
+        commit_message=commit_message,
+        commit_description=commit_description,
+        create_pr=create_pr,
+    )
+    out.result("Files deleted", repo_id=repo_id, commit_url=url)

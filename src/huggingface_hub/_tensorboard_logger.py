@@ -14,7 +14,6 @@
 """Contains a logger to push training logs to the Hub, using Tensorboard."""
 
 from pathlib import Path
-from typing import List, Optional, Union
 
 from ._commit_scheduler import CommitScheduler
 from .errors import EntryNotFoundError
@@ -39,7 +38,7 @@ except ImportError:
         class _DummySummaryWriter:
             pass
 
-        _RuntimeSummaryWriter = _DummySummaryWriter  # type: ignore[assignment]
+        _RuntimeSummaryWriter = _DummySummaryWriter  # type: ignore[assignment]  # ty: ignore[conflicting-declarations]
         is_summary_writer_available = False
 
 
@@ -74,10 +73,10 @@ class HFSummaryWriter(_RuntimeSummaryWriter):
             Whether to make the repo private. If `None` (default), the repo will be public unless the organization's default is private. This value is ignored if the repo already exists.
         path_in_repo (`str`, *optional*):
             The path to the folder in the repo where the logs will be pushed. Defaults to "tensorboard/".
-        repo_allow_patterns (`List[str]` or `str`, *optional*):
+        repo_allow_patterns (`list[str]` or `str`, *optional*):
             A list of patterns to include in the upload. Defaults to `"*.tfevents.*"`. Check out the
             [upload guide](https://huggingface.co/docs/huggingface_hub/guides/upload#upload-a-folder) for more details.
-        repo_ignore_patterns (`List[str]` or `str`, *optional*):
+        repo_ignore_patterns (`list[str]` or `str`, *optional*):
             A list of patterns to exclude in the upload. Check out the
             [upload guide](https://huggingface.co/docs/huggingface_hub/guides/upload#upload-a-folder) for more details.
         token (`str`, *optional*):
@@ -127,16 +126,16 @@ class HFSummaryWriter(_RuntimeSummaryWriter):
         self,
         repo_id: str,
         *,
-        logdir: Optional[str] = None,
-        commit_every: Union[int, float] = 5,
+        logdir: str | None = None,
+        commit_every: int | float = 5,
         squash_history: bool = False,
-        repo_type: Optional[str] = None,
-        repo_revision: Optional[str] = None,
-        repo_private: Optional[bool] = None,
-        path_in_repo: Optional[str] = "tensorboard",
-        repo_allow_patterns: Optional[Union[List[str], str]] = "*.tfevents.*",
-        repo_ignore_patterns: Optional[Union[List[str], str]] = None,
-        token: Optional[str] = None,
+        repo_type: str | None = None,
+        repo_revision: str | None = None,
+        repo_private: bool | None = None,
+        path_in_repo: str | None = "tensorboard",
+        repo_allow_patterns: list[str] | str | None = "*.tfevents.*",
+        repo_ignore_patterns: list[str] | str | None = None,
+        token: str | None = None,
         **kwargs,
     ):
         # Initialize SummaryWriter

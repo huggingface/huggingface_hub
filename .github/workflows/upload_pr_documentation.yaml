@@ -8,9 +8,10 @@ on:
 
 jobs:
   build:
-    uses: huggingface/doc-builder/.github/workflows/upload_pr_documentation.yml@main
+    uses: huggingface/doc-builder/.github/workflows/upload_pr_documentation.yml@23dc84b78b3a9e82cfafe163292de87e5d2ee07f  # main
     with:
       package_name: huggingface_hub
     secrets:
       hf_token: ${{ secrets.HF_DOC_BUILD_PUSH }}
-      comment_bot_token: ${{ secrets.COMMENT_BOT_TOKEN }}
+      comment_bot_app_id: ${{ secrets.COMMENT_BOT_APP_ID }}
+      comment_bot_secret_pem: ${{ secrets.COMMENT_BOT_SECRET_PEM }}

@@ -11,42 +11,40 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Contains commands to print information about the environment and version.
+"""Contains commands to print information about the environment and version."""
 
-Usage:
-    hf env
-    hf version
-"""
-
-from argparse import _SubParsersAction
+import click
 
 from huggingface_hub import __version__
 
 from ..utils import dump_environment_info
-from . import BaseHuggingfaceCLICommand
+from ._cli_utils import _fetch_latest_pypi_version, run_update
+from ._output import out
 
 
-class EnvironmentCommand(BaseHuggingfaceCLICommand):
-    def __init__(self, args):
-        self.args = args
-
-    @staticmethod
-    def register_subcommand(parser: _SubParsersAction):
-        env_parser = parser.add_parser("env", help="Print information about the environment.")
-        env_parser.set_defaults(func=EnvironmentCommand)
-
-    def run(self) -> None:
-        dump_environment_info()
+def env() -> None:
+    """Print information about the environment."""
+    dump_environment_info()
 
 
-class VersionCommand(BaseHuggingfaceCLICommand):
-    def __init__(self, args):
-        self.args = args
+def version() -> None:
+    """Print information about the hf version."""
+    out.result("hf version", version=__version__)
 
-    @staticmethod
-    def register_subcommand(parser: _SubParsersAction):
-        version_parser = parser.add_parser("version", help="Print information about the hf version.")
-        version_parser.set_defaults(func=VersionCommand)
 
-    def run(self) -> None:
-        print(f"huggingface_hub version: {__version__}")
+def update() -> None:
+    """Update the `hf` CLI to the latest version."""
+    out.text(f"Current version: {__version__}")
+    out.text("Checking for updates to latest version...")
+    latest_version = _fetch_latest_pypi_version("huggingface_hub")
+    if latest_version is not None and __version__ == latest_version:
+        out.text(f"hf is up to date ({__version__})")
+        return
+
+    returncode = run_update()
+    if returncode != 0:
+        raise click.exceptions.Exit(code=returncode)
+    out.hint(
+        "You may also want to run `hf skills update` to refresh any installed skills "
+        "so your AI agent sees the latest command surface."
+    )

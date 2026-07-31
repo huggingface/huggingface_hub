@@ -1,6 +1,5 @@
 from queue import Queue
 from threading import Lock, Thread
-from typing import Dict, Optional, Union
 from urllib.parse import quote
 
 from .. import constants, logging
@@ -12,7 +11,7 @@ logger = logging.get_logger(__name__)
 # Telemetry is sent by a separate thread to avoid blocking the main thread.
 # A daemon thread is started once and consume tasks from the _TELEMETRY_QUEUE.
 # If the thread stops for some reason -shouldn't happen-, we restart a new one.
-_TELEMETRY_THREAD: Optional[Thread] = None
+_TELEMETRY_THREAD: Thread | None = None
 _TELEMETRY_THREAD_LOCK = Lock()  # Lock to avoid starting multiple threads in parallel
 _TELEMETRY_QUEUE: Queue = Queue()
 
@@ -20,12 +19,12 @@ _TELEMETRY_QUEUE: Queue = Queue()
 def send_telemetry(
     topic: str,
     *,
-    library_name: Optional[str] = None,
-    library_version: Optional[str] = None,
-    user_agent: Union[Dict, str, None] = None,
+    library_name: str | None = None,
+    library_version: str | None = None,
+    user_agent: dict | str | None = None,
 ) -> None:
     """
-    Sends telemetry that helps tracking usage of different HF libraries.
+    Sends telemetry that helps track usage of different HF libraries.
 
     This usage data helps us debug issues and prioritize new features. However, we understand that not everyone wants
     to share additional information, and we respect your privacy. You can disable telemetry collection by setting the
@@ -64,7 +63,7 @@ def send_telemetry(
     ... )
     ```
     """
-    if constants.HF_HUB_OFFLINE or constants.HF_HUB_DISABLE_TELEMETRY:
+    if constants.is_offline_mode() or constants.HF_HUB_DISABLE_TELEMETRY:
         return
 
     _start_telemetry_thread()  # starts thread only if doesn't exist yet
@@ -96,9 +95,9 @@ def _telemetry_worker():
 def _send_telemetry_in_thread(
     topic: str,
     *,
-    library_name: Optional[str] = None,
-    library_version: Optional[str] = None,
-    user_agent: Union[Dict, str, None] = None,
+    library_name: str | None = None,
+    library_version: str | None = None,
+    user_agent: dict | str | None = None,
 ) -> None:
     """Contains the actual data sending data to the Hub.
 

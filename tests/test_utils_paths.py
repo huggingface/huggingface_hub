@@ -1,7 +1,8 @@
-import unittest
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, List, Optional, Union
+from typing import Any, Callable, Optional, Union
+
+import pytest
 
 from huggingface_hub.utils import DEFAULT_IGNORE_PATTERNS, filter_repo_objects
 
@@ -16,7 +17,7 @@ DUMMY_PATHS = [Path(path) for path in DUMMY_FILES]
 DUMMY_OBJECTS = [DummyObject(path=path) for path in DUMMY_FILES]
 
 
-class TestPathsUtils(unittest.TestCase):
+class TestPathsUtils:
     def test_get_all_pdfs(self) -> None:
         """Get all PDFs even hidden ones."""
         self._check(
@@ -72,7 +73,7 @@ class TestPathsUtils(unittest.TestCase):
 
     def test_filter_objects_key_not_provided(self) -> None:
         """Test ValueError is raised if filtering non-string objects."""
-        with self.assertRaisesRegex(ValueError, "Please provide `key` argument"):
+        with pytest.raises(ValueError, match="Please provide `key` argument"):
             list(
                 filter_repo_objects(
                     items=DUMMY_OBJECTS,
@@ -95,16 +96,85 @@ class TestPathsUtils(unittest.TestCase):
             allow_patterns=["path/to/"],
         )
 
+    def test_filter_object_with_empty_pattern(self) -> None:
+        # An empty pattern must not raise: `_add_wildcard_to_directories("")` indexed `pattern[-1]`.
+        self._check(
+            items=["file.txt", "lfs.bin"],
+            expected_items=[],
+            allow_patterns=[""],
+        )
+        self._check(
+            items=["file.txt", "lfs.bin"],
+            expected_items=["file.txt", "lfs.bin"],
+            ignore_patterns=[""],
+        )
+
+    def test_filter_is_case_sensitive(self) -> None:
+        """Pattern matching is case-sensitive.
+        Regression test for https://github.com/huggingface/huggingface_hub/issues/4434.
+        """
+        # Uppercase pattern matches only the uppercase path, not the lowercase one.
+        self._check(
+            items=["README.md", "notes.MD"],
+            expected_items=["notes.MD"],
+            allow_patterns=["*.MD"],
+        )
+        # Lowercase pattern matches only the lowercase path, not the uppercase one.
+        self._check(
+            items=["README.md", "notes.MD"],
+            expected_items=["README.md"],
+            allow_patterns=["*.md"],
+        )
+        # Case-sensitivity also applies to the ignore list.
+        self._check(
+            items=["keep.txt", "drop.LOG", "keep.log"],
+            expected_items=["keep.txt", "keep.log"],
+            ignore_patterns=["*.LOG"],
+        )
+
+    def test_backslashes_are_treated_as_path_separators(self) -> None:
+        """Windows-style patterns (e.g. built with `os.path.join`) match `/`-separated repo paths.
+
+        Regression test for https://github.com/huggingface/huggingface_hub/pull/4506.
+        """
+        # Backslash-separated pattern matches forward-slash paths.
+        self._check(
+            items=["unet/config.json", "vae/config.json", "unet/model.bin"],
+            expected_items=["unet/config.json"],
+            allow_patterns=["unet\\config.json"],
+        )
+        # Backslash-separated paths (e.g. local Windows paths) match forward-slash patterns.
+        self._check(
+            items=["unet\\config.json", "unet\\model.bin"],
+            expected_items=["unet\\config.json"],
+            allow_patterns=["unet/*.json"],
+        )
+        # Also applies to the ignore list.
+        self._check(
+            items=["unet/config.json", "unet/model.bin"],
+            expected_items=["unet/model.bin"],
+            ignore_patterns=["unet\\*.json"],
+        )
+
+    def test_key_returning_path_object(self) -> None:
+        """A custom `key` returning a `Path` (not `str`) must work."""
+        self._check(
+            items=[DummyObject(path=Path("unet/config.json")), DummyObject(path=Path("unet/model.bin"))],
+            expected_items=[DummyObject(path=Path("unet/config.json"))],
+            allow_patterns=["unet/*.json"],
+            key=lambda x: x.path,
+        )
+
     def _check(
         self,
-        items: List[Any],
-        expected_items: List[Any],
-        allow_patterns: Optional[Union[List[str], str]] = None,
-        ignore_patterns: Optional[Union[List[str], str]] = None,
+        items: list[Any],
+        expected_items: list[Any],
+        allow_patterns: Optional[Union[list[str], str]] = None,
+        ignore_patterns: Optional[Union[list[str], str]] = None,
         key: Optional[Callable[[Any], str]] = None,
     ) -> None:
         """Run `filter_repo_objects` and check output against expected result."""
-        self.assertListEqual(
+        assert (
             list(
                 filter_repo_objects(
                     items=items,
@@ -112,12 +182,12 @@ class TestPathsUtils(unittest.TestCase):
                     ignore_patterns=ignore_patterns,
                     key=key,
                 )
-            ),
-            expected_items,
+            )
+            == expected_items
         )
 
 
-class TestDefaultIgnorePatterns(unittest.TestCase):
+class TestDefaultIgnorePatterns:
     PATHS_TO_IGNORE = [
         ".git",
         ".git/file.txt",
@@ -147,4 +217,4 @@ class TestDefaultIgnorePatterns(unittest.TestCase):
         filtered_paths = filter_repo_objects(
             items=self.PATHS_TO_IGNORE + self.VALID_PATHS, ignore_patterns=DEFAULT_IGNORE_PATTERNS
         )
-        self.assertListEqual(list(filtered_paths), self.VALID_PATHS)
+        assert list(filtered_paths) == self.VALID_PATHS

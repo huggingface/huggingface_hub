@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2019-present, the HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,15 +13,12 @@
 # limitations under the License.
 """Git LFS related type definitions and utilities"""
 
-import inspect
 import io
 import re
-import warnings
-from dataclasses import dataclass
+from collections.abc import Iterable
 from math import ceil
 from os.path import getsize
-from pathlib import Path
-from typing import TYPE_CHECKING, BinaryIO, Dict, Iterable, List, Optional, Tuple, TypedDict
+from typing import TYPE_CHECKING, BinaryIO, TypedDict
 from urllib.parse import unquote
 
 from huggingface_hub import constants
@@ -30,16 +26,13 @@ from huggingface_hub import constants
 from .utils import (
     build_hf_headers,
     fix_hf_endpoint_in_url,
-    get_session,
     hf_raise_for_status,
     http_backoff,
     logging,
-    tqdm,
     validate_hf_hub_args,
 )
 from .utils._lfs import SliceFileObj
 from .utils.sha import sha256, sha_fileobj
-from .utils.tqdm import is_tqdm_disabled
 
 
 if TYPE_CHECKING:
@@ -57,32 +50,69 @@ LFS_HEADERS = {
 }
 
 
-@dataclass
 class UploadInfo:
     """
-    Dataclass holding required information to determine whether a blob
-    should be uploaded to the hub using the LFS protocol or the regular protocol
+    Data structure holding required information to determine whether a blob
+    should be uploaded to the hub using the LFS protocol or the regular protocol.
+
+    The SHA256 of the blob is computed lazily: creating an `UploadInfo` from a local path only reads
+    the first 512 bytes of the file. The full file is read (and hashed) only if `sha256` is accessed
+    before it has been set. When a file is uploaded through the Xet protocol, the SHA256 is computed
+    during upload (single read pass) and set afterwards.
 
     Args:
-        sha256 (`bytes`):
-            SHA256 hash of the blob
         size (`int`):
             Size in bytes of the blob
         sample (`bytes`):
             First 512 bytes of the blob
+        sha256 (`bytes`, *optional*):
+            SHA256 hash of the blob, if already known. Otherwise computed lazily from `source_path`.
+        source_path (`str`, *optional*):
+            Path to the local file the blob comes from. Required to lazily compute `sha256` if not provided.
     """
 
-    sha256: bytes
-    size: int
-    sample: bytes
+    def __init__(
+        self,
+        size: int,
+        sample: bytes,
+        sha256: bytes | None = None,
+        source_path: str | None = None,
+    ):
+        if sha256 is None and source_path is None:
+            raise ValueError("Either `sha256` or `source_path` must be provided.")
+        self.size = size
+        self.sample = sample
+        self._sha256 = sha256
+        self._source_path = source_path
+
+    @property
+    def sha256(self) -> bytes:
+        """SHA256 of the blob. If not set yet, reads the whole file from `source_path` to compute it."""
+        if self._sha256 is None:
+            assert self._source_path is not None  # guaranteed by __init__
+            with open(self._source_path, "rb") as file:
+                self._sha256 = sha_fileobj(file)
+        return self._sha256
+
+    @sha256.setter
+    def sha256(self, value: bytes) -> None:
+        self._sha256 = value
+
+    @property
+    def is_hashed(self) -> bool:
+        """Whether the SHA256 is already known (accessing `sha256` will not trigger a file read)."""
+        return self._sha256 is not None
+
+    def __repr__(self) -> str:
+        sha = self._sha256.hex() if self._sha256 is not None else "<not computed>"
+        return f"UploadInfo(size={self.size}, sha256={sha})"
 
     @classmethod
     def from_path(cls, path: str):
         size = getsize(path)
-        with io.open(path, "rb") as file:
+        with open(path, "rb") as file:
             sample = file.peek(512)[:512]
-            sha = sha_fileobj(file)
-        return cls(size=size, sha256=sha, sample=sample)
+        return cls(size=size, sample=sample, source_path=path)
 
     @classmethod
     def from_bytes(cls, data: bytes):
@@ -102,14 +132,14 @@ class UploadInfo:
 @validate_hf_hub_args
 def post_lfs_batch_info(
     upload_infos: Iterable[UploadInfo],
-    token: Optional[str],
+    token: str | None,
     repo_type: str,
     repo_id: str,
-    revision: Optional[str] = None,
-    endpoint: Optional[str] = None,
-    headers: Optional[Dict[str, str]] = None,
-    transfers: Optional[List[str]] = None,
-) -> Tuple[List[dict], List[dict], Optional[str]]:
+    revision: str | None = None,
+    endpoint: str | None = None,
+    headers: dict[str, str] | None = None,
+    transfers: list[str] | None = None,
+) -> tuple[list[dict], list[dict], str | None]:
     """
     Requests the LFS batch endpoint to retrieve upload instructions
 
@@ -119,6 +149,9 @@ def post_lfs_batch_info(
         upload_infos (`Iterable` of `UploadInfo`):
             `UploadInfo` for the files that are being uploaded, typically obtained
             from `CommitOperationAdd.upload_info`
+        token (`str` or `None`):
+            An authentication token (see https://huggingface.co/settings/token).
+            Pass `None` to fall back to the local cached token (or no token if unauthenticated).
         repo_type (`str`):
             Type of the repo to upload to: `"model"`, `"dataset"` or `"space"`.
         repo_id (`str`):
@@ -126,6 +159,8 @@ def post_lfs_batch_info(
             by a `/`.
         revision (`str`, *optional*):
             The git revision to upload to.
+        endpoint (`str`, *optional*):
+            The Hub endpoint to send the request to. Defaults to the value of `HF_ENDPOINT`.
         headers (`dict`, *optional*):
             Additional headers to include in the request
         transfers (`list`, *optional*):
@@ -140,7 +175,7 @@ def post_lfs_batch_info(
     Raises:
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             If an argument is invalid or the server response is malformed.
-        [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
+        [`HfHubHTTPError`]
             If the server returned an error.
     """
     endpoint = endpoint if endpoint is not None else constants.ENDPOINT
@@ -148,7 +183,7 @@ def post_lfs_batch_info(
     if repo_type in constants.REPO_TYPES_URL_PREFIXES:
         url_prefix = constants.REPO_TYPES_URL_PREFIXES[repo_type]
     batch_url = f"{endpoint}/{url_prefix}{repo_id}.git/info/lfs/objects/batch"
-    payload: Dict = {
+    payload: dict = {
         "operation": "upload",
         "transfers": transfers if transfers is not None else ["basic", "multipart"],
         "objects": [
@@ -168,7 +203,7 @@ def post_lfs_batch_info(
         **build_hf_headers(token=token),
         **(headers or {}),
     }
-    resp = get_session().post(batch_url, headers=headers, json=payload)
+    resp = http_backoff("POST", batch_url, headers=headers, json=payload)
     hf_raise_for_status(resp)
     batch_info = resp.json()
 
@@ -195,15 +230,15 @@ class CompletionPayloadT(TypedDict):
     """Payload that will be sent to the Hub when uploading multi-part."""
 
     oid: str
-    parts: List[PayloadPartT]
+    parts: list[PayloadPartT]
 
 
 def lfs_upload(
     operation: "CommitOperationAdd",
-    lfs_batch_action: Dict,
-    token: Optional[str] = None,
-    headers: Optional[Dict[str, str]] = None,
-    endpoint: Optional[str] = None,
+    lfs_batch_action: dict,
+    token: str | None = None,
+    headers: dict[str, str] | None = None,
+    endpoint: str | None = None,
 ) -> None:
     """
     Handles uploading a given object to the Hub with the LFS protocol.
@@ -216,13 +251,19 @@ def lfs_upload(
         lfs_batch_action (`dict`):
             Upload instructions from the LFS batch endpoint for this object. See [`~utils.lfs.post_lfs_batch_info`] for
             more details.
+        token (`str`, *optional*):
+            An authentication token (see https://huggingface.co/settings/token). Used to call the
+            optional LFS verify step at the end of the upload. If `None`, falls back to the local
+            cached token.
         headers (`dict`, *optional*):
             Headers to include in the request, including authentication and user agent headers.
+        endpoint (`str`, *optional*):
+            The Hub endpoint to send the request to. Defaults to the value of `HF_ENDPOINT`.
 
     Raises:
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             If `lfs_batch_action` is improperly formatted
-        [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
+        [`HfHubHTTPError`]
             If the upload resulted in an error
     """
     # 0. If LFS file is already present, skip upload
@@ -259,7 +300,8 @@ def lfs_upload(
     if verify_action is not None:
         _validate_lfs_action(verify_action)
         verify_url = fix_hf_endpoint_in_url(verify_action["href"], endpoint)
-        verify_resp = get_session().post(
+        verify_resp = http_backoff(
+            "POST",
             verify_url,
             headers=build_hf_headers(token=token, headers=headers),
             json={"oid": operation.upload_info.sha256.hex(), "size": operation.upload_info.size},
@@ -316,11 +358,9 @@ def _upload_single_part(operation: "CommitOperationAdd", upload_url: str) -> Non
         fileobj:
             The file-like object holding the data to upload.
 
-    Returns: `requests.Response`
-
     Raises:
-     [`HTTPError`](https://requests.readthedocs.io/en/latest/api/#requests.HTTPError)
-        If the upload resulted in an error.
+        [`HfHubHTTPError`]
+            If the upload resulted in an error.
     """
     with operation.as_file(with_tqdm=True) as fileobj:
         # S3 might raise a transient 500 error -> let's retry if that happens
@@ -328,34 +368,22 @@ def _upload_single_part(operation: "CommitOperationAdd", upload_url: str) -> Non
         hf_raise_for_status(response)
 
 
-def _upload_multi_part(operation: "CommitOperationAdd", header: Dict, chunk_size: int, upload_url: str) -> None:
+def _upload_multi_part(operation: "CommitOperationAdd", header: dict, chunk_size: int, upload_url: str) -> None:
     """
     Uploads file using HF multipart LFS transfer protocol.
     """
     # 1. Get upload URLs for each part
     sorted_parts_urls = _get_sorted_parts_urls(header=header, upload_info=operation.upload_info, chunk_size=chunk_size)
 
-    # 2. Upload parts (either with hf_transfer or in pure Python)
-    use_hf_transfer = constants.HF_HUB_ENABLE_HF_TRANSFER
-    if (
-        constants.HF_HUB_ENABLE_HF_TRANSFER
-        and not isinstance(operation.path_or_fileobj, str)
-        and not isinstance(operation.path_or_fileobj, Path)
-    ):
-        warnings.warn(
-            "hf_transfer is enabled but does not support uploading from bytes or BinaryIO, falling back to regular"
-            " upload"
-        )
-        use_hf_transfer = False
-
-    response_headers = (
-        _upload_parts_hf_transfer(operation=operation, sorted_parts_urls=sorted_parts_urls, chunk_size=chunk_size)
-        if use_hf_transfer
-        else _upload_parts_iteratively(operation=operation, sorted_parts_urls=sorted_parts_urls, chunk_size=chunk_size)
+    # 2. Upload parts (pure Python)
+    response_headers = _upload_parts_iteratively(
+        operation=operation, sorted_parts_urls=sorted_parts_urls, chunk_size=chunk_size
     )
 
     # 3. Send completion request
-    completion_res = get_session().post(
+    # NOTE: `upload_url` is the Hub completion endpoint (not the S3 upload URLs).
+    completion_res = http_backoff(
+        "POST",
         upload_url,
         json=_get_completion_payload(response_headers, operation.upload_info.sha256.hex()),
         headers=LFS_HEADERS,
@@ -363,7 +391,7 @@ def _upload_multi_part(operation: "CommitOperationAdd", header: Dict, chunk_size
     hf_raise_for_status(completion_res)
 
 
-def _get_sorted_parts_urls(header: Dict, upload_info: UploadInfo, chunk_size: int) -> List[str]:
+def _get_sorted_parts_urls(header: dict, upload_info: UploadInfo, chunk_size: int) -> list[str]:
     sorted_part_upload_urls = [
         upload_url
         for _, upload_url in sorted(
@@ -381,8 +409,8 @@ def _get_sorted_parts_urls(header: Dict, upload_info: UploadInfo, chunk_size: in
     return sorted_part_upload_urls
 
 
-def _get_completion_payload(response_headers: List[Dict], oid: str) -> CompletionPayloadT:
-    parts: List[PayloadPartT] = []
+def _get_completion_payload(response_headers: list[dict], oid: str) -> CompletionPayloadT:
+    parts: list[PayloadPartT] = []
     for part_number, header in enumerate(response_headers):
         etag = header.get("etag")
         if etag is None or etag == "":
@@ -397,8 +425,8 @@ def _get_completion_payload(response_headers: List[Dict], oid: str) -> Completio
 
 
 def _upload_parts_iteratively(
-    operation: "CommitOperationAdd", sorted_parts_urls: List[str], chunk_size: int
-) -> List[Dict]:
+    operation: "CommitOperationAdd", sorted_parts_urls: list[str], chunk_size: int
+) -> list[dict]:
     headers = []
     with operation.as_file(with_tqdm=True) as fileobj:
         for part_idx, part_upload_url in enumerate(sorted_parts_urls):
@@ -412,55 +440,3 @@ def _upload_parts_iteratively(
                 hf_raise_for_status(part_upload_res)
                 headers.append(part_upload_res.headers)
     return headers  # type: ignore
-
-
-def _upload_parts_hf_transfer(
-    operation: "CommitOperationAdd", sorted_parts_urls: List[str], chunk_size: int
-) -> List[Dict]:
-    # Upload file using an external Rust-based package. Upload is faster but support less features (no progress bars).
-    try:
-        from hf_transfer import multipart_upload
-    except ImportError:
-        raise ValueError(
-            "Fast uploading using 'hf_transfer' is enabled (HF_HUB_ENABLE_HF_TRANSFER=1) but 'hf_transfer' package is"
-            " not available in your environment. Try `pip install hf_transfer`."
-        )
-
-    supports_callback = "callback" in inspect.signature(multipart_upload).parameters
-    if not supports_callback:
-        warnings.warn(
-            "You are using an outdated version of `hf_transfer`. Consider upgrading to latest version to enable progress bars using `pip install -U hf_transfer`."
-        )
-
-    total = operation.upload_info.size
-    desc = operation.path_in_repo
-    if len(desc) > 40:
-        desc = f"(…){desc[-40:]}"
-
-    with tqdm(
-        unit="B",
-        unit_scale=True,
-        total=total,
-        initial=0,
-        desc=desc,
-        disable=is_tqdm_disabled(logger.getEffectiveLevel()),
-        name="huggingface_hub.lfs_upload",
-    ) as progress:
-        try:
-            output = multipart_upload(
-                file_path=operation.path_or_fileobj,
-                parts_urls=sorted_parts_urls,
-                chunk_size=chunk_size,
-                max_files=128,
-                parallel_failures=127,  # could be removed
-                max_retries=5,
-                **({"callback": progress.update} if supports_callback else {}),
-            )
-        except Exception as e:
-            raise RuntimeError(
-                "An error occurred while uploading using `hf_transfer`. Consider disabling HF_HUB_ENABLE_HF_TRANSFER for"
-                " better error handling."
-            ) from e
-        if not supports_callback:
-            progress.update(total)
-        return output

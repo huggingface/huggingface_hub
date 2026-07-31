@@ -6,7 +6,7 @@ Formatting utilities taken from the JS SDK: https://github.com/huggingface/huggi
 
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING, List, Optional, Tuple
+from typing import TYPE_CHECKING, Optional
 
 from huggingface_hub import snapshot_download
 from huggingface_hub.errors import EntryNotFoundError
@@ -36,35 +36,37 @@ def format_result(result: "mcp_types.CallToolResult") -> str:
     if len(content) == 0:
         return "[No content]"
 
-    formatted_parts: List[str] = []
+    formatted_parts: list[str] = []
 
     for item in content:
-        if item.type == "text":
-            formatted_parts.append(item.text)
+        match item.type:
+            case "text":
+                formatted_parts.append(item.text)
 
-        elif item.type == "image":
-            formatted_parts.append(
-                f"[Binary Content: Image {item.mimeType}, {_get_base64_size(item.data)} bytes]\n"
-                f"The task is complete and the content accessible to the User"
-            )
-
-        elif item.type == "audio":
-            formatted_parts.append(
-                f"[Binary Content: Audio {item.mimeType}, {_get_base64_size(item.data)} bytes]\n"
-                f"The task is complete and the content accessible to the User"
-            )
-
-        elif item.type == "resource":
-            resource = item.resource
-
-            if hasattr(resource, "text"):
-                formatted_parts.append(resource.text)
-
-            elif hasattr(resource, "blob"):
+            case "image":
                 formatted_parts.append(
-                    f"[Binary Content ({resource.uri}): {resource.mimeType}, {_get_base64_size(resource.blob)} bytes]\n"
+                    f"[Binary Content: Image {item.mimeType}, {_get_base64_size(item.data)} bytes]\n"
                     f"The task is complete and the content accessible to the User"
                 )
+
+            case "audio":
+                formatted_parts.append(
+                    f"[Binary Content: Audio {item.mimeType}, {_get_base64_size(item.data)} bytes]\n"
+                    f"The task is complete and the content accessible to the User"
+                )
+
+            case "resource":
+                resource = item.resource
+
+                if hasattr(resource, "text") and isinstance(resource.text, str):
+                    formatted_parts.append(resource.text)
+
+                elif hasattr(resource, "blob") and isinstance(resource.blob, str):
+                    formatted_parts.append(
+                        f"[Binary Content ({resource.uri}): {resource.mimeType},"
+                        f" {_get_base64_size(resource.blob)} bytes]\n"
+                        f"The task is complete and the content accessible to the User"
+                    )
 
     return "\n".join(formatted_parts)
 
@@ -84,10 +86,10 @@ def _get_base64_size(base64_str: str) -> int:
     return (len(base64_str) * 3) // 4 - padding
 
 
-def _load_agent_config(agent_path: Optional[str]) -> Tuple[AgentConfig, Optional[str]]:
+def _load_agent_config(agent_path: Optional[str]) -> tuple[AgentConfig, Optional[str]]:
     """Load server config and prompt."""
 
-    def _read_dir(directory: Path) -> Tuple[AgentConfig, Optional[str]]:
+    def _read_dir(directory: Path) -> tuple[AgentConfig, Optional[str]]:
         cfg_file = directory / FILENAME_CONFIG
         if not cfg_file.exists():
             raise FileNotFoundError(f" Config file not found in {directory}! Please make sure it exists locally")
@@ -102,7 +104,7 @@ def _load_agent_config(agent_path: Optional[str]) -> Tuple[AgentConfig, Optional
         return config, prompt
 
     if agent_path is None:
-        return DEFAULT_AGENT, None  # type: ignore[return-value]
+        return DEFAULT_AGENT, None  # type: ignore
 
     path = Path(agent_path).expanduser()
 

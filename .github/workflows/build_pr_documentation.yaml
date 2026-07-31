@@ -9,9 +9,9 @@ concurrency:
 
 jobs:
   build:
-    uses: huggingface/doc-builder/.github/workflows/build_pr_documentation.yml@main
+    uses: huggingface/doc-builder/.github/workflows/build_pr_documentation.yml@23dc84b78b3a9e82cfafe163292de87e5d2ee07f  # main
     with:
       commit_sha: ${{ github.event.pull_request.head.sha }}
       pr_number: ${{ github.event.number }}
       package: huggingface_hub
-      languages: cn de fr en hi ko tm
+      languages: cn de fr en hi ko or ta

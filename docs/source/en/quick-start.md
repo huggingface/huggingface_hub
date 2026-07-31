@@ -20,6 +20,17 @@ pip install --upgrade huggingface_hub
 
 For more details, check out the [installation](installation) guide.
 
+> [!TIP]
+> The `huggingface_hub` also ships with a [`hf` CLI](./guides/cli) that lets you interact with the Hub directly from the terminal.
+> If you're using AI agents (Claude Code, Codex, Cursor, ...), install the Skill to let your agent use the CLI:
+> ```bash
+> # for Codex, Cursor, OpenCode, Pi and other agents that load skills from `.agents/skills`
+> hf skills add
+> # includes the above + Claude Code
+> hf skills add --claude
+> ```
+> Check out the [Hugging Face CLI for AI Agents](https://huggingface.co/docs/hub/agents-cli) guide for more details.
+
 ## Download files
 
 Repositories on the Hub are git version controlled, and users can download a single file
@@ -57,25 +68,22 @@ For more details and options, see the API reference for [`hf_hub_download`].
 
 In a lot of cases, you must be authenticated with a Hugging Face account to interact with
 the Hub: download private repos, upload files, create PRs,...
-[Create an account](https://huggingface.co/join) if you don't already have one, and then sign in
-to get your [User Access Token](https://huggingface.co/docs/hub/security-tokens) from
-your [Settings page](https://huggingface.co/settings/tokens). The User Access Token is
-used to authenticate your identity to the Hub.
-
-> [!TIP]
-> Tokens can have `read` or `write` permissions. Make sure to have a `write` access token if you want to create or edit a repository. Otherwise, it's best to generate a `read` token to reduce risk in case your token is inadvertently leaked.
+[Create an account](https://huggingface.co/join) if you don't already have one.
 
 ### Login command
 
-The easiest way to authenticate is to save the token on your machine. You can do that from the terminal using the [`login`] command:
+The easiest way to authenticate is with the [`login`] command:
 
 ```bash
 hf auth login
 ```
 
-The command will tell you if you are already logged in and prompt you for your token. The token is then validated and saved in your `HF_HOME` directory (defaults to `~/.cache/huggingface/token`). Any script or library interacting with the Hub will use this token when sending requests.
+If you are already logged in, the command will return immediately. To force re-login, use `hf auth login --force`. If you are not logged in, you will be prompted to log in with your browser: open the printed URL, enter the short code, approve the request, and an access token is retrieved and saved in your `HF_HOME` directory (defaults to `~/.cache/huggingface/token`). The token expires after a while but is refreshed automatically as long as you keep using it. Any script or library interacting with the Hub will use this token when sending requests. Alternatively, you can paste a [User Access Token](https://huggingface.co/docs/hub/security-tokens) generated from your [Settings page](https://huggingface.co/settings/tokens).
 
-Alternatively, you can programmatically login using [`login`] in a notebook or a script:
+> [!TIP]
+> User Access Tokens can have `read` or `write` permissions. Make sure to have a `write` access token if you want to create or edit a repository. Otherwise, it's best to generate a `read` token to reduce risk in case your token is inadvertently leaked.
+
+Alternatively, you can programmatically log in using [`login`] in a notebook or a script:
 
 ```py
 >>> from huggingface_hub import login

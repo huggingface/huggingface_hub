@@ -8,10 +8,13 @@ Check the [`HfApi`] documentation page for the reference of methods to manage yo
 
 - Run a Job: [`run_job`]
 - Fetch logs: [`fetch_job_logs`]
+- Fetch metrics: [`fetch_job_metrics`]
 - Inspect Job: [`inspect_job`]
+- Wait until Job(s) finish: [`wait_for_job`]
 - List Jobs: [`list_jobs`]
 - Cancel Job: [`cancel_job`]
 - Run a UV Job: [`run_uv_job`]
+- Sync a local directory to mount it in a Job: [`sync_job_volume`]
 
 ## Data structures
 
@@ -31,3 +34,7 @@ Check the [`HfApi`] documentation page for the reference of methods to manage yo
 ### JobStatus
 
 [[autodoc]] JobStatus
+
+### Volume
+
+[[autodoc]] Volume

@@ -13,23 +13,28 @@
 # limitations under the License.
 """Contains methods to log in to the Hub."""
 
+import html
 import os
 import subprocess
+import sys
+import time
+from datetime import datetime
 from getpass import getpass
 from pathlib import Path
-from typing import Optional
 
 from . import constants
-from .commands._cli_utils import ANSI
+from .errors import DeviceCodeError
 from .utils import (
-    capture_output,
+    ANSI,
     get_token,
     is_google_colab,
     is_notebook,
     list_credential_helpers,
     logging,
     run_subprocess,
+    select_choice,
     set_git_credential,
+    tabulate,
     unset_git_credential,
 )
 from .utils._auth import (
@@ -37,50 +42,34 @@ from .utils._auth import (
     _get_token_from_environment,
     _get_token_from_file,
     _get_token_from_google_colab,
-    _save_stored_tokens,
+    _read_stored_tokens_full,
+    _save_stored_tokens_full,
     _save_token,
+    _write_secret,
     get_stored_tokens,
 )
-from .utils._deprecation import _deprecate_arguments, _deprecate_positional_args
+from .utils._oauth_device import OAuthTokenResponse, poll_device_token, request_device_code
 
 
 logger = logging.get_logger(__name__)
 
-_HF_LOGO_ASCII = """
-    _|    _|  _|    _|    _|_|_|    _|_|_|  _|_|_|  _|      _|    _|_|_|      _|_|_|_|    _|_|      _|_|_|  _|_|_|_|
-    _|    _|  _|    _|  _|        _|          _|    _|_|    _|  _|            _|        _|    _|  _|        _|
-    _|_|_|_|  _|    _|  _|  _|_|  _|  _|_|    _|    _|  _|  _|  _|  _|_|      _|_|_|    _|_|_|_|  _|        _|_|_|
-    _|    _|  _|    _|  _|    _|  _|    _|    _|    _|    _|_|  _|    _|      _|        _|    _|  _|        _|
-    _|    _|    _|_|      _|_|_|    _|_|_|  _|_|_|  _|      _|    _|_|_|      _|        _|    _|    _|_|_|  _|_|_|_|
-"""
 
-
-@_deprecate_arguments(
-    version="1.0",
-    deprecated_args="write_permission",
-    custom_message="Fine-grained tokens added complexity to the permissions, making it irrelevant to check if a token has 'write' access.",
-)
-@_deprecate_positional_args(version="1.0")
 def login(
-    token: Optional[str] = None,
+    token: str | None = None,
     *,
     add_to_git_credential: bool = False,
-    new_session: bool = True,
-    write_permission: bool = False,
+    skip_if_logged_in: bool = True,
 ) -> None:
     """Login the machine to access the Hub.
 
     The `token` is persisted in cache and set as a git credential. Once done, the machine
     is logged in and the access token will be available across all `huggingface_hub`
-    components. If `token` is not provided, it will be prompted to the user either with
-    a widget (in a notebook) or via the terminal.
+    components. If `token` is not provided, a browser-based OAuth flow is used to
+    authenticate: open a URL, enter a short code, and the token is retrieved and saved.
+    In a terminal, you can also choose to paste an existing access token instead.
 
     To log in from outside of a script, one can also use `hf auth login` which is
     a cli command that wraps [`login`].
-
-    > [!TIP]
-    > [`login`] is a drop-in replacement method for [`notebook_login`] as it wraps and
-    > extends its capabilities.
 
     > [!TIP]
     > When the token is not passed, [`login`] will automatically detect if the script runs
@@ -93,21 +82,19 @@ def login(
             User access token to generate from https://huggingface.co/settings/token.
         add_to_git_credential (`bool`, defaults to `False`):
             If `True`, token will be set as git credential. If no git credential helper
-            is configured, a warning will be displayed to the user. If `token` is `None`,
-            the value of `add_to_git_credential` is ignored and will be prompted again
-            to the end user.
-        new_session (`bool`, defaults to `True`):
-            If `True`, will request a token even if one is already saved on the machine.
-        write_permission (`bool`):
-            Ignored and deprecated argument.
+            is configured, a warning will be displayed to the user. Only used when `token`
+            is provided; ignored by the browser-based flow.
+        skip_if_logged_in (`bool`, defaults to `True`):
+            If `True`, do not prompt for token if user is already logged in.
+            Set to `False` to force re-login. In CLI, use `--force` instead.
     Raises:
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             If an organization token is passed. Only personal account tokens are valid
             to log in.
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             If token is invalid.
-        [`ImportError`](https://docs.python.org/3/library/exceptions.html#ImportError)
-            If running in a notebook but `ipywidgets` is not installed.
+        [`DeviceCodeError`]
+            If the browser-based login fails (authorization denied, code expired, ...).
     """
     if token is not None:
         if not add_to_git_credential:
@@ -117,21 +104,27 @@ def login(
                 "`--add-to-git-credential` if using via `hf`CLI if "
                 "you want to set the git credential as well."
             )
-        _login(token, add_to_git_credential=add_to_git_credential)
-    elif is_notebook():
-        notebook_login(new_session=new_session)
+        _validate_and_save_token(token, add_to_git_credential=add_to_git_credential)
+        return
+    if add_to_git_credential:
+        logger.warning(
+            "`add_to_git_credential=True` is only supported when a token is passed directly. "
+            "It is ignored by the browser-based login."
+        )
+    if is_notebook():
+        notebook_login(skip_if_logged_in=skip_if_logged_in)
     else:
-        interpreter_login(new_session=new_session)
+        interpreter_login(skip_if_logged_in=skip_if_logged_in)
 
 
-def logout(token_name: Optional[str] = None) -> None:
+def logout(token_name: str | None = None) -> None:
     """Logout the machine from the Hub.
 
     Token is deleted from the machine and removed from git credential.
 
     Args:
         token_name (`str`, *optional*):
-            Name of the access token to logout from. If `None`, will logout from all saved access tokens.
+            Name of the access token to logout from. If `None`, will log out from all saved access tokens.
     Raises:
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError):
             If the access token name is not found.
@@ -155,12 +148,12 @@ def logout(token_name: Optional[str] = None) -> None:
 
     # Check if still logged in
     if _get_token_from_google_colab() is not None:
-        raise EnvironmentError(
+        raise OSError(
             "You are automatically logged in using a Google Colab secret.\n"
             "To log out, you must unset the `HF_TOKEN` secret in your Colab settings."
         )
     if _get_token_from_environment() is not None:
-        raise EnvironmentError(
+        raise OSError(
             "Token has been deleted from your machine but you are still logged in.\n"
             "To log out, you must clear out both `HF_TOKEN` and `HUGGING_FACE_HUB_TOKEN` environment variables."
         )
@@ -197,29 +190,33 @@ def auth_switch(token_name: str, add_to_git_credential: bool = False) -> None:
 
 def auth_list() -> None:
     """List all stored access tokens."""
-    tokens = get_stored_tokens()
-
-    if not tokens:
-        logger.info("No access tokens found.")
-        return
-    # Find current token
+    # Resolve the current token before reading the file: `get_token()` may refresh an OAuth
+    # token and rewrite the stored tokens on the way.
     current_token = get_token()
+    stored_tokens = _read_stored_tokens_full()
+
+    if not stored_tokens:
+        if _get_token_from_environment():
+            logger.info("No stored access tokens found.")
+            logger.warning("Note: Environment variable `HF_TOKEN` is set and is the current active token.")
+        else:
+            logger.info("No access tokens found.")
+        return
+    show_expires = any("expires_at" in fields for fields in stored_tokens.values())
+    headers = [" ", "name", "token"] + (["expires"] if show_expires else [])
+
     current_token_name = None
-    for token_name in tokens:
-        if tokens.get(token_name) == current_token:
+    rows: list[list[str | int]] = []
+    for token_name, fields in stored_tokens.items():
+        token = fields.get("hf_token", "<not set>")
+        if token == current_token:
             current_token_name = token_name
-    # Print header
-    max_offset = max(len("token"), max(len(token) for token in tokens)) + 2
-    print(f"  {{:<{max_offset}}}| {{:<15}}".format("name", "token"))
-    print("-" * (max_offset + 2) + "|" + "-" * 15)
-
-    # Print saved access tokens
-    for token_name in tokens:
-        token = tokens.get(token_name, "<not set>")
         masked_token = f"{token[:3]}****{token[-4:]}" if token != "<not set>" else token
-        is_current = "*" if token == current_token else " "
-
-        print(f"{is_current} {{:<{max_offset}}}| {{:<15}}".format(token_name, masked_token))
+        row: list[str | int] = ["*" if token == current_token else "", token_name, masked_token]
+        if show_expires:
+            row.append(_format_expiration(fields.get("expires_at")))
+        rows.append(row)
+    print(tabulate(rows, headers=headers))
 
     if _get_token_from_environment():
         logger.warning(
@@ -232,153 +229,167 @@ def auth_list() -> None:
 
 
 ###
+# Device Code OAuth login (RFC 8628)
+###
+
+
+def _device_code_login() -> None:
+    """Run the Device Code OAuth flow: request a code, prompt the user to authorize it in a browser,
+    poll for the token and save it."""
+    device_info = request_device_code()
+
+    # The complete URI has the code pre-filled when the server supports it.
+    print(f"\n    Open this URL in your browser:\n        {device_info['verification_uri_complete']}\n")
+    print(f"    And enter the code: {device_info['user_code']}\n")
+
+    print("    Waiting for authorization", end="", flush=True)
+    try:
+        response = poll_device_token(device_info, on_pending=lambda: print(".", end="", flush=True))
+    finally:
+        print()  # newline after the progress dots, also on failure
+
+    _save_oauth_token(response)
+
+
+def _save_oauth_token(response: OAuthTokenResponse) -> tuple[str, str]:
+    """Validate and persist a token response from the device code flow, including refresh metadata."""
+    expires_in = response.get("expires_in")
+    token_name, username = _validate_and_save_token(
+        response["access_token"],
+        add_to_git_credential=False,
+        refresh_token=response.get("refresh_token"),
+        expires_at=int(time.time()) + int(expires_in) if expires_in else None,
+    )
+    if note := _expiration_note(response):
+        logger.info(f"Note: {note}")
+    return token_name, username
+
+
+def _expiration_note(response: OAuthTokenResponse) -> str | None:
+    """Human-readable note about the lifetime of a freshly obtained OAuth token, if known."""
+    expires_in = response.get("expires_in")
+    if not expires_in:
+        return None
+    if response.get("refresh_token"):
+        return "This token will be refreshed automatically when it expires."
+    days = max(1, int(expires_in) // 86400)
+    return f"This token expires in {days} days. Log in again to renew it."
+
+
+###
 # Interpreter-based login (text)
 ###
 
 
-@_deprecate_arguments(
-    version="1.0",
-    deprecated_args="write_permission",
-    custom_message="Fine-grained tokens added complexity to the permissions, making it irrelevant to check if a token has 'write' access.",
-)
-@_deprecate_positional_args(version="1.0")
-def interpreter_login(*, new_session: bool = True, write_permission: bool = False) -> None:
+def interpreter_login(*, skip_if_logged_in: bool = True) -> None:
     """
     Displays a prompt to log in to the HF website and store the token.
 
     This is equivalent to [`login`] without passing a token when not run in a notebook.
     [`interpreter_login`] is useful if you want to force the use of the terminal prompt
-    instead of a notebook widget.
+    instead of a notebook flow.
 
     For more details, see [`login`].
 
     Args:
-        new_session (`bool`, defaults to `True`):
-            If `True`, will request a token even if one is already saved on the machine.
-        write_permission (`bool`):
-            Ignored and deprecated argument.
+        skip_if_logged_in (`bool`, defaults to `True`):
+            If `True`, do not prompt for token if user is already logged in.
+            Set to `False` to force re-login. In CLI, use `--force` instead.
     """
-    if not new_session and get_token() is not None:
-        logger.info("User is already logged in.")
+    if skip_if_logged_in and get_token() is not None:
+        logger.info("User is already logged in. Use `hf auth login --force` to force re-login.")
         return
 
-    from .commands.delete_cache import _ask_for_confirmation_no_tui
-
-    print(_HF_LOGO_ASCII)
     if get_token() is not None:
-        logger.info(
-            "    A token is already saved on your machine. Run `hf auth whoami`"
-            " to get more information or `hf auth logout` if you want"
-            " to log out."
-        )
-        logger.info("    Setting a new token will erase the existing one.")
+        logger.info("Note: a token is already saved on this machine. Logging in again will replace the active token.")
 
+    if _prompt_login_method() == "token":
+        _paste_token_login()
+    else:
+        _device_code_login()
+
+
+def _prompt_login_method() -> str:
+    """Ask the user how to log in: "browser" (default) or "token". Never prompts without a TTY."""
+    if sys.stdin is None or not sys.stdin.isatty():
+        return "browser"
+    choice = select_choice("How would you like to log in?", ["Log in with your browser", "Paste an access token"])
+    return "browser" if choice == 0 else "token"
+
+
+def _paste_token_login() -> None:
     logger.info(
         "    To log in, `huggingface_hub` requires a token generated from https://huggingface.co/settings/tokens ."
     )
     if os.name == "nt":
         logger.info("Token can be pasted using 'Right-Click'.")
     token = getpass("Enter your token (input will not be visible): ")
-    add_to_git_credential = _ask_for_confirmation_no_tui("Add token as git credential?")
-
-    _login(token=token, add_to_git_credential=add_to_git_credential)
+    _validate_and_save_token(token=token, add_to_git_credential=False)
 
 
 ###
-# Notebook-based login (widget)
+# Notebook-based login
 ###
 
-NOTEBOOK_LOGIN_PASSWORD_HTML = """<center> <img
-src=https://huggingface.co/front/assets/huggingface_logo-noborder.svg
-alt='Hugging Face'> <br> Immediately click login after typing your password or
-it might be stored in plain text in this notebook file. </center>"""
 
-
-NOTEBOOK_LOGIN_TOKEN_HTML_START = """<center> <img
-src=https://huggingface.co/front/assets/huggingface_logo-noborder.svg
-alt='Hugging Face'> <br> Copy a token from <a
-href="https://huggingface.co/settings/tokens" target="_blank">your Hugging Face
-tokens page</a> and paste it below. <br> Immediately click login after copying
-your token or it might be stored in plain text in this notebook file. </center>"""
-
-
-NOTEBOOK_LOGIN_TOKEN_HTML_END = """
-<b>Pro Tip:</b> If you don't already have one, you can create a dedicated
-'notebooks' token with 'write' access, that you can then easily reuse for all
-notebooks. </center>"""
-
-
-@_deprecate_arguments(
-    version="1.0",
-    deprecated_args="write_permission",
-    custom_message="Fine-grained tokens added complexity to the permissions, making it irrelevant to check if a token has 'write' access.",
-)
-@_deprecate_positional_args(version="1.0")
-def notebook_login(*, new_session: bool = True, write_permission: bool = False) -> None:
+def notebook_login(*, skip_if_logged_in: bool = True) -> None:
     """
-    Displays a widget to log in to the HF website and store the token.
+    Displays a prompt to log in to the HF website and store the token.
 
     This is equivalent to [`login`] without passing a token when run in a notebook.
-    [`notebook_login`] is useful if you want to force the use of the notebook widget
+    [`notebook_login`] is useful if you want to force the use of the notebook flow
     instead of a prompt in the terminal.
 
     For more details, see [`login`].
 
     Args:
-        new_session (`bool`, defaults to `True`):
-            If `True`, will request a token even if one is already saved on the machine.
-        write_permission (`bool`):
-            Ignored and deprecated argument.
+        skip_if_logged_in (`bool`, defaults to `True`):
+            If `True`, do not prompt for token if user is already logged in.
+            Set to `False` to force re-login. In CLI, use `--force` instead.
     """
-    try:
-        import ipywidgets.widgets as widgets  # type: ignore
-        from IPython.display import display  # type: ignore
-    except ImportError:
-        raise ImportError(
-            "The `notebook_login` function can only be used in a notebook (Jupyter or"
-            " Colab) and you need the `ipywidgets` module: `pip install ipywidgets`."
-        )
-    if not new_session and get_token() is not None:
-        logger.info("User is already logged in.")
+    if skip_if_logged_in and get_token() is not None:
+        logger.info("User is already logged in. Use `hf auth login --force` to force re-login.")
         return
 
-    box_layout = widgets.Layout(display="flex", flex_flow="column", align_items="center", width="50%")
+    try:
+        from IPython.display import HTML, display  # type: ignore
+    except ImportError:
+        # Not in a notebook environment: fall back to the terminal flow
+        interpreter_login(skip_if_logged_in=False)
+        return
 
-    token_widget = widgets.Password(description="Token:")
-    git_checkbox_widget = widgets.Checkbox(value=True, description="Add token as git credential?")
-    token_finish_button = widgets.Button(description="Login")
+    device_info = request_device_code()
+    # Escape server-provided values: they end up in raw notebook HTML.
+    verification_uri = html.escape(device_info["verification_uri"])
+    verification_uri_complete = html.escape(device_info["verification_uri_complete"])
 
-    login_token_widget = widgets.VBox(
-        [
-            widgets.HTML(NOTEBOOK_LOGIN_TOKEN_HTML_START),
-            token_widget,
-            git_checkbox_widget,
-            token_finish_button,
-            widgets.HTML(NOTEBOOK_LOGIN_TOKEN_HTML_END),
-        ],
-        layout=box_layout,
+    display(
+        HTML(
+            '<center><img src="https://huggingface.co/front/assets/huggingface_logo-noborder.svg"'
+            ' width="100" alt="Hugging Face"><br><br>'
+            "<p>To log in, open this URL and enter the code:</p>"
+            f'<p><a href="{verification_uri_complete}" target="_blank"><b>{verification_uri}</b></a></p>'
+            '<p style="font-size: 1.6em; letter-spacing: 0.3em; font-family: monospace;">'
+            f"<b>{html.escape(device_info['user_code'])}</b></p></center>"
+        )
     )
-    display(login_token_widget)
+    display(HTML("<center><i>Waiting for authorization...</i></center>"))
+    try:
+        response = poll_device_token(device_info)
+    except DeviceCodeError as e:
+        display(HTML(f"<center><b style='color: red;'>Login failed: {html.escape(str(e))}</b></center>"))
+        return
 
-    # On click events
-    def login_token_event(t):
-        """Event handler for the login button."""
-        token = token_widget.value
-        add_to_git_credential = git_checkbox_widget.value
-        # Erase token and clear value to make sure it's not saved in the notebook.
-        token_widget.value = ""
-        # Hide inputs
-        login_token_widget.children = [widgets.Label("Connecting...")]
-        try:
-            with capture_output() as captured:
-                _login(token, add_to_git_credential=add_to_git_credential)
-            message = captured.getvalue()
-        except Exception as error:
-            message = str(error)
-        # Print result (success message or error)
-        login_token_widget.children = [widgets.Label(line) for line in message.split("\n") if line.strip()]
+    try:
+        token_name, username = _save_oauth_token(response)
+    except Exception as error:
+        display(HTML(f"<center><b style='color: red;'>{html.escape(str(error))}</b></center>"))
+        return
 
-    token_finish_button.on_click(login_token_event)
+    message = f"Login successful. Logged in as <b>{html.escape(username)}</b> (token: <code>{html.escape(token_name)}</code>)."
+    if note := _expiration_note(response):
+        message += f"<br>{html.escape(note)}"
+    display(HTML(f"<center>{message}</center>"))
 
 
 ###
@@ -386,22 +397,48 @@ def notebook_login(*, new_session: bool = True, write_permission: bool = False) 
 ###
 
 
-def _login(
+def _validate_and_save_token(
     token: str,
     add_to_git_credential: bool,
-) -> None:
+    refresh_token: str | None = None,
+    expires_at: int | None = None,
+) -> tuple[str, str]:
+    """Validate a token against the Hub, save it to the stored tokens file and set it as active.
+
+    The token is stored under its `displayName` from the whoami response, or `oauth-{username}`
+    for OAuth tokens (which have no display name).
+
+    Args:
+        token (`str`):
+            The access token.
+        add_to_git_credential (`bool`):
+            Whether to save the token to the git credential helpers.
+        refresh_token (`str`, *optional*):
+            OAuth refresh token to persist alongside the access token.
+        expires_at (`int`, *optional*):
+            Unix timestamp at which the access token expires.
+
+    Returns:
+        `tuple[str, str]`: The token name and the username.
+    """
     from .hf_api import whoami  # avoid circular import
 
     if token.startswith("api_org"):
         raise ValueError("You must use your personal account token, not an organization token.")
 
     token_info = whoami(token)
-    permission = token_info["auth"]["accessToken"]["role"]
-    logger.info(f"Token is valid (permission: {permission}).")
+    username = token_info["name"]
 
-    token_name = token_info["auth"]["accessToken"]["displayName"]
+    access_token_info = (token_info.get("auth") or {}).get("accessToken") or {}
+    if role := access_token_info.get("role"):
+        logger.info(f"Token is valid (permission: {role}).")
+    else:
+        logger.info("Token is valid.")
+
+    token_name = access_token_info.get("displayName") or f"oauth-{username}"
+
     # Store token locally
-    _save_token(token=token, token_name=token_name)
+    _save_token(token=token, token_name=token_name, refresh_token=refresh_token, expires_at=expires_at)
     # Set active token
     _set_active_token(token_name=token_name, add_to_git_credential=add_to_git_credential)
     logger.info("Login successful.")
@@ -411,6 +448,7 @@ def _login(
         )
     else:
         logger.info(f"The current active token is: `{token_name}`")
+    return token_name, username
 
 
 def _logout_from_token(token_name: str) -> None:
@@ -419,21 +457,30 @@ def _logout_from_token(token_name: str) -> None:
     Args:
         token_name (`str`):
             The name of the access token to logout from.
-    Raises:
-        [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError):
-            If the access token name is not found.
     """
-    stored_tokens = get_stored_tokens()
+    stored_tokens = _read_stored_tokens_full()
     # If there is no access tokens saved or the access token name is not found, do nothing
-    if not stored_tokens or token_name not in stored_tokens:
+    if token_name not in stored_tokens:
         return
 
-    token = stored_tokens.pop(token_name)
-    _save_stored_tokens(stored_tokens)
+    fields = stored_tokens.pop(token_name)
+    _save_stored_tokens_full(stored_tokens)
 
-    if token == _get_token_from_file():
+    if fields.get("hf_token") == _get_token_from_file():
         logger.warning(f"Active token '{token_name}' has been deleted.")
         Path(constants.HF_TOKEN_PATH).unlink(missing_ok=True)
+
+
+def _format_expiration(expires_at: str | None) -> str:
+    """Format an `expires_at` unix timestamp for display in `auth list`."""
+    if not expires_at:
+        return ""
+    try:
+        timestamp = int(expires_at)
+    except ValueError:
+        return ""
+    date_str = datetime.fromtimestamp(timestamp).strftime("%Y-%m-%d")
+    return f"{date_str} (expired)" if timestamp < time.time() else date_str
 
 
 def _set_active_token(
@@ -459,9 +506,7 @@ def _set_active_token(
         else:
             logger.warning("Token has not been saved to git credential helper.")
     # Write token to HF_TOKEN_PATH
-    path = Path(constants.HF_TOKEN_PATH)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(token)
+    _write_secret(Path(constants.HF_TOKEN_PATH), token)
     logger.info(f"Your token has been saved to {constants.HF_TOKEN_PATH}")
 
 
@@ -511,4 +556,4 @@ def _set_store_as_git_credential_helper_globally() -> None:
     try:
         run_subprocess("git config --global credential.helper store")
     except subprocess.CalledProcessError as exc:
-        raise EnvironmentError(exc.stderr)
+        raise OSError(exc.stderr)

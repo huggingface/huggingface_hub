@@ -1,9 +1,10 @@
 import inspect
 import json
 import os
+from collections.abc import Callable
 from dataclasses import Field, asdict, dataclass, is_dataclass
 from pathlib import Path
-from typing import Any, Callable, ClassVar, Dict, List, Optional, Protocol, Tuple, Type, TypeVar, Union
+from typing import Any, ClassVar, Protocol, TypeVar
 
 import packaging.version
 
@@ -38,7 +39,7 @@ logger = logging.get_logger(__name__)
 
 # Type alias for dataclass instances, copied from https://github.com/python/typeshed/blob/9f28171658b9ca6c32a7cb93fbb99fc92b17858b/stdlib/_typeshed/__init__.pyi#L349
 class DataclassInstance(Protocol):
-    __dataclass_fields__: ClassVar[Dict[str, Field]]
+    __dataclass_fields__: ClassVar[dict[str, Field]]
 
 
 # Generic variable that is either ModelHubMixin or a subclass thereof
@@ -47,7 +48,7 @@ T = TypeVar("T", bound="ModelHubMixin")
 ARGS_T = TypeVar("ARGS_T")
 ENCODER_T = Callable[[ARGS_T], Any]
 DECODER_T = Callable[[Any], ARGS_T]
-CODER_T = Tuple[ENCODER_T, DECODER_T]
+CODER_T = tuple[ENCODER_T, DECODER_T]
 
 
 DEFAULT_MODEL_CARD = """
@@ -68,9 +69,9 @@ This model has been pushed to the Hub using the [PytorchModelHubMixin](https://h
 class MixinInfo:
     model_card_template: str
     model_card_data: ModelCardData
-    docs_url: Optional[str] = None
-    paper_url: Optional[str] = None
-    repo_url: Optional[str] = None
+    docs_url: str | None = None
+    paper_url: str | None = None
+    repo_url: str | None = None
 
 
 class ModelHubMixin:
@@ -96,7 +97,7 @@ class ModelHubMixin:
             URL of the library documentation. Used to generate model card.
         model_card_template (`str`, *optional*):
             Template of the model card. Used to generate model card. Defaults to a generic template.
-        language (`str` or `List[str]`, *optional*):
+        language (`str` or `list[str]`, *optional*):
             Language supported by the library. Used to generate model card.
         library_name (`str`, *optional*):
             Name of the library integrating ModelHubMixin. Used to generate model card.
@@ -113,11 +114,11 @@ class ModelHubMixin:
             E.g: "https://coqui.ai/cpml".
         pipeline_tag (`str`, *optional*):
             Tag of the pipeline. Used to generate model card. E.g. "text-classification".
-        tags (`List[str]`, *optional*):
+        tags (`list[str]`, *optional*):
             Tags to be added to the model card. Used to generate model card. E.g. ["computer-vision"]
-        coders (`Dict[Type, Tuple[Callable, Callable]]`, *optional*):
+        coders (`dict[Type, tuple[Callable, Callable]]`, *optional*):
             Dictionary of custom types and their encoders/decoders. Used to encode/decode arguments that are not
-            jsonable by default. E.g dataclasses, argparse.Namespace, OmegaConf, etc.
+            jsonable by default. E.g. dataclasses, argparse.Namespace, OmegaConf, etc.
 
     Example:
 
@@ -145,12 +146,10 @@ class ModelHubMixin:
     ...
     ...     @classmethod
     ...     def from_pretrained(
-    ...         cls: Type[T],
+    ...         cls: type[T],
     ...         pretrained_model_name_or_path: Union[str, Path],
     ...         *,
     ...         force_download: bool = False,
-    ...         resume_download: Optional[bool] = None,
-    ...         proxies: Optional[Dict] = None,
     ...         token: Optional[Union[str, bool]] = None,
     ...         cache_dir: Optional[Union[str, Path]] = None,
     ...         local_files_only: bool = False,
@@ -183,41 +182,42 @@ class ModelHubMixin:
     ```
     """
 
-    _hub_mixin_config: Optional[Union[dict, DataclassInstance]] = None
+    _hub_mixin_config: dict | DataclassInstance | None = None
     # ^ optional config attribute automatically set in `from_pretrained`
     _hub_mixin_info: MixinInfo
     # ^ information about the library integrating ModelHubMixin (used to generate model card)
     _hub_mixin_inject_config: bool  # whether `_from_pretrained` expects `config` or not
-    _hub_mixin_init_parameters: Dict[str, inspect.Parameter]  # __init__ parameters
-    _hub_mixin_jsonable_default_values: Dict[str, Any]  # default values for __init__ parameters
-    _hub_mixin_jsonable_custom_types: Tuple[Type, ...]  # custom types that can be encoded/decoded
-    _hub_mixin_coders: Dict[Type, CODER_T]  # encoders/decoders for custom types
+    _hub_mixin_init_parameters: dict[str, inspect.Parameter]  # __init__ parameters
+    _hub_mixin_jsonable_default_values: dict[str, Any]  # default values for __init__ parameters
+    _hub_mixin_jsonable_custom_types: tuple[type, ...]  # custom types that can be encoded/decoded
+    _hub_mixin_coders: dict[type, CODER_T]  # encoders/decoders for custom types
     # ^ internal values to handle config
 
     def __init_subclass__(
         cls,
         *,
         # Generic info for model card
-        repo_url: Optional[str] = None,
-        paper_url: Optional[str] = None,
-        docs_url: Optional[str] = None,
+        repo_url: str | None = None,
+        paper_url: str | None = None,
+        docs_url: str | None = None,
         # Model card template
         model_card_template: str = DEFAULT_MODEL_CARD,
         # Model card metadata
-        language: Optional[List[str]] = None,
-        library_name: Optional[str] = None,
-        license: Optional[str] = None,
-        license_name: Optional[str] = None,
-        license_link: Optional[str] = None,
-        pipeline_tag: Optional[str] = None,
-        tags: Optional[List[str]] = None,
+        language: list[str] | None = None,
+        library_name: str | None = None,
+        license: str | None = None,
+        license_name: str | None = None,
+        license_link: str | None = None,
+        pipeline_tag: str | None = None,
+        tags: list[str] | None = None,
         # How to encode/decode arguments with custom type into a JSON config?
-        coders: Optional[
-            Dict[Type, CODER_T]
+        coders: None
+        | (
+            dict[type, CODER_T]
             # Key is a type.
             # Value is a tuple (encoder, decoder).
             # Example: {MyCustomType: (lambda x: x.value, lambda data: MyCustomType(data))}
-        ] = None,
+        ) = None,
     ) -> None:
         """Inspect __init__ signature only once when subclassing + handle modelcard."""
         super().__init_subclass__()
@@ -288,7 +288,7 @@ class ModelHubMixin:
         }
         cls._hub_mixin_inject_config = "config" in inspect.signature(cls._from_pretrained).parameters
 
-    def __new__(cls: Type[T], *args, **kwargs) -> T:
+    def __new__(cls: type[T], *args, **kwargs) -> T:
         """Create a new instance of the class and handle config.
 
         3 cases:
@@ -364,15 +364,15 @@ class ModelHubMixin:
         return arg
 
     @classmethod
-    def _decode_arg(cls, expected_type: Type[ARGS_T], value: Any) -> Optional[ARGS_T]:
+    def _decode_arg(cls, expected_type: type[ARGS_T], value: Any) -> ARGS_T | None:
         """Decode a JSON serializable value into an argument."""
         if is_simple_optional_type(expected_type):
             if value is None:
                 return None
-            expected_type = unwrap_simple_optional_type(expected_type)
+            expected_type = unwrap_simple_optional_type(expected_type)  # type: ignore
         # Dataclass => handle it
         if is_dataclass(expected_type):
-            return _load_dataclass(expected_type, value)  # type: ignore[return-value]
+            return _load_dataclass(expected_type, value)  # type: ignore
         # Otherwise => check custom decoders
         for type_, (_, decoder) in cls._hub_mixin_coders.items():
             if inspect.isclass(expected_type) and issubclass(expected_type, type_):
@@ -382,14 +382,14 @@ class ModelHubMixin:
 
     def save_pretrained(
         self,
-        save_directory: Union[str, Path],
+        save_directory: str | Path,
         *,
-        config: Optional[Union[dict, DataclassInstance]] = None,
-        repo_id: Optional[str] = None,
+        config: dict | DataclassInstance | None = None,
+        repo_id: str | None = None,
         push_to_hub: bool = False,
-        model_card_kwargs: Optional[Dict[str, Any]] = None,
+        model_card_kwargs: dict[str, Any] | None = None,
         **push_to_hub_kwargs,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Save weights in local directory.
 
@@ -403,7 +403,7 @@ class ModelHubMixin:
             repo_id (`str`, *optional*):
                 ID of your repository on the Hub. Used only if `push_to_hub=True`. Will default to the folder name if
                 not provided.
-            model_card_kwargs (`Dict[str, Any]`, *optional*):
+            model_card_kwargs (`dict[str, Any]`, *optional*):
                 Additional arguments passed to the model card template to customize the model card.
             push_to_hub_kwargs:
                 Additional key word arguments passed along to the [`~ModelHubMixin.push_to_hub`] method.
@@ -462,16 +462,14 @@ class ModelHubMixin:
     @classmethod
     @validate_hf_hub_args
     def from_pretrained(
-        cls: Type[T],
-        pretrained_model_name_or_path: Union[str, Path],
+        cls: type[T],
+        pretrained_model_name_or_path: str | Path,
         *,
         force_download: bool = False,
-        resume_download: Optional[bool] = None,
-        proxies: Optional[Dict] = None,
-        token: Optional[Union[str, bool]] = None,
-        cache_dir: Optional[Union[str, Path]] = None,
+        token: str | bool | None = None,
+        cache_dir: str | Path | None = None,
         local_files_only: bool = False,
-        revision: Optional[str] = None,
+        revision: str | None = None,
         **model_kwargs,
     ) -> T:
         """
@@ -488,9 +486,6 @@ class ModelHubMixin:
             force_download (`bool`, *optional*, defaults to `False`):
                 Whether to force (re-)downloading the model weights and configuration files from the Hub, overriding
                 the existing cache.
-            proxies (`Dict[str, str]`, *optional*):
-                A dictionary of proxy servers to use by protocol or endpoint, e.g., `{'http': 'foo.bar:3128',
-                'http://hostname': 'foo.bar:4012'}`. The proxies are used on every request.
             token (`str` or `bool`, *optional*):
                 The token to use as HTTP bearer authorization for remote files. By default, it will use the token
                 cached when running `hf auth login`.
@@ -498,11 +493,11 @@ class ModelHubMixin:
                 Path to the folder where cached files are stored.
             local_files_only (`bool`, *optional*, defaults to `False`):
                 If `True`, avoid downloading the file and return the path to the local cached file if it exists.
-            model_kwargs (`Dict`, *optional*):
+            model_kwargs (`dict`, *optional*):
                 Additional kwargs to pass to the model during initialization.
         """
         model_id = str(pretrained_model_name_or_path)
-        config_file: Optional[str] = None
+        config_file: str | None = None
         if os.path.isdir(model_id):
             if constants.CONFIG_NAME in os.listdir(model_id):
                 config_file = os.path.join(model_id, constants.CONFIG_NAME)
@@ -516,8 +511,6 @@ class ModelHubMixin:
                     revision=revision,
                     cache_dir=cache_dir,
                     force_download=force_download,
-                    proxies=proxies,
-                    resume_download=resume_download,
                     token=token,
                     local_files_only=local_files_only,
                 )
@@ -527,7 +520,7 @@ class ModelHubMixin:
         # Read config
         config = None
         if config_file is not None:
-            with open(config_file, "r", encoding="utf-8") as f:
+            with open(config_file, encoding="utf-8") as f:
                 config = json.load(f)
 
             # Decode custom types in config
@@ -557,7 +550,7 @@ class ModelHubMixin:
                     if key not in model_kwargs and key in config:
                         model_kwargs[key] = config[key]
             elif any(param.kind == inspect.Parameter.VAR_KEYWORD for param in cls._hub_mixin_init_parameters.values()):
-                for key, value in config.items():
+                for key, value in config.items():  # type: ignore[union-attr]
                     if key not in model_kwargs:
                         model_kwargs[key] = value
 
@@ -570,8 +563,6 @@ class ModelHubMixin:
             revision=revision,
             cache_dir=cache_dir,
             force_download=force_download,
-            proxies=proxies,
-            resume_download=resume_download,
             local_files_only=local_files_only,
             token=token,
             **model_kwargs,
@@ -586,16 +577,14 @@ class ModelHubMixin:
 
     @classmethod
     def _from_pretrained(
-        cls: Type[T],
+        cls: type[T],
         *,
         model_id: str,
-        revision: Optional[str],
-        cache_dir: Optional[Union[str, Path]],
+        revision: str | None,
+        cache_dir: str | Path | None,
         force_download: bool,
-        proxies: Optional[Dict],
-        resume_download: Optional[bool],
         local_files_only: bool,
-        token: Optional[Union[str, bool]],
+        token: str | bool | None,
         **model_kwargs,
     ) -> T:
         """Overwrite this method in subclass to define how to load your model from pretrained.
@@ -616,9 +605,6 @@ class ModelHubMixin:
             force_download (`bool`, *optional*, defaults to `False`):
                 Whether to force (re-)downloading the model weights and configuration files from the Hub, overriding
                 the existing cache.
-            proxies (`Dict[str, str]`, *optional*):
-                A dictionary of proxy servers to use by protocol or endpoint (e.g., `{'http': 'foo.bar:3128',
-                'http://hostname': 'foo.bar:4012'}`).
             token (`str` or `bool`, *optional*):
                 The token to use as HTTP bearer authorization for remote files. By default, it will use the token
                 cached when running `hf auth login`.
@@ -636,16 +622,16 @@ class ModelHubMixin:
         self,
         repo_id: str,
         *,
-        config: Optional[Union[dict, DataclassInstance]] = None,
+        config: dict | DataclassInstance | None = None,
         commit_message: str = "Push model using huggingface_hub.",
-        private: Optional[bool] = None,
-        token: Optional[str] = None,
-        branch: Optional[str] = None,
-        create_pr: Optional[bool] = None,
-        allow_patterns: Optional[Union[List[str], str]] = None,
-        ignore_patterns: Optional[Union[List[str], str]] = None,
-        delete_patterns: Optional[Union[List[str], str]] = None,
-        model_card_kwargs: Optional[Dict[str, Any]] = None,
+        private: bool | None = None,
+        token: str | None = None,
+        branch: str | None = None,
+        create_pr: bool | None = None,
+        allow_patterns: list[str] | str | None = None,
+        ignore_patterns: list[str] | str | None = None,
+        delete_patterns: list[str] | str | None = None,
+        model_card_kwargs: dict[str, Any] | None = None,
     ) -> str:
         """
         Upload model checkpoint to the Hub.
@@ -671,13 +657,13 @@ class ModelHubMixin:
                 The git branch on which to push the model. This defaults to `"main"`.
             create_pr (`boolean`, *optional*):
                 Whether or not to create a Pull Request from `branch` with that commit. Defaults to `False`.
-            allow_patterns (`List[str]` or `str`, *optional*):
+            allow_patterns (`list[str]` or `str`, *optional*):
                 If provided, only files matching at least one pattern are pushed.
-            ignore_patterns (`List[str]` or `str`, *optional*):
+            ignore_patterns (`list[str]` or `str`, *optional*):
                 If provided, files matching any of the patterns are not pushed.
-            delete_patterns (`List[str]` or `str`, *optional*):
+            delete_patterns (`list[str]` or `str`, *optional*):
                 If provided, remote files matching any of the patterns will be deleted from the repo.
-            model_card_kwargs (`Dict[str, Any]`, *optional*):
+            model_card_kwargs (`dict[str, Any]`, *optional*):
                 Additional arguments passed to the model card template to customize the model card.
 
         Returns:
@@ -760,7 +746,7 @@ class PyTorchModelHubMixin(ModelHubMixin):
     ```
     """
 
-    def __init_subclass__(cls, *args, tags: Optional[List[str]] = None, **kwargs) -> None:
+    def __init_subclass__(cls, *args, tags: list[str] | None = None, **kwargs) -> None:
         tags = tags or []
         tags.append("pytorch_model_hub_mixin")
         kwargs["tags"] = tags
@@ -776,13 +762,11 @@ class PyTorchModelHubMixin(ModelHubMixin):
         cls,
         *,
         model_id: str,
-        revision: Optional[str],
-        cache_dir: Optional[Union[str, Path]],
+        revision: str | None,
+        cache_dir: str | Path | None,
         force_download: bool,
-        proxies: Optional[Dict],
-        resume_download: Optional[bool],
         local_files_only: bool,
-        token: Union[str, bool, None],
+        token: str | bool | None,
         map_location: str = "cpu",
         strict: bool = False,
         **model_kwargs,
@@ -801,8 +785,6 @@ class PyTorchModelHubMixin(ModelHubMixin):
                     revision=revision,
                     cache_dir=cache_dir,
                     force_download=force_download,
-                    proxies=proxies,
-                    resume_download=resume_download,
                     token=token,
                     local_files_only=local_files_only,
                 )
@@ -814,8 +796,6 @@ class PyTorchModelHubMixin(ModelHubMixin):
                     revision=revision,
                     cache_dir=cache_dir,
                     force_download=force_download,
-                    proxies=proxies,
-                    resume_download=resume_download,
                     token=token,
                     local_files_only=local_files_only,
                 )
@@ -842,10 +822,11 @@ class PyTorchModelHubMixin(ModelHubMixin):
                 model.to(map_location)  # type: ignore [attr-defined]
         else:
             safetensors.torch.load_model(model, model_file, strict=strict, device=map_location)  # type: ignore [arg-type]
+        model.eval()  # type: ignore
         return model
 
 
-def _load_dataclass(datacls: Type[DataclassInstance], data: dict) -> DataclassInstance:
+def _load_dataclass(datacls: type[DataclassInstance], data: dict) -> DataclassInstance:
     """Load a dataclass instance from a dictionary.
 
     Fields not expected by the dataclass are ignored.

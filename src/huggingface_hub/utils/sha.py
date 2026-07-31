@@ -1,11 +1,11 @@
 """Utilities to efficiently compute the SHA 256 hash of a bunch of bytes."""
 
-from typing import BinaryIO, Optional
+from typing import BinaryIO
 
 from .insecure_hashlib import sha1, sha256
 
 
-def sha_fileobj(fileobj: BinaryIO, chunk_size: Optional[int] = None) -> bytes:
+def sha_fileobj(fileobj: BinaryIO, chunk_size: int | None = None) -> bytes:
     """
     Computes the sha256 hash of the given file object, by chunks of size `chunk_size`.
 

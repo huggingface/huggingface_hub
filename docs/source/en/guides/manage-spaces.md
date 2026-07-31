@@ -6,13 +6,37 @@ rendered properly in your Markdown viewer.
 
 In this guide, we will see how to manage your Space runtime
 ([secrets](https://huggingface.co/docs/hub/spaces-overview#managing-secrets),
-[hardware](https://huggingface.co/docs/hub/spaces-gpus), and [storage](https://huggingface.co/docs/hub/spaces-storage#persistent-storage)) using `huggingface_hub`.
+[hardware](https://huggingface.co/docs/hub/spaces-gpus), and volumes) using `huggingface_hub`.
+
+## Search for Spaces
+
+You can search for Spaces on the Hub using semantic search with [`search_spaces`]. This uses embedding-based search for multi-word queries and full-text search for single-word queries.
+
+```py
+>>> from huggingface_hub import search_spaces
+>>> results = list(search_spaces("generate image"))
+>>> results[0]
+SpaceSearchResult(id='mrfakename/Z-Image-Turbo', title='Z Image Turbo', sdk='gradio', likes=2867, ...)
+```
+
+You can filter results by SDK or tags:
+
+```py
+>>> results = search_spaces("chatbot", sdk="gradio", filter="mcp-server")
+```
+
+Or via CLI:
+
+```bash
+>>> hf spaces search "generate image"
+>>> hf spaces search "chatbot" --sdk gradio --limit 5
+```
 
 ## A simple example: configure secrets and hardware.
 
-Here is an end-to-end example to create and setup a Space on the Hub.
+Here is an end-to-end example to create and set up a Space on the Hub.
 
-**1. Create a Space on the Hub.**
+### Create a Space on the Hub
 
 ```py
 >>> from huggingface_hub import HfApi
@@ -23,16 +47,56 @@ Here is an end-to-end example to create and setup a Space on the Hub.
 >>> api.create_repo(repo_id=repo_id, repo_type="space", space_sdk="gradio")
 ```
 
-**1. (bis) Duplicate a Space.**
+### Create a Space from a template
 
-This can prove useful if you want to build up from an existing Space instead of starting from scratch.
-It is also useful is you want control over the configuration/settings of a public Space. See [`duplicate_space`] for more details.
+Instead of starting from an empty Space, you can seed a new Space from one of the official templates offered on the Hub (e.g. JupyterLab, a Gradio chatbot, a Streamlit app, etc.). List the available templates with [`list_space_templates`], then pass a template's `repo_id` (or its short `name`) as `space_template` to [`create_repo`]. Note that `space_sdk` is still required: the template seeds the files while the SDK sets the card metadata.
 
 ```py
->>> api.duplicate_space("multimodalart/dreambooth-training")
+>>> from huggingface_hub import HfApi
+>>> api = HfApi()
+
+# List available templates
+>>> for template in api.list_space_templates():
+...     print(f"{template.name} ({template.repo_id})")
+Streamlit (streamlit/streamlit-template-space)
+JupyterLab (SpacesExamples/jupyterlab)
+chatbot (gradio-templates/chatbot)
+...
+
+# Create a Space from a template, by repo id or by short name
+>>> api.create_repo(repo_id=repo_id, repo_type="space", space_template="SpacesExamples/jupyterlab")
+>>> api.create_repo(repo_id=repo_id, repo_type="space", space_template="JupyterLab")
 ```
 
-**2. Upload your code using your preferred solution.**
+Some templates are recommended to be private (e.g. JupyterLab). If you don't explicitly set visibility, such Spaces are created as private automatically.
+
+From the CLI, the same is available through `hf spaces templates` and `hf repos create --template`:
+
+```bash
+# List available templates
+>>> hf spaces templates
+NAME            REPO_ID                                        SDK    PREFERRED_PRIVATE
+--------------- ---------------------------------------------- ------ -----------------
+Streamlit       streamlit/streamlit-template-space             docker
+JupyterLab      SpacesExamples/jupyterlab                      docker ✔
+Argilla         argilla/argilla-template-space                 docker
+Livebook        livebook-dev/livebook                          docker
+...
+
+# Create a Space from a template
+>>> hf repos create my-jupyterlab --type space --template jupyterlab
+```
+
+### Duplicate a Space
+
+This can prove useful if you want to build up from an existing Space instead of starting from scratch.
+It is also useful is you want control over the configuration/settings of a public Space. See [`duplicate_repo`] for more details.
+
+```py
+>>> api.duplicate_repo("multimodalart/dreambooth-training", repo_type="space")
+```
+
+### Upload your code using your preferred solution
 
 Here is an example to upload the local folder `src/` from your machine to your Space:
 
@@ -43,7 +107,7 @@ Here is an example to upload the local folder `src/` from your machine to your S
 At this step, your app should already be running on the Hub for free !
 However, you might want to configure it further with secrets and upgraded hardware.
 
-**3. Configure secrets and variables**
+### Configure secrets and variables
 
 Your Space might require some secret keys, token or variables to work.
 See [docs](https://huggingface.co/docs/hub/spaces-overview#managing-secrets) for more details.
@@ -52,6 +116,15 @@ For example, an HF token to upload an image dataset to the Hub once generated fr
 ```py
 >>> api.add_space_secret(repo_id=repo_id, key="HF_TOKEN", value="hf_api_***")
 >>> api.add_space_variable(repo_id=repo_id, key="MODEL_REPO_ID", value="user/repo")
+```
+
+You can list existing secrets and variables. Secret values are write-only, so only keys, descriptions, and update timestamps are returned:
+
+```py
+>>> api.get_space_secrets(repo_id=repo_id)
+{'HF_TOKEN': SpaceSecret(key='HF_TOKEN', description=None, updated_at=datetime.datetime(...))}
+>>> api.get_space_variables(repo_id=repo_id)
+{'MODEL_REPO_ID': SpaceVariable(key='MODEL_REPO_ID', value='user/repo', description=None, updated_at=...)}
 ```
 
 Secrets and variables can be deleted as well:
@@ -82,14 +155,15 @@ Secrets and variables can be set when creating or duplicating a space:
 ```
 
 ```py
->>> api.duplicate_space(
+>>> api.duplicate_repo(
 ...     from_id=repo_id,
-...     secrets=[{"key"="HF_TOKEN", "value"="hf_api_***"}, ...],
-...     variables=[{"key"="MODEL_REPO_ID", "value"="user/repo"}, ...],
+...     repo_type="space",
+...     space_secrets=[{"key"="HF_TOKEN", "value"="hf_api_***"}, ...],
+...     space_variables=[{"key"="MODEL_REPO_ID", "value"="user/repo"}, ...],
 ... )
 ```
 
-**4. Configure the hardware**
+### Configure the hardware
 
 By default, your Space will run on a CPU environment for free. You can upgrade the hardware
 to run it on GPUs. A payment card or a community grant is required to access upgrade your
@@ -131,20 +205,19 @@ Upgraded hardware will be automatically assigned to your Space once it's built.
 ...     repo_type="space",
 ...     space_sdk="gradio"
 ...     space_hardware="cpu-upgrade",
-...     space_storage="small",
 ...     space_sleep_time="7200", # 2 hours in secs
 ... )
 ```
 ```py
->>> api.duplicate_space(
+>>> api.duplicate_repo(
 ...     from_id=repo_id,
-...     hardware="cpu-upgrade",
-...     storage="small",
-...     sleep_time="7200", # 2 hours in secs
+...     repo_type="space",
+...     space_hardware="cpu-upgrade",
+...     space_sleep_time="7200", # 2 hours in secs
 ... )
 ```
 
-**5. Pause and restart your Space**
+### Pause and restart your Space
 
 By default if your Space is running on an upgraded hardware, it will never be stopped. However to avoid getting billed,
 you might want to pause it when you are not using it. This is possible using [`pause_space`]. A paused Space will be
@@ -191,45 +264,140 @@ Upgraded hardware will be automatically assigned to your Space once it's built.
 ... )
 ```
 ```py
->>> api.duplicate_space(
+>>> api.duplicate_repo(
 ...     from_id=repo_id,
-...     hardware="t4-medium",
-...     sleep_time="3600",
+...     repo_type="space",
+...     space_hardware="t4-medium",
+...     space_sleep_time="3600",
 ... )
 ```
 
-**6. Add persistent storage to your Space**
+### Debug a failing Space by reading its logs
 
-You can choose the storage tier of your choice to access disk space that persists across restarts of your Space. This means you can read and write from disk like you would with a traditional hard drive. See [docs](https://huggingface.co/docs/hub/spaces-storage#persistent-storage) for more details.
+When a Space fails to build or crashes at runtime, the logs you normally view in the browser are also available programmatically via [`fetch_space_logs`]. This is particularly useful from scripts or agentic workflows where opening a browser is not an option.
 
 ```py
->>> from huggingface_hub import SpaceStorage
->>> api.request_space_storage(repo_id=repo_id, storage=SpaceStorage.LARGE)
+# Drain the currently available run logs and return immediately (like `docker logs`)
+>>> for line in api.fetch_space_logs(repo_id=repo_id):
+...     print(line, end="")
+
+# Read the container build logs instead (useful when the Space is stuck in BUILD_ERROR)
+>>> for line in api.fetch_space_logs(repo_id=repo_id, build=True):
+...     print(line, end="")
+
+# Stream run logs in real time until the server closes the stream (Ctrl-C to stop)
+>>> for line in api.fetch_space_logs(repo_id=repo_id, follow=True):
+...     print(line, end="")
 ```
 
-You can also delete your storage, losing all the data permanently.
-```py
->>> api.delete_space_storage(repo_id=repo_id)
+The same functionality is available from the CLI:
+
+```bash
+hf spaces logs username/my-space             # drain run logs
+hf spaces logs username/my-space --build     # read build logs
+hf spaces logs username/my-space -f          # stream in real time
+hf spaces logs username/my-space -n 50       # last 50 lines only
 ```
 
-Note: You cannot decrease the storage tier of your space once it's been granted. To do so,
-you must delete the storage first then request the new desired tier.
+### SSH into a Space (Dev Mode)
 
-**Bonus: request storage when creating or duplicating the Space!**
+[Dev Mode](https://huggingface.co/docs/hub/spaces-dev-mode) lets you SSH into a running Space container for live debugging and development. Use `hf spaces ssh` to open a session directly from the terminal. If Dev Mode is not yet enabled on the Space, the CLI will prompt you to enable it (or pass `--auto` to skip the prompt).
+
+Your SSH public key must be registered at [in your settings](https://huggingface.co/settings/keys).
+
+```bash
+# SSH into a Space (enables Dev Mode if needed)
+hf spaces ssh username/my-space
+
+# Auto-enable Dev Mode without prompting
+hf spaces ssh username/my-space --auto
+
+# Print the SSH command without running it
+hf spaces ssh username/my-space --dry-run
+
+# Use a specific SSH key
+hf spaces ssh username/my-space -i ~/.ssh/id_ed25519
+```
+
+You can also enable Dev Mode without SSH using `hf spaces dev-mode`, which prints connection instructions for SSH, VS Code, Cursor, and Windsurf:
+
+```bash
+hf spaces dev-mode username/my-space
+```
+
+### Mount volumes in your Space
+
+You can mount Hub resources (models, datasets, or storage buckets) as volumes in your Space's container. This gives your Space direct filesystem access to these resources without having to download them in your code. Volumes can be set directly when creating or duplicating a Space:
 
 ```py
+>>> from huggingface_hub import Volume
 >>> api.create_repo(
 ...     repo_id=repo_id,
 ...     repo_type="space",
-...     space_sdk="gradio"
-...     space_storage="large",
+...     space_sdk="gradio",
+...     space_volumes=[
+...         Volume(type="model", source="username/my-model", mount_path="/models", read_only=True),
+...         Volume(type="bucket", source="username/my-bucket", mount_path="/data"),
+...     ],
 ... )
 ```
 ```py
->>> api.duplicate_space(
+>>> api.duplicate_repo(
 ...     from_id=repo_id,
-...     storage="large",
+...     repo_type="space",
+...     space_volumes=[
+...         Volume(type="model", source="username/my-model", mount_path="/models", read_only=True),
+...         Volume(type="bucket", source="username/my-bucket", mount_path="/data"),
+...     ],
 ... )
+```
+
+You can check which volumes are currently mounted via the Space runtime:
+
+```py
+>>> runtime = api.get_space_runtime(repo_id=repo_id)
+>>> runtime.volumes
+[Volume(type='model', source='username/my-model', mount_path='/models', read_only=True), ...]
+```
+
+If you need to update volumes on an existing Space, use [`set_space_volumes`]. Note that this replaces all previously mounted volumes.
+
+```py
+>>> api.set_space_volumes(
+...     repo_id=repo_id,
+...     volumes=[
+...         Volume(type="model", source="username/my-model", mount_path="/models", read_only=True),
+...         Volume(type="dataset", source="username/my-dataset", mount_path="/data", read_only=True),
+...         Volume(type="bucket", source="username/my-bucket", mount_path="/output"),
+...     ],
+... )
+```
+
+To remove all volumes from your Space:
+
+```py
+>>> api.delete_space_volumes(repo_id=repo_id)
+```
+
+> [!NOTE]
+> Models, datasets, and Spaces are always mounted as read-only. Only storage buckets support read-write mounts.
+
+> [!WARNING]
+> Setting volumes replaces any previously mounted volumes. To add a volume to an existing list, first read the current volumes from the runtime and include them in the new list.
+
+All volume operations are also available from the CLI:
+
+```bash
+# List current volumes
+hf spaces volumes ls username/my-space
+
+# Set (replace) volumes
+hf spaces volumes set username/my-space \
+    -v hf://models/username/my-model:/models \
+    -v hf://buckets/username/my-bucket:/data
+
+# Remove all volumes
+hf spaces volumes delete username/my-space
 ```
 
 ## More advanced: temporarily upgrade your Space !

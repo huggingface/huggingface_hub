@@ -1,19 +1,16 @@
-import unittest
-from unittest.mock import Mock, call, patch
+from unittest.mock import Mock, call
+
+import pytest
 
 from huggingface_hub.utils._pagination import paginate
 
-from .testing_utils import handle_injection_in_test
 
+class TestPagination:
+    def test_mocked_paginate(self, mocker) -> None:
+        mock_get_session: Mock = mocker.patch("huggingface_hub.utils._pagination.get_session")
+        mock_http_backoff: Mock = mocker.patch("huggingface_hub.utils._pagination.http_backoff")
+        mock_hf_raise_for_status: Mock = mocker.patch("huggingface_hub.utils._pagination.hf_raise_for_status")
 
-class TestPagination(unittest.TestCase):
-    @patch("huggingface_hub.utils._pagination.get_session")
-    @patch("huggingface_hub.utils._pagination.http_backoff")
-    @patch("huggingface_hub.utils._pagination.hf_raise_for_status")
-    @handle_injection_in_test
-    def test_mocked_paginate(
-        self, mock_get_session: Mock, mock_http_backoff: Mock, mock_hf_raise_for_status: Mock
-    ) -> None:
         mock_get = mock_get_session().get
         mock_params = Mock()
         mock_headers = Mock()
@@ -57,10 +54,10 @@ class TestPagination(unittest.TestCase):
         assert mock_hf_raise_for_status.call_count == 3
 
         # Params not passed to next pages
-        assert mock_get.call_args_list == [call("url", params=mock_params, headers=mock_headers)]
+        assert mock_get.call_args_list == [call("url", params=mock_params, headers=mock_headers, timeout=None)]
         assert mock_http_backoff.call_args_list == [
-            call("GET", "url_p2", max_retries=20, retry_on_status_codes=429, headers=mock_headers),
-            call("GET", "url_p3", max_retries=20, retry_on_status_codes=429, headers=mock_headers),
+            call("GET", "url_p2", headers=mock_headers, timeout=None),
+            call("GET", "url_p3", headers=mock_headers, timeout=None),
         ]
 
     def test_paginate_hf_api(self) -> None:
@@ -70,4 +67,4 @@ class TestPagination(unittest.TestCase):
             if num == 5:
                 break
         else:
-            self.fail("Did not get more than 5 repos")
+            pytest.fail("Did not get more than 5 repos")

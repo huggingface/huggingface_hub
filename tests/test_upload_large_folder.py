@@ -1,14 +1,16 @@
 # tests/test_upload_large_folder.py
-import unittest
-from unittest.mock import MagicMock, patch
+from hashlib import sha256
+from unittest.mock import MagicMock
 
 import pytest
 
+from huggingface_hub._local_folder import LocalUploadFileMetadata, LocalUploadFilePaths
 from huggingface_hub._upload_large_folder import (
     COMMIT_SIZE_SCALE,
     MAX_FILES_PER_FOLDER,
     MAX_FILES_PER_REPO,
     LargeUploadStatus,
+    _build_hacky_operation,
     _validate_upload_limits,
 )
 
@@ -43,7 +45,31 @@ def test_update_chunk_transitions(status, start_idx, success, delta_items, durat
     assert status.target_chunk() == COMMIT_SIZE_SCALE[expected_idx]
 
 
-class TestValidateUploadLimits(unittest.TestCase):
+def test_build_hacky_operation_preserves_lfs_preupload_state(tmp_path):
+    file_path = tmp_path / "file.bin"
+    content = b"content"
+    file_path.write_bytes(content)
+
+    paths = LocalUploadFilePaths(
+        path_in_repo="file.bin",
+        file_path=file_path,
+        lock_path=tmp_path / "file.bin.lock",
+        metadata_path=tmp_path / "file.bin.metadata",
+    )
+    metadata = LocalUploadFileMetadata(
+        size=len(content),
+        sha256=sha256(content).hexdigest(),
+        upload_mode="lfs",
+        is_uploaded=True,
+    )
+
+    operation = _build_hacky_operation((paths, metadata))
+
+    assert operation._is_uploaded
+    assert operation.path_or_fileobj == b""
+
+
+class TestValidateUploadLimits:
     """Test the _validate_upload_limits function directly."""
 
     class MockPath:
@@ -54,9 +80,9 @@ class TestValidateUploadLimits(unittest.TestCase):
             self.file_path = MagicMock()
             self.file_path.stat.return_value.st_size = size_bytes
 
-    @patch("huggingface_hub._upload_large_folder.logger")
-    def test_no_warnings_under_limits(self, mock_logger):
+    def test_no_warnings_under_limits(self, mocker):
         """Test that no warnings are issued when under all limits."""
+        mock_logger = mocker.patch("huggingface_hub._upload_large_folder.logger")
         paths = [
             self.MockPath("file1.txt"),
             self.MockPath("data/file2.txt"),
@@ -67,9 +93,9 @@ class TestValidateUploadLimits(unittest.TestCase):
         # Should only have info messages, no warnings
         mock_logger.warning.assert_not_called()
 
-    @patch("huggingface_hub._upload_large_folder.logger")
-    def test_warns_too_many_total_files(self, mock_logger):
+    def test_warns_too_many_total_files(self, mocker):
         """Test warning when total files exceed MAX_FILES_PER_REPO."""
+        mock_logger = mocker.patch("huggingface_hub._upload_large_folder.logger")
         # Create a list with more files than the limit
         paths = [self.MockPath(f"file{i}.txt") for i in range(MAX_FILES_PER_REPO + 10)]
         _validate_upload_limits(paths)
@@ -79,9 +105,9 @@ class TestValidateUploadLimits(unittest.TestCase):
         assert any(f"{MAX_FILES_PER_REPO + 10:,} files" in call for call in warning_calls)
         assert any("exceeds the recommended limit" in call for call in warning_calls)
 
-    @patch("huggingface_hub._upload_large_folder.logger")
-    def test_warns_too_many_subdirectories(self, mock_logger):
+    def test_warns_too_many_subdirectories(self, mocker):
         """Test warning when a folder has too many subdirectories."""
+        mock_logger = mocker.patch("huggingface_hub._upload_large_folder.logger")
         # Create files in many subdirectories under "data"
         paths = []
         for i in range(MAX_FILES_PER_FOLDER + 10):
@@ -94,9 +120,9 @@ class TestValidateUploadLimits(unittest.TestCase):
         assert any("data" in call and "subdirectories" in call for call in warning_calls)
         assert any(f"{MAX_FILES_PER_FOLDER + 10:,} subdirectories" in call for call in warning_calls)
 
-    @patch("huggingface_hub._upload_large_folder.logger")
-    def test_counts_files_and_subdirs_separately(self, mock_logger):
+    def test_counts_files_and_subdirs_separately(self, mocker):
         """Test that files and subdirectories are counted separately and correctly."""
+        mock_logger = mocker.patch("huggingface_hub._upload_large_folder.logger")
         # Create a structure with both files and subdirs in "data"
         paths = []
         # Add 5000 files directly in data/
@@ -113,9 +139,9 @@ class TestValidateUploadLimits(unittest.TestCase):
         assert any("data" in call and "10,100 entries" in call for call in warning_calls)
         assert any("5,000 files" in call and "5,100 subdirectories" in call for call in warning_calls)
 
-    @patch("huggingface_hub._upload_large_folder.logger")
-    def test_file_size_decimal_gb(self, mock_logger):
+    def test_file_size_decimal_gb(self, mocker):
         """Test that file sizes are calculated using decimal GB (10^9 bytes)."""
+        mock_logger = mocker.patch("huggingface_hub._upload_large_folder.logger")
         # Create a file that's 21 GB in decimal (21 * 10^9 bytes)
         size_bytes = 21 * 1_000_000_000
         paths = [self.MockPath("large_file.bin", size_bytes=size_bytes)]
@@ -127,23 +153,23 @@ class TestValidateUploadLimits(unittest.TestCase):
         assert any("21.0GB" in call or "21GB" in call for call in warning_calls)
         assert any("20GB (recommended limit)" in call for call in warning_calls)
 
-    @patch("huggingface_hub._upload_large_folder.logger")
-    def test_very_large_file_warning(self, mock_logger):
-        """Test warning for files exceeding hard limit (50GB)."""
-        # Create a file that's 51 GB
-        size_bytes = 51 * 1_000_000_000
+    def test_very_large_file_warning(self, mocker):
+        """Test warning for files exceeding recommended maximum (200GB)."""
+        mock_logger = mocker.patch("huggingface_hub._upload_large_folder.logger")
+        # Create a file that's 201 GB
+        size_bytes = 201 * 1_000_000_000
         paths = [self.MockPath("huge_file.bin", size_bytes=size_bytes)]
 
         _validate_upload_limits(paths)
 
-        # Should warn about file exceeding 50GB hard limit
+        # Should warn about file exceeding 200GB recommended maximum
         warning_calls = [str(call) for call in mock_logger.warning.call_args_list]
-        assert any("51.0GB" in call or "51GB" in call for call in warning_calls)
-        assert any("50GB hard limit" in call for call in warning_calls)
+        assert any("201.0GB" in call or "201GB" in call for call in warning_calls)
+        assert any("200GB recommended maximum" in call for call in warning_calls)
 
-    @patch("huggingface_hub._upload_large_folder.logger")
-    def test_nested_directory_structure(self, mock_logger):
+    def test_nested_directory_structure(self, mocker):
         """Test correct handling of deeply nested directory structures."""
+        mock_logger = mocker.patch("huggingface_hub._upload_large_folder.logger")
         paths = [
             self.MockPath("a/b/c/d/e/file1.txt"),
             self.MockPath("a/b/c/d/e/file2.txt"),

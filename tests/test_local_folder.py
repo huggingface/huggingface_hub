@@ -26,10 +26,13 @@ from pathlib import Path, WindowsPath
 import pytest
 
 from huggingface_hub._local_folder import (
+    CACHEDIR_TAG_CONTENT,
     LocalDownloadFileMetadata,
     LocalDownloadFilePaths,
     LocalUploadFilePaths,
+    _create_cachedir_tag,
     _huggingface_dir,
+    _validate_relative_filename,
     get_local_download_paths,
     get_local_upload_paths,
     read_download_metadata,
@@ -49,6 +52,26 @@ def test_creates_huggingface_dir_with_gitignore(tmp_path: Path):
     assert (huggingface_dir / ".gitignore").exists()
     assert (huggingface_dir / ".gitignore").read_text() == "*"
 
+    # CACHEDIR.TAG must exist so backup tools can skip this directory
+    assert (huggingface_dir / "CACHEDIR.TAG").exists()
+    assert (huggingface_dir / "CACHEDIR.TAG").read_text() == CACHEDIR_TAG_CONTENT
+
+
+def test_create_cachedir_tag(tmp_path: Path):
+    """Test CACHEDIR.TAG is created and not overwritten."""
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+
+    _create_cachedir_tag(cache_dir)
+    tag_path = cache_dir / "CACHEDIR.TAG"
+    assert tag_path.exists()
+    assert tag_path.read_text().startswith("Signature: 8a477f597d28d172789f06886806bc55\n")
+
+    # Calling again does not overwrite
+    tag_path.write_text("custom content")
+    _create_cachedir_tag(cache_dir)
+    assert tag_path.read_text() == "custom content"
+
 
 def test_gitignore_lock_timeout_is_ignored(tmp_path: Path):
     local_dir = tmp_path / "path" / "to" / "local"
@@ -60,6 +83,57 @@ def test_gitignore_lock_timeout_is_ignored(tmp_path: Path):
         thread.join()
     assert (local_dir / ".cache" / "huggingface" / ".gitignore").exists()
     assert not (local_dir / ".cache" / "huggingface" / ".gitignore.lock").exists()
+
+
+# Filenames that must be rejected because they would escape the target directory when joined onto it.
+# Kept platform-independent on purpose: a file materialized on Linux must not be able to escape when
+# later consumed on Windows, so the validation interprets names under both POSIX and Windows rules.
+# See https://github.com/huggingface/huggingface_hub/pull/1429 (original relative-path fix) and the
+# absolute/UNC variant (CVE-2026-15717).
+UNSAFE_FILENAMES = [
+    "../../../etc/passwd",  # POSIX parent traversal
+    "folder/../../../etc/passwd",  # nested POSIX parent traversal
+    "..\\..\\Windows\\evil",  # Windows parent traversal
+    "folder\\..\\..\\evil",  # nested Windows parent traversal
+    "/etc/passwd",  # POSIX absolute
+    "C:\\Windows\\System32\\evil",  # Windows drive-absolute
+    "C:/Windows/System32/evil",  # Windows drive-absolute (forward slashes)
+    "D:relative\\evil",  # Windows drive-relative
+    "\\\\attacker\\share\\evil",  # UNC path (also triggers SMB auth / NetNTLMv2 leak on Windows)
+    "\\evil",  # Windows root-relative
+    "folder/C:\\Windows\\evil",  # nested Windows drive-absolute
+    "folder/\\\\attacker\\share\\evil",  # nested UNC path
+    "folder/\\evil",  # nested Windows root-relative
+]
+
+SAFE_FILENAMES = [
+    "file.txt",
+    "path/in/repo.txt",
+    "weird but valid/name.txt",
+]
+
+
+@pytest.mark.parametrize("filename", UNSAFE_FILENAMES)
+def test_validate_relative_filename_rejects_unsafe(filename: str):
+    with pytest.raises(ValueError, match="Invalid filename"):
+        _validate_relative_filename(filename)
+
+
+@pytest.mark.parametrize("filename", SAFE_FILENAMES)
+def test_validate_relative_filename_accepts_safe(filename: str):
+    _validate_relative_filename(filename)  # does not raise
+
+
+@pytest.mark.parametrize("filename", UNSAFE_FILENAMES)
+def test_local_download_paths_rejects_unsafe_filename(tmp_path: Path, filename: str):
+    with pytest.raises(ValueError, match="Invalid filename"):
+        get_local_download_paths(tmp_path, filename)
+
+
+@pytest.mark.parametrize("filename", UNSAFE_FILENAMES)
+def test_local_upload_paths_rejects_unsafe_filename(tmp_path: Path, filename: str):
+    with pytest.raises(ValueError, match="Invalid filename"):
+        get_local_upload_paths(tmp_path, filename)
 
 
 def test_local_download_paths(tmp_path: Path):
@@ -119,6 +193,33 @@ def test_local_download_paths_long_paths(tmp_path: Path):
     assert str(paths.file_path).startswith("\\\\?\\")
     assert str(paths.lock_path).startswith("\\\\?\\")
     assert str(paths.metadata_path).startswith("\\\\?\\")
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows-specific test.")
+@pytest.mark.parametrize("cache_dir_len", [252, 300])
+def test_local_download_paths_long_local_dir(tmp_path: Path, cache_dir_len: int):
+    r"""A deep ``local_dir`` must not crash when its ``.cache/huggingface`` folder exceeds the
+    Windows directory path limit (247 chars, i.e. MAX_PATH minus room for an 8.3 file name).
+
+    Unlike ``test_local_download_paths_long_paths`` (long *filename*, short dir), here the
+    ``local_dir`` itself is long, so the limit is first hit while ``_huggingface_dir`` creates
+    ``<local_dir>/.cache/huggingface``. Without the extended-length ``\\?\`` prefix that ``mkdir``
+    raised ``FileNotFoundError`` (WinError 206) before the download/upload paths were built.
+    Both boundary cases are covered: 248-259 (only directory creation exceeds the limit) and
+    260+ (file creation would fail too).
+    """
+    # Create a `local_dir` so that `<local_dir>/.cache/huggingface` is `cache_dir_len` chars long.
+    # Use the extended-length prefix here since a plain mkdir of such a path would itself fail.
+    padding = "d" * max(1, cache_dir_len - len(str(tmp_path / ".cache" / "huggingface")) - 1)
+    local_dir = tmp_path / padding
+    os.makedirs("\\\\?\\" + os.path.abspath(local_dir), exist_ok=True)
+    assert len(str(local_dir / ".cache" / "huggingface")) >= max(cache_dir_len, 248)
+
+    # Must not raise, and the (extended-length) parent directories must have been created.
+    paths = get_local_download_paths(local_dir, "config.json")
+    assert str(paths.metadata_path).startswith("\\\\?\\")
+    assert paths.metadata_path.parent.is_dir()
+    assert paths.file_path.parent.is_dir()
 
 
 def test_write_download_metadata(tmp_path: Path):
