@@ -162,15 +162,18 @@ def upload(
             ignore_patterns: list[str] | None
             if os.path.isfile(resolved_local_path):
                 # If file => watch entire folder + use allow_patterns.
-                # `CommitScheduler` matches patterns against paths relative to `folder_path`,
-                # so both the pattern and the prefix to strip are the file name, not the full path.
+                # `CommitScheduler` matches patterns against paths relative to `folder_path` and
+                # re-uploads them under `path_in_repo`, so the pattern is the file name and only
+                # the directory part of `path_in_repo` can be honoured.
                 folder_path = os.path.dirname(resolved_local_path)
                 filename = os.path.basename(resolved_local_path)
-                pi = (
-                    resolved_path_in_repo[: -len(filename)]
-                    if resolved_path_in_repo.endswith(filename)
-                    else resolved_path_in_repo
-                )
+                pi, _, dest_filename = resolved_path_in_repo.rpartition("/")
+                if dest_filename != filename:
+                    warnings.warn(
+                        f"Scheduled uploads keep the local file name, so the file will be uploaded as"
+                        f" '{(pi + '/' if pi else '') + filename}' rather than '{resolved_path_in_repo}'."
+                        " Rename the local file to upload it under a different name."
+                    )
                 allow_patterns = [filename]
                 ignore_patterns = []
             else:
