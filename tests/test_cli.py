@@ -585,6 +585,30 @@ class TestUploadCommand:
         )
         scheduler.stop.assert_called_once_with()
 
+    def test_upload_single_file_in_subfolder_with_every(self, runner: CliRunner) -> None:
+        """Scheduling a single file watches its parent folder, so patterns must use the file name."""
+        with SoftTemporaryDirectory() as tmp_dir:
+            file_path = Path(tmp_dir) / "checkpoints" / "model.safetensors"
+            file_path.parent.mkdir()
+            file_path.write_bytes(b"weights")
+            with (
+                patch(
+                    "huggingface_hub.cli.upload._resolve_upload_paths",
+                    return_value=(file_path.as_posix(), "model.safetensors", None),
+                ),
+                patch("huggingface_hub.cli.upload.get_hf_api"),
+                patch("huggingface_hub.cli.upload.CommitScheduler") as scheduler_cls,
+                patch("huggingface_hub.cli.upload.time.sleep", side_effect=KeyboardInterrupt),
+            ):
+                result = runner.invoke(
+                    app, ["upload", DUMMY_MODEL_ID, file_path.as_posix(), "--every", "5", "--format", "quiet"]
+                )
+        assert result.exit_code == 0
+        kwargs = scheduler_cls.call_args.kwargs
+        assert kwargs["folder_path"] == file_path.parent.as_posix()
+        assert kwargs["allow_patterns"] == ["model.safetensors"]
+        assert kwargs["path_in_repo"] == ""
+
     def test_every_must_be_positive(self) -> None:
         class _PatchedBadParameter(click.BadParameter):
             def __init__(self, message: str, *, param_name: Optional[str] = None, **kwargs: object) -> None:

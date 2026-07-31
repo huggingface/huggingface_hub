@@ -161,14 +161,17 @@ def upload(
             allow_patterns: list[str] | None
             ignore_patterns: list[str] | None
             if os.path.isfile(resolved_local_path):
-                # If file => watch entire folder + use allow_patterns
+                # If file => watch entire folder + use allow_patterns.
+                # `CommitScheduler` matches patterns against paths relative to `folder_path`,
+                # so both the pattern and the prefix to strip are the file name, not the full path.
                 folder_path = os.path.dirname(resolved_local_path)
+                filename = os.path.basename(resolved_local_path)
                 pi = (
-                    resolved_path_in_repo[: -len(resolved_local_path)]
-                    if resolved_path_in_repo.endswith(resolved_local_path)
+                    resolved_path_in_repo[: -len(filename)]
+                    if resolved_path_in_repo.endswith(filename)
                     else resolved_path_in_repo
                 )
-                allow_patterns = [resolved_local_path]
+                allow_patterns = [filename]
                 ignore_patterns = []
             else:
                 folder_path = resolved_local_path
