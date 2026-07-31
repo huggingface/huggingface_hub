@@ -21,6 +21,7 @@ import shutil
 import sys
 from collections.abc import Sequence
 from enum import Enum
+from functools import cache
 from typing import Any, cast
 
 import click
@@ -166,7 +167,7 @@ class Output:
         """Print a success summary to stdout."""
         match self.mode:
             case OutputFormat.human:  # ✓ message + key: value lines
-                parts = [ANSI.green(f"✓ {message}")]
+                parts = [ANSI.green(f"{_ascii_safe('✓', '[OK]')} {message}")]
                 for k, v in data.items():
                     if v is not None:
                         parts.append(f"  {k}: {v}")
@@ -239,6 +240,24 @@ class Output:
 # HELPERS
 
 
+@cache
+def _ascii_safe(char: str, fallback: str) -> str:
+    """Return `char`, or `fallback` if stdout cannot encode it.
+
+    On Windows, `sys.stdout` uses the ANSI code page (e.g. cp1252) instead of the console
+    encoding whenever it is not attached to a console (output redirected, piped, captured by
+    a CI step). Printing a decoration like "✓" then raises `UnicodeEncodeError` - a
+    `ValueError` subclass, so it surfaces as a confusing "Invalid value." error and aborts
+    the command. Cached since the stream encoding is fixed for the lifetime of the process.
+    """
+    encoding = getattr(sys.stdout, "encoding", None) or "utf-8"
+    try:
+        char.encode(encoding)
+    except (LookupError, UnicodeEncodeError):
+        return fallback
+    return char
+
+
 def _serialize_value(v: object) -> object:
     """Recursively serialize a value to be JSON-compatible."""
     if isinstance(v, datetime.datetime):
@@ -286,7 +305,7 @@ def _format_table_value_human(value: Any) -> str:
     if value is None:
         return ""
     if isinstance(value, bool):
-        return "✔" if value else ""
+        return _ascii_safe("✔", "yes") if value else ""
     if isinstance(value, datetime.datetime):
         return value.strftime("%Y-%m-%d")
     if isinstance(value, str) and re.match(r"^\d{4}-\d{2}-\d{2}T", value):

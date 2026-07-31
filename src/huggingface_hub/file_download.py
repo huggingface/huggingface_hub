@@ -23,6 +23,7 @@ from ._local_folder import (
     read_download_metadata,
     write_download_metadata,
 )
+from ._revision import ResolvedRevision
 from ._tree_cache import read_tree_cache, tree_cache_folder_for_local_dir
 from .errors import (
     FileMetadataError,
@@ -960,6 +961,10 @@ def hf_hub_download(
 
     if revision is None:
         revision = constants.DEFAULT_REVISION
+    elif isinstance(revision, ResolvedRevision):
+        # Revision has already been resolved to a commit hash (see [`HfApi.resolve_revision`]) => use it directly.
+        # This pins the download to an immutable commit and lets us skip network calls when it's already cached.
+        revision = revision.resolved
 
     if cache_dir is None:
         cache_dir = constants.HF_HUB_CACHE
