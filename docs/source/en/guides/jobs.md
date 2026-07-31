@@ -595,6 +595,28 @@ Run UV scripts (Python scripts with inline dependencies) on HF infrastructure:
 
 UV scripts are Python scripts that include their dependencies directly in the file using a special comment syntax. This makes them perfect for self-contained tasks that don't require complex project setups. Learn more about UV scripts in the [UV documentation](https://docs.astral.sh/uv/guides/scripts/).
 
+#### Ship the launch config with the script
+
+A script that only runs correctly on a specific runtime can carry that runtime with it, in an optional `[tool.hf-jobs]` table of its PEP 723 header:
+
+```python
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["vllm", "datasets"]
+#
+# [tool.hf-jobs]
+# image   = "vllm/vllm-openai:unlimited-ocr"
+# flavor  = "l4x1"
+# python  = "/usr/bin/python3"
+# secrets = ["HF_TOKEN"]
+# ///
+```
+
+`hf jobs uv run ocr.py` then launches with the right image, hardware and interpreter, and `--flavor`, `-e`, ... still override what the script declares. See the [CLI guide](./cli#ship-the-launch-config-with-the-script) for the full list of keys and the merge rules.
+
+> [!WARNING]
+> The table is read by the `hf` CLI only: [`run_uv_job`] and [`create_scheduled_uv_job`] ignore it and use exactly the arguments they are given. In other words `run_uv_job("ocr.py")` and `hf jobs uv run ocr.py` do **not** run the same Job — the Python API needs `image=`, `flavor=`, ... to be passed explicitly.
+
 
 #### Docker Images for UV Scripts
 

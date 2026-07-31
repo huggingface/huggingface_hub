@@ -2119,6 +2119,58 @@ UV scripts are Python scripts that include their dependencies directly in the fi
 
 A `--` can be used to separate the command from jobs/uv options for clarity, e.g., `hf jobs uv run --flavor gpu-t4-small --with torch -- python -c '...'`
 
+#### Ship the launch config with the script
+
+Some scripts only run correctly on a specific runtime: a given image, a GPU flavor, a system interpreter... A script can carry that configuration with it, in an optional `[tool.hf-jobs]` table of its PEP 723 header:
+
+```python
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["vllm", "datasets"]
+#
+# [tool.hf-jobs]
+# name    = "unlimited-ocr"
+# image   = "vllm/vllm-openai:unlimited-ocr"
+# flavor  = "l4x1"
+# python  = "/usr/bin/python3"
+# env     = { PYTHONPATH = "/usr/local/lib/python3.12/dist-packages" }
+# secrets = ["HF_TOKEN"]
+# ///
+```
+
+`hf jobs uv run ocr.py in_ds out_ds` then launches with the right runtime, instead of silently running on a CPU image with the wrong interpreter. The table is invisible to a plain `uv run`: `[tool.*]` tables are part of PEP 723 and tools ignore the ones they don't own.
+
+Supported keys, all optional: `image`, `flavor`, `python`, `timeout`, `name`, `namespace`, `env`, `secrets`, `labels` and `volumes`. They map to the flags of the same name (`name` is stored as the `name` label, `volumes` takes the same `hf://...:/MOUNT_PATH` specs as `-v`). An unknown key is an error rather than a silently dropped intent — a typo like `flavour` is exactly the failure this feature exists to prevent.
+
+Values from the script are *defaults*: an explicit flag always wins, and `env`, `secrets`, `labels` and `volumes` are merged entry by entry, so `-e` and `-v` can add to what the script declares:
+
+```bash
+# Same script, on bigger hardware, with one extra env var
+>>> hf jobs uv run --flavor a10g-large -e BATCH_SIZE=64 ocr.py in_ds out_ds
+```
+
+`secrets` only lists secret *names*: values always come from the environment of whoever runs the script, never from the script itself (`HF_TOKEN` also resolves from `hf auth login`). A secret that is requested but not set locally is an error, rather than a Job silently receiving an empty value. With `--dry-run` it is shown as `<not set>` instead, so that the configuration of a script whose secrets are not provisioned yet remains visible.
+
+Every run echoes the configuration it submits, marking the values that come from the script. Use `--dry-run` to print it without launching anything:
+
+```bash
+>>> hf jobs uv run --dry-run --flavor a10g-large ocr.py in_ds out_ds
+Warning: The script's [tool.hf-jobs] table requests HF_TOKEN: the value(s) from your local environment would be sent to the Job.
+Job configuration:
+  script   ocr.py
+  args     in_ds out_ds
+  image    vllm/vllm-openai:unlimited-ocr (from script)
+  flavor   a10g-large
+  python   /usr/bin/python3 (from script)
+  env      PYTHONPATH=/usr/local/lib/python3.12/dist-packages (from script)
+  secrets  HF_TOKEN=*** (from script)
+  labels   name=unlimited-ocr (from script)
+(dry run) Job not submitted.
+```
+
+> [!TIP]
+> This also works for scripts that live behind a URL: the script is downloaded once when the Job is submitted (to read its header) and shipped to the Job like a local script, instead of being downloaded again by the container.
+
 ### hf jobs scheduled
 
 Schedule and manage jobs that will run on HF infrastructure.

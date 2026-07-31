@@ -67,6 +67,7 @@ from ._dataset_viewer import DatasetParquetEntry
 from ._eval_results import EvalResultEntry, parse_eval_result_entries
 from ._inference_endpoints import InferenceEndpoint, InferenceEndpointScalingMetric, InferenceEndpointType
 from ._jobs_api import (
+    DEFAULT_UV_IMAGE,
     TERMINAL_JOB_STAGES,
     JobHardware,
     JobHardwareInfo,
@@ -12663,6 +12664,11 @@ class HfApi:
         """
         Run a UV script Job on Hugging Face infrastructure.
 
+        > [!WARNING]
+        > Unlike `hf jobs uv run`, this method ignores the optional `[tool.hf-jobs]` table a UV script can
+        > carry in its PEP 723 header (see the [Jobs guide](../guides/jobs#ship-the-launch-config-with-the-script)):
+        > the launch configuration has to be passed explicitly here.
+
         Args:
             script (`str`):
                 Path or URL of the UV script, or a command.
@@ -12768,7 +12774,7 @@ class HfApi:
             >>> run_uv_job(script, script_args=script_args, volumes=[checkpoints_bucket])
             ```
         """
-        image = image or "ghcr.io/astral-sh/uv:python3.12-bookworm"
+        image = image or DEFAULT_UV_IMAGE
         env = env or {}
         secrets = secrets or {}
 
@@ -13227,6 +13233,11 @@ class HfApi:
         """
         Run a UV script Job on Hugging Face infrastructure.
 
+        > [!WARNING]
+        > Unlike `hf jobs uv run`, this method ignores the optional `[tool.hf-jobs]` table a UV script can
+        > carry in its PEP 723 header (see the [Jobs guide](../guides/jobs#ship-the-launch-config-with-the-script)):
+        > the launch configuration has to be passed explicitly here.
+
         Args:
             script (`str`):
                 Path or URL of the UV script, or a command.
@@ -13326,7 +13337,7 @@ class HfApi:
             >>> create_scheduled_uv_job(script, script_args=script_args, dependencies=["lighteval"], flavor="a10g-small", schedule="@weekly")
             ```
         """
-        image = image or "ghcr.io/astral-sh/uv:python3.12-bookworm"
+        image = image or DEFAULT_UV_IMAGE
         if name is None and not (labels and "name" in labels):
             name = _default_job_name_from_script(script, script_args or [])
 

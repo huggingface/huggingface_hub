@@ -22,6 +22,7 @@ install_requires = [
     "httpx>=0.23.0, <1",
     "packaging>=20.9",
     "pyyaml>=5.1",
+    "tomli>=1.1.0; python_version<'3.11'",  # stdlib `tomllib` from 3.11 onwards. Used to read `[tool.hf-jobs]` in UV scripts.
     "tqdm>=4.42.1",
     "typing-extensions>=4.1.0",  # to be able to import TypeAlias, dataclass_transform
 ]
