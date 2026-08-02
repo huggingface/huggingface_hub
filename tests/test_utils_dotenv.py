@@ -103,7 +103,16 @@ def test_hash_without_leading_whitespace_is_part_of_value():
 
 
 def test_hash_at_start_of_value_is_kept():
+    # No whitespace between '=' and '#', so the '#' belongs to the value.
     assert load_dotenv("KEY=#value") == {"KEY": "#value"}
+
+
+def test_comment_right_after_equals_leaves_value_empty():
+    # With whitespace after '=', the '#' opens a comment and the value stays empty.
+    # Guards against the comment text itself being passed through as an env/secret value.
+    assert load_dotenv("KEY= # comment") == {"KEY": ""}
+    assert load_dotenv("KEY=  #comment") == {"KEY": ""}
+    assert load_dotenv("SECRET= # note") == {"SECRET": ""}
 
 
 def test_inline_comment_still_stripped_after_hash_fix():
