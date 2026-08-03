@@ -908,7 +908,7 @@ jobs:
           # --prerelease=allow would also pull in unrelated prereleases (e.g. tokenizers) that break
           # the latest transformers and cause spurious CI failures.
           if [ "${{ matrix.target-repo }}" != "sentence-transformers" ]; then
-            find .github/workflows/ -type f -exec perl -0pi -e 's/uv pip install (?!--prerelease=allow )/uv pip install --prerelease=allow /g' {} +
+            find .github/workflows/ -type f -exec perl -0pi -e 's/uv pip install --prerelease=allow (?!--prerelease=allow )/uv pip install --prerelease=allow --prerelease=allow /g' {} +
             git add .github/workflows/
           fi
 
