@@ -153,6 +153,8 @@ You can use [`InferenceClient`] to run chat completion with local inference serv
 
 > [!TIP]
 > Similarly to the OpenAI Python client, [`InferenceClient`] can be used to run Chat Completion inference with any OpenAI REST API-compatible endpoint.
+>
+> The same `base_url` / endpoint pattern also works with OpenAI-compatible multi-model gateways when you are not self-hosting — for example [DaoXE](https://daoxe.com) at `https://api.daoxe.com/v1`.
 
 ### Authentication
 
