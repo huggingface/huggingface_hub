@@ -2313,6 +2313,13 @@ To deploy your own Docker image instead of a Hugging Face managed one, pass `--f
       --type authenticated
 ```
 
+`--container-args` and `--container-command` are not limited to custom images: they map to `model.args` and `model.command` in the API payload, which apply to managed images as well. You can also change them on an existing endpoint (pass an empty string to reset to the image default):
+
+```bash
+>>> hf endpoints update my-endpoint \
+      --container-args "--enable-auto-tool-choice --tool-call-parser lfm2"
+```
+
 ### hf endpoints catalog
 
 Use `hf endpoints catalog` to interact with the Inference Endpoints Model Catalog. Deploy models directly from the catalog with optimized configurations.

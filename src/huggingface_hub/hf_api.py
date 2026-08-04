@@ -9414,8 +9414,8 @@ class HfApi:
                 Override the container entrypoint command (maps to `model.command` in the API payload). Typically
                 used together with `custom_image`.
             container_args (`list[str]`, *optional*):
-                Arguments appended to the container entrypoint (maps to `model.args` in the API payload). Typically
-                used together with `custom_image` to pass runtime flags to the container.
+                Arguments appended to the container entrypoint (maps to `model.args` in the API payload). Works with
+                both managed engine images (e.g. vLLM, SGLang) and custom images.
             env (`dict[str, str]`, *optional*):
                 Non-secret environment variables to inject in the container environment.
             secrets (`dict[str, str]`, *optional*):
@@ -9755,6 +9755,8 @@ class HfApi:
         revision: str | None = None,
         task: str | None = None,
         custom_image: dict | None = None,
+        container_command: list[str] | None = None,
+        container_args: list[str] | None = None,
         env: dict[str, str] | None = None,
         secrets: dict[str, str] | None = None,
         # Route update
@@ -9806,6 +9808,12 @@ class HfApi:
             custom_image (`dict`, *optional*):
                 A custom Docker image to use for the Inference Endpoint. This is useful if you want to deploy an
                 Inference Endpoint running on the `text-generation-inference` (TGI) framework (see examples).
+            container_command (`list[str]`, *optional*):
+                Override the container entrypoint command (maps to `model.command` in the API payload). Typically
+                used together with `custom_image`.
+            container_args (`list[str]`, *optional*):
+                Arguments appended to the container entrypoint (maps to `model.args` in the API payload). Works with
+                both managed engine images (e.g. vLLM, SGLang) and custom images.
             env (`dict[str, str]`, *optional*):
                 Non-secret environment variables to inject in the container environment
             secrets (`dict[str, str]`, *optional*):
@@ -9860,6 +9868,10 @@ class HfApi:
             payload["model"]["task"] = task
         if custom_image is not None:
             payload["model"]["image"] = {"custom": custom_image}
+        if container_command is not None:
+            payload["model"]["command"] = container_command
+        if container_args is not None:
+            payload["model"]["args"] = container_args
         if env is not None:
             payload["model"]["env"] = env
         if secrets is not None:

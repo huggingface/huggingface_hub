@@ -191,7 +191,7 @@ def deploy(
             "--container-command",
             help=(
                 "Override the container entrypoint, as a quoted string split into tokens "
-                '(e.g. "python -m sglang.launch_server"). Requires --custom-image.'
+                '(e.g. "python -m sglang.launch_server").'
             ),
         ),
     ] = None,
@@ -201,7 +201,7 @@ def deploy(
             "--container-args",
             help=(
                 "Arguments appended to the container entrypoint, as a quoted string split into tokens "
-                '(e.g. "--tp 8 --reasoning-parser qwen3"). Requires --custom-image.'
+                '(e.g. "--tp 8 --reasoning-parser qwen3"). Not limited to --custom-image deployments.'
             ),
         ),
     ] = None,
@@ -219,9 +219,10 @@ def deploy(
     ] = None,
 ) -> None:
     """Deploy an Inference Endpoint from a Hub repository."""
-    # Custom-container knobs only make sense alongside a custom image.
-    if custom_image is None and (health_route is not None or port is not None or container_command or container_args):
-        raise CLIError("--health-route, --port, --container-command and --container-args require --custom-image.")
+    # Health route and port only make sense alongside a custom image. Container command/args also
+    # apply to managed engine images (vLLM, SGLang, llama.cpp, ...), so they are not gated.
+    if custom_image is None and (health_route is not None or port is not None):
+        raise CLIError("--health-route and --port require --custom-image.")
     custom_image_dict: dict | None = None
     if custom_image is not None:
         custom_image_dict = {"url": custom_image}
@@ -392,6 +393,27 @@ def update(
             help="The task on which to deploy the model (e.g. 'text-classification').",
         ),
     ] = None,
+    container_command: Annotated[
+        str | None,
+        Option(
+            "--container-command",
+            help=(
+                "Override the container entrypoint, as a quoted string split into tokens "
+                '(e.g. "python -m sglang.launch_server"). Pass an empty string to reset to the image default.'
+            ),
+        ),
+    ] = None,
+    container_args: Annotated[
+        str | None,
+        Option(
+            "--container-args",
+            help=(
+                "Arguments appended to the container entrypoint, as a quoted string split into tokens "
+                '(e.g. "--enable-auto-tool-choice --tool-call-parser lfm2"). '
+                "Pass an empty string to reset to the image default."
+            ),
+        ),
+    ] = None,
     min_replica: Annotated[
         int | None,
         Option(
@@ -434,6 +456,8 @@ def update(
             framework=framework,
             revision=revision,
             task=task,
+            container_command=shlex.split(container_command) if container_command is not None else None,
+            container_args=shlex.split(container_args) if container_args is not None else None,
             accelerator=accelerator,
             instance_size=instance_size,
             instance_type=instance_type,
