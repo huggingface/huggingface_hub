@@ -11,6 +11,7 @@ concurrency:
 
 jobs:
   pull_request:
+    if: github.repository == 'huggingface/huggingface_hub'
     runs-on: ubuntu-latest
     steps:
       # Setup Python
