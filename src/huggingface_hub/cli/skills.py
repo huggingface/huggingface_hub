@@ -334,7 +334,7 @@ def _create_symlink(agent_skills_dir: Path, skill_name: str, central_skill_path:
     try:
         link_path.symlink_to(os.path.relpath(central_skill_path, agent_skills_dir))
     except OSError:
-        # Windows needs Developer Mode or admin rights for symlinks (see `are_symlinks_supported`).
+        # Windows needs Developer Mode or admin rights for symlinks.
         # Fall back to a copy: `hf skills update` walks both roots, so the copy stays in sync.
         shutil.copytree(central_skill_path, link_path)
 
