@@ -331,7 +331,12 @@ def _create_symlink(agent_skills_dir: Path, skill_name: str, central_skill_path:
     link_path = agent_skills_dir / skill_name
 
     _remove_existing(link_path, force)
-    link_path.symlink_to(os.path.relpath(central_skill_path, agent_skills_dir))
+    try:
+        link_path.symlink_to(os.path.relpath(central_skill_path, agent_skills_dir))
+    except OSError:
+        # Windows needs Developer Mode or admin rights for symlinks (see `are_symlinks_supported`).
+        # Fall back to a copy: `hf skills update` walks both roots, so the copy stays in sync.
+        shutil.copytree(central_skill_path, link_path)
 
     return link_path
 
@@ -462,7 +467,7 @@ def skills_add(
     if claude:
         agent_target = constants.CLAUDE_SKILLS_GLOBAL_PATH if global_ else constants.CLAUDE_SKILLS_LOCAL_PATH
         link_path = _create_symlink(agent_target, name, central_skill_path, force)
-        print(f"Created symlink: {link_path}")
+        print(f"Created symlink: {link_path}" if link_path.is_symlink() else f"Copied '{name}' to {link_path}")
 
 
 @skills_cli.command(

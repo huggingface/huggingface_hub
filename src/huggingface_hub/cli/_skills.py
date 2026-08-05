@@ -352,6 +352,9 @@ def _check_skill_update() -> None:
     local_dirs = _installed_hf_cli_dirs(constants.AGENTS_SKILLS_LOCAL_PATH, constants.CLAUDE_SKILLS_LOCAL_PATH)
 
     if not global_dirs and not local_dirs:
+        # Don't push the skill on pre-release / dev versions (same rule as the PyPI update check).
+        if any(tag in __version__ for tag in ["rc", "dev"]):
+            return
         out.hint(
             f"The `{DEFAULT_SKILL_ID}` skill is not installed. Run `hf skills add -g --claude`"
             " to teach your AI agents how to use the `hf` CLI."
