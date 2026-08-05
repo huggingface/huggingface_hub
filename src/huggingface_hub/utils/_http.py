@@ -458,10 +458,12 @@ def _http_backoff_base(
     if "data" in kwargs and isinstance(kwargs["data"], (io.IOBase, SliceFileObj)):
         io_obj_initial_pos = kwargs["data"].tell()
 
-    client = get_session()
     while True:
         nb_tries += 1
         ratelimit_reset = None
+        # Fetched on each attempt: a previous attempt may have closed the shared client (see `close_session` below),
+        # and closed `httpx.Client` objects cannot be reused.
+        client = get_session()
         try:
             # If `data` is used and is a file object (or any IO), set back cursor to
             # initial position.
