@@ -1799,7 +1799,35 @@ def _get_metadata_or_catch_error(
     if not (local_files_only or etag is not None or head_error_call is not None):
         raise RuntimeError("etag is empty due to uncovered problems")
 
+    if head_error_call is not None:
+        _detach_tracebacks(head_error_call)
+
     return (url_to_download, etag, commit_hash, expected_size, xet_file_data, head_error_call)  # type: ignore
+
+
+def _detach_tracebacks(error: BaseException) -> None:
+    """Detach the tracebacks of an exception and of its whole `__cause__`/`__context__` chain.
+
+    Returning an exception instead of raising it means keeping its traceback alive. A traceback references the frames
+    it was raised from, and each frame references its caller (up to the user code calling `hf_hub_download`) and its
+    own local variables - including the returned exception itself. This creates a reference cycle that only the cyclic
+    garbage collector can break, so callers falling back to a cached file (i.e. discarding the error) keep their own
+    stack - and everything it references - alive until the next `gc.collect()`.
+
+    Only the frames are dropped: exception types, messages and the cause/context chain are preserved, so re-raising a
+    detached error still reports what went wrong.
+
+    See https://github.com/vllm-project/vllm/pull/50341 for a real-world report of this retention.
+    """
+    seen: set[int] = set()
+    pending = [error]
+    while pending:
+        current = pending.pop()
+        if id(current) in seen:  # defensive: exception chains can be cyclic
+            continue
+        seen.add(id(current))
+        current.__traceback__ = None
+        pending.extend(exc for exc in (current.__cause__, current.__context__) if exc is not None)
 
 
 def _xet_file_metadata_from_tree_cache(
