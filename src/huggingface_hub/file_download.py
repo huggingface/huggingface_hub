@@ -18,10 +18,12 @@ from tqdm.auto import tqdm as base_tqdm
 from . import constants
 from ._local_folder import (
     _create_cachedir_tag,
+    _validate_relative_filename,
     get_local_download_paths,
     read_download_metadata,
     write_download_metadata,
 )
+from ._revision import ResolvedRevision
 from ._tree_cache import read_tree_cache, tree_cache_folder_for_local_dir
 from .errors import (
     FileMetadataError,
@@ -52,7 +54,7 @@ from .utils._http import (
     http_stream_backoff,
 )
 from .utils._runtime import is_xet_available
-from .utils._xet import XetTokenType, xet_connection_info_refresh_url
+from .utils._xet import XetTokenType, is_valid_xet_hash, xet_connection_info_refresh_url
 from .utils.sha import sha_fileobj
 from .utils.tqdm import _get_progress_bar_context
 
@@ -271,7 +273,7 @@ def hf_hub_url(
         raise ValueError("Invalid repo type")
 
     if repo_type in constants.REPO_TYPES_URL_PREFIXES:
-        repo_id = constants.REPO_TYPES_URL_PREFIXES[repo_type] + repo_id
+        repo_id = constants.REPO_TYPES_URL_PREFIXES[repo_type] + repo_id  # type: ignore
 
     if revision is None:
         revision = constants.DEFAULT_REVISION
@@ -959,6 +961,10 @@ def hf_hub_download(
 
     if revision is None:
         revision = constants.DEFAULT_REVISION
+    elif isinstance(revision, ResolvedRevision):
+        # Revision has already been resolved to a commit hash (see [`HfApi.resolve_revision`]) => use it directly.
+        # This pins the download to an immutable commit and lets us skip network calls when it's already cached.
+        revision = revision.resolved
 
     if cache_dir is None:
         cache_dir = constants.HF_HUB_CACHE
@@ -1058,14 +1064,9 @@ def _hf_hub_download_to_cache_dir(
     locks_dir = os.path.join(cache_dir, ".locks")
     storage_folder = os.path.join(cache_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type))
 
+    _validate_relative_filename(filename)
     # cross-platform transcription of filename, to be used as a local file path.
     relative_filename = os.path.join(*filename.split("/"))
-    if os.name == "nt":
-        if relative_filename.startswith("..\\") or "\\..\\" in relative_filename:
-            raise ValueError(
-                f"Invalid filename: cannot handle filename '{relative_filename}' on Windows. Please ask the repository"
-                " owner to rename this file."
-            )
 
     # if user provides a commit_hash and they already have the file on disk, shortcut everything.
     if REGEX_COMMIT_HASH.match(revision):
@@ -1183,6 +1184,15 @@ def _hf_hub_download_to_cache_dir(
             will_download=force_download or not is_cached,
         )
 
+    # Pointer already exists -> update the ref best-effort, then return without
+    # attempting to write to the cache (which may be mounted read-only).
+    if not force_download and os.path.exists(pointer_path):
+        try:
+            _cache_commit_hash_for_specific_revision(storage_folder, revision, commit_hash)
+        except OSError:
+            pass
+        return pointer_path
+
     os.makedirs(os.path.dirname(blob_path), exist_ok=True)
     os.makedirs(os.path.dirname(pointer_path), exist_ok=True)
 
@@ -1218,10 +1228,6 @@ def _hf_hub_download_to_cache_dir(
         blob_path = "\\\\?\\" + os.path.abspath(blob_path)
 
     Path(lock_path).parent.mkdir(parents=True, exist_ok=True)
-
-    # pointer already exists -> immediate return
-    if not force_download and os.path.exists(pointer_path):
-        return pointer_path
 
     # Blob exists but pointer must be (safely) created -> take the lock
     if not force_download and os.path.exists(blob_path):
@@ -1793,7 +1799,35 @@ def _get_metadata_or_catch_error(
     if not (local_files_only or etag is not None or head_error_call is not None):
         raise RuntimeError("etag is empty due to uncovered problems")
 
+    if head_error_call is not None:
+        _detach_tracebacks(head_error_call)
+
     return (url_to_download, etag, commit_hash, expected_size, xet_file_data, head_error_call)  # type: ignore
+
+
+def _detach_tracebacks(error: BaseException) -> None:
+    """Detach the tracebacks of an exception and of its whole `__cause__`/`__context__` chain.
+
+    Returning an exception instead of raising it means keeping its traceback alive. A traceback references the frames
+    it was raised from, and each frame references its caller (up to the user code calling `hf_hub_download`) and its
+    own local variables - including the returned exception itself. This creates a reference cycle that only the cyclic
+    garbage collector can break, so callers falling back to a cached file (i.e. discarding the error) keep their own
+    stack - and everything it references - alive until the next `gc.collect()`.
+
+    Only the frames are dropped: exception types, messages and the cause/context chain are preserved, so re-raising a
+    detached error still reports what went wrong.
+
+    See https://github.com/vllm-project/vllm/pull/50341 for a real-world report of this retention.
+    """
+    seen: set[int] = set()
+    pending = [error]
+    while pending:
+        current = pending.pop()
+        if id(current) in seen:  # defensive: exception chains can be cyclic
+            continue
+        seen.add(id(current))
+        current.__traceback__ = None
+        pending.extend(exc for exc in (current.__cause__, current.__context__) if exc is not None)
 
 
 def _xet_file_metadata_from_tree_cache(
@@ -1818,7 +1852,13 @@ def _xet_file_metadata_from_tree_cache(
     if tree_entries is None:
         return None
     entry = tree_entries.get(filename)
-    if entry is None or entry.xet_hash is None or entry.lfs_sha256 is None or entry.lfs_size is None:
+    if (
+        entry is None
+        or entry.xet_hash is None
+        or not is_valid_xet_hash(entry.xet_hash)
+        or entry.lfs_sha256 is None
+        or entry.lfs_size is None
+    ):
         return None
 
     xet_file_data = XetFileData(

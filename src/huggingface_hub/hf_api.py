@@ -35,7 +35,6 @@ from urllib.parse import quote
 import httpcore
 import httpx
 from tqdm.auto import tqdm as base_tqdm
-from tqdm.contrib.concurrent import thread_map
 
 from . import constants
 from ._buckets import (
@@ -76,8 +75,11 @@ from ._jobs_api import (
     JobStage,
     ScheduledJobInfo,
     _create_job_spec,
+    _default_job_name_from_image,
+    _default_job_name_from_script,
     _derive_job_volume_name,
 )
+from ._revision import ResolvedRevision
 from ._space_api import (
     INTERMEDIATE_SPACE_STAGES,
     SpaceHardware,
@@ -107,11 +109,21 @@ from .errors import (
     HfHubHTTPError,
     HfUriError,
     LocalTokenNotFoundError,
+    OfflineModeIsEnabled,
     RemoteEntryNotFoundError,
     RepositoryNotFoundError,
     RevisionNotFoundError,
+    RevisionResolutionError,
 )
-from .file_download import DryRunFileInfo, HfFileMetadata, get_hf_file_metadata, hf_hub_url
+from .file_download import (
+    REGEX_COMMIT_HASH,
+    DryRunFileInfo,
+    HfFileMetadata,
+    _cache_commit_hash_for_specific_revision,
+    get_hf_file_metadata,
+    hf_hub_url,
+    repo_folder_name,
+)
 from .repocard_data import DatasetCardData, ModelCardData, SpaceCardData
 from .utils import (
     DEFAULT_IGNORE_PATTERNS,
@@ -130,6 +142,7 @@ from .utils import (
     get_session,
     get_token,
     hf_raise_for_status,
+    hf_thread_map,
     http_backoff,
     logging,
     paginate,
@@ -422,7 +435,7 @@ def repo_type_and_id_from_hf_id(hf_id: str, hub_url: str | None = None) -> tuple
 
     # Check if repo type is known (mapping "spaces" => "space" + empty value => `None`)
     if repo_type in constants.REPO_TYPES_MAPPING:
-        repo_type = constants.REPO_TYPES_MAPPING[repo_type]
+        repo_type = constants.REPO_TYPES_MAPPING[repo_type]  # type: ignore
     if repo_type == "":
         repo_type = None
     if repo_type not in constants.REPO_TYPES_WITH_KERNEL and repo_type != "bucket":
@@ -3637,6 +3650,127 @@ class HfApi:
         )
 
     @validate_hf_hub_args
+    def resolve_revision(
+        self,
+        repo_id: str,
+        *,
+        repo_type: str | None = None,
+        revision: str | None = None,
+        cache_dir: str | Path | None = None,
+        local_files_only: bool = False,
+        token: bool | str | None = None,
+    ) -> ResolvedRevision:
+        """Resolve a revision (branch, tag, PR ref) to a commit hash.
+
+        This is meant for libraries that download and load several components of a repo separately (config,
+        weights, tokenizer, ...). Resolving the revision once and passing the returned [`ResolvedRevision`] around
+        guarantees that every subsequent call targets the exact same commit, even if the repo is updated in the
+        meantime. It also saves HTTP calls, as downloads made with a commit hash can be served from the local
+        cache without contacting the Hub.
+
+        The `revision` -> `commit hash` mapping is cached on disk (in the `refs/` folder of the cache), on a
+        best-effort basis. If the Hub cannot be reached later on (offline mode, connection error, timeout, Hub
+        downtime, ...), the cached value is used as a fallback.
+
+        > [!TIP]
+        > If you only need to download a full repo snapshot, a single [`snapshot_download`] call is enough and
+        > already does the right thing. `resolve_revision` is only useful when downloading files separately.
+
+        Args:
+            repo_id (`str`):
+                A user or an organization name and a repo name separated by a `/`.
+            repo_type (`str`, *optional*):
+                Set to `"dataset"`, `"space"` or `"kernel"` if the repo is a dataset, space or kernel repo,
+                `None` or `"model"` if it is a model. Default is `None`.
+            revision (`str`, *optional*):
+                The revision to resolve. Can be a branch name, a tag, a PR ref or a commit hash. Defaults to the
+                default branch. If a [`ResolvedRevision`] is passed, it is returned as is.
+            cache_dir (`str`, `Path`, *optional*):
+                Path to the folder where cached files are stored. Defaults to the value of `HF_HUB_CACHE`.
+            local_files_only (`bool`, *optional*, defaults to `False`):
+                If `True`, resolve the revision from the local cache only, without contacting the Hub.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved token, which is the recommended
+                method for authentication (see https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            [`ResolvedRevision`]: A `str` subclass holding both the requested revision and the commit hash it resolves to.
+
+        Raises:
+            [`~errors.RevisionResolutionError`]
+                If the revision cannot be resolved: the Hub could not be reached and nothing is cached locally.
+            [`~errors.RevisionNotFoundError`]
+                If the revision does not exist on the Hub.
+            [`~errors.RepositoryNotFoundError`]
+                If the repository cannot be found. This may be because it doesn't exist, or because it is set to
+                `private` and you do not have access.
+
+        Example:
+            ```py
+            >>> from huggingface_hub import hf_hub_download, resolve_revision
+            >>> revision = resolve_revision("openai-community/gpt2")
+            >>> revision
+            ResolvedRevision(initial=None, resolved='607a30d783dfa663caf39e06633721c8d4cfcd7e')
+
+            # Pass it around: every download is pinned to the same commit
+            >>> config = hf_hub_download("openai-community/gpt2", "config.json", revision=revision)
+            >>> weights = hf_hub_download("openai-community/gpt2", "model.safetensors", revision=revision)
+            ```
+        """
+        if isinstance(revision, ResolvedRevision):
+            return revision
+        if revision is not None and REGEX_COMMIT_HASH.match(revision):
+            return ResolvedRevision(resolved=revision, initial=revision)
+
+        if repo_type is None:
+            repo_type = constants.REPO_TYPE_MODEL
+        if cache_dir is None:
+            cache_dir = constants.HF_HUB_CACHE
+        storage_folder = str(
+            Path(cache_dir).expanduser().resolve() / repo_folder_name(repo_id=repo_id, repo_type=repo_type)
+        )
+
+        error: Exception | None = None
+        if not local_files_only:
+            try:
+                sha = self.repo_info(repo_id=repo_id, repo_type=repo_type, revision=revision, token=token).sha
+                assert sha is not None, "Repo info returned from server must have a revision sha."
+                try:  # best-effort caching, e.g. cache folder might be read-only
+                    _cache_commit_hash_for_specific_revision(
+                        storage_folder, revision or constants.DEFAULT_REVISION, sha
+                    )
+                except OSError as e:
+                    logger.warning(f"Ignored error while caching commit hash for '{repo_id}': {e}.")
+                return ResolvedRevision(resolved=sha, initial=revision)
+            except httpx.ProxyError:
+                # Actually raise on proxy error: a misconfigured proxy is not an unreachable Hub
+                raise
+            except (httpx.TransportError, OfflineModeIsEnabled) as e:
+                # Hub cannot be reached (offline mode, connection error, timeout, ...) => fallback on cache
+                error = e
+            except HfHubHTTPError as e:
+                if e.response.status_code < 500:
+                    raise  # the Hub answered: repo/revision not found, missing permissions, ... => raise as is
+                error = e  # Hub is down => fallback on cache
+
+        ref_path = Path(storage_folder) / "refs" / (revision or constants.DEFAULT_REVISION)
+        if ref_path.is_file():
+            if error is not None:
+                logger.warning(f"Could not reach the Hub ({error}). Using cached commit hash for '{repo_id}'.")
+            return ResolvedRevision(resolved=ref_path.read_text().strip(), initial=revision)
+
+        reason = (
+            "'local_files_only=True' is set"
+            if error is None
+            else f"the Hub could not be reached ({error.__class__.__name__}: {error})"
+        )
+        raise RevisionResolutionError(
+            f"Cannot resolve revision '{revision or constants.DEFAULT_REVISION}' for {repo_type} '{repo_id}':"
+            f" {reason} and no matching entry was found in the local cache ('{ref_path}')."
+        ) from error
+
+    @validate_hf_hub_args
     def repo_exists(
         self,
         repo_id: str,
@@ -6694,6 +6828,7 @@ class HfApi:
         repo_type: str | None = None,
         revision: str | None = None,
         token: bool | str | None = None,
+        timeout: float | None = constants.HF_HUB_DOWNLOAD_TIMEOUT,
     ) -> SafetensorsRepoMetadata:
         """
         Parse metadata for a safetensors repo on the Hub.
@@ -6720,6 +6855,10 @@ class HfApi:
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
+            timeout (`float`, *optional*, defaults to 10):
+                How many seconds to wait for the server to send data before giving up, passed to each request that
+                fetches a safetensors file header. Set to `None` to disable the timeout (not recommended, as a stalled
+                connection can hang the call indefinitely).
 
         Returns:
             [`SafetensorsRepoMetadata`]: information related to safetensors repo.
@@ -6771,6 +6910,7 @@ class HfApi:
                 repo_type=repo_type,
                 revision=revision,
                 token=token,
+                timeout=timeout,
             )
             return SafetensorsRepoMetadata(
                 metadata=None,
@@ -6805,10 +6945,15 @@ class HfApi:
 
             def _parse(filename: str) -> None:
                 files_metadata[filename] = self.parse_safetensors_file_metadata(
-                    repo_id=repo_id, filename=filename, repo_type=repo_type, revision=revision, token=token
+                    repo_id=repo_id,
+                    filename=filename,
+                    repo_type=repo_type,
+                    revision=revision,
+                    token=token,
+                    timeout=timeout,
                 )
 
-            thread_map(
+            hf_thread_map(
                 _parse,
                 set(weight_map.values()),
                 desc="Parse safetensors files",
@@ -6835,6 +6980,7 @@ class HfApi:
         repo_type: str | None = None,
         revision: str | None = None,
         token: bool | str | None = None,
+        timeout: float | None = constants.HF_HUB_DOWNLOAD_TIMEOUT,
     ) -> SafetensorsFileMetadata:
         """
         Parse metadata from a safetensors file on the Hub.
@@ -6859,6 +7005,9 @@ class HfApi:
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
+            timeout (`float`, *optional*, defaults to 10):
+                How many seconds to wait for the server to send data before giving up. Set to `None` to disable the
+                timeout (not recommended, as a stalled connection can hang the call indefinitely).
 
         Returns:
             [`SafetensorsFileMetadata`]: information related to a safetensors file.
@@ -6882,17 +7031,19 @@ class HfApi:
         # We assume fetching 100kb is faster than making 2 GET requests. Therefore we always fetch the first 100kb to
         # avoid the 2nd GET in most cases.
         # See https://github.com/huggingface/huggingface_hub/pull/1855#discussion_r1404286419.
-        response = get_session().get(url, headers={**_headers, "range": "bytes=0-100000"})
+        response = get_session().get(url, headers={**_headers, "range": "bytes=0-100000"}, timeout=timeout)
         hf_raise_for_status(response)
 
         # 2. Parse and validate metadata size using shared helper
         metadata_size = _get_safetensors_metadata_size(response.content[:8], filename, context_msg)
 
-        # 3.a. Get metadata from payload
-        if metadata_size <= 100000:
+        # 3.a. Get metadata from payload, if fully contained in the response (minus the 8-byte size prefix)
+        if metadata_size <= len(response.content) - 8:
             metadata_as_bytes = response.content[8 : 8 + metadata_size]
         else:  # 3.b. Request full metadata
-            response = get_session().get(url, headers={**_headers, "range": f"bytes=8-{metadata_size + 7}"})
+            response = get_session().get(
+                url, headers={**_headers, "range": f"bytes=8-{metadata_size + 7}"}, timeout=timeout
+            )
             hf_raise_for_status(response)
             metadata_as_bytes = response.content
 
@@ -9485,6 +9636,10 @@ class HfApi:
         > `create_inference_endpoint_from_catalog` is experimental. Its API is subject to change in the future. Please provide feedback
         > if you have any suggestions or requests.
         """
+        if token is False:
+            raise ValueError(
+                "Cannot use `token=False` with `create_inference_endpoint_from_catalog` as it requires authentication."
+            )
         token = token or self.token or get_token()
         payload: dict = {
             "namespace": namespace or self._get_namespace(token=token),
@@ -9987,6 +10142,7 @@ class HfApi:
         namespace: str | None = None,
         description: str | None = None,
         private: bool = False,
+        resource_group_id: str | None = None,
         exists_ok: bool = False,
         token: bool | str | None = None,
     ) -> Collection:
@@ -9998,9 +10154,12 @@ class HfApi:
             namespace (`str`, *optional*):
                 Namespace of the collection to create (username or org). Will default to the owner name.
             description (`str`, *optional*):
-                Description of the collection to create.
+                Description of the collection to create. The maximum size for a description is 150 characters.
             private (`bool`, *optional*):
                 Whether the collection should be private or not. Defaults to `False` (i.e. public collection).
+            resource_group_id (`str`, *optional*):
+                Assign the collection to a resource group of the owning organization. Only valid for
+                organization-owned collections. The resource group ID is a 24-character hexadecimal string.
             exists_ok (`bool`, *optional*):
                 If `True`, do not raise an error if collection already exists.
             token (`bool` or `str`, *optional*):
@@ -10033,6 +10192,8 @@ class HfApi:
         }
         if description is not None:
             payload["description"] = description
+        if resource_group_id is not None:
+            payload["resourceGroupId"] = resource_group_id
 
         r = get_session().post(
             f"{self.endpoint}/api/collections", headers=self._build_hf_headers(token=token), json=payload
@@ -10069,7 +10230,7 @@ class HfApi:
             title (`str`):
                 Title of the collection to update.
             description (`str`, *optional*):
-                Description of the collection to update.
+                Description of the collection to update. The maximum size for a description is 150 characters.
             position (`int`, *optional*):
                 New position of the collection in the list of collections of the user.
             private (`bool`, *optional*):
@@ -10115,6 +10276,46 @@ class HfApi:
         )
         hf_raise_for_status(r)
         return Collection(**{**r.json()["data"], "endpoint": self.endpoint})
+
+    def update_collection_resource_group(
+        self,
+        collection_slug: str,
+        resource_group_id: str | None,
+        *,
+        token: bool | str | None = None,
+    ) -> None:
+        """Assign a collection to a resource group, or remove it from any resource group.
+
+        Only valid for organization-owned collections.
+
+        Args:
+            collection_slug (`str`):
+                Slug of the collection to update. Example: `"TheBloke/recent-models-64f9a55bb3115b4f513ec026"`.
+            resource_group_id (`str` or `None`):
+                The resource group to assign the collection to, as a 24-character hexadecimal string. If `None`,
+                the collection is removed from any resource group.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Example:
+
+        ```py
+        >>> from huggingface_hub import update_collection_resource_group
+        >>> update_collection_resource_group(
+        ...     collection_slug="my-org/iccv-2023-64f9a55bb3115b4f513ec026",
+        ...     resource_group_id="66980ecfc1e12a49c8f0e42d",
+        ... )
+        ```
+        """
+        r = get_session().post(
+            f"{self.endpoint}/api/collections/{collection_slug}/resource-group",
+            headers=self._build_hf_headers(token=token),
+            json={"resourceGroupId": resource_group_id},
+        )
+        hf_raise_for_status(r)
 
     def delete_collection(
         self, collection_slug: str, *, missing_ok: bool = False, token: bool | str | None = None
@@ -11814,6 +12015,7 @@ class HfApi:
         volumes: list[Volume] | None = None,
         expose: list[int] | None = None,
         ssh: bool = False,
+        resource_group_id: str | None = None,
         namespace: str | None = None,
         token: bool | str | None = None,
     ) -> JobInfo:
@@ -11845,7 +12047,7 @@ class HfApi:
 
             name (`str`, *optional*):
                 A name for the Job. Stored as the `name` label. Cannot be passed together with a `name` key in
-                `labels`. Names do not have to be unique.
+                `labels`. Names do not have to be unique. Defaults to a name derived from image and command (with a short hash suffix).
 
             labels (`dict[str, str]`, *optional*):
                 Labels to attach to the job (key-value pairs).
@@ -11865,6 +12067,11 @@ class HfApi:
                 (e.g. `ssh <job_id>@ssh.hf.jobs`, or `hf jobs ssh <job_id>` from the CLI). Connecting requires
                 write access to the job's namespace and an SSH public key registered on the Hub
                 (https://huggingface.co/settings/keys). Defaults to False.
+
+            resource_group_id (`str`, *optional*):
+                The ID of the resource group to create the Job in. Used to control access to resources within an
+                organization and for cost attribution/spending-limit features. If not provided, the Job is created
+                outside of any resource group.
 
             namespace (`str`, *optional*):
                 The namespace where the Job will be created. Defaults to the current user's namespace.
@@ -11905,6 +12112,8 @@ class HfApi:
         """
         if namespace is None:
             namespace = self.whoami(token=token)["name"]
+        if name is None and not (labels and "name" in labels):
+            name = _default_job_name_from_image(image, command)
         job_spec = _create_job_spec(
             image=image,
             command=command,
@@ -11917,6 +12126,7 @@ class HfApi:
             volumes=volumes,
             expose=expose,
             ssh=ssh,
+            resource_group_id=resource_group_id,
         )
         response = get_session().post(
             f"{self.endpoint}/api/jobs/{namespace}",
@@ -12446,6 +12656,7 @@ class HfApi:
         volumes: list[Volume] | None = None,
         expose: list[int] | None = None,
         ssh: bool = False,
+        resource_group_id: str | None = None,
         namespace: str | None = None,
         token: bool | str | None = None,
     ) -> JobInfo:
@@ -12484,7 +12695,7 @@ class HfApi:
 
             name (`str`, *optional*):
                 A name for the Job. Stored as the `name` label. Cannot be passed together with a `name` key in
-                `labels`. Names do not have to be unique.
+                `labels`. Names do not have to be unique. Defaults to a name derived from script and its arguments (with a short hash suffix).
 
             labels (`dict[str, str]`, *optional*):
                 Labels to attach to the job (key-value pairs).
@@ -12504,6 +12715,11 @@ class HfApi:
                 (e.g. `ssh <job_id>@ssh.hf.jobs`, or `hf jobs ssh <job_id>` from the CLI). Connecting requires
                 write access to the job's namespace and an SSH public key registered on the Hub
                 (https://huggingface.co/settings/keys). Defaults to False.
+
+            resource_group_id (`str`, *optional*):
+                The ID of the resource group to create the Job in. Used to control access to resources within an
+                organization and for cost attribution/spending-limit features. If not provided, the Job is created
+                outside of any resource group.
 
             namespace (`str`, *optional*):
                 The namespace where the Job will be created. Defaults to the current user's namespace.
@@ -12556,6 +12772,9 @@ class HfApi:
         env = env or {}
         secrets = secrets or {}
 
+        if name is None and not (labels and "name" in labels):
+            name = _default_job_name_from_script(script, script_args or [])
+
         # Build command
         command, env, secrets, extra_volumes = self._create_uv_command_env_and_secrets(
             script=script,
@@ -12583,6 +12802,7 @@ class HfApi:
             volumes=volumes,
             expose=expose,
             ssh=ssh,
+            resource_group_id=resource_group_id,
             namespace=namespace,
             token=token,
         )
@@ -12603,6 +12823,7 @@ class HfApi:
         labels: dict[str, str] | None = None,
         volumes: list[Volume] | None = None,
         expose: list[int] | None = None,
+        resource_group_id: str | None = None,
         namespace: str | None = None,
         token: bool | str | None = None,
     ) -> ScheduledJobInfo:
@@ -12644,7 +12865,7 @@ class HfApi:
 
             name (`str`, *optional*):
                 A name for the scheduled Job. Stored as the `name` label. Cannot be passed together with a `name`
-                key in `labels`. Names do not have to be unique.
+                key in `labels`. Names do not have to be unique. Defaults to a name derived from image and command (with a short hash suffix).
 
             labels (`dict[str, str]`, *optional*):
                 Labels to attach to the job (key-value pairs).
@@ -12658,6 +12879,11 @@ class HfApi:
                 Container ports to expose through the jobs proxy. Each listed port is reachable
                 on the public jobs domain (e.g. `https://<job_id>--8000.hf.jobs`). Access always
                 requires an HF token with read access to the job's namespace.
+
+            resource_group_id (`str`, *optional*):
+                The ID of the resource group to create the scheduled Job in. Used to control access to resources
+                within an organization and for cost attribution/spending-limit features. If not provided, the
+                scheduled Job is created outside of any resource group.
 
             namespace (`str`, *optional*):
                 The namespace where the Job will be created. Defaults to the current user's namespace.
@@ -12694,6 +12920,8 @@ class HfApi:
         """
         if namespace is None:
             namespace = self.whoami(token=token)["name"]
+        if name is None and not (labels and "name" in labels):
+            name = _default_job_name_from_image(image, command)
 
         # prepare payload to send to HF Jobs API
         job_spec = _create_job_spec(
@@ -12707,6 +12935,7 @@ class HfApi:
             labels=labels,
             volumes=volumes,
             expose=expose,
+            resource_group_id=resource_group_id,
         )
         input_json: dict[str, Any] = {
             "jobSpec": job_spec,
@@ -12991,6 +13220,7 @@ class HfApi:
         labels: dict[str, str] | None = None,
         volumes: list[Volume] | None = None,
         expose: list[int] | None = None,
+        resource_group_id: str | None = None,
         namespace: str | None = None,
         token: bool | str | None = None,
     ) -> ScheduledJobInfo:
@@ -13039,7 +13269,7 @@ class HfApi:
 
             name (`str`, *optional*):
                 A name for the scheduled Job. Stored as the `name` label. Cannot be passed together with a `name`
-                key in `labels`. Names do not have to be unique.
+                key in `labels`. Names do not have to be unique. Defaults to a name derived from script and its arguments (with a short hash suffix).
 
             labels (`dict[str, str]`, *optional*):
                 Labels to attach to the job (key-value pairs).
@@ -13053,6 +13283,11 @@ class HfApi:
                 Container ports to expose through the jobs proxy. Each listed port is reachable
                 on the public jobs domain (e.g. `https://<job_id>--8000.hf.jobs`). Access always
                 requires an HF token with read access to the job's namespace.
+
+            resource_group_id (`str`, *optional*):
+                The ID of the resource group to create the scheduled Job in. Used to control access to resources
+                within an organization and for cost attribution/spending-limit features. If not provided, the
+                scheduled Job is created outside of any resource group.
 
             namespace (`str`, *optional*):
                 The namespace where the Job will be created. Defaults to the current user's namespace.
@@ -13092,6 +13327,9 @@ class HfApi:
             ```
         """
         image = image or "ghcr.io/astral-sh/uv:python3.12-bookworm"
+        if name is None and not (labels and "name" in labels):
+            name = _default_job_name_from_script(script, script_args or [])
+
         # Build command
         command, env, secrets, extra_volumes = self._create_uv_command_env_and_secrets(
             script=script,
@@ -13121,6 +13359,7 @@ class HfApi:
             labels=labels,
             volumes=volumes,
             expose=expose,
+            resource_group_id=resource_group_id,
             namespace=namespace,
             token=token,
         )
@@ -13932,7 +14171,7 @@ class HfApi:
                 )
                 all_adds.append((local_path, target_path))
 
-            thread_map(_download_and_collect, pending_downloads, desc="Downloading text files for copy")
+            hf_thread_map(_download_and_collect, pending_downloads, desc="Downloading text files for copy")
 
         # Send copies first (no upload needed), then adds (may need upload)
         if all_copies:
@@ -14818,6 +15057,7 @@ repo_exists = api.repo_exists
 revision_exists = api.revision_exists
 file_exists = api.file_exists
 repo_info = api.repo_info
+resolve_revision = api.resolve_revision
 list_repo_files = api.list_repo_files
 list_repo_refs = api.list_repo_refs
 list_repo_commits = api.list_repo_commits
@@ -14916,6 +15156,7 @@ get_collection = api.get_collection
 list_collections = api.list_collections
 create_collection = api.create_collection
 update_collection_metadata = api.update_collection_metadata
+update_collection_resource_group = api.update_collection_resource_group
 delete_collection = api.delete_collection
 add_collection_item = api.add_collection_item
 update_collection_item = api.update_collection_item

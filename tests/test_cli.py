@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 import warnings
 from contextlib import contextmanager
 from pathlib import Path
@@ -11,15 +12,17 @@ import click
 import pytest
 from click.testing import CliRunner
 
-from huggingface_hub import HfApi
+from huggingface_hub import HfApi, constants
 from huggingface_hub._dataset_viewer import DatasetParquetEntry
 from huggingface_hub._jobs_api import JobInfo, JobOwner, _create_job_spec, _derive_job_volume_name
 from huggingface_hub._space_api import Volume
-from huggingface_hub.cli._cli_utils import RepoType, parse_volumes
+from huggingface_hub.cli import _skills, system
+from huggingface_hub.cli._cli_utils import RepoType, _get_huggingface_hub_update_command, parse_volumes
 from huggingface_hub.cli._output import OutputFormat, out
 from huggingface_hub.cli.cache import CacheDeletionCounts
 from huggingface_hub.cli.download import download
 from huggingface_hub.cli.hf import app
+from huggingface_hub.cli.hf import main as hf_main
 from huggingface_hub.cli.jobs import _parse_and_sync_job_volumes, _parse_namespace_from_job_id
 from huggingface_hub.cli.skills import build_skill_md
 from huggingface_hub.cli.upload import _resolve_upload_paths, upload
@@ -2998,6 +3001,7 @@ class TestJobsCommand:
             timeout=None,
             expose=None,
             ssh=False,
+            resource_group_id=None,
             namespace=None,
         )
         api.fetch_job_logs.assert_not_called()
@@ -3025,6 +3029,7 @@ class TestJobsCommand:
             timeout=None,
             expose=None,
             ssh=False,
+            resource_group_id=None,
             namespace=None,
         )
         api.fetch_job_logs.assert_not_called()
@@ -3055,6 +3060,7 @@ class TestJobsCommand:
             flavor=None,
             timeout=None,
             expose=None,
+            resource_group_id=None,
             namespace=None,
         )
 
@@ -3082,6 +3088,7 @@ class TestJobsCommand:
             timeout=None,
             expose=None,
             ssh=False,
+            resource_group_id=None,
             namespace=None,
         )
         api.fetch_job_logs.assert_not_called()
@@ -3112,6 +3119,7 @@ class TestJobsCommand:
             timeout=None,
             expose=None,
             ssh=False,
+            resource_group_id=None,
             namespace=None,
         )
         api.fetch_job_logs.assert_not_called()
@@ -3140,6 +3148,7 @@ class TestJobsCommand:
             timeout=None,
             expose=None,
             ssh=False,
+            resource_group_id=None,
             namespace=None,
         )
 
@@ -3169,6 +3178,7 @@ class TestJobsCommand:
             timeout=None,
             expose=None,
             ssh=False,
+            resource_group_id=None,
             namespace=None,
         )
         api.fetch_job_logs.assert_not_called()
@@ -4533,6 +4543,104 @@ class TestSkillsHfCliCLI:
         skill_file.write_text("stale content")
         runner.invoke(app, ["skills", "update", "--dest", str(dest)])
         assert skill_file.read_text(encoding="utf-8") == build_skill_md()
+
+
+class TestSkillUpdateCheck:
+    """The daily `hf-cli` skill check only prints hints, it never installs nor updates."""
+
+    @pytest.fixture(autouse=True)
+    def isolated_skills_dirs(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(constants, "AGENTS_SKILLS_GLOBAL_PATH", tmp_path / "global/.agents/skills")
+        monkeypatch.setattr(constants, "CLAUDE_SKILLS_GLOBAL_PATH", tmp_path / "global/.claude/skills")
+        monkeypatch.setattr(constants, "AGENTS_SKILLS_LOCAL_PATH", tmp_path / "local/.agents/skills")
+        monkeypatch.setattr(constants, "CLAUDE_SKILLS_LOCAL_PATH", tmp_path / "local/.claude/skills")
+        monkeypatch.setattr(constants, "CHECK_FOR_SKILL_UPDATE_DONE_PATH", str(tmp_path / ".check_done"))
+        monkeypatch.setattr(constants, "HF_HUB_DISABLE_UPDATE_CHECK", False)
+
+    def _write_global_skill(self, tmp_path: Path, content: str) -> Path:
+        skill_dir = tmp_path / "global/.agents/skills/hf-cli"
+        skill_dir.mkdir(parents=True)
+        skill_file = skill_dir / "SKILL.md"
+        skill_file.write_text(content, encoding="utf-8")
+        return skill_file
+
+    def test_hints_to_add_when_not_installed(self, capsys: pytest.CaptureFixture) -> None:
+        with patch.object(_skills, "__version__", "1.0.0"):
+            _skills.check_skill_update()
+        assert "hf skills add -g --claude" in capsys.readouterr().err
+
+    def test_hints_to_update_when_generated_by_another_version(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture
+    ) -> None:
+        self._write_global_skill(tmp_path, "Generated with `huggingface_hub v0.0.1`.")
+        _skills.check_skill_update()
+        assert "hf skills update hf-cli -g --claude" in capsys.readouterr().err
+
+    def test_silent_when_up_to_date_and_throttled_afterwards(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture
+    ) -> None:
+        skill_file = self._write_global_skill(tmp_path, build_skill_md())
+        _skills.check_skill_update()
+        assert capsys.readouterr().err == ""
+
+        # Checked less than 24 hours ago: stays silent even though the skill is now outdated.
+        skill_file.write_text("Generated with `huggingface_hub v0.0.1`.", encoding="utf-8")
+        _skills.check_skill_update()
+        assert capsys.readouterr().err == ""
+
+    @pytest.mark.parametrize(
+        "argv, expected_call_count",
+        [
+            (["hf", "version"], 1),
+            (["hf", "skills", "add"], 0),  # the user is already managing skills
+            (["hf", "update"], 0),  # `hf update` handles the skill itself
+        ],
+    )
+    def test_skipped_for_skills_and_update_commands(self, argv: list[str], expected_call_count: int) -> None:
+        with (
+            patch.object(sys, "argv", argv),
+            patch("huggingface_hub.cli.hf.logging"),
+            patch("huggingface_hub.cli.hf.check_cli_update"),
+            patch("huggingface_hub.cli.hf.app"),
+            patch("huggingface_hub.cli.hf.check_skill_update") as mock_check,
+        ):
+            hf_main()
+        assert mock_check.call_count == expected_call_count
+
+
+class TestUpdateSkillOptOut:
+    """`hf update` must not silently reinstall the `hf-cli` skill for users who opted out."""
+
+    @pytest.fixture(autouse=True)
+    def isolated_skills_dirs(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(constants, "AGENTS_SKILLS_GLOBAL_PATH", tmp_path / ".agents/skills")
+        monkeypatch.setattr(constants, "CLAUDE_SKILLS_GLOBAL_PATH", tmp_path / ".claude/skills")
+
+    @contextmanager
+    def _mocked_update(self) -> Generator[Mock, None, None]:
+        with (
+            patch("huggingface_hub.cli.system._fetch_latest_pypi_version", return_value="99.0.0"),
+            patch("huggingface_hub.cli.system.subprocess.call", return_value=0),
+            patch("huggingface_hub.cli.system.run_update", return_value=0) as mock_run_update,
+        ):
+            yield mock_run_update
+
+    def test_excludes_skill_when_not_installed(self) -> None:
+        with self._mocked_update() as mock_run_update:
+            system.update()
+        mock_run_update.assert_called_once_with(exclude_skill=True)
+
+    def test_keeps_skill_when_installed(self, tmp_path: Path) -> None:
+        (tmp_path / ".agents/skills/hf-cli").mkdir(parents=True)
+        with self._mocked_update() as mock_run_update:
+            system.update()
+        mock_run_update.assert_called_once_with(exclude_skill=False)
+
+    def test_installer_command_passes_the_flag(self) -> None:
+        flag = "-ExcludeSkill" if os.name == "nt" else "--exclude-skill"
+        with patch("huggingface_hub.cli._cli_utils.installation_method", return_value="hf_installer"):
+            assert flag in _get_huggingface_hub_update_command(exclude_skill=True)[-1]
+            assert flag not in _get_huggingface_hub_update_command(exclude_skill=False)[-1]
 
 
 @pytest.mark.xet

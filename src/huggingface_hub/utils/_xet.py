@@ -1,4 +1,5 @@
 import os
+import re
 import threading
 from dataclasses import dataclass
 from enum import Enum
@@ -7,6 +8,14 @@ import httpx
 
 from .. import constants
 from . import validate_hf_hub_args
+
+
+_REGEX_XET_HASH = re.compile(r"^[0-9a-fA-F]{64}$")
+
+
+def is_valid_xet_hash(xet_hash: str) -> bool:
+    """Return whether `xet_hash` looks like a real Xet content hash (64 hex chars)."""
+    return bool(_REGEX_XET_HASH.fullmatch(xet_hash))
 
 
 class XetTokenType(str, Enum):

@@ -121,7 +121,14 @@ class HFInferenceConversational(HFInferenceTask):
                 "type": "json_object",
                 "value": response_format["json_schema"]["schema"],
             }
-        return {**payload, "model": payload_model, "messages": inputs}
+        # Same ordering rationale as `BaseConversationalTask`: `model` first so it can be read from a
+        # small prefix of the body, and dropped from the `payload` spread so the already-resolved
+        # `payload_model` wins.
+        return {
+            "model": payload_model,
+            "messages": inputs,
+            **{key: value for key, value in payload.items() if key != "model"},
+        }
 
     def _prepare_url(self, api_key: str, mapped_model: str) -> str:
         base_url = (

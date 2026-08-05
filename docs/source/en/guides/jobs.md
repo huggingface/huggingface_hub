@@ -521,6 +521,12 @@ From the CLI, pass `--name` when creating a Job, or name an existing Job through
 >>> hf jobs labels <job_id> --name daily-report
 ```
 
+`hf jobs ls` shows a `NAME` column and can filter by name (a shortcut for `--label name=NAME`):
+
+```bash
+>>> hf jobs ls -a --name daily-report
+```
+
 ```python
 # Pass extra metadata with Labels
 >>> from huggingface_hub import run_job
@@ -530,6 +536,8 @@ From the CLI, pass `--name` when creating a Job, or name an existing Job through
 ...     labels={"my-label": "my-value", "foo": "bar"},
 ... )
 ```
+
+If you don't pass `--name`, a name is derived automatically from the Docker image or the script, plus a short hash of the command so reruns of the same command share a name (e.g. `python:3.12 foo --truc` → `python-3-12-1a2b3c4d`).
 
 ### Update labels
 

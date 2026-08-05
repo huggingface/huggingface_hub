@@ -77,15 +77,16 @@ _MAX_PACK_ROUNDS = 8
 # hf-mount path where the server bucket is mounted on every sandbox job
 _SERVER_MOUNT_PATH = "/.hf-sbx-server"
 
-# Job startup script (needs only /bin/sh)
+# Job startup script (needs only /bin/sh). The server bucket is public, so the download is
+# unauthenticated: no HF credential is ever placed in the job environment (see `_derive_sandbox_token`).
 _BOOTSTRAP_DOWNLOAD = """\
 set -e
 d=/tmp/.sbx-server
-if command -v wget >/dev/null 2>&1; then wget -q --header "Authorization: Bearer $SBX_DL_TOKEN" -O "$d" "$SBX_SERVER_URL"
-elif command -v curl >/dev/null 2>&1; then curl -fsSL -H "Authorization: Bearer $SBX_DL_TOKEN" -o "$d" "$SBX_SERVER_URL"
+if command -v wget >/dev/null 2>&1; then wget -q -O "$d" "$SBX_SERVER_URL"
+elif command -v curl >/dev/null 2>&1; then curl -fsSL -o "$d" "$SBX_SERVER_URL"
 else cp "$SBX_SERVER_MOUNT/sbx-server" "$d"; fi
 chmod +x "$d"
-unset SBX_DL_TOKEN SBX_SERVER_URL SBX_SERVER_MOUNT
+unset SBX_SERVER_URL SBX_SERVER_MOUNT
 exec "$d"
 """
 
@@ -1685,7 +1686,6 @@ def _bootstrap_job_spec(
         job_secrets["HF_TOKEN"] = hf_token
 
     job_env["SBX_SERVER_URL"] = f"{api.endpoint}/buckets/{constants.SANDBOX_SERVER_BUCKET}/resolve/sbx-server"
-    job_secrets["SBX_DL_TOKEN"] = hf_token
     # Always mount the server bucket as a transparent fallback for images without wget/curl.
     # It's only read (paying the ~2-3s FUSE cost) when the bootstrap script can't download.
     job_env["SBX_SERVER_MOUNT"] = _SERVER_MOUNT_PATH

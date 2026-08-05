@@ -37,6 +37,7 @@ from huggingface_hub.utils._xet import XetTokenType, xet_connection_info_refresh
 
 
 COMMIT_HASH = "0123456789abcdef0123456789abcdef01234567"
+VALID_XET_HASH = "63bed80836ee0758c8fd4f8975d59bb0b864263ee2753547c358e8a37cde8758"
 
 
 def _entries():
@@ -47,7 +48,22 @@ def _entries():
             blob_id="blob-model",
             lfs_sha256="sha256-model",
             lfs_size=1024,
-            xet_hash="xet-model",
+            xet_hash=VALID_XET_HASH,
+        ),
+    }
+
+
+MASKED_XET_HASH = "*" * 64
+
+
+def _entries_with_masked_xet_hash():
+    return {
+        "model.safetensors": TreeCacheEntry(
+            size=42,
+            blob_id="blob-model",
+            lfs_sha256="sha256-model",
+            lfs_size=1024,
+            xet_hash=MASKED_XET_HASH,
         ),
     }
 
@@ -67,6 +83,21 @@ class TestTreeCacheReadWrite:
         assert data["files"]["config.json"] == {"size": 5, "blob_id": "blob-config"}
 
     def test_missing_file_returns_none(self, tmp_path: Path):
+        assert read_tree_cache(str(tmp_path), COMMIT_HASH) is None
+
+    def test_invalid_entries_return_none(self, tmp_path: Path):
+        path = tmp_path / "trees" / f"{COMMIT_HASH}.json"
+        path.parent.mkdir(parents=True)
+        path.write_text(
+            json.dumps(
+                {
+                    "format_version": TREE_CACHE_FORMAT_VERSION,
+                    "files": {
+                        file_path: entry.to_json() for file_path, entry in _entries_with_masked_xet_hash().items()
+                    },
+                }
+            )
+        )
         assert read_tree_cache(str(tmp_path), COMMIT_HASH) is None
 
     def test_unknown_format_version_returns_none(self, tmp_path: Path):
@@ -124,7 +155,7 @@ class TestTreeCacheSkipsHeadCall:
         assert size == 1024  # LFS size
         assert error is None
         assert xet_file_data is not None
-        assert xet_file_data.file_hash == "xet-model"
+        assert xet_file_data.file_hash == VALID_XET_HASH
         assert xet_file_data.refresh_route == xet_connection_info_refresh_url(
             token_type=XetTokenType.READ, repo_id="user/repo", repo_type="model", revision=COMMIT_HASH
         )
@@ -256,7 +287,7 @@ class TestGetCachedRepoTree:
         model = by_path["model.safetensors"]
         assert model.size == 42
         assert model.blob_id == "blob-model"
-        assert model.xet_hash == "xet-model"
+        assert model.xet_hash == VALID_XET_HASH
         assert model.lfs is None
 
     def test_resolves_branch_via_refs(self, tmp_path: Path):

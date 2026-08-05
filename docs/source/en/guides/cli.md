@@ -18,6 +18,7 @@ The `huggingface_hub` Python package comes with a built-in CLI called `hf`. This
 > # includes the above + Claude Code
 > hf skills add --claude
 > ```
+> The standalone installer installs it for you (see below), and `hf update` refreshes it.
 
 ## Getting started
 
@@ -35,6 +36,16 @@ On Windows:
 
 ```powershell
 >>> powershell -ExecutionPolicy ByPass -c "irm https://hf.co/cli/install.ps1 | iex"
+```
+
+The installer also installs the [`hf-cli` skill](https://huggingface.co/docs/hub/agents-cli) globally, for Claude Code and any agent reading `~/.agents/skills`. Pass `--exclude-skill` to skip it:
+
+```bash
+>>> curl -LsSf https://hf.co/cli/install.sh | bash -s -- --exclude-skill
+```
+
+```powershell
+>>> powershell -ExecutionPolicy ByPass -c "& ([scriptblock]::Create((irm https://hf.co/cli/install.ps1))) -ExcludeSkill"
 ```
 
 Once installed, you can check that the CLI is correctly set up:
@@ -122,7 +133,7 @@ To upgrade to the latest version, run:
 >>> hf update
 ```
 
-This detects how `hf` was installed (Homebrew, standalone installer, or pip) and runs the matching update command.
+This detects how `hf` was installed (Homebrew, standalone installer, or pip) and runs the matching update command. If the `hf-cli` skill is installed globally, it is refreshed as well so agents see the new command surface. If it isn't, it stays uninstalled: updating never brings it back if you skipped or removed it.
 
 By default, the CLI also prints a one-line yellow warning to stderr when a newer version is available on PyPI. To silence it (e.g. in offline CI), set `HF_HUB_DISABLE_UPDATE_CHECK=1`.
 
@@ -2028,14 +2039,14 @@ Add labels to a Job using `-l` or `--label`. Labels are a key=value pairs that a
 
 The my-label key doesn't specify a value so its value defaults to an empty string ("").
 
-Use `--name` to add the `name` label when creating a Job. Names make Jobs easier to find and identify in the UI; they are optional and do not have to be unique. You can also name an existing Job:
+Use `--name` to add the `name` label when creating a Job. Names make Jobs easier to find and identify in the UI; they are optional and do not have to be unique. If you don't pass `--name`, a name is derived automatically from the Docker image or the script, plus a short hash of the command so reruns of the same command share a name (e.g. `python:3.12 foo --truc` → `python-3-12-1a2b3c4d`). You can also rename an existing Job:
 
 ```bash
 >>> hf jobs run --name training-v2 python:3.12 python train.py
 >>> hf jobs labels <job_id> --name training-v2
 ```
 
-Use `--status` and `--label` in `hf jobs ls` to filter Jobs. `--status` takes one or more statuses and `--label` takes `key=value` pairs. A Job must match every filter to be listed:
+Use `--status`, `--label` and `--name` in `hf jobs ls` to filter Jobs. `--status` takes one or more statuses, `--label` takes `key=value` pairs, and `--name` is a shortcut for `--label name=NAME`. A Job must match every filter to be listed. The Job name is also shown as its own `NAME` column:
 
 ```bash
 # Show completed Jobs
@@ -2043,6 +2054,9 @@ Use `--status` and `--label` in `hf jobs ls` to filter Jobs. `--status` takes on
 
 # Show running or scheduling Jobs
 >>> hf jobs ls --status running,scheduling
+
+# Show Jobs named `training-v2`
+>>> hf jobs ls -a --name training-v2
 
 # Show Jobs with the `model=Qwen3-06B` label
 >>> hf jobs ls -a --label model=Qwen3-06B

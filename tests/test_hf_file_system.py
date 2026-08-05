@@ -337,7 +337,7 @@ class _HfFileSystemBaseROTests(_HfFileSystemBaseTests):
 
     def test_get_file_with_temporary_folder(self):
         # Test passing a file path works
-        with tempfile.TemporaryDirectory() as temp_dir:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
             temp_file = os.path.join(temp_dir, "temp_file.txt")
             self.hffs.get_file(self.text_file, temp_file)
             with open(temp_file, "rb") as f:
@@ -346,19 +346,19 @@ class _HfFileSystemBaseROTests(_HfFileSystemBaseTests):
     def test_get_file_with_kwargs(self):
         # If custom kwargs are passed, the function should still work but defaults to base implementation
         with patch.object(hf_file_system, "http_get") as mock:
-            with tempfile.TemporaryDirectory() as temp_dir:
+            with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
                 temp_file = os.path.join(temp_dir, "temp_file.txt")
                 self.hffs.get_file(self.text_file, temp_file, custom_kwarg=123)
             mock.assert_not_called()
 
-            with tempfile.TemporaryDirectory() as temp_dir:
+            with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
                 temp_file = os.path.join(temp_dir, "temp_file.txt")
                 self.hffs.get_file(self.text_file, temp_file)
             mock.assert_called_once()
 
     def test_get_file_on_folder(self):
         # Test it works with custom kwargs
-        with tempfile.TemporaryDirectory() as temp_dir:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
             assert not (Path(temp_dir) / "data").exists()
             self.hffs.get_file(self.hf_path + "/data", temp_dir + "/data")
             assert (Path(temp_dir) / "data").exists()
@@ -815,6 +815,15 @@ def test_resolve_path_with_non_matching_revisions():
     fs = HfFileSystem()
     with pytest.raises(ValueError):
         fs.resolve_path("username/my_model@dev", revision="main")
+
+
+def test_stream_file_open_if_not_found():
+    # Regression test: opening a missing file in streaming mode (block_size=0) must raise
+    # FileNotFoundError like the buffered HfFileSystemFile, not an AttributeError.
+    fs = HfFileSystem()
+    with patch.object(fs, "resolve_path", side_effect=FileNotFoundError("missing/repo")):
+        with pytest.raises(FileNotFoundError):
+            HfFileSystemStreamFile(fs, "hf://missing/repo/not_existing_file.txt")
 
 
 @pytest.mark.parametrize(

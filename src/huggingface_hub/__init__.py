@@ -46,7 +46,7 @@ import sys
 from typing import TYPE_CHECKING
 
 
-__version__ = "1.25.0.dev0"
+__version__ = "1.27.0.dev0"
 
 # Alphabetical order of definitions is ensured in tests
 # WARNING: any comment added in this dictionary definition will be lost when
@@ -101,6 +101,9 @@ _SUBMOD_ATTRS = {
         "OAuthUserInfo",
         "attach_huggingface_oauth",
         "parse_huggingface_oauth",
+    ],
+    "_revision": [
+        "ResolvedRevision",
     ],
     "_sandbox": [
         "Sandbox",
@@ -333,6 +336,7 @@ _SUBMOD_ATTRS = {
         "repo_type_and_id_from_hf_id",
         "request_space_hardware",
         "request_space_storage",
+        "resolve_revision",
         "restart_space",
         "resume_inference_endpoint",
         "resume_scheduled_job",
@@ -353,6 +357,7 @@ _SUBMOD_ATTRS = {
         "unlike",
         "update_collection_item",
         "update_collection_metadata",
+        "update_collection_resource_group",
         "update_inference_endpoint",
         "update_job_labels",
         "update_repo_settings",
@@ -822,6 +827,7 @@ __all__ = [
     "RepoFolder",
     "RepoStorageInfo",
     "RepoUrl",
+    "ResolvedRevision",
     "Sandbox",
     "SandboxCommandResult",
     "SandboxPool",
@@ -1097,6 +1103,7 @@ __all__ = [
     "repo_type_and_id_from_hf_id",
     "request_space_hardware",
     "request_space_storage",
+    "resolve_revision",
     "restart_space",
     "resume_inference_endpoint",
     "resume_scheduled_job",
@@ -1127,6 +1134,7 @@ __all__ = [
     "unlike",
     "update_collection_item",
     "update_collection_metadata",
+    "update_collection_resource_group",
     "update_inference_endpoint",
     "update_job_labels",
     "update_repo_settings",
@@ -1292,6 +1300,7 @@ if TYPE_CHECKING:  # pragma: no cover
         attach_huggingface_oauth,  # noqa: F401
         parse_huggingface_oauth,  # noqa: F401
     )
+    from ._revision import ResolvedRevision  # noqa: F401
     from ._sandbox import (
         Sandbox,  # noqa: F401
         SandboxCommandResult,  # noqa: F401
@@ -1521,6 +1530,7 @@ if TYPE_CHECKING:  # pragma: no cover
         repo_type_and_id_from_hf_id,  # noqa: F401
         request_space_hardware,  # noqa: F401
         request_space_storage,  # noqa: F401
+        resolve_revision,  # noqa: F401
         restart_space,  # noqa: F401
         resume_inference_endpoint,  # noqa: F401
         resume_scheduled_job,  # noqa: F401
@@ -1541,6 +1551,7 @@ if TYPE_CHECKING:  # pragma: no cover
         unlike,  # noqa: F401
         update_collection_item,  # noqa: F401
         update_collection_metadata,  # noqa: F401
+        update_collection_resource_group,  # noqa: F401
         update_inference_endpoint,  # noqa: F401
         update_job_labels,  # noqa: F401
         update_repo_settings,  # noqa: F401

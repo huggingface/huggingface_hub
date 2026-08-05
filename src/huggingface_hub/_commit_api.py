@@ -16,8 +16,6 @@ from itertools import groupby
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, Any, BinaryIO, Literal, NamedTuple, Union
 
-from tqdm.contrib.concurrent import thread_map
-
 from . import constants
 from .errors import EntryNotFoundError
 from .file_download import hf_hub_url
@@ -28,6 +26,7 @@ from .utils import (
     chunk_iterable,
     get_session,
     hf_raise_for_status,
+    hf_thread_map,
     http_backoff,
     logging,
     sha,
@@ -198,9 +197,9 @@ class CommitOperationAdd:
         if isinstance(self.path_or_fileobj, Path):
             self.path_or_fileobj = str(self.path_or_fileobj)
         if isinstance(self.path_or_fileobj, str):
-            path_or_fileobj = os.path.normpath(os.path.expanduser(self.path_or_fileobj))
-            if not os.path.isfile(path_or_fileobj):
-                raise ValueError(f"Provided path: '{path_or_fileobj}' is not a file on the local file system")
+            self.path_or_fileobj = os.path.normpath(os.path.expanduser(self.path_or_fileobj))
+            if not os.path.isfile(self.path_or_fileobj):
+                raise ValueError(f"Provided path: '{self.path_or_fileobj}' is not a file on the local file system")
         elif not isinstance(self.path_or_fileobj, (io.BufferedIOBase, bytes)):
             # ^^ Inspired from: https://stackoverflow.com/questions/44584829/how-to-determine-if-file-is-opened-in-binary-or-text-mode
             raise ValueError(
@@ -536,7 +535,7 @@ def _upload_lfs_files(
         logger.debug(
             f"Uploading {len(filtered_actions)} LFS files to the Hub using up to {num_threads} threads concurrently"
         )
-        thread_map(
+        hf_thread_map(
             _wrapped_lfs_upload,
             filtered_actions,
             desc=f"Upload {len(filtered_actions)} LFS files",

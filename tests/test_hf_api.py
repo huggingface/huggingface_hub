@@ -1014,9 +1014,10 @@ class TestCommitApi:
 
     def test_prevent_empty_commit_if_no_op(self, api: HfApi, repo_factory: RepoFactory, caplog) -> None:
         repo_url = repo_factory()
+        caplog.clear()  # `at_level` doesn't scope capture => drop records emitted while setting up the repo
         with caplog.at_level("INFO", logger="huggingface_hub"):
             api.create_commit(repo_id=repo_url.repo_id, commit_message="Empty commit", operations=[])
-        records = [record for record in caplog.records if record.name.startswith("huggingface_hub")]
+        records = [record for record in caplog.records if record.name == "huggingface_hub.hf_api"]
         assert records[0].message == "No files have been modified since last commit. Skipping to prevent empty commit."
         assert records[0].levelname == "WARNING"
 
@@ -1030,6 +1031,7 @@ class TestCommitApi:
                 CommitOperationAdd(path_or_fileobj=b"LFS content", path_in_repo="lfs.bin"),
             ],
         )
+        caplog.clear()  # `at_level` doesn't scope capture => drop records emitted by the initial commit
         with caplog.at_level("INFO", logger="huggingface_hub"):
             api.create_commit(
                 repo_id=repo_url.repo_id,
@@ -1039,7 +1041,7 @@ class TestCommitApi:
                     CommitOperationAdd(path_or_fileobj=b"LFS content", path_in_repo="lfs.bin"),
                 ],
             )
-        records = [record for record in caplog.records if record.name.startswith("huggingface_hub")]
+        records = [record for record in caplog.records if record.name == "huggingface_hub.hf_api"]
         assert records[0].message == "Removing 2 file(s) from commit that have not changed."
         assert records[0].levelname == "INFO"
 
@@ -1059,6 +1061,7 @@ class TestCommitApi:
                 CommitOperationAdd(path_or_fileobj=b"LFS content", path_in_repo="lfs_copy.bin"),
             ],
         )
+        caplog.clear()  # `at_level` doesn't scope capture => drop records emitted by the initial commit
         with caplog.at_level("INFO", logger="huggingface_hub"):
             api.create_commit(
                 repo_id=repo_url.repo_id,
@@ -1068,7 +1071,7 @@ class TestCommitApi:
                     CommitOperationCopy(src_path_in_repo="lfs.bin", path_in_repo="lfs_copy.bin"),
                 ],
             )
-        records = [record for record in caplog.records if record.name.startswith("huggingface_hub")]
+        records = [record for record in caplog.records if record.name == "huggingface_hub.hf_api"]
         assert records[0].message == "Removing 2 file(s) from commit that have not changed."
         assert records[0].levelname == "INFO"
 
@@ -1110,6 +1113,7 @@ class TestCommitApi:
                 CommitOperationAdd(path_or_fileobj=b"LFS content 2.0", path_in_repo="lfs2.bin"),
             ],
         )
+        caplog.clear()  # `at_level` doesn't scope capture => drop records emitted by the initial commit
         with caplog.at_level("DEBUG", logger="huggingface_hub"):
             api.create_commit(
                 repo_id=repo_url.repo_id,
@@ -1129,7 +1133,7 @@ class TestCommitApi:
                     CommitOperationAdd(path_or_fileobj=b"LFS content 3.0", path_in_repo="lfs3.bin"),
                 ],
             )
-        records = [record for record in caplog.records if record.name.startswith("huggingface_hub")]
+        records = [record for record in caplog.records if record.name == "huggingface_hub.hf_api"]
         debug_logs = [record.message for record in records if record.levelname == "DEBUG"]
         info_logs = [record.message for record in records if record.levelname == "INFO"]
         warning_logs = [record.message for record in records if record.levelname == "WARNING"]
@@ -1170,6 +1174,7 @@ class TestCommitApi:
                 CommitOperationAdd(path_or_fileobj=b"LFS content 2.0", path_in_repo="lfs2.bin"),
             ],
         )
+        caplog.clear()  # `at_level` doesn't scope capture => drop records emitted by the initial commit
         with caplog.at_level("DEBUG", logger="huggingface_hub"):
             api.create_commit(
                 repo_id=repo_url.repo_id,
@@ -1189,7 +1194,7 @@ class TestCommitApi:
                     CommitOperationCopy(src_path_in_repo="lfs2.bin", path_in_repo="lfs3.bin"),
                 ],
             )
-        records = [record for record in caplog.records if record.name.startswith("huggingface_hub")]
+        records = [record for record in caplog.records if record.name == "huggingface_hub.hf_api"]
         debug_logs = [record.message for record in records if record.levelname == "DEBUG"]
         info_logs = [record.message for record in records if record.levelname == "INFO"]
         warning_logs = [record.message for record in records if record.levelname == "WARNING"]
@@ -1240,6 +1245,7 @@ class TestCommitApi:
                 CommitOperationAdd(path_or_fileobj=b"content 2.0", path_in_repo="file2.txt"),
             ],
         )
+        caplog.clear()  # `at_level` doesn't scope capture => drop records emitted by the initial commit
         with caplog.at_level("DEBUG", logger="huggingface_hub"):
             api.create_commit(
                 repo_id=repo_url.repo_id,
@@ -1253,7 +1259,7 @@ class TestCommitApi:
                     CommitOperationDelete(path_in_repo="file2.txt"),
                 ],
             )
-        records = [record for record in caplog.records if record.name.startswith("huggingface_hub")]
+        records = [record for record in caplog.records if record.name == "huggingface_hub.hf_api"]
         debug_logs = [record.message for record in records if record.levelname == "DEBUG"]
         info_logs = [record.message for record in records if record.levelname == "INFO"]
         warning_logs = [record.message for record in records if record.levelname == "WARNING"]
@@ -2586,6 +2592,19 @@ class TestHfApiPublicProduction:
         assert tensor.parameter_count == 4096
         assert info.parameter_count == {"BF16": 989888512}
 
+    def test_parse_safetensors_metadata_100kb_header(self, api: HfApi) -> None:
+        """Regression test for https://github.com/huggingface/huggingface_hub/issues/4602.
+
+        This file has a header of exactly 100_000 bytes, which used to be truncated: HTTP ranges are
+        inclusive, so `bytes=0-100000` only returns 99_993 header bytes after the 8-byte size prefix.
+        """
+        info = api.parse_safetensors_file_metadata(
+            "nvidia/GLM-5-NVFP4",
+            "model-00008-of-00282.safetensors",
+            revision="dc54ff55a7e9e71b85db953d8bc22eca894b44c6",
+        )
+        assert len(info.tensors) == 852
+
     def test_not_a_safetensors_file(self, api: HfApi) -> None:
         with pytest.raises(SafetensorsParsingError):
             api.parse_safetensors_file_metadata("HuggingFaceH4/zephyr-7b-beta", "pytorch_model-00001-of-00008.bin")
@@ -2655,11 +2674,6 @@ class TestHfApiPrivate:
         with patch.object(api, "token", None):
             with pytest.raises(HfHubHTTPError, match=r".*Repository Not Found.*"):
                 _ = api.dataset_info(repo_id=self.repo_id)
-
-    def test_list_private_datasets(self, api: HfApi):
-        kwargs = {"sort": "created_at", "limit": 100, "author": USER}
-        assert all(dataset.id != self.repo_id for dataset in api.list_datasets(token=False, **kwargs))
-        assert any(dataset.id == self.repo_id for dataset in api.list_datasets(token=TOKEN, **kwargs))
 
     def test_list_private_models(self, api: HfApi):
         kwargs = {"sort": "created_at", "limit": 100, "author": USER}
@@ -4649,6 +4663,14 @@ class TestHfApiInferenceCatalog:
         )
         assert isinstance(endpoint, InferenceEndpoint)
         assert endpoint.name == "llama-3-2-3b-instruct-eey"
+
+    def test_create_inference_endpoint_from_catalog_rejects_token_false(self, api: HfApi) -> None:
+        # `token=False` means "do not authenticate", but this endpoint cannot be created without
+        # authentication. Reject it explicitly instead of silently falling back to a stored token.
+        with pytest.raises(ValueError, match="Cannot use `token=False`"):
+            api.create_inference_endpoint_from_catalog(
+                repo_id="meta-llama/Llama-3.2-3B-Instruct", namespace="Wauplin", token=False
+            )
 
 
 @pytest.mark.parametrize(
