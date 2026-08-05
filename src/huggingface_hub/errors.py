@@ -473,9 +473,10 @@ class LocalEntryNotFoundError(FileNotFoundError, EntryNotFoundError):
 
 class IncompleteSnapshotError(LocalEntryNotFoundError):
     """
-    Raised by [`snapshot_download`] when the Hub cannot be reached (offline, connection issue, or
-    `local_files_only=True`) and the cached snapshot is known to be incomplete: some files listed in
-    the repository's cached tree listing are missing from the local snapshot.
+    Raised by [`snapshot_download`] when falling back to an existing local snapshot that is known to be
+    incomplete: some files listed in the repository's cached tree listing are missing. With
+    `require_complete=True` it is also raised when no tree listing is cached for the commit or the revision
+    cannot be resolved locally, so the snapshot cannot be shown to be complete.
 
     This is a subclass of [`LocalEntryNotFoundError`] for backward compatibility.
 

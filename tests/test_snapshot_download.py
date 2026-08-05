@@ -44,6 +44,26 @@ def test_tree_with_redacted_xet_hash_is_not_cached(tmp_path: Path):
     assert read_tree_cache(str(storage_folder), COMMIT_HASH) is None
 
 
+def test_require_complete_with_unresolved_local_dir(tmp_path: Path):
+    local_dir = tmp_path / "local"
+    local_dir.mkdir()
+    (local_dir / "partial.txt").touch()
+
+    assert snapshot_download(
+        "user/repo", cache_dir=tmp_path / "cache", local_dir=local_dir, local_files_only=True
+    ) == str(local_dir)
+
+    with pytest.raises(IncompleteSnapshotError) as error:
+        snapshot_download(
+            "user/repo",
+            cache_dir=tmp_path / "cache",
+            local_dir=local_dir,
+            local_files_only=True,
+            require_complete=True,
+        )
+    assert error.value.snapshot_path == str(local_dir)
+
+
 class TestSnapshotDownload:
     @pytest.fixture(scope="class", autouse=True)
     def _shared_repo(self, request, api: HfApi):
@@ -263,7 +283,7 @@ class TestSnapshotDownload:
 
             # A complete cached snapshot is still returned offline.
             with offline():
-                assert snapshot_download(self.repo_id, cache_dir=tmpdir) == snapshot_path
+                assert snapshot_download(self.repo_id, cache_dir=tmpdir, require_complete=True) == snapshot_path
 
             # Remove a file from the snapshot => offline re-pull now raises instead of returning a partial folder.
             os.remove(os.path.join(snapshot_path, "dummy_file.txt"))
@@ -271,6 +291,20 @@ class TestSnapshotDownload:
                 with offline(mode=offline_mode):
                     with pytest.raises(IncompleteSnapshotError):
                         snapshot_download(self.repo_id, cache_dir=tmpdir)
+
+    def test_require_complete_without_tree_cache(self):
+        """`hf_hub_download` writes no tree listing, so the resulting snapshot cannot be checked."""
+        with SoftTemporaryDirectory() as tmpdir:
+            hf_hub_download(self.repo_id, "dummy_file.txt", cache_dir=tmpdir)
+
+            with offline():
+                # Without a listing, the partial snapshot is returned as-is...
+                snapshot_path = snapshot_download(self.repo_id, cache_dir=tmpdir)
+                assert os.listdir(snapshot_path) == ["dummy_file.txt"]
+
+                # ...unless the caller asks for a snapshot that can be shown to be complete.
+                with pytest.raises(IncompleteSnapshotError):
+                    snapshot_download(self.repo_id, cache_dir=tmpdir, require_complete=True)
 
     def test_download_model_local_only_multiple(self):
         # cache multiple commits and make sure correct commit is taken

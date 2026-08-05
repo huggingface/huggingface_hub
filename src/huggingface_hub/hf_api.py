@@ -6671,6 +6671,7 @@ class HfApi:
         force_download: bool = False,
         token: bool | str | None = None,
         local_files_only: bool = False,
+        require_complete: bool = False,
         allow_patterns: list[str] | str | None = None,
         ignore_patterns: list[str] | str | None = None,
         max_workers: int = 8,
@@ -6691,6 +6692,7 @@ class HfApi:
         force_download: bool = False,
         token: bool | str | None = None,
         local_files_only: bool = False,
+        require_complete: bool = False,
         allow_patterns: list[str] | str | None = None,
         ignore_patterns: list[str] | str | None = None,
         max_workers: int = 8,
@@ -6711,6 +6713,7 @@ class HfApi:
         force_download: bool = False,
         token: bool | str | None = None,
         local_files_only: bool = False,
+        require_complete: bool = False,
         allow_patterns: list[str] | str | None = None,
         ignore_patterns: list[str] | str | None = None,
         max_workers: int = 8,
@@ -6758,6 +6761,10 @@ class HfApi:
             local_files_only (`bool`, *optional*, defaults to `False`):
                 If `True`, avoid downloading the file and return the path to the
                 local cached file if it exists.
+            require_complete (`bool`, *optional*, defaults to `False`):
+                If `True`, when falling back to an existing local snapshot, raise
+                [`~errors.IncompleteSnapshotError`] instead of returning it if completeness cannot be checked
+                because no tree listing is cached for the commit or the revision cannot be resolved locally.
             allow_patterns (`list[str]` or `str`, *optional*):
                 If provided, only files matching at least one pattern are downloaded.
             ignore_patterns (`list[str]` or `str`, *optional*):
@@ -6786,6 +6793,10 @@ class HfApi:
                 or because it is set to `private` and you do not have access.
             [`~utils.RevisionNotFoundError`]
                 If the revision to download from cannot be found.
+            [`~errors.IncompleteSnapshotError`]
+                If an existing local snapshot is selected while the Hub cannot be reached and it is missing
+                some of the requested files, or, with `require_complete=True`, its completeness cannot be
+                established.
             [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
                 If `token=True` and the token cannot be found.
             [`OSError`](https://docs.python.org/3/library/exceptions.html#OSError) if
@@ -6813,6 +6824,7 @@ class HfApi:
             force_download=force_download,
             token=token,
             local_files_only=local_files_only,
+            require_complete=require_complete,
             allow_patterns=allow_patterns,
             ignore_patterns=ignore_patterns,
             max_workers=max_workers,
