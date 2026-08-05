@@ -1,6 +1,7 @@
 import os
 import re
 import typing
+from pathlib import Path
 from typing import Literal
 from urllib.parse import urlsplit
 
@@ -225,9 +226,20 @@ def is_offline_mode() -> bool:
 # Check is performed once per 24 hours at most.
 CHECK_FOR_UPDATE_DONE_PATH = os.path.join(HF_HOME, ".check_for_update_done")
 
+# File created to mark that the `hf-cli` skill check has been done.
+# Check is performed once per 24 hours at most.
+CHECK_FOR_SKILL_UPDATE_DONE_PATH = os.path.join(HF_HOME, ".check_for_skill_update_done")
+
 # File caching the AI agent harnesses registry fetched from `{ENDPOINT}/api/agent-harnesses`.
 # Refreshed once per 24 hours at most (see `utils/_detect_agent.py`).
 AGENT_HARNESSES_PATH = os.path.join(HF_HOME, ".agent_harnesses.json")
+
+# Skills directories for AI agents: `.agents/skills` is read by most agents, `.claude/skills` by Claude Code.
+# Local = current project, global = user-level (see `hf skills add`).
+AGENTS_SKILLS_LOCAL_PATH = Path(".agents/skills")
+AGENTS_SKILLS_GLOBAL_PATH = Path("~/.agents/skills")
+CLAUDE_SKILLS_LOCAL_PATH = Path(".claude/skills")
+CLAUDE_SKILLS_GLOBAL_PATH = Path("~/.claude/skills")
 
 # Set to skip the CLI update check (PyPI query + "new version available" warning at startup).
 HF_HUB_DISABLE_UPDATE_CHECK = _is_true(os.environ.get("HF_HUB_DISABLE_UPDATE_CHECK"))

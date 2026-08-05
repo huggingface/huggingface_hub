@@ -1022,13 +1022,15 @@ def _fetch_latest_brew_version() -> str | None:
         return None
 
 
-def run_update() -> int:
+def run_update(*, exclude_skill: bool = False) -> int:
     """Run the install-method-appropriate update command for the `hf` CLI.
+
+    Set `exclude_skill` to tell the standalone installer not to (re)install the `hf-cli` skill.
 
     Raises CLIError if the installation method can't be determined.
     Returns the subprocess exit code on success/failure of the update itself.
     """
-    cmd = _get_huggingface_hub_update_command()
+    cmd = _get_huggingface_hub_update_command(exclude_skill=exclude_skill)
     if cmd is None:
         raise CLIError(
             "Cannot determine how to update huggingface_hub (unknown installation method). Please update manually."
@@ -1036,15 +1038,19 @@ def run_update() -> int:
     return subprocess.call(cmd)
 
 
-def _get_huggingface_hub_update_command() -> list[str] | None:
+def _get_huggingface_hub_update_command(*, exclude_skill: bool = False) -> list[str] | None:
     """Return the command to update huggingface_hub as an argv list, or None if the installation method is unknown."""
     match installation_method():
         case "brew":
             return ["brew", "upgrade", "hf"]
         case "hf_installer" if os.name == "nt":
-            return ["powershell", "-NoProfile", "-Command", "iwr -useb https://hf.co/cli/install.ps1 | iex"]
+            # `iwr ... | iex` cannot take parameters: create a scriptblock so flags reach the installer.
+            flags = " -ExcludeSkill" if exclude_skill else ""
+            script = f"& ([scriptblock]::Create((iwr -useb https://hf.co/cli/install.ps1))){flags}"
+            return ["powershell", "-NoProfile", "-Command", script]
         case "hf_installer":
-            return ["bash", "-c", "curl -LsSf https://hf.co/cli/install.sh | bash -"]
+            flags = " -s -- --exclude-skill" if exclude_skill else " -"
+            return ["bash", "-c", f"curl -LsSf https://hf.co/cli/install.sh | bash{flags}"]
         case "pip":
             return [sys.executable, "-m", "pip", "install", "-U", "huggingface_hub"]
         case _:
@@ -1059,7 +1065,7 @@ def _get_transformers_update_command() -> list[str] | None:
                 "powershell",
                 "-NoProfile",
                 "-Command",
-                "iwr -useb https://hf.co/cli/install.ps1 | iex -WithTransformers",
+                "& ([scriptblock]::Create((iwr -useb https://hf.co/cli/install.ps1))) -WithTransformers",
             ]
         case "hf_installer":
             return ["bash", "-c", "curl -LsSf https://hf.co/cli/install.sh | bash -s -- --with-transformers"]
