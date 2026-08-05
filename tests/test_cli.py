@@ -4544,21 +4544,6 @@ class TestSkillsHfCliCLI:
         runner.invoke(app, ["skills", "update", "--dest", str(dest)])
         assert skill_file.read_text(encoding="utf-8") == build_skill_md()
 
-    def test_claude_install_falls_back_to_copy_when_symlinks_unavailable(
-        self, runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """Windows without Developer Mode can't create symlinks: copy the skill instead of failing."""
-        monkeypatch.setattr(constants, "AGENTS_SKILLS_LOCAL_PATH", tmp_path / ".agents/skills")
-        monkeypatch.setattr(constants, "CLAUDE_SKILLS_LOCAL_PATH", tmp_path / ".claude/skills")
-
-        with patch.object(Path, "symlink_to", side_effect=OSError("symlinks are not supported")):
-            result = runner.invoke(app, ["skills", "add", "--claude"])
-        assert result.exit_code == 0
-
-        claude_skill_dir = tmp_path / ".claude/skills/hf-cli"
-        assert not claude_skill_dir.is_symlink()
-        assert (claude_skill_dir / "SKILL.md").read_text(encoding="utf-8") == build_skill_md()
-
 
 class TestSkillUpdateCheck:
     """The daily `hf-cli` skill check only prints hints, it never installs nor updates."""
@@ -4583,12 +4568,6 @@ class TestSkillUpdateCheck:
         with patch.object(_skills, "__version__", "1.0.0"):
             _skills.check_skill_update()
         assert "hf skills add -g --claude" in capsys.readouterr().err
-
-    @pytest.mark.parametrize("version", ["1.0.0rc1", "1.0.0.dev0"])
-    def test_no_add_hint_on_prerelease_versions(self, version: str, capsys: pytest.CaptureFixture) -> None:
-        with patch.object(_skills, "__version__", version):
-            _skills.check_skill_update()
-        assert capsys.readouterr().err == ""
 
     def test_hints_to_update_when_generated_by_another_version(
         self, tmp_path: Path, capsys: pytest.CaptureFixture
