@@ -7,6 +7,7 @@ from huggingface_hub.inference._providers.featherless_ai import (
 from huggingface_hub.utils import logging
 
 from ._common import AutoRouterConversationalTask, TaskProviderHelper, _fetch_inference_provider_mapping
+from .baseten import BasetenConversationalTask
 from .cerebras import CerebrasConversationalTask
 from .cohere import CohereConversationalTask
 from .deepinfra import (
@@ -67,6 +68,7 @@ logger = logging.get_logger(__name__)
 
 
 PROVIDER_T = Literal[
+    "baseten",
     "cerebras",
     "cohere",
     "deepinfra",
@@ -92,6 +94,9 @@ PROVIDER_OR_POLICY_T = Union[PROVIDER_T, Literal["auto"]]
 CONVERSATIONAL_AUTO_ROUTER = AutoRouterConversationalTask()
 
 PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
+    "baseten": {
+        "conversational": BasetenConversationalTask(),
+    },
     "cerebras": {
         "conversational": CerebrasConversationalTask(),
     },

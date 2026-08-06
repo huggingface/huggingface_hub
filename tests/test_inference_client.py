@@ -63,6 +63,9 @@ pytestmark = pytest.mark.inference
 
 # Avoid calling APIs in VCRed tests
 _RECOMMENDED_MODELS_FOR_VCR = {
+    "baseten": {
+        "conversational": "moonshotai/Kimi-K3",
+    },
     "cerebras": {
         "conversational": "meta-llama/Llama-3.3-70B-Instruct",
     },

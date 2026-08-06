@@ -466,6 +466,15 @@ class HFCacheInfo:
 
                 # Blobs dir
                 for file in revision_to_delete.files:
+                    # Some files are not symlinks to the blobs dir: files copied instead of symlinked
+                    # (Windows, filesystems without symlink support) or files created by the user
+                    # inside the snapshot dir (e.g. build artifacts from a `pip install`). They are
+                    # already removed when deleting the snapshot dir -> count them but don't delete
+                    # them a second time.
+                    if revision_to_delete.snapshot_path in file.blob_path.parents:
+                        delete_strategy_expected_freed_size += file.size_on_disk
+                        continue
+
                     if file.blob_path not in delete_strategy_blobs:
                         is_file_alone = True
                         for revision in other_revisions:
@@ -878,13 +887,15 @@ def _try_delete_path(path: Path, path_type: str) -> None:
         path_type (`str`)
             What path are we deleting ? Only for logging purposes. Example: "snapshot".
     """
-    logger.info(f"Delete {path_type}: {path}")
+    logger.debug(f"Delete {path_type}: {path}")
     try:
         if path.is_file():
             os.remove(path)
         else:
             shutil.rmtree(path)
     except FileNotFoundError:
-        logger.warning(f"Couldn't delete {path_type}: file not found ({path})", exc_info=True)
+        # Nothing to delete: the path is already gone. Log without traceback to avoid flooding the
+        # terminal when deleting many paths at once.
+        logger.warning(f"Couldn't delete {path_type}: file not found ({path})")
     except PermissionError:
         logger.warning(f"Couldn't delete {path_type}: permission denied ({path})", exc_info=True)
