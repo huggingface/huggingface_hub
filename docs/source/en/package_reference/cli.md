@@ -4463,7 +4463,7 @@ $ hf spaces info [OPTIONS] SPACE_ID
 **Options**:
 
 * `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
-* `--expand TEXT`: Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=likes,tags'. Valid: author, cardData, createdAt, datasets, disabled, lastModified, likes, models, private, resourceGroup, runtime, sdk, sha, siblings, subdomain, tags, trendingScore, usedStorage.
+* `--expand TEXT`: Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=likes,tags'. Valid: author, cardData, createdAt, datasets, disabled, lastModified, likes, models, private, region, resourceGroup, runtime, sdk, sha, siblings, subdomain, tags, trendingScore, usedStorage.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -4500,7 +4500,7 @@ $ hf spaces list [OPTIONS] [REPO_ID]
 * `--filter TEXT`: Filter by tags (e.g. 'text-classification'). Can be used multiple times.
 * `--sort [created_at|last_modified|likes|trending_score]`: Sort results.
 * `--limit INTEGER`: Limit the number of results.  [default: 30]
-* `--expand TEXT`: Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=likes,tags'. Valid: author, cardData, createdAt, datasets, disabled, lastModified, likes, models, private, resourceGroup, runtime, sdk, sha, siblings, subdomain, tags, trendingScore, usedStorage.
+* `--expand TEXT`: Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=likes,tags'. Valid: author, cardData, createdAt, datasets, disabled, lastModified, likes, models, private, region, resourceGroup, runtime, sdk, sha, siblings, subdomain, tags, trendingScore, usedStorage.
 * `-h, --human-readable`: Show sizes in human readable format (only for listing files).
 * `--tree`: List files in tree format (only for listing files).
 * `-R, --recursive`: List files recursively (only for listing files).
