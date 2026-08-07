@@ -2632,7 +2632,41 @@ class TestInferenceEndpointsCommands:
         assert kwargs["env"] == {"MODEL_ID": "/repository"}
         assert kwargs["type"] == "authenticated"
 
-    def test_deploy_custom_args_require_image(self, runner: CliRunner) -> None:
+    def test_deploy_container_args_without_custom_image(self, runner: CliRunner) -> None:
+        endpoint = Mock(raw={"name": "hub-args"})
+        with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.create_inference_endpoint.return_value = endpoint
+            result = runner.invoke(
+                app,
+                [
+                    "endpoints",
+                    "deploy",
+                    "my-endpoint",
+                    "--repo",
+                    "my-repo",
+                    "--framework",
+                    "pytorch",
+                    "--accelerator",
+                    "gpu",
+                    "--instance-size",
+                    "x8",
+                    "--instance-type",
+                    "nvidia-h200",
+                    "--region",
+                    "us-east-1",
+                    "--vendor",
+                    "aws",
+                    "--container-args",
+                    "--enable-auto-tool-choice --tool-call-parser lfm2",
+                ],
+            )
+        assert result.exit_code == 0, result.stdout
+        _, kwargs = api.create_inference_endpoint.call_args
+        assert kwargs["container_args"] == ["--enable-auto-tool-choice", "--tool-call-parser", "lfm2"]
+        assert "custom_image" not in kwargs
+
+    def test_deploy_port_and_health_route_require_image(self, runner: CliRunner) -> None:
         with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
             result = runner.invoke(
                 app,
@@ -2654,8 +2688,8 @@ class TestInferenceEndpointsCommands:
                     "us-east-1",
                     "--vendor",
                     "aws",
-                    "--container-args",
-                    "--tp 8",
+                    "--port",
+                    "8000",
                 ],
             )
         assert result.exit_code != 0
@@ -2727,6 +2761,8 @@ class TestInferenceEndpointsCommands:
             framework=None,
             revision=None,
             task=None,
+            container_command=None,
+            container_args=None,
             accelerator="gpu",
             instance_size="x4",
             instance_type=None,
@@ -2738,6 +2774,47 @@ class TestInferenceEndpointsCommands:
             scaling_threshold=None,
         )
         assert '"name": "updated"' in result.stdout
+
+    def test_update_container_args(self, runner: CliRunner) -> None:
+        endpoint = Mock(raw={"name": "updated"})
+        with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.update_inference_endpoint.return_value = endpoint
+            result = runner.invoke(
+                app,
+                [
+                    "endpoints",
+                    "update",
+                    "my-endpoint",
+                    "--container-args",
+                    "--enable-auto-tool-choice --tool-call-parser lfm2",
+                ],
+            )
+        assert result.exit_code == 0, result.stdout
+        _, kwargs = api.update_inference_endpoint.call_args
+        assert kwargs["container_args"] == ["--enable-auto-tool-choice", "--tool-call-parser", "lfm2"]
+        assert kwargs["container_command"] is None
+        assert '"name": "updated"' in result.stdout
+
+    def test_update_container_args_empty_string_resets(self, runner: CliRunner) -> None:
+        endpoint = Mock(raw={"name": "updated"})
+        with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.update_inference_endpoint.return_value = endpoint
+            result = runner.invoke(
+                app,
+                [
+                    "endpoints",
+                    "update",
+                    "my-endpoint",
+                    "--container-args",
+                    "",
+                ],
+            )
+        assert result.exit_code == 0, result.stdout
+        _, kwargs = api.update_inference_endpoint.call_args
+        assert kwargs["container_args"] == []
+        assert kwargs["container_command"] is None
 
     def test_delete(self, runner: CliRunner) -> None:
         with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
