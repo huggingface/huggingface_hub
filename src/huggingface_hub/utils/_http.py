@@ -26,7 +26,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from shlex import quote
 from typing import Any, TypeVar
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import httpx
 
@@ -731,8 +731,10 @@ def _httpx_follow_relative_redirects_with_backoff(
         if 300 <= response.status_code <= 399:
             parsed_target = urlparse(response.headers["Location"])
             if parsed_target.netloc == "":
-                # Relative redirect -> update URL and retry
-                url = urlparse(url)._replace(path=parsed_target.path).geturl()
+                # Relative redirect -> resolve it against the current URL and retry.
+                # `urljoin` follows RFC 3986 reference resolution, so the target's query string
+                # is preserved and dot-segments (e.g. `../`) are resolved.
+                url = urljoin(url, response.headers["Location"])
                 continue
 
         # Break if no relative redirect
