@@ -34,7 +34,13 @@ def load_dotenv(dotenv_str: str, environ: dict[str, str] | None = None) -> dict[
             (?:
                 '(?:\\'|[^'])*'           # single-quoted value
                 | \"(?:\\\"|[^\"])*\"     # double-quoted value
-                | [^#\n\r]+?              # unquoted value
+                | (?:(?<==)\#|[^\s\n\r\#])  # unquoted value: a leading '#' only counts
+                                           # when it abuts the '=' (KEY=#val); after
+                                           # whitespace it opens a comment (KEY= # x)
+                  (?:
+                      (?![^\S\n]+\#)       # ...stop where an inline comment starts
+                      [^\n\r]              # ...so an inner '#' stays part of the value
+                  )*
             )
         )?
         [^\S\n]*(?:\#.*)?$                # optional inline comment

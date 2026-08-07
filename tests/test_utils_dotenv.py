@@ -91,3 +91,36 @@ def test_environ():
     """
     environ = {"A": "one", "B": "two", "D": "four", "EMPTY": ""}
     assert load_dotenv(data, environ=environ) == {"A": "1", "B": "two", "C": "3", "EMPTY": ""}
+
+
+def test_hash_without_leading_whitespace_is_part_of_value():
+    # An inline comment starts at " #". A "#" that is not preceded by whitespace is an
+    # ordinary character, so it must not truncate the value. Secrets routinely contain
+    # one, and truncating silently produced a wrong value rather than an error.
+    assert load_dotenv("KEY=abc#def") == {"KEY": "abc#def"}
+    assert load_dotenv("HF_TOKEN=hf_AbC#123xyz") == {"HF_TOKEN": "hf_AbC#123xyz"}
+    assert load_dotenv("PASSWORD=p@ss#word") == {"PASSWORD": "p@ss#word"}
+
+
+def test_hash_at_start_of_value_is_kept():
+    # No whitespace between '=' and '#', so the '#' belongs to the value.
+    assert load_dotenv("KEY=#value") == {"KEY": "#value"}
+
+
+def test_comment_right_after_equals_leaves_value_empty():
+    # With whitespace after '=', the '#' opens a comment and the value stays empty.
+    # Guards against the comment text itself being passed through as an env/secret value.
+    assert load_dotenv("KEY= # comment") == {"KEY": ""}
+    assert load_dotenv("KEY=  #comment") == {"KEY": ""}
+    assert load_dotenv("SECRET= # note") == {"SECRET": ""}
+
+
+def test_inline_comment_still_stripped_after_hash_fix():
+    # Guards the other direction: " #" must still begin a comment.
+    assert load_dotenv("KEY=value # comment") == {"KEY": "value"}
+    assert load_dotenv("KEY=value\t# comment") == {"KEY": "value"}
+    assert load_dotenv("KEY=a#b # comment") == {"KEY": "a#b"}
+
+
+def test_unquoted_value_keeps_inner_whitespace():
+    assert load_dotenv("KEY=a b c") == {"KEY": "a b c"}
