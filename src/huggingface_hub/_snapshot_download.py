@@ -50,6 +50,7 @@ def snapshot_download(
     force_download: bool = False,
     token: bool | str | None = None,
     local_files_only: bool = False,
+    require_complete: bool = False,
     allow_patterns: list[str] | str | None = None,
     ignore_patterns: list[str] | str | None = None,
     max_workers: int = 8,
@@ -75,6 +76,7 @@ def snapshot_download(
     force_download: bool = False,
     token: bool | str | None = None,
     local_files_only: bool = False,
+    require_complete: bool = False,
     allow_patterns: list[str] | str | None = None,
     ignore_patterns: list[str] | str | None = None,
     max_workers: int = 8,
@@ -100,6 +102,7 @@ def snapshot_download(
     force_download: bool = False,
     token: bool | str | None = None,
     local_files_only: bool = False,
+    require_complete: bool = False,
     allow_patterns: list[str] | str | None = None,
     ignore_patterns: list[str] | str | None = None,
     max_workers: int = 8,
@@ -125,6 +128,7 @@ def snapshot_download(
     force_download: bool = False,
     token: bool | str | None = None,
     local_files_only: bool = False,
+    require_complete: bool = False,
     allow_patterns: list[str] | str | None = None,
     ignore_patterns: list[str] | str | None = None,
     max_workers: int = 8,
@@ -183,6 +187,10 @@ def snapshot_download(
             The Hub endpoint to send the request to. Defaults to the value of `HF_ENDPOINT`.
         local_files_only (`bool`, *optional*, defaults to `False`):
             If `True`, do not download any files even if they are not in `cache_dir` or `local_dir`.
+        require_complete (`bool`, *optional*, defaults to `False`):
+            If `True`, when falling back to an existing local snapshot, raise
+            [`~errors.IncompleteSnapshotError`] instead of returning it if completeness cannot be checked
+            because no tree listing is cached for the commit or the revision cannot be resolved locally.
         allow_patterns (`list[str]` or `str`, *optional*):
             If provided, only files matching at least one pattern are downloaded.
         ignore_patterns (`list[str]` or `str`, *optional*):
@@ -212,8 +220,9 @@ def snapshot_download(
         [`~utils.RevisionNotFoundError`]
             If the revision to download from cannot be found.
         [`~errors.IncompleteSnapshotError`]
-            If the Hub cannot be reached (offline, connection issue, or `local_files_only=True`) and the
-            cached snapshot is missing some of the requested files.
+            If an existing local snapshot is selected while the Hub cannot be reached (offline, connection
+            issue, or `local_files_only=True`) and it is missing some of the requested files, or, with
+            `require_complete=True`, cannot be shown to hold them.
         [`EnvironmentError`](https://docs.python.org/3/library/exceptions.html#EnvironmentError)
             If `token=True` and the token cannot be found.
         [`OSError`](https://docs.python.org/3/library/exceptions.html#OSError) if
@@ -327,6 +336,7 @@ def snapshot_download(
                     repo_id=repo_id,
                     revision=revision,
                     api_call_error=api_call_error,
+                    require_complete=require_complete,
                 )
                 return snapshot_folder
 
@@ -344,7 +354,22 @@ def snapshot_download(
                         repo_id=repo_id,
                         revision=revision,
                         api_call_error=api_call_error,
+                        require_complete=require_complete,
                     )
+                elif require_complete:
+                    if api_call_error is not None:
+                        reason = (
+                            f"Resolving the revision from the Hub failed "
+                            f"({api_call_error.__class__.__name__}: {api_call_error})."
+                        )
+                    else:
+                        reason = "Outgoing traffic is disabled ('local_files_only=True')."
+                    raise IncompleteSnapshotError(
+                        f"The local snapshot for '{repo_id}' (revision '{revision}') cannot be shown to be complete: "
+                        f"the revision cannot be resolved to a commit locally, so no cached tree listing can be "
+                        f"selected. {reason} Re-run the download with network access to cache the listing.",
+                        snapshot_path=str(local_dir),
+                    ) from api_call_error
                 logger.warning(
                     f"Returning existing local_dir `{local_dir}` as remote repo cannot be accessed in `snapshot_download` ({api_call_error})."
                 )
@@ -550,14 +575,29 @@ def _raise_if_incomplete_snapshot(
     repo_id: str,
     revision: str,
     api_call_error: Exception | None,
+    require_complete: bool = False,
 ) -> None:
     """Raise [`IncompleteSnapshotError`] if the cached tree listing shows `base_dir` misses requested files.
 
-    If the tree listing is not cached we cannot tell, so we do nothing and the caller keeps returning the
-    folder as-is. Otherwise every expected file (after pattern filtering) must exist under `base_dir`.
+    If the tree listing is not cached we cannot tell. By default we do nothing and the caller keeps
+    returning the folder as-is; with `require_complete` not being able to tell is itself an error.
+    Otherwise every expected file (after pattern filtering) must exist under `base_dir`.
     """
+    if api_call_error is not None:
+        reason = f"The Hub could not be reached ({api_call_error.__class__.__name__}: {api_call_error})."
+    else:
+        reason = "Outgoing traffic is disabled ('local_files_only=True')."
+
     tree_entries = read_tree_cache(tree_cache_folder, commit_hash)
     if tree_entries is None:
+        if require_complete:
+            raise IncompleteSnapshotError(
+                f"The cached snapshot for '{repo_id}' (revision '{revision}', commit {commit_hash}) cannot be "
+                f"shown to be complete: no tree listing is cached for this commit, so which files the "
+                f"repository holds is unknown. {reason} Re-run the download with network access to cache the "
+                "listing.",
+                snapshot_path=base_dir,
+            ) from api_call_error
         return
     expected = filter_repo_objects(
         items=tree_entries.keys(), allow_patterns=allow_patterns, ignore_patterns=ignore_patterns
@@ -569,10 +609,6 @@ def _raise_if_incomplete_snapshot(
     sample = ", ".join(missing[:3])
     if len(missing) > 3:
         sample += f", ... ({len(missing) - 3} more)"
-    if api_call_error is not None:
-        reason = f"The Hub could not be reached ({api_call_error.__class__.__name__}: {api_call_error})."
-    else:
-        reason = "Outgoing traffic is disabled ('local_files_only=True')."
     raise IncompleteSnapshotError(
         f"The cached snapshot for '{repo_id}' (revision '{revision}', commit {commit_hash}) is incomplete: "
         f"{len(missing)} file(s) are missing ({sample}). {reason} Re-run the download with network access "

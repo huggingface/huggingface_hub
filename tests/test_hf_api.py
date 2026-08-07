@@ -3479,6 +3479,7 @@ class TestDownloadHfApiAlias:
             etag_timeout=10,
             force_download=False,
             local_files_only=False,
+            require_complete=False,
             allow_patterns=None,
             ignore_patterns=None,
             max_workers=8,

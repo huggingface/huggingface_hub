@@ -107,6 +107,8 @@ Both [`snapshot_download`] and [`hf_hub_download`] read this cache to avoid netw
 
 Because the cached file list describes exactly what a commit should contain, [`snapshot_download`] can also tell whether a local snapshot is complete. If the Hub cannot be reached (you are offline, the connection fails, or you passed `local_files_only=True`) and some expected files are missing from the local snapshot, [`snapshot_download`] raises [`~errors.IncompleteSnapshotError`] instead of returning a partial folder. Before this, an incomplete snapshot was returned silently, which could leave you working with missing files without knowing it. Files excluded by `allow_patterns` or `ignore_patterns` are not counted as missing. The exception exposes the path to the incomplete snapshot via its `snapshot_path` attribute, so you can still locate the partially cached files if needed.
 
+When [`snapshot_download`] falls back to an existing local snapshot but no file list is cached for its commit, completeness cannot be checked and the snapshot is returned as-is. An existing non-empty `local_dir` is also returned as-is if its revision cannot be resolved locally. Pass `require_complete=True` to raise [`~errors.IncompleteSnapshotError`] in either case.
+
 ### .no_exist (advanced)
 
 In addition to the `blobs`, `refs` and `snapshots` folders, you might also find a `.no_exist` folder
