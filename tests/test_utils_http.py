@@ -22,6 +22,7 @@ from huggingface_hub.utils._http import (
     _WARNED_TOPICS,
     RateLimitInfo,
     _adjust_range_header,
+    _httpx_follow_relative_redirects_with_backoff,
     _parse_bucket_id_from_url,
     _parse_repo_info_from_url,
     _parse_retry_after,
@@ -783,3 +784,44 @@ class TestRedactSensitiveBody:
         assert "refresh_token=<REDACTED>" in redacted
         assert "device_code=<REDACTED>" in redacted
         assert "client_id=abc" in redacted
+
+
+class TestFollowRelativeRedirects:
+    """Tests for `_httpx_follow_relative_redirects_with_backoff`."""
+
+    BASE_URL = "https://hf.co/repo/resolve/main/config.json?base=old"
+
+    @pytest.fixture(autouse=True)
+    def setup(self) -> Generator[None, None, None]:
+        patcher = patch("huggingface_hub.utils._http.http_backoff")
+        self.mock_backoff = patcher.start()
+        yield
+        patcher.stop()
+
+    def _follow(self, location: str) -> str:
+        """Follow a single relative redirect to `location` and return the URL requested next."""
+        self.mock_backoff.side_effect = [
+            httpx.Response(
+                308,
+                headers={"Location": location},
+                request=httpx.Request("HEAD", self.BASE_URL),
+            ),
+            httpx.Response(200, request=httpx.Request("HEAD", self.BASE_URL)),
+        ]
+        _httpx_follow_relative_redirects_with_backoff("HEAD", self.BASE_URL)
+        return self.mock_backoff.call_args_list[-1].kwargs["url"]
+
+    def test_target_query_is_preserved(self) -> None:
+        """The query string of the redirect target must be kept (e.g. xet `?etag=...`)."""
+        assert (
+            self._follow("/api/resolve-cache/config.json?etag=abc123")
+            == "https://hf.co/api/resolve-cache/config.json?etag=abc123"
+        )
+
+    def test_base_query_is_not_inherited(self) -> None:
+        """When the target has no query, the base query must not be carried over (RFC 3986)."""
+        assert self._follow("/api/resolve-cache/config.json") == "https://hf.co/api/resolve-cache/config.json"
+
+    def test_dot_segments_are_resolved(self) -> None:
+        """Relative targets with dot-segments must be resolved, not kept verbatim."""
+        assert self._follow("../other/config.json?etag=xyz") == "https://hf.co/repo/resolve/other/config.json?etag=xyz"
