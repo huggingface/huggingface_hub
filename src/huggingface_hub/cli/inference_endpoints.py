@@ -201,7 +201,7 @@ def deploy(
             "--container-args",
             help=(
                 "Arguments appended to the container entrypoint, as a quoted string split into tokens "
-                '(e.g. "--tp 8 --reasoning-parser qwen3"). Not limited to --custom-image deployments.'
+                '(e.g. "--tp 8 --reasoning-parser qwen3").'
             ),
         ),
     ] = None,
@@ -347,7 +347,12 @@ def describe(
     out.dict(endpoint.raw)
 
 
-@ie_cli.command(examples=["hf endpoints update my-endpoint --min-replica 2"])
+@ie_cli.command(
+    examples=[
+        "hf endpoints update my-endpoint --min-replica 2",
+        'hf endpoints update my-endpoint --container-args "--enable-auto-tool-choice --tool-call-parser lfm2"',
+    ]
+)
 def update(
     name: NameArg,
     namespace: NamespaceOpt = None,
@@ -399,7 +404,8 @@ def update(
             "--container-command",
             help=(
                 "Override the container entrypoint, as a quoted string split into tokens "
-                '(e.g. "python -m sglang.launch_server"). Pass an empty string to reset to the image default.'
+                '(e.g. "python -m sglang.launch_server"). Replaces the current value; '
+                "pass an empty string to clear it."
             ),
         ),
     ] = None,
@@ -409,8 +415,9 @@ def update(
             "--container-args",
             help=(
                 "Arguments appended to the container entrypoint, as a quoted string split into tokens "
-                '(e.g. "--enable-auto-tool-choice --tool-call-parser lfm2"). '
-                "Pass an empty string to reset to the image default."
+                '(e.g. "--enable-auto-tool-choice --tool-call-parser lfm2"). Replaces the arguments currently '
+                "set on the endpoint rather than adding to them, so include the ones you want to keep, run "
+                "'hf endpoints describe NAME' first to see them. Pass an empty string to clear them."
             ),
         ),
     ] = None,

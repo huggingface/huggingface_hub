@@ -2324,7 +2324,7 @@ To deploy your own Docker image instead of a Hugging Face managed one, pass `--f
       --type authenticated
 ```
 
-`--container-args` and `--container-command` are not limited to custom images: they map to `model.args` and `model.command` in the API payload, which apply to managed images as well. You can also change them on an existing endpoint (pass an empty string to reset to the image default):
+`--container-args` and `--container-command` are not limited to custom images: they map to `model.args` and `model.command` in the API payload, which apply to managed images as well. On an existing endpoint both flags replace the current value rather than adding to it, so pass the full list you want and use an empty string to clear it. Endpoints deployed from the catalog already come with tuned engine flags, so check `hf endpoints describe` before overwriting them:
 
 ```bash
 >>> hf endpoints update my-endpoint \

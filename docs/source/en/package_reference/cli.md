@@ -1767,7 +1767,7 @@ $ hf endpoints deploy [OPTIONS] NAME
 * `--health-route TEXT`: Health check route exposed by the custom container (e.g. '/health'). Requires --custom-image.
 * `--port INTEGER`: Port the custom container listens on (e.g. 30000). Requires --custom-image.
 * `--container-command TEXT`: Override the container entrypoint, as a quoted string split into tokens (e.g. "python -m sglang.launch_server").
-* `--container-args TEXT`: Arguments appended to the container entrypoint, as a quoted string split into tokens (e.g. "--tp 8 --reasoning-parser qwen3"). Not limited to --custom-image deployments.
+* `--container-args TEXT`: Arguments appended to the container entrypoint, as a quoted string split into tokens (e.g. "--tp 8 --reasoning-parser qwen3").
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
 * `--env-file TEXT`: Read in a file of environment variables.
 * `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
@@ -1960,8 +1960,8 @@ $ hf endpoints update [OPTIONS] NAME
 * `--framework TEXT`: The machine learning framework used for the model (e.g. 'custom').
 * `--revision TEXT`: The specific model revision to deploy on the Inference Endpoint (e.g. '6c0e6080953db56375760c0471a8c5f2929baf11').
 * `--task TEXT`: The task on which to deploy the model (e.g. 'text-classification').
-* `--container-command TEXT`: Override the container entrypoint, as a quoted string split into tokens (e.g. "python -m sglang.launch_server"). Pass an empty string to reset to the image default.
-* `--container-args TEXT`: Arguments appended to the container entrypoint, as a quoted string split into tokens (e.g. "--enable-auto-tool-choice --tool-call-parser lfm2"). Pass an empty string to reset to the image default.
+* `--container-command TEXT`: Override the container entrypoint, as a quoted string split into tokens (e.g. "python -m sglang.launch_server"). Replaces the current value; pass an empty string to clear it.
+* `--container-args TEXT`: Arguments appended to the container entrypoint, as a quoted string split into tokens (e.g. "--enable-auto-tool-choice --tool-call-parser lfm2"). Replaces the arguments currently set on the endpoint rather than adding to them, so include the ones you want to keep, run 'hf endpoints describe NAME' first to see them. Pass an empty string to clear them.
 * `--min-replica INTEGER`: The minimum number of replicas (instances) to keep running for the Inference Endpoint.
 * `--max-replica INTEGER`: The maximum number of replicas (instances) to scale to for the Inference Endpoint.
 * `--scale-to-zero-timeout INTEGER`: The duration in minutes before an inactive endpoint is scaled to zero.
@@ -1972,6 +1972,7 @@ $ hf endpoints update [OPTIONS] NAME
 
 Examples
   $ hf endpoints update my-endpoint --min-replica 2
+  $ hf endpoints update my-endpoint --container-args "--enable-auto-tool-choice --tool-call-parser lfm2"
 
 Learn more
   Use `hf <command> --help` for more information about a command.

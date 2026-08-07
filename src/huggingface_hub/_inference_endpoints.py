@@ -305,8 +305,8 @@ class InferenceEndpoint:
                 A custom Docker image to use for the Inference Endpoint. This is useful if you want to deploy an
                 Inference Endpoint running on the `text-generation-inference` (TGI) framework (see examples).
             container_command (`list[str]`, *optional*):
-                Override the container entrypoint command (maps to `model.command` in the API payload). Typically
-                used together with `custom_image`.
+                Override the container entrypoint command (maps to `model.command` in the API payload). Works with
+                both managed engine images (e.g. vLLM, SGLang) and custom images.
             container_args (`list[str]`, *optional*):
                 Arguments appended to the container entrypoint (maps to `model.args` in the API payload). Works with
                 both managed engine images (e.g. vLLM, SGLang) and custom images.
