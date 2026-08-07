@@ -191,7 +191,7 @@ def deploy(
             "--container-command",
             help=(
                 "Override the container entrypoint, as a quoted string split into tokens "
-                '(e.g. "python -m sglang.launch_server"). Requires --custom-image.'
+                '(e.g. "python -m sglang.launch_server").'
             ),
         ),
     ] = None,
@@ -201,7 +201,7 @@ def deploy(
             "--container-args",
             help=(
                 "Arguments appended to the container entrypoint, as a quoted string split into tokens "
-                '(e.g. "--tp 8 --reasoning-parser qwen3"). Requires --custom-image.'
+                '(e.g. "--tp 8 --reasoning-parser qwen3").'
             ),
         ),
     ] = None,
@@ -219,9 +219,11 @@ def deploy(
     ] = None,
 ) -> None:
     """Deploy an Inference Endpoint from a Hub repository."""
-    # Custom-container knobs only make sense alongside a custom image.
-    if custom_image is None and (health_route is not None or port is not None or container_command or container_args):
-        raise CLIError("--health-route, --port, --container-command and --container-args require --custom-image.")
+    # --health-route and --port are container-level fields, and the only container payload this
+    # command can build is the custom one, so they need --custom-image. Container command/args are
+    # top-level model fields and apply to managed engine images too, so they are not gated.
+    if custom_image is None and (health_route is not None or port is not None):
+        raise CLIError("--health-route and --port require --custom-image.")
     custom_image_dict: dict | None = None
     if custom_image is not None:
         custom_image_dict = {"url": custom_image}
@@ -346,7 +348,12 @@ def describe(
     out.dict(endpoint.raw)
 
 
-@ie_cli.command(examples=["hf endpoints update my-endpoint --min-replica 2"])
+@ie_cli.command(
+    examples=[
+        "hf endpoints update my-endpoint --min-replica 2",
+        'hf endpoints update my-endpoint --container-args "--enable-auto-tool-choice --tool-call-parser lfm2"',
+    ]
+)
 def update(
     name: NameArg,
     namespace: NamespaceOpt = None,
@@ -392,6 +399,29 @@ def update(
             help="The task on which to deploy the model (e.g. 'text-classification').",
         ),
     ] = None,
+    container_command: Annotated[
+        str | None,
+        Option(
+            "--container-command",
+            help=(
+                "Override the container entrypoint, as a quoted string split into tokens "
+                '(e.g. "python -m sglang.launch_server"). Replaces the current value; '
+                "pass an empty string to clear it."
+            ),
+        ),
+    ] = None,
+    container_args: Annotated[
+        str | None,
+        Option(
+            "--container-args",
+            help=(
+                "Arguments appended to the container entrypoint, as a quoted string split into tokens "
+                '(e.g. "--enable-auto-tool-choice --tool-call-parser lfm2"). Replaces the arguments currently '
+                "set on the endpoint rather than adding to them, so include the ones you want to keep, run "
+                "'hf endpoints describe NAME' first to see them. Pass an empty string to clear them."
+            ),
+        ),
+    ] = None,
     min_replica: Annotated[
         int | None,
         Option(
@@ -434,6 +464,8 @@ def update(
             framework=framework,
             revision=revision,
             task=task,
+            container_command=shlex.split(container_command) if container_command is not None else None,
+            container_args=shlex.split(container_args) if container_args is not None else None,
             accelerator=accelerator,
             instance_size=instance_size,
             instance_type=instance_type,
