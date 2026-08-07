@@ -1290,8 +1290,8 @@ class SpaceInfo:
             List of models used by the Space.
         private (`bool`):
             Is the repo private.
-        region (`str`, *optional*):
-            Cloud region in which the Space is stored. Can be one of `"us"` or `"eu"`.
+        region (`Literal["us", "eu"]`, *optional*):
+            Cloud region in which the Space is stored.
         resource_group (`dict`, *optional*):
             Resource group information for the Space.
         runtime (`SpaceRuntime`, *optional*):
@@ -1324,7 +1324,7 @@ class SpaceInfo:
     likes: int | None
     models: list[str] | None
     private: bool | None
-    region: str | None
+    region: REPO_REGIONS | None
     resource_group: dict | None
     runtime: SpaceRuntime | None
     sdk: str | None
