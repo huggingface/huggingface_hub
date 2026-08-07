@@ -469,6 +469,9 @@ jobs:
           GITHUB_TOKEN_RELEASE_NOTES: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_NOTES_MODEL: ${{ vars.RELEASE_NOTES_MODEL }}
         run: |
+          # WARNING: This step processes user-controlled content (PR titles, bodies, commit messages)
+          # and passes it to an LLM. Ensure utils/release_notes/generate_release_notes.py sanitizes
+          # all inputs and uses a system prompt that treats user content as data, not instructions.
           python -m utils.release_notes.generate_release_notes \
             --since "${{ needs.prepare.outputs.since_tag }}" \
             --${{ needs.prepare.outputs.bump_type }}
@@ -644,6 +647,10 @@ jobs:
           BASE_VERSION=$(echo "$VERSION" | sed -E 's/\.rc.*//')
           # Create output directory (.release-notes/ is in .gitignore so absent after checkout)
           mkdir -p .release-notes
+          # WARNING: This step processes release notes that may contain user-controlled content
+          # (PR titles, bodies, commit messages) and passes it to an LLM. Ensure
+          # utils/release_notes/generate_slack_message.py sanitizes all inputs and uses a system
+          # prompt that treats user content as data, not instructions.
           python -m utils.release_notes.generate_slack_message \
             --version "v${BASE_VERSION}" \
             --rc-version "${VERSION}" \
