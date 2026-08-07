@@ -1291,7 +1291,7 @@ class SpaceInfo:
         private (`bool`):
             Is the repo private.
         region (`str`, *optional*):
-            Region in which the Space is stored.
+            Cloud region in which the Space is stored. Can be one of `"us"` or `"eu"`.
         resource_group (`dict`, *optional*):
             Resource group information for the Space.
         runtime (`SpaceRuntime`, *optional*):
