@@ -85,7 +85,7 @@ jobs:
           app-id: ${{ secrets.APP_ID_HUGGINGFACE_HUB_BOT }}
           private-key: ${{ secrets.APP_SECRET_PEM_HUGGINGFACE_HUB_BOT }}
 
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           ref: main
           fetch-depth: 0
@@ -301,10 +301,10 @@ jobs:
     needs: prepare
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           ref: ${{ needs.prepare.outputs.tag }}
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
         with:
           python-version: "3.10"
       - name: Install build frontend
@@ -312,7 +312,7 @@ jobs:
       - name: Build package
         run: python -m build
       - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b  # v1.14.0
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # v1.14.2
         with:
           attestations: true
           print-hash: true
@@ -356,10 +356,10 @@ jobs:
     needs: prepare
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           ref: ${{ needs.prepare.outputs.tag }}
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
         with:
           python-version: "3.10"
       - name: Install build frontend
@@ -367,7 +367,7 @@ jobs:
       - name: Build hf CLI package
         run: cd utils/hf && python -m build --wheel
       - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b  # v1.14.0
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # v1.14.2
         with:
           packages-dir: utils/hf/dist
           attestations: true
@@ -411,7 +411,7 @@ jobs:
     needs: prepare
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           ref: ${{ needs.prepare.outputs.tag }}
           fetch-depth: 0
@@ -446,7 +446,7 @@ jobs:
             echo "skip=false" >> $GITHUB_OUTPUT
           fi
 
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
         if: ${{ inputs.release_type == 'minor-prerelease' && steps.check_draft.outputs.skip != 'true' }}
         with:
           python-version: "3.12"
@@ -595,11 +595,11 @@ jobs:
     if: ${{ !cancelled() && needs.prepare.result == 'success' && needs.prepare.outputs.is_prerelease == 'true' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           ref: ${{ needs.prepare.outputs.tag }}
 
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
         with:
           python-version: "3.12"
 
@@ -730,11 +730,11 @@ jobs:
     if: ${{ !cancelled() && needs.prepare.result == 'success' && inputs.release_type == 'minor-release' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           ref: ${{ needs.prepare.outputs.tag }}
 
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
         with:
           python-version: "3.12"
 
@@ -849,7 +849,7 @@ jobs:
           exit 1
 
       - name: Checkout target repo
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           repository: huggingface/${{ matrix.target-repo }}
           path: ${{ matrix.target-repo }}
@@ -966,7 +966,7 @@ jobs:
           app-id: ${{ secrets.APP_ID_HUGGINGFACE_HUB_BOT }}
           private-key: ${{ secrets.APP_SECRET_PEM_HUGGINGFACE_HUB_BOT }}
 
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           ref: main
           token: ${{ steps.app_token.outputs.token }}
@@ -1044,12 +1044,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout huggingface_hub
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           ref: ${{ needs.prepare.outputs.tag }}
 
       - name: Set up Python
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
         with:
           python-version: "3.12"
 
@@ -1070,7 +1070,7 @@ jobs:
           repositories: skills
 
       - name: Checkout skills repo
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           repository: huggingface/skills
           token: ${{ steps.app_token.outputs.token }}
@@ -1145,7 +1145,7 @@ jobs:
           app-id: ${{ secrets.APP_ID_HUGGINGFACE_HUB_BOT }}
           private-key: ${{ secrets.APP_SECRET_PEM_HUGGINGFACE_HUB_BOT }}
 
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           ref: ${{ needs.prepare.outputs.tag }}
           fetch-depth: 0

@@ -663,6 +663,11 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         out: list[BucketFile | BucketFolder] = []
 
         for bucket_entry in bucket_files:
+            # The server matches `prefix` lexically, so listing "logs" also returns "logs_existing/...".
+            # Filesystem semantics require path components => drop entries that aren't `prefix` itself
+            # or below it.
+            if prefix and bucket_entry.path != prefix and not bucket_entry.path.startswith(f"{prefix}/"):
+                continue
             out.append(bucket_entry)
 
             # If recursive=False, both files and folders are returned by the server => nothing to do
