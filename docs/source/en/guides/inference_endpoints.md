@@ -249,7 +249,8 @@ InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2
 >>> endpoint.update(accelerator="cpu", instance_size="x4", instance_type="intel-icl")
 InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2-large', status='pending', url=None)
 
-# Update container arguments (e.g. engine flags)
+# Update the container arguments, e.g. engine flags on an endpoint running vLLM or SGLang.
+# Replaces the current value, it is not appended.
 >>> endpoint.update(container_args=["--enable-auto-tool-choice", "--tool-call-parser", "lfm2"])
 InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2-large', status='pending', url=None)
 ```

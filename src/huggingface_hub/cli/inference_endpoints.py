@@ -219,8 +219,9 @@ def deploy(
     ] = None,
 ) -> None:
     """Deploy an Inference Endpoint from a Hub repository."""
-    # Health route and port only make sense alongside a custom image. Container command/args also
-    # apply to managed engine images (vLLM, SGLang, llama.cpp, ...), so they are not gated.
+    # --health-route and --port are container-level fields, and the only container payload this
+    # command can build is the custom one, so they need --custom-image. Container command/args are
+    # top-level model fields and apply to managed engine images too, so they are not gated.
     if custom_image is None and (health_route is not None or port is not None):
         raise CLIError("--health-route and --port require --custom-image.")
     custom_image_dict: dict | None = None
