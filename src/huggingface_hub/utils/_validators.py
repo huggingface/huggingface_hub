@@ -32,7 +32,7 @@ REPO_ID_REGEX = re.compile(
     \b               # starts with a word boundary
     [\w\-.]{1,96}    # repo_name: alphanumeric + . _ -
     \b               # ends with a word boundary
-    $
+    \Z               # end of string ($ would also match before a trailing newline)
     """,
     flags=re.VERBOSE,
 )
