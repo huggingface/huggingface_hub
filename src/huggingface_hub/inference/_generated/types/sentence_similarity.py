@@ -3,7 +3,7 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from typing import Any
+from typing import Any, Optional
 
 from .base import BaseInferenceType, dataclass_with_extra
 
@@ -23,5 +23,5 @@ class SentenceSimilarityInput(BaseInferenceType):
     """Inputs for Sentence similarity inference"""
 
     inputs: SentenceSimilarityInputData
-    parameters: dict[str, Any] | None = None
+    parameters: Optional[dict[str, Any]] = None
     """Additional inference parameters for Sentence Similarity"""
