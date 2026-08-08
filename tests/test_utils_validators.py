@@ -48,6 +48,7 @@ class TestRepoIdValidator:
         "foo--bar",  # Cannot contain "--"
         "foo..bar",  # Cannot contain "."
         "foo.git",  # Cannot end with ".git"
+        "foo/bar\n",  # Cannot contain a trailing newline
     )
 
     def test_valid_repo_ids(self) -> None:
