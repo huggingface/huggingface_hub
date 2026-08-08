@@ -3,7 +3,7 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from typing import Any
+from typing import Any, Optional, Union
 
 from .base import BaseInferenceType, dataclass_with_extra
 
@@ -22,31 +22,31 @@ class DocumentQuestionAnsweringInputData(BaseInferenceType):
 class DocumentQuestionAnsweringParameters(BaseInferenceType):
     """Additional inference parameters for Document Question Answering"""
 
-    doc_stride: int | None = None
+    doc_stride: Optional[int] = None
     """If the words in the document are too long to fit with the question for the model, it will
     be split in several chunks with some overlap. This argument controls the size of that
     overlap.
     """
-    handle_impossible_answer: bool | None = None
+    handle_impossible_answer: Optional[bool] = None
     """Whether to accept impossible as an answer"""
-    lang: str | None = None
+    lang: Optional[str] = None
     """Language to use while running OCR. Defaults to english."""
-    max_answer_len: int | None = None
+    max_answer_len: Optional[int] = None
     """The maximum length of predicted answers (e.g., only answers with a shorter length are
     considered).
     """
-    max_question_len: int | None = None
+    max_question_len: Optional[int] = None
     """The maximum length of the question after tokenization. It will be truncated if needed."""
-    max_seq_len: int | None = None
+    max_seq_len: Optional[int] = None
     """The maximum length of the total sentence (context + question) in tokens of each chunk
     passed to the model. The context will be split in several chunks (using doc_stride as
     overlap) if needed.
     """
-    top_k: int | None = None
+    top_k: Optional[int] = None
     """The number of answers to return (will be chosen by order of likelihood). Can return less
     than top_k answers if there are not enough options available within the context.
     """
-    word_boxes: list[list[float] | str] | None = None
+    word_boxes: Optional[list[Union[list[float], str]]] = None
     """A list of words and bounding boxes (normalized 0->1000). If provided, the inference will
     skip the OCR step and use the provided bounding boxes instead.
     """
@@ -58,7 +58,7 @@ class DocumentQuestionAnsweringInput(BaseInferenceType):
 
     inputs: DocumentQuestionAnsweringInputData
     """One (document, question) pair to answer"""
-    parameters: DocumentQuestionAnsweringParameters | None = None
+    parameters: Optional[DocumentQuestionAnsweringParameters] = None
     """Additional inference parameters for Document Question Answering"""
 
 
