@@ -26,7 +26,12 @@ import pytest
 
 from huggingface_hub import HfApi, constants
 from huggingface_hub._local_folder import write_download_metadata
-from huggingface_hub.errors import EntryNotFoundError, GatedRepoError, LocalEntryNotFoundError
+from huggingface_hub.errors import (
+    EntryNotFoundError,
+    FileMetadataError,
+    GatedRepoError,
+    LocalEntryNotFoundError,
+)
 from huggingface_hub.file_download import (
     _CACHED_NO_EXIST,
     HfFileMetadata,
@@ -34,6 +39,7 @@ from huggingface_hub.file_download import (
     _create_symlink,
     _get_pointer_path,
     _normalize_etag,
+    _raise_on_head_call_error,
     get_hf_file_metadata,
     hf_hub_download,
     hf_hub_url,
@@ -1500,3 +1506,24 @@ def _recursive_chmod(path: str, mode: int) -> None:
             os.chmod(os.path.join(root, d), mode)
         for f in files:
             os.chmod(os.path.join(root, f), mode)
+
+
+class TestRaiseOnHeadCallError:
+    """Tests for `_raise_on_head_call_error`."""
+
+    def test_raises_file_metadata_error_as_is(self) -> None:
+        """A `FileMetadataError` must be raised as-is, not masked as a connection issue.
+
+        Regression test for the misleading "check your connection" error reported when a
+        HEAD request on a mirror endpoint returns an absolute redirect that could not be
+        resolved into metadata (see issue #4637).
+        """
+        error = FileMetadataError("Distant resource does not seem to be on huggingface.co")
+        with pytest.raises(FileMetadataError) as exc_info:
+            _raise_on_head_call_error(error, force_download=False, local_files_only=False)
+        assert exc_info.value is error
+
+    def test_masks_connection_issue(self) -> None:
+        """A genuine network error is still reported as `LocalEntryNotFoundError`."""
+        with pytest.raises(LocalEntryNotFoundError):
+            _raise_on_head_call_error(ValueError("boom"), force_download=False, local_files_only=False)

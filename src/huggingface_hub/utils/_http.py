@@ -691,6 +691,22 @@ def http_stream_backoff(
     )
 
 
+# Maximum number of redirects to follow before giving up (avoid infinite loops).
+_MAX_REDIRECTS = 10
+
+# Netlocs (host[:port]) that are considered trusted Hub endpoints. Absolute redirects
+# are only followed when they point back to one of these hosts: following an absolute
+# redirect to a CDN or any other third-party host would leak the authorization header.
+_TRUSTED_HUB_NETLOCS = frozenset(
+    urlparse(endpoint).netloc
+    for endpoint in (
+        constants.ENDPOINT,
+        constants._HF_DEFAULT_ENDPOINT,
+        constants._HF_DEFAULT_STAGING_ENDPOINT,
+    )
+)
+
+
 def _httpx_follow_relative_redirects_with_backoff(
     method: HTTP_METHOD_T, url: str, *, retry_on_errors: bool = False, **httpx_kwargs
 ) -> httpx.Response:
@@ -718,6 +734,7 @@ def _httpx_follow_relative_redirects_with_backoff(
         {} if retry_on_errors else {"retry_on_exceptions": (), "retry_on_status_codes": ()}
     )
 
+    nb_redirects = 0
     while True:
         response = http_backoff(
             method=method,
@@ -728,15 +745,24 @@ def _httpx_follow_relative_redirects_with_backoff(
         )
         hf_raise_for_status(response)
 
-        # Check if response is a relative redirect
-        if 300 <= response.status_code <= 399:
+        # Check if response is a redirect (limited number of redirects to avoid infinite loops)
+        if 300 <= response.status_code <= 399 and nb_redirects < _MAX_REDIRECTS:
             parsed_target = urlparse(response.headers["Location"])
             if parsed_target.netloc == "":
                 # Relative redirect -> update URL and retry
                 url = urlparse(url)._replace(path=parsed_target.path).geturl()
+                nb_redirects += 1
+                continue
+            elif parsed_target.netloc in _TRUSTED_HUB_NETLOCS:
+                # Absolute redirect to a trusted Hub endpoint (e.g. an endpoint
+                # configured with `HF_ENDPOINT` that proxies back to huggingface.co).
+                # Follow it, but never follow redirects to a CDN: this would leak the
+                # authorization header to a third party.
+                url = response.headers["Location"]
+                nb_redirects += 1
                 continue
 
-        # Break if no relative redirect
+        # Break if no redirect to follow (or too many redirects)
         break
 
     return response

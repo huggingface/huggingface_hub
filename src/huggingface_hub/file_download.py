@@ -1902,6 +1902,11 @@ def _raise_on_head_call_error(head_call_error: Exception, force_download: bool, 
         # Repo not found or gated => let's raise the actual error
         # Unauthorized => likely a token issue => let's raise the actual error
         raise head_call_error
+    elif isinstance(head_call_error, FileMetadataError):
+        # File metadata could not be retrieved (e.g. resource not served by the Hub, or a
+        # redirect chain that could not be resolved). The error message is explicit, let's
+        # raise it as-is instead of masking it as a generic connection issue.
+        raise head_call_error
     else:
         # Otherwise: most likely a connection issue or Hub downtime => let's warn the user
         raise LocalEntryNotFoundError(
