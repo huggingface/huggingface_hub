@@ -825,3 +825,15 @@ class TestFollowRelativeRedirects:
     def test_dot_segments_are_resolved(self) -> None:
         """Relative targets with dot-segments must be resolved, not kept verbatim."""
         assert self._follow("../other/config.json?etag=xyz") == "https://hf.co/repo/resolve/other/config.json?etag=xyz"
+
+    def test_protocol_relative_redirect_is_not_followed(self) -> None:
+        """A protocol-relative target (`//host/...`) points to another host and must not be followed."""
+        redirect = httpx.Response(
+            308,
+            headers={"Location": "//huggingface.co/other/config.json"},
+            request=httpx.Request("HEAD", self.BASE_URL),
+        )
+        self.mock_backoff.side_effect = [redirect]
+        response = _httpx_follow_relative_redirects_with_backoff("HEAD", self.BASE_URL)
+        assert self.mock_backoff.call_count == 1  # no second request
+        assert response is redirect  # the redirect itself is returned
