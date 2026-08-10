@@ -17,7 +17,10 @@ from huggingface_hub.inference._providers._common import (
     recursive_merge,
 )
 from huggingface_hub.inference._providers.cohere import CohereConversationalTask
-from huggingface_hub.inference._providers.deepinfra import DeepInfraAutomaticSpeechRecognitionTask
+from huggingface_hub.inference._providers.deepinfra import (
+    DeepInfraAutomaticSpeechRecognitionTask,
+    DeepInfraTextToSpeechTask,
+)
 from huggingface_hub.inference._providers.fal_ai import (
     _POLLING_INTERVAL,
     FalAIAutomaticSpeechRecognitionTask,
@@ -343,6 +346,52 @@ class TestDeepInfraProvider:
 
         with pytest.raises(ValueError):
             helper.get_response({"text": 123})
+
+    def test_text_to_speech_url(self):
+        helper = DeepInfraTextToSpeechTask()
+        url = helper._prepare_url("hf_token", "hexgrad/Kokoro-82M")
+        assert url == "https://router.huggingface.co/deepinfra/v1/openai/audio/speech"
+
+    def test_text_to_speech_payload(self):
+        helper = DeepInfraTextToSpeechTask()
+        payload = helper._prepare_payload_as_dict(
+            "Hello, world!",
+            {"voice": "af_bella", "speed": 1.0},
+            InferenceProviderMapping(
+                provider="deepinfra",
+                hf_model_id="hexgrad/Kokoro-82M",
+                providerId="hexgrad/Kokoro-82M",
+                task="text-to-speech",
+                status="live",
+            ),
+        )
+        assert payload == {
+            "input": "Hello, world!",
+            "voice": "af_bella",
+            "speed": 1.0,
+            "model": "hexgrad/Kokoro-82M",
+        }
+
+    def test_text_to_speech_model_not_overridable(self):
+        helper = DeepInfraTextToSpeechTask()
+        payload = helper._prepare_payload_as_dict(
+            "Hello, world!",
+            {"model": "attacker/model"},
+            InferenceProviderMapping(
+                provider="deepinfra",
+                hf_model_id="hexgrad/Kokoro-82M",
+                providerId="hexgrad/Kokoro-82M",
+                task="text-to-speech",
+                status="live",
+            ),
+        )
+        assert payload["model"] == "hexgrad/Kokoro-82M"
+
+    def test_text_to_speech_response(self):
+        helper = DeepInfraTextToSpeechTask()
+        assert helper.get_response(b"audio_bytes") == b"audio_bytes"
+        with pytest.raises(ValueError):
+            helper.get_response({"not": "bytes"})
 
 
 class TestFalAIProvider:
