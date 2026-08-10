@@ -11,8 +11,11 @@ from huggingface_hub._upload_large_folder import (
     MAX_FILES_PER_REPO,
     LargeUploadStatus,
     _build_hacky_operation,
+    _is_non_retryable_commit_error,
     _validate_upload_limits,
+    _worker_job,
 )
+from huggingface_hub.errors import HfHubHTTPError
 
 
 @pytest.fixture
@@ -67,6 +70,44 @@ def test_build_hacky_operation_preserves_lfs_preupload_state(tmp_path):
 
     assert operation._is_uploaded
     assert operation.path_or_fileobj == b""
+
+
+@pytest.mark.parametrize(
+    "status_code, expected",
+    [(400, True), (403, True), (404, True), (408, False), (429, False), (500, False)],
+)
+def test_is_non_retryable_commit_error(status_code, expected):
+    response = MagicMock(status_code=status_code, headers={}, request=MagicMock())
+    error = HfHubHTTPError("commit failed", response=response)
+
+    assert _is_non_retryable_commit_error(error) is expected
+
+
+def test_worker_stops_on_non_retryable_commit_error(tmp_path, mocker):
+    file_path = tmp_path / "file.bin"
+    content = b"content"
+    file_path.write_bytes(content)
+    paths = LocalUploadFilePaths(
+        path_in_repo="file.bin",
+        file_path=file_path,
+        lock_path=tmp_path / "file.bin.lock",
+        metadata_path=tmp_path / "file.bin.metadata",
+    )
+    metadata = LocalUploadFileMetadata(
+        size=len(content),
+        sha256=sha256(content).hexdigest(),
+        upload_mode="regular",
+    )
+    status = LargeUploadStatus(items=[(paths, metadata)])
+    response = MagicMock(status_code=403, headers={}, request=MagicMock())
+    error = HfHubHTTPError("commit failed", response=response)
+    mocker.patch("huggingface_hub._upload_large_folder._commit", side_effect=error)
+
+    _worker_job(status, api=MagicMock(), repo_id="repo", repo_type="dataset", revision="main")
+
+    assert status.error is error
+    assert status.queue_commit.empty()
+    assert status.is_done()
 
 
 class TestValidateUploadLimits:

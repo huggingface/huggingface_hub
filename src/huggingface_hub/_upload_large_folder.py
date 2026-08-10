@@ -29,6 +29,7 @@ from urllib.parse import quote
 from ._commit_api import CommitOperationAdd, UploadInfo, _fetch_upload_modes
 from ._local_folder import LocalUploadFileMetadata, LocalUploadFilePaths, get_local_upload_paths, read_upload_metadata
 from .constants import DEFAULT_REVISION, REPO_TYPES
+from .errors import HfHubHTTPError
 from .utils import DEFAULT_IGNORE_PATTERNS, _format_size, filter_repo_objects, tqdm
 from .utils._runtime import is_xet_available
 from .utils.sha import sha_fileobj
@@ -280,6 +281,8 @@ def upload_large_folder_internal(
         thread.join()
 
     logger.info(status.current_report())
+    if status.error is not None:
+        raise status.error
     logger.info("Upload is complete!")
 
 
@@ -317,6 +320,7 @@ class LargeUploadStatus:
         self.nb_workers_commit: int = 0
         self.nb_workers_waiting: int = 0
         self.last_commit_attempt: float | None = None
+        self.error: Exception | None = None
 
         self._started_at = datetime.now()
         self._chunk_idx: int = 1
@@ -416,7 +420,15 @@ class LargeUploadStatus:
 
     def is_done(self) -> bool:
         with self.lock:
-            return all(metadata.is_committed or metadata.should_ignore for _, metadata in self.items)
+            return self.error is not None or all(
+                metadata.is_committed or metadata.should_ignore for _, metadata in self.items
+            )
+
+    def set_error(self, error: Exception) -> None:
+        """Store the first fatal error raised by a worker."""
+        with self.lock:
+            if self.error is None:
+                self.error = error
 
 
 def _worker_job(
@@ -430,7 +442,8 @@ def _worker_job(
     Main process for a worker. The worker will perform tasks based on the priority list until all files are uploaded
     and committed. If no tasks are available, the worker will wait for 10 seconds before checking again.
 
-    If a task fails for any reason, the item(s) are put back in the queue for another worker to pick up.
+    If a task fails with a retryable error, the item(s) are put back in the queue for another worker to pick up.
+    Non-retryable commit errors stop the upload and are re-raised in the main thread.
 
     Read `upload_large_folder` docstring for more information on how tasks are prioritized.
     """
@@ -507,7 +520,7 @@ def _worker_job(
 
             case WorkerJob.COMMIT:
                 start_ts = time.time()
-                success = True
+                success: bool | None = True
                 try:
                     _commit(items, api=api, repo_id=repo_id, repo_type=repo_type, revision=revision)
                 except KeyboardInterrupt:
@@ -515,11 +528,16 @@ def _worker_job(
                 except Exception as e:
                     logger.error(f"Failed to commit: {e}")
                     traceback.format_exc()
-                    for item in items:
-                        status.queue_commit.put(item)
-                    success = False
+                    if _is_non_retryable_commit_error(e):
+                        status.set_error(e)
+                        success = None
+                    else:
+                        for item in items:
+                            status.queue_commit.put(item)
+                        success = False
                 duration = time.time() - start_ts
-                status.update_chunk(success, len(items), duration)
+                if success is not None:
+                    status.update_chunk(success, len(items), duration)
                 with status.lock:
                     status.last_commit_attempt = time.time()
                     status.nb_workers_commit -= 1
@@ -532,6 +550,9 @@ def _worker_job(
 
 def _determine_next_job(status: LargeUploadStatus) -> tuple[WorkerJob, list[JOB_ITEM_T]] | None:
     with status.lock:
+        if status.error is not None:
+            return None
+
         # 1. Commit if more than 5 minutes since last commit attempt (and at least 1 file)
         if (
             status.nb_workers_commit == 0
@@ -639,6 +660,15 @@ def _determine_next_job(status: LargeUploadStatus) -> tuple[WorkerJob, list[JOB_
 ####################
 # Atomic jobs (sha256, get_upload_mode, preupload_lfs, commit)
 ####################
+
+
+def _is_non_retryable_commit_error(error: Exception) -> bool:
+    """Return whether a commit error is permanent and should stop the upload."""
+    if not isinstance(error, HfHubHTTPError):
+        return False
+
+    status_code = error.response.status_code
+    return 400 <= status_code < 500 and status_code not in (408, 429)
 
 
 def _compute_sha256(item: JOB_ITEM_T) -> None:
