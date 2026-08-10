@@ -6608,6 +6608,8 @@ class HfApi:
             tqdm_class (`tqdm`, *optional*):
                 If provided, overwrites the default behavior for the progress bar. Passed
                 argument must inherit from `tqdm.auto.tqdm` or at least mimic its behavior.
+                On Xet-backed repos two bars are created (bytes received from the network and
+                bytes written to disk), so the class is instantiated twice.
                 Defaults to the custom HF progress bar that can be disabled by setting
                 `HF_HUB_DISABLE_PROGRESS_BARS` environment variable.
             dry_run (`bool`, *optional*, defaults to `False`):
@@ -6774,6 +6776,8 @@ class HfApi:
                 If provided, overwrites the default behavior for the progress bar. Passed
                 argument must inherit from `tqdm.auto.tqdm` or at least mimic its behavior.
                 Note that the `tqdm_class` is not passed to each individual download.
+                Three bars are created (files fetched, bytes received from the network, and
+                bytes written to disk), so the class is instantiated three times.
                 Defaults to the custom HF progress bar that can be disabled by setting
                 `HF_HUB_DISABLE_PROGRESS_BARS` environment variable.
             dry_run (`bool`, *optional*, defaults to `False`):
