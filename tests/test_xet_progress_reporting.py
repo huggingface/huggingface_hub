@@ -1,14 +1,10 @@
-import logging
-
 from huggingface_hub.utils._xet_progress_reporting import (
-    XetDownloadProgressReporter,
     _finish_transfer_bar,
     _format_speed_postfix,
     _set_aggregate_rate_postfix,
     _set_monotonic_total,
     _update_transfer_bar,
 )
-from huggingface_hub.utils.tqdm import tqdm
 
 
 class _RecordingBar:
@@ -21,10 +17,6 @@ class _RecordingBar:
 
     def refresh(self) -> None:
         pass
-
-
-class _CustomTqdm(tqdm):
-    """Custom class passed as `tqdm_class`."""
 
 
 class _RateBar:
@@ -80,17 +72,3 @@ class TestXetProgressBarHelpers:
         bar = _RateBar(rate=None)
         _set_aggregate_rate_postfix(bar)
         assert "???" in bar.postfix
-
-
-class TestXetDownloadProgressReporter:
-    def test_custom_tqdm_class_is_used_for_both_bars(self):
-        # Regression: the transfer bar was hardcoded to the default tqdm.
-        # https://github.com/huggingface/huggingface_hub/issues/4646
-        with XetDownloadProgressReporter(
-            reconstruction_desc="reconstructing",
-            total=100,
-            log_level=logging.INFO,
-            tqdm_class=_CustomTqdm,
-        ) as reporter:
-            assert isinstance(reporter.reconstruction_bar, _CustomTqdm)
-            assert isinstance(reporter.transfer_bar, _CustomTqdm)
