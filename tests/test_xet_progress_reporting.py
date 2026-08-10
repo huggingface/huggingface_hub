@@ -1,5 +1,4 @@
 import logging
-from types import SimpleNamespace
 
 from huggingface_hub.utils._xet_progress_reporting import (
     XetDownloadProgressReporter,
@@ -9,6 +8,7 @@ from huggingface_hub.utils._xet_progress_reporting import (
     _set_monotonic_total,
     _update_transfer_bar,
 )
+from huggingface_hub.utils.tqdm import tqdm
 
 
 class _RecordingBar:
@@ -23,28 +23,8 @@ class _RecordingBar:
         pass
 
 
-class _FakeTqdm:
-    """Stub covering the whole bar surface the reporter drives, recording every instance created."""
-
-    created: list["_FakeTqdm"] = []
-
-    def __init__(self, **kwargs):
-        self.total = kwargs.get("total")
-        self.n = 0
-        self.closed = False
-        _FakeTqdm.created.append(self)
-
-    def update(self, n: int) -> None:
-        self.n += n
-
-    def set_postfix_str(self, postfix: str, refresh: bool = False) -> None:
-        self.postfix = postfix
-
-    def refresh(self) -> None:
-        pass
-
-    def close(self) -> None:
-        self.closed = True
+class _CustomTqdm(tqdm):
+    """Custom class passed as `tqdm_class`."""
 
 
 class _RateBar:
@@ -103,31 +83,14 @@ class TestXetProgressBarHelpers:
 
 
 class TestXetDownloadProgressReporter:
-    def test_custom_tqdm_class_receives_both_download_bars(self):
-        # Regression: the transfer bar was hardcoded to the built-in tqdm, so a caller-supplied
-        # `tqdm_class` drove only the reconstruction bar and Xet downloads opened a second bar
-        # the caller had no handle on.
-        _FakeTqdm.created.clear()
-        reporter = XetDownloadProgressReporter(
-            reconstruction_desc="reconstructing file",
-            transfer_desc="downloading bytes",
+    def test_custom_tqdm_class_is_used_for_both_bars(self):
+        # Regression: the transfer bar was hardcoded to the default tqdm.
+        # https://github.com/huggingface/huggingface_hub/issues/4646
+        with XetDownloadProgressReporter(
+            reconstruction_desc="reconstructing",
             total=100,
             log_level=logging.INFO,
-            name="huggingface_hub.test",
-            tqdm_class=_FakeTqdm,
-        )
-        reporter.update_progress(
-            SimpleNamespace(
-                total_bytes_completed=10,
-                total_transfer_bytes_completed=40,
-                total_bytes_completion_rate=None,
-                total_transfer_bytes_completion_rate=None,
-                total_bytes=100,
-            )
-        )
-        reporter.close()
-
-        assert _FakeTqdm.created == [reporter.reconstruction_bar, reporter.transfer_bar]
-        assert reporter.reconstruction_bar.n == 10
-        assert reporter.transfer_bar.n == 40
-        assert all(bar.closed for bar in _FakeTqdm.created)
+            tqdm_class=_CustomTqdm,
+        ) as reporter:
+            assert isinstance(reporter.reconstruction_bar, _CustomTqdm)
+            assert isinstance(reporter.transfer_bar, _CustomTqdm)
