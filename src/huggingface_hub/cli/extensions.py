@@ -13,7 +13,9 @@
 # limitations under the License.
 """Contains helper utilities for hf CLI extensions."""
 
+import difflib
 import errno
+import functools
 import json
 import os
 import re
@@ -27,6 +29,7 @@ from pathlib import Path
 from typing import Annotated, Literal
 
 import click
+import httpx
 
 from huggingface_hub.errors import CLIError, CLIExtensionInstallError, ConfirmationError
 from huggingface_hub.utils import get_session, logging
@@ -48,6 +51,7 @@ extensions_cli = typer_factory(help=EXTENSIONS_HELP)
 _EXTENSIONS_GITHUB_TOPIC = "hf-extension"
 _EXTENSIONS_DOWNLOAD_TIMEOUT = 10
 _EXTENSIONS_PIP_INSTALL_TIMEOUT = 300
+_GITHUB_TOKEN_ENV_VARS = ("GITHUB_TOKEN", "GH_TOKEN")
 
 logger = logging.get_logger(__name__)
 
@@ -336,12 +340,21 @@ def dispatch_unknown_top_level_extension(args: list[str], known_commands: set[st
     try:
         executable_path = _resolve_installed_executable_path(short_name)
     except Exception:
+        if _looks_like_typo_of_known_command(command_name, all_known):
+            # Don't spend GitHub API quota (60 req/hour when unauthenticated) probing for an
+            # official extension when the user most likely just mistyped an existing command.
+            return None
         executable_path = _auto_install_official_extension(short_name)
 
     if executable_path is None or not executable_path.is_file():
         return None
 
     return _execute_extension_binary(executable_path=executable_path, args=list(args[1:]))
+
+
+def _looks_like_typo_of_known_command(command_name: str, known_commands: set[str]) -> bool:
+    """Whether `command_name` is close enough to a built-in command to be a likely typo."""
+    return bool(difflib.get_close_matches(command_name, known_commands, n=1, cutoff=0.8))
 
 
 def _auto_install_official_extension(short_name: str) -> Path | None:
@@ -599,18 +612,89 @@ def _get_extension_dir(short_name: str) -> Path:
     return EXTENSIONS_ROOT.expanduser() / f"hf-{short_name}"
 
 
+@functools.lru_cache
+def _get_github_token() -> str | None:
+    """Best-effort lookup of a GitHub token to authenticate API calls.
+
+    Unauthenticated `api.github.com` requests are capped at 60 requests/hour per IP (and 10
+    requests/minute on the search endpoint), which users share behind a NAT/VPN/CI egress IP.
+    Authenticating raises the cap to 5000 requests/hour.
+
+    Order: `GITHUB_TOKEN`, `GH_TOKEN`, then the token from a logged-in `gh` CLI.
+    """
+    for env_var in _GITHUB_TOKEN_ENV_VARS:
+        token = os.environ.get(env_var)
+        if token and token.strip():
+            return token.strip()
+
+    gh_path = shutil.which("gh")
+    if gh_path is not None:
+        try:
+            result = subprocess.run(
+                [gh_path, "auth", "token"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=False,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return None
+        if result.returncode == 0:
+            token = result.stdout.strip()
+            if token:
+                return token
+    return None
+
+
+def _github_rate_limit_error(response: httpx.Response) -> CLIError | None:
+    """Build a friendly error if `response` is a GitHub rate-limit rejection, else `None`."""
+    if response.status_code not in (403, 429):
+        return None
+    if response.headers.get("x-ratelimit-remaining") != "0":
+        return None
+
+    message = "GitHub API rate limit exceeded."
+    reset = response.headers.get("x-ratelimit-reset")
+    if reset is not None:
+        try:
+            reset_at = datetime.fromtimestamp(int(reset), tz=timezone.utc)
+        except (OverflowError, OSError, ValueError):
+            pass
+        else:
+            message += f" The limit resets at {reset_at.astimezone().strftime('%Y-%m-%d %H:%M:%S %Z')}."
+
+    if _get_github_token() is None:
+        message += (
+            " Unauthenticated requests are limited to 60 per hour and the quota is shared by everyone"
+            " on your IP address. Set the GITHUB_TOKEN (or GH_TOKEN) environment variable to a GitHub"
+            " token - or log in with `gh auth login` - to raise the limit to 5000 requests per hour."
+        )
+    else:
+        message += " Please retry once the limit resets."
+
+    return CLIError(message)
+
+
 def _github_get(url: str, *, params: dict | None = None, headers: dict | None = None):
     """Perform a GitHub GET request.
 
-    Shared by every GitHub/Raw fetch in this module so the timeout and redirect policy are shared.
+    Shared by every GitHub/Raw fetch in this module so the timeout, auth and redirect policy are shared.
     """
+    request_headers = dict(headers or {})
+    token = _get_github_token()
+    if token is not None and url.startswith("https://api.github.com/"):
+        request_headers.setdefault("Authorization", f"Bearer {token}")
+
     response = get_session().get(
         url,
         params=params,
-        headers=headers,
+        headers=request_headers,
         follow_redirects=True,
         timeout=_EXTENSIONS_DOWNLOAD_TIMEOUT,
     )
+    rate_limit_error = _github_rate_limit_error(response)
+    if rate_limit_error is not None:
+        raise rate_limit_error
     response.raise_for_status()
     return response
 

@@ -230,6 +230,12 @@ During development, you can install your extension directly from your GitHub rep
 > [!TIP]
 > Use `--force` to overwrite a previously installed version when testing updates.
 
+> [!TIP]
+> Installing, searching and updating extensions calls the GitHub API. Unauthenticated calls are limited to
+> 60 requests per hour per IP address (and the quota is shared by everyone behind the same IP, e.g. on a VPN
+> or in CI), so you may hit a `rate limit exceeded` error. Set the `GITHUB_TOKEN` (or `GH_TOKEN`) environment
+> variable to a GitHub token — or log in with `gh auth login` — to raise the limit to 5000 requests per hour.
+
 ## Update installed extensions
 
 Once an extension is installed, you can update it to the latest version published on GitHub:
