@@ -1766,8 +1766,8 @@ $ hf endpoints deploy [OPTIONS] NAME
 * `--custom-image TEXT`: Docker image URL for a custom container (e.g. 'nexagi/sglang:v0.5.12'). Requires '--framework custom'.
 * `--health-route TEXT`: Health check route exposed by the custom container (e.g. '/health'). Requires --custom-image.
 * `--port INTEGER`: Port the custom container listens on (e.g. 30000). Requires --custom-image.
-* `--container-command TEXT`: Override the container entrypoint, as a quoted string split into tokens (e.g. "python -m sglang.launch_server"). Requires --custom-image.
-* `--container-args TEXT`: Arguments appended to the container entrypoint, as a quoted string split into tokens (e.g. "--tp 8 --reasoning-parser qwen3"). Requires --custom-image.
+* `--container-command TEXT`: Override the container entrypoint, as a quoted string split into tokens (e.g. "python -m sglang.launch_server").
+* `--container-args TEXT`: Arguments appended to the container entrypoint, as a quoted string split into tokens (e.g. "--tp 8 --reasoning-parser qwen3").
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
 * `--env-file TEXT`: Read in a file of environment variables.
 * `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
@@ -1960,6 +1960,8 @@ $ hf endpoints update [OPTIONS] NAME
 * `--framework TEXT`: The machine learning framework used for the model (e.g. 'custom').
 * `--revision TEXT`: The specific model revision to deploy on the Inference Endpoint (e.g. '6c0e6080953db56375760c0471a8c5f2929baf11').
 * `--task TEXT`: The task on which to deploy the model (e.g. 'text-classification').
+* `--container-command TEXT`: Override the container entrypoint, as a quoted string split into tokens (e.g. "python -m sglang.launch_server"). Replaces the current value; pass an empty string to clear it.
+* `--container-args TEXT`: Arguments appended to the container entrypoint, as a quoted string split into tokens (e.g. "--enable-auto-tool-choice --tool-call-parser lfm2"). Replaces the arguments currently set on the endpoint rather than adding to them, so include the ones you want to keep, run 'hf endpoints describe NAME' first to see them. Pass an empty string to clear them.
 * `--min-replica INTEGER`: The minimum number of replicas (instances) to keep running for the Inference Endpoint.
 * `--max-replica INTEGER`: The maximum number of replicas (instances) to scale to for the Inference Endpoint.
 * `--scale-to-zero-timeout INTEGER`: The duration in minutes before an inactive endpoint is scaled to zero.
@@ -1970,6 +1972,7 @@ $ hf endpoints update [OPTIONS] NAME
 
 Examples
   $ hf endpoints update my-endpoint --min-replica 2
+  $ hf endpoints update my-endpoint --container-args "--enable-auto-tool-choice --tool-call-parser lfm2"
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -3082,7 +3085,7 @@ $ hf models list [OPTIONS] [REPO_ID]
 * `--gated / --no-gated`: Filter by gated status. '--gated' for gated only, '--no-gated' for non-gated only.
 * `--apps TEXT`: Filter by app(s) that can run the model, e.g. 'ollama' or 'vllm'.
 * `--num-parameters TEXT`: Filter by parameter count, e.g. 'min:6B,max:128B'.
-* `--inference-provider [cerebras|cohere|deepinfra|fal-ai|featherless-ai|fireworks-ai|groq|hf-inference|novita|nscale|openai|ovhcloud|publicai|replicate|scaleway|together|wavespeed|zai-org]`: Filter by inference provider(s) serving the model, e.g. 'fireworks-ai'.
+* `--inference-provider [baseten|cerebras|cohere|deepinfra|fal-ai|featherless-ai|fireworks-ai|groq|hf-inference|novita|nscale|openai|ovhcloud|publicai|replicate|scaleway|together|wavespeed|zai-org]`: Filter by inference provider(s) serving the model, e.g. 'fireworks-ai'.
 * `--warm`: Only list models currently served by at least one inference provider.
 * `--sort [created_at|downloads|last_modified|likes|trending_score]`: Sort results.
 * `--limit INTEGER`: Limit the number of results.  [default: 30]
@@ -4463,7 +4466,7 @@ $ hf spaces info [OPTIONS] SPACE_ID
 **Options**:
 
 * `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
-* `--expand TEXT`: Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=likes,tags'. Valid: author, cardData, createdAt, datasets, disabled, lastModified, likes, models, private, resourceGroup, runtime, sdk, sha, siblings, subdomain, tags, trendingScore, usedStorage.
+* `--expand TEXT`: Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=likes,tags'. Valid: author, cardData, createdAt, datasets, disabled, lastModified, likes, models, private, region, resourceGroup, runtime, sdk, sha, siblings, subdomain, tags, trendingScore, usedStorage.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -4500,7 +4503,7 @@ $ hf spaces list [OPTIONS] [REPO_ID]
 * `--filter TEXT`: Filter by tags (e.g. 'text-classification'). Can be used multiple times.
 * `--sort [created_at|last_modified|likes|trending_score]`: Sort results.
 * `--limit INTEGER`: Limit the number of results.  [default: 30]
-* `--expand TEXT`: Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=likes,tags'. Valid: author, cardData, createdAt, datasets, disabled, lastModified, likes, models, private, resourceGroup, runtime, sdk, sha, siblings, subdomain, tags, trendingScore, usedStorage.
+* `--expand TEXT`: Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=likes,tags'. Valid: author, cardData, createdAt, datasets, disabled, lastModified, likes, models, private, region, resourceGroup, runtime, sdk, sha, siblings, subdomain, tags, trendingScore, usedStorage.
 * `-h, --human-readable`: Show sizes in human readable format (only for listing files).
 * `--tree`: List files in tree format (only for listing files).
 * `-R, --recursive`: List files recursively (only for listing files).

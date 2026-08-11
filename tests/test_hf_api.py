@@ -4853,6 +4853,65 @@ def test_create_inference_endpoint_container_command_and_args_payload(mocker):
     }
 
 
+def test_update_inference_endpoint_container_command_and_args_payload(mocker):
+    mock_get_session = mocker.patch("huggingface_hub.hf_api.get_session")
+    mock_session = mock_get_session.return_value
+    mock_response = Mock()
+    mock_response.raise_for_status.return_value = None
+    mock_response.json.return_value = {
+        "name": "lfm2-endpoint",
+        "model": {"repository": "LiquidAI/LFM2-8B-A1B", "framework": "vllm", "revision": None, "task": None},
+        "status": {
+            "state": "pending",
+            "createdAt": "2025-03-07T15:30:13.949Z",
+            "updatedAt": "2025-03-07T15:30:13.949Z",
+        },
+        "healthRoute": "/health",
+        "type": "authenticated",
+    }
+    mock_session.put.return_value = mock_response
+
+    api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
+    api.update_inference_endpoint(
+        name="lfm2-endpoint",
+        namespace="Wauplin",
+        container_command=["python", "-m", "vllm.entrypoints.openai.api_server"],
+        container_args=["--enable-auto-tool-choice", "--tool-call-parser", "lfm2"],
+    )
+
+    _, call_kwargs = mock_session.put.call_args
+    payload = call_kwargs.get("json", {})
+    assert payload["model"]["command"] == ["python", "-m", "vllm.entrypoints.openai.api_server"]
+    assert payload["model"]["args"] == ["--enable-auto-tool-choice", "--tool-call-parser", "lfm2"]
+    assert "image" not in payload["model"]
+
+
+def test_update_inference_endpoint_container_command_and_args_empty_payload(mocker):
+    """An empty list must reach the payload: it is how the CLI clears the current value."""
+    mock_session = mocker.patch("huggingface_hub.hf_api.get_session").return_value
+    mock_response = Mock()
+    mock_response.raise_for_status.return_value = None
+    mock_response.json.return_value = {
+        "name": "lfm2-endpoint",
+        "model": {"repository": "LiquidAI/LFM2-8B-A1B", "framework": "pytorch", "revision": None, "task": None},
+        "status": {
+            "state": "pending",
+            "createdAt": "2025-03-07T15:30:13.949Z",
+            "updatedAt": "2025-03-07T15:30:13.949Z",
+        },
+        "healthRoute": "/health",
+        "type": "authenticated",
+    }
+    mock_session.put.return_value = mock_response
+
+    api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
+    api.update_inference_endpoint(name="lfm2-endpoint", namespace="Wauplin", container_command=[], container_args=[])
+
+    payload = mock_session.put.call_args[1]["json"]
+    assert payload["model"]["command"] == []
+    assert payload["model"]["args"] == []
+
+
 class TestHfApiVerifyChecksums:
     def test_verify_repo_checksums_with_local_cache(self, api: HfApi) -> None:
         repo_id = api.create_repo(repo_name()).repo_id
