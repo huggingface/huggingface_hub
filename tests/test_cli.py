@@ -629,6 +629,29 @@ class TestUploadCommand:
             hf_api=api_cls.return_value,
         )
 
+    def test_upload_single_file_with_every_warns_on_rename(self, runner: CliRunner) -> None:
+        """Scheduled uploads keep the local file name, so a differing destination name warns."""
+        with SoftTemporaryDirectory() as tmp_dir:
+            file_path = Path(tmp_dir) / "models" / "model.safetensors"
+            file_path.parent.mkdir()
+            file_path.write_bytes(b"weights")
+            with (
+                patch(
+                    "huggingface_hub.cli.upload._resolve_upload_paths",
+                    return_value=(file_path.as_posix(), "adapter_model.safetensors", None),
+                ),
+                patch("huggingface_hub.cli.upload.get_hf_api"),
+                patch("huggingface_hub.cli.upload.CommitScheduler") as scheduler_cls,
+                patch("huggingface_hub.cli.upload.time.sleep", side_effect=KeyboardInterrupt),
+                pytest.warns(UserWarning, match="Scheduled uploads keep the local file name"),
+            ):
+                result = runner.invoke(
+                    app, ["upload", DUMMY_MODEL_ID, file_path.as_posix(), "--every", "5", "--format", "quiet"]
+                )
+        assert result.exit_code == 0
+        # Only the directory part is kept: never the destination file name, nor a slice of it.
+        assert scheduler_cls.call_args.kwargs["path_in_repo"] == ""
+
     def test_every_must_be_positive(self) -> None:
         class _PatchedBadParameter(click.BadParameter):
             def __init__(self, message: str, *, param_name: Optional[str] = None, **kwargs: object) -> None:
