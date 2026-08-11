@@ -643,12 +643,12 @@ class TestUploadCommand:
                 patch("huggingface_hub.cli.upload.get_hf_api"),
                 patch("huggingface_hub.cli.upload.CommitScheduler") as scheduler_cls,
                 patch("huggingface_hub.cli.upload.time.sleep", side_effect=KeyboardInterrupt),
-                pytest.warns(UserWarning, match="Scheduled uploads keep the local file name"),
             ):
                 result = runner.invoke(
                     app, ["upload", DUMMY_MODEL_ID, file_path.as_posix(), "--every", "5", "--format", "quiet"]
                 )
         assert result.exit_code == 0
+        assert "Scheduled uploads keep the local file name" in result.stderr
         # Only the directory part is kept: never the destination file name, nor a slice of it.
         assert scheduler_cls.call_args.kwargs["path_in_repo"] == ""
 

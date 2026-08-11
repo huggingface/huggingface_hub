@@ -169,7 +169,7 @@ def upload(
                 filename = os.path.basename(resolved_local_path)
                 pi, _, dest_filename = resolved_path_in_repo.rpartition("/")
                 if dest_filename != filename:
-                    warnings.warn(
+                    out.warning(
                         f"Scheduled uploads keep the local file name, so the file will be uploaded as"
                         f" '{(pi + '/' if pi else '') + filename}' rather than '{resolved_path_in_repo}'."
                         " Rename the local file to upload it under a different name."
