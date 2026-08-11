@@ -593,6 +593,7 @@ class TestUploadCommand:
         [
             ("model.safetensors", ""),  # default: file lands at the root
             ("weights/model.safetensors", "weights"),  # explicit destination folder
+            ("weights/", "weights"),  # destination folder with a trailing slash
         ],
     )
     def test_upload_single_file_with_every(
@@ -616,6 +617,7 @@ class TestUploadCommand:
                     app, ["upload", DUMMY_MODEL_ID, file_path.as_posix(), "--every", "5", "--format", "quiet"]
                 )
         assert result.exit_code == 0
+        assert "Scheduled uploads keep the local file name" not in result.stderr
         scheduler_cls.assert_called_once_with(
             folder_path=file_path.parent.as_posix(),
             repo_id=DUMMY_MODEL_ID,

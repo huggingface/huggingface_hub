@@ -168,7 +168,8 @@ def upload(
                 folder_path = os.path.dirname(resolved_local_path)
                 filename = os.path.basename(resolved_local_path)
                 pi, _, dest_filename = resolved_path_in_repo.rpartition("/")
-                if dest_filename != filename:
+                # An empty or "." destination name means a directory, not a rename.
+                if dest_filename not in ("", ".", filename):
                     out.warning(
                         f"Scheduled uploads keep the local file name, so the file will be uploaded as"
                         f" '{(pi + '/' if pi else '') + filename}' rather than '{resolved_path_in_repo}'."
