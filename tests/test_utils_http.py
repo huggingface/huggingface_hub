@@ -1,3 +1,4 @@
+import logging
 import threading
 import time
 import weakref
@@ -874,11 +875,43 @@ class TestFollowRedirects:
         assert response.status_code == 308
         assert self.mock_backoff.call_count == 1
 
-    def test_max_redirects_is_enforced(self) -> None:
+    def test_absolute_redirect_over_plaintext_http_is_not_followed(self) -> None:
+        """Absolute redirect to a trusted host over plaintext http must NOT be followed.
+
+        The netloc allowlist alone is not enough: `http://huggingface.co/...` has a
+        trusted netloc but would leak the authorization header over plaintext.
+        """
+        response = self._follow([self._response(308, location="http://huggingface.co/repo/resolve/main/config.json")])
+        assert response.status_code == 308
+        assert self.mock_backoff.call_count == 1
+
+    def test_trusted_netlocs_track_runtime_endpoint_change(self) -> None:
+        """Trusted netlocs must reflect a runtime change of `constants.ENDPOINT`.
+
+        Regression test: the allowlist used to be computed at import time, so patching
+        `constants.ENDPOINT` (as `tests/conftest.py` does per test) was not reflected.
+        """
+        with patch("huggingface_hub.utils._http.constants.ENDPOINT", "https://mirror.example.com"):
+            response = self._follow(
+                [
+                    self._response(308, location="https://mirror.example.com/repo/resolve/main/config.json"),
+                    self._response(200),
+                ]
+            )
+        assert response.status_code == 200
+        assert self.mock_backoff.call_count == 2
+        assert (
+            self.mock_backoff.call_args_list[1].kwargs["url"]
+            == "https://mirror.example.com/repo/resolve/main/config.json"
+        )
+
+    def test_max_redirects_is_enforced(self, caplog: pytest.LogCaptureFixture) -> None:
         """An endless redirect chain must be stopped after `_MAX_REDIRECTS` hops."""
         from huggingface_hub.utils._http import _MAX_REDIRECTS
 
         redirect = self._response(308, location="/repo/resolve/main/config.json")
-        response = self._follow([redirect] * (_MAX_REDIRECTS + 1) + [self._response(200)])
+        with caplog.at_level(logging.WARNING, logger="huggingface_hub.utils._http"):
+            response = self._follow([redirect] * (_MAX_REDIRECTS + 1) + [self._response(200)])
         assert response.status_code == 308  # stopped before reaching the 200
         assert self.mock_backoff.call_count == _MAX_REDIRECTS + 1
+        assert any("Stopped following redirects" in record.message for record in caplog.records)
