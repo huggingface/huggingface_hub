@@ -164,9 +164,9 @@ yönetmen gereken ortamlar dışında bu yöntem genellikle önerilmez.
 
 > [!WARNING]
 > Token'ları parametre olarak geçirirken dikkatli ol. Token'ı koduna sabitlemek
-yerine güvenli bir kasadan yüklemek her zaman daha iyi bir uygulamadır. Koda
-sabitlenmiş token'lar, kodunu yanlışlıkla paylaşman hâlinde ciddi bir sızıntı
-riski oluşturur.
+> yerine güvenli bir kasadan yüklemek her zaman daha iyi bir uygulamadır. Koda
+> sabitlenmiş token'lar, kodunu yanlışlıkla paylaşman hâlinde ciddi bir sızıntı
+> riski oluşturur.
 
 ## Depo oluşturma
 
