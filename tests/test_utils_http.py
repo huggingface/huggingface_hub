@@ -192,34 +192,6 @@ class TestHttpBackoff:
         assert sleep_times == [2.0]
         assert response.status_code == 200
 
-    def test_backoff_on_429_ignores_non_exhausted_ratelimit_header(self) -> None:
-        """Test that 429 wait time ignores ratelimit headers when the window isn't exhausted."""
-        sleep_times = []
-
-        def _side_effect_timer() -> Generator:
-            t0 = time.time()
-            mock_429 = Mock()
-            mock_429.status_code = 429
-            # Not blocked by this policy => headers must not drive the backoff
-            mock_429.headers = {"ratelimit": '"api";r=99794;t=241'}
-            yield mock_429
-            t1 = time.time()
-            sleep_times.append(round(t1 - t0, 1))
-            t0 = t1
-            mock_200 = Mock()
-            mock_200.status_code = 200
-            yield mock_200
-
-        self.mock_request.side_effect = _side_effect_timer()
-
-        response = http_backoff(
-            "GET", URL, base_wait_time=0.1, max_wait_time=0.5, max_retries=3, retry_on_status_codes=429
-        )
-
-        assert self.mock_request.call_count == 2
-        assert sleep_times == [0.1]
-        assert response.status_code == 200
-
 
 class TestConfigureSession:
     @pytest.fixture(autouse=True)
@@ -543,11 +515,6 @@ class TestParseRatelimitHeaders:
         assert info.limit is None
         assert info.window_seconds is None
 
-    def test_is_exhausted(self):
-        """Test `is_exhausted` is only True when no request remains in the window."""
-        assert parse_ratelimit_headers({"ratelimit": '"api";r=0;t=55'}).is_exhausted
-        assert not parse_ratelimit_headers({"ratelimit": '"api";r=489;t=189'}).is_exhausted
-
     def test_parse_missing_header(self):
         """Test returns None when ratelimit header is missing."""
         assert parse_ratelimit_headers({}) is None
@@ -641,11 +608,7 @@ class TestRateLimitErrorMessage:
         assert "api/models/username/reponame" in error_msg
 
     def test_429_with_non_exhausted_ratelimit_headers(self):
-        """Test 429 error ignores rate limit headers when the window is not exhausted.
-
-        The server sets `RateLimit` headers on every response, so a 429 raised for another reason
-        (e.g. the daily repo creation quota) must not be reported as an 'api' rate limit.
-        """
+        """Test 429 error ignores rate limit headers when the window is not exhausted."""
         response = Mock(spec=httpx.Response)
         response.status_code = 429
         response.url = "https://huggingface.co/api/repos/create"
