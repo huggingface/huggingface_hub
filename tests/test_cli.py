@@ -4895,7 +4895,9 @@ class TestExtensionsGitHubAccess:
         assert manifest.description == "Demo extension"
         # The default branch is addressed as `HEAD`, so no `GET /repos/{owner}/{repo}` lookup is needed.
         assert session.api_urls == ["https://api.github.com/repos/huggingface/hf-demo/commits/HEAD"]
-        assert all("/HEAD/" in url for url in session.urls if "raw.githubusercontent.com" in url)
+        raw_prefix = "https://raw.githubusercontent.com/huggingface/hf-demo/"
+        raw_urls = [url for url in session.urls if url.startswith(raw_prefix)]
+        assert raw_urls and all(url.removeprefix(raw_prefix).startswith("HEAD/") for url in raw_urls)
 
     def test_install_completes_when_the_api_quota_is_exhausted(self, tmp_path: Path) -> None:
         # The extension itself comes from the CDN, so only the optional version marker is lost.
