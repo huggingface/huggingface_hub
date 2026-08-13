@@ -64,10 +64,15 @@ def filter_repo_objects(
             List of items to filter.
         allow_patterns (`str` or `list[str]`, *optional*):
             Patterns constituting the allowlist. If provided, item paths must match at
-            least one pattern from the allowlist.
+            least one pattern from the allowlist. Note that an **empty list** (`[]`) is
+            not equivalent to `None`: since no item can match any pattern in an empty
+            allowlist, `allow_patterns=[]` filters out every item, whereas
+            `allow_patterns=None` applies no allow-filtering at all.
         ignore_patterns (`str` or `list[str]`, *optional*):
             Patterns constituting the denylist. If provided, item paths must not match
-            any patterns from the denylist.
+            any patterns from the denylist. Unlike `allow_patterns`, an empty list
+            (`ignore_patterns=[]`) is a no-op and behaves the same as `None`, since no
+            item can match any pattern in an empty denylist.
         key (`Callable[[T], str]`, *optional*):
             Single-argument function to extract a path from each item. If not provided,
             the `items` must already be `str` or `Path`.

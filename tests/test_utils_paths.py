@@ -109,6 +109,32 @@ class TestPathsUtils:
             ignore_patterns=[""],
         )
 
+    def test_empty_allow_patterns_list_matches_nothing(self) -> None:
+        """`allow_patterns=[]` is not a no-op: it filters out every item.
+
+        This is intentionally asymmetric with `ignore_patterns=[]` (a no-op, see
+        `test_empty_ignore_patterns_list_is_a_noop`), since an item can never match any
+        pattern in an empty allowlist. Regression/documentation test for
+        https://github.com/huggingface/huggingface_hub/issues/4653.
+        """
+        self._check(
+            items=["a.txt", "b.bin", "sub/c.txt"],
+            expected_items=[],
+            allow_patterns=[],
+        )
+
+    def test_empty_ignore_patterns_list_is_a_noop(self) -> None:
+        """`ignore_patterns=[]` behaves the same as `ignore_patterns=None`: nothing is excluded.
+
+        See `test_empty_allow_patterns_list_matches_nothing` for the (intentional)
+        asymmetry with `allow_patterns=[]`.
+        """
+        self._check(
+            items=["a.txt", "b.bin", "sub/c.txt"],
+            expected_items=["a.txt", "b.bin", "sub/c.txt"],
+            ignore_patterns=[],
+        )
+
     def test_filter_is_case_sensitive(self) -> None:
         """Pattern matching is case-sensitive.
         Regression test for https://github.com/huggingface/huggingface_hub/issues/4434.
