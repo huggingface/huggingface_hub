@@ -21,6 +21,7 @@ from huggingface_hub._snapshot_download import snapshot_download
 from huggingface_hub.errors import CLIError
 from huggingface_hub.file_download import DryRunFileInfo, hf_hub_download
 from huggingface_hub.utils import _format_size, parse_hf_uri
+from huggingface_hub.utils._hf_uris import _looks_like_hf_url
 
 from ._cli_utils import RepoIdArg, RepoType, RepoTypeOptionalOpt, RevisionOpt, TokenOpt
 from ._framework import Argument, Option
@@ -34,6 +35,7 @@ DOWNLOAD_EXAMPLES = [
     "hf download meta-llama/Llama-3.2-1B-Instruct --local-dir ./models/llama",
     "hf download HuggingFaceM4/FineVision art/ --repo-type dataset",
     "hf download hf://datasets/HuggingFaceH4/ultrachat_200k",
+    "hf download https://huggingface.co/openai-community/gpt2/blob/main/config.json",
 ]
 
 
@@ -99,17 +101,19 @@ def download(
             "or `--local-dir` for a one-off download to a specific directory."
         )
 
-    # `repo_id` may be a plain repo id or an `hf://` URI (e.g. `hf://datasets/my-org/my-dataset@v1.0/data/`).
-    # When a URI is provided, it is authoritative for the repo type, revision and (optionally) file path,
+    # `repo_id` may be a plain repo id, an `hf://` URI (e.g. `hf://datasets/my-org/my-dataset@v1.0/data/`) or a
+    # Hugging Face web URL copy-pasted from the browser (e.g.
+    # `https://huggingface.co/my-org/my-model/blob/main/config.json`).
+    # When a URI or URL is provided, it is authoritative for the repo type, revision and (optionally) file path,
     # so explicit `--repo-type` / `--revision` options are forbidden alongside it.
-    # We branch on the `hf://` prefix (the user's *intent*) rather than on whether the string parses as a
-    # valid URI: a malformed URI then surfaces a precise `HfUriError` (formatted globally in `cli/_errors.py`)
+    # We branch on the `hf://` prefix / URL shape (the user's *intent*) rather than on whether the string parses
+    # as a valid URI: a malformed one then surfaces a precise `HfUriError` (formatted globally in `cli/_errors.py`)
     # instead of silently falling through to the plain-repo-id path and failing later with an opaque error.
-    if repo_id.startswith(constants.HF_PROTOCOL):
+    if repo_id.startswith(constants.HF_PROTOCOL) or _looks_like_hf_url(repo_id):
         if repo_type is not None:
-            raise CLIError(f"'--repo-type' cannot be used with an 'hf://' URI ('{repo_id}').")
+            raise CLIError(f"'--repo-type' cannot be used with a Hub URI or URL ('{repo_id}').")
         if revision is not None:
-            raise CLIError(f"'--revision' cannot be used with an 'hf://' URI ('{repo_id}').")
+            raise CLIError(f"'--revision' cannot be used with a Hub URI or URL ('{repo_id}').")
         uri = parse_hf_uri(repo_id)
         if uri.is_bucket:
             raise CLIError("Buckets are not supported by `hf download`. Use `hf sync` instead.")
@@ -123,7 +127,7 @@ def download(
         if path_in_repo:
             if filenames:
                 raise CLIError(
-                    f"Cannot combine a file path in the hf:// URI ('{path_in_repo}') with positional filenames {filenames}."
+                    f"Cannot combine a file path from the URI or URL ('{path_in_repo}') with positional filenames {filenames}."
                 )
             filenames = [path_in_repo]
     else:

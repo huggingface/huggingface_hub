@@ -1391,7 +1391,7 @@ class TestDownloadImpl:
             download(repo_id="hf://datasets/missing-name")
 
     def test_download_hf_uri_with_revision_raises(self) -> None:
-        with pytest.raises(CLIError, match="'--revision' cannot be used with an 'hf://' URI"):
+        with pytest.raises(CLIError, match="'--revision' cannot be used with a Hub URI or URL"):
             download(repo_id="hf://datasets/author/dataset@v1.0", revision="v1.0")
 
     def test_download_hf_uri_with_filenames_raises(self) -> None:
@@ -1401,6 +1401,50 @@ class TestDownloadImpl:
     def test_download_hf_uri_rejects_buckets(self) -> None:
         with pytest.raises(CLIError, match="Buckets are not supported"):
             download(repo_id="hf://buckets/author/bucket")
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "https://huggingface.co/datasets/author/dataset/blob/v1.0/data/train.csv",
+            # "Copy download link" from the web UI appends a query string, which is ignored.
+            "https://huggingface.co/datasets/author/dataset/resolve/v1.0/data/train.csv?download=true",
+        ],
+    )
+    @patch("huggingface_hub.cli.download.snapshot_download")
+    @patch("huggingface_hub.cli.download.hf_hub_download")
+    def test_download_url_single_file(self, mock_download: Mock, mock_snapshot: Mock, url: str) -> None:
+        """A file URL copy-pasted from the browser resolves to a single-file download."""
+        mock_download.return_value = "file-path"
+        download(repo_id=url)
+        mock_snapshot.assert_not_called()
+        mock_download.assert_called_once_with(
+            repo_id="author/dataset",
+            repo_type="dataset",
+            revision="v1.0",
+            filename="data/train.csv",
+            cache_dir=None,
+            force_download=False,
+            token=None,
+            local_dir=None,
+            library_name="huggingface-cli",
+            dry_run=False,
+        )
+
+    @patch("huggingface_hub.cli.download.snapshot_download")
+    @patch("huggingface_hub.cli.download.hf_hub_download")
+    def test_download_url_full_repo(self, mock_download: Mock, mock_snapshot: Mock) -> None:
+        """A repository page URL resolves to a full-repo snapshot download."""
+        mock_snapshot.return_value = "folder-path"
+        download(repo_id="https://huggingface.co/openai-community/gpt2")
+        mock_download.assert_not_called()
+        assert mock_snapshot.call_args.kwargs["repo_id"] == "openai-community/gpt2"
+        assert mock_snapshot.call_args.kwargs["repo_type"] == "model"
+        assert mock_snapshot.call_args.kwargs["revision"] is None
+
+    def test_download_url_unknown_host_raises(self) -> None:
+        """A URL that is not a Hugging Face one is rejected instead of being taken for a repo id."""
+        with pytest.raises(HfUriError):
+            download(repo_id="https://example.com/author/dataset/blob/main/data/train.csv")
 
 
 class TestTagCommands:

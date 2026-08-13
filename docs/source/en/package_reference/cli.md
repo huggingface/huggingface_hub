@@ -1600,6 +1600,7 @@ Examples
   $ hf download meta-llama/Llama-3.2-1B-Instruct --local-dir ./models/llama
   $ hf download HuggingFaceM4/FineVision art/ --repo-type dataset
   $ hf download hf://datasets/HuggingFaceH4/ultrachat_200k
+  $ hf download https://huggingface.co/openai-community/gpt2/blob/main/config.json
 
 Learn more
   Use `hf <command> --help` for more information about a command.

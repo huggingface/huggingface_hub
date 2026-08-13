@@ -156,7 +156,7 @@ Fetching 2 files: 100%|███████████████████
 /home/wauplin/.cache/huggingface/hub/models--gpt2/snapshots/11c5a3d5811f50298f278a704980280950aedb10
 ```
 
-You can also point at the repo (and optionally a revision and file) using a single `hf://` URI. The URI follows the grammar `hf://[<TYPE>/]<ID>[@<REVISION>][/<PATH>]` (see the [HF URIs reference](../package_reference/hf_uris) for the full syntax) and replaces the `--repo-type` and `--revision` options, which cannot be set alongside it:
+You can also point at the repo (and optionally a revision and file) using a single `hf://` URI or a Hugging Face URL copy-pasted from your browser. The URI follows the grammar `hf://[<TYPE>/]<ID>[@<REVISION>][/<PATH>]` (see the [HF URIs reference](../package_reference/hf_uris) for the full syntax) and replaces the `--repo-type` and `--revision` options, which cannot be set alongside it:
 
 ```bash
 # Download a single file from a dataset at a given revision
@@ -167,6 +167,9 @@ You can also point at the repo (and optionally a revision and file) using a sing
 
 # Download an entire repo
 >>> hf download hf://datasets/google/fleurs
+
+# Download a single file from its web URL
+>>> hf download https://huggingface.co/datasets/google/fleurs/blob/main/fleurs.py
 ```
 
 For more details about the CLI download command, please refer to the [CLI guide](./cli#hf-download).

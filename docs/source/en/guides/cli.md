@@ -326,7 +326,7 @@ The examples above show how to download from the latest commit on the main branc
 ...
 ```
 
-### Use an hf:// URI
+### Use an hf:// URI or a URL
 
 Instead of passing the repo type, revision and file path as separate arguments and options, you can provide a single `hf://` URI. The URI encodes everything at once, following the grammar `hf://[<TYPE>/]<ID>[@<REVISION>][/<PATH>]` (see the [HF URIs reference](../package_reference/hf_uris) for the full syntax):
 
@@ -344,7 +344,17 @@ Instead of passing the repo type, revision and file path as separate arguments a
 >>> hf download hf://openai-community/gpt2/config.json
 ```
 
-When a URI is given, `--repo-type` and `--revision` cannot be set as well since they are already part of the URI (an error is raised otherwise), and a file path embedded in the URI cannot be combined with positional filenames. A trailing `/` on the path denotes a subfolder (as with the positional argument). Branch names that contain a `/` must be URL-encoded as `%2F` (e.g. `hf://my-org/my-model@feature%2Ffoo`).
+A Hugging Face URL copy-pasted from your browser works the same way, which is handy to grab a single file out of a large repo:
+
+```bash
+# Equivalent to: hf download openai-community/gpt2 config.json
+>>> hf download https://huggingface.co/openai-community/gpt2/blob/main/config.json
+
+# The query string added by "Copy download link" is ignored
+>>> hf download https://huggingface.co/datasets/bigcode/the-stack/resolve/v1.1/README.md?download=true
+```
+
+When a URI or a URL is given, `--repo-type` and `--revision` cannot be set as well since they are already part of it (an error is raised otherwise), and an embedded file path cannot be combined with positional filenames. A trailing `/` on the path denotes a subfolder (as with the positional argument). Branch names that contain a `/` must be URL-encoded as `%2F` (e.g. `hf://my-org/my-model@feature%2Ffoo`).
 
 ### Download to a local folder
 
