@@ -1,7 +1,6 @@
 import json
 import os
 import sys
-import warnings
 from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
@@ -1204,41 +1203,31 @@ class TestDownloadImpl:
 
     @patch("huggingface_hub.cli.download.snapshot_download")
     @patch("huggingface_hub.cli.download.hf_hub_download")
-    def test_download_with_ignored_patterns(self, mock_download: Mock, mock_snapshot: Mock) -> None:
-        mock_snapshot.return_value = "folder-path"
-        with (
-            patch("builtins.print") as print_mock,
-            warnings.catch_warnings(record=True) as caught,
-        ):
+    def test_download_filenames_with_include_raises_error(self, mock_download: Mock, mock_snapshot: Mock) -> None:
+        """Test that combining filenames with --include raises an error instead of silently dropping the patterns."""
+        with pytest.raises(CLIError, match="Cannot combine filenames"):
             download(
                 repo_id="author/model",
                 filenames=["README.md", "config.json"],
                 repo_type=RepoType.model,
                 include=["*.json"],
-                exclude=["data/*"],
-                force_download=True,
             )
-        print_mock.assert_called_once_with("folder-path", flush=True)
-        warning_messages = [str(w.message) for w in caught]
-        assert warning_messages == [
-            "Ignoring `--include` since filenames have been explicitly set.",
-            "Ignoring `--exclude` since filenames have been explicitly set.",
-        ]
         mock_download.assert_not_called()
-        mock_snapshot.assert_called_once_with(
-            repo_id="author/model",
-            repo_type="model",
-            revision=None,
-            allow_patterns=["README.md", "config.json"],
-            ignore_patterns=None,
-            force_download=True,
-            cache_dir=None,
-            token=None,
-            local_dir=None,
-            library_name="huggingface-cli",
-            max_workers=8,
-            dry_run=False,
-        )
+        mock_snapshot.assert_not_called()
+
+    @patch("huggingface_hub.cli.download.snapshot_download")
+    @patch("huggingface_hub.cli.download.hf_hub_download")
+    def test_download_filenames_with_exclude_raises_error(self, mock_download: Mock, mock_snapshot: Mock) -> None:
+        """Test that combining filenames with --exclude raises an error instead of silently dropping the patterns."""
+        with pytest.raises(CLIError, match="Cannot combine filenames"):
+            download(
+                repo_id="author/model",
+                filenames=["README.md", "config.json"],
+                repo_type=RepoType.model,
+                exclude=["data/*"],
+            )
+        mock_download.assert_not_called()
+        mock_snapshot.assert_not_called()
 
     @patch("huggingface_hub.cli.download.snapshot_download")
     @patch("huggingface_hub.cli.download.hf_hub_download")
