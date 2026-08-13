@@ -52,6 +52,14 @@ _EXTENSIONS_PIP_INSTALL_TIMEOUT = 300
 logger = logging.get_logger(__name__)
 
 
+class _GitHubRateLimitError(CLIError):
+    """The GitHub API refused the request because the hourly quota is exhausted.
+
+    Distinguished from other `CLIError`s because it says nothing about the extension being handled:
+    it is not worth retrying on the next one, and it must not be mistaken for an install failure.
+    """
+
+
 class _ExtensionUpdateStatus(str, Enum):
     UPDATED = "updated"
     UP_TO_DATE = "up_to_date"
@@ -181,8 +189,8 @@ def extension_update(
         out.log(f"Checking '{manifest.short_name}' ({manifest.repo_id})...")
         try:
             update_status = _update_installed_extension(manifest)
-        except CLIError:
-            # e.g. a GitHub rate limit: every remaining extension would fail the same way.
+        except _GitHubRateLimitError:
+            # Every remaining extension would fail the same way, so stop rather than repeat it.
             raise
         except Exception as error:
             # Keep updating the other extensions even if one fails.
@@ -436,7 +444,7 @@ def _install_extension(
             # `hf extensions update` sees no known SHA, considers the extension outdated and reinstalls.
             try:
                 commit_sha = _fetch_latest_commit_sha(owner=owner, repo_name=repo_name)
-            except CLIError as error:
+            except _GitHubRateLimitError as error:
                 out.warning(f"{error} Installing anyway, without a recorded version.")
 
         manifest = ExtensionManifest(
@@ -483,8 +491,8 @@ def _fetch_latest_commit_sha(*, owner: str, repo_name: str, warn: bool = True) -
             headers={"Accept": "application/vnd.github.sha"},
         )
         return response.text.strip() or None
-    except CLIError:
-        # A rate limit is worth reporting as-is rather than as "GitHub is unreachable".
+    except _GitHubRateLimitError:
+        # Worth reporting as-is rather than as "GitHub is unreachable".
         raise
     except Exception as error:
         if warn:
@@ -614,7 +622,7 @@ def _github_get(url: str, *, params: dict | None = None, headers: dict | None = 
         timeout=_EXTENSIONS_DOWNLOAD_TIMEOUT,
     )
     if response.status_code in (403, 429) and response.headers.get("x-ratelimit-remaining") == "0":
-        raise CLIError(_rate_limit_message(response.headers.get("x-ratelimit-reset")))
+        raise _GitHubRateLimitError(_rate_limit_message(response.headers.get("x-ratelimit-reset")))
     response.raise_for_status()
     return response
 

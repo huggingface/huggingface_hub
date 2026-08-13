@@ -28,7 +28,13 @@ from huggingface_hub.cli.hf import main as hf_main
 from huggingface_hub.cli.jobs import _parse_and_sync_job_volumes, _parse_namespace_from_job_id
 from huggingface_hub.cli.skills import build_skill_md
 from huggingface_hub.cli.upload import _resolve_upload_paths, upload
-from huggingface_hub.errors import CLIError, DeviceCodeError, HfUriError, RevisionNotFoundError
+from huggingface_hub.errors import (
+    CLIError,
+    CLIExtensionInstallError,
+    DeviceCodeError,
+    HfUriError,
+    RevisionNotFoundError,
+)
 from huggingface_hub.hf_api import ModelInfo
 from huggingface_hub.utils import (
     CachedFileInfo,
@@ -4935,19 +4941,46 @@ class TestExtensionsGitHubAccess:
             with pytest.raises(CLIError, match="rate limit exceeded"):
                 extensions._fetch_latest_commit_sha(owner="huggingface", repo_name="hf-demo")
 
-    def test_update_stops_on_rate_limit_instead_of_warning_per_extension(
-        self, runner: CliRunner, tmp_path: Path
-    ) -> None:
-        for short_name in ("one", "two"):
+    @staticmethod
+    def _fake_install(root: Path, *short_names: str) -> None:
+        for short_name in short_names:
             extensions.ExtensionManifest(
                 owner="huggingface",
                 repo=f"hf-{short_name}",
                 repo_id=f"huggingface/hf-{short_name}",
                 short_name=short_name,
-                executable_path=str(tmp_path / f"hf-{short_name}" / f"hf-{short_name}"),
+                executable_path=str(root / f"hf-{short_name}" / f"hf-{short_name}"),
                 type="binary",
                 installed_at=datetime.now(timezone.utc),
-            ).save(tmp_path / f"hf-{short_name}")
+            ).save(root / f"hf-{short_name}")
+
+    def test_update_keeps_going_when_one_extension_fails_to_install(self, runner: CliRunner, tmp_path: Path) -> None:
+        # A failure that is specific to one extension says nothing about the others.
+        self._fake_install(tmp_path, "one", "two")
+        attempted = []
+
+        def fake_update(manifest):
+            attempted.append(manifest.short_name)
+            if manifest.short_name == "one":
+                raise CLIExtensionInstallError("Pip install timed out for 'huggingface/hf-one'.")
+            return extensions._ExtensionUpdateStatus.UPDATED
+
+        with (
+            patch.object(extensions, "EXTENSIONS_ROOT", tmp_path),
+            patch.object(extensions, "_update_installed_extension", side_effect=fake_update),
+        ):
+            result = runner.invoke(app, ["extensions", "update"])
+
+        assert result.exit_code == 0, result.output
+        # 'two' was still checked and reported after 'one' failed.
+        assert attempted == ["one", "two"]
+        assert "Pip install timed out" in result.output
+        assert "Skipping" in result.output
+
+    def test_update_stops_on_rate_limit_instead_of_warning_per_extension(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        self._fake_install(tmp_path, "one", "two")
 
         session = _FakeGitHubSession(
             {
