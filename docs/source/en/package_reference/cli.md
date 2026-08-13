@@ -1764,10 +1764,13 @@ $ hf endpoints deploy [OPTIONS] NAME
 * `--scaling-threshold FLOAT`: The scaling metric threshold used to trigger a scale up. Ignored when scaling metric is not provided.
 * `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
 * `--custom-image TEXT`: Docker image URL for a custom container (e.g. 'nexagi/sglang:v0.5.12'). Requires '--framework custom'.
+* `--engine [custom|hf-serve|llamacpp|sglang|tei|tgi|tgi-neuron|vllm|vllm-neuron]`: Inference engine to run the image with (e.g. 'vllm'). Requires --custom-image. Defaults to 'custom', i.e. an arbitrary container. Engine images accept engine-specific settings such as --tensor-parallel-size.
 * `--health-route TEXT`: Health check route exposed by the custom container (e.g. '/health'). Requires --custom-image.
 * `--port INTEGER`: Port the custom container listens on (e.g. 30000). Requires --custom-image.
 * `--container-command TEXT`: Override the container entrypoint, as a quoted string split into tokens (e.g. "python -m sglang.launch_server").
 * `--container-args TEXT`: Arguments appended to the container entrypoint, as a quoted string split into tokens (e.g. "--tp 8 --reasoning-parser qwen3").
+* `--tensor-parallel-size INTEGER`: Number of accelerators to shard a single model copy across (vLLM and SGLang engines only). vLLM and SGLang use a single accelerator by default, so either this or --data-parallel-size must be set when deploying on a multi-accelerator instance, otherwise the extra accelerators stay idle.
+* `--data-parallel-size INTEGER`: Number of model copies to run, one per accelerator (vLLM engine only).
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
 * `--env-file TEXT`: Read in a file of environment variables.
 * `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
@@ -1777,6 +1780,7 @@ $ hf endpoints deploy [OPTIONS] NAME
 
 Examples
   $ hf endpoints deploy my-endpoint --repo gpt2 --framework pytorch ...
+  $ hf endpoints deploy my-endpoint --repo openai/gpt-oss-120b --framework custom --engine vllm --custom-image vllm/vllm-openai:latest --tensor-parallel-size 8 ...
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -1962,6 +1966,8 @@ $ hf endpoints update [OPTIONS] NAME
 * `--task TEXT`: The task on which to deploy the model (e.g. 'text-classification').
 * `--container-command TEXT`: Override the container entrypoint, as a quoted string split into tokens (e.g. "python -m sglang.launch_server"). Replaces the current value; pass an empty string to clear it.
 * `--container-args TEXT`: Arguments appended to the container entrypoint, as a quoted string split into tokens (e.g. "--enable-auto-tool-choice --tool-call-parser lfm2"). Replaces the arguments currently set on the endpoint rather than adding to them, so include the ones you want to keep, run 'hf endpoints describe NAME' first to see them. Pass an empty string to clear them.
+* `--tensor-parallel-size INTEGER`: Number of accelerators to shard a single model copy across (vLLM and SGLang engines only). vLLM and SGLang use a single accelerator by default, so either this or --data-parallel-size must be set when deploying on a multi-accelerator instance, otherwise the extra accelerators stay idle.
+* `--data-parallel-size INTEGER`: Number of model copies to run, one per accelerator (vLLM engine only).
 * `--min-replica INTEGER`: The minimum number of replicas (instances) to keep running for the Inference Endpoint.
 * `--max-replica INTEGER`: The maximum number of replicas (instances) to scale to for the Inference Endpoint.
 * `--scale-to-zero-timeout INTEGER`: The duration in minutes before an inactive endpoint is scaled to zero.
@@ -1972,6 +1978,7 @@ $ hf endpoints update [OPTIONS] NAME
 
 Examples
   $ hf endpoints update my-endpoint --min-replica 2
+  $ hf endpoints update my-endpoint --tensor-parallel-size 8
   $ hf endpoints update my-endpoint --container-args "--enable-auto-tool-choice --tool-call-parser lfm2"
 
 Learn more

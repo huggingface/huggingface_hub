@@ -2764,6 +2764,75 @@ class TestInferenceEndpointsCommands:
         api_cls.return_value.create_inference_endpoint.assert_not_called()
         assert "require --custom-image" in (result.stdout + str(result.exception))
 
+    def test_deploy_engine_image_with_parallelism(self, runner: CliRunner) -> None:
+        endpoint = Mock(raw={"name": "vllm"})
+        with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.create_inference_endpoint.return_value = endpoint
+            result = runner.invoke(
+                app,
+                [
+                    "endpoints",
+                    "deploy",
+                    "my-endpoint",
+                    "--repo",
+                    "openai/gpt-oss-120b",
+                    "--framework",
+                    "custom",
+                    "--accelerator",
+                    "gpu",
+                    "--instance-size",
+                    "x8",
+                    "--instance-type",
+                    "nvidia-h200",
+                    "--region",
+                    "us-east-1",
+                    "--vendor",
+                    "aws",
+                    "--engine",
+                    "vllm",
+                    "--custom-image",
+                    "vllm/vllm-openai:latest",
+                    "--tensor-parallel-size",
+                    "8",
+                ],
+            )
+        assert result.exit_code == 0, result.stdout
+        _, kwargs = api.create_inference_endpoint.call_args
+        assert kwargs["custom_image"] == {"vLLM": {"url": "vllm/vllm-openai:latest"}}
+        assert kwargs["tensor_parallel_size"] == 8
+        assert "data_parallel_size" not in kwargs
+
+    def test_deploy_engine_requires_custom_image(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
+            result = runner.invoke(
+                app,
+                [
+                    "endpoints",
+                    "deploy",
+                    "my-endpoint",
+                    "--repo",
+                    "my-repo",
+                    "--framework",
+                    "custom",
+                    "--accelerator",
+                    "gpu",
+                    "--instance-size",
+                    "x8",
+                    "--instance-type",
+                    "nvidia-h200",
+                    "--region",
+                    "us-east-1",
+                    "--vendor",
+                    "aws",
+                    "--engine",
+                    "vllm",
+                ],
+            )
+        assert result.exit_code != 0
+        api_cls.return_value.create_inference_endpoint.assert_not_called()
+        assert "--engine requires --custom-image" in (result.stdout + str(result.exception))
+
     def test_deploy_from_catalog(self, runner: CliRunner) -> None:
         endpoint = Mock(raw={"name": "catalog"})
         with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
@@ -2831,6 +2900,8 @@ class TestInferenceEndpointsCommands:
             task=None,
             container_command=None,
             container_args=None,
+            tensor_parallel_size=None,
+            data_parallel_size=None,
             accelerator="gpu",
             instance_size="x4",
             instance_type=None,
@@ -2863,6 +2934,28 @@ class TestInferenceEndpointsCommands:
         assert kwargs["container_args"] == ["--enable-auto-tool-choice", "--tool-call-parser", "lfm2"]
         assert kwargs["container_command"] is None
         assert '"name": "updated"' in result.stdout
+
+    def test_update_parallelism_sizes(self, runner: CliRunner) -> None:
+        endpoint = Mock(raw={"name": "updated"})
+        with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.update_inference_endpoint.return_value = endpoint
+            result = runner.invoke(
+                app,
+                [
+                    "endpoints",
+                    "update",
+                    "my-endpoint",
+                    "--tensor-parallel-size",
+                    "4",
+                    "--data-parallel-size",
+                    "2",
+                ],
+            )
+        assert result.exit_code == 0, result.stdout
+        _, kwargs = api.update_inference_endpoint.call_args
+        assert kwargs["tensor_parallel_size"] == 4
+        assert kwargs["data_parallel_size"] == 2
 
     def test_update_container_args_empty_string_resets(self, runner: CliRunner) -> None:
         endpoint = Mock(raw={"name": "updated"})

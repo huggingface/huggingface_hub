@@ -129,6 +129,36 @@ Without the engine key, the same dictionary is sent as a plain custom container,
 
 For containers that need a custom entrypoint or runtime flags, pass `container_command` and/or `container_args` (each a list of tokens). They map to `model.command` and `model.args` in the API payload. They are not tied to custom images: managed engine images (e.g. vLLM, SGLang) accept engine flags through `container_args` as well. The same is available from the CLI via `hf endpoints deploy ... --container-command "..." --container-args "..."`.
 
+#### Parallelism on multi-accelerator instances
+
+vLLM and SGLang use a single accelerator by default, while the endpoint is allocated every accelerator of its instance.
+On a multi-accelerator instance you must therefore set the parallelism explicitly, otherwise the extra accelerators stay
+idle (and the API rejects the deployment). Pass `tensor_parallel_size` to shard one model copy across the accelerators,
+or `data_parallel_size` (vLLM only) to run one copy per accelerator:
+
+```py
+>>> endpoint = create_inference_endpoint(
+...     "gpt-oss-120b-vllm",
+...     repository="openai/gpt-oss-120b",
+...     framework="custom",
+...     accelerator="gpu",
+...     instance_size="x8",
+...     instance_type="nvidia-h200",
+...     region="us-east-1",
+...     vendor="aws",
+...     custom_image={"vLLM": {"url": "vllm/vllm-openai:latest"}},
+...     tensor_parallel_size=8,
+... )
+```
+
+Or via CLI, where `--engine` selects the managed engine image:
+
+```bash
+hf endpoints deploy gpt-oss-120b-vllm --repo openai/gpt-oss-120b --framework custom \
+  --accelerator gpu --instance-size x8 --instance-type nvidia-h200 --region us-east-1 --vendor aws \
+  --engine vllm --custom-image vllm/vllm-openai:latest --tensor-parallel-size 8
+```
+
 ### Get or list existing Inference Endpoints
 
 In some cases, you might need to manage Inference Endpoints you created previously. If you know the name, you can fetch it using [`get_inference_endpoint`], which returns an [`InferenceEndpoint`] object. Alternatively, you can use [`list_inference_endpoints`] to retrieve a list of all Inference Endpoints. Both methods accept an optional `namespace` parameter. You can set the `namespace` to any organization you are a part of. Otherwise, it defaults to your username.
@@ -289,6 +319,7 @@ hf endpoints update my-endpoint-name --repo gpt2-large
 hf endpoints update my-endpoint-name --min-replica 2 --max-replica 6
 hf endpoints update my-endpoint-name --accelerator cpu --instance-size x4 --instance-type intel-icl
 hf endpoints update my-endpoint-name --container-args "--enable-auto-tool-choice --tool-call-parser lfm2"
+hf endpoints update my-endpoint-name --tensor-parallel-size 8
 ```
 
 ### Delete the endpoint

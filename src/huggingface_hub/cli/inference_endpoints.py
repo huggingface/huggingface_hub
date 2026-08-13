@@ -45,6 +45,52 @@ NamespaceOpt = Annotated[
     ),
 ]
 
+# Maps the CLI `--engine` values to the image keys of the API payload (`model.image.<key>`).
+ENGINE_IMAGE_KEYS = {
+    "custom": "custom",
+    "hf-serve": "hfServe",
+    "llamacpp": "llamacpp",
+    "sglang": "sGLang",
+    "tei": "tei",
+    "tgi": "tgi",
+    "tgi-neuron": "tgiNeuron",
+    "vllm": "vLLM",
+    "vllm-neuron": "vLLMNeuron",
+}
+
+EngineOpt = Annotated[
+    str | None,
+    Option(
+        "--engine",
+        click_type=SoftChoice(list(ENGINE_IMAGE_KEYS)),
+        help=(
+            "Inference engine to run the image with (e.g. 'vllm'). Requires --custom-image. Defaults to 'custom', "
+            "i.e. an arbitrary container. Engine images accept engine-specific settings such as "
+            "--tensor-parallel-size."
+        ),
+    ),
+]
+
+TensorParallelSizeOpt = Annotated[
+    int | None,
+    Option(
+        "--tensor-parallel-size",
+        help=(
+            "Number of accelerators to shard a single model copy across (vLLM and SGLang engines only). vLLM and "
+            "SGLang use a single accelerator by default, so either this or --data-parallel-size must be set when "
+            "deploying on a multi-accelerator instance, otherwise the extra accelerators stay idle."
+        ),
+    ),
+]
+
+DataParallelSizeOpt = Annotated[
+    int | None,
+    Option(
+        "--data-parallel-size",
+        help="Number of model copies to run, one per accelerator (vLLM engine only).",
+    ),
+]
+
 
 @ie_cli.command("list | ls", examples=["hf endpoints ls", "hf endpoints ls --namespace my-org"])
 def ls(
@@ -81,7 +127,14 @@ def ls(
     out.table(results, id_key="name")
 
 
-@ie_cli.command(name="deploy", examples=["hf endpoints deploy my-endpoint --repo gpt2 --framework pytorch ..."])
+@ie_cli.command(
+    name="deploy",
+    examples=[
+        "hf endpoints deploy my-endpoint --repo gpt2 --framework pytorch ...",
+        "hf endpoints deploy my-endpoint --repo openai/gpt-oss-120b --framework custom --engine vllm "
+        "--custom-image vllm/vllm-openai:latest --tensor-parallel-size 8 ...",
+    ],
+)
 def deploy(
     name: NameArg,
     repo: Annotated[
@@ -173,6 +226,7 @@ def deploy(
             help="Docker image URL for a custom container (e.g. 'nexagi/sglang:v0.5.12'). Requires '--framework custom'.",
         ),
     ] = None,
+    engine: EngineOpt = None,
     health_route: Annotated[
         str | None,
         Option(
@@ -205,6 +259,8 @@ def deploy(
             ),
         ),
     ] = None,
+    tensor_parallel_size: TensorParallelSizeOpt = None,
+    data_parallel_size: DataParallelSizeOpt = None,
     env: EnvOpt = None,
     env_file: EnvFileOpt = None,
     secrets: SecretsOpt = None,
@@ -224,13 +280,19 @@ def deploy(
     # top-level model fields and apply to managed engine images too, so they are not gated.
     if custom_image is None and (health_route is not None or port is not None):
         raise CLIError("--health-route and --port require --custom-image.")
+    if custom_image is None and engine is not None:
+        raise CLIError("--engine requires --custom-image.")
     custom_image_dict: dict | None = None
     if custom_image is not None:
-        custom_image_dict = {"url": custom_image}
+        image_config: dict = {"url": custom_image}
         if health_route is not None:
-            custom_image_dict["healthRoute"] = health_route
+            image_config["healthRoute"] = health_route
         if port is not None:
-            custom_image_dict["port"] = port
+            image_config["port"] = port
+        # `create_inference_endpoint` treats an un-keyed dict as a custom container, so only engine images
+        # need to be wrapped in their image key.
+        image_key = ENGINE_IMAGE_KEYS.get(engine, engine) if engine is not None else None
+        custom_image_dict = image_config if image_key in (None, "custom") else {image_key: image_config}
 
     env_map = {key: value or "" for key, value in parse_env_map(env, env_file).items()}
     secrets_map = {key: value or "" for key, value in parse_env_map(secrets, secrets_file).items()}
@@ -245,6 +307,10 @@ def deploy(
         params["container_command"] = shlex.split(container_command)
     if container_args:
         params["container_args"] = shlex.split(container_args)
+    if tensor_parallel_size is not None:
+        params["tensor_parallel_size"] = tensor_parallel_size
+    if data_parallel_size is not None:
+        params["data_parallel_size"] = data_parallel_size
     if env_map:
         params["env"] = env_map
     if secrets_map:
@@ -351,6 +417,7 @@ def describe(
 @ie_cli.command(
     examples=[
         "hf endpoints update my-endpoint --min-replica 2",
+        "hf endpoints update my-endpoint --tensor-parallel-size 8",
         'hf endpoints update my-endpoint --container-args "--enable-auto-tool-choice --tool-call-parser lfm2"',
     ]
 )
@@ -422,6 +489,8 @@ def update(
             ),
         ),
     ] = None,
+    tensor_parallel_size: TensorParallelSizeOpt = None,
+    data_parallel_size: DataParallelSizeOpt = None,
     min_replica: Annotated[
         int | None,
         Option(
@@ -466,6 +535,8 @@ def update(
             task=task,
             container_command=shlex.split(container_command) if container_command is not None else None,
             container_args=shlex.split(container_args) if container_args is not None else None,
+            tensor_parallel_size=tensor_parallel_size,
+            data_parallel_size=data_parallel_size,
             accelerator=accelerator,
             instance_size=instance_size,
             instance_type=instance_type,
