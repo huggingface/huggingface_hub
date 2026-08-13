@@ -9646,8 +9646,9 @@ class HfApi:
                 "Cannot use `token=False` with `create_inference_endpoint_from_catalog` as it requires authentication."
             )
         token = token or self.token or get_token()
+        namespace = namespace or self._get_namespace(token=token)
         payload: dict = {
-            "namespace": namespace or self._get_namespace(token=token),
+            "namespace": namespace,
             "repoId": repo_id,
         }
         if name is not None:
@@ -9662,7 +9663,7 @@ class HfApi:
         )
         hf_raise_for_status(response)
         data = response.json()["endpoint"]
-        return InferenceEndpoint.from_raw(data, namespace=data["name"], token=token)
+        return InferenceEndpoint.from_raw(data, namespace=namespace, token=token)
 
     @experimental
     @validate_hf_hub_args

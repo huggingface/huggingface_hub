@@ -4606,7 +4606,9 @@ class TestHfApiInferenceCatalog:
         assert len(models) > 0
         assert all(isinstance(model, str) for model in models)
 
-    def test_create_inference_endpoint_from_catalog(self, api: HfApi, mocker) -> None:
+    @pytest.fixture
+    def mock_catalog_deploy(self, mocker) -> Mock:
+        """Mock the catalog deploy call and return the mocked `post` method."""
         mock_get_session = mocker.patch("huggingface_hub.hf_api.get_session")
         mock_response = Mock()
         mock_response.json.return_value = {
@@ -4656,13 +4658,28 @@ class TestHfApiInferenceCatalog:
                 "type": "protected",
             }
         }
-        mock_get_session.return_value.post.return_value = mock_response
+        mock_post = mock_get_session.return_value.post
+        mock_post.return_value = mock_response
+        return mock_post
 
+    def test_create_inference_endpoint_from_catalog(self, api: HfApi, mock_catalog_deploy: Mock) -> None:
         endpoint = api.create_inference_endpoint_from_catalog(
             repo_id="meta-llama/Llama-3.2-3B-Instruct", namespace="Wauplin"
         )
         assert isinstance(endpoint, InferenceEndpoint)
         assert endpoint.name == "llama-3-2-3b-instruct-eey"
+        # Namespace must be the one the endpoint has been deployed to, not the endpoint name.
+        # Otherwise follow-up calls (pause, delete, fetch, ...) would 404.
+        assert endpoint.namespace == "Wauplin"
+
+    def test_create_inference_endpoint_from_catalog_default_namespace(
+        self, api: HfApi, mocker, mock_catalog_deploy: Mock
+    ) -> None:
+        mocker.patch.object(HfApi, "_get_namespace", return_value="Wauplin")
+
+        endpoint = api.create_inference_endpoint_from_catalog(repo_id="meta-llama/Llama-3.2-3B-Instruct")
+        assert endpoint.namespace == "Wauplin"
+        assert mock_catalog_deploy.call_args.kwargs["json"]["namespace"] == "Wauplin"
 
     def test_create_inference_endpoint_from_catalog_rejects_token_false(self, api: HfApi) -> None:
         # `token=False` means "do not authenticate", but this endpoint cannot be created without
