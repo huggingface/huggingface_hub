@@ -4891,6 +4891,25 @@ class TestExtensionsGitHubAccess:
         assert session.api_urls == ["https://api.github.com/repos/huggingface/hf-demo/commits/HEAD"]
         assert all("/HEAD/" in url for url in session.urls if "raw.githubusercontent.com" in url)
 
+    def test_install_completes_when_the_api_quota_is_exhausted(self, tmp_path: Path) -> None:
+        # The extension itself comes from the CDN, so only the optional version marker is lost.
+        session = _FakeGitHubSession(
+            {
+                "raw.githubusercontent.com/huggingface/hf-demo/HEAD/hf-demo": httpx.Response(
+                    200, content=b"#!/bin/sh"
+                ),
+                "api.github.com": httpx.Response(403, headers={"x-ratelimit-remaining": "0"}),
+            }
+        )
+        with (
+            patch.object(extensions, "get_session", return_value=session),
+            patch.object(extensions, "EXTENSIONS_ROOT", tmp_path),
+        ):
+            manifest = extensions._install_extension(owner="huggingface", repo_name="hf-demo", short_name="demo")
+
+        assert manifest.commit_sha is None
+        assert Path(manifest.executable_path).is_file()
+
     def test_install_of_missing_repo_reports_a_clean_error(self, runner: CliRunner, tmp_path: Path) -> None:
         session = _FakeGitHubSession()
         with (

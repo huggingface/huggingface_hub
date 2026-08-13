@@ -430,6 +430,15 @@ def _install_extension(
                 extension_dir=extension_dir, owner=owner, repo_name=repo_name, short_name=short_name
             )
 
+        if commit_sha is None:
+            # The extension itself is on disk by now, fetched from the CDN. The SHA only feeds update
+            # detection, so a metered-API failure must not throw the install away: without it, the next
+            # `hf extensions update` sees no known SHA, considers the extension outdated and reinstalls.
+            try:
+                commit_sha = _fetch_latest_commit_sha(owner=owner, repo_name=repo_name)
+            except CLIError as error:
+                out.warning(f"{error} Installing anyway, without a recorded version.")
+
         manifest = ExtensionManifest(
             owner=owner,
             repo=repo_name,
@@ -439,7 +448,7 @@ def _install_extension(
             type="binary" if binary is not None else "python",
             installed_at=datetime.now(timezone.utc),
             description=_try_fetch_remote_description(owner=owner, repo_name=repo_name),
-            commit_sha=commit_sha or _fetch_latest_commit_sha(owner=owner, repo_name=repo_name),
+            commit_sha=commit_sha,
         )
         manifest.save(extension_dir)
         installed = True
