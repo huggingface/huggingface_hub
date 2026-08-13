@@ -303,6 +303,8 @@ Fetching 8 files: 100%|███████████████████
 /home/wauplin/.cache/huggingface/hub/models--stabilityai--stable-diffusion-xl-base-1.0/snapshots/462165984030d82259a11f4367a4eed129e94a7b
 ```
 
+The two approaches cannot be combined: passing filenames together with `--include` or `--exclude` raises an error. Note that `--include` takes a single pattern per occurrence, so repeat the option to pass several of them (`--include "*.json" --include "*.txt"`).
+
 ### Download a dataset or a Space
 
 The examples above show how to download from a model repository. To download a dataset or a Space, use the `--repo-type` option:

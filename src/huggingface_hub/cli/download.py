@@ -13,7 +13,6 @@
 # limitations under the License.
 """Contains command to download files from the Hub with the CLI."""
 
-import warnings
 from typing import Annotated
 
 from huggingface_hub import constants
@@ -152,12 +151,20 @@ def download(
                     f'Please use `--include "{subfolders[0]}*"` with `--exclude` instead.'
                 )
 
-        # Warn user if patterns are ignored (only if regular filenames are provided)
+        # Error if regular filenames are combined with --include/--exclude
+        # Both select what to download, so silently letting filenames win would drop files the user asked for
         if len(regular_filenames) > 0:
             if include is not None and len(include) > 0:
-                warnings.warn("Ignoring `--include` since filenames have been explicitly set.")
+                raise CLIError(
+                    f"Cannot combine filenames ('{regular_filenames[0]}') with `--include`. "
+                    "`--include` takes one pattern per occurrence: repeat it "
+                    f'(e.g. `--include "{include[0]}" --include "{regular_filenames[0]}"`) or pass filenames only.'
+                )
             if exclude is not None and len(exclude) > 0:
-                warnings.warn("Ignoring `--exclude` since filenames have been explicitly set.")
+                raise CLIError(
+                    f"Cannot combine filenames ('{regular_filenames[0]}') with `--exclude`. "
+                    f'Please use `--include "{regular_filenames[0]}"` with `--exclude` instead.'
+                )
 
         # Single file to download (not a subfolder): use `hf_hub_download`
         if len(regular_filenames) == 1 and len(subfolder_patterns) == 0:
