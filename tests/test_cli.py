@@ -1205,7 +1205,7 @@ class TestDownloadImpl:
     @patch("huggingface_hub.cli.download.hf_hub_download")
     def test_download_filenames_with_include_raises_error(self, mock_download: Mock, mock_snapshot: Mock) -> None:
         """Test that combining filenames with --include raises an error instead of silently dropping the patterns."""
-        with pytest.raises(CLIError, match="Cannot combine filenames"):
+        with pytest.raises(CLIError, match=r"Cannot combine filenames.*`--include` takes one pattern per occurrence"):
             download(
                 repo_id="author/model",
                 filenames=["README.md", "config.json"],
@@ -1219,7 +1219,9 @@ class TestDownloadImpl:
     @patch("huggingface_hub.cli.download.hf_hub_download")
     def test_download_filenames_with_exclude_raises_error(self, mock_download: Mock, mock_snapshot: Mock) -> None:
         """Test that combining filenames with --exclude raises an error instead of silently dropping the patterns."""
-        with pytest.raises(CLIError, match="Cannot combine filenames"):
+        # Guidance must be about `--exclude` itself: an earlier version suggested converting the filename into
+        # `--include`, which inverts intent when the user meant to skip that file.
+        with pytest.raises(CLIError, match=r"Cannot combine filenames.*`--exclude` takes one pattern per occurrence"):
             download(
                 repo_id="author/model",
                 filenames=["README.md", "config.json"],
