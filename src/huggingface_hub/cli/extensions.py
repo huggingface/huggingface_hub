@@ -652,21 +652,25 @@ def _rate_limit_message(headers: httpx.Headers) -> str:
     """Message for a GitHub rate-limit rejection, built from the response headers.
 
     The cap itself is deliberately not quoted: it depends on the endpoint (60/hour on the core API,
-    10/minute on search), so only the reset time is reported.
+    10/minute on search), so only the wait is reported.
+
+    `retry-after` wins over `x-ratelimit-reset`: GitHub rides the primary window's reset timestamp on
+    every REST response, secondary rate limits included, so on a back-off it would point at an hourly
+    window that is not the one being enforced.
     """
     message = (
         "GitHub API rate limit exceeded. Unauthenticated requests are capped per IP address, and that "
         "quota is shared with anything else calling GitHub from your network."
     )
-    if (reset := headers.get("x-ratelimit-reset")) is not None:
+    if (retry_after := headers.get("retry-after")) is not None:
+        message += f" Retry in {retry_after}s."
+    elif (reset := headers.get("x-ratelimit-reset")) is not None:
         try:
             reset_at = datetime.fromtimestamp(int(reset), tz=timezone.utc).astimezone()
         except (OverflowError, OSError, ValueError):
             pass
         else:
             message += f" It resets at {reset_at:%H:%M:%S %Z}."
-    elif (retry_after := headers.get("retry-after")) is not None:
-        message += f" Retry in {retry_after}s."
     return message
 
 

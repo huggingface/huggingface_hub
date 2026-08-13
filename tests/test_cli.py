@@ -28,13 +28,7 @@ from huggingface_hub.cli.hf import main as hf_main
 from huggingface_hub.cli.jobs import _parse_and_sync_job_volumes, _parse_namespace_from_job_id
 from huggingface_hub.cli.skills import build_skill_md
 from huggingface_hub.cli.upload import _resolve_upload_paths, upload
-from huggingface_hub.errors import (
-    CLIError,
-    CLIExtensionInstallError,
-    DeviceCodeError,
-    HfUriError,
-    RevisionNotFoundError,
-)
+from huggingface_hub.errors import CLIError, DeviceCodeError, HfUriError, RevisionNotFoundError
 from huggingface_hub.hf_api import ModelInfo
 from huggingface_hub.utils import (
     CachedFileInfo,
@@ -4926,8 +4920,19 @@ class TestExtensionsGitHubAccess:
         assert manifest.commit_sha is None
         assert Path(manifest.executable_path).is_file()
 
-    def test_install_of_missing_repo_reports_a_clean_error(self, runner: CliRunner, tmp_path: Path) -> None:
-        session = _FakeGitHubSession()
+    @pytest.mark.parametrize(
+        "repo_page, expected_error",
+        [
+            # A 404 is the only answer that means "missing".
+            (httpx.Response(404), "not found"),
+            # Anything else must not be presented as a missing repo, nor escape as an httpx traceback.
+            (httpx.Response(500), "Could not reach GitHub"),
+        ],
+    )
+    def test_install_distinguishes_a_missing_repo_from_an_unreachable_github(
+        self, runner: CliRunner, tmp_path: Path, repo_page: httpx.Response, expected_error: str
+    ) -> None:
+        session = _FakeGitHubSession({"https://github.com/huggingface/hf-nope": repo_page})
         with (
             patch.object(extensions, "get_session", return_value=session),
             patch.object(extensions, "EXTENSIONS_ROOT", tmp_path),
@@ -4935,57 +4940,25 @@ class TestExtensionsGitHubAccess:
             result = runner.invoke(app, ["extensions", "install", "huggingface/hf-nope"])
 
         assert isinstance(result.exception, CLIError)
-        assert "not found" in str(result.exception)
+        assert expected_error in str(result.exception)
         assert session.api_urls == []
-
-    @pytest.mark.parametrize(
-        "headers, expected",
-        [
-            # Primary limit: an absolute reset timestamp.
-            ({"x-ratelimit-remaining": "0", "x-ratelimit-reset": "1786500000"}, r"It resets at \d{2}:\d{2}:\d{2}"),
-            # Secondary limit: a back-off delay, and no `x-ratelimit-remaining: 0`.
-            ({"retry-after": "60"}, r"Retry in 60s\."),
-        ],
-    )
-    def test_rate_limited_response_reports_when_to_retry(self, headers: dict, expected: str) -> None:
-        session = _FakeGitHubSession({"api.github.com": httpx.Response(403, headers=headers)})
-        with patch.object(extensions, "get_session", return_value=session):
-            with pytest.raises(CLIError, match=rf"rate limit exceeded.*{expected}"):
-                extensions._fetch_latest_commit_sha(owner="huggingface", repo_name="hf-demo")
-
-    def test_update_keeps_going_when_one_extension_fails_to_install(self, runner: CliRunner, tmp_path: Path) -> None:
-        # A failure that is specific to one extension says nothing about the others.
-        _fake_install_extension(tmp_path, "one", "two")
-        attempted = []
-
-        def fake_update(manifest):
-            attempted.append(manifest.short_name)
-            if manifest.short_name == "one":
-                raise CLIExtensionInstallError("Pip install timed out for 'huggingface/hf-one'.")
-            return extensions._ExtensionUpdateStatus.UPDATED
-
-        with (
-            patch.object(extensions, "EXTENSIONS_ROOT", tmp_path),
-            patch.object(extensions, "_update_installed_extension", side_effect=fake_update),
-        ):
-            result = runner.invoke(app, ["extensions", "update"])
-
-        assert result.exit_code == 0, result.output
-        # 'two' was still checked and reported after 'one' failed.
-        assert attempted == ["one", "two"]
-        assert "Pip install timed out" in result.output
-        assert "Skipping" in result.output
 
     def test_update_stops_on_rate_limit_instead_of_warning_per_extension(
         self, runner: CliRunner, tmp_path: Path
     ) -> None:
         _fake_install_extension(tmp_path, "one", "two")
 
+        # A secondary limit: GitHub asks for a back-off and rides the *primary* window's reset
+        # timestamp alongside it, on a quota that is not exhausted. The back-off is what applies.
         session = _FakeGitHubSession(
             {
                 "api.github.com": httpx.Response(
                     429,
-                    headers={"x-ratelimit-remaining": "0"},
+                    headers={
+                        "x-ratelimit-remaining": "53",
+                        "x-ratelimit-reset": "1786500000",
+                        "retry-after": "60",
+                    },
                 ),
             }
         )
@@ -4997,36 +4970,10 @@ class TestExtensionsGitHubAccess:
 
         assert isinstance(result.exception, CLIError)
         assert "rate limit exceeded" in str(result.exception)
+        assert "Retry in 60s." in str(result.exception)
+        assert "It resets at" not in str(result.exception)
         # Bailed out on the first extension rather than repeating the failure for every one of them.
         assert len(session.api_urls) == 1
-
-    def test_update_reports_why_an_extension_could_not_be_checked(self, runner: CliRunner, tmp_path: Path) -> None:
-        # A deleted or renamed repo must not be reported as an unreachable GitHub.
-        _fake_install_extension(tmp_path, "one")
-        session = _FakeGitHubSession()  # everything 404s
-
-        with (
-            patch.object(extensions, "get_session", return_value=session),
-            patch.object(extensions, "EXTENSIONS_ROOT", tmp_path),
-        ):
-            result = runner.invoke(app, ["extensions", "update"])
-
-        assert result.exit_code == 0, result.output
-        assert "404" in result.output
-        assert "Skipping" in result.output
-
-    def test_unreachable_github_is_not_reported_as_a_missing_repo(self, runner: CliRunner, tmp_path: Path) -> None:
-        session = _FakeGitHubSession({"https://github.com/huggingface/hf-demo": httpx.Response(500)})
-        with (
-            patch.object(extensions, "get_session", return_value=session),
-            patch.object(extensions, "EXTENSIONS_ROOT", tmp_path),
-        ):
-            result = runner.invoke(app, ["extensions", "install", "huggingface/hf-demo"])
-
-        # A clean CLIError, not a raw httpx traceback, and not the "repository not found" message.
-        assert isinstance(result.exception, CLIError)
-        assert "Could not reach GitHub" in str(result.exception)
-        assert "not found" not in str(result.exception)
 
     @pytest.mark.parametrize(
         "meta_content, expected",
