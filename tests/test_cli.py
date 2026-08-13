@@ -4836,26 +4836,34 @@ class _FakeGitHubSession:
     Patterns are matched as substrings of the URL; anything unmatched 404s.
     """
 
-    def __init__(self, responses: Optional[dict[str, httpx.Response]] = None) -> None:
+    def __init__(self, responses: dict[str, httpx.Response] | None = None) -> None:
         self.urls: list[str] = []
         self.responses = responses or {}
 
-    def _respond(self, url: str) -> httpx.Response:
+    def request(self, method: str, url: str, **kwargs) -> httpx.Response:
         self.urls.append(url)
         response = next((r for pattern, r in self.responses.items() if pattern in url), httpx.Response(404))
-        response.request = httpx.Request("GET", url)
+        response.request = httpx.Request(method, url)
         return response
-
-    def get(self, url: str, **kwargs) -> httpx.Response:
-        return self._respond(url)
-
-    def head(self, url: str, **kwargs) -> httpx.Response:
-        return self._respond(url)
 
     @property
     def api_urls(self) -> list[str]:
-        """Requests that count against the 60 requests/hour unauthenticated REST API quota."""
+        """Requests that count against the unauthenticated REST API quota."""
         return [url for url in self.urls if url.startswith("https://api.github.com/")]
+
+
+def _fake_install_extension(root: Path, *short_names: str) -> None:
+    """Write a manifest for each name, as if the extension had been installed."""
+    for short_name in short_names:
+        extensions.ExtensionManifest(
+            owner="huggingface",
+            repo=f"hf-{short_name}",
+            repo_id=f"huggingface/hf-{short_name}",
+            short_name=short_name,
+            executable_path=str(root / f"hf-{short_name}" / f"hf-{short_name}"),
+            type="binary",
+            installed_at=datetime.now(timezone.utc),
+        ).save(root / f"hf-{short_name}")
 
 
 class TestExtensionsGitHubAccess:
@@ -4930,35 +4938,24 @@ class TestExtensionsGitHubAccess:
         assert "not found" in str(result.exception)
         assert session.api_urls == []
 
-    def test_rate_limited_response_reports_the_reset_time(self, tmp_path: Path) -> None:
-        session = _FakeGitHubSession(
-            {
-                "api.github.com": httpx.Response(
-                    403,
-                    headers={"x-ratelimit-remaining": "0", "x-ratelimit-reset": "1786500000"},
-                ),
-            }
-        )
+    @pytest.mark.parametrize(
+        "headers, expected",
+        [
+            # Primary limit: an absolute reset timestamp.
+            ({"x-ratelimit-remaining": "0", "x-ratelimit-reset": "1786500000"}, r"It resets at \d{2}:\d{2}:\d{2}"),
+            # Secondary limit: a back-off delay, and no `x-ratelimit-remaining: 0`.
+            ({"retry-after": "60"}, r"Retry in 60s\."),
+        ],
+    )
+    def test_rate_limited_response_reports_when_to_retry(self, headers: dict, expected: str) -> None:
+        session = _FakeGitHubSession({"api.github.com": httpx.Response(403, headers=headers)})
         with patch.object(extensions, "get_session", return_value=session):
-            with pytest.raises(CLIError, match="rate limit exceeded"):
+            with pytest.raises(CLIError, match=rf"rate limit exceeded.*{expected}"):
                 extensions._fetch_latest_commit_sha(owner="huggingface", repo_name="hf-demo")
-
-    @staticmethod
-    def _fake_install(root: Path, *short_names: str) -> None:
-        for short_name in short_names:
-            extensions.ExtensionManifest(
-                owner="huggingface",
-                repo=f"hf-{short_name}",
-                repo_id=f"huggingface/hf-{short_name}",
-                short_name=short_name,
-                executable_path=str(root / f"hf-{short_name}" / f"hf-{short_name}"),
-                type="binary",
-                installed_at=datetime.now(timezone.utc),
-            ).save(root / f"hf-{short_name}")
 
     def test_update_keeps_going_when_one_extension_fails_to_install(self, runner: CliRunner, tmp_path: Path) -> None:
         # A failure that is specific to one extension says nothing about the others.
-        self._fake_install(tmp_path, "one", "two")
+        _fake_install_extension(tmp_path, "one", "two")
         attempted = []
 
         def fake_update(manifest):
@@ -4982,7 +4979,7 @@ class TestExtensionsGitHubAccess:
     def test_update_stops_on_rate_limit_instead_of_warning_per_extension(
         self, runner: CliRunner, tmp_path: Path
     ) -> None:
-        self._fake_install(tmp_path, "one", "two")
+        _fake_install_extension(tmp_path, "one", "two")
 
         session = _FakeGitHubSession(
             {
@@ -5002,3 +4999,64 @@ class TestExtensionsGitHubAccess:
         assert "rate limit exceeded" in str(result.exception)
         # Bailed out on the first extension rather than repeating the failure for every one of them.
         assert len(session.api_urls) == 1
+
+    def test_update_reports_why_an_extension_could_not_be_checked(self, runner: CliRunner, tmp_path: Path) -> None:
+        # A deleted or renamed repo must not be reported as an unreachable GitHub.
+        _fake_install_extension(tmp_path, "one")
+        session = _FakeGitHubSession()  # everything 404s
+
+        with (
+            patch.object(extensions, "get_session", return_value=session),
+            patch.object(extensions, "EXTENSIONS_ROOT", tmp_path),
+        ):
+            result = runner.invoke(app, ["extensions", "update"])
+
+        assert result.exit_code == 0, result.output
+        assert "404" in result.output
+        assert "Skipping" in result.output
+
+    def test_unreachable_github_is_not_reported_as_a_missing_repo(self, runner: CliRunner, tmp_path: Path) -> None:
+        session = _FakeGitHubSession({"https://github.com/huggingface/hf-demo": httpx.Response(500)})
+        with (
+            patch.object(extensions, "get_session", return_value=session),
+            patch.object(extensions, "EXTENSIONS_ROOT", tmp_path),
+        ):
+            result = runner.invoke(app, ["extensions", "install", "huggingface/hf-demo"])
+
+        # A clean CLIError, not a raw httpx traceback, and not the "repository not found" message.
+        assert isinstance(result.exception, CLIError)
+        assert "Could not reach GitHub" in str(result.exception)
+        assert "not found" not in str(result.exception)
+
+    @pytest.mark.parametrize(
+        "meta_content, expected",
+        [
+            ("A demo extension - huggingface/hf-demo", "A demo extension"),
+            # Empty About field: GitHub renders boilerplate, which must not be taken as a description.
+            ("Contribute to huggingface/hf-demo development by creating an account on GitHub.", None),
+        ],
+    )
+    def test_description_falls_back_to_the_github_about_field(
+        self, tmp_path: Path, meta_content: str, expected: str | None
+    ) -> None:
+        # Shell-script extensions ship neither manifest.json nor pyproject.toml, so the repo's "About"
+        # field is their only description. It is served by github.com, off the REST API quota.
+        session = _FakeGitHubSession(
+            {
+                "raw.githubusercontent.com/huggingface/hf-demo/HEAD/hf-demo": httpx.Response(
+                    200, content=b"#!/bin/sh"
+                ),
+                "https://github.com/huggingface/hf-demo": httpx.Response(
+                    200, text=f'<meta name="description" content="{meta_content}">'
+                ),
+                "api.github.com": httpx.Response(200, text="b" * 40),
+            }
+        )
+        with (
+            patch.object(extensions, "get_session", return_value=session),
+            patch.object(extensions, "EXTENSIONS_ROOT", tmp_path),
+        ):
+            manifest = extensions._install_extension(owner="huggingface", repo_name="hf-demo", short_name="demo")
+
+        assert manifest.description == expected
+        assert session.api_urls == ["https://api.github.com/repos/huggingface/hf-demo/commits/HEAD"]
