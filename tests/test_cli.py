@@ -3,12 +3,14 @@ import os
 import sys
 import warnings
 from contextlib import contextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Generator, Optional
 from unittest.mock import Mock, patch
 
 import click
+import httpx
 import pytest
 from click.testing import CliRunner
 
@@ -16,7 +18,7 @@ from huggingface_hub import HfApi, constants
 from huggingface_hub._dataset_viewer import DatasetParquetEntry
 from huggingface_hub._jobs_api import JobInfo, JobOwner, _create_job_spec, _derive_job_volume_name
 from huggingface_hub._space_api import Volume
-from huggingface_hub.cli import _skills, system
+from huggingface_hub.cli import _skills, extensions, system
 from huggingface_hub.cli._cli_utils import RepoType, _get_huggingface_hub_update_command, parse_volumes
 from huggingface_hub.cli._output import OutputFormat, out
 from huggingface_hub.cli.cache import CacheDeletionCounts
@@ -4820,3 +4822,129 @@ class TestSkillsMarketplaceCLI:
                 "huggingface-gradio: updated",
             )
         ), result.stdout
+
+
+class _FakeGitHubSession:
+    """Session double that records requested URLs and serves canned responses.
+
+    Patterns are matched as substrings of the URL; anything unmatched 404s.
+    """
+
+    def __init__(self, responses: Optional[dict[str, httpx.Response]] = None) -> None:
+        self.urls: list[str] = []
+        self.responses = responses or {}
+
+    def _respond(self, url: str) -> httpx.Response:
+        self.urls.append(url)
+        response = next((r for pattern, r in self.responses.items() if pattern in url), httpx.Response(404))
+        response.request = httpx.Request("GET", url)
+        return response
+
+    def get(self, url: str, **kwargs) -> httpx.Response:
+        return self._respond(url)
+
+    def head(self, url: str, **kwargs) -> httpx.Response:
+        return self._respond(url)
+
+    @property
+    def api_urls(self) -> list[str]:
+        """Requests that count against the 60 requests/hour unauthenticated REST API quota."""
+        return [url for url in self.urls if url.startswith("https://api.github.com/")]
+
+
+class TestExtensionsGitHubAccess:
+    """GitHub is reached without a token, so requests must stay off the metered REST API."""
+
+    def test_unknown_command_spends_no_api_quota(self, tmp_path: Path) -> None:
+        # Every mistyped `hf <command>` probes for an official extension, so this path must be free.
+        session = _FakeGitHubSession()
+        with (
+            patch.object(extensions, "get_session", return_value=session),
+            patch.object(extensions, "EXTENSIONS_ROOT", tmp_path),
+        ):
+            exit_code = extensions.dispatch_unknown_top_level_extension(["jbos"], {"jobs", "repos"})
+
+        assert exit_code is None
+        assert session.api_urls == []
+
+    def test_binary_install_uses_head_ref_and_a_single_api_call(self, tmp_path: Path) -> None:
+        sha = "a" * 40
+        session = _FakeGitHubSession(
+            {
+                "raw.githubusercontent.com/huggingface/hf-demo/HEAD/hf-demo": httpx.Response(
+                    200, content=b"#!/bin/sh"
+                ),
+                "HEAD/manifest.json": httpx.Response(200, json={"description": "Demo extension"}),
+                "api.github.com/repos/huggingface/hf-demo/commits/HEAD": httpx.Response(200, text=sha),
+            }
+        )
+        with (
+            patch.object(extensions, "get_session", return_value=session),
+            patch.object(extensions, "EXTENSIONS_ROOT", tmp_path),
+        ):
+            manifest = extensions._install_extension(owner="huggingface", repo_name="hf-demo", short_name="demo")
+
+        assert manifest.type == "binary"
+        assert manifest.commit_sha == sha
+        assert manifest.description == "Demo extension"
+        # The default branch is addressed as `HEAD`, so no `GET /repos/{owner}/{repo}` lookup is needed.
+        assert session.api_urls == ["https://api.github.com/repos/huggingface/hf-demo/commits/HEAD"]
+        assert all("/HEAD/" in url for url in session.urls if "raw.githubusercontent.com" in url)
+
+    def test_install_of_missing_repo_reports_a_clean_error(self, runner: CliRunner, tmp_path: Path) -> None:
+        session = _FakeGitHubSession()
+        with (
+            patch.object(extensions, "get_session", return_value=session),
+            patch.object(extensions, "EXTENSIONS_ROOT", tmp_path),
+        ):
+            result = runner.invoke(app, ["extensions", "install", "huggingface/hf-nope"])
+
+        assert isinstance(result.exception, CLIError)
+        assert "not found" in str(result.exception)
+        assert session.api_urls == []
+
+    def test_rate_limited_response_reports_the_reset_time(self, tmp_path: Path) -> None:
+        session = _FakeGitHubSession(
+            {
+                "api.github.com": httpx.Response(
+                    403,
+                    headers={"x-ratelimit-remaining": "0", "x-ratelimit-reset": "1786500000"},
+                ),
+            }
+        )
+        with patch.object(extensions, "get_session", return_value=session):
+            with pytest.raises(CLIError, match="rate limit exceeded"):
+                extensions._fetch_latest_commit_sha(owner="huggingface", repo_name="hf-demo")
+
+    def test_update_stops_on_rate_limit_instead_of_warning_per_extension(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        for short_name in ("one", "two"):
+            extensions.ExtensionManifest(
+                owner="huggingface",
+                repo=f"hf-{short_name}",
+                repo_id=f"huggingface/hf-{short_name}",
+                short_name=short_name,
+                executable_path=str(tmp_path / f"hf-{short_name}" / f"hf-{short_name}"),
+                type="binary",
+                installed_at=datetime.now(timezone.utc),
+            ).save(tmp_path / f"hf-{short_name}")
+
+        session = _FakeGitHubSession(
+            {
+                "api.github.com": httpx.Response(
+                    429,
+                    headers={"x-ratelimit-remaining": "0"},
+                ),
+            }
+        )
+        with (
+            patch.object(extensions, "get_session", return_value=session),
+            patch.object(extensions, "EXTENSIONS_ROOT", tmp_path),
+        ):
+            result = runner.invoke(app, ["extensions", "update"])
+
+        assert isinstance(result.exception, CLIError)
+        assert "rate limit exceeded" in str(result.exception)
+        # Bailed out on the first extension rather than repeating the failure for every one of them.
+        assert len(session.api_urls) == 1
