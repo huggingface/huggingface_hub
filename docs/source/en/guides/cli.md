@@ -2285,6 +2285,9 @@ Use `hf endpoints` to list, deploy, describe, and manage Inference Endpoints dir
 # Lists endpoints in your namespace
 >>> hf endpoints ls
 
+# List the hardware you can deploy on
+>>> hf endpoints hardware
+
 # Deploy an endpoint from Model Catalog
 >>> hf endpoints catalog deploy --repo openai/gpt-oss-120b --name my-endpoint
 
@@ -2306,6 +2309,22 @@ Use `hf endpoints` to list, deploy, describe, and manage Inference Endpoints dir
 
 > [!TIP]
 > Add `--namespace` to target an organization, `--token` to override authentication.
+
+#### Discover the available hardware
+
+`hf endpoints deploy` expects an exact `--accelerator`/`--vendor`/`--region`/`--instance-type`/`--instance-size` combination. Use `hf endpoints hardware` to list the valid ones, optionally filtered with the very same flags:
+
+```bash
+>>> hf endpoints hardware --vendor aws --accelerator gpu
+VENDOR REGION    ACCELERATOR INSTANCE TYPE INSTANCE SIZE GPU MEMORY RAM    $/HOUR
+------ --------- ----------- ------------- ------------- ---------- ------ ------
+aws    us-east-1 gpu         nvidia-t4     x1            16 GB      15 GB     0.5
+aws    us-east-1 gpu         nvidia-l4     x1            24 GB      30 GB     0.8
+aws    us-east-1 gpu         nvidia-a100   x1            80 GB      145 GB    2.5
+...
+```
+
+Deprecated and unavailable hardware is hidden by default, pass `--all` to list it. Pass `--namespace` to also report the quota of that namespace.
 
 #### Deploy a custom container
 

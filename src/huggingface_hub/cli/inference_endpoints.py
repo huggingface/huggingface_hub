@@ -1,7 +1,7 @@
 """CLI commands for Hugging Face Inference Endpoints."""
 
 import shlex
-from typing import Annotated
+from typing import Annotated, Any
 
 import click
 
@@ -79,6 +79,83 @@ def ls(
             }
         )
     out.table(results, id_key="name")
+
+
+@ie_cli.command(
+    "hardware",
+    examples=[
+        "hf endpoints hardware",
+        "hf endpoints hardware --vendor aws --accelerator gpu",
+    ],
+)
+def hardware(
+    vendor: Annotated[
+        str | None,
+        Option(help="Only list hardware hosted by this cloud vendor (e.g. 'aws')."),
+    ] = None,
+    region: Annotated[
+        str | None,
+        Option(help="Only list hardware available in this cloud region (e.g. 'us-east-1')."),
+    ] = None,
+    accelerator: Annotated[
+        str | None,
+        Option(help="Only list hardware with this accelerator (e.g. 'cpu', 'gpu', 'neuron')."),
+    ] = None,
+    instance_type: Annotated[
+        str | None,
+        Option(help="Only list hardware with this instance type (e.g. 'nvidia-l4')."),
+    ] = None,
+    include_unavailable: Annotated[
+        bool,
+        Option("--all", help="Also list deprecated and unavailable hardware."),
+    ] = False,
+    namespace: NamespaceOpt = None,
+    token: TokenOpt = None,
+) -> None:
+    """List the hardware available to deploy an Inference Endpoint."""
+    api = get_hf_api(token=token)
+    try:
+        hardware_list = api.list_endpoint_hardware(
+            namespace=namespace,
+            vendor=vendor,
+            region=region,
+            accelerator=accelerator,
+            instance_type=instance_type,
+            include_unavailable=include_unavailable,
+            token=token,
+        )
+    except HfHubHTTPError as error:
+        out.error(f"Hardware fetch failed: {error}")
+        raise click.exceptions.Exit(code=error.response.status_code) from error
+
+    # Quota is only meaningful for a namespace with a dedicated capacity: hide the column otherwise.
+    show_quota = any(hw.max_accelerators for hw in hardware_list)
+    items = []
+    for hw in hardware_list:
+        item: dict[str, Any] = {
+            "vendor": hw.vendor,
+            "region": hw.region,
+            "accelerator": hw.accelerator,
+            "instance type": hw.instance_type,
+            "instance size": hw.instance_size,
+            "gpu memory": f"{hw.gpu_memory_gb} GB" if hw.gpu_memory_gb else None,
+            "ram": f"{hw.memory_gb:g} GB" if hw.memory_gb else None,
+            "$/hour": hw.price_per_hour,
+        }
+        if include_unavailable:
+            item["status"] = hw.status
+        if show_quota:
+            item["quota"] = f"{hw.used_accelerators}/{hw.max_accelerators}"
+        items.append(item)
+    out.table(items, id_key="instance type")
+
+    if hardware_list:
+        example = hardware_list[0]
+        out.hint(
+            "Deploy with e.g. 'hf endpoints deploy my-endpoint --repo <repo> --framework <framework> "
+            f"--accelerator {example.accelerator} --vendor {example.vendor} --region {example.region} "
+            f"--instance-type {example.instance_type} --instance-size {example.instance_size}'."
+        )
 
 
 @ie_cli.command(name="deploy", examples=["hf endpoints deploy my-endpoint --repo gpt2 --framework pytorch ..."])
@@ -218,7 +295,11 @@ def deploy(
         ),
     ] = None,
 ) -> None:
-    """Deploy an Inference Endpoint from a Hub repository."""
+    """Deploy an Inference Endpoint from a Hub repository.
+
+    Run `hf endpoints hardware` to list the valid `--accelerator`, `--vendor`, `--region`, `--instance-type` and
+    `--instance-size` combinations.
+    """
     # --health-route and --port are container-level fields, and the only container payload this
     # command can build is the custom one, so they need --custom-image. Container command/args are
     # top-level model fields and apply to managed engine images too, so they are not gated.

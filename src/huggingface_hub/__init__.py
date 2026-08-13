@@ -70,6 +70,7 @@ _SUBMOD_ATTRS = {
         "parse_eval_result_entries",
     ],
     "_inference_endpoints": [
+        "EndpointHardware",
         "InferenceEndpoint",
         "InferenceEndpointError",
         "InferenceEndpointStatus",
@@ -293,6 +294,7 @@ _SUBMOD_ATTRS = {
         "list_daily_papers",
         "list_dataset_parquet_files",
         "list_datasets",
+        "list_endpoint_hardware",
         "list_inference_catalog",
         "list_inference_endpoints",
         "list_jobs",
@@ -731,6 +733,7 @@ __all__ = [
     "DocumentQuestionAnsweringOutputElement",
     "DocumentQuestionAnsweringParameters",
     "DryRunFileInfo",
+    "EndpointHardware",
     "EvalResult",
     "EvalResultEntry",
     "FLAX_WEIGHTS_NAME",
@@ -1045,6 +1048,7 @@ __all__ = [
     "list_daily_papers",
     "list_dataset_parquet_files",
     "list_datasets",
+    "list_endpoint_hardware",
     "list_inference_catalog",
     "list_inference_endpoints",
     "list_jobs",
@@ -1268,6 +1272,7 @@ if TYPE_CHECKING:  # pragma: no cover
         parse_eval_result_entries,  # noqa: F401
     )
     from ._inference_endpoints import (
+        EndpointHardware,  # noqa: F401
         InferenceEndpoint,  # noqa: F401
         InferenceEndpointError,  # noqa: F401
         InferenceEndpointStatus,  # noqa: F401
@@ -1487,6 +1492,7 @@ if TYPE_CHECKING:  # pragma: no cover
         list_daily_papers,  # noqa: F401
         list_dataset_parquet_files,  # noqa: F401
         list_datasets,  # noqa: F401
+        list_endpoint_hardware,  # noqa: F401
         list_inference_catalog,  # noqa: F401
         list_inference_endpoints,  # noqa: F401
         list_jobs,  # noqa: F401

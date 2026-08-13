@@ -52,6 +52,7 @@ from huggingface_hub.hf_api import (
     CommitInfo,
     DatasetInfo,
     DatasetLeaderboardEntry,
+    EndpointHardware,
     ExpandDatasetProperty_T,
     ExpandModelProperty_T,
     ExpandSpaceProperty_T,
@@ -4671,6 +4672,132 @@ class TestHfApiInferenceCatalog:
             api.create_inference_endpoint_from_catalog(
                 repo_id="meta-llama/Llama-3.2-3B-Instruct", namespace="Wauplin", token=False
             )
+
+
+def _compute(vendor: str, region: str, instance_type: str, instance_size: str, **kwargs) -> dict:
+    return {
+        "id": f"{vendor}-{region}-{instance_type}-{instance_size}",
+        "accelerator": "gpu",
+        "numAccelerators": 1,
+        "numCpus": 8,
+        "memoryGb": 30.0,
+        "gpuMemoryGb": 24,
+        "instanceType": instance_type,
+        "instanceSize": instance_size,
+        "architecture": "Nvidia L4",
+        "status": "available",
+        "pricePerHour": 0.8,
+        "quota": {"maxAccelerators": 4, "usedAccelerators": 1},
+        **kwargs,
+    }
+
+
+PROVIDER_RESPONSE = {
+    "vendors": [
+        {
+            "name": "aws",
+            "status": "available",
+            "regions": [
+                {
+                    "name": "us-east-1",
+                    "label": "N. Virginia (us-east-1)",
+                    "status": "available",
+                    "computes": [
+                        _compute("aws", "us-east-1", "nvidia-l4", "x1"),
+                        _compute("aws", "us-east-1", "nvidia-t4", "x1", status="deprecated"),
+                    ],
+                },
+                {
+                    "name": "eu-west-1",
+                    "label": "Dublin (eu-west-1)",
+                    "status": "available",
+                    "computes": [
+                        _compute(
+                            "aws", "eu-west-1", "intel-spr", "x1", accelerator="cpu", gpuMemoryGb=None, quota=None
+                        )
+                    ],
+                },
+            ],
+        },
+        {
+            "name": "gcp",
+            "status": "available",
+            "regions": [
+                {
+                    "name": "us-east4",
+                    "label": "Virginia (us-east4)",
+                    "status": "available",
+                    "computes": [_compute("gcp", "us-east4", "nvidia-l4", "x4")],
+                },
+            ],
+        },
+    ]
+}
+
+
+class TestHfApiEndpointHardware:
+    @pytest.fixture
+    def mock_get(self, mocker) -> Mock:
+        mock_get_session = mocker.patch("huggingface_hub.hf_api.get_session")
+        mock_get_session.return_value.get.return_value.json.return_value = PROVIDER_RESPONSE
+        return mock_get_session.return_value.get
+
+    def test_list_endpoint_hardware(self, api: HfApi, mock_get: Mock) -> None:
+        hardware = api.list_endpoint_hardware()
+
+        assert mock_get.call_args[0][0] == "https://api.endpoints.huggingface.cloud/v2/provider"
+
+        # Deprecated/unavailable hardware is filtered out by default.
+        assert [hw.id for hw in hardware] == [
+            "aws-us-east-1-nvidia-l4-x1",
+            "aws-eu-west-1-intel-spr-x1",
+            "gcp-us-east4-nvidia-l4-x4",
+        ]
+
+        hardware_item = hardware[0]
+        assert isinstance(hardware_item, EndpointHardware)
+        assert hardware_item.vendor == "aws"
+        assert hardware_item.region == "us-east-1"
+        assert hardware_item.accelerator == "gpu"
+        assert hardware_item.instance_type == "nvidia-l4"
+        assert hardware_item.instance_size == "x1"
+        assert hardware_item.architecture == "Nvidia L4"
+        assert hardware_item.status == "available"
+        assert hardware_item.price_per_hour == 0.8
+        assert hardware_item.num_accelerators == 1
+        assert hardware_item.num_cpus == 8
+        assert hardware_item.memory_gb == 30.0
+        assert hardware_item.gpu_memory_gb == 24
+        assert hardware_item.used_accelerators == 1
+        assert hardware_item.max_accelerators == 4
+
+        # A missing quota (e.g. unauthenticated call) is not an error.
+        assert hardware[1].used_accelerators is None
+        assert hardware[1].max_accelerators is None
+
+    def test_list_endpoint_hardware_include_unavailable(self, api: HfApi, mock_get: Mock) -> None:
+        hardware = api.list_endpoint_hardware(include_unavailable=True)
+        assert [hw.id for hw in hardware] == [
+            "aws-us-east-1-nvidia-l4-x1",
+            "aws-us-east-1-nvidia-t4-x1",
+            "aws-eu-west-1-intel-spr-x1",
+            "gcp-us-east4-nvidia-l4-x4",
+        ]
+
+    def test_list_endpoint_hardware_filters(self, api: HfApi, mock_get: Mock) -> None:
+        assert [hw.id for hw in api.list_endpoint_hardware(vendor="gcp")] == ["gcp-us-east4-nvidia-l4-x4"]
+        assert [hw.id for hw in api.list_endpoint_hardware(region="eu-west-1")] == ["aws-eu-west-1-intel-spr-x1"]
+        assert [hw.id for hw in api.list_endpoint_hardware(accelerator="cpu")] == ["aws-eu-west-1-intel-spr-x1"]
+        assert [hw.id for hw in api.list_endpoint_hardware(instance_type="nvidia-l4")] == [
+            "aws-us-east-1-nvidia-l4-x1",
+            "gcp-us-east4-nvidia-l4-x4",
+        ]
+        assert api.list_endpoint_hardware(vendor="gcp", accelerator="cpu") == []
+
+    def test_list_endpoint_hardware_with_namespace(self, api: HfApi, mock_get: Mock) -> None:
+        # Quota values are only meaningful when scoped to a namespace.
+        api.list_endpoint_hardware(namespace="Wauplin")
+        assert mock_get.call_args[0][0] == "https://api.endpoints.huggingface.cloud/v2/provider/Wauplin"
 
 
 @pytest.mark.parametrize(

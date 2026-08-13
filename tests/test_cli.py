@@ -14,6 +14,7 @@ from click.testing import CliRunner
 
 from huggingface_hub import HfApi, constants
 from huggingface_hub._dataset_viewer import DatasetParquetEntry
+from huggingface_hub._inference_endpoints import EndpointHardware
 from huggingface_hub._jobs_api import JobInfo, JobOwner, _create_job_spec, _derive_job_volume_name
 from huggingface_hub._space_api import Volume
 from huggingface_hub.cli import _skills, system
@@ -2967,6 +2968,78 @@ class TestInferenceEndpointsCommands:
         api.list_inference_catalog.assert_called_once_with(token=None)
         assert '"models"' in result.stdout
         assert '"model"' in result.stdout
+
+    def test_hardware(self, runner: CliRunner) -> None:
+        hardware = EndpointHardware.from_raw(
+            {
+                "id": "aws-us-east-1-nvidia-l4-x1",
+                "accelerator": "gpu",
+                "numAccelerators": 1,
+                "numCpus": 8,
+                "memoryGb": 30.0,
+                "gpuMemoryGb": 24,
+                "instanceType": "nvidia-l4",
+                "instanceSize": "x1",
+                "architecture": "Nvidia L4",
+                "status": "available",
+                "pricePerHour": 0.8,
+                "quota": {"maxAccelerators": 0, "usedAccelerators": 0},
+            },
+            vendor="aws",
+            region="us-east-1",
+        )
+        with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_endpoint_hardware.return_value = [hardware]
+            result = runner.invoke(app, ["endpoints", "hardware", "--accelerator", "gpu", "--format", "json"])
+        assert result.exit_code == 0
+        api_cls.assert_called_once_with(token=None)
+        api.list_endpoint_hardware.assert_called_once_with(
+            namespace=None,
+            vendor=None,
+            region=None,
+            accelerator="gpu",
+            instance_type=None,
+            include_unavailable=False,
+            token=None,
+        )
+        output = json.loads(result.stdout)
+        assert output == [
+            {
+                "vendor": "aws",
+                "region": "us-east-1",
+                "accelerator": "gpu",
+                "instance type": "nvidia-l4",
+                "instance size": "x1",
+                "gpu memory": "24 GB",
+                "ram": "30 GB",
+                "$/hour": 0.8,
+            }
+        ]
+
+    def test_hardware_human_output_with_quota(self, runner: CliRunner) -> None:
+        hardware = Mock(
+            vendor="aws",
+            region="us-east-1",
+            accelerator="gpu",
+            instance_type="nvidia-l4",
+            instance_size="x1",
+            gpu_memory_gb=24,
+            memory_gb=30.0,
+            price_per_hour=0.8,
+            status="available",
+            used_accelerators=1,
+            max_accelerators=4,
+        )
+        with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_endpoint_hardware.return_value = [hardware]
+            result = runner.invoke(app, ["endpoints", "hardware", "--namespace", "my-org", "--format", "human"])
+        assert result.exit_code == 0
+        assert "INSTANCE TYPE" in result.stdout
+        assert "nvidia-l4" in result.stdout
+        assert "QUOTA" in result.stdout
+        assert "1/4" in result.stdout
 
 
 @contextmanager

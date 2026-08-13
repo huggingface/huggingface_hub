@@ -65,7 +65,12 @@ from ._commit_api import (
 )
 from ._dataset_viewer import DatasetParquetEntry
 from ._eval_results import EvalResultEntry, parse_eval_result_entries
-from ._inference_endpoints import InferenceEndpoint, InferenceEndpointScalingMetric, InferenceEndpointType
+from ._inference_endpoints import (
+    EndpointHardware,
+    InferenceEndpoint,
+    InferenceEndpointScalingMetric,
+    InferenceEndpointType,
+)
 from ._jobs_api import (
     TERMINAL_JOB_STAGES,
     JobHardware,
@@ -9694,6 +9699,74 @@ class HfApi:
         hf_raise_for_status(response)
         return response.json()["models"]
 
+    def list_endpoint_hardware(
+        self,
+        *,
+        namespace: str | None = None,
+        vendor: str | None = None,
+        region: str | None = None,
+        accelerator: str | None = None,
+        instance_type: str | None = None,
+        include_unavailable: bool = False,
+        token: bool | str | None = None,
+    ) -> list[EndpointHardware]:
+        """List the hardware configurations available for Inference Endpoints.
+
+        Use this to discover the `vendor`, `region`, `accelerator`, `instance_type` and `instance_size` values
+        accepted by [`create_inference_endpoint`].
+
+        Args:
+            namespace (`str`, *optional*):
+                The namespace to list hardware for. If provided, the returned quota values reflect the actual usage
+                and limits of that namespace. Defaults to listing the hardware catalog without quota information.
+            vendor (`str`, *optional*):
+                Only return hardware hosted by this cloud vendor (e.g. `"aws"`).
+            region (`str`, *optional*):
+                Only return hardware available in this cloud region (e.g. `"us-east-1"`).
+            accelerator (`str`, *optional*):
+                Only return hardware with this accelerator (e.g. `"cpu"`, `"gpu"`, `"neuron"`).
+            instance_type (`str`, *optional*):
+                Only return hardware with this instance type (e.g. `"nvidia-l4"`).
+            include_unavailable (`bool`, *optional*):
+                Whether to also return hardware that is deprecated or not available. Defaults to `False`.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            list[`EndpointHardware`]: A list of available hardware configurations.
+
+        Example:
+        ```python
+        >>> from huggingface_hub import list_endpoint_hardware
+        >>> list_endpoint_hardware(vendor="aws", accelerator="gpu")[0]
+        EndpointHardware(id='aws-us-east-1-nvidia-l4-x1', vendor='aws', region='us-east-1', accelerator='gpu', instance_type='nvidia-l4', instance_size='x1', architecture='Nvidia L4', status='available', price_per_hour=0.8)
+        ```
+        """
+        path = f"{constants.INFERENCE_ENDPOINTS_ENDPOINT}/provider"
+        if namespace is not None:
+            path += f"/{namespace}"
+        response = get_session().get(path, headers=self._build_hf_headers(token=token))
+        hf_raise_for_status(response)
+
+        hardware = [
+            EndpointHardware.from_raw(compute, vendor=vendor_item["name"], region=region_item["name"])
+            for vendor_item in response.json()["vendors"]
+            for region_item in vendor_item["regions"]
+            for compute in region_item["computes"]
+        ]
+        return [
+            item
+            for item in hardware
+            if (include_unavailable or item.status == "available")
+            and (vendor is None or item.vendor == vendor)
+            and (region is None or item.region == region)
+            and (accelerator is None or item.accelerator == accelerator)
+            and (instance_type is None or item.instance_type == instance_type)
+        ]
+
     def get_inference_endpoint(
         self, name: str, *, namespace: str | None = None, token: bool | str | None = None
     ) -> InferenceEndpoint:
@@ -15167,6 +15240,7 @@ resume_inference_endpoint = api.resume_inference_endpoint
 scale_to_zero_inference_endpoint = api.scale_to_zero_inference_endpoint
 create_inference_endpoint_from_catalog = api.create_inference_endpoint_from_catalog
 list_inference_catalog = api.list_inference_catalog
+list_endpoint_hardware = api.list_endpoint_hardware
 
 # Collections API
 get_collection = api.get_collection

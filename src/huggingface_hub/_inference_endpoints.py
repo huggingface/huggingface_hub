@@ -41,6 +41,104 @@ class InferenceEndpointScalingMetric(str, Enum):
 
 
 @dataclass
+class EndpointHardware:
+    """
+    Contains information about a hardware configuration available for Inference Endpoints.
+
+    Each item describes a single (vendor, region, instance type, instance size) combination, i.e. exactly the values
+    expected by [`HfApi.create_inference_endpoint`].
+
+    Args:
+        id (`str`):
+            The unique identifier of the hardware configuration (e.g. `"aws-us-east-1-nvidia-l4-x1"`).
+        vendor (`str`):
+            The cloud vendor hosting the hardware (e.g. `"aws"`).
+        region (`str`):
+            The cloud region in which the hardware is available (e.g. `"us-east-1"`).
+        accelerator (`str`):
+            The hardware accelerator (e.g. `"cpu"`, `"gpu"`, `"neuron"`).
+        instance_type (`str`):
+            The cloud instance type (e.g. `"nvidia-l4"`).
+        instance_size (`str`):
+            The instance size (e.g. `"x1"`).
+        architecture (`str`):
+            A human-readable name of the hardware architecture (e.g. `"Nvidia L4"`).
+        status (`str`):
+            The availability of the hardware (e.g. `"available"`, `"not_available"`, `"deprecated"`).
+        price_per_hour (`float`):
+            The hourly price in USD.
+        num_accelerators (`int`):
+            The number of accelerators (GPUs, Neuron cores or vCPU-based units).
+        num_cpus (`int`, *optional*):
+            The number of vCPUs, if reported by the server.
+        memory_gb (`float`, *optional*):
+            The amount of RAM in GB, if reported by the server.
+        gpu_memory_gb (`int`, *optional*):
+            The total amount of GPU memory in GB. `None` for non-GPU hardware.
+        used_accelerators (`int`, *optional*):
+            The number of accelerators already used by the namespace. Only meaningful when listing hardware for a
+            specific namespace.
+        max_accelerators (`int`, *optional*):
+            The maximum number of accelerators the namespace is allowed to use. Only meaningful when listing hardware
+            for a specific namespace.
+        raw (`dict`):
+            The raw dictionary data returned from the API.
+
+    Example:
+        ```python
+        >>> from huggingface_hub import list_endpoint_hardware
+        >>> list_endpoint_hardware(vendor="aws", accelerator="gpu")[0]
+        EndpointHardware(id='aws-us-east-1-nvidia-l4-x1', vendor='aws', region='us-east-1', accelerator='gpu', instance_type='nvidia-l4', instance_size='x1', architecture='Nvidia L4', status='available', price_per_hour=0.8)
+        ```
+    """
+
+    # Fields in __repr__
+    id: str
+    vendor: str
+    region: str
+    accelerator: str
+    instance_type: str
+    instance_size: str
+    architecture: str
+    status: str
+    price_per_hour: float
+
+    # Other fields
+    num_accelerators: int = field(repr=False)
+    num_cpus: int | None = field(repr=False)
+    memory_gb: float | None = field(repr=False)
+    gpu_memory_gb: int | None = field(repr=False)
+    used_accelerators: int | None = field(repr=False)
+    max_accelerators: int | None = field(repr=False)
+
+    # Raw dict from the API
+    raw: dict = field(repr=False)
+
+    @classmethod
+    def from_raw(cls, raw: dict, *, vendor: str, region: str) -> "EndpointHardware":
+        """Initialize object from a raw compute dictionary, as returned by the `/v2/provider` API."""
+        quota = raw.get("quota") or {}
+        return cls(
+            id=raw["id"],
+            vendor=vendor,
+            region=region,
+            accelerator=raw["accelerator"],
+            instance_type=raw["instanceType"],
+            instance_size=raw["instanceSize"],
+            architecture=raw["architecture"],
+            status=raw["status"],
+            price_per_hour=raw["pricePerHour"],
+            num_accelerators=raw["numAccelerators"],
+            num_cpus=raw.get("numCpus"),
+            memory_gb=raw.get("memoryGb"),
+            gpu_memory_gb=raw.get("gpuMemoryGb"),
+            used_accelerators=quota.get("usedAccelerators"),
+            max_accelerators=quota.get("maxAccelerators"),
+            raw=raw,
+        )
+
+
+@dataclass
 class InferenceEndpoint:
     """
     Contains information about a deployed Inference Endpoint.
