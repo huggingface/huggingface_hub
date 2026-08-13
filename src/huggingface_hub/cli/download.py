@@ -163,7 +163,9 @@ def download(
             if exclude is not None and len(exclude) > 0:
                 raise CLIError(
                     f"Cannot combine filenames ('{regular_filenames[0]}') with `--exclude`. "
-                    f'Please use `--include "{regular_filenames[0]}"` with `--exclude` instead.'
+                    "`--exclude` takes one pattern per occurrence: repeat it "
+                    f'(e.g. `--exclude "{exclude[0]}" --exclude "{regular_filenames[0]}"`), '
+                    f'or use `--include "{regular_filenames[0]}"` with `--exclude` to select files explicitly.'
                 )
 
         # Single file to download (not a subfolder): use `hf_hub_download`
