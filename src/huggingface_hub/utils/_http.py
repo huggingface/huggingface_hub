@@ -72,6 +72,17 @@ class RateLimitInfo:
     limit: int | None = None
     window_seconds: int | None = None
 
+    @property
+    def is_exhausted(self) -> bool:
+        """Whether the quota described by these headers is actually exhausted.
+
+        The server sets `RateLimit` headers on every response, so a 429 can be returned for a
+        different reason (e.g. a per-action quota such as repo creation) while the window described
+        by the headers still has requests remaining. In that case the headers must not be used to
+        explain the error nor to compute how long to wait before retrying.
+        """
+        return self.remaining <= 0
+
 
 # Regex patterns for parsing rate limit headers
 # e.g.: "api";r=0;t=55 --> resource_type="api", r=0, t=55
@@ -490,6 +501,7 @@ def _http_backoff_base(
                 if (
                     response.status_code == 429
                     and (ratelimit_info := parse_ratelimit_headers(response.headers)) is not None
+                    and ratelimit_info.is_exhausted
                 ):
                     ratelimit_reset = ratelimit_info.reset_in_seconds
                 elif (retry_after := _parse_retry_after(response.headers)) is not None:
@@ -899,7 +911,7 @@ def hf_raise_for_status(response: httpx.Response, endpoint_name: str | None = No
 
         elif response.status_code == 429:
             ratelimit_info = parse_ratelimit_headers(response.headers)
-            if ratelimit_info is not None:
+            if ratelimit_info is not None and ratelimit_info.is_exhausted:
                 message = (
                     f"\n\n429 Too Many Requests: you have reached your '{ratelimit_info.resource_type}' rate limit."
                 )
