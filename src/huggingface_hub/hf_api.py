@@ -754,6 +754,17 @@ def _resolve_copy_target_path(
     return f"{destination_path.rstrip('/')}/{rel_path}"
 
 
+def _build_endpoint_image_payload(custom_image: dict) -> dict:
+    """Build the `model.image` payload of an Inference Endpoint from a user-provided image dict.
+
+    Already-keyed dicts (e.g. `{"vLLM": {...}}`, `{"tgi": {...}}`) are forwarded as-is, anything else is
+    assumed to describe a custom container and is wrapped in `{"custom": ...}`.
+    """
+    if next(iter(custom_image), None) in constants.INFERENCE_ENDPOINT_IMAGE_KEYS:
+        return custom_image
+    return {"custom": custom_image}
+
+
 @dataclass
 class RepoSibling:
     """
@@ -9412,9 +9423,10 @@ class HfApi:
             task (`str`, *optional*):
                 The task on which to deploy the model (e.g. `"text-classification"`).
             custom_image (`dict`, *optional*):
-                A custom Docker image to use for the Inference Endpoint. This is useful if you want to deploy an
-                Inference Endpoint running on the `text-generation-inference` (TGI) framework or a custom container
-                (see examples).
+                The container image to run. Either a dict keyed by engine to select a managed image (e.g.
+                `{"vLLM": {}}`, `{"tgi": {...}}`, one of `constants.INFERENCE_ENDPOINT_IMAGE_KEYS`), or a flat
+                dict describing a custom container (e.g. `{"url": ..., "port": ...}`), which is sent as
+                `{"custom": ...}` (see examples). Defaults to the Hugging Face managed image.
             container_command (`list[str]`, *optional*):
                 Override the container entrypoint command (maps to `model.command` in the API payload). Works with
                 both managed engine images (e.g. vLLM, SGLang) and custom images.
@@ -9536,14 +9548,7 @@ class HfApi:
                 FutureWarning,
             )
 
-        if custom_image is not None:
-            image = (
-                custom_image
-                if next(iter(custom_image)) in constants.INFERENCE_ENDPOINT_IMAGE_KEYS
-                else {"custom": custom_image}
-            )
-        else:
-            image = {"huggingface": {}}
+        image = _build_endpoint_image_payload(custom_image) if custom_image is not None else {"huggingface": {}}
 
         payload: dict = {
             "accountId": account_id,
@@ -9811,8 +9816,10 @@ class HfApi:
             task (`str`, *optional*):
                 The task on which to deploy the model (e.g. `"text-classification"`).
             custom_image (`dict`, *optional*):
-                A custom Docker image to use for the Inference Endpoint. This is useful if you want to deploy an
-                Inference Endpoint running on the `text-generation-inference` (TGI) framework (see examples).
+                The container image to run. Either a dict keyed by engine to select a managed image (e.g.
+                `{"vLLM": {}}`, `{"tgi": {...}}`, one of `constants.INFERENCE_ENDPOINT_IMAGE_KEYS`), or a flat
+                dict describing a custom container (e.g. `{"url": ..., "port": ...}`), which is sent as
+                `{"custom": ...}`.
             container_command (`list[str]`, *optional*):
                 Override the container entrypoint command (maps to `model.command` in the API payload). Works with
                 both managed engine images (e.g. vLLM, SGLang) and custom images.
@@ -9872,7 +9879,7 @@ class HfApi:
         if task is not None:
             payload["model"]["task"] = task
         if custom_image is not None:
-            payload["model"]["image"] = {"custom": custom_image}
+            payload["model"]["image"] = _build_endpoint_image_payload(custom_image)
         if container_command is not None:
             payload["model"]["command"] = container_command
         if container_args is not None:

@@ -4722,8 +4722,19 @@ class TestHfApiInferenceCatalog:
                 }
             },
         ),
+        # Case 5: Explicitly keyed with a managed engine image ('vLLM')
+        (
+            {"vLLM": {"tensorParallelSize": 8}},
+            {"vLLM": {"tensorParallelSize": 8}},
+        ),
     ],
-    ids=["no_custom_image", "flat_dict_custom_image", "keyed_tgi_custom_image", "keyed_custom_custom_image"],
+    ids=[
+        "no_custom_image",
+        "flat_dict_custom_image",
+        "keyed_tgi_custom_image",
+        "keyed_custom_custom_image",
+        "keyed_vllm_custom_image",
+    ],
 )
 def test_create_inference_endpoint_custom_image_payload(
     mocker,
@@ -4910,6 +4921,44 @@ def test_update_inference_endpoint_container_command_and_args_empty_payload(mock
     payload = mock_session.put.call_args[1]["json"]
     assert payload["model"]["command"] == []
     assert payload["model"]["args"] == []
+
+
+@pytest.mark.parametrize(
+    "custom_image, expected_image_payload",
+    [
+        # A keyed image is forwarded as-is, whether it's a managed engine or an explicit custom container.
+        ({"sGLang": {}}, {"sGLang": {}}),
+        ({"custom": {"url": "another.registry/custom:v2"}}, {"custom": {"url": "another.registry/custom:v2"}}),
+        # A flat dict describes a custom container and gets wrapped.
+        (
+            {"url": "my.registry/my-image:latest", "port": 8080},
+            {"custom": {"url": "my.registry/my-image:latest", "port": 8080}},
+        ),
+    ],
+    ids=["keyed_sglang_custom_image", "keyed_custom_custom_image", "flat_dict_custom_image"],
+)
+def test_update_inference_endpoint_custom_image_payload(mocker, custom_image: dict, expected_image_payload: dict):
+    mock_session = mocker.patch("huggingface_hub.hf_api.get_session").return_value
+    mock_response = Mock()
+    mock_response.raise_for_status.return_value = None
+    mock_response.json.return_value = {
+        "name": "lfm2-endpoint",
+        "model": {"repository": "LiquidAI/LFM2-8B-A1B", "framework": "pytorch", "revision": None, "task": None},
+        "status": {
+            "state": "pending",
+            "createdAt": "2025-03-07T15:30:13.949Z",
+            "updatedAt": "2025-03-07T15:30:13.949Z",
+        },
+        "healthRoute": "/health",
+        "type": "authenticated",
+    }
+    mock_session.put.return_value = mock_response
+
+    api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
+    api.update_inference_endpoint(name="lfm2-endpoint", namespace="Wauplin", custom_image=custom_image)
+
+    payload = mock_session.put.call_args[1]["json"]
+    assert payload["model"]["image"] == expected_image_payload
 
 
 class TestHfApiVerifyChecksums:
