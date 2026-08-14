@@ -4739,6 +4739,21 @@ class TestHfApiInferenceCatalog:
             {"vllm": {"url": "vllm/vllm-openai:v0.23.0"}},
             {"vllm": {"url": "vllm/vllm-openai:v0.23.0"}},
         ),
+        # Case 8: `url` is looked up anywhere in the dict, so the payload doesn't depend on key insertion
+        # order. Malformed on purpose (a variant key mixed with container fields): the API rejects it either
+        # way, we just don't want the same content to produce two different payloads.
+        (
+            {"tgi": {"url": "ghcr.io/huggingface/text-generation-inference:latest"}, "url": "my.registry/i:v1"},
+            {
+                "custom": {
+                    "tgi": {"url": "ghcr.io/huggingface/text-generation-inference:latest"},
+                    "url": "my.registry/i:v1",
+                }
+            },
+        ),
+        # Case 9: An empty dict has no `url` to discriminate on, so it reaches the API as-is rather than being
+        # reinterpreted as "no custom image".
+        ({}, {}),
     ],
     ids=[
         "no_custom_image",
@@ -4748,6 +4763,8 @@ class TestHfApiInferenceCatalog:
         "keyed_vllm_custom_image",
         "unknown_variant_custom_image",
         "mistyped_variant_custom_image",
+        "key_order_independent_custom_image",
+        "empty_custom_image",
     ],
 )
 def test_create_inference_endpoint_custom_image_payload(
