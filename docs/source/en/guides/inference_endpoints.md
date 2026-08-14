@@ -100,10 +100,10 @@ By default the Inference Endpoint is built from a docker image provided by Huggi
 
 The value to pass as `custom_image` is a dictionary containing a url to the docker container and configuration to run it. For more details about it, checkout the [Swagger documentation](https://api.endpoints.huggingface.cloud/#/v2%3A%3Aendpoint/create_endpoint).
 
-`custom_image` also accepts the managed engine images maintained by Hugging Face, by keying the dictionary with the engine name instead of describing a container. The supported keys are listed in `constants.INFERENCE_ENDPOINT_IMAGE_KEYS` (`vLLM`, `sGLang`, `tgi`, `tei`, `llamacpp`, ...):
+`custom_image` also accepts the engine images managed by Hugging Face, by keying the dictionary with the engine name instead of leaving it flat. The supported keys are listed in `constants.INFERENCE_ENDPOINT_IMAGE_KEYS` (`vLLM`, `sGLang`, `tgi`, `tei`, `llamacpp`, ...) and each engine takes its own tuning options on top of the container ones:
 
 ```python
-# Start an Inference Endpoint running the managed vLLM image
+# Start an Inference Endpoint running the vLLM engine image
 >>> endpoint = create_inference_endpoint(
 ...     "llama-3-1-8b-instruct-vllm",
 ...     repository="meta-llama/Llama-3.1-8B-Instruct",
@@ -113,10 +113,19 @@ The value to pass as `custom_image` is a dictionary containing a url to the dock
 ...     vendor="aws",
 ...     region="us-east-1",
 ...     instance_size="x1",
-...     instance_type="nvidia-a10g",
-...     custom_image={"vLLM": {}},
+...     instance_type="nvidia-l4",
+...     custom_image={
+...         "vLLM": {
+...             "url": "vllm/vllm-openai:v0.23.0",
+...             "healthRoute": "/health",
+...             "port": 8000,
+...             "tensorParallelSize": 1,
+...         }
+...     },
 ... )
 ```
+
+Without the engine key, the same dictionary is sent as a plain custom container, so the engine-specific options (here `tensorParallelSize`) are dropped.
 
 For containers that need a custom entrypoint or runtime flags, pass `container_command` and/or `container_args` (each a list of tokens). They map to `model.command` and `model.args` in the API payload. They are not tied to custom images: managed engine images (e.g. vLLM, SGLang) accept engine flags through `container_args` as well. The same is available from the CLI via `hf endpoints deploy ... --container-command "..." --container-args "..."`.
 

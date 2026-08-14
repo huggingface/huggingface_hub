@@ -303,9 +303,9 @@ class InferenceEndpoint:
                 The task on which to deploy the model (e.g. `"text-classification"`).
             custom_image (`dict`, *optional*):
                 The container image to run. Either a dict keyed by engine to select a managed image (e.g.
-                `{"vLLM": {}}`, `{"tgi": {...}}`, one of `constants.INFERENCE_ENDPOINT_IMAGE_KEYS`), or a flat
-                dict describing a custom container (e.g. `{"url": ..., "port": ...}`), which is sent as
-                `{"custom": ...}`.
+                `{"vLLM": {"url": "vllm/vllm-openai:v0.23.0", "port": 8000}}`, one of
+                `constants.INFERENCE_ENDPOINT_IMAGE_KEYS`), or a flat dict describing a custom container
+                (e.g. `{"url": ..., "port": ...}`), which is sent as `{"custom": ...}`.
             container_command (`list[str]`, *optional*):
                 Override the container entrypoint command (maps to `model.command` in the API payload). Works with
                 both managed engine images (e.g. vLLM, SGLang) and custom images.

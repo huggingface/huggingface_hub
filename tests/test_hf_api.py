@@ -4722,10 +4722,10 @@ class TestHfApiInferenceCatalog:
                 }
             },
         ),
-        # Case 5: Explicitly keyed with a managed engine image ('vLLM')
+        # Case 5: Explicitly keyed with an engine image ('vLLM'), engine options included
         (
-            {"vLLM": {"tensorParallelSize": 8}},
-            {"vLLM": {"tensorParallelSize": 8}},
+            {"vLLM": {"url": "vllm/vllm-openai:v0.23.0", "port": 8000, "tensorParallelSize": 8}},
+            {"vLLM": {"url": "vllm/vllm-openai:v0.23.0", "port": 8000, "tensorParallelSize": 8}},
         ),
     ],
     ids=[
@@ -4926,8 +4926,11 @@ def test_update_inference_endpoint_container_command_and_args_empty_payload(mock
 @pytest.mark.parametrize(
     "custom_image, expected_image_payload",
     [
-        # A keyed image is forwarded as-is, whether it's a managed engine or an explicit custom container.
-        ({"sGLang": {}}, {"sGLang": {}}),
+        # A keyed image is forwarded as-is, whether it's an engine image or an explicit custom container.
+        (
+            {"sGLang": {"url": "lmsysorg/sglang:v0.5.2rc1-cu126", "port": 30000}},
+            {"sGLang": {"url": "lmsysorg/sglang:v0.5.2rc1-cu126", "port": 30000}},
+        ),
         ({"custom": {"url": "another.registry/custom:v2"}}, {"custom": {"url": "another.registry/custom:v2"}}),
         # A flat dict describes a custom container and gets wrapped.
         (
