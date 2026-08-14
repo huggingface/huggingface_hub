@@ -295,8 +295,8 @@ _SUBMOD_ATTRS = {
         "list_dataset_parquet_files",
         "list_datasets",
         "list_inference_catalog",
-        "list_inference_endpoint_hardware",
         "list_inference_endpoints",
+        "list_inference_endpoints_hardware",
         "list_jobs",
         "list_jobs_hardware",
         "list_lfs_files",
@@ -1049,8 +1049,8 @@ __all__ = [
     "list_dataset_parquet_files",
     "list_datasets",
     "list_inference_catalog",
-    "list_inference_endpoint_hardware",
     "list_inference_endpoints",
+    "list_inference_endpoints_hardware",
     "list_jobs",
     "list_jobs_hardware",
     "list_lfs_files",
@@ -1493,8 +1493,8 @@ if TYPE_CHECKING:  # pragma: no cover
         list_dataset_parquet_files,  # noqa: F401
         list_datasets,  # noqa: F401
         list_inference_catalog,  # noqa: F401
-        list_inference_endpoint_hardware,  # noqa: F401
         list_inference_endpoints,  # noqa: F401
+        list_inference_endpoints_hardware,  # noqa: F401
         list_jobs,  # noqa: F401
         list_jobs_hardware,  # noqa: F401
         list_lfs_files,  # noqa: F401

@@ -9392,6 +9392,9 @@ class HfApi:
     ) -> InferenceEndpoint:
         """Create a new Inference Endpoint.
 
+        The `accelerator`, `instance_size`, `instance_type`, `region` and `vendor` values depend on each other; use
+        [`list_inference_endpoints_hardware`] to list the valid combinations.
+
         Args:
             name (`str`):
                 The unique name for the new Inference Endpoint.
@@ -10058,7 +10061,7 @@ class HfApi:
 
         return InferenceEndpoint.from_raw(response.json(), namespace=namespace, token=token)
 
-    def list_inference_endpoint_hardware(
+    def list_inference_endpoints_hardware(
         self, *, namespace: str | None = None, token: bool | str | None = None
     ) -> list[InferenceEndpointHardware]:
         """List the hardware available to deploy an Inference Endpoint on.
@@ -10068,7 +10071,7 @@ class HfApi:
 
         Args:
             namespace (`str`, *optional*):
-                The namespace to report quota for. Defaults to the current user.
+                The namespace whose available hardware and accelerator quota to list. Defaults to the current user.
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -10082,7 +10085,7 @@ class HfApi:
         ```python
         >>> from huggingface_hub import HfApi
         >>> api = HfApi()
-        >>> hardware = api.list_inference_endpoint_hardware()
+        >>> hardware = api.list_inference_endpoints_hardware()
         >>> [hw.id for hw in hardware if hw.accelerator == "gpu" and hw.status == "available"]
         ['aws-us-east-1-nvidia-l4-x1', 'aws-us-east-1-nvidia-l4-x4', ...]
         ```
@@ -15226,7 +15229,7 @@ resume_inference_endpoint = api.resume_inference_endpoint
 scale_to_zero_inference_endpoint = api.scale_to_zero_inference_endpoint
 create_inference_endpoint_from_catalog = api.create_inference_endpoint_from_catalog
 list_inference_catalog = api.list_inference_catalog
-list_inference_endpoint_hardware = api.list_inference_endpoint_hardware
+list_inference_endpoints_hardware = api.list_inference_endpoints_hardware
 
 # Collections API
 get_collection = api.get_collection

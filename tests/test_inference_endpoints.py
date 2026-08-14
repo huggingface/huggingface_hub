@@ -228,7 +228,7 @@ def test_list_hardware(mock_get_session: Mock):
     """Test the vendor/region/compute matrix is flattened into a list of hardware."""
     mock_get_session.return_value.get.return_value = Mock(status_code=200, json=lambda: MOCK_PROVIDERS)
 
-    hardware = HfApi().list_inference_endpoint_hardware(namespace="foo")
+    hardware = HfApi().list_inference_endpoints_hardware(namespace="foo")
 
     assert mock_get_session.return_value.get.call_args[0][0].endswith("/provider/foo")
     assert [hw.id for hw in hardware] == [

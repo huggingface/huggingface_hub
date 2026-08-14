@@ -14,12 +14,12 @@ This guide assumes `huggingface_hub` is correctly installed and that your machin
 
 ## Find hardware to deploy on
 
-The `accelerator`, `vendor`, `region`, `instance_type` and `instance_size` values accepted by [`create_inference_endpoint`] depend on each other. Use [`list_inference_endpoint_hardware`] to list the valid combinations, along with their price per hour and the accelerator quota of your namespace:
+The `accelerator`, `vendor`, `region`, `instance_type` and `instance_size` values accepted by [`create_inference_endpoint`] depend on each other. Use [`list_inference_endpoints_hardware`] to list the valid combinations, along with their price per hour and the accelerator quota of your namespace:
 
 ```py
->>> from huggingface_hub import list_inference_endpoint_hardware
+>>> from huggingface_hub import list_inference_endpoints_hardware
 
->>> for hw in list_inference_endpoint_hardware():
+>>> for hw in list_inference_endpoints_hardware():
 ...     if hw.accelerator == "gpu" and hw.status == "available":
 ...         print(hw.vendor, hw.region, hw.instance_type, hw.instance_size, hw.price_per_hour)
 aws us-east-1 nvidia-l4 x1 0.8

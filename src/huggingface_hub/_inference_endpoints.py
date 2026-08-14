@@ -474,8 +474,8 @@ class InferenceEndpointHardware:
 
     Example:
         ```python
-        >>> from huggingface_hub import list_inference_endpoint_hardware
-        >>> hardware = list_inference_endpoint_hardware()
+        >>> from huggingface_hub import list_inference_endpoints_hardware
+        >>> hardware = list_inference_endpoints_hardware()
         >>> hardware[0]
         InferenceEndpointHardware(id='aws-us-east-1-nvidia-l4-x1', vendor='aws', region='us-east-1', ...)
         ```
