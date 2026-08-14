@@ -100,7 +100,7 @@ By default the Inference Endpoint is built from a docker image provided by Huggi
 
 The value to pass as `custom_image` is a dictionary containing a url to the docker container and configuration to run it. For more details about it, checkout the [Swagger documentation](https://api.endpoints.huggingface.cloud/#/v2%3A%3Aendpoint/create_endpoint).
 
-`custom_image` also accepts the engine images managed by Hugging Face, by keying the dictionary with the engine name instead of leaving it flat. The supported keys are listed in `constants.INFERENCE_ENDPOINT_IMAGE_KEYS` (`vLLM`, `sGLang`, `tgi`, `tei`, `llamacpp`, ...) and each engine takes its own tuning options on top of the container ones:
+`custom_image` also accepts the engine-specific container types supported by the API, by keying the dictionary with the engine name (`vLLM`, `vLLMNeuron`, `sGLang`, `tgi`, `tgiNeuron`, `tei`, `llamacpp`, `hfServe`, ...) instead of leaving it flat. Each engine takes the usual container fields (`url`, `port`, `healthRoute`) plus its own tuning options. Any dict without a top-level `url` is forwarded to the API untouched, so engines added to the API later work without upgrading `huggingface_hub`:
 
 ```python
 # Start an Inference Endpoint running the vLLM engine image

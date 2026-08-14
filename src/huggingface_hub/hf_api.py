@@ -757,12 +757,18 @@ def _resolve_copy_target_path(
 def _build_endpoint_image_payload(custom_image: dict) -> dict:
     """Build the `model.image` payload of an Inference Endpoint from a user-provided image dict.
 
-    Already-keyed dicts (e.g. `{"vLLM": {...}}`, `{"tgi": {...}}`) are forwarded as-is, anything else is
-    assumed to describe a custom container and is wrapped in `{"custom": ...}`.
+    `model.image` is a union keyed by image variant (`{"vLLM": {...}}`, `{"tgi": {...}}`, `{"custom": {...}}`,
+    ...). A flat container dict always carries `url` (required server-side by every variant but `huggingface`)
+    and no variant is named `url`, so it is the discriminator: dicts with a top-level `url` describe a custom
+    container and get wrapped in `{"custom": ...}`, anything else is already keyed and is forwarded as-is.
+
+    Forwarding unknown keys instead of allow-listing them keeps new engine variants working without a release,
+    and lets the server report a typo (e.g. `vllm` instead of `vLLM`) rather than silently turning it into a
+    malformed custom container.
     """
-    if next(iter(custom_image), None) in constants.INFERENCE_ENDPOINT_IMAGE_KEYS:
-        return custom_image
-    return {"custom": custom_image}
+    if "url" in custom_image:
+        return {"custom": custom_image}
+    return custom_image
 
 
 @dataclass
@@ -9423,10 +9429,11 @@ class HfApi:
             task (`str`, *optional*):
                 The task on which to deploy the model (e.g. `"text-classification"`).
             custom_image (`dict`, *optional*):
-                The container image to run. Either a dict keyed by engine to select a managed image (e.g.
-                `{"vLLM": {"url": "vllm/vllm-openai:v0.23.0", "port": 8000}}`, one of
-                `constants.INFERENCE_ENDPOINT_IMAGE_KEYS`), or a flat dict describing a custom container
-                (e.g. `{"url": ..., "port": ...}`), which is sent as `{"custom": ...}` (see examples). Defaults to the Hugging Face managed image.
+                The container image to run. Either a dict keyed by image variant (e.g.
+                `{"vLLM": {"url": "vllm/vllm-openai:v0.23.0", "port": 8000}}`, also `sGLang`, `tgi`, `tei`,
+                `llamacpp`, `hfServe`, ...), which is forwarded as-is, or a flat dict describing a custom
+                container (e.g. `{"url": ..., "port": ...}`), which is sent as `{"custom": ...}` (see examples).
+                Defaults to the Hugging Face managed image.
             container_command (`list[str]`, *optional*):
                 Override the container entrypoint command (maps to `model.command` in the API payload). Works with
                 both managed engine images (e.g. vLLM, SGLang) and custom images.
@@ -9816,10 +9823,10 @@ class HfApi:
             task (`str`, *optional*):
                 The task on which to deploy the model (e.g. `"text-classification"`).
             custom_image (`dict`, *optional*):
-                The container image to run. Either a dict keyed by engine to select a managed image (e.g.
-                `{"vLLM": {"url": "vllm/vllm-openai:v0.23.0", "port": 8000}}`, one of
-                `constants.INFERENCE_ENDPOINT_IMAGE_KEYS`), or a flat dict describing a custom container
-                (e.g. `{"url": ..., "port": ...}`), which is sent as `{"custom": ...}`.
+                The container image to run. Either a dict keyed by image variant (e.g.
+                `{"vLLM": {"url": "vllm/vllm-openai:v0.23.0", "port": 8000}}`, also `sGLang`, `tgi`, `tei`,
+                `llamacpp`, `hfServe`, ...), which is forwarded as-is, or a flat dict describing a custom
+                container (e.g. `{"url": ..., "port": ...}`), which is sent as `{"custom": ...}`.
             container_command (`list[str]`, *optional*):
                 Override the container entrypoint command (maps to `model.command` in the API payload). Works with
                 both managed engine images (e.g. vLLM, SGLang) and custom images.

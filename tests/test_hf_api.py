@@ -4727,6 +4727,18 @@ class TestHfApiInferenceCatalog:
             {"vLLM": {"url": "vllm/vllm-openai:v0.23.0", "port": 8000, "tensorParallelSize": 8}},
             {"vLLM": {"url": "vllm/vllm-openai:v0.23.0", "port": 8000, "tensorParallelSize": 8}},
         ),
+        # Case 6: An image variant this client version doesn't know about is forwarded as-is, so engines added
+        # to the API later work without upgrading `huggingface_hub`.
+        (
+            {"futureEngine": {"url": "some.registry/future-engine:v1"}},
+            {"futureEngine": {"url": "some.registry/future-engine:v1"}},
+        ),
+        # Case 7: A mistyped variant ('vllm' instead of 'vLLM') also reaches the API, so it can report the bad
+        # key instead of us silently turning it into a malformed custom container.
+        (
+            {"vllm": {"url": "vllm/vllm-openai:v0.23.0"}},
+            {"vllm": {"url": "vllm/vllm-openai:v0.23.0"}},
+        ),
     ],
     ids=[
         "no_custom_image",
@@ -4734,6 +4746,8 @@ class TestHfApiInferenceCatalog:
         "keyed_tgi_custom_image",
         "keyed_custom_custom_image",
         "keyed_vllm_custom_image",
+        "unknown_variant_custom_image",
+        "mistyped_variant_custom_image",
     ],
 )
 def test_create_inference_endpoint_custom_image_payload(
