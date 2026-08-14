@@ -757,14 +757,10 @@ def _resolve_copy_target_path(
 def _build_endpoint_image_payload(custom_image: dict) -> dict:
     """Build the `model.image` payload of an Inference Endpoint from a user-provided image dict.
 
-    `model.image` is a union keyed by image variant (`{"vLLM": {...}}`, `{"tgi": {...}}`, `{"custom": {...}}`,
-    ...). A flat container dict always carries `url` (required server-side by every variant but `huggingface`)
-    and no variant is named `url`, so it is the discriminator: dicts with a top-level `url` describe a custom
-    container and get wrapped in `{"custom": ...}`, anything else is already keyed and is forwarded as-is.
-
-    Forwarding unknown keys instead of allow-listing them keeps new engine variants working without a release,
-    and lets the server report a typo (e.g. `vllm` instead of `vLLM`) rather than silently turning it into a
-    malformed custom container.
+    `model.image` is a union keyed by variant (`{"vLLM": {...}}`, `{"custom": {...}}`, ...). Only a flat
+    container dict has a top-level `url` (required server-side, and no variant is named `url`), so dicts with
+    one are wrapped in `{"custom": ...}`. Everything else is forwarded as-is, so variants added to the API
+    later work without a release.
     """
     if "url" in custom_image:
         return {"custom": custom_image}
