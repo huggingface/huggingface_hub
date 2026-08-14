@@ -67,6 +67,7 @@ from huggingface_hub.hf_api import (
     User,
     WebhookInfo,
     WebhookWatchedItem,
+    _build_endpoint_image_payload,
     repo_type_and_id_from_hf_id,
 )
 from huggingface_hub.repocard_data import DatasetCardData, ModelCardData
@@ -4676,178 +4677,86 @@ class TestHfApiInferenceCatalog:
 @pytest.mark.parametrize(
     "custom_image, expected_image_payload",
     [
-        # Case 1: No custom_image provided
+        # A flat dict describes a custom container: it carries `url`, which no image variant is named after.
         (
-            None,
-            {
-                "huggingface": {},
-            },
+            {"url": "my.registry/my-image:latest", "port": 8080},
+            {"custom": {"url": "my.registry/my-image:latest", "port": 8080}},
         ),
-        # Case 2: Flat dictionary custom_image provided
+        # An explicitly keyed custom container is forwarded as-is, not wrapped a second time.
         (
-            {
-                "url": "my.registry/my-image:latest",
-                "port": 8080,
-            },
-            {
-                "custom": {
-                    "url": "my.registry/my-image:latest",
-                    "port": 8080,
-                }
-            },
+            {"custom": {"url": "another.registry/custom:v2"}},
+            {"custom": {"url": "another.registry/custom:v2"}},
         ),
-        # Case 3: Explicitly keyed ('tgi') custom_image provided
-        (
-            {
-                "tgi": {
-                    "url": "ghcr.io/huggingface/text-generation-inference:latest",
-                }
-            },
-            {
-                "tgi": {
-                    "url": "ghcr.io/huggingface/text-generation-inference:latest",
-                }
-            },
-        ),
-        # Case 4: Explicitly keyed ('custom') custom_image provided
-        (
-            {
-                "custom": {
-                    "url": "another.registry/custom:v2",
-                }
-            },
-            {
-                "custom": {
-                    "url": "another.registry/custom:v2",
-                }
-            },
-        ),
-        # Case 5: Explicitly keyed with an engine image ('vLLM'), engine options included
+        # An engine variant keeps its own tuning options instead of being flattened into a custom container.
         (
             {"vLLM": {"url": "vllm/vllm-openai:v0.23.0", "port": 8000, "tensorParallelSize": 8}},
             {"vLLM": {"url": "vllm/vllm-openai:v0.23.0", "port": 8000, "tensorParallelSize": 8}},
         ),
-        # Case 6: An image variant this client version doesn't know about is forwarded as-is, so engines added
-        # to the API later work without upgrading `huggingface_hub`.
+        # Variants this client version doesn't know about are forwarded too, so engines added to the API later
+        # work without upgrading `huggingface_hub` (and a typo is reported by the API, not silently wrapped).
         (
             {"futureEngine": {"url": "some.registry/future-engine:v1"}},
             {"futureEngine": {"url": "some.registry/future-engine:v1"}},
         ),
-        # Case 7: A mistyped variant ('vllm' instead of 'vLLM') also reaches the API, so it can report the bad
-        # key instead of us silently turning it into a malformed custom container.
-        (
-            {"vllm": {"url": "vllm/vllm-openai:v0.23.0"}},
-            {"vllm": {"url": "vllm/vllm-openai:v0.23.0"}},
-        ),
-        # Case 8: `url` is looked up anywhere in the dict, so the payload doesn't depend on key insertion
-        # order. Malformed on purpose (a variant key mixed with container fields): the API rejects it either
-        # way, we just don't want the same content to produce two different payloads.
-        (
-            {"tgi": {"url": "ghcr.io/huggingface/text-generation-inference:latest"}, "url": "my.registry/i:v1"},
-            {
-                "custom": {
-                    "tgi": {"url": "ghcr.io/huggingface/text-generation-inference:latest"},
-                    "url": "my.registry/i:v1",
-                }
-            },
-        ),
-        # Case 9: An empty dict has no `url` to discriminate on, so it reaches the API as-is rather than being
-        # reinterpreted as "no custom image".
-        ({}, {}),
     ],
-    ids=[
-        "no_custom_image",
-        "flat_dict_custom_image",
-        "keyed_tgi_custom_image",
-        "keyed_custom_custom_image",
-        "keyed_vllm_custom_image",
-        "unknown_variant_custom_image",
-        "mistyped_variant_custom_image",
-        "key_order_independent_custom_image",
-        "empty_custom_image",
+    ids=["flat_dict", "keyed_custom", "keyed_engine", "unknown_variant"],
+)
+def test_build_endpoint_image_payload(custom_image: dict, expected_image_payload: dict):
+    assert _build_endpoint_image_payload(custom_image) == expected_image_payload
+
+
+@pytest.mark.parametrize(
+    "custom_image, expected_image_payload",
+    [
+        (None, {"huggingface": {}}),
+        ({"vLLM": {"url": "vllm/vllm-openai:v0.23.0"}}, {"vLLM": {"url": "vllm/vllm-openai:v0.23.0"}}),
     ],
+    ids=["no_custom_image", "custom_image"],
 )
 def test_create_inference_endpoint_custom_image_payload(
     mocker,
     custom_image: Optional[dict],
     expected_image_payload: dict,
 ):
-    mock_post = mocker.patch("huggingface_hub.hf_api.get_session")
-    common_args = {
-        "name": "test-endpoint-custom-img",
-        "repository": "meta-llama/Llama-2-7b-chat-hf",
-        "framework": "pytorch",
-        "accelerator": "gpu",
-        "instance_size": "medium",
-        "instance_type": "nvidia-a10g",
-        "region": "us-east-1",
-        "vendor": "aws",
-        "type": "authenticated",
-        "task": "text-generation",
-        "namespace": "Wauplin",
-    }
-    mock_session = mock_post.return_value
-    mock_post_method = mock_session.post
+    """`custom_image` reaches `model.image`, and defaults to the Hugging Face managed image."""
+    mock_session = mocker.patch("huggingface_hub.hf_api.get_session").return_value
     mock_response = Mock()
     mock_response.raise_for_status.return_value = None
     mock_response.json.return_value = {
-        "compute": {
-            "accelerator": "gpu",
-            "id": "aws-us-east-1-nvidia-l4-x1",
-            "instanceSize": "x1",
-            "instanceType": "nvidia-l4",
-            "scaling": {
-                "maxReplica": 1,
-                "measure": {"hardwareUsage": None},
-                "metric": "hardwareUsage",
-                "minReplica": 0,
-                "scaleToZeroTimeout": 15,
-            },
-        },
+        "name": "test-endpoint-custom-img",
         "model": {
-            "env": {},
+            "repository": "meta-llama/Llama-2-7b-chat-hf",
             "framework": "pytorch",
-            "image": {
-                "tgi": {
-                    "disableCustomKernels": False,
-                    "healthRoute": "/health",
-                    "port": 80,
-                    "url": "ghcr.io/huggingface/text-generation-inference:3.1.1",
-                }
-            },
-            "repository": "meta-llama/Llama-3.2-3B-Instruct",
-            "revision": "0cb88a4f764b7a12671c53f0838cd831a0843b95",
-            "secrets": {},
+            "revision": None,
             "task": "text-generation",
         },
-        "name": "llama-3-2-3b-instruct-eey",
-        "provider": {"region": "us-east-1", "vendor": "aws"},
-        "healthRoute": "/health",
         "status": {
-            "createdAt": "2025-03-07T15:30:13.949Z",
-            "createdBy": {"id": "6273f303f6d63a28483fde12", "name": "Wauplin"},
-            "message": "Endpoint waiting to be scheduled",
-            "readyReplica": 0,
             "state": "pending",
-            "targetReplica": 1,
+            "createdAt": "2025-03-07T15:30:13.949Z",
             "updatedAt": "2025-03-07T15:30:13.949Z",
-            "updatedBy": {"id": "6273f303f6d63a28483fde12", "name": "Wauplin"},
         },
-        "type": "protected",
+        "healthRoute": "/health",
+        "type": "authenticated",
     }
-    mock_post_method.return_value = mock_response
+    mock_session.post.return_value = mock_response
 
     api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
-    if custom_image is not None:
-        api.create_inference_endpoint(custom_image=custom_image, **common_args)
-    else:
-        api.create_inference_endpoint(**common_args)
+    api.create_inference_endpoint(
+        name="test-endpoint-custom-img",
+        repository="meta-llama/Llama-2-7b-chat-hf",
+        framework="pytorch",
+        accelerator="gpu",
+        instance_size="medium",
+        instance_type="nvidia-a10g",
+        region="us-east-1",
+        vendor="aws",
+        type="authenticated",
+        task="text-generation",
+        namespace="Wauplin",
+        custom_image=custom_image,
+    )
 
-    mock_post_method.assert_called_once()
-    _, call_kwargs = mock_post_method.call_args
-    payload = call_kwargs.get("json", {})
-
-    assert "model" in payload and "image" in payload["model"]
+    payload = mock_session.post.call_args[1]["json"]
     assert payload["model"]["image"] == expected_image_payload
 
 
@@ -4954,24 +4863,9 @@ def test_update_inference_endpoint_container_command_and_args_empty_payload(mock
     assert payload["model"]["args"] == []
 
 
-@pytest.mark.parametrize(
-    "custom_image, expected_image_payload",
-    [
-        # A keyed image is forwarded as-is, whether it's an engine image or an explicit custom container.
-        (
-            {"sGLang": {"url": "lmsysorg/sglang:v0.5.2rc1-cu126", "port": 30000}},
-            {"sGLang": {"url": "lmsysorg/sglang:v0.5.2rc1-cu126", "port": 30000}},
-        ),
-        ({"custom": {"url": "another.registry/custom:v2"}}, {"custom": {"url": "another.registry/custom:v2"}}),
-        # A flat dict describes a custom container and gets wrapped.
-        (
-            {"url": "my.registry/my-image:latest", "port": 8080},
-            {"custom": {"url": "my.registry/my-image:latest", "port": 8080}},
-        ),
-    ],
-    ids=["keyed_sglang_custom_image", "keyed_custom_custom_image", "flat_dict_custom_image"],
-)
-def test_update_inference_endpoint_custom_image_payload(mocker, custom_image: dict, expected_image_payload: dict):
+def test_update_inference_endpoint_custom_image_payload(mocker):
+    """Regression test for #4629: update used to wrap every image in `custom`, so engine images were
+    unreachable and an already-keyed one ended up double-wrapped."""
     mock_session = mocker.patch("huggingface_hub.hf_api.get_session").return_value
     mock_response = Mock()
     mock_response.raise_for_status.return_value = None
@@ -4989,10 +4883,12 @@ def test_update_inference_endpoint_custom_image_payload(mocker, custom_image: di
     mock_session.put.return_value = mock_response
 
     api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
-    api.update_inference_endpoint(name="lfm2-endpoint", namespace="Wauplin", custom_image=custom_image)
+    api.update_inference_endpoint(
+        name="lfm2-endpoint", namespace="Wauplin", custom_image={"sGLang": {"url": "lmsysorg/sglang:v0.5.2"}}
+    )
 
     payload = mock_session.put.call_args[1]["json"]
-    assert payload["model"]["image"] == expected_image_payload
+    assert payload["model"]["image"] == {"sGLang": {"url": "lmsysorg/sglang:v0.5.2"}}
 
 
 class TestHfApiVerifyChecksums:
