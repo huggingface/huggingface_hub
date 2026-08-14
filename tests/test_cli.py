@@ -25,7 +25,7 @@ from huggingface_hub.cli.cache import CacheDeletionCounts
 from huggingface_hub.cli.download import download
 from huggingface_hub.cli.hf import app
 from huggingface_hub.cli.hf import main as hf_main
-from huggingface_hub.cli.jobs import _parse_and_sync_job_volumes, _parse_namespace_from_job_id
+from huggingface_hub.cli.jobs import _get_jobs_stats_rows, _parse_and_sync_job_volumes, _parse_namespace_from_job_id
 from huggingface_hub.cli.skills import build_skill_md
 from huggingface_hub.cli.upload import _resolve_upload_paths, upload
 from huggingface_hub.errors import CLIError, DeviceCodeError, HfUriError, RevisionNotFoundError
@@ -3708,6 +3708,42 @@ class TestJobsCommand:
         assert volume_2.source == "org/b"
         assert volume_2.mount_path == "/output"
         assert volume_2.read_only is None
+
+    @pytest.mark.parametrize("num_gpus", [1, 2, 4, 8])
+    def test_stats_rows_one_row_per_gpu(self, num_gpus: int) -> None:
+        """`hf jobs stats` must render one row per GPU, each with its own metrics."""
+        headers = [
+            "JOB ID",
+            "CPU %",
+            "NUM CPU",
+            "MEM %",
+            "MEM USAGE",
+            "NET I/O",
+            "GPU UTIL %",
+            "GPU MEM %",
+            "GPU MEM USAGE",
+        ]
+        metrics = {
+            "cpu_usage_pct": 42,
+            "cpu_millicores": 8000,
+            "memory_used_bytes": 4_000_000_000,
+            "memory_total_bytes": 16_000_000_000,
+            "rx_bps": 1_000_000,
+            "tx_bps": 2_000_000,
+            "gpus": {
+                f"gpu-{index}": {
+                    "utilization": 10 * (index + 1),
+                    "memory_used_bytes": 1_000_000_000 * (index + 1),
+                    "memory_total_bytes": 80_000_000_000,
+                }
+                for index in range(num_gpus)
+            },
+        }
+        (rows,) = [rows for done, _, rows in _get_jobs_stats_rows("my-job-id", [metrics], headers) if not done]
+
+        assert len(rows) == num_gpus
+        assert all(len(row) == len(headers) for row in rows)
+        assert [row[headers.index("GPU UTIL %")] for row in rows] == [f"{10 * (i + 1)}%" for i in range(num_gpus)]
 
 
 class TestJobsWaitCommand:
