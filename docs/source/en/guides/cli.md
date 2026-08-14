@@ -2285,6 +2285,9 @@ Use `hf endpoints` to list, deploy, describe, and manage Inference Endpoints dir
 # Lists endpoints in your namespace
 >>> hf endpoints ls
 
+# List the hardware you can deploy on
+>>> hf endpoints hardware
+
 # Deploy an endpoint from Model Catalog
 >>> hf endpoints catalog deploy --repo openai/gpt-oss-120b --name my-endpoint
 
@@ -2306,6 +2309,23 @@ Use `hf endpoints` to list, deploy, describe, and manage Inference Endpoints dir
 
 > [!TIP]
 > Add `--namespace` to target an organization, `--token` to override authentication.
+
+#### Find hardware to deploy on
+
+`hf endpoints deploy` needs five hardware flags (`--vendor`, `--region`, `--accelerator`, `--instance-type` and `--instance-size`). `hf endpoints hardware` lists the valid combinations, with the price per hour and the accelerator quota of your namespace:
+
+```bash
+>>> hf endpoints hardware --vendor aws --accelerator gpu
+VENDOR REGION    ACCELERATOR INSTANCE_TYPE INSTANCE_SIZE GPU_MEMORY_GB PRICE_PER_HOUR QUOTA STATUS
+------ --------- ----------- ------------- ------------- ------------- -------------- ----- ---------
+aws    eu-west-1 gpu         nvidia-t4     x1                       16            0.5 1/30  available
+aws    us-east-1 gpu         nvidia-l4     x1                       24            0.8 1/16  available
+aws    us-east-1 gpu         nvidia-l4     x4                       96            3.8 1/16  available
+aws    us-west-2 gpu         nvidia-h200   x1                      141            5.0 1/2   available
+...
+```
+
+The filter flags are the deploy flags (`--vendor`, `--region`, `--accelerator`, `--instance-type`), so whatever you filter on is what you pass to `deploy`. Only hardware you can deploy on right now is listed; add `--all` to also see what is reserved, deprecated or temporarily unavailable. `--format json` adds the per-replica specs (vCPUs, RAM, number of accelerators) to each entry.
 
 #### Deploy a custom container
 

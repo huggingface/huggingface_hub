@@ -1626,6 +1626,7 @@ $ hf endpoints [OPTIONS] COMMAND [ARGS]...
 * `delete`: Delete an Inference Endpoint permanently.
 * `deploy`: Deploy an Inference Endpoint from a Hub...
 * `describe`: Get information about an existing endpoint.
+* `hardware`: List the hardware available to deploy an...
 * `list`: Lists all Inference Endpoints for the... [alias: ls]
 * `list-catalog`: List available Catalog models.
 * `pause`: Pause an Inference Endpoint.
@@ -1805,6 +1806,36 @@ $ hf endpoints describe [OPTIONS] NAME
 
 Examples
   $ hf endpoints describe my-endpoint
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf endpoints hardware`
+
+List the hardware available to deploy an Inference Endpoint on.
+
+**Usage**:
+
+```console
+$ hf endpoints hardware [OPTIONS]
+```
+
+**Options**:
+
+* `--namespace TEXT`: The namespace associated with the Inference Endpoint. Defaults to the current user's namespace.
+* `--vendor TEXT`: Only show hardware hosted by this cloud provider (e.g. 'aws').
+* `--region TEXT`: Only show hardware available in this cloud region (e.g. 'us-east-1').
+* `--accelerator TEXT`: Only show hardware with this accelerator (e.g. 'cpu', 'gpu', 'neuron').
+* `--instance-type TEXT`: Only show hardware of this instance type (e.g. 'nvidia-l4').
+* `--all`: Also show hardware that is not available, reserved or deprecated.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf endpoints hardware
+  $ hf endpoints hardware --vendor aws --accelerator gpu
 
 Learn more
   Use `hf <command> --help` for more information about a command.

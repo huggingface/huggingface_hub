@@ -427,3 +427,92 @@ class InferenceEndpoint:
         self.created_at = parse_datetime(self.raw["status"]["createdAt"])
         self.updated_at = parse_datetime(self.raw["status"]["updatedAt"])
         self.type = self.raw["type"]
+
+
+@dataclass
+class InferenceEndpointHardware:
+    """
+    Contains information about a hardware configuration available for Inference Endpoints.
+
+    The `vendor`, `region`, `accelerator`, `instance_type` and `instance_size` fields are exactly the values to pass to
+    [`create_inference_endpoint`] (or `hf endpoints deploy`) to deploy on this hardware.
+
+    Args:
+        id (`str`):
+            Unique hardware identifier, e.g. `"aws-us-east-1-nvidia-l4-x1"`.
+        vendor (`str`):
+            The cloud provider hosting the hardware, e.g. `"aws"`.
+        region (`str`):
+            The cloud region the hardware is available in, e.g. `"us-east-1"`.
+        accelerator (`str`):
+            The type of hardware accelerator, e.g. `"cpu"`, `"gpu"` or `"neuron"`.
+        instance_type (`str`):
+            The cloud instance type, e.g. `"nvidia-l4"`.
+        instance_size (`str`):
+            The instance size multiplier, e.g. `"x1"`.
+        architecture (`str`):
+            Human-readable hardware description, e.g. `"Nvidia L4"`.
+        num_accelerators (`int`):
+            Number of accelerator units per replica.
+        num_cpus (`int`, *optional*):
+            Number of vCPUs per replica.
+        memory_gb (`float`):
+            RAM per replica, in GB.
+        gpu_memory_gb (`int`, *optional*):
+            Total GPU memory per replica, in GB (i.e. summed over `num_accelerators`). `None` for non-GPU hardware.
+        price_per_hour (`float`):
+            Cost per replica per hour, in USD.
+        status (`str`):
+            Availability of the hardware: `"available"`, `"low_availability"`, `"not_available"`, `"reserved"` or
+            `"deprecated"`.
+        max_accelerators (`int`):
+            Maximum number of accelerators of this type the namespace is allowed to run.
+        used_accelerators (`int`):
+            Number of accelerators of this type currently used by the namespace.
+
+    Example:
+        ```python
+        >>> from huggingface_hub import list_inference_endpoint_hardware
+        >>> hardware = list_inference_endpoint_hardware()
+        >>> hardware[0]
+        InferenceEndpointHardware(id='aws-us-east-1-nvidia-l4-x1', vendor='aws', region='us-east-1', ...)
+        ```
+    """
+
+    id: str
+    vendor: str
+    region: str
+    accelerator: str
+    instance_type: str
+    instance_size: str
+    architecture: str
+    num_accelerators: int
+    num_cpus: int | None
+    memory_gb: float
+    gpu_memory_gb: int | None
+    price_per_hour: float
+    status: str
+    max_accelerators: int
+    used_accelerators: int
+
+    @classmethod
+    def from_raw(cls, raw: dict, *, vendor: str, region: str) -> "InferenceEndpointHardware":
+        """Initialize object from a raw compute dictionary, nested under a vendor and a region in the API response."""
+        quota = raw["quota"]
+        return cls(
+            id=raw["id"],
+            vendor=vendor,
+            region=region,
+            accelerator=raw["accelerator"],
+            instance_type=raw["instanceType"],
+            instance_size=raw["instanceSize"],
+            architecture=raw["architecture"],
+            num_accelerators=raw["numAccelerators"],
+            num_cpus=raw.get("numCpus"),
+            memory_gb=raw["memoryGb"],
+            gpu_memory_gb=raw.get("gpuMemoryGb"),
+            price_per_hour=raw["pricePerHour"],
+            status=raw["status"],
+            max_accelerators=quota["maxAccelerators"],
+            used_accelerators=quota["usedAccelerators"],
+        )

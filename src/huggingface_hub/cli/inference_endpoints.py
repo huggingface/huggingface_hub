@@ -21,7 +21,7 @@ from ._cli_utils import (
     typer_factory,
 )
 from ._framework import Argument, Option
-from ._output import out
+from ._output import _dataclass_to_dict, out
 
 
 ie_cli = typer_factory(help="Manage Hugging Face Inference Endpoints.")
@@ -79,6 +79,87 @@ def ls(
             }
         )
     out.table(results, id_key="name")
+
+
+@ie_cli.command(
+    "hardware",
+    examples=[
+        "hf endpoints hardware",
+        "hf endpoints hardware --vendor aws --accelerator gpu",
+    ],
+)
+def hardware(
+    namespace: NamespaceOpt = None,
+    vendor: Annotated[
+        str | None,
+        Option(help="Only show hardware hosted by this cloud provider (e.g. 'aws')."),
+    ] = None,
+    region: Annotated[
+        str | None,
+        Option(help="Only show hardware available in this cloud region (e.g. 'us-east-1')."),
+    ] = None,
+    accelerator: Annotated[
+        str | None,
+        Option(help="Only show hardware with this accelerator (e.g. 'cpu', 'gpu', 'neuron')."),
+    ] = None,
+    instance_type: Annotated[
+        str | None,
+        Option(help="Only show hardware of this instance type (e.g. 'nvidia-l4')."),
+    ] = None,
+    show_all: Annotated[
+        bool,
+        Option("--all", help="Also show hardware that is not available, reserved or deprecated."),
+    ] = False,
+    token: TokenOpt = None,
+) -> None:
+    """List the hardware available to deploy an Inference Endpoint on."""
+    api = get_hf_api(token=token)
+    hardware_list = api.list_inference_endpoint_hardware(namespace=namespace, token=token)
+
+    # The filters are the deploy flags, so their vocabulary is the deploy vocabulary. Values are lowercase server-side.
+    filters = {
+        field: value.lower()
+        for field, value in (
+            ("vendor", vendor),
+            ("region", region),
+            ("accelerator", accelerator),
+            ("instance_type", instance_type),
+        )
+        if value is not None
+    }
+    matching = [hw for hw in hardware_list if all(getattr(hw, field) == value for field, value in filters.items())]
+    visible = [hw for hw in matching if show_all or hw.status == "available"]
+    # Group by vendor, then region, then accelerator type, and order each instance type from the smallest size up.
+    visible.sort(key=lambda hw: (hw.vendor, hw.region, hw.accelerator, hw.instance_type, hw.price_per_hour))
+
+    # Augment the raw dataclass dict (kept whole for '--format json') with a table-friendly quota column.
+    items = [_dataclass_to_dict(hw) | {"quota": f"{hw.used_accelerators}/{hw.max_accelerators}"} for hw in visible]
+    out.table(
+        items,
+        # 'architecture' and the per-replica specs are dropped from the table (too wide, and mostly redundant with
+        # 'instance_type'); they remain in the items so '--format json' still carries them.
+        headers=[
+            "vendor",
+            "region",
+            "accelerator",
+            "instance_type",
+            "instance_size",
+            "gpu_memory_gb",
+            "price_per_hour",
+            "quota",
+            "status",
+        ],
+        id_key="id",
+    )
+    if visible:
+        hw = visible[0]
+        out.hint(
+            f"Deploy on one of these, e.g.: hf endpoints deploy my-endpoint --repo <repo> --framework <framework> "
+            f"--vendor {hw.vendor} --region {hw.region} --accelerator {hw.accelerator} "
+            f"--instance-type {hw.instance_type} --instance-size {hw.instance_size}"
+        )
+    elif matching:  # everything matching the filters was filtered out by its status
+        out.hint("Use '--all' to also show hardware that is not available, reserved or deprecated.")
 
 
 @ie_cli.command(name="deploy", examples=["hf endpoints deploy my-endpoint --repo gpt2 --framework pytorch ..."])

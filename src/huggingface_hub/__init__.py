@@ -72,6 +72,7 @@ _SUBMOD_ATTRS = {
     "_inference_endpoints": [
         "InferenceEndpoint",
         "InferenceEndpointError",
+        "InferenceEndpointHardware",
         "InferenceEndpointStatus",
         "InferenceEndpointTimeoutError",
         "InferenceEndpointType",
@@ -294,6 +295,7 @@ _SUBMOD_ATTRS = {
         "list_dataset_parquet_files",
         "list_datasets",
         "list_inference_catalog",
+        "list_inference_endpoint_hardware",
         "list_inference_endpoints",
         "list_jobs",
         "list_jobs_hardware",
@@ -785,6 +787,7 @@ __all__ = [
     "InferenceClient",
     "InferenceEndpoint",
     "InferenceEndpointError",
+    "InferenceEndpointHardware",
     "InferenceEndpointStatus",
     "InferenceEndpointTimeoutError",
     "InferenceEndpointType",
@@ -1046,6 +1049,7 @@ __all__ = [
     "list_dataset_parquet_files",
     "list_datasets",
     "list_inference_catalog",
+    "list_inference_endpoint_hardware",
     "list_inference_endpoints",
     "list_jobs",
     "list_jobs_hardware",
@@ -1270,6 +1274,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from ._inference_endpoints import (
         InferenceEndpoint,  # noqa: F401
         InferenceEndpointError,  # noqa: F401
+        InferenceEndpointHardware,  # noqa: F401
         InferenceEndpointStatus,  # noqa: F401
         InferenceEndpointTimeoutError,  # noqa: F401
         InferenceEndpointType,  # noqa: F401
@@ -1488,6 +1493,7 @@ if TYPE_CHECKING:  # pragma: no cover
         list_dataset_parquet_files,  # noqa: F401
         list_datasets,  # noqa: F401
         list_inference_catalog,  # noqa: F401
+        list_inference_endpoint_hardware,  # noqa: F401
         list_inference_endpoints,  # noqa: F401
         list_jobs,  # noqa: F401
         list_jobs_hardware,  # noqa: F401

@@ -14,7 +14,7 @@ import httpx
 import pytest
 from click.testing import CliRunner
 
-from huggingface_hub import HfApi, constants
+from huggingface_hub import HfApi, InferenceEndpointHardware, constants
 from huggingface_hub._dataset_viewer import DatasetParquetEntry
 from huggingface_hub._jobs_api import JobInfo, JobOwner, _create_job_spec, _derive_job_volume_name
 from huggingface_hub._space_api import Volume
@@ -2969,6 +2969,92 @@ class TestInferenceEndpointsCommands:
         api.list_inference_catalog.assert_called_once_with(token=None)
         assert '"models"' in result.stdout
         assert '"model"' in result.stdout
+
+
+def _hardware(instance_type: str, **kwargs) -> InferenceEndpointHardware:
+    """Build a hardware entry, overriding only the fields a test cares about. The id is derived like the server does."""
+    fields = {
+        "vendor": "aws",
+        "region": "us-east-1",
+        "accelerator": "gpu",
+        "instance_type": instance_type,
+        "instance_size": "x1",
+        "architecture": instance_type.title(),
+        "num_accelerators": 1,
+        "num_cpus": 7,
+        "memory_gb": 30.0,
+        "gpu_memory_gb": 24,
+        "price_per_hour": 0.8,
+        "status": "available",
+        "max_accelerators": 16,
+        "used_accelerators": 1,
+        **kwargs,
+    }
+    id = "-".join(fields[key] for key in ("vendor", "region", "instance_type", "instance_size"))
+    return InferenceEndpointHardware(id=id, **fields)
+
+
+class TestInferenceEndpointsHardwareCommand:
+    """Tests for `hf endpoints hardware`."""
+
+    HARDWARE = [
+        _hardware("nvidia-h200", region="us-west-2", price_per_hour=5.0, status="deprecated"),
+        _hardware("intel-spr", accelerator="cpu", price_per_hour=0.033, gpu_memory_gb=None, num_cpus=None),
+        _hardware("nvidia-l4"),
+        _hardware("nvidia-a100", vendor="gcp", region="us-east4", price_per_hour=3.6),
+    ]
+
+    @pytest.fixture
+    def api(self) -> Generator[Mock, None, None]:
+        with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_inference_endpoint_hardware.return_value = list(self.HARDWARE)
+            yield api
+
+    def test_hides_hardware_that_cannot_be_deployed_on(self, runner: CliRunner, api: Mock) -> None:
+        result = runner.invoke(app, ["endpoints", "hardware", "--format", "json"])
+        assert result.exit_code == 0
+        api.list_inference_endpoint_hardware.assert_called_once_with(namespace=None, token=None)
+        assert [hw["id"] for hw in json.loads(result.stdout)] == [
+            "aws-us-east-1-intel-spr-x1",
+            "aws-us-east-1-nvidia-l4-x1",
+            "gcp-us-east4-nvidia-a100-x1",
+        ]
+
+    def test_all_includes_deprecated_hardware(self, runner: CliRunner, api: Mock) -> None:
+        result = runner.invoke(app, ["endpoints", "hardware", "--all", "--format", "json"])
+        assert result.exit_code == 0
+        assert "aws-us-west-2-nvidia-h200-x1" in {hw["id"] for hw in json.loads(result.stdout)}
+
+    @pytest.mark.parametrize(
+        "flags, expected_ids",
+        [
+            (["--vendor", "gcp"], ["gcp-us-east4-nvidia-a100-x1"]),
+            (["--vendor", "AWS", "--accelerator", "GPU"], ["aws-us-east-1-nvidia-l4-x1"]),
+            (["--region", "us-east-1", "--instance-type", "intel-spr"], ["aws-us-east-1-intel-spr-x1"]),
+            (["--vendor", "gcp", "--accelerator", "cpu"], []),
+        ],
+    )
+    def test_filters(self, runner: CliRunner, api: Mock, flags: list[str], expected_ids: list[str]) -> None:
+        result = runner.invoke(app, ["endpoints", "hardware", *flags, "--format", "quiet"])
+        assert result.exit_code == 0
+        assert result.stdout.split() == expected_ids
+
+    def test_human_output_reports_quota_and_a_deploy_command(self, runner: CliRunner, api: Mock) -> None:
+        result = runner.invoke(app, ["endpoints", "hardware", "--vendor", "gcp", "--format", "human"])
+        assert result.exit_code == 0
+        assert "GPU_MEMORY_GB" in result.stdout
+        assert "1/16" in result.stdout  # quota, as used/max
+        assert (
+            "--vendor gcp --region us-east4 --accelerator gpu --instance-type nvidia-a100 --instance-size x1"
+            in result.stderr
+        )
+
+    def test_hints_at_all_when_only_undeployable_hardware_matches(self, runner: CliRunner, api: Mock) -> None:
+        result = runner.invoke(app, ["endpoints", "hardware", "--instance-type", "nvidia-h200", "--format", "human"])
+        assert result.exit_code == 0
+        assert "No results found." in result.stdout
+        assert "Use '--all'" in result.stderr
 
 
 @contextmanager
