@@ -371,12 +371,16 @@ def get_session() -> httpx.Client:
 
     This client is shared between all calls made by `huggingface_hub`. Therefore you should not close it manually.
 
+    If the shared client has been closed (e.g. by a previous call to [`close_session`] or by closing it
+    manually), a new one is created transparently on the next call.
+
     Use [`set_client_factory`] to customize the `httpx.Client`.
     """
     global _GLOBAL_CLIENT
-    if _GLOBAL_CLIENT is None:
+    if _GLOBAL_CLIENT is None or _GLOBAL_CLIENT.is_closed:
         with _CLIENT_LOCK:
-            _GLOBAL_CLIENT = _GLOBAL_CLIENT_FACTORY()
+            if _GLOBAL_CLIENT is None or _GLOBAL_CLIENT.is_closed:
+                _GLOBAL_CLIENT = _GLOBAL_CLIENT_FACTORY()
     return _GLOBAL_CLIENT
 
 

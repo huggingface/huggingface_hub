@@ -26,6 +26,7 @@ from huggingface_hub.utils._http import (
     _parse_repo_info_from_url,
     _parse_retry_after,
     _warn_on_warning_headers,
+    close_session,
     default_client_factory,
     fix_hf_endpoint_in_url,
     get_async_session,
@@ -226,6 +227,27 @@ class TestConfigureSession:
         client_1 = get_session()
         client_2 = get_session()
         assert client_1 is client_2  # exact same instance
+
+    def test_get_session_recreates_closed_client(self):
+        """A shared client that has been closed must be rebuilt on the next call.
+
+        This matches the contract documented in `close_session`: "If a Client is closed, it
+        will be recreated on the next call to get_session".
+        """
+        client_1 = get_session()
+        client_1.close()
+        assert client_1.is_closed
+
+        client_2 = get_session()
+        assert client_2 is not client_1
+        assert not client_2.is_closed
+
+    def test_get_session_recreates_after_close_session(self):
+        client_1 = get_session()
+        close_session()
+        client_2 = get_session()
+        assert client_2 is not client_1
+        assert not client_2.is_closed
 
     def test_get_session_twice_but_reconfigure_in_between(self):
         """Reconfiguring the session clears the cache."""
