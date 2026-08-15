@@ -51,6 +51,7 @@ from .utils._http import (
     _DEFAULT_RETRY_ON_STATUS_CODES,
     _adjust_range_header,
     _httpx_follow_relative_redirects_with_backoff,
+    _trusted_hub_netlocs,
     http_stream_backoff,
 )
 from .utils._runtime import is_xet_available
@@ -1669,8 +1670,8 @@ def _get_metadata_or_catch_error(
     raised while fetching the metadata.
 
     NOTE: This function mutates `headers` inplace! It removes the `authorization` header
-          if the file is a LFS blob and the domain of the url is different from the
-          domain of the location (typically an S3 bucket).
+          if the file is a LFS blob and the location is not a trusted Hub endpoint over HTTPS
+          (typically an S3 bucket).
     """
     if local_files_only:
         return (
@@ -1763,12 +1764,15 @@ def _get_metadata_or_catch_error(
             # and ensure we download the exact atomic version even if it changed
             # between the HEAD and the GET (unlikely, but hey).
             #
-            # If url domain is different => we are downloading from a CDN => url is signed => don't send auth
-            # If url domain is the same => redirect due to repo rename AND downloading a regular file => keep auth
+            # If the target is an untrusted or plaintext host, we are downloading from a CDN =>
+            # url is signed => don't send auth. Trusted Hub endpoint redirects retain auth.
             if xet_file_data is None and url != metadata.location:
                 url_to_download = metadata.location
-                if urlparse(url).netloc != urlparse(metadata.location).netloc:
-                    # Remove authorization header when downloading a LFS blob
+                target = urlparse(metadata.location)
+                if target.netloc != urlparse(url).netloc and (
+                    target.scheme != "https" or target.netloc not in _trusted_hub_netlocs()
+                ):
+                    # Remove authorization header when downloading from a CDN or plaintext host.
                     headers.pop("authorization", None)
         except httpx.ProxyError:
             # Actually raise on proxy error
