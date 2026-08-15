@@ -24,6 +24,19 @@ class TestUtilsCommon:
             ):
                 assert list(chunk) == expected_chunk
 
+    def test_chunk_iterable_chunks_are_lists(self):
+        # The docstring example prints each chunk directly, which only works if chunks
+        # are real lists (lazy sub-iterators printed as '<itertools.chain object ...>')
+        chunks = list(chunk_iterable(range(17), chunk_size=8))
+        assert chunks == [[0, 1, 2, 3, 4, 5, 6, 7], [8, 9, 10, 11, 12, 13, 14, 15], [16]]
+
+    def test_chunk_iterable_collect_then_consume(self):
+        # Chunks must stay valid when collected first and consumed later. With lazy
+        # sub-iterators sharing the source iterator, collecting first advanced the
+        # source by 1 item per chunk, degenerating every chunk to a single item.
+        chunks = list(chunk_iterable(iter(range(12)), chunk_size=4))
+        assert [list(chunk) for chunk in chunks] == [[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11]]
+
     def test_chunk_iterable_validation(self):
         with pytest.raises(ValueError):
             next(chunk_iterable(range(128), 0))

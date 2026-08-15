@@ -21,11 +21,8 @@ from typing import TypeVar
 T = TypeVar("T")
 
 
-def chunk_iterable(iterable: Iterable[T], chunk_size: int) -> Iterable[Iterable[T]]:
+def chunk_iterable(iterable: Iterable[T], chunk_size: int) -> Iterable[list[T]]:
     """Iterates over an iterator chunk by chunk.
-
-    Taken from https://stackoverflow.com/a/8998040.
-    See also https://github.com/huggingface/huggingface_hub/pull/920#discussion_r938793088.
 
     Args:
         iterable (`Iterable`):
@@ -57,8 +54,7 @@ def chunk_iterable(iterable: Iterable[T], chunk_size: int) -> Iterable[Iterable[
 
     iterator = iter(iterable)
     while True:
-        try:
-            next_item = next(iterator)
-        except StopIteration:
+        chunk = list(itertools.islice(iterator, chunk_size))
+        if not chunk:
             return
-        yield itertools.chain((next_item,), itertools.islice(iterator, chunk_size - 1))
+        yield chunk
