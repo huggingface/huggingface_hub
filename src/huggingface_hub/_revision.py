@@ -39,5 +39,12 @@ class ResolvedRevision(str):
         revision.resolved = resolved
         return revision
 
+    def __getnewargs__(self) -> tuple[str, str | None]:
+        # `str` subclasses pickle through `__new__(cls, *args)`. The inherited
+        # `str.__getnewargs__` only returns the string value, so unpickling would call
+        # `__new__(cls, initial)` and treat `initial` as `resolved`. `initial` then
+        # defaults to `None` and the string value silently becomes `"main"`.
+        return (self.resolved, self.initial)
+
     def __repr__(self) -> str:
         return f"ResolvedRevision(initial={self.initial!r}, resolved={self.resolved!r})"

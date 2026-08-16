@@ -1,4 +1,5 @@
 import os
+import pickle
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -359,6 +360,25 @@ def test_revision_str():
     revision = ResolvedRevision(resolved=COMMIT_HASH, initial="refs/pr/4")
     assert revision == "refs/pr/4"
     assert revision.resolved == COMMIT_HASH
+
+
+@pytest.mark.parametrize("protocol", range(pickle.HIGHEST_PROTOCOL + 1))
+def test_revision_survives_pickle(protocol: int):
+    """Unpickling must preserve the string value, `.initial`, and `.resolved`."""
+    revision = ResolvedRevision(resolved=COMMIT_HASH, initial="3.0bpw")
+    restored = pickle.loads(pickle.dumps(revision, protocol=protocol))
+
+    assert restored == "3.0bpw"
+    assert str(restored) == "3.0bpw"
+    assert restored.initial == "3.0bpw"
+    assert restored.resolved == COMMIT_HASH
+    assert repr(restored) == repr(revision)
+
+    default_revision = ResolvedRevision(resolved=COMMIT_HASH)
+    restored_default = pickle.loads(pickle.dumps(default_revision, protocol=protocol))
+    assert restored_default == "main"
+    assert restored_default.initial is None
+    assert restored_default.resolved == COMMIT_HASH
 
 
 class TestResolveRevision:
