@@ -142,11 +142,12 @@ class HfUri:
         parts: list[str] = [constants.HF_PROTOCOL, _TYPE_TO_PREFIX[self.type], "/", self.id]
         if self.revision is not None:
             # Encode '/' as '%2F' for revisions that would otherwise be split as '<revision>/<path>'
-            # at parse time. Special refs ('refs/pr/N', 'refs/convert/<name>') are kept verbatim
+            # at parse time, and '%' as '%25' because the parser unquotes the revision exactly once.
+            # Special refs ('refs/pr/N', 'refs/convert/<name>') are kept verbatim
             # because the parser matches them eagerly.
             revision = self.revision
-            if "/" in revision and _SPECIAL_REFS_REVISION_REGEX.fullmatch(revision) is None:
-                revision = revision.replace("/", "%2F")
+            if ("/" in revision or "%" in revision) and _SPECIAL_REFS_REVISION_REGEX.fullmatch(revision) is None:
+                revision = revision.replace("%", "%25").replace("/", "%2F")
             parts.append(f"@{revision}")
         if self.path_in_repo:
             parts.append(f"/{self.path_in_repo}")
@@ -358,6 +359,19 @@ def _decode_url_path_segment(segment: str) -> str:
     return unquote(segment).replace("/", "%2F")
 
 
+def _decode_url_revision_segment(segment: str) -> str:
+    """Percent-decode the revision segment of a URL for the canonical parser.
+
+    '_parse_repo_body' applies a single 'unquote' to the revision, so a literal '%'
+    in a branch or tag name (e.g. 'a%20b', URL-encoded as 'a%2520b') must be
+    re-escaped here — otherwise it would be decoded a second time and the revision
+    would silently change ('a%20b' -> 'a b'). A decoded '/' is kept as '%2F' for the
+    same reason as in '_decode_url_path_segment': it keeps branch names containing
+    '/' (e.g. 'feature/foo') a single revision segment.
+    """
+    return unquote(segment).replace("%", "%25").replace("/", "%2F")
+
+
 def _url_to_uri_body(url: str, endpoint: str | None = None) -> str:
     """Normalize a Hugging Face web URL into the body of a 'hf://' URI (everything after 'hf://').
 
@@ -435,8 +449,13 @@ def _url_to_uri_body(url: str, endpoint: str | None = None) -> str:
     # 'tail' is '<revision>/<path>'; reuse the canonical '@<revision>/<path>' splitting logic
     # (special refs, URL-encoded slashes, ...) by handing it back to the URI parser. Each segment
     # is percent-decoded first so file names with spaces, '#', ... resolve correctly; the revision
-    # segment's '%2F' survives (re-encoded by '_decode_url_path_segment') and is decoded downstream.
-    decoded = "/".join(_decode_url_path_segment(segment) for segment in tail)
+    # segment's '%2F' survives (re-encoded by '_decode_url_revision_segment') and is decoded
+    # downstream — re-escaped rather than decoded, because the canonical parser unquotes the
+    # revision exactly once.
+    decoded = "/".join(
+        _decode_url_revision_segment(segment) if i == 0 else _decode_url_path_segment(segment)
+        for i, segment in enumerate(tail)
+    )
     return f"{prefix}{repo_id}@{decoded}"
 
 

@@ -153,6 +153,14 @@ URI_SUCCESS_CASES: list[tuple[str, HfUri, str]] = [
         HfUri(type="model", id="my-org/my-model", revision="feature/foo", path_in_repo="config.json"),
         "hf://models/my-org/my-model@feature%2Ffoo/config.json",
     ),
+    # Branch name containing a literal '%' (encoded as '%25') must survive the parser's
+    # single 'unquote' of the revision untouched, and 'to_uri' must re-escape it so the
+    # canonical form reparses to the same revision (idempotency).
+    (
+        "hf://my-org/my-model@a%2520b/config.json",
+        HfUri(type="model", id="my-org/my-model", revision="a%20b", path_in_repo="config.json"),
+        "hf://models/my-org/my-model@a%2520b/config.json",
+    ),
     # Special revision with no path after it
     (
         "hf://my-org/my-model@refs/pr/3",
@@ -342,6 +350,13 @@ URL_SUCCESS_CASES: list[tuple[str, HfUri]] = [
         "https://huggingface.co/my-org/my-model/blob/feature%2Ffoo/config.json",
         HfUri(type="model", id="my-org/my-model", revision="feature/foo", path_in_repo="config.json"),
     ),
+    # Branch name containing a literal '%' (URL-encoded as '%25') must not be decoded
+    # twice: the URL segment is decoded once here, and the canonical parser decodes the
+    # revision once more, so the intermediate form re-escapes it.
+    (
+        "https://huggingface.co/my-org/my-model/blob/a%2520b/config.json",
+        HfUri(type="model", id="my-org/my-model", revision="a%20b", path_in_repo="config.json"),
+    ),
     # --- Percent-encoded path (browsers encode spaces, '#', ... in file names) --
     (
         "https://huggingface.co/my-org/my-model/blob/main/my%20file.txt",
@@ -478,6 +493,12 @@ TO_URL_CASES: list[tuple[HfUri, str]] = [
     (
         HfUri(type="model", id="my-org/my-model", revision="fix#1", path_in_repo="config.json"),
         "/my-org/my-model/blob/fix%231/config.json",
+    ),
+    # A literal '%' in the revision is encoded as '%25'; re-parsing the rendered URL must
+    # give back the exact revision (no double decode).
+    (
+        HfUri(type="model", id="my-org/my-model", revision="a%20b", path_in_repo="config.json"),
+        "/my-org/my-model/blob/a%2520b/config.json",
     ),
     # '#' in the revision is also encoded on the folder (tree) route
     (
