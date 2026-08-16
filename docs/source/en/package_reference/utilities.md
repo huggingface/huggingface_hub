@@ -245,6 +245,10 @@ user as possible.
 
 [[autodoc]] huggingface_hub.errors.OfflineModeIsEnabled
 
+#### DownloadCancelledError
+
+[[autodoc]] huggingface_hub.errors.DownloadCancelledError
+
 ## Telemetry
 
 `huggingface_hub` includes a helper to send telemetry data. This information helps us debug issues and prioritize new features.

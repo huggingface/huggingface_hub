@@ -4,12 +4,13 @@ import os
 import re
 import shutil
 import stat
+import threading
 import time
 import uuid
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, BinaryIO, Literal, NoReturn, overload
+from typing import Any, BinaryIO, Literal, NoReturn, Protocol, overload
 from urllib.parse import quote, urlparse
 
 import httpx
@@ -26,6 +27,7 @@ from ._local_folder import (
 from ._revision import ResolvedRevision
 from ._tree_cache import read_tree_cache, tree_cache_folder_for_local_dir
 from .errors import (
+    DownloadCancelledError,
     FileMetadataError,
     GatedRepoError,
     HfHubHTTPError,
@@ -67,6 +69,16 @@ _CACHED_NO_EXIST_T = Any
 
 # Regex to get filename from a "Content-Disposition" header for CDN-served files
 HEADER_FILENAME_PATTERN = re.compile(r'filename="(?P<filename>.*?)";')
+
+
+class CancelEvent(Protocol):
+    """Anything with an `is_set()` method, e.g. `threading.Event` or `asyncio.Event`.
+
+    Once set, the download it was passed to is cancelled and raises [`~errors.DownloadCancelledError`].
+    """
+
+    def is_set(self) -> bool: ...
+
 
 # Regex to check if the revision IS directly a commit_hash
 REGEX_COMMIT_HASH = re.compile(r"^[0-9a-f]{40}$")
@@ -331,6 +343,7 @@ def http_get(
     expected_size: int | None = None,
     displayed_filename: str | None = None,
     tqdm_class: type[base_tqdm] | None = None,
+    cancel_event: CancelEvent | None = None,
     _nb_retries: int = 5,
     _tqdm_bar: tqdm | None = None,
 ) -> None:
@@ -357,7 +370,13 @@ def http_get(
         displayed_filename (`str`, *optional*):
             The filename of the file that is being downloaded. Value is used only to display a nice progress bar. If
             not set, the filename is guessed from the URL or the `Content-Disposition` header.
+        cancel_event (`CancelEvent`, *optional*):
+            An event-like object with an `is_set()` method (e.g. `threading.Event`). Once set, the download stops
+            and [`~errors.DownloadCancelledError`] is raised. Only this download is affected.
     """
+    if cancel_event is not None and cancel_event.is_set():
+        raise DownloadCancelledError(f"Download cancelled: {displayed_filename or url}")
+
     if expected_size is not None and resume_size == expected_size:
         # If the file is already fully downloaded, we don't need to download it again.
         return
@@ -437,6 +456,8 @@ def http_get(
             new_resume_size = resume_size
             try:
                 for chunk in response.iter_bytes(chunk_size=constants.DOWNLOAD_CHUNK_SIZE):
+                    if cancel_event is not None and cancel_event.is_set():
+                        raise DownloadCancelledError(f"Download cancelled: {displayed_filename}")
                     if chunk:  # filter out keep-alive new chunks
                         progress.update(len(chunk))
                         if callable(update_transfer := getattr(progress, "update_transfer", None)):
@@ -462,6 +483,7 @@ def http_get(
                     headers=initial_headers,
                     expected_size=expected_size,
                     tqdm_class=tqdm_class,
+                    cancel_event=cancel_event,
                     _nb_retries=_nb_retries - 1,
                     # Reuse the existing progress bar across retries so a custom `tqdm_class` (e.g. snapshot_download's `_AggregatedTqdm`,
                     # which mutates a shared parent bar in `__init__`) is not re-instantiated and does not double-count `total`/`initial`.
@@ -484,6 +506,7 @@ def xet_get(
     expected_size: int | None = None,
     displayed_filename: str | None = None,
     tqdm_class: type[base_tqdm] | None = None,
+    cancel_event: CancelEvent | None = None,
     _tqdm_bar: tqdm | None = None,
 ) -> None:
     """
@@ -502,6 +525,10 @@ def xet_get(
         displayed_filename (`str`, *optional*):
             The filename of the file that is being downloaded. Value is used only to display a nice progress bar. If
             not set, the filename is guessed from the URL or the `Content-Disposition` header.
+        cancel_event (`CancelEvent`, *optional*):
+            An event-like object with an `is_set()` method (e.g. `threading.Event`). Once set, this download's group
+            is aborted and [`~errors.DownloadCancelledError`] is raised. Other downloads sharing the global xet
+            session are not affected.
 
     **How it works:**
         The file download system uses Xet storage, which is a content-addressable storage system that breaks files into chunks
@@ -548,6 +575,9 @@ def xet_get(
     from .utils._xet import abort_xet_session, get_xet_session, xet_headers_without_auth
     from .utils._xet_progress_reporting import XetDownloadProgressReporter
 
+    if cancel_event is not None and cancel_event.is_set():
+        raise DownloadCancelledError(f"Download cancelled: {displayed_filename}")
+
     xet_headers = xet_headers_without_auth(headers)
 
     session = get_xet_session()
@@ -561,6 +591,11 @@ def xet_get(
         tqdm_class=tqdm_class,
         external_reconstruction_bar=_tqdm_bar,
     ) as progress:
+        # When a `cancel_event` is provided, a watcher thread polls it and aborts this download's group only,
+        # leaving the shared xet session (and any concurrent downloads) untouched. The abort must not happen
+        # from inside the progress callback: `group.abort()` joins the progress thread and would deadlock.
+        stop_watcher = threading.Event()
+        watcher: threading.Thread | None = None
         try:
             with session.new_file_download_group(
                 token_refresh_url=xet_file_data.refresh_route,
@@ -568,12 +603,30 @@ def xet_get(
                 custom_headers=xet_headers,
                 progress_callback=progress.update_progress,
             ) as group:
+                if cancel_event is not None:
+
+                    def _watch_cancel():
+                        while not stop_watcher.wait(0.1):
+                            if cancel_event.is_set():
+                                group.abort()
+                                return
+
+                    watcher = threading.Thread(target=_watch_cancel, name="hf_xet_cancel_watcher", daemon=True)
+                    watcher.start()
                 group.start_download_file(
                     XetFileInfo(xet_file_data.file_hash, expected_size), str(incomplete_path.absolute())
                 )
         except KeyboardInterrupt:
             abort_xet_session()
             raise
+        except Exception as e:
+            if cancel_event is not None and cancel_event.is_set():
+                raise DownloadCancelledError(f"Download cancelled: {displayed_filename}") from e
+            raise
+        finally:
+            stop_watcher.set()
+            if watcher is not None:
+                watcher.join()
 
 
 def _normalize_etag(etag: str | None) -> str | None:
@@ -773,6 +826,7 @@ def hf_hub_download(
     headers: dict[str, str] | None = None,
     endpoint: str | None = None,
     tqdm_class: type[base_tqdm] | None = None,
+    cancel_event: CancelEvent | None = None,
     dry_run: Literal[False] = False,
 ) -> str: ...
 
@@ -797,6 +851,7 @@ def hf_hub_download(
     headers: dict[str, str] | None = None,
     endpoint: str | None = None,
     tqdm_class: type[base_tqdm] | None = None,
+    cancel_event: CancelEvent | None = None,
     dry_run: Literal[True] = True,
 ) -> DryRunFileInfo: ...
 
@@ -821,6 +876,7 @@ def hf_hub_download(
     headers: dict[str, str] | None = None,
     endpoint: str | None = None,
     tqdm_class: type[base_tqdm] | None = None,
+    cancel_event: CancelEvent | None = None,
     dry_run: bool = False,
 ) -> str | DryRunFileInfo: ...
 
@@ -845,6 +901,7 @@ def hf_hub_download(
     headers: dict[str, str] | None = None,
     endpoint: str | None = None,
     tqdm_class: type[base_tqdm] | None = None,
+    cancel_event: CancelEvent | None = None,
     dry_run: bool = False,
 ) -> str | DryRunFileInfo:
     """Download a given file if it's not already present in the local cache.
@@ -928,6 +985,10 @@ def hf_hub_download(
             argument must inherit from `tqdm.auto.tqdm` or at least mimic its behavior.
             Defaults to the custom HF progress bar that can be disabled by setting
             `HF_HUB_DISABLE_PROGRESS_BARS` environment variable.
+        cancel_event (`CancelEvent`, *optional*):
+            An event-like object with an `is_set()` method (e.g. `threading.Event`). Once set, this download stops
+            and [`~errors.DownloadCancelledError`] is raised. Only this download is cancelled: concurrent downloads
+            (including xet downloads sharing the process-wide session) are not affected.
         dry_run (`bool`, *optional*, defaults to `False`):
             If `True`, perform a dry run without actually downloading the file. Returns a
             [`DryRunFileInfo`] object containing information about what would be downloaded.
@@ -1013,6 +1074,7 @@ def hf_hub_download(
             force_download=force_download,
             local_files_only=local_files_only,
             tqdm_class=tqdm_class,
+            cancel_event=cancel_event,
             dry_run=dry_run,
         )
     else:
@@ -1033,6 +1095,7 @@ def hf_hub_download(
             local_files_only=local_files_only,
             force_download=force_download,
             tqdm_class=tqdm_class,
+            cancel_event=cancel_event,
             dry_run=dry_run,
         )
 
@@ -1055,6 +1118,7 @@ def _hf_hub_download_to_cache_dir(
     local_files_only: bool,
     force_download: bool,
     tqdm_class: type[base_tqdm] | None,
+    cancel_event: CancelEvent | None,
     dry_run: bool,
 ) -> str | DryRunFileInfo:
     """Download a given file to a cache folder, if not already present.
@@ -1250,6 +1314,7 @@ def _hf_hub_download_to_cache_dir(
             etag=etag,
             xet_file_data=xet_file_data,
             tqdm_class=tqdm_class,
+            cancel_event=cancel_event,
         )
         if not os.path.exists(pointer_path):
             _create_symlink(blob_path, pointer_path, new_blob=True)
@@ -1276,6 +1341,7 @@ def _hf_hub_download_to_local_dir(
     force_download: bool,
     local_files_only: bool,
     tqdm_class: type[base_tqdm] | None,
+    cancel_event: CancelEvent | None,
     dry_run: bool,
 ) -> str | DryRunFileInfo:
     """Download a given file to a local folder, if not already present.
@@ -1465,6 +1531,7 @@ def _hf_hub_download_to_local_dir(
             etag=etag,
             xet_file_data=xet_file_data,
             tqdm_class=tqdm_class,
+            cancel_event=cancel_event,
         )
 
     write_download_metadata(local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag)
@@ -1922,6 +1989,7 @@ def _download_to_tmp_and_move(
     etag: str | None,
     xet_file_data: XetFileData | None,
     tqdm_class: type[base_tqdm] | None = None,
+    cancel_event: CancelEvent | None = None,
 ) -> None:
     """Download content from a URL to a destination path.
 
@@ -1964,6 +2032,7 @@ def _download_to_tmp_and_move(
                     expected_size=expected_size,
                     displayed_filename=filename,
                     tqdm_class=tqdm_class,
+                    cancel_event=cancel_event,
                 )
             else:
                 if xet_file_data is not None and not constants.HF_HUB_DISABLE_XET:
@@ -1979,6 +2048,7 @@ def _download_to_tmp_and_move(
                     headers=headers,
                     expected_size=expected_size,
                     tqdm_class=tqdm_class,
+                    cancel_event=cancel_event,
                 )
 
         logger.debug(f"Download complete. Moving file to {destination_path}")

@@ -252,6 +252,13 @@ class FileMetadataError(OSError):
     """
 
 
+# DOWNLOAD ERRORS
+
+
+class DownloadCancelledError(OSError):
+    """Raised when a download is cancelled via the `cancel_event` argument of [`hf_hub_download`]."""
+
+
 # BUCKET ERRORS
 
 

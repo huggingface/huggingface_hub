@@ -15,6 +15,7 @@ import io
 import os
 import shutil
 import stat
+import threading
 import warnings
 from contextlib import contextmanager
 from pathlib import Path
@@ -26,7 +27,12 @@ import pytest
 
 from huggingface_hub import HfApi, constants
 from huggingface_hub._local_folder import write_download_metadata
-from huggingface_hub.errors import EntryNotFoundError, GatedRepoError, LocalEntryNotFoundError
+from huggingface_hub.errors import (
+    DownloadCancelledError,
+    EntryNotFoundError,
+    GatedRepoError,
+    LocalEntryNotFoundError,
+)
 from huggingface_hub.file_download import (
     _CACHED_NO_EXIST,
     HfFileMetadata,
@@ -39,8 +45,9 @@ from huggingface_hub.file_download import (
     hf_hub_url,
     http_get,
     try_to_load_from_cache,
+    xet_get,
 )
-from huggingface_hub.utils import SoftTemporaryDirectory, WeakFileLock, get_session, hf_raise_for_status
+from huggingface_hub.utils import SoftTemporaryDirectory, WeakFileLock, XetFileData, get_session, hf_raise_for_status
 from huggingface_hub.utils._headers import build_hf_headers
 from huggingface_hub.utils._http import _http_backoff_base
 
@@ -1491,6 +1498,110 @@ class TestExtraLargeFileDownloadPaths:
                     revision="main",
                     etag_timeout=10,
                 )
+
+
+class _FakeXetDownloadGroup:
+    """Mimics hf_xet.XetFileDownloadGroup: blocks on normal exit until abort() is called."""
+
+    def __init__(self):
+        self.aborted = threading.Event()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_type is None:
+            # Emulates wait_to_finish: the real group raises once aborted.
+            if self.aborted.wait(timeout=10):
+                raise RuntimeError("download group aborted")
+        return False
+
+    def start_download_file(self, file_info, dest_path):
+        pass
+
+    def abort(self):
+        self.aborted.set()
+
+
+class TestDownloadCancellation:
+    def test_http_get_cancel_event_preset_skips_request(self):
+        event = threading.Event()
+        event.set()
+        with patch("huggingface_hub.file_download.http_stream_backoff") as mock_stream_backoff:
+            with pytest.raises(DownloadCancelledError):
+                http_get("fake_url", temp_file=io.BytesIO(), cancel_event=event)
+        mock_stream_backoff.assert_not_called()
+
+    def test_http_get_cancel_event_stops_mid_stream(self):
+        event = threading.Event()
+
+        def _iter_content() -> Iterable[bytes]:
+            yield b"0" * 10
+            yield b"0" * 10
+            event.set()
+            yield b"0" * 10
+            yield b"0" * 10
+
+        with patch("huggingface_hub.file_download.http_stream_backoff") as mock_stream_backoff:
+            mock_response = Mock()
+            mock_response.headers = {"Content-Length": "40"}
+            mock_response.iter_bytes.side_effect = [_iter_content()]
+            mock_stream_backoff.return_value.__enter__.return_value = mock_response
+            mock_stream_backoff.return_value.__exit__.return_value = None
+
+            temp_file = io.BytesIO()
+            with pytest.raises(DownloadCancelledError):
+                http_get("fake_url", temp_file=temp_file, cancel_event=event)
+
+        # Chunks received before cancellation are written, nothing after it.
+        assert temp_file.tell() == 20
+
+    def test_xet_get_cancel_event_preset_skips_session(self, tmp_path):
+        event = threading.Event()
+        event.set()
+        with patch("huggingface_hub.utils._xet.get_xet_session") as mock_get_session:
+            with pytest.raises(DownloadCancelledError):
+                xet_get(
+                    incomplete_path=tmp_path / "file.incomplete",
+                    xet_file_data=XetFileData(file_hash="0" * 64, refresh_route="mock/route"),
+                    headers={},
+                    cancel_event=event,
+                )
+        mock_get_session.assert_not_called()
+
+    def test_xet_get_cancel_event_aborts_only_its_group(self, tmp_path):
+        group = _FakeXetDownloadGroup()
+        fake_session = Mock()
+        fake_session.new_file_download_group.return_value = group
+
+        event = threading.Event()
+        threading.Timer(0.2, event.set).start()
+
+        with patch("huggingface_hub.utils._xet.get_xet_session", return_value=fake_session):
+            with pytest.raises(DownloadCancelledError):
+                xet_get(
+                    incomplete_path=tmp_path / "file.incomplete",
+                    xet_file_data=XetFileData(file_hash="0" * 64, refresh_route="mock/route"),
+                    headers={},
+                    cancel_event=event,
+                )
+
+        assert group.aborted.is_set()
+
+    def test_hf_hub_download_forwards_cancel_event(self, tmp_path):
+        event = threading.Event()
+        with patch("huggingface_hub.file_download.get_hf_file_metadata") as mock_metadata:
+            mock_metadata.return_value = HfFileMetadata(
+                commit_hash="0" * 40,
+                etag="mock_etag",
+                location="mock_location",
+                size=1024,
+                xet_file_data=None,
+            )
+            with patch("huggingface_hub.file_download.http_get") as mock_http_get:
+                with patch("huggingface_hub.file_download._create_symlink"):
+                    hf_hub_download("user/repo", filename="file.txt", cache_dir=tmp_path, cancel_event=event)
+        assert mock_http_get.call_args.kwargs["cancel_event"] is event
 
 
 def _recursive_chmod(path: str, mode: int) -> None:
