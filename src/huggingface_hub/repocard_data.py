@@ -501,7 +501,7 @@ class SpaceCardData(CardData):
             https://huggingface.co/docs/hub/repositories-licenses.
         duplicated_from (`str`, *optional*):
             ID of the original Space if this is a duplicated Space.
-        models (list[`str`], *optional*)
+        models (`list[str]`, *optional*):
             List of models related to this Space. Should be a dataset ID found on https://hf.co/models.
         datasets (`list[str]`, *optional*):
             List of datasets related to this Space. Should be a dataset ID found on https://hf.co/datasets.
