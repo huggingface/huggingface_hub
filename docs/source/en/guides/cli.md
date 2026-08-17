@@ -2323,6 +2323,7 @@ aws    us-east-1 gpu         nvidia-l4     x1                 30.0            24
 aws    us-east-1 gpu         nvidia-l4     x4                185.0            96            3.8 1/16  available
 aws    us-west-2 gpu         nvidia-h200   x1                256.0           141            5.0 1/2   available
 ...
+Hint: Deploy on one of these, e.g.: hf endpoints deploy my-endpoint --repo <repo> --framework <framework> --vendor aws --region eu-west-1 --accelerator gpu --instance-type nvidia-a10g --instance-size x1
 ```
 
 The filter flags are the deploy flags (`--vendor`, `--region`, `--accelerator`, `--instance-type`), so whatever you filter on is what you pass to `deploy`. Only hardware you can deploy on right now is listed: a usable status, and enough accelerator quota left in your namespace for one replica. Add `--all` to also see what is deprecated, temporarily unavailable or out of quota. `--format json` adds the remaining per-replica specs (vCPUs, architecture, number of accelerators) to each entry.
