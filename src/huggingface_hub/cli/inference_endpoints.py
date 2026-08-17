@@ -85,15 +85,12 @@ def ls(
     out.table(results, id_key="name")
 
 
-# Statuses that cannot be deployed on at all, as defined by the Endpoints UI itself. A denylist rather than an
-# "== available" allowlist, so that a status the server starts returning (the spec already has 'low_availability',
-# which is deployable) shows up with its label in the STATUS column instead of silently disappearing.
+# A denylist like the Endpoints UI uses, so a new server-side status shows up instead of silently disappearing.
 _UNDEPLOYABLE_STATUSES = {"deprecated", "not_available"}
 
 
 def _is_deployable(hw: InferenceEndpointHardware) -> bool:
-    """Whether the namespace can deploy on this hardware right now: a usable status, and enough accelerator quota
-    left for a single replica (which is what `hf endpoints deploy` creates by default)."""
+    """Whether the namespace can deploy one replica on this hardware right now: usable status and enough quota."""
     return (
         hw.status not in _UNDEPLOYABLE_STATUSES and hw.max_accelerators - hw.used_accelerators >= hw.num_accelerators
     )
@@ -145,8 +142,7 @@ def hardware(
     api = get_hf_api(token=token)
     hardware_list = api.list_inference_endpoints_hardware(namespace=namespace, token=token)
 
-    # The filters are the deploy flags, so their vocabulary is the deploy vocabulary. Both sides are lowercased:
-    # server values are lowercase today, but assuming that would turn a change into a silently empty result.
+    # Both sides lowercased: relying on the server's casing would turn a change into a silently empty result.
     matching = [
         hw
         for hw in hardware_list
@@ -156,20 +152,14 @@ def hardware(
         and (instance_type is None or hw.instance_type.lower() == instance_type.lower())
     ]
     visible = [hw for hw in matching if show_all or _is_deployable(hw)]
-    # Group by vendor, then region, then accelerator type, and order each instance type from the smallest size up
-    # ('num_accelerators' is the size multiplier; 'instance_size' would sort 'x16' before 'x2').
+    # Smallest size first per instance type; 'instance_size' can't be the key, 'x16' sorts before 'x2'.
     visible.sort(key=lambda hw: (hw.vendor, hw.region, hw.accelerator, hw.instance_type, hw.num_accelerators))
 
-    # Augment the raw dataclass dict (kept whole for '--format json') with a table-friendly quota column. The price
-    # stays a bare number rather than a '$x.xxx' string: it is the one column worth sorting and comparing on, and
-    # the item dict is what '--format json' and the agent TSV emit. The currency is in the docstring instead.
+    # Add a quota column, keeping the rest of the dict whole since '--format json' emits it.
     items = [_dataclass_to_dict(hw) | {"quota": f"{hw.used_accelerators}/{hw.max_accelerators}"} for hw in visible]
     out.table(
         items,
-        # 'architecture' restates 'instance_type', 'num_accelerators' restates 'instance_size' and 'num_cpus' is null
-        # on CPU hardware, so all three are dropped from the table; they remain in the items so '--format json' still
-        # carries them. Both memory columns are kept: 'gpu_memory_gb' is null on CPU hardware, where 'memory_gb' is
-        # the only size signal left.
+        # Redundant and always-null columns are dropped here but stay in the items for '--format json'.
         headers=[
             "vendor",
             "region",
@@ -184,20 +174,19 @@ def hardware(
         ],
         id_key="id",
     )
-    # The example has to be one 'deploy' would accept, and with '--all' the first listed row may not be.
+    # The example must be one 'deploy' accepts, and with '--all' the first row may not be.
     if (hw := next((hw for hw in visible if _is_deployable(hw)), None)) is not None:
         out.hint(
             f"Deploy on one of these, e.g.: hf endpoints deploy my-endpoint --repo <repo> --framework <framework> "
             f"--vendor {hw.vendor} --region {hw.region} --accelerator {hw.accelerator} "
             f"--instance-type {hw.instance_type} --instance-size {hw.instance_size}"
         )
-    elif visible:  # only reachable with '--all', which lists hardware regardless of whether it can be deployed on
+    elif visible:  # only reachable with '--all'
         out.hint("None of these can be deployed on right now, see the QUOTA and STATUS columns.")
-    elif matching:  # everything matching the filters was filtered out as not deployable
+    elif matching:  # all matches were dropped as undeployable
         out.hint("Use '--all' to also show hardware that cannot be deployed on right now.")
     else:
-        # Nothing matched at all, so a filter value is probably a typo. Name the ones that exist nowhere in the
-        # response and what would have worked: not knowing the valid values is the whole reason this command exists.
+        # Nothing matched at all: a filter value is probably a typo, so name the ones that exist nowhere.
         unknown = [
             f"{flag} '{value}' (valid: {', '.join(sorted(valid))})"
             for flag, value, valid in (
@@ -211,7 +200,7 @@ def hardware(
         out.hint(
             f"No such hardware: {'; '.join(unknown)}."
             if unknown
-            # Each value exists on its own, they just never occur together (e.g. '--vendor gcp --accelerator neuron').
+            # Each value exists, they just never occur together.
             else "No hardware matches all of these filters at once. Try dropping one."
         )
 
