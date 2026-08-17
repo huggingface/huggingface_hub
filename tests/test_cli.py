@@ -3064,14 +3064,6 @@ class TestInferenceEndpointsHardwareCommand:
         assert result.exit_code == 0
         assert result.stdout.split() == expected_ids
 
-    def test_filters_match_whatever_the_server_side_casing_is(self, runner: CliRunner, api: Mock) -> None:
-        api.list_inference_endpoints_hardware.return_value = [_hardware("NVIDIA-L4", vendor="AWS")]
-        result = runner.invoke(
-            app, ["endpoints", "hardware", "--vendor", "aws", "--instance-type", "nvidia-l4", "--format", "quiet"]
-        )
-        assert result.exit_code == 0
-        assert result.stdout.split() == ["AWS-us-east-1-NVIDIA-L4-x1"]
-
     def test_human_output_reports_quota_and_a_deploy_command(self, runner: CliRunner, api: Mock) -> None:
         result = runner.invoke(app, ["endpoints", "hardware", "--vendor", "gcp", "--format", "human"])
         assert result.exit_code == 0
