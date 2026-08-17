@@ -142,15 +142,15 @@ def hardware(
     api = get_hf_api(token=token)
     hardware_list = api.list_inference_endpoints_hardware(namespace=namespace, token=token)
 
-    # The filters are the deploy flags, so their vocabulary is the deploy vocabulary. Compared case-insensitively:
-    # server values are lowercase today, users type whatever they type.
+    # The filters are the deploy flags, so their vocabulary is the deploy vocabulary. Both sides are lowercased:
+    # server values are lowercase today, but assuming that would turn a change into a silently empty result.
     matching = [
         hw
         for hw in hardware_list
-        if (vendor is None or hw.vendor == vendor.lower())
-        and (region is None or hw.region == region.lower())
-        and (accelerator is None or hw.accelerator == accelerator.lower())
-        and (instance_type is None or hw.instance_type == instance_type.lower())
+        if (vendor is None or hw.vendor.lower() == vendor.lower())
+        and (region is None or hw.region.lower() == region.lower())
+        and (accelerator is None or hw.accelerator.lower() == accelerator.lower())
+        and (instance_type is None or hw.instance_type.lower() == instance_type.lower())
     ]
     visible = [hw for hw in matching if show_all or _is_deployable(hw)]
     # Group by vendor, then region, then accelerator type, and order each instance type from the smallest size up
