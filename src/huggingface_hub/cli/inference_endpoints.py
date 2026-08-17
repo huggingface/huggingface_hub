@@ -157,8 +157,17 @@ def hardware(
     # ('num_accelerators' is the size multiplier; 'instance_size' would sort 'x16' before 'x2').
     visible.sort(key=lambda hw: (hw.vendor, hw.region, hw.accelerator, hw.instance_type, hw.num_accelerators))
 
-    # Augment the raw dataclass dict (kept whole for '--format json') with a table-friendly quota column.
-    items = [_dataclass_to_dict(hw) | {"quota": f"{hw.used_accelerators}/{hw.max_accelerators}"} for hw in visible]
+    # Augment the raw dataclass dict with a quota column, and render the price with its currency like
+    # 'hf jobs hardware' does. 3 decimals rather than 2: the cheapest CPU instances are priced to a tenth of a
+    # cent ($0.033/h), which '.2f' would round away.
+    items = [
+        _dataclass_to_dict(hw)
+        | {
+            "quota": f"{hw.used_accelerators}/{hw.max_accelerators}",
+            "price_per_hour": f"${hw.price_per_hour:.3f}",
+        }
+        for hw in visible
+    ]
     out.table(
         items,
         # 'architecture' restates 'instance_type', 'num_accelerators' restates 'instance_size' and 'num_cpus' is null
@@ -177,6 +186,8 @@ def hardware(
             "quota",
             "status",
         ],
+        # 'price_per_hour' is a string now, so it would otherwise be left-aligned like any other text column.
+        alignments={"price_per_hour": "right"},
         id_key="id",
     )
     if visible:

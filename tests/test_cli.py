@@ -3069,6 +3069,7 @@ class TestInferenceEndpointsHardwareCommand:
         assert result.exit_code == 0
         # Both memory columns are shown: 'gpu_memory_gb' is null on CPU hardware, 'memory_gb' never is.
         assert {"MEMORY_GB", "GPU_MEMORY_GB"} <= set(result.stdout.splitlines()[0].split())
+        assert "$3.600" in result.stdout  # price, with its currency
         assert "1/16" in result.stdout  # quota, as used/max
         assert (
             "--vendor gcp --region us-east4 --accelerator gpu --instance-type nvidia-a100 --instance-size x1"
