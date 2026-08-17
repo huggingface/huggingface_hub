@@ -27,6 +27,12 @@ aws us-east-1 nvidia-l4 x4 3.8
 ...
 ```
 
+Quota is per namespace, so pass the `namespace` you will deploy into (it defaults to your own account):
+
+```py
+>>> list_inference_endpoints_hardware(namespace="my-org")
+```
+
 Or via CLI:
 
 ```bash

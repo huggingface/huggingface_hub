@@ -138,6 +138,8 @@ def hardware(
 
     Only the hardware the namespace can deploy on right now is listed: a usable status, and enough accelerator
     quota left for one replica. Use `--all` to list every combination the API returns.
+
+    Quota is per namespace, so pass the same `--namespace` you will pass to `hf endpoints deploy`.
     """
     api = get_hf_api(token=token)
     hardware_list = api.list_inference_endpoints_hardware(namespace=namespace, token=token)
