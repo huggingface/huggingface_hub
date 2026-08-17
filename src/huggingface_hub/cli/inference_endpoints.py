@@ -199,6 +199,25 @@ def hardware(
         )
     elif matching:  # everything matching the filters was filtered out as not deployable
         out.hint("Use '--all' to also show hardware that cannot be deployed on right now.")
+    else:
+        # Nothing matched at all, so a filter value is probably a typo. Name the ones that exist nowhere in the
+        # response and what would have worked: not knowing the valid values is the whole reason this command exists.
+        unknown = [
+            f"{flag} '{value}' (valid: {', '.join(sorted(valid))})"
+            for flag, value, valid in (
+                ("--vendor", vendor, {hw.vendor for hw in hardware_list}),
+                ("--region", region, {hw.region for hw in hardware_list}),
+                ("--accelerator", accelerator, {hw.accelerator for hw in hardware_list}),
+                ("--instance-type", instance_type, {hw.instance_type for hw in hardware_list}),
+            )
+            if value is not None and value.lower() not in {v.lower() for v in valid}
+        ]
+        out.hint(
+            f"No such hardware: {'; '.join(unknown)}."
+            if unknown
+            # Each value exists on its own, they just never occur together (e.g. '--vendor gcp --accelerator neuron').
+            else "No hardware matches all of these filters at once. Try dropping one."
+        )
 
 
 @ie_cli.command(name="deploy", examples=["hf endpoints deploy my-endpoint --repo gpt2 --framework pytorch ..."])

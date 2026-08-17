@@ -3090,6 +3090,22 @@ class TestInferenceEndpointsHardwareCommand:
         assert "No results found." in result.stdout
         assert "Use '--all'" in result.stderr
 
+    @pytest.mark.parametrize(
+        "flags, expected_hint",
+        [
+            (["--vendor", "asw"], "No such hardware: --vendor 'asw' (valid: aws, gcp)."),
+            # 'gcp' and 'cpu' both exist, just never on the same hardware.
+            (["--vendor", "gcp", "--accelerator", "cpu"], "No hardware matches all of these filters at once."),
+        ],
+    )
+    def test_hints_at_valid_values_when_no_hardware_matches_at_all(
+        self, runner: CliRunner, api: Mock, flags: list[str], expected_hint: str
+    ) -> None:
+        result = runner.invoke(app, ["endpoints", "hardware", *flags, "--format", "human"])
+        assert result.exit_code == 0
+        assert "No results found." in result.stdout
+        assert expected_hint in result.stderr
+
 
 @contextmanager
 def tmp_current_directory() -> Generator[str, None, None]:
