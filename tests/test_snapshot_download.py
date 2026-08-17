@@ -1,4 +1,6 @@
+import copy
 import os
+import pickle
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -359,6 +361,15 @@ def test_revision_str():
     revision = ResolvedRevision(resolved=COMMIT_HASH, initial="refs/pr/4")
     assert revision == "refs/pr/4"
     assert revision.resolved == COMMIT_HASH
+
+
+def test_revision_str_is_picklable():
+    revision = ResolvedRevision(resolved=COMMIT_HASH, initial="refs/pr/4")
+
+    for restored in (pickle.loads(pickle.dumps(revision)), copy.deepcopy(revision)):
+        assert restored == "refs/pr/4"
+        assert restored.initial == "refs/pr/4"
+        assert restored.resolved == COMMIT_HASH
 
 
 class TestResolveRevision:
