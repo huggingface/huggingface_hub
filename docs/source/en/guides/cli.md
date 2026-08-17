@@ -2315,15 +2315,17 @@ Use `hf endpoints` to list, deploy, describe, and manage Inference Endpoints dir
 `hf endpoints deploy` needs five hardware flags (`--vendor`, `--region`, `--accelerator`, `--instance-type` and `--instance-size`). `hf endpoints hardware` lists the valid combinations, with the price per hour and the accelerator quota of your namespace:
 
 ```bash
->>> hf endpoints hardware --vendor aws --accelerator gpu
+>>> hf endpoints hardware --vendor aws --region eu-west-1
 VENDOR REGION    ACCELERATOR INSTANCE_TYPE INSTANCE_SIZE MEMORY_GB GPU_MEMORY_GB PRICE_PER_HOUR QUOTA STATUS
 ------ --------- ----------- ------------- ------------- --------- ------------- -------------- ----- ---------
-aws    eu-west-1 gpu         nvidia-t4     x1                 15.0            16            0.5 1/30  available
-aws    us-east-1 gpu         nvidia-l4     x1                 30.0            24            0.8 1/16  available
-aws    us-east-1 gpu         nvidia-l4     x4                185.0            96            3.8 1/16  available
-aws    us-west-2 gpu         nvidia-h200   x1                256.0           141            5.0 1/2   available
-...
-Hint: Deploy on one of these, e.g.: hf endpoints deploy my-endpoint --repo <repo> --framework <framework> --vendor aws --region eu-west-1 --accelerator gpu --instance-type nvidia-a10g --instance-size x1
+aws    eu-west-1 cpu         intel-spr     x1                  2.0                       $0.033 0/60  available
+aws    eu-west-1 cpu         intel-spr     x2                  4.0                       $0.067 0/60  available
+aws    eu-west-1 cpu         intel-spr     x4                  8.0                       $0.134 0/60  available
+aws    eu-west-1 cpu         intel-spr     x8                 16.0                       $0.268 0/60  available
+aws    eu-west-1 cpu         intel-spr     x16                32.0                       $0.536 0/60  available
+aws    eu-west-1 gpu         nvidia-a10g   x1                 30.0            24         $1.000 0/16  available
+aws    eu-west-1 gpu         nvidia-t4     x1                 15.0            16         $0.500 1/30  available
+Hint: Deploy on one of these, e.g.: hf endpoints deploy my-endpoint --repo <repo> --framework <framework> --vendor aws --region eu-west-1 --accelerator cpu --instance-type intel-spr --instance-size x1
 ```
 
 The filter flags are the deploy flags (`--vendor`, `--region`, `--accelerator`, `--instance-type`), so whatever you filter on is what you pass to `deploy`. Only hardware you can deploy on right now is listed: a usable status, and enough accelerator quota left in your namespace for one replica. Add `--all` to also see what is deprecated, temporarily unavailable or out of quota. `--format json` adds the remaining per-replica specs (vCPUs, architecture, number of accelerators) to each entry.
