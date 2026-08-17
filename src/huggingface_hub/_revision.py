@@ -39,5 +39,9 @@ class ResolvedRevision(str):
         revision.resolved = resolved
         return revision
 
+    def __reduce__(self):
+        # without this, pickle/copy rebuild the instance from its string value only, losing `initial` and `resolved`
+        return self.__class__, (self.resolved, self.initial)
+
     def __repr__(self) -> str:
         return f"ResolvedRevision(initial={self.initial!r}, resolved={self.resolved!r})"
