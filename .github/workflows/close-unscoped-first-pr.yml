@@ -61,14 +61,18 @@ jobs:
             }
             if (isMaintainer(pr.user)) return skip("opened by a maintainer");
 
+            // Reopening is how a maintainer overrides a previous close, so don't close it again.
+            if (context.payload.action === "reopened" && isMaintainer(context.payload.sender)) {
+              return skip(`reopened by @${context.payload.sender.login}`);
+            }
+
             // A maintainer already engaged with the PR itself, so let the human decision stand.
-            const prComments = await github.paginate(github.rest.issues.listComments, {
-              ...context.repo,
-              issue_number: pr.number,
-              per_page: 100,
-            });
-            const engaged = prComments.find((comment) => isMaintainer(comment.user));
-            if (engaged) return skip(`@${engaged.user.login} already commented on it`);
+            const [prComments, prReviews] = await Promise.all([
+              github.paginate(github.rest.issues.listComments, { ...context.repo, issue_number: pr.number, per_page: 100 }),
+              github.paginate(github.rest.pulls.listReviews, { ...context.repo, pull_number: pr.number, per_page: 100 }),
+            ]);
+            const engaged = [...prComments, ...prReviews].find((event) => isMaintainer(event.user));
+            if (engaged) return skip(`@${engaged.user.login} already commented on or reviewed it`);
 
             // Any `#123` or issue URL in the title or body counts as a reference. Over-matching is
             // intentional: a false reference leaves the PR open, a missed one closes it.
