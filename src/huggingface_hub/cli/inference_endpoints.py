@@ -139,7 +139,8 @@ def hardware(
     Only the hardware the namespace can deploy on right now is listed: a usable status, and enough accelerator
     quota left for one replica. Use `--all` to list every combination the API returns.
 
-    Quota is per namespace, so pass the same `--namespace` you will pass to `hf endpoints deploy`.
+    Quota is per namespace, so pass the same `--namespace` you will pass to `hf endpoints deploy`. Prices are in
+    USD, per replica per hour.
     """
     api = get_hf_api(token=token)
     hardware_list = api.list_inference_endpoints_hardware(namespace=namespace, token=token)
@@ -159,7 +160,9 @@ def hardware(
     # ('num_accelerators' is the size multiplier; 'instance_size' would sort 'x16' before 'x2').
     visible.sort(key=lambda hw: (hw.vendor, hw.region, hw.accelerator, hw.instance_type, hw.num_accelerators))
 
-    # Augment the raw dataclass dict (kept whole for '--format json') with a table-friendly quota column.
+    # Augment the raw dataclass dict (kept whole for '--format json') with a table-friendly quota column. The price
+    # stays a bare number rather than a '$x.xxx' string: it is the one column worth sorting and comparing on, and
+    # the item dict is what '--format json' and the agent TSV emit. The currency is in the docstring instead.
     items = [_dataclass_to_dict(hw) | {"quota": f"{hw.used_accelerators}/{hw.max_accelerators}"} for hw in visible]
     out.table(
         items,
@@ -179,9 +182,6 @@ def hardware(
             "quota",
             "status",
         ],
-        # Currency in the human table like 'hf jobs hardware', while json/agent keep the raw float so it stays
-        # comparable. 3 decimals rather than 2: the cheapest CPU instances cost $0.033/h, which '.2f' would round.
-        human_formatters={"price_per_hour": lambda price: f"${price:.3f}"},
         id_key="id",
     )
     if visible:

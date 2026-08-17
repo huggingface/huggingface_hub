@@ -3022,8 +3022,7 @@ class TestInferenceEndpointsHardwareCommand:
             "aws-us-east-1-nvidia-l4-x1",
             "gcp-us-east4-nvidia-a100-x1",
         ]
-        # The '$' price belongs to the human table only: json keeps a number scripts can compare.
-        assert listed[0]["price_per_hour"] == 0.033
+        assert listed[0]["price_per_hour"] == 0.033  # a number, so scripts can compare and sort on it
 
     def test_all_includes_hardware_that_cannot_be_deployed_on(self, runner: CliRunner, api: Mock) -> None:
         result = runner.invoke(app, ["endpoints", "hardware", "--all", "--format", "json"])
@@ -3072,7 +3071,7 @@ class TestInferenceEndpointsHardwareCommand:
         assert result.exit_code == 0
         # Both memory columns are shown: 'gpu_memory_gb' is null on CPU hardware, 'memory_gb' never is.
         assert {"MEMORY_GB", "GPU_MEMORY_GB"} <= set(result.stdout.splitlines()[0].split())
-        assert "$3.600" in result.stdout  # price, with its currency
+        assert "3.6" in result.stdout  # price, as a bare number
         assert "1/16" in result.stdout  # quota, as used/max
         assert (
             "--vendor gcp --region us-east4 --accelerator gpu --instance-type nvidia-a100 --instance-size x1"

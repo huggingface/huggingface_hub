@@ -2312,19 +2312,19 @@ Use `hf endpoints` to list, deploy, describe, and manage Inference Endpoints dir
 
 #### Find hardware to deploy on
 
-`hf endpoints deploy` needs five hardware flags (`--vendor`, `--region`, `--accelerator`, `--instance-type` and `--instance-size`). `hf endpoints hardware` lists the valid combinations, with the price per hour and the accelerator quota of your namespace:
+`hf endpoints deploy` needs five hardware flags (`--vendor`, `--region`, `--accelerator`, `--instance-type` and `--instance-size`). `hf endpoints hardware` lists the valid combinations, with the price per replica per hour in USD and the accelerator quota of your namespace:
 
 ```bash
 >>> hf endpoints hardware --vendor aws --region eu-west-1
 VENDOR REGION    ACCELERATOR INSTANCE_TYPE INSTANCE_SIZE MEMORY_GB GPU_MEMORY_GB PRICE_PER_HOUR QUOTA STATUS
 ------ --------- ----------- ------------- ------------- --------- ------------- -------------- ----- ---------
-aws    eu-west-1 cpu         intel-spr     x1                  2.0                       $0.033 0/60  available
-aws    eu-west-1 cpu         intel-spr     x2                  4.0                       $0.067 0/60  available
-aws    eu-west-1 cpu         intel-spr     x4                  8.0                       $0.134 0/60  available
-aws    eu-west-1 cpu         intel-spr     x8                 16.0                       $0.268 0/60  available
-aws    eu-west-1 cpu         intel-spr     x16                32.0                       $0.536 0/60  available
-aws    eu-west-1 gpu         nvidia-a10g   x1                 30.0            24         $1.000 0/16  available
-aws    eu-west-1 gpu         nvidia-t4     x1                 15.0            16         $0.500 1/30  available
+aws    eu-west-1 cpu         intel-spr     x1                  2.0                        0.033 0/60  available
+aws    eu-west-1 cpu         intel-spr     x2                  4.0                        0.067 0/60  available
+aws    eu-west-1 cpu         intel-spr     x4                  8.0                        0.134 0/60  available
+aws    eu-west-1 cpu         intel-spr     x8                 16.0                        0.268 0/60  available
+aws    eu-west-1 cpu         intel-spr     x16                32.0                        0.536 0/60  available
+aws    eu-west-1 gpu         nvidia-a10g   x1                 30.0            24            1.0 0/16  available
+aws    eu-west-1 gpu         nvidia-t4     x1                 15.0            16            0.5 1/30  available
 Hint: Deploy on one of these, e.g.: hf endpoints deploy my-endpoint --repo <repo> --framework <framework> --vendor aws --region eu-west-1 --accelerator cpu --instance-type intel-spr --instance-size x1
 ```
 
