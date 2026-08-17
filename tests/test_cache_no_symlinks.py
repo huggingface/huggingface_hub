@@ -1,30 +1,62 @@
+import os
 import warnings
 from pathlib import Path
 
 import pytest
 from pytest_mock import MockerFixture
 
-from huggingface_hub import hf_hub_download, scan_cache_dir
-from huggingface_hub.constants import CONFIG_NAME, HF_HUB_CACHE
+from huggingface_hub import constants, hf_hub_download, scan_cache_dir
+from huggingface_hub.constants import CONFIG_NAME
 from huggingface_hub.file_download import are_symlinks_supported
+from huggingface_hub.utils import SoftTemporaryDirectory
 
 from .testing_constants import DUMMY_MODEL_ID
+
+
+def _can_create_symlink() -> bool:
+    """Whether this machine is actually allowed to create symlinks.
+
+    On Windows this requires Developer Mode or an elevated process. Without either, `os.symlink`
+    raises `OSError` ([WinError 1314] "A required privilege is not held by the client").
+    """
+    with SoftTemporaryDirectory() as tmpdir:
+        src_path = Path(tmpdir) / "dummy_file_src"
+        src_path.touch()
+        try:
+            os.symlink(src_path, Path(tmpdir) / "dummy_file_dst")
+        except OSError:
+            return False
+        return True
+
+
+requires_symlinks = pytest.mark.skipif(
+    not _can_create_symlink(),
+    reason="requires a machine that can create symlinks (on Windows: Developer Mode or an elevated process)",
+)
 
 
 @pytest.mark.production
 class TestCacheLayoutIfSymlinksNotSupported:
     def test_are_symlinks_supported_default(self, mocker: MockerFixture) -> None:
-        mocker.patch(
-            "huggingface_hub.file_download._are_symlinks_supported_in_dir",
-            {HF_HUB_CACHE: True},
-        )
+        """Called without argument, the default cache directory is the one probed and memoized."""
+        mocker.patch("huggingface_hub.file_download.os.symlink")  # symlink creation succeeds
+        memo: dict[str, bool] = {}
+        mocker.patch("huggingface_hub.file_download._are_symlinks_supported_in_dir", memo)
+
         assert are_symlinks_supported()
+        # `HF_HUB_CACHE` is read from the module and not imported: the `patch_constants` fixture
+        # (tests/conftest.py) repoints it to a fresh temporary directory for every test.
+        assert memo == {str(Path(constants.HF_HUB_CACHE).expanduser().resolve()): True}
 
     def test_are_symlinks_supported_disabled_by_env(self, mocker: MockerFixture) -> None:
         """Setting HF_HUB_DISABLE_SYMLINKS=1 forces are_symlinks_supported() to return False."""
         mocker.patch("huggingface_hub.file_download.constants.HF_HUB_DISABLE_SYMLINKS", True)
-        mocker.patch("huggingface_hub.file_download._are_symlinks_supported_in_dir", {HF_HUB_CACHE: True})
+        mocker.patch("huggingface_hub.file_download.os.symlink")  # symlink creation would succeed
+        memo: dict[str, bool] = {}
+        mocker.patch("huggingface_hub.file_download._are_symlinks_supported_in_dir", memo)
+
         assert not are_symlinks_supported()
+        assert memo == {}  # returned early: the directory has not even been probed
 
     def test_are_symlinks_supported_windows_specific_dir(self, mocker: MockerFixture) -> None:
         mock_symlink = mocker.patch("huggingface_hub.file_download.os.symlink")
@@ -65,7 +97,13 @@ class TestCacheLayoutIfSymlinksNotSupported:
         # Blobs directory is empty
         assert len(list((Path(filepath).parents[2] / "blobs").glob("*"))) == 0
 
+    @requires_symlinks
     def test_download_no_symlink_existing_file(self, mocker: MockerFixture, tmp_path: Path) -> None:
+        """A file already cached as a symlink is re-downloaded as a plain copy once symlinks are gone.
+
+        The first download runs with symlinks reported as supported, so it goes through the real
+        `os.symlink`: this test needs a machine that can genuinely create symlinks.
+        """
         mock_are_symlinks_supported = mocker.patch("huggingface_hub.file_download.are_symlinks_supported")
         mock_are_symlinks_supported.return_value = True
         filepath = Path(
@@ -101,8 +139,13 @@ class TestCacheLayoutIfSymlinksNotSupported:
         # => duplicate file on disk
         assert blob_path.is_file()
 
+    @requires_symlinks
     def test_scan_and_delete_cache_no_symlinks(self, mocker: MockerFixture, tmp_path: Path) -> None:
-        """Test scan_cache_dir works as well when cache-system doesn't use symlinks."""
+        """Test scan_cache_dir works as well when cache-system doesn't use symlinks.
+
+        The cache ends up mixing both layouts, so the last download goes through the real
+        `os.symlink`: this test needs a machine that can genuinely create symlinks.
+        """
         mock_are_symlinks_supported = mocker.patch("huggingface_hub.file_download.are_symlinks_supported")
         OLDER_REVISION = "44c70f043cfe8162efc274ff531575e224a0e6f0"
 
