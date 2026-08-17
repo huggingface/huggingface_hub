@@ -1356,6 +1356,47 @@ class TestHttpGet:
         assert tracker.total == 100
         assert tracker.n == 100
 
+    def test_http_get_retries_when_stream_fails_before_response(self, caplog):
+        """Test that http_get resumes when the request fails before the response body is streamed.
+
+        A timeout can happen while waiting for the response headers, i.e. before any chunk is
+        received. It must be retried like a mid-body failure instead of aborting the download.
+
+        Regression test for https://github.com/huggingface/huggingface_hub/issues/4670.
+        """
+
+        def _fail_after(data: bytes):
+            yield data
+            raise httpx.ReadTimeout("Fake timeout while streaming the body")
+
+        streamed = [
+            self._mock_response(headers={"Content-Length": "100"}, iter_bytes=_fail_after(b"A" * 30)),
+            httpx.ReadTimeout("Fake timeout while waiting for the response headers"),
+            self._mock_response(
+                status_code=206,
+                headers={"Content-Length": "70", "Content-Range": "bytes 30-99/100"},
+                iter_bytes=iter([b"B" * 70]),
+            ),
+        ]
+        it = iter(streamed)
+        ranges = []
+
+        @contextmanager
+        def _mock_stream(*args, **kwargs):
+            ranges.append(kwargs["headers"].get("Range"))
+            response = next(it)
+            if isinstance(response, Exception):
+                raise response
+            yield response
+
+        with patch("huggingface_hub.file_download.http_stream_backoff", side_effect=_mock_stream):
+            temp_file = io.BytesIO()
+            http_get("fake_url", temp_file=temp_file, expected_size=100)
+
+        assert temp_file.getvalue() == b"A" * 30 + b"B" * 70
+        # The retry after the header timeout must resume from the bytes already on disk.
+        assert ranges == [None, "bytes=30-", "bytes=30-"]
+
     def test_http_get_falls_back_to_expected_size_when_response_lacks_content_length(self):
         """Test correct progress on small files when the response is gzip+chunked (i.e. no Content-Length).
 
