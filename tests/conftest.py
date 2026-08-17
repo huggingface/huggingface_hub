@@ -20,6 +20,17 @@ from .testing_constants import (
 from .testing_utils import repo_name
 
 
+# Pin an empty agent-harness registry as soon as this conftest is imported (i.e. before
+# any test module is collected), not just inside a fixture. `_clean_cli_env` below does
+# the same thing per-test via monkeypatch, but that runs too late for module-level code
+# that calls `detect_agent()` (via `_http_user_agent()`) at collection time, e.g.
+# `DEFAULT_USER_AGENT = _http_user_agent()` in `test_utils_headers.py`. Without this,
+# running the suite from inside an AI coding agent session appends `; agent/<id>` to
+# that module-level constant and every exact-match header assertion in
+# `TestAuthHeadersUtil` fails, even though nothing is actually broken in the library.
+_detect_agent._registry = _detect_agent._EMPTY_REGISTRY
+
+
 @pytest.fixture(autouse=True, scope="function")
 def patch_constants(mocker):
     with SoftTemporaryDirectory() as cache_dir:
