@@ -19,7 +19,7 @@ import json
 import re
 import shutil
 import sys
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from enum import Enum
 from functools import cache
 from typing import Any, cast
@@ -99,6 +99,7 @@ class Output:
         headers: list[str] | None = None,
         id_key: str | None = None,
         alignments: dict[str, str] | None = None,
+        human_formatters: dict[str, Callable[[Any], str]] | None = None,
     ) -> None:
         """Print tabular data to stdout.
 
@@ -107,6 +108,9 @@ class Output:
             headers: Explicit column names. If None, derived from dict keys (all-None columns filtered).
             id_key: Key to print in quiet mode. If None, uses the first header.
             alignments: Optional mapping of header name to "left" or "right". Defaults to "left".
+            human_formatters: Optional mapping of column name to a display function, applied to the human table
+                only (and never to `None`). Use it to add units or symbols a reader wants, e.g. `"$0.800"`, while
+                json/agent/quiet keep the raw value for scripts to compare and sort.
         """
         if not items:
             match self.mode:
@@ -124,7 +128,16 @@ class Output:
         match self.mode:
             case OutputFormat.human:  # padded table, adaptive truncation, SCREAMING_SNAKE headers
                 screaming_headers = [_to_header(h) for h in headers]
-                formatted_rows: list[list[str]] = [[_format_table_value_human(v) for v in row] for row in rows]
+                formatters = human_formatters or {}
+                formatted_rows: list[list[str]] = [
+                    [
+                        formatters[header](value)
+                        if value is not None and header in formatters
+                        else _format_table_value_human(value)
+                        for header, value in zip(headers, row, strict=True)
+                    ]
+                    for row in rows
+                ]
 
                 is_truncated = _truncate_columns(screaming_headers, formatted_rows, no_truncate=self.no_truncate)
 

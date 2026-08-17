@@ -170,6 +170,32 @@ def test_table_empty(check):
     )
 
 
+def test_table_human_formatters(check):
+    """A human formatter decorates the human table only, so machine output keeps the raw value."""
+    items = [{"name": "intel-spr", "price": 0.033}, {"name": "nvidia-l4", "price": None}]
+    check(
+        lambda out: out.table(items, human_formatters={"price": lambda price: f"${price:.3f}"}),
+        human="""
+        NAME       PRICE
+        --------- ------
+        intel-spr $0.033
+        nvidia-l4
+        """,
+        agent="""
+        name\tprice
+        intel-spr\t0.033
+        nvidia-l4\tNone
+        """,
+        json="""
+        [{"name": "intel-spr", "price": 0.033}, {"name": "nvidia-l4", "price": null}]
+        """,
+        quiet="""
+        intel-spr
+        nvidia-l4
+        """,
+    )
+
+
 def test_table_adaptive_shrinks_widest_column(monkeypatch, capsys):
     """Narrow terminal: the wide column gets shrunk, naturally-narrow columns are preserved."""
     monkeypatch.setattr(shutil, "get_terminal_size", lambda *_: os.terminal_size((40, 24)))

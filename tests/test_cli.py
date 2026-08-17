@@ -3016,11 +3016,14 @@ class TestInferenceEndpointsHardwareCommand:
         result = runner.invoke(app, ["endpoints", "hardware", "--format", "json"])
         assert result.exit_code == 0
         api.list_inference_endpoints_hardware.assert_called_once_with(namespace=None, token=None)
-        assert [hw["id"] for hw in json.loads(result.stdout)] == [
+        listed = json.loads(result.stdout)
+        assert [hw["id"] for hw in listed] == [
             "aws-us-east-1-intel-spr-x1",
             "aws-us-east-1-nvidia-l4-x1",
             "gcp-us-east4-nvidia-a100-x1",
         ]
+        # The '$' price belongs to the human table only: json keeps a number scripts can compare.
+        assert listed[0]["price_per_hour"] == 0.033
 
     def test_all_includes_hardware_that_cannot_be_deployed_on(self, runner: CliRunner, api: Mock) -> None:
         result = runner.invoke(app, ["endpoints", "hardware", "--all", "--format", "json"])
