@@ -521,9 +521,17 @@ def update(
     token: TokenOpt = None,
 ) -> None:
     """Update an existing endpoint."""
-    # The parallelism sizes go to `update_inference_endpoint`, not into the image built here: it writes them into
-    # the image currently configured on the endpoint when none is given, so they work on their own.
-    custom_image_dict = _build_custom_image(custom_image, engine=engine, health_route=health_route, port=port)
+    # The sizes are only fed to the image built here when there is one to write them into, so that `--engine` gets
+    # checked on that path. Without `--custom-image` they travel on their own and `update_inference_endpoint`
+    # merges them into the image the endpoint currently runs.
+    custom_image_dict = _build_custom_image(
+        custom_image,
+        engine=engine,
+        health_route=health_route,
+        port=port,
+        tensor_parallel_size=tensor_parallel_size if custom_image is not None else None,
+        data_parallel_size=data_parallel_size if custom_image is not None else None,
+    )
 
     api = get_hf_api(token=token)
     try:

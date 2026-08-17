@@ -2918,6 +2918,26 @@ class TestInferenceEndpointsCommands:
         assert kwargs["tensor_parallel_size"] == 8
         assert kwargs["custom_image"] is None
 
+    def test_update_parallelism_with_an_image_requires_engine(self, runner: CliRunner) -> None:
+        """The --engine guard must apply on update too, not only on deploy: an image built without an engine key
+        is a plain custom container, whose parallelism fields the API drops."""
+        with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
+            result = runner.invoke(
+                app,
+                [
+                    "endpoints",
+                    "update",
+                    "my-endpoint",
+                    "--custom-image",
+                    "vllm/vllm-openai:v0.23.0",
+                    "--tensor-parallel-size",
+                    "8",
+                ],
+            )
+        assert result.exit_code != 0
+        api_cls.return_value.update_inference_endpoint.assert_not_called()
+        assert "require --engine" in (result.stdout + str(result.exception))
+
     def test_update_parallelism_with_an_explicit_image(self, runner: CliRunner) -> None:
         endpoint = Mock(raw={"name": "updated"})
         with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
@@ -2939,7 +2959,8 @@ class TestInferenceEndpointsCommands:
             )
         assert result.exit_code == 0, result.stdout
         _, kwargs = api.update_inference_endpoint.call_args
-        assert kwargs["custom_image"] == {"vLLM": {"url": "vllm/vllm-openai:v0.23.0"}}
+        # Written into the image here and passed through as well: `HfApi` sets the same value, so it is a no-op.
+        assert kwargs["custom_image"] == {"vLLM": {"url": "vllm/vllm-openai:v0.23.0", "dataParallelSize": 2}}
         assert kwargs["data_parallel_size"] == 2
 
     def test_update_container_args_empty_string_resets(self, runner: CliRunner) -> None:
