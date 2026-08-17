@@ -323,12 +323,9 @@ hf endpoints update my-endpoint-name --repo gpt2-large
 hf endpoints update my-endpoint-name --min-replica 2 --max-replica 6
 hf endpoints update my-endpoint-name --accelerator cpu --instance-size x4 --instance-type intel-icl
 hf endpoints update my-endpoint-name --container-args "--enable-auto-tool-choice --tool-call-parser lfm2"
+# Replaces the image as a whole, so pass back the settings you want to keep.
 hf endpoints update my-endpoint-name --engine vllm --custom-image vllm/vllm-openai:v0.23.0 --tensor-parallel-size 8
 ```
-
-`--custom-image` replaces the image configured on the endpoint rather than patching it, because the API takes
-`model.image` as a whole. Run `hf endpoints describe my-endpoint-name` first and pass back the engine and container
-settings you want to keep.
 
 ### Delete the endpoint
 
