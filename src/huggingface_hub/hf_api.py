@@ -767,6 +767,47 @@ def _build_endpoint_image_payload(custom_image: dict) -> dict:
     return custom_image
 
 
+# Image variants that declare `tensorParallelSize` / `dataParallelSize`. The API ignores a field a variant doesn't
+# declare instead of rejecting it, so these only drive a warning: a wrong engine gets a visible no-op rather than a
+# silent one, and an engine the API adds later still works without a `huggingface_hub` release.
+_TENSOR_PARALLEL_IMAGE_KEYS = ("sGLang", "vLLM")
+_DATA_PARALLEL_IMAGE_KEYS = ("vLLM",)
+
+
+def _set_parallelism_in_image(
+    image: dict,
+    *,
+    tensor_parallel_size: int | None = None,
+    data_parallel_size: int | None = None,
+) -> dict:
+    """Write the parallelism sizes into a `model.image` payload.
+
+    They are engine settings, so they live inside the engine config (`{"vLLM": {"url": ..., "tensorParallelSize": 8}}`)
+    rather than at the top level. Returns a new image dict, the input is left untouched.
+    """
+    image_key = next(iter(image), None)
+    if image_key is None:
+        raise ValueError("Cannot set the parallelism sizes: the image payload is empty.")
+
+    for value, name, supported in (
+        (tensor_parallel_size, "tensor_parallel_size", _TENSOR_PARALLEL_IMAGE_KEYS),
+        (data_parallel_size, "data_parallel_size", _DATA_PARALLEL_IMAGE_KEYS),
+    ):
+        if value is not None and image_key not in supported:
+            warnings.warn(
+                f"`{name}` is not a known setting of the '{image_key}' image, which the API silently ignores"
+                f" instead of rejecting. It is used by: {', '.join(supported)}.",
+                UserWarning,
+            )
+
+    image = {image_key: {**image[image_key]}}
+    if tensor_parallel_size is not None:
+        image[image_key]["tensorParallelSize"] = tensor_parallel_size
+    if data_parallel_size is not None:
+        image[image_key]["dataParallelSize"] = data_parallel_size
+    return image
+
+
 @dataclass
 class RepoSibling:
     """
@@ -9770,6 +9811,8 @@ class HfApi:
         custom_image: dict | None = None,
         container_command: list[str] | None = None,
         container_args: list[str] | None = None,
+        tensor_parallel_size: int | None = None,
+        data_parallel_size: int | None = None,
         env: dict[str, str] | None = None,
         secrets: dict[str, str] | None = None,
         # Route update
@@ -9829,6 +9872,13 @@ class HfApi:
             container_args (`list[str]`, *optional*):
                 Arguments appended to the container entrypoint (maps to `model.args` in the API payload). Works with
                 both managed engine images (e.g. vLLM, SGLang) and custom images.
+            tensor_parallel_size (`int`, *optional*):
+                Number of accelerators to shard a single model copy across (vLLM and SGLang images). Written inside
+                the engine image config. The API requires `model.image` as a whole, so when `custom_image` is not
+                given the image currently configured on the endpoint is fetched and updated in place.
+            data_parallel_size (`int`, *optional*):
+                Number of model copies to run, one per accelerator (vLLM images). Same handling as
+                `tensor_parallel_size`.
             env (`dict[str, str]`, *optional*):
                 Non-secret environment variables to inject in the container environment
             secrets (`dict[str, str]`, *optional*):
@@ -9883,6 +9933,28 @@ class HfApi:
             payload["model"]["task"] = task
         if custom_image is not None:
             payload["model"]["image"] = _build_endpoint_image_payload(custom_image)
+        if tensor_parallel_size is not None or data_parallel_size is not None:
+            # The parallelism sizes cannot be sent on their own: `model.image` is a union and `url` is required
+            # inside the variant. Start from the caller's image, or from the one the endpoint currently runs.
+            image = payload["model"].get("image")
+            if not image:
+                current = self.get_inference_endpoint(name, namespace=namespace, token=token)
+                image = (current.raw.get("model") or {}).get("image")
+                if not image:
+                    raise ValueError(
+                        f"Could not read the image currently configured on endpoint '{name}'. Pass `custom_image`"
+                        " explicitly to set the parallelism sizes."
+                    )
+                if "credentials" in next(iter(image.values()), {}):
+                    # The API does not return registry credentials in full, so echoing the fetched image back
+                    # would overwrite them with the redacted values.
+                    raise ValueError(
+                        f"Endpoint '{name}' runs an image with registry credentials, which cannot be safely"
+                        " round-tripped. Pass `custom_image` explicitly to set the parallelism sizes."
+                    )
+            payload["model"]["image"] = _set_parallelism_in_image(
+                image, tensor_parallel_size=tensor_parallel_size, data_parallel_size=data_parallel_size
+            )
         if container_command is not None:
             payload["model"]["command"] = container_command
         if container_args is not None:

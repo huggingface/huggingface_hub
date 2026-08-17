@@ -2347,13 +2347,13 @@ To deploy your own Docker image instead of a Hugging Face managed one, pass `--f
 
 Note the difference from the `--container-args "... --tp 8"` above: `--tensor-parallel-size` writes into the engine's `model.image` config, which is what the API validates the instance's accelerator count against, while `--container-args` only appends a flag to the container's command line. Use `--container-args` for engine flags with no image field, and for plain custom containers, which have no parallelism fields at all.
 
-The same flags work on `hf endpoints update`, which is also the only way to change the image of an existing endpoint. The API takes `model.image` as a whole, so `--custom-image` replaces it rather than patching it. Run `hf endpoints describe` first and pass back what you want to keep:
+To retune an endpoint that is already running, pass the sizes to `hf endpoints update` on their own. The API takes `model.image` as a whole and requires `url` inside it, so the image currently configured on the endpoint is fetched and updated in place, leaving its other settings alone:
 
 ```bash
->>> hf endpoints update gpt-oss-120b-vllm \
-      --engine vllm --custom-image vllm/vllm-openai:v0.23.0 \
-      --tensor-parallel-size 4 --data-parallel-size 2
+>>> hf endpoints update gpt-oss-120b-vllm --tensor-parallel-size 4 --data-parallel-size 2
 ```
+
+`hf endpoints update` also accepts `--custom-image` and `--engine`, which is the only way to change an endpoint's image from the CLI. That path replaces `model.image` rather than patching it, so run `hf endpoints describe` first and pass back the settings you want to keep.
 
 ### hf endpoints catalog
 

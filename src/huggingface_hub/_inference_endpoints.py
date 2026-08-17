@@ -269,6 +269,8 @@ class InferenceEndpoint:
         custom_image: dict | None = None,
         container_command: list[str] | None = None,
         container_args: list[str] | None = None,
+        tensor_parallel_size: int | None = None,
+        data_parallel_size: int | None = None,
         secrets: dict[str, str] | None = None,
     ) -> "InferenceEndpoint":
         """Update the Inference Endpoint.
@@ -312,6 +314,12 @@ class InferenceEndpoint:
             container_args (`list[str]`, *optional*):
                 Arguments appended to the container entrypoint (maps to `model.args` in the API payload). Works with
                 both managed engine images (e.g. vLLM, SGLang) and custom images.
+            tensor_parallel_size (`int`, *optional*):
+                Number of accelerators to shard a single model copy across (vLLM and SGLang images). When
+                `custom_image` is not given, the image currently configured on the endpoint is fetched and updated
+                in place, as the API requires `model.image` as a whole.
+            data_parallel_size (`int`, *optional*):
+                Number of model copies to run, one per accelerator (vLLM images).
             secrets (`dict[str, str]`, *optional*):
                 Secret values to inject in the container environment.
         Returns:
@@ -334,6 +342,8 @@ class InferenceEndpoint:
             custom_image=custom_image,
             container_command=container_command,
             container_args=container_args,
+            tensor_parallel_size=tensor_parallel_size,
+            data_parallel_size=data_parallel_size,
             secrets=secrets,
             token=self._token,  # type: ignore [arg-type]
         )

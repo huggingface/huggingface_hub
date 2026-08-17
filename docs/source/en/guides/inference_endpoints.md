@@ -159,6 +159,14 @@ hf endpoints deploy gpt-oss-120b-vllm --repo openai/gpt-oss-120b --framework cus
   --engine vllm --custom-image vllm/vllm-openai:v0.23.0 --tensor-parallel-size 8
 ```
 
+To retune an endpoint that is already deployed, use [`~InferenceEndpoint.update`] or `hf endpoints update` with
+`tensor_parallel_size` alone. The API takes `model.image` as a whole and requires `url` inside it, so the image
+currently configured on the endpoint is fetched and updated in place, leaving its other settings alone:
+
+```py
+>>> endpoint.update(tensor_parallel_size=4)
+```
+
 Passing the same value through `container_args` (`--tp 8`) is not equivalent: it reaches the engine as a command-line
 flag, but not the `model.image` config the API validates the instance's accelerator count against. Use `container_args`
 for engine flags that have no image field, and for plain custom containers, which have no parallelism fields at all.
@@ -323,8 +331,10 @@ hf endpoints update my-endpoint-name --repo gpt2-large
 hf endpoints update my-endpoint-name --min-replica 2 --max-replica 6
 hf endpoints update my-endpoint-name --accelerator cpu --instance-size x4 --instance-type intel-icl
 hf endpoints update my-endpoint-name --container-args "--enable-auto-tool-choice --tool-call-parser lfm2"
-# Replaces the image as a whole, so pass back the settings you want to keep.
-hf endpoints update my-endpoint-name --engine vllm --custom-image vllm/vllm-openai:v0.23.0 --tensor-parallel-size 8
+# Merged into the image currently configured on the endpoint.
+hf endpoints update my-endpoint-name --tensor-parallel-size 8
+# Or replace the image entirely, in which case pass back the settings you want to keep.
+hf endpoints update my-endpoint-name --engine vllm --custom-image vllm/vllm-openai:v0.23.0 --port 8000
 ```
 
 ### Delete the endpoint

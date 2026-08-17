@@ -400,8 +400,7 @@ def describe(
 @ie_cli.command(
     examples=[
         "hf endpoints update my-endpoint --min-replica 2",
-        "hf endpoints update my-endpoint --engine vllm --custom-image vllm/vllm-openai:v0.23.0 "
-        "--tensor-parallel-size 8",
+        "hf endpoints update my-endpoint --tensor-parallel-size 8",
         'hf endpoints update my-endpoint --container-args "--enable-auto-tool-choice --tool-call-parser lfm2"',
     ]
 )
@@ -522,14 +521,9 @@ def update(
     token: TokenOpt = None,
 ) -> None:
     """Update an existing endpoint."""
-    custom_image_dict = _build_custom_image(
-        custom_image,
-        engine=engine,
-        health_route=health_route,
-        port=port,
-        tensor_parallel_size=tensor_parallel_size,
-        data_parallel_size=data_parallel_size,
-    )
+    # The parallelism sizes go to `update_inference_endpoint`, not into the image built here: it writes them into
+    # the image currently configured on the endpoint when none is given, so they work on their own.
+    custom_image_dict = _build_custom_image(custom_image, engine=engine, health_route=health_route, port=port)
 
     api = get_hf_api(token=token)
     try:
@@ -543,6 +537,8 @@ def update(
             custom_image=custom_image_dict,
             container_command=shlex.split(container_command) if container_command is not None else None,
             container_args=shlex.split(container_args) if container_args is not None else None,
+            tensor_parallel_size=tensor_parallel_size,
+            data_parallel_size=data_parallel_size,
             accelerator=accelerator,
             instance_size=instance_size,
             instance_type=instance_type,
@@ -672,6 +668,11 @@ def _build_custom_image(
         if used := [flag for flag, value in image_flags.items() if value is not None]:
             raise CLIError(f"--custom-image is required when using {', '.join(used)}.")
         return None
+
+    if engine is None and (tensor_parallel_size is not None or data_parallel_size is not None):
+        # Without an engine the config is a plain custom container, whose parallelism fields the API ignores
+        # rather than rejects. Fail here instead of deploying something that quietly runs on one accelerator.
+        raise CLIError("--tensor-parallel-size and --data-parallel-size require --engine (e.g. --engine vllm).")
 
     config: dict = {"url": custom_image}
     if health_route is not None:

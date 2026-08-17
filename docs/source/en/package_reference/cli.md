@@ -1982,7 +1982,7 @@ $ hf endpoints update [OPTIONS] NAME
 
 Examples
   $ hf endpoints update my-endpoint --min-replica 2
-  $ hf endpoints update my-endpoint --engine vllm --custom-image vllm/vllm-openai:v0.23.0 --tensor-parallel-size 8
+  $ hf endpoints update my-endpoint --tensor-parallel-size 8
   $ hf endpoints update my-endpoint --container-args "--enable-auto-tool-choice --tool-call-parser lfm2"
 
 Learn more
