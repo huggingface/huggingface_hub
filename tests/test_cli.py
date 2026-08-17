@@ -3078,6 +3078,15 @@ class TestInferenceEndpointsHardwareCommand:
             in result.stderr
         )
 
+    def test_all_does_not_suggest_deploying_on_undeployable_hardware(self, runner: CliRunner, api: Mock) -> None:
+        result = runner.invoke(
+            app, ["endpoints", "hardware", "--all", "--instance-type", "nvidia-h200", "--format", "json"]
+        )
+        assert result.exit_code == 0
+        assert [hw["id"] for hw in json.loads(result.stdout)] == ["aws-us-west-2-nvidia-h200-x1"]  # listed, as asked
+        assert "hf endpoints deploy" not in result.stderr  # but not offered as an example
+        assert "None of these can be deployed on right now" in result.stderr
+
     def test_hints_at_all_when_only_undeployable_hardware_matches(self, runner: CliRunner, api: Mock) -> None:
         result = runner.invoke(app, ["endpoints", "hardware", "--instance-type", "nvidia-h200", "--format", "human"])
         assert result.exit_code == 0

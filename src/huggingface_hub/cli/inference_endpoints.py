@@ -184,13 +184,15 @@ def hardware(
         ],
         id_key="id",
     )
-    if visible:
-        hw = visible[0]
+    # The example has to be one 'deploy' would accept, and with '--all' the first listed row may not be.
+    if (hw := next((hw for hw in visible if _is_deployable(hw)), None)) is not None:
         out.hint(
             f"Deploy on one of these, e.g.: hf endpoints deploy my-endpoint --repo <repo> --framework <framework> "
             f"--vendor {hw.vendor} --region {hw.region} --accelerator {hw.accelerator} "
             f"--instance-type {hw.instance_type} --instance-size {hw.instance_size}"
         )
+    elif visible:  # only reachable with '--all', which lists hardware regardless of whether it can be deployed on
+        out.hint("None of these can be deployed on right now, see the QUOTA and STATUS columns.")
     elif matching:  # everything matching the filters was filtered out as not deployable
         out.hint("Use '--all' to also show hardware that cannot be deployed on right now.")
     else:
