@@ -882,9 +882,9 @@ def _try_delete_path(path: Path, path_type: str) -> None:
     If the path does not exist, error is logged as a warning and then ignored.
 
     Args:
-        path (`Path`)
+        path (`Path`):
             Path to delete. Can be a file or a folder.
-        path_type (`str`)
+        path_type (`str`):
             What path are we deleting ? Only for logging purposes. Example: "snapshot".
     """
     logger.debug(f"Delete {path_type}: {path}")
