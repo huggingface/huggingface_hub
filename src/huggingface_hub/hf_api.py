@@ -239,6 +239,7 @@ ExpandSpaceProperty_T = Literal[
     "likes",
     "models",
     "private",
+    "region",
     "resourceGroup",
     "runtime",
     "sdk",
@@ -751,6 +752,19 @@ def _resolve_copy_target_path(
     if destination_path == "":
         return rel_path
     return f"{destination_path.rstrip('/')}/{rel_path}"
+
+
+def _build_endpoint_image_payload(custom_image: dict) -> dict:
+    """Build the `model.image` payload of an Inference Endpoint from a user-provided image dict.
+
+    `model.image` is a union keyed by variant (`{"vLLM": {...}}`, `{"custom": {...}}`, ...). Only a flat
+    container dict has a top-level `url` (required server-side, and no variant is named `url`), so dicts with
+    one are wrapped in `{"custom": ...}`. Everything else is forwarded as-is, so variants added to the API
+    later work without a release.
+    """
+    if "url" in custom_image:
+        return {"custom": custom_image}
+    return custom_image
 
 
 @dataclass
@@ -1289,6 +1303,8 @@ class SpaceInfo:
             List of models used by the Space.
         private (`bool`):
             Is the repo private.
+        region (`Literal["us", "eu"]`, *optional*):
+            Cloud region in which the Space is stored.
         resource_group (`dict`, *optional*):
             Resource group information for the Space.
         runtime (`SpaceRuntime`, *optional*):
@@ -1321,6 +1337,7 @@ class SpaceInfo:
     likes: int | None
     models: list[str] | None
     private: bool | None
+    region: REPO_REGIONS | None
     resource_group: dict | None
     runtime: SpaceRuntime | None
     sdk: str | None
@@ -1379,6 +1396,7 @@ class SpaceInfo:
         self.runtime = SpaceRuntime(runtime) if runtime else None
         self.models = kwargs.pop("models", None)
         self.datasets = kwargs.pop("datasets", None)
+        self.region = kwargs.pop("region", None)
         self.resource_group = kwargs.pop("resourceGroup", None)
         # backwards compatibility
         self.lastModified = self.last_modified
@@ -2925,7 +2943,7 @@ class HfApi:
             expand (`list[ExpandSpaceProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `full` is passed.
-                Possible values are `"author"`, `"cardData"`, `"datasets"`, `"disabled"`, `"lastModified"`, `"createdAt"`, `"likes"`, `"models"`, `"private"`, `"runtime"`, `"sdk"`, `"siblings"`, `"sha"`, `"subdomain"`, `"tags"`, `"trendingScore"`, `"usedStorage"`, and `"resourceGroup"`.
+                Possible values are `"author"`, `"cardData"`, `"datasets"`, `"disabled"`, `"lastModified"`, `"createdAt"`, `"likes"`, `"models"`, `"private"`, `"region"`, `"runtime"`, `"sdk"`, `"siblings"`, `"sha"`, `"subdomain"`, `"tags"`, `"trendingScore"`, `"usedStorage"`, and `"resourceGroup"`.
             full (`bool`, *optional*):
                 Whether to fetch all Spaces data, including the `last_modified`, `siblings`
                 and `card_data` fields.
@@ -3495,7 +3513,7 @@ class HfApi:
             expand (`list[ExpandSpaceProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `full` is passed.
-                Possible values are `"author"`, `"cardData"`, `"createdAt"`, `"datasets"`, `"disabled"`, `"lastModified"`, `"likes"`, `"models"`, `"private"`, `"runtime"`, `"sdk"`, `"siblings"`, `"sha"`, `"subdomain"`, `"tags"`, `"trendingScore"`, `"usedStorage"`, and `"resourceGroup"`.
+                Possible values are `"author"`, `"cardData"`, `"createdAt"`, `"datasets"`, `"disabled"`, `"lastModified"`, `"likes"`, `"models"`, `"private"`, `"region"`, `"runtime"`, `"sdk"`, `"siblings"`, `"sha"`, `"subdomain"`, `"tags"`, `"trendingScore"`, `"usedStorage"`, and `"resourceGroup"`.
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -5701,7 +5719,7 @@ class HfApi:
                 The git revision to commit from. Defaults to the head of the `"main"` branch.
             commit_message (`str`, *optional*):
                 The summary / title / first line of the generated commit
-            commit_description (`str` *optional*)
+            commit_description (`str`, *optional*):
                 The description of the generated commit
             create_pr (`boolean`, *optional*):
                 Whether or not to create a Pull Request with that commit. Defaults to `False`.
@@ -6111,7 +6129,7 @@ class HfApi:
             commit_message (`str`, *optional*):
                 The summary / title / first line of the generated commit. Defaults to
                 `f"Delete {path_in_repo} with huggingface_hub"`.
-            commit_description (`str` *optional*)
+            commit_description (`str`, *optional*):
                 The description of the generated commit
             create_pr (`boolean`, *optional*):
                 Whether or not to create a Pull Request with that commit. Defaults to `False`.
@@ -6206,7 +6224,7 @@ class HfApi:
             commit_message (`str`, *optional*):
                 The summary (first line) of the generated commit. Defaults to
                 `f"Delete files using huggingface_hub"`.
-            commit_description (`str` *optional*)
+            commit_description (`str`, *optional*):
                 The description of the generated commit.
             create_pr (`boolean`, *optional*):
                 Whether or not to create a Pull Request with that commit. Defaults to `False`.
@@ -6279,7 +6297,7 @@ class HfApi:
             commit_message (`str`, *optional*):
                 The summary / title / first line of the generated commit. Defaults to
                 `f"Delete folder {path_in_repo} with huggingface_hub"`.
-            commit_description (`str` *optional*)
+            commit_description (`str`, *optional*):
                 The description of the generated commit.
             create_pr (`boolean`, *optional*):
                 Whether or not to create a Pull Request with that commit. Defaults to `False`.
@@ -9407,15 +9425,17 @@ class HfApi:
             task (`str`, *optional*):
                 The task on which to deploy the model (e.g. `"text-classification"`).
             custom_image (`dict`, *optional*):
-                A custom Docker image to use for the Inference Endpoint. This is useful if you want to deploy an
-                Inference Endpoint running on the `text-generation-inference` (TGI) framework or a custom container
-                (see examples).
+                The container image to run. Either a dict keyed by image variant (e.g.
+                `{"vLLM": {"url": "vllm/vllm-openai:v0.23.0", "port": 8000}}`, also `sGLang`, `tgi`, `tei`,
+                `llamacpp`, `hfServe`, ...), which is forwarded as-is, or a flat dict describing a custom
+                container (e.g. `{"url": ..., "port": ...}`), which is sent as `{"custom": ...}` (see examples).
+                Defaults to the Hugging Face managed image.
             container_command (`list[str]`, *optional*):
-                Override the container entrypoint command (maps to `model.command` in the API payload). Typically
-                used together with `custom_image`.
+                Override the container entrypoint command (maps to `model.command` in the API payload). Works with
+                both managed engine images (e.g. vLLM, SGLang) and custom images.
             container_args (`list[str]`, *optional*):
-                Arguments appended to the container entrypoint (maps to `model.args` in the API payload). Typically
-                used together with `custom_image` to pass runtime flags to the container.
+                Arguments appended to the container entrypoint (maps to `model.args` in the API payload). Works with
+                both managed engine images (e.g. vLLM, SGLang) and custom images.
             env (`dict[str, str]`, *optional*):
                 Non-secret environment variables to inject in the container environment.
             secrets (`dict[str, str]`, *optional*):
@@ -9531,14 +9551,7 @@ class HfApi:
                 FutureWarning,
             )
 
-        if custom_image is not None:
-            image = (
-                custom_image
-                if next(iter(custom_image)) in constants.INFERENCE_ENDPOINT_IMAGE_KEYS
-                else {"custom": custom_image}
-            )
-        else:
-            image = {"huggingface": {}}
+        image = _build_endpoint_image_payload(custom_image) if custom_image is not None else {"huggingface": {}}
 
         payload: dict = {
             "accountId": account_id,
@@ -9755,6 +9768,8 @@ class HfApi:
         revision: str | None = None,
         task: str | None = None,
         custom_image: dict | None = None,
+        container_command: list[str] | None = None,
+        container_args: list[str] | None = None,
         env: dict[str, str] | None = None,
         secrets: dict[str, str] | None = None,
         # Route update
@@ -9804,8 +9819,16 @@ class HfApi:
             task (`str`, *optional*):
                 The task on which to deploy the model (e.g. `"text-classification"`).
             custom_image (`dict`, *optional*):
-                A custom Docker image to use for the Inference Endpoint. This is useful if you want to deploy an
-                Inference Endpoint running on the `text-generation-inference` (TGI) framework (see examples).
+                The container image to run. Either a dict keyed by image variant (e.g.
+                `{"vLLM": {"url": "vllm/vllm-openai:v0.23.0", "port": 8000}}`, also `sGLang`, `tgi`, `tei`,
+                `llamacpp`, `hfServe`, ...), which is forwarded as-is, or a flat dict describing a custom
+                container (e.g. `{"url": ..., "port": ...}`), which is sent as `{"custom": ...}`.
+            container_command (`list[str]`, *optional*):
+                Override the container entrypoint command (maps to `model.command` in the API payload). Works with
+                both managed engine images (e.g. vLLM, SGLang) and custom images.
+            container_args (`list[str]`, *optional*):
+                Arguments appended to the container entrypoint (maps to `model.args` in the API payload). Works with
+                both managed engine images (e.g. vLLM, SGLang) and custom images.
             env (`dict[str, str]`, *optional*):
                 Non-secret environment variables to inject in the container environment
             secrets (`dict[str, str]`, *optional*):
@@ -9859,7 +9882,11 @@ class HfApi:
         if task is not None:
             payload["model"]["task"] = task
         if custom_image is not None:
-            payload["model"]["image"] = {"custom": custom_image}
+            payload["model"]["image"] = _build_endpoint_image_payload(custom_image)
+        if container_command is not None:
+            payload["model"]["command"] = container_command
+        if container_args is not None:
+            payload["model"]["args"] = container_args
         if env is not None:
             payload["model"]["env"] = env
         if secrets is not None:
@@ -12076,7 +12103,7 @@ class HfApi:
             namespace (`str`, *optional*):
                 The namespace where the Job will be created. Defaults to the current user's namespace.
 
-            token `(Union[bool, str, None]`, *optional*):
+            token (`bool` or `str`, *optional*):
                 A valid user access token. If not provided, the locally saved token will be used, which is the
                 recommended authentication method. Set to `False` to disable authentication.
                 Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
@@ -12206,7 +12233,7 @@ class HfApi:
                 starts from the last N lines and continues streaming new logs. When `follow=False`,
                 returns only the last N lines from currently available logs.
 
-            token `(Union[bool, str, None]`, *optional*):
+            token (`bool` or `str`, *optional*):
                 A valid user access token. If not provided, the locally saved token will be used, which is the
                 recommended authentication method. Set to `False` to disable authentication.
                 Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
@@ -12275,7 +12302,7 @@ class HfApi:
             namespace (`str`, *optional*):
                 The namespace where the Job is running. Defaults to the current user's namespace.
 
-            token `(Union[bool, str, None]`, *optional*):
+            token (`bool` or `str`, *optional*):
                 A valid user access token. If not provided, the locally saved token will be used, which is the
                 recommended authentication method. Set to `False` to disable authentication.
                 Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
@@ -12350,7 +12377,7 @@ class HfApi:
             namespace (`str`, *optional*):
                 The namespace from where it lists the jobs. Defaults to the current user's namespace.
 
-            token `(Union[bool, str, None]`, *optional*):
+            token (`bool` or `str`, *optional*):
                 A valid user access token. If not provided, the locally saved token will be used, which is the
                 recommended authentication method. Set to `False` to disable authentication.
                 Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
@@ -12417,7 +12444,7 @@ class HfApi:
             namespace (`str`, *optional*):
                 The namespace where the Job is running. Defaults to the current user's namespace.
 
-            token `(Union[bool, str, None]`, *optional*):
+            token (`bool` or `str`, *optional*):
                 A valid user access token. If not provided, the locally saved token will be used, which is the
                 recommended authentication method. Set to `False` to disable authentication.
                 Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
@@ -12516,7 +12543,7 @@ class HfApi:
             namespace (`str`, *optional*):
                 The namespace where the Job(s) are running. Defaults to the current user's namespace.
 
-            token `(Union[bool, str, None]`, *optional*):
+            token (`bool` or `str`, *optional*):
                 A valid user access token. If not provided, the locally saved token will be used, which is the
                 recommended authentication method. Set to `False` to disable authentication.
                 Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
@@ -12582,7 +12609,7 @@ class HfApi:
             namespace (`str`, *optional*):
                 The namespace where the Job is running. Defaults to the current user's namespace.
 
-            token `(Union[bool, str, None]`, *optional*):
+            token (`bool` or `str`, *optional*):
                 A valid user access token. If not provided, the locally saved token will be used, which is the
                 recommended authentication method. Set to `False` to disable authentication.
                 Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
@@ -12620,7 +12647,7 @@ class HfApi:
             namespace (`str`, *optional*):
                 The namespace where the Job is running. Defaults to the current user's namespace.
 
-            token `(Union[bool, str, None]`, *optional*):
+            token (`bool` or `str`, *optional*):
                 A valid user access token. If not provided, the locally saved token will be used, which is the
                 recommended authentication method. Set to `False` to disable authentication.
                 Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
@@ -12667,13 +12694,13 @@ class HfApi:
             script (`str`):
                 Path or URL of the UV script, or a command.
 
-            script_args (`list[str]`, *optional*)
+            script_args (`list[str]`, *optional*):
                 Arguments to pass to the script or command.
 
-            dependencies (`list[str]`, *optional*)
+            dependencies (`list[str]`, *optional*):
                 Dependencies to use to run the UV script.
 
-            python (`str`, *optional*)
+            python (`str`, *optional*):
                 Use a specific Python version. Default is 3.12.
 
             image (`str`, *optional*, defaults to "ghcr.io/astral-sh/uv:python3.12-bookworm"):
@@ -12724,7 +12751,7 @@ class HfApi:
             namespace (`str`, *optional*):
                 The namespace where the Job will be created. Defaults to the current user's namespace.
 
-            token `(Union[bool, str, None]`, *optional*):
+            token (`bool` or `str`, *optional*):
                 A valid user access token. If not provided, the locally saved token will be used, which is the
                 recommended authentication method. Set to `False` to disable authentication.
                 Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
@@ -12888,7 +12915,7 @@ class HfApi:
             namespace (`str`, *optional*):
                 The namespace where the Job will be created. Defaults to the current user's namespace.
 
-            token `(Union[bool, str, None]`, *optional*):
+            token (`bool` or `str`, *optional*):
                 A valid user access token. If not provided, the locally saved token will be used, which is the
                 recommended authentication method. Set to `False` to disable authentication.
                 Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
@@ -12971,7 +12998,7 @@ class HfApi:
             namespace (`str`, *optional*):
                 The namespace from where it lists the jobs. Defaults to the current user's namespace.
 
-            token `(Union[bool, str, None]`, *optional*):
+            token (`bool` or `str`, *optional*):
                 A valid user access token. If not provided, the locally saved token will be used, which is the
                 recommended authentication method. Set to `False` to disable authentication.
                 Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
@@ -13003,7 +13030,7 @@ class HfApi:
             namespace (`str`, *optional*):
                 The namespace where the scheduled Job is. Defaults to the current user's namespace.
 
-            token `(Union[bool, str, None]`, *optional*):
+            token (`bool` or `str`, *optional*):
                 A valid user access token. If not provided, the locally saved token will be used, which is the
                 recommended authentication method. Set to `False` to disable authentication.
                 Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
@@ -13042,7 +13069,7 @@ class HfApi:
             namespace (`str`, *optional*):
                 The namespace where the scheduled Job is. Defaults to the current user's namespace.
 
-            token `(Union[bool, str, None]`, *optional*):
+            token (`bool` or `str`, *optional*):
                 A valid user access token. If not provided, the locally saved token will be used, which is the
                 recommended authentication method. Set to `False` to disable authentication.
                 Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
@@ -13072,7 +13099,7 @@ class HfApi:
             namespace (`str`, *optional*):
                 The namespace where the scheduled Job is. Defaults to the current user's namespace.
 
-            token `(Union[bool, str, None]`, *optional*):
+            token (`bool` or `str`, *optional*):
                 A valid user access token. If not provided, the locally saved token will be used, which is the
                 recommended authentication method. Set to `False` to disable authentication.
                 Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
@@ -13102,7 +13129,7 @@ class HfApi:
             namespace (`str`, *optional*):
                 The namespace where the scheduled Job is. Defaults to the current user's namespace.
 
-            token `(Union[bool, str, None]`, *optional*):
+            token (`bool` or `str`, *optional*):
                 A valid user access token. If not provided, the locally saved token will be used, which is the
                 recommended authentication method. Set to `False` to disable authentication.
                 Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
@@ -13136,7 +13163,7 @@ class HfApi:
             namespace (`str`, *optional*):
                 The namespace where the scheduled Job is. Defaults to the current user's namespace.
 
-            token `(Union[bool, str, None]`, *optional*):
+            token (`bool` or `str`, *optional*):
                 A valid user access token. If not provided, the locally saved token will be used, which is the
                 recommended authentication method. Set to `False` to disable authentication.
                 Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
@@ -13182,7 +13209,7 @@ class HfApi:
             namespace (`str`, *optional*):
                 The namespace where the scheduled Job is. Defaults to the current user's namespace.
 
-            token `(Union[bool, str, None]`, *optional*):
+            token (`bool` or `str`, *optional*):
                 A valid user access token. If not provided, the locally saved token will be used, which is the
                 recommended authentication method. Set to `False` to disable authentication.
                 Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
@@ -13231,7 +13258,7 @@ class HfApi:
             script (`str`):
                 Path or URL of the UV script, or a command.
 
-            script_args (`list[str]`, *optional*)
+            script_args (`list[str]`, *optional*):
                 Arguments to pass to the script, or a command.
 
             schedule (`str`):
@@ -13244,10 +13271,10 @@ class HfApi:
             concurrency (`bool`, *optional*):
                 If True, multiple instances of this Job can run concurrently. Defaults to False.
 
-            dependencies (`list[str]`, *optional*)
+            dependencies (`list[str]`, *optional*):
                 Dependencies to use to run the UV script.
 
-            python (`str`, *optional*)
+            python (`str`, *optional*):
                 Use a specific Python version. Default is 3.12.
 
             image (`str`, *optional*, defaults to "ghcr.io/astral-sh/uv:python3.12-bookworm"):
@@ -13292,7 +13319,7 @@ class HfApi:
             namespace (`str`, *optional*):
                 The namespace where the Job will be created. Defaults to the current user's namespace.
 
-            token `(Union[bool, str, None]`, *optional*):
+            token (`bool` or `str`, *optional*):
                 A valid user access token. If not provided, the locally saved token will be used, which is the
                 recommended authentication method. Set to `False` to disable authentication.
                 Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.

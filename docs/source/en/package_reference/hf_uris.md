@@ -186,7 +186,7 @@ Use the `type` and `id` fields directly. The boolean properties [`is_repo`] and 
 [`parse_hf_mount`] parses a mount specification (a HF URI with a local mount path and optional `:ro`/`:rw` flag) and returns a frozen [`HfMount`] dataclass. It uses [`parse_hf_uri`] under the hood.
 
 ```python
->>> from huggingface_hub import parse_hf_mount
+>>> from huggingface_hub.utils import parse_hf_mount
 >>> parse_hf_mount("hf://buckets/my-org/my-bucket/sub/dir:/mnt:ro")
 HfMount(source=HfUri(type='bucket', id='my-org/my-bucket', revision=None, path_in_repo='sub/dir'), mount_path='/mnt', read_only=True)
 ```

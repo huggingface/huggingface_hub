@@ -267,6 +267,8 @@ class InferenceEndpoint:
         revision: str | None = None,
         task: str | None = None,
         custom_image: dict | None = None,
+        container_command: list[str] | None = None,
+        container_args: list[str] | None = None,
         secrets: dict[str, str] | None = None,
     ) -> "InferenceEndpoint":
         """Update the Inference Endpoint.
@@ -300,8 +302,16 @@ class InferenceEndpoint:
             task (`str`, *optional*):
                 The task on which to deploy the model (e.g. `"text-classification"`).
             custom_image (`dict`, *optional*):
-                A custom Docker image to use for the Inference Endpoint. This is useful if you want to deploy an
-                Inference Endpoint running on the `text-generation-inference` (TGI) framework (see examples).
+                The container image to run. Either a dict keyed by image variant (e.g.
+                `{"vLLM": {"url": "vllm/vllm-openai:v0.23.0", "port": 8000}}`, also `sGLang`, `tgi`, `tei`,
+                `llamacpp`, `hfServe`, ...), which is forwarded as-is, or a flat dict describing a custom
+                container (e.g. `{"url": ..., "port": ...}`), which is sent as `{"custom": ...}`.
+            container_command (`list[str]`, *optional*):
+                Override the container entrypoint command (maps to `model.command` in the API payload). Works with
+                both managed engine images (e.g. vLLM, SGLang) and custom images.
+            container_args (`list[str]`, *optional*):
+                Arguments appended to the container entrypoint (maps to `model.args` in the API payload). Works with
+                both managed engine images (e.g. vLLM, SGLang) and custom images.
             secrets (`dict[str, str]`, *optional*):
                 Secret values to inject in the container environment.
         Returns:
@@ -322,6 +332,8 @@ class InferenceEndpoint:
             revision=revision,
             task=task,
             custom_image=custom_image,
+            container_command=container_command,
+            container_args=container_args,
             secrets=secrets,
             token=self._token,  # type: ignore [arg-type]
         )

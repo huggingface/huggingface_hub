@@ -20,6 +20,7 @@ from typing import Annotated
 
 from click import Command, Context, Group
 
+from huggingface_hub import constants
 from huggingface_hub.errors import CLIError
 
 from ..utils import disable_progress_bars
@@ -86,10 +87,6 @@ Some command examples:
 - Update the CLI with `hf update` (uses the correct command for the detected install method)
 """
 
-CENTRAL_LOCAL = Path(".agents/skills")
-CENTRAL_GLOBAL = Path("~/.agents/skills")
-CLAUDE_LOCAL = Path(".claude/skills")
-CLAUDE_GLOBAL = Path("~/.claude/skills")
 # Flags worth explaining in the common-options glossary. Self-explanatory flags
 # (--namespace, --yes, --private, …) are omitted even if they appear frequently.
 _COMMON_FLAG_ALLOWLIST = {"--token", "--quiet", "--type", "--format", "--revision"}
@@ -334,7 +331,12 @@ def _create_symlink(agent_skills_dir: Path, skill_name: str, central_skill_path:
     link_path = agent_skills_dir / skill_name
 
     _remove_existing(link_path, force)
-    link_path.symlink_to(os.path.relpath(central_skill_path, agent_skills_dir))
+    try:
+        link_path.symlink_to(os.path.relpath(central_skill_path, agent_skills_dir))
+    except OSError:
+        # Windows needs Developer Mode or admin rights for symlinks.
+        # Fall back to a copy: `hf skills update` walks both roots, so the copy stays in sync.
+        shutil.copytree(central_skill_path, link_path)
 
     return link_path
 
@@ -350,9 +352,9 @@ def _resolve_update_roots(
             raise CLIError("--dest cannot be combined with --claude or --global.")
         return [dest.expanduser().resolve()]
 
-    roots: list[Path] = [CENTRAL_GLOBAL if global_ else CENTRAL_LOCAL]
+    roots: list[Path] = [constants.AGENTS_SKILLS_GLOBAL_PATH if global_ else constants.AGENTS_SKILLS_LOCAL_PATH]
     if claude:
-        roots.append(CLAUDE_GLOBAL if global_ else CLAUDE_LOCAL)
+        roots.append(constants.CLAUDE_SKILLS_GLOBAL_PATH if global_ else constants.CLAUDE_SKILLS_LOCAL_PATH)
     return [root.expanduser().resolve() for root in roots]
 
 
@@ -374,10 +376,10 @@ def skills_list(
 ) -> None:
     """List available skills from the Hugging Face marketplace."""
     install_locations: list[tuple[str, Path]] = [
-        ("project", CENTRAL_LOCAL),
-        ("project (claude)", CLAUDE_LOCAL),
-        ("global", CENTRAL_GLOBAL),
-        ("global (claude)", CLAUDE_GLOBAL),
+        ("project", constants.AGENTS_SKILLS_LOCAL_PATH),
+        ("project (claude)", constants.CLAUDE_SKILLS_LOCAL_PATH),
+        ("global", constants.AGENTS_SKILLS_GLOBAL_PATH),
+        ("global (claude)", constants.CLAUDE_SKILLS_GLOBAL_PATH),
     ]
     installed: dict[str, set[str]] = {}
     for label, root in install_locations:
@@ -458,14 +460,14 @@ def skills_add(
         return
 
     # Install to central location
-    central_path = CENTRAL_GLOBAL if global_ else CENTRAL_LOCAL
+    central_path = constants.AGENTS_SKILLS_GLOBAL_PATH if global_ else constants.AGENTS_SKILLS_LOCAL_PATH
     central_skill_path = _install_to(central_path, name, force)
     print(f"Installed '{name}' to central location: {central_skill_path}")
 
     if claude:
-        agent_target = CLAUDE_GLOBAL if global_ else CLAUDE_LOCAL
+        agent_target = constants.CLAUDE_SKILLS_GLOBAL_PATH if global_ else constants.CLAUDE_SKILLS_LOCAL_PATH
         link_path = _create_symlink(agent_target, name, central_skill_path, force)
-        print(f"Created symlink: {link_path}")
+        print(f"Created symlink: {link_path}" if link_path.is_symlink() else f"Copied '{name}' to {link_path}")
 
 
 @skills_cli.command(

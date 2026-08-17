@@ -100,7 +100,34 @@ By default the Inference Endpoint is built from a docker image provided by Huggi
 
 The value to pass as `custom_image` is a dictionary containing a url to the docker container and configuration to run it. For more details about it, checkout the [Swagger documentation](https://api.endpoints.huggingface.cloud/#/v2%3A%3Aendpoint/create_endpoint).
 
-For containers that need a custom entrypoint or runtime flags, pass `container_command` and/or `container_args` (each a list of tokens). They map to `model.command` and `model.args` in the API payload. The same is available from the CLI via `hf endpoints deploy --custom-image ... --container-command "..." --container-args "..."`.
+`custom_image` also accepts the engine-specific container types supported by the API, by keying the dictionary with the engine name (`vLLM`, `vLLMNeuron`, `sGLang`, `tgi`, `tgiNeuron`, `tei`, `llamacpp`, `hfServe`, ...) instead of leaving it flat. Each engine takes the usual container fields (`url`, `port`, `healthRoute`) plus its own tuning options. Any dict without a top-level `url` is forwarded to the API untouched, so engines added to the API later work without upgrading `huggingface_hub`:
+
+```python
+# Start an Inference Endpoint running the vLLM engine image
+>>> endpoint = create_inference_endpoint(
+...     "llama-3-1-8b-instruct-vllm",
+...     repository="meta-llama/Llama-3.1-8B-Instruct",
+...     framework="pytorch",
+...     task="text-generation",
+...     accelerator="gpu",
+...     vendor="aws",
+...     region="us-east-1",
+...     instance_size="x1",
+...     instance_type="nvidia-l4",
+...     custom_image={
+...         "vLLM": {
+...             "url": "vllm/vllm-openai:v0.23.0",
+...             "healthRoute": "/health",
+...             "port": 8000,
+...             "tensorParallelSize": 1,
+...         }
+...     },
+... )
+```
+
+Without the engine key, the same dictionary is sent as a plain custom container, so the engine-specific options (here `tensorParallelSize`) are dropped.
+
+For containers that need a custom entrypoint or runtime flags, pass `container_command` and/or `container_args` (each a list of tokens). They map to `model.command` and `model.args` in the API payload. They are not tied to custom images: managed engine images (e.g. vLLM, SGLang) accept engine flags through `container_args` as well. The same is available from the CLI via `hf endpoints deploy ... --container-command "..." --container-args "..."`.
 
 ### Get or list existing Inference Endpoints
 
@@ -248,6 +275,11 @@ InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2
 # Update to larger instance
 >>> endpoint.update(accelerator="cpu", instance_size="x4", instance_type="intel-icl")
 InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2-large', status='pending', url=None)
+
+# Update the container arguments, e.g. engine flags on an endpoint running vLLM or SGLang.
+# Replaces the current value, it is not appended.
+>>> endpoint.update(container_args=["--enable-auto-tool-choice", "--tool-call-parser", "lfm2"])
+InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2-large', status='pending', url=None)
 ```
 
 Or via CLI:
@@ -256,6 +288,7 @@ Or via CLI:
 hf endpoints update my-endpoint-name --repo gpt2-large
 hf endpoints update my-endpoint-name --min-replica 2 --max-replica 6
 hf endpoints update my-endpoint-name --accelerator cpu --instance-size x4 --instance-type intel-icl
+hf endpoints update my-endpoint-name --container-args "--enable-auto-tool-choice --tool-call-parser lfm2"
 ```
 
 ### Delete the endpoint

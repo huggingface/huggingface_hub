@@ -184,12 +184,12 @@ excluded from backups.
 
 In order to have an efficient cache-system, `huggingface-hub` uses symlinks. However,
 symlinks are not supported on all machines. This is a known limitation especially on
-Windows. When this is the case, `huggingface_hub` do not use the `blobs/` directory but
+Windows. When this is the case, `huggingface_hub` does not use the `blobs/` directory but
 directly stores the files in the `snapshots/` directory instead. This workaround allows
 users to download and cache files from the Hub exactly the same way. Tools to inspect
 and delete the cache (see below) are also supported. However, the cache-system is less
 efficient as a single file might be downloaded several times if multiple revisions of
-the same repo is downloaded.
+the same repo are downloaded.
 
 If you want to benefit from the symlink-based cache-system on a Windows machine, you
 either need to [activate Developer Mode](https://docs.microsoft.com/en-us/windows/apps/get-started/enable-your-device-for-development)

@@ -1,26 +1,31 @@
 import json
 import os
+import sys
 import warnings
 from contextlib import contextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Generator, Optional
 from unittest.mock import Mock, patch
 
 import click
+import httpx
 import pytest
 from click.testing import CliRunner
 
-from huggingface_hub import HfApi
+from huggingface_hub import HfApi, constants
 from huggingface_hub._dataset_viewer import DatasetParquetEntry
 from huggingface_hub._jobs_api import JobInfo, JobOwner, _create_job_spec, _derive_job_volume_name
 from huggingface_hub._space_api import Volume
-from huggingface_hub.cli._cli_utils import RepoType, parse_volumes
+from huggingface_hub.cli import _skills, extensions, system
+from huggingface_hub.cli._cli_utils import RepoType, _get_huggingface_hub_update_command, parse_volumes
 from huggingface_hub.cli._output import OutputFormat, out
 from huggingface_hub.cli.cache import CacheDeletionCounts
 from huggingface_hub.cli.download import download
 from huggingface_hub.cli.hf import app
-from huggingface_hub.cli.jobs import _parse_and_sync_job_volumes, _parse_namespace_from_job_id
+from huggingface_hub.cli.hf import main as hf_main
+from huggingface_hub.cli.jobs import _get_jobs_stats_rows, _parse_and_sync_job_volumes, _parse_namespace_from_job_id
 from huggingface_hub.cli.skills import build_skill_md
 from huggingface_hub.cli.upload import _resolve_upload_paths, upload
 from huggingface_hub.errors import CLIError, DeviceCodeError, HfUriError, RevisionNotFoundError
@@ -584,6 +589,72 @@ class TestUploadCommand:
             hf_api=api,
         )
         scheduler.stop.assert_called_once_with()
+
+    @pytest.mark.parametrize(
+        "path_in_repo, expected_path_in_repo",
+        [
+            ("model.safetensors", ""),  # default: file lands at the root
+            ("weights/model.safetensors", "weights"),  # explicit destination folder
+            ("weights/", "weights"),  # destination folder with a trailing slash
+        ],
+    )
+    def test_upload_single_file_with_every(
+        self, runner: CliRunner, path_in_repo: str, expected_path_in_repo: str
+    ) -> None:
+        """A scheduled single file is watched through its parent folder, so patterns use the file name."""
+        with SoftTemporaryDirectory() as tmp_dir:
+            file_path = Path(tmp_dir) / "models" / "model.safetensors"
+            file_path.parent.mkdir()
+            file_path.write_bytes(b"weights")
+            with (
+                patch(
+                    "huggingface_hub.cli.upload._resolve_upload_paths",
+                    return_value=(file_path.as_posix(), path_in_repo, None),
+                ),
+                patch("huggingface_hub.cli.upload.get_hf_api") as api_cls,
+                patch("huggingface_hub.cli.upload.CommitScheduler") as scheduler_cls,
+                patch("huggingface_hub.cli.upload.time.sleep", side_effect=KeyboardInterrupt),
+            ):
+                result = runner.invoke(
+                    app, ["upload", DUMMY_MODEL_ID, file_path.as_posix(), "--every", "5", "--format", "quiet"]
+                )
+        assert result.exit_code == 0
+        assert "Scheduled uploads keep the local file name" not in result.stderr
+        scheduler_cls.assert_called_once_with(
+            folder_path=file_path.parent.as_posix(),
+            repo_id=DUMMY_MODEL_ID,
+            repo_type="model",
+            revision=None,
+            allow_patterns=["model.safetensors"],
+            ignore_patterns=[],
+            path_in_repo=expected_path_in_repo,
+            private=None,
+            every=5,
+            hf_api=api_cls.return_value,
+        )
+
+    def test_upload_single_file_with_every_warns_on_rename(self, runner: CliRunner) -> None:
+        """Scheduled uploads keep the local file name, so a differing destination name warns."""
+        with SoftTemporaryDirectory() as tmp_dir:
+            file_path = Path(tmp_dir) / "models" / "model.safetensors"
+            file_path.parent.mkdir()
+            file_path.write_bytes(b"weights")
+            with (
+                patch(
+                    "huggingface_hub.cli.upload._resolve_upload_paths",
+                    return_value=(file_path.as_posix(), "adapter_model.safetensors", None),
+                ),
+                patch("huggingface_hub.cli.upload.get_hf_api"),
+                patch("huggingface_hub.cli.upload.CommitScheduler") as scheduler_cls,
+                patch("huggingface_hub.cli.upload.time.sleep", side_effect=KeyboardInterrupt),
+            ):
+                result = runner.invoke(
+                    app, ["upload", DUMMY_MODEL_ID, file_path.as_posix(), "--every", "5", "--format", "quiet"]
+                )
+        assert result.exit_code == 0
+        assert "Scheduled uploads keep the local file name" in result.stderr
+        # Only the directory part is kept: never the destination file name, nor a slice of it.
+        assert scheduler_cls.call_args.kwargs["path_in_repo"] == ""
 
     def test_every_must_be_positive(self) -> None:
         class _PatchedBadParameter(click.BadParameter):
@@ -2629,7 +2700,41 @@ class TestInferenceEndpointsCommands:
         assert kwargs["env"] == {"MODEL_ID": "/repository"}
         assert kwargs["type"] == "authenticated"
 
-    def test_deploy_custom_args_require_image(self, runner: CliRunner) -> None:
+    def test_deploy_container_args_without_custom_image(self, runner: CliRunner) -> None:
+        endpoint = Mock(raw={"name": "hub-args"})
+        with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.create_inference_endpoint.return_value = endpoint
+            result = runner.invoke(
+                app,
+                [
+                    "endpoints",
+                    "deploy",
+                    "my-endpoint",
+                    "--repo",
+                    "my-repo",
+                    "--framework",
+                    "pytorch",
+                    "--accelerator",
+                    "gpu",
+                    "--instance-size",
+                    "x8",
+                    "--instance-type",
+                    "nvidia-h200",
+                    "--region",
+                    "us-east-1",
+                    "--vendor",
+                    "aws",
+                    "--container-args",
+                    "--enable-auto-tool-choice --tool-call-parser lfm2",
+                ],
+            )
+        assert result.exit_code == 0, result.stdout
+        _, kwargs = api.create_inference_endpoint.call_args
+        assert kwargs["container_args"] == ["--enable-auto-tool-choice", "--tool-call-parser", "lfm2"]
+        assert "custom_image" not in kwargs
+
+    def test_deploy_port_and_health_route_require_image(self, runner: CliRunner) -> None:
         with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
             result = runner.invoke(
                 app,
@@ -2651,8 +2756,8 @@ class TestInferenceEndpointsCommands:
                     "us-east-1",
                     "--vendor",
                     "aws",
-                    "--container-args",
-                    "--tp 8",
+                    "--port",
+                    "8000",
                 ],
             )
         assert result.exit_code != 0
@@ -2724,6 +2829,8 @@ class TestInferenceEndpointsCommands:
             framework=None,
             revision=None,
             task=None,
+            container_command=None,
+            container_args=None,
             accelerator="gpu",
             instance_size="x4",
             instance_type=None,
@@ -2735,6 +2842,47 @@ class TestInferenceEndpointsCommands:
             scaling_threshold=None,
         )
         assert '"name": "updated"' in result.stdout
+
+    def test_update_container_args(self, runner: CliRunner) -> None:
+        endpoint = Mock(raw={"name": "updated"})
+        with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.update_inference_endpoint.return_value = endpoint
+            result = runner.invoke(
+                app,
+                [
+                    "endpoints",
+                    "update",
+                    "my-endpoint",
+                    "--container-args",
+                    "--enable-auto-tool-choice --tool-call-parser lfm2",
+                ],
+            )
+        assert result.exit_code == 0, result.stdout
+        _, kwargs = api.update_inference_endpoint.call_args
+        assert kwargs["container_args"] == ["--enable-auto-tool-choice", "--tool-call-parser", "lfm2"]
+        assert kwargs["container_command"] is None
+        assert '"name": "updated"' in result.stdout
+
+    def test_update_container_args_empty_string_resets(self, runner: CliRunner) -> None:
+        endpoint = Mock(raw={"name": "updated"})
+        with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.update_inference_endpoint.return_value = endpoint
+            result = runner.invoke(
+                app,
+                [
+                    "endpoints",
+                    "update",
+                    "my-endpoint",
+                    "--container-args",
+                    "",
+                ],
+            )
+        assert result.exit_code == 0, result.stdout
+        _, kwargs = api.update_inference_endpoint.call_args
+        assert kwargs["container_args"] == []
+        assert kwargs["container_command"] is None
 
     def test_delete(self, runner: CliRunner) -> None:
         with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
@@ -3560,6 +3708,42 @@ class TestJobsCommand:
         assert volume_2.source == "org/b"
         assert volume_2.mount_path == "/output"
         assert volume_2.read_only is None
+
+    @pytest.mark.parametrize("num_gpus", [1, 2, 4, 8])
+    def test_stats_rows_one_row_per_gpu(self, num_gpus: int) -> None:
+        """`hf jobs stats` must render one row per GPU, each with its own metrics."""
+        headers = [
+            "JOB ID",
+            "CPU %",
+            "NUM CPU",
+            "MEM %",
+            "MEM USAGE",
+            "NET I/O",
+            "GPU UTIL %",
+            "GPU MEM %",
+            "GPU MEM USAGE",
+        ]
+        metrics = {
+            "cpu_usage_pct": 42,
+            "cpu_millicores": 8000,
+            "memory_used_bytes": 4_000_000_000,
+            "memory_total_bytes": 16_000_000_000,
+            "rx_bps": 1_000_000,
+            "tx_bps": 2_000_000,
+            "gpus": {
+                f"gpu-{index}": {
+                    "utilization": 10 * (index + 1),
+                    "memory_used_bytes": 1_000_000_000 * (index + 1),
+                    "memory_total_bytes": 80_000_000_000,
+                }
+                for index in range(num_gpus)
+            },
+        }
+        (rows,) = [rows for done, _, rows in _get_jobs_stats_rows("my-job-id", [metrics], headers) if not done]
+
+        assert len(rows) == num_gpus
+        assert all(len(row) == len(headers) for row in rows)
+        assert [row[headers.index("GPU UTIL %")] for row in rows] == [f"{10 * (i + 1)}%" for i in range(num_gpus)]
 
 
 class TestJobsWaitCommand:
@@ -4542,6 +4726,104 @@ class TestSkillsHfCliCLI:
         assert skill_file.read_text(encoding="utf-8") == build_skill_md()
 
 
+class TestSkillUpdateCheck:
+    """The daily `hf-cli` skill check only prints hints, it never installs nor updates."""
+
+    @pytest.fixture(autouse=True)
+    def isolated_skills_dirs(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(constants, "AGENTS_SKILLS_GLOBAL_PATH", tmp_path / "global/.agents/skills")
+        monkeypatch.setattr(constants, "CLAUDE_SKILLS_GLOBAL_PATH", tmp_path / "global/.claude/skills")
+        monkeypatch.setattr(constants, "AGENTS_SKILLS_LOCAL_PATH", tmp_path / "local/.agents/skills")
+        monkeypatch.setattr(constants, "CLAUDE_SKILLS_LOCAL_PATH", tmp_path / "local/.claude/skills")
+        monkeypatch.setattr(constants, "CHECK_FOR_SKILL_UPDATE_DONE_PATH", str(tmp_path / ".check_done"))
+        monkeypatch.setattr(constants, "HF_HUB_DISABLE_UPDATE_CHECK", False)
+
+    def _write_global_skill(self, tmp_path: Path, content: str) -> Path:
+        skill_dir = tmp_path / "global/.agents/skills/hf-cli"
+        skill_dir.mkdir(parents=True)
+        skill_file = skill_dir / "SKILL.md"
+        skill_file.write_text(content, encoding="utf-8")
+        return skill_file
+
+    def test_hints_to_add_when_not_installed(self, capsys: pytest.CaptureFixture) -> None:
+        with patch.object(_skills, "__version__", "1.0.0"):
+            _skills.check_skill_update()
+        assert "hf skills add -g --claude" in capsys.readouterr().err
+
+    def test_hints_to_update_when_generated_by_another_version(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture
+    ) -> None:
+        self._write_global_skill(tmp_path, "Generated with `huggingface_hub v0.0.1`.")
+        _skills.check_skill_update()
+        assert "hf skills update hf-cli -g --claude" in capsys.readouterr().err
+
+    def test_silent_when_up_to_date_and_throttled_afterwards(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture
+    ) -> None:
+        skill_file = self._write_global_skill(tmp_path, build_skill_md())
+        _skills.check_skill_update()
+        assert capsys.readouterr().err == ""
+
+        # Checked less than 24 hours ago: stays silent even though the skill is now outdated.
+        skill_file.write_text("Generated with `huggingface_hub v0.0.1`.", encoding="utf-8")
+        _skills.check_skill_update()
+        assert capsys.readouterr().err == ""
+
+    @pytest.mark.parametrize(
+        "argv, expected_call_count",
+        [
+            (["hf", "version"], 1),
+            (["hf", "skills", "add"], 0),  # the user is already managing skills
+            (["hf", "update"], 0),  # `hf update` handles the skill itself
+        ],
+    )
+    def test_skipped_for_skills_and_update_commands(self, argv: list[str], expected_call_count: int) -> None:
+        with (
+            patch.object(sys, "argv", argv),
+            patch("huggingface_hub.cli.hf.logging"),
+            patch("huggingface_hub.cli.hf.check_cli_update"),
+            patch("huggingface_hub.cli.hf.app"),
+            patch("huggingface_hub.cli.hf.check_skill_update") as mock_check,
+        ):
+            hf_main()
+        assert mock_check.call_count == expected_call_count
+
+
+class TestUpdateSkillOptOut:
+    """`hf update` must not silently reinstall the `hf-cli` skill for users who opted out."""
+
+    @pytest.fixture(autouse=True)
+    def isolated_skills_dirs(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(constants, "AGENTS_SKILLS_GLOBAL_PATH", tmp_path / ".agents/skills")
+        monkeypatch.setattr(constants, "CLAUDE_SKILLS_GLOBAL_PATH", tmp_path / ".claude/skills")
+
+    @contextmanager
+    def _mocked_update(self) -> Generator[Mock, None, None]:
+        with (
+            patch("huggingface_hub.cli.system._fetch_latest_pypi_version", return_value="99.0.0"),
+            patch("huggingface_hub.cli.system.subprocess.call", return_value=0),
+            patch("huggingface_hub.cli.system.run_update", return_value=0) as mock_run_update,
+        ):
+            yield mock_run_update
+
+    def test_excludes_skill_when_not_installed(self) -> None:
+        with self._mocked_update() as mock_run_update:
+            system.update()
+        mock_run_update.assert_called_once_with(exclude_skill=True)
+
+    def test_keeps_skill_when_installed(self, tmp_path: Path) -> None:
+        (tmp_path / ".agents/skills/hf-cli").mkdir(parents=True)
+        with self._mocked_update() as mock_run_update:
+            system.update()
+        mock_run_update.assert_called_once_with(exclude_skill=False)
+
+    def test_installer_command_passes_the_flag(self) -> None:
+        flag = "-ExcludeSkill" if os.name == "nt" else "--exclude-skill"
+        with patch("huggingface_hub.cli._cli_utils.installation_method", return_value="hf_installer"):
+            assert flag in _get_huggingface_hub_update_command(exclude_skill=True)[-1]
+            assert flag not in _get_huggingface_hub_update_command(exclude_skill=False)[-1]
+
+
 @pytest.mark.xet
 class TestSkillsMarketplaceCLI:
     @pytest.mark.production
@@ -4576,3 +4858,141 @@ class TestSkillsMarketplaceCLI:
                 "huggingface-gradio: updated",
             )
         ), result.stdout
+
+
+class _FakeGitHubSession:
+    """Session double that records requested URLs and serves canned responses.
+
+    Patterns are matched as substrings of the URL; anything unmatched 404s.
+    """
+
+    def __init__(self, responses: dict[str, httpx.Response] | None = None) -> None:
+        self.urls: list[str] = []
+        self.responses = responses or {}
+
+    def request(self, method: str, url: str, **kwargs) -> httpx.Response:
+        self.urls.append(url)
+        response = next((r for pattern, r in self.responses.items() if pattern in url), httpx.Response(404))
+        response.request = httpx.Request(method, url)
+        return response
+
+    def __getattr__(self, method: str):
+        # `.get()`, `.head()`, ... are recorded too: a quota assertion must not pass merely because
+        # the code under test reached GitHub without going through `request()`.
+        return lambda url, **kwargs: self.request(method.upper(), url, **kwargs)
+
+    @property
+    def api_urls(self) -> list[str]:
+        """Requests that count against the unauthenticated REST API quota."""
+        return [url for url in self.urls if url.startswith("https://api.github.com/")]
+
+
+def _fake_install_extension(root: Path, *short_names: str) -> None:
+    """Write a manifest for each name, as if the extension had been installed."""
+    for short_name in short_names:
+        extensions.ExtensionManifest(
+            owner="huggingface",
+            repo=f"hf-{short_name}",
+            repo_id=f"huggingface/hf-{short_name}",
+            short_name=short_name,
+            executable_path=str(root / f"hf-{short_name}" / f"hf-{short_name}"),
+            type="binary",
+            installed_at=datetime.now(timezone.utc),
+        ).save(root / f"hf-{short_name}")
+
+
+BINARY_URL = "raw.githubusercontent.com/huggingface/hf-demo/HEAD/hf-demo"
+REPO_PAGE_URL = "https://github.com/huggingface/hf-demo"
+COMMITS_URL = "https://api.github.com/repos/huggingface/hf-demo/commits/HEAD"
+
+
+class TestExtensionsGitHubAccess:
+    """GitHub is reached without a token, so requests must stay off the metered REST API."""
+
+    @pytest.fixture
+    def github(self, tmp_path: Path) -> Generator[_FakeGitHubSession, None, None]:
+        session = _FakeGitHubSession()
+        with (
+            patch.object(extensions, "get_session", return_value=session),
+            patch.object(extensions, "EXTENSIONS_ROOT", tmp_path),
+        ):
+            yield session
+
+    def test_unknown_command_spends_no_api_quota(self, github: _FakeGitHubSession) -> None:
+        # Every mistyped `hf <command>` probes for an official extension, so this path must be free.
+        assert extensions.dispatch_unknown_top_level_extension(["jbos"], {"jobs", "repos"}) is None
+        assert github.api_urls == []
+
+    @pytest.mark.parametrize(
+        "about, expected_description",
+        [
+            ("A demo extension - huggingface/hf-demo", "A demo extension"),
+            # Empty About field: GitHub renders boilerplate, which must not be taken as a description.
+            ("Contribute to huggingface/hf-demo development by creating an account on GitHub.", None),
+        ],
+    )
+    def test_install_uses_head_refs_and_a_single_api_call(
+        self, github: _FakeGitHubSession, about: str, expected_description: str | None
+    ) -> None:
+        # Shell-script extensions ship neither manifest.json nor pyproject.toml, so the repo's "About"
+        # field is their only description. It is served by github.com, off the REST API quota.
+        github.responses = {
+            BINARY_URL: httpx.Response(200, content=b"#!/bin/sh"),
+            REPO_PAGE_URL: httpx.Response(200, text=f'<meta name="description" content="{about}">'),
+            COMMITS_URL: httpx.Response(200, text="a" * 40),
+        }
+        manifest = extensions._install_extension(owner="huggingface", repo_name="hf-demo", short_name="demo")
+
+        assert manifest.type == "binary"
+        assert manifest.commit_sha == "a" * 40
+        assert manifest.description == expected_description
+        # The default branch is addressed as `HEAD`, so no `GET /repos/{owner}/{repo}` lookup is needed.
+        assert github.api_urls == [COMMITS_URL]
+        raw_prefix = "https://raw.githubusercontent.com/huggingface/hf-demo/"
+        raw_urls = [url for url in github.urls if url.startswith(raw_prefix)]
+        assert raw_urls and all(url.removeprefix(raw_prefix).startswith("HEAD/") for url in raw_urls)
+
+    def test_install_completes_when_the_api_quota_is_exhausted(self, github: _FakeGitHubSession) -> None:
+        # The extension itself comes from the CDN, so only the optional version marker is lost.
+        github.responses = {
+            BINARY_URL: httpx.Response(200, content=b"#!/bin/sh"),
+            "HEAD/manifest.json": httpx.Response(200, json={"description": "Demo extension"}),
+            "api.github.com": httpx.Response(403, headers={"x-ratelimit-remaining": "0"}),
+        }
+        manifest = extensions._install_extension(owner="huggingface", repo_name="hf-demo", short_name="demo")
+
+        assert manifest.commit_sha is None
+        assert manifest.description == "Demo extension"
+        assert Path(manifest.executable_path).is_file()
+
+    def test_unreachable_github_is_not_reported_as_a_missing_repo(
+        self, github: _FakeGitHubSession, runner: CliRunner
+    ) -> None:
+        # Only a 404 means "missing"; anything else must not escape as a raw httpx traceback either.
+        github.responses = {REPO_PAGE_URL: httpx.Response(500)}
+        result = runner.invoke(app, ["extensions", "install", "huggingface/hf-demo"])
+
+        assert isinstance(result.exception, CLIError)
+        assert "Could not reach GitHub" in str(result.exception)
+        assert github.api_urls == []
+
+    def test_update_stops_on_rate_limit_instead_of_warning_per_extension(
+        self, github: _FakeGitHubSession, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        _fake_install_extension(tmp_path, "one", "two")
+        # A secondary limit: GitHub asks for a back-off and rides the *primary* window's reset
+        # timestamp alongside it, on a quota that is not exhausted. The back-off is what applies.
+        github.responses = {
+            "api.github.com": httpx.Response(
+                429,
+                headers={"x-ratelimit-remaining": "53", "x-ratelimit-reset": "1786500000", "retry-after": "60"},
+            )
+        }
+        result = runner.invoke(app, ["extensions", "update"])
+
+        assert isinstance(result.exception, CLIError)
+        assert "rate limit exceeded" in str(result.exception)
+        assert "Retry in 60s." in str(result.exception)
+        assert "It resets at" not in str(result.exception)
+        # Bailed out on the first extension rather than repeating the failure for every one of them.
+        assert len(github.api_urls) == 1
