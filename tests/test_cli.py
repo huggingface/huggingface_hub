@@ -25,6 +25,7 @@ from huggingface_hub.cli.cache import CacheDeletionCounts
 from huggingface_hub.cli.download import download
 from huggingface_hub.cli.hf import app
 from huggingface_hub.cli.hf import main as hf_main
+from huggingface_hub.cli.inference_endpoints import _build_custom_image
 from huggingface_hub.cli.jobs import _get_jobs_stats_rows, _parse_and_sync_job_volumes, _parse_namespace_from_job_id
 from huggingface_hub.cli.skills import build_skill_md
 from huggingface_hub.cli.upload import _resolve_upload_paths, upload
@@ -2762,7 +2763,7 @@ class TestInferenceEndpointsCommands:
             )
         assert result.exit_code != 0
         api_cls.return_value.create_inference_endpoint.assert_not_called()
-        assert "require --custom-image" in (result.stdout + str(result.exception))
+        assert "--custom-image is required" in (result.stdout + str(result.exception))
 
     def test_deploy_engine_image_with_parallelism(self, runner: CliRunner) -> None:
         endpoint = Mock(raw={"name": "vllm"})
@@ -2792,46 +2793,14 @@ class TestInferenceEndpointsCommands:
                     "--engine",
                     "vllm",
                     "--custom-image",
-                    "vllm/vllm-openai:latest",
+                    "vllm/vllm-openai:v0.23.0",
                     "--tensor-parallel-size",
                     "8",
                 ],
             )
         assert result.exit_code == 0, result.stdout
         _, kwargs = api.create_inference_endpoint.call_args
-        assert kwargs["custom_image"] == {"vLLM": {"url": "vllm/vllm-openai:latest"}}
-        assert kwargs["tensor_parallel_size"] == 8
-        assert "data_parallel_size" not in kwargs
-
-    def test_deploy_engine_requires_custom_image(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
-            result = runner.invoke(
-                app,
-                [
-                    "endpoints",
-                    "deploy",
-                    "my-endpoint",
-                    "--repo",
-                    "my-repo",
-                    "--framework",
-                    "custom",
-                    "--accelerator",
-                    "gpu",
-                    "--instance-size",
-                    "x8",
-                    "--instance-type",
-                    "nvidia-h200",
-                    "--region",
-                    "us-east-1",
-                    "--vendor",
-                    "aws",
-                    "--engine",
-                    "vllm",
-                ],
-            )
-        assert result.exit_code != 0
-        api_cls.return_value.create_inference_endpoint.assert_not_called()
-        assert "--engine requires --custom-image" in (result.stdout + str(result.exception))
+        assert kwargs["custom_image"] == {"vLLM": {"url": "vllm/vllm-openai:v0.23.0", "tensorParallelSize": 8}}
 
     def test_deploy_from_catalog(self, runner: CliRunner) -> None:
         endpoint = Mock(raw={"name": "catalog"})
@@ -2898,10 +2867,9 @@ class TestInferenceEndpointsCommands:
             framework=None,
             revision=None,
             task=None,
+            custom_image=None,
             container_command=None,
             container_args=None,
-            tensor_parallel_size=None,
-            data_parallel_size=None,
             accelerator="gpu",
             instance_size="x4",
             instance_type=None,
@@ -2935,7 +2903,7 @@ class TestInferenceEndpointsCommands:
         assert kwargs["container_command"] is None
         assert '"name": "updated"' in result.stdout
 
-    def test_update_parallelism_sizes(self, runner: CliRunner) -> None:
+    def test_update_engine_image_with_parallelism(self, runner: CliRunner) -> None:
         endpoint = Mock(raw={"name": "updated"})
         with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
             api = api_cls.return_value
@@ -2946,6 +2914,10 @@ class TestInferenceEndpointsCommands:
                     "endpoints",
                     "update",
                     "my-endpoint",
+                    "--engine",
+                    "vllm",
+                    "--custom-image",
+                    "vllm/vllm-openai:v0.23.0",
                     "--tensor-parallel-size",
                     "4",
                     "--data-parallel-size",
@@ -2954,8 +2926,16 @@ class TestInferenceEndpointsCommands:
             )
         assert result.exit_code == 0, result.stdout
         _, kwargs = api.update_inference_endpoint.call_args
-        assert kwargs["tensor_parallel_size"] == 4
-        assert kwargs["data_parallel_size"] == 2
+        assert kwargs["custom_image"] == {
+            "vLLM": {"url": "vllm/vllm-openai:v0.23.0", "tensorParallelSize": 4, "dataParallelSize": 2}
+        }
+
+    def test_update_parallelism_requires_custom_image(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
+            result = runner.invoke(app, ["endpoints", "update", "my-endpoint", "--tensor-parallel-size", "8"])
+        assert result.exit_code != 0
+        api_cls.return_value.update_inference_endpoint.assert_not_called()
+        assert "--custom-image is required" in (result.stdout + str(result.exception))
 
     def test_update_container_args_empty_string_resets(self, runner: CliRunner) -> None:
         endpoint = Mock(raw={"name": "updated"})
@@ -3062,6 +3042,43 @@ class TestInferenceEndpointsCommands:
         api.list_inference_catalog.assert_called_once_with(token=None)
         assert '"models"' in result.stdout
         assert '"model"' in result.stdout
+
+
+IMAGE_URL = "vllm/vllm-openai:v0.23.0"
+
+
+@pytest.mark.parametrize(
+    "engine, extra, expected",
+    [
+        # No engine: a flat container config, which `HfApi` keys as `custom`.
+        (None, {}, {"url": IMAGE_URL}),
+        # An engine is keyed by the API's variant name, which is not the lowercase CLI value.
+        ("vllm", {}, {"vLLM": {"url": IMAGE_URL}}),
+        ("sglang", {}, {"sGLang": {"url": IMAGE_URL}}),
+        # An engine this version doesn't know about is forwarded as typed, so the API names the bad variant
+        # instead of the config being silently reshaped into a custom container.
+        ("VLLM", {}, {"VLLM": {"url": IMAGE_URL}}),
+        # Parallelism and container settings land inside the engine config, not next to it.
+        (
+            "vllm",
+            {"tensor_parallel_size": 8, "data_parallel_size": 2},
+            {"vLLM": {"url": IMAGE_URL, "tensorParallelSize": 8, "dataParallelSize": 2}},
+        ),
+        (None, {"health_route": "/health", "port": 8000}, {"url": IMAGE_URL, "healthRoute": "/health", "port": 8000}),
+    ],
+    ids=["no_engine", "vllm", "sglang", "unknown_engine", "parallelism", "health_route_and_port"],
+)
+def test_build_custom_image(engine: str | None, extra: dict, expected: dict) -> None:
+    assert _build_custom_image(IMAGE_URL, engine=engine, **extra) == expected
+
+
+def test_build_custom_image_without_image() -> None:
+    assert _build_custom_image(None) is None
+
+
+def test_build_custom_image_rejects_image_flags_without_image() -> None:
+    with pytest.raises(CLIError, match="--custom-image is required when using --engine, --tensor-parallel-size"):
+        _build_custom_image(None, engine="vllm", tensor_parallel_size=8)
 
 
 @contextmanager

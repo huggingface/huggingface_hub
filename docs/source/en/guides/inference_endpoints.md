@@ -133,8 +133,8 @@ For containers that need a custom entrypoint or runtime flags, pass `container_c
 
 vLLM and SGLang use a single accelerator by default, while the endpoint is allocated every accelerator of its instance.
 On a multi-accelerator instance you must therefore set the parallelism explicitly, otherwise the extra accelerators stay
-idle (and the API rejects the deployment). Pass `tensor_parallel_size` to shard one model copy across the accelerators,
-or `data_parallel_size` (vLLM only) to run one copy per accelerator:
+idle. Set `tensorParallelSize` to shard one model copy across the accelerators, or `dataParallelSize` (vLLM only) to run
+one copy per accelerator:
 
 ```py
 >>> endpoint = create_inference_endpoint(
@@ -146,18 +146,22 @@ or `data_parallel_size` (vLLM only) to run one copy per accelerator:
 ...     instance_type="nvidia-h200",
 ...     region="us-east-1",
 ...     vendor="aws",
-...     custom_image={"vLLM": {"url": "vllm/vllm-openai:latest"}},
-...     tensor_parallel_size=8,
+...     custom_image={"vLLM": {"url": "vllm/vllm-openai:v0.23.0", "tensorParallelSize": 8}},
 ... )
 ```
 
-Or via CLI, where `--engine` selects the managed engine image:
+From the CLI, `--engine` selects the managed engine image and `--tensor-parallel-size` / `--data-parallel-size` are
+written into its config:
 
 ```bash
 hf endpoints deploy gpt-oss-120b-vllm --repo openai/gpt-oss-120b --framework custom \
   --accelerator gpu --instance-size x8 --instance-type nvidia-h200 --region us-east-1 --vendor aws \
-  --engine vllm --custom-image vllm/vllm-openai:latest --tensor-parallel-size 8
+  --engine vllm --custom-image vllm/vllm-openai:v0.23.0 --tensor-parallel-size 8
 ```
+
+Passing the same value through `container_args` (`--tp 8`) is not equivalent: it reaches the engine as a command-line
+flag, but not the `model.image` config the API validates the instance's accelerator count against. Use `container_args`
+for engine flags that have no image field, and for plain custom containers, which have no parallelism fields at all.
 
 ### Get or list existing Inference Endpoints
 
@@ -319,8 +323,12 @@ hf endpoints update my-endpoint-name --repo gpt2-large
 hf endpoints update my-endpoint-name --min-replica 2 --max-replica 6
 hf endpoints update my-endpoint-name --accelerator cpu --instance-size x4 --instance-type intel-icl
 hf endpoints update my-endpoint-name --container-args "--enable-auto-tool-choice --tool-call-parser lfm2"
-hf endpoints update my-endpoint-name --tensor-parallel-size 8
+hf endpoints update my-endpoint-name --engine vllm --custom-image vllm/vllm-openai:v0.23.0 --tensor-parallel-size 8
 ```
+
+`--custom-image` replaces the image configured on the endpoint rather than patching it, because the API takes
+`model.image` as a whole. Run `hf endpoints describe my-endpoint-name` first and pass back the engine and container
+settings you want to keep.
 
 ### Delete the endpoint
 

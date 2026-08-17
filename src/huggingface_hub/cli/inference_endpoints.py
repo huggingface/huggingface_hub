@@ -45,7 +45,8 @@ NamespaceOpt = Annotated[
     ),
 ]
 
-# Maps the CLI `--engine` values to the image keys of the API payload (`model.image.<key>`).
+# Maps the CLI `--engine` values to the `model.image` variant keys of the API payload. `huggingface` and
+# `huggingfaceNeuron` are left out on purpose: they are the managed Hugging Face images and take no image URL.
 ENGINE_IMAGE_KEYS = {
     "custom": "custom",
     "hf-serve": "hfServe",
@@ -63,11 +64,21 @@ EngineOpt = Annotated[
     Option(
         "--engine",
         click_type=SoftChoice(list(ENGINE_IMAGE_KEYS)),
-        help=(
-            "Inference engine to run the image with (e.g. 'vllm'). Requires --custom-image. Defaults to 'custom', "
-            "i.e. an arbitrary container. Engine images accept engine-specific settings such as "
-            "--tensor-parallel-size."
-        ),
+        help="Managed engine image to run --custom-image with (e.g. 'vllm'). Defaults to an arbitrary container.",
+    ),
+]
+
+HealthRouteOpt = Annotated[
+    str | None,
+    Option(
+        help="Health check route exposed by the container (e.g. '/health'). Requires --custom-image.",
+    ),
+]
+
+PortOpt = Annotated[
+    int | None,
+    Option(
+        help="Port the container listens on (e.g. 30000). Requires --custom-image.",
     ),
 ]
 
@@ -75,11 +86,7 @@ TensorParallelSizeOpt = Annotated[
     int | None,
     Option(
         "--tensor-parallel-size",
-        help=(
-            "Number of accelerators to shard a single model copy across (vLLM and SGLang engines only). vLLM and "
-            "SGLang use a single accelerator by default, so either this or --data-parallel-size must be set when "
-            "deploying on a multi-accelerator instance, otherwise the extra accelerators stay idle."
-        ),
+        help="Number of accelerators to shard a single model copy across (vLLM and SGLang engines only).",
     ),
 ]
 
@@ -132,7 +139,7 @@ def ls(
     examples=[
         "hf endpoints deploy my-endpoint --repo gpt2 --framework pytorch ...",
         "hf endpoints deploy my-endpoint --repo openai/gpt-oss-120b --framework custom --engine vllm "
-        "--custom-image vllm/vllm-openai:latest --tensor-parallel-size 8 ...",
+        "--custom-image vllm/vllm-openai:v0.23.0 --tensor-parallel-size 8 ...",
     ],
 )
 def deploy(
@@ -223,22 +230,12 @@ def deploy(
         str | None,
         Option(
             "--custom-image",
-            help="Docker image URL for a custom container (e.g. 'nexagi/sglang:v0.5.12'). Requires '--framework custom'.",
+            help="Docker image URL for the container to run (e.g. 'nexagi/sglang:v0.5.12'). Requires '--framework custom'.",
         ),
     ] = None,
     engine: EngineOpt = None,
-    health_route: Annotated[
-        str | None,
-        Option(
-            help="Health check route exposed by the custom container (e.g. '/health'). Requires --custom-image.",
-        ),
-    ] = None,
-    port: Annotated[
-        int | None,
-        Option(
-            help="Port the custom container listens on (e.g. 30000). Requires --custom-image.",
-        ),
-    ] = None,
+    health_route: HealthRouteOpt = None,
+    port: PortOpt = None,
     container_command: Annotated[
         str | None,
         Option(
@@ -275,24 +272,14 @@ def deploy(
     ] = None,
 ) -> None:
     """Deploy an Inference Endpoint from a Hub repository."""
-    # --health-route and --port are container-level fields, and the only container payload this
-    # command can build is the custom one, so they need --custom-image. Container command/args are
-    # top-level model fields and apply to managed engine images too, so they are not gated.
-    if custom_image is None and (health_route is not None or port is not None):
-        raise CLIError("--health-route and --port require --custom-image.")
-    if custom_image is None and engine is not None:
-        raise CLIError("--engine requires --custom-image.")
-    custom_image_dict: dict | None = None
-    if custom_image is not None:
-        image_config: dict = {"url": custom_image}
-        if health_route is not None:
-            image_config["healthRoute"] = health_route
-        if port is not None:
-            image_config["port"] = port
-        # `create_inference_endpoint` treats an un-keyed dict as a custom container, so only engine images
-        # need to be wrapped in their image key.
-        image_key = ENGINE_IMAGE_KEYS.get(engine, engine) if engine is not None else None
-        custom_image_dict = image_config if image_key in (None, "custom") else {image_key: image_config}
+    custom_image_dict = _build_custom_image(
+        custom_image,
+        engine=engine,
+        health_route=health_route,
+        port=port,
+        tensor_parallel_size=tensor_parallel_size,
+        data_parallel_size=data_parallel_size,
+    )
 
     env_map = {key: value or "" for key, value in parse_env_map(env, env_file).items()}
     secrets_map = {key: value or "" for key, value in parse_env_map(secrets, secrets_file).items()}
@@ -307,10 +294,6 @@ def deploy(
         params["container_command"] = shlex.split(container_command)
     if container_args:
         params["container_args"] = shlex.split(container_args)
-    if tensor_parallel_size is not None:
-        params["tensor_parallel_size"] = tensor_parallel_size
-    if data_parallel_size is not None:
-        params["data_parallel_size"] = data_parallel_size
     if env_map:
         params["env"] = env_map
     if secrets_map:
@@ -417,7 +400,8 @@ def describe(
 @ie_cli.command(
     examples=[
         "hf endpoints update my-endpoint --min-replica 2",
-        "hf endpoints update my-endpoint --tensor-parallel-size 8",
+        "hf endpoints update my-endpoint --engine vllm --custom-image vllm/vllm-openai:v0.23.0 "
+        "--tensor-parallel-size 8",
         'hf endpoints update my-endpoint --container-args "--enable-auto-tool-choice --tool-call-parser lfm2"',
     ]
 )
@@ -489,6 +473,20 @@ def update(
             ),
         ),
     ] = None,
+    custom_image: Annotated[
+        str | None,
+        Option(
+            "--custom-image",
+            help=(
+                "Docker image URL for the container to run (e.g. 'nexagi/sglang:v0.5.12'). Replaces the image "
+                "currently configured on the endpoint rather than patching it, so pass the engine and container "
+                "settings you want to keep along with it, run 'hf endpoints describe NAME' first to see them."
+            ),
+        ),
+    ] = None,
+    engine: EngineOpt = None,
+    health_route: HealthRouteOpt = None,
+    port: PortOpt = None,
     tensor_parallel_size: TensorParallelSizeOpt = None,
     data_parallel_size: DataParallelSizeOpt = None,
     min_replica: Annotated[
@@ -524,6 +522,15 @@ def update(
     token: TokenOpt = None,
 ) -> None:
     """Update an existing endpoint."""
+    custom_image_dict = _build_custom_image(
+        custom_image,
+        engine=engine,
+        health_route=health_route,
+        port=port,
+        tensor_parallel_size=tensor_parallel_size,
+        data_parallel_size=data_parallel_size,
+    )
+
     api = get_hf_api(token=token)
     try:
         endpoint = api.update_inference_endpoint(
@@ -533,10 +540,9 @@ def update(
             framework=framework,
             revision=revision,
             task=task,
+            custom_image=custom_image_dict,
             container_command=shlex.split(container_command) if container_command is not None else None,
             container_args=shlex.split(container_args) if container_args is not None else None,
-            tensor_parallel_size=tensor_parallel_size,
-            data_parallel_size=data_parallel_size,
             accelerator=accelerator,
             instance_size=instance_size,
             instance_type=instance_type,
@@ -636,3 +642,44 @@ def scale_to_zero(
         raise click.exceptions.Exit(code=error.response.status_code) from error
 
     out.dict(endpoint.raw)
+
+
+def _build_custom_image(
+    custom_image: str | None,
+    *,
+    engine: str | None = None,
+    health_route: str | None = None,
+    port: int | None = None,
+    tensor_parallel_size: int | None = None,
+    data_parallel_size: int | None = None,
+) -> dict | None:
+    """Build the `custom_image` argument of `HfApi` from the flat image flags.
+
+    A bare image URL describes a custom container and is passed flat, `HfApi` keys it as `custom`. `--engine`
+    selects a managed engine image instead, whose config is keyed by the API's variant name. An engine this
+    version doesn't know about is forwarded as typed, so the API names the bad variant.
+    """
+    if custom_image is None:
+        # These flags all describe the container image, and the only image these commands can build is the one
+        # --custom-image names. Container command/args are top-level model fields, hence not listed here.
+        image_flags = {
+            "--engine": engine,
+            "--health-route": health_route,
+            "--port": port,
+            "--tensor-parallel-size": tensor_parallel_size,
+            "--data-parallel-size": data_parallel_size,
+        }
+        if used := [flag for flag, value in image_flags.items() if value is not None]:
+            raise CLIError(f"--custom-image is required when using {', '.join(used)}.")
+        return None
+
+    config: dict = {"url": custom_image}
+    if health_route is not None:
+        config["healthRoute"] = health_route
+    if port is not None:
+        config["port"] = port
+    if tensor_parallel_size is not None:
+        config["tensorParallelSize"] = tensor_parallel_size
+    if data_parallel_size is not None:
+        config["dataParallelSize"] = data_parallel_size
+    return {ENGINE_IMAGE_KEYS.get(engine, engine): config} if engine else config

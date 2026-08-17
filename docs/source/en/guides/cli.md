@@ -2331,6 +2331,30 @@ To deploy your own Docker image instead of a Hugging Face managed one, pass `--f
       --container-args "--enable-auto-tool-choice --tool-call-parser lfm2"
 ```
 
+#### Deploy a managed engine image
+
+`--custom-image` alone deploys an arbitrary container. Add `--engine` to run the image as one of the engines the API manages (`vllm`, `sglang`, `tgi`, `tei`, `llamacpp`, `hf-serve`, ...), which unlocks the engine's own settings — including `--tensor-parallel-size` and `--data-parallel-size`. vLLM and SGLang use a single accelerator by default, so on a multi-accelerator instance set one of them explicitly or the extra accelerators stay idle:
+
+```bash
+>>> hf endpoints deploy gpt-oss-120b-vllm \
+      --repo openai/gpt-oss-120b \
+      --framework custom \
+      --accelerator gpu --vendor aws --region us-east-1 \
+      --instance-type nvidia-h200 --instance-size x8 \
+      --engine vllm --custom-image vllm/vllm-openai:v0.23.0 \
+      --tensor-parallel-size 8
+```
+
+Note the difference from the `--container-args "... --tp 8"` above: `--tensor-parallel-size` writes into the engine's `model.image` config, which is what the API validates the instance's accelerator count against, while `--container-args` only appends a flag to the container's command line. Use `--container-args` for engine flags with no image field, and for plain custom containers, which have no parallelism fields at all.
+
+The same flags work on `hf endpoints update`, which is also the only way to change the image of an existing endpoint. The API takes `model.image` as a whole, so `--custom-image` replaces it rather than patching it — run `hf endpoints describe` first and pass back what you want to keep:
+
+```bash
+>>> hf endpoints update gpt-oss-120b-vllm \
+      --engine vllm --custom-image vllm/vllm-openai:v0.23.0 \
+      --tensor-parallel-size 4 --data-parallel-size 2
+```
+
 ### hf endpoints catalog
 
 Use `hf endpoints catalog` to interact with the Inference Endpoints Model Catalog. Deploy models directly from the catalog with optimized configurations.
