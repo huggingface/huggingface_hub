@@ -66,7 +66,7 @@ class CommitOperationDelete:
         path_in_repo (`str`):
             Relative filepath in the repo, for example: `"checkpoints/1fec34a/weights.bin"`
             for a file or `"checkpoints/1fec34a/"` for a folder.
-        is_folder (`bool` or `Literal["auto"]`, *optional*)
+        is_folder (`bool` or `Literal["auto"]`, *optional*):
             Whether the Delete Operation applies to a folder or not. If "auto", the path
             type (file or folder) is guessed automatically by looking if path ends with
             a "/" (folder) or not (file). To explicitly set the path type, you can set

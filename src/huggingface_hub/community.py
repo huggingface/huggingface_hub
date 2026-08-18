@@ -114,7 +114,7 @@ class DiscussionWithDetails(Discussion):
             Whether or not this is a Pull Request.
         created_at (`datetime`):
             The `datetime` of creation of the Discussion / Pull Request.
-        events (`list` of [`DiscussionEvent`])
+        events (`list` of [`DiscussionEvent`]):
             The list of [`DiscussionEvents`] in this Discussion or Pull Request.
         conflicting_files (`Union[list[str], bool, None]`, *optional*):
             A list of conflicting files if this is a Pull Request.

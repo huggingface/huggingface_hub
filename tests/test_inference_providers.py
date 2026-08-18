@@ -19,6 +19,7 @@ from huggingface_hub.inference._providers._common import (
 from huggingface_hub.inference._providers.cohere import CohereConversationalTask
 from huggingface_hub.inference._providers.deepinfra import (
     DeepInfraAutomaticSpeechRecognitionTask,
+    DeepInfraFeatureExtractionTask,
     DeepInfraTextToSpeechTask,
 )
 from huggingface_hub.inference._providers.fal_ai import (
@@ -392,6 +393,57 @@ class TestDeepInfraProvider:
         assert helper.get_response(b"audio_bytes") == b"audio_bytes"
         with pytest.raises(ValueError):
             helper.get_response({"not": "bytes"})
+
+    def test_feature_extraction_url(self):
+        helper = DeepInfraFeatureExtractionTask()
+        url = helper._prepare_url("hf_token", "Qwen/Qwen3-Embedding-0.6B")
+        assert url == "https://router.huggingface.co/deepinfra/v1/openai/embeddings"
+
+    def test_feature_extraction_payload(self):
+        helper = DeepInfraFeatureExtractionTask()
+        payload = helper._prepare_payload_as_dict(
+            "Hello, world!",
+            {"encoding_format": "float"},
+            InferenceProviderMapping(
+                provider="deepinfra",
+                hf_model_id="Qwen/Qwen3-Embedding-0.6B",
+                providerId="Qwen/Qwen3-Embedding-0.6B",
+                task="feature-extraction",
+                status="live",
+            ),
+        )
+        assert payload == {
+            "input": "Hello, world!",
+            "encoding_format": "float",
+            "model": "Qwen/Qwen3-Embedding-0.6B",
+        }
+
+    def test_feature_extraction_model_not_overridable(self):
+        helper = DeepInfraFeatureExtractionTask()
+        payload = helper._prepare_payload_as_dict(
+            "Hello, world!",
+            {"model": "attacker/model"},
+            InferenceProviderMapping(
+                provider="deepinfra",
+                hf_model_id="Qwen/Qwen3-Embedding-0.6B",
+                providerId="Qwen/Qwen3-Embedding-0.6B",
+                task="feature-extraction",
+                status="live",
+            ),
+        )
+        assert payload["model"] == "Qwen/Qwen3-Embedding-0.6B"
+
+    def test_feature_extraction_response(self):
+        helper = DeepInfraFeatureExtractionTask()
+        response = {
+            "object": "list",
+            "data": [
+                {"object": "embedding", "index": 0, "embedding": [0.1, 0.2, 0.3]},
+                {"object": "embedding", "index": 1, "embedding": [0.4, 0.5, 0.6]},
+            ],
+            "model": "Qwen/Qwen3-Embedding-0.6B",
+        }
+        assert helper.get_response(response) == [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
 
 
 class TestFalAIProvider:
