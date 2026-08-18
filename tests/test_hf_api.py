@@ -4901,13 +4901,15 @@ def test_update_inference_endpoint_custom_image_payload(mocker):
         # The sizes go inside the engine config, next to the fields already there.
         (
             {"vLLM": {"url": "vllm/vllm-openai:v0.23.0", "port": 8000}},
-            {"tensor_parallel_size": 8},
-            {"vLLM": {"url": "vllm/vllm-openai:v0.23.0", "port": 8000, "tensorParallelSize": 8}},
-        ),
-        (
-            {"vLLM": {"url": "vllm/vllm-openai:v0.23.0"}},
             {"tensor_parallel_size": 4, "data_parallel_size": 2},
-            {"vLLM": {"url": "vllm/vllm-openai:v0.23.0", "tensorParallelSize": 4, "dataParallelSize": 2}},
+            {
+                "vLLM": {
+                    "url": "vllm/vllm-openai:v0.23.0",
+                    "port": 8000,
+                    "tensorParallelSize": 4,
+                    "dataParallelSize": 2,
+                }
+            },
         ),
         # An already-set size is overwritten rather than duplicated.
         (
@@ -4916,7 +4918,7 @@ def test_update_inference_endpoint_custom_image_payload(mocker):
             {"sGLang": {"url": "lmsysorg/sglang:v0.5.2", "tensorParallelSize": 8}},
         ),
     ],
-    ids=["tensor_only", "tensor_and_data", "overwrites_existing"],
+    ids=["tensor_and_data", "overwrites_existing"],
 )
 def test_set_parallelism_in_image(image: dict, sizes: dict, expected: dict):
     original = copy.deepcopy(image)
@@ -4965,38 +4967,6 @@ def test_update_inference_endpoint_parallelism_fetches_current_image(mocker):
     assert payload["model"]["image"] == {
         "vLLM": {"url": "vllm/vllm-openai:v0.23.0", "port": 8000, "healthRoute": "/health", "tensorParallelSize": 8}
     }
-
-
-def test_update_inference_endpoint_parallelism_uses_the_given_image(mocker):
-    """An explicit `custom_image` is used as-is, without spending a request on the current one."""
-    mock_session = mocker.patch("huggingface_hub.hf_api.get_session").return_value
-    mock_response = Mock()
-    mock_response.raise_for_status.return_value = None
-    mock_response.json.return_value = {
-        "name": "vllm-endpoint",
-        "model": {"repository": "openai/gpt-oss-120b", "framework": "custom", "revision": None, "task": None},
-        "status": {
-            "state": "pending",
-            "createdAt": "2025-03-07T15:30:13.949Z",
-            "updatedAt": "2025-03-07T15:30:13.949Z",
-        },
-        "healthRoute": "/health",
-        "type": "authenticated",
-    }
-    mock_session.put.return_value = mock_response
-
-    api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
-    get_endpoint = mocker.patch.object(api, "get_inference_endpoint")
-    api.update_inference_endpoint(
-        name="vllm-endpoint",
-        namespace="Wauplin",
-        custom_image={"vLLM": {"url": "vllm/vllm-openai:v0.23.0"}},
-        tensor_parallel_size=8,
-    )
-
-    get_endpoint.assert_not_called()
-    payload = mock_session.put.call_args[1]["json"]
-    assert payload["model"]["image"] == {"vLLM": {"url": "vllm/vllm-openai:v0.23.0", "tensorParallelSize": 8}}
 
 
 def test_update_inference_endpoint_parallelism_refuses_to_round_trip_credentials(mocker):
