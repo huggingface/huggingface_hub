@@ -5,7 +5,11 @@ from typing import Annotated
 
 import click
 
-from huggingface_hub._inference_endpoints import InferenceEndpointScalingMetric, InferenceEndpointType
+from huggingface_hub._inference_endpoints import (
+    InferenceEndpointHardware,
+    InferenceEndpointScalingMetric,
+    InferenceEndpointType,
+)
 from huggingface_hub.errors import CLIError, HfHubHTTPError
 
 from ._cli_utils import (
@@ -21,7 +25,7 @@ from ._cli_utils import (
     typer_factory,
 )
 from ._framework import Argument, Option
-from ._output import out
+from ._output import _dataclass_to_dict, out
 
 
 ie_cli = typer_factory(help="Manage Hugging Face Inference Endpoints.")
@@ -132,6 +136,126 @@ def ls(
             }
         )
     out.table(results, id_key="name")
+
+
+# A denylist like the Endpoints UI uses, so a new server-side status shows up instead of silently disappearing.
+_UNDEPLOYABLE_STATUSES = {"deprecated", "not_available"}
+
+
+def _is_deployable(hw: InferenceEndpointHardware) -> bool:
+    """Whether the namespace can deploy one replica on this hardware right now: usable status and enough quota."""
+    return (
+        hw.status not in _UNDEPLOYABLE_STATUSES and hw.max_accelerators - hw.used_accelerators >= hw.num_accelerators
+    )
+
+
+@ie_cli.command(
+    "hardware",
+    examples=[
+        "hf endpoints hardware",
+        "hf endpoints hardware --vendor aws --accelerator gpu",
+    ],
+)
+def hardware(
+    namespace: NamespaceOpt = None,
+    vendor: Annotated[
+        str | None,
+        Option(help="Only show hardware hosted by this cloud provider (e.g. 'aws')."),
+    ] = None,
+    region: Annotated[
+        str | None,
+        Option(help="Only show hardware available in this cloud region (e.g. 'us-east-1')."),
+    ] = None,
+    accelerator: Annotated[
+        str | None,
+        Option(help="Only show hardware with this accelerator (e.g. 'cpu', 'gpu', 'neuron')."),
+    ] = None,
+    instance_type: Annotated[
+        str | None,
+        Option(help="Only show hardware of this instance type (e.g. 'nvidia-l4')."),
+    ] = None,
+    show_all: Annotated[
+        bool,
+        Option(
+            "-a",
+            "--all",
+            help="Also show hardware that cannot be deployed on right now (unavailable, deprecated or out of quota).",
+        ),
+    ] = False,
+    token: TokenOpt = None,
+) -> None:
+    """List the hardware available to deploy an Inference Endpoint on.
+
+    Only the hardware the namespace can deploy on right now is listed: a usable status, and enough accelerator
+    quota left for one replica. Use `--all` to list every combination the API returns.
+
+    Quota is per namespace, so pass the same `--namespace` you will pass to `hf endpoints deploy`. Prices are in
+    USD, per replica per hour.
+    """
+    api = get_hf_api(token=token)
+    hardware_list = api.list_inference_endpoints_hardware(namespace=namespace, token=token)
+
+    # Both sides lowercased: relying on the server's casing would turn a change into a silently empty result.
+    matching = [
+        hw
+        for hw in hardware_list
+        if (vendor is None or hw.vendor.lower() == vendor.lower())
+        and (region is None or hw.region.lower() == region.lower())
+        and (accelerator is None or hw.accelerator.lower() == accelerator.lower())
+        and (instance_type is None or hw.instance_type.lower() == instance_type.lower())
+    ]
+    visible = [hw for hw in matching if show_all or _is_deployable(hw)]
+    # Smallest size first per instance type; 'instance_size' can't be the key, 'x16' sorts before 'x2'.
+    visible.sort(key=lambda hw: (hw.vendor, hw.region, hw.accelerator, hw.instance_type, hw.num_accelerators))
+
+    # Add a quota column, keeping the rest of the dict whole since '--format json' emits it.
+    items = [_dataclass_to_dict(hw) | {"quota": f"{hw.used_accelerators}/{hw.max_accelerators}"} for hw in visible]
+    out.table(
+        items,
+        # Redundant and always-null columns are dropped here but stay in the items for '--format json'.
+        headers=[
+            "vendor",
+            "region",
+            "accelerator",
+            "instance_type",
+            "instance_size",
+            "memory_gb",
+            "gpu_memory_gb",
+            "price_per_hour",
+            "quota",
+            "status",
+        ],
+        id_key="id",
+    )
+    # The example must be one 'deploy' accepts, and with '--all' the first row may not be.
+    if (hw := next((hw for hw in visible if _is_deployable(hw)), None)) is not None:
+        out.hint(
+            f"Deploy on one of these, e.g.: hf endpoints deploy my-endpoint --repo <repo> --framework <framework> "
+            f"--vendor {hw.vendor} --region {hw.region} --accelerator {hw.accelerator} "
+            f"--instance-type {hw.instance_type} --instance-size {hw.instance_size}"
+        )
+    elif visible:  # only reachable with '--all'
+        out.hint("None of these can be deployed on right now, see the QUOTA and STATUS columns.")
+    elif matching:  # all matches were dropped as undeployable
+        out.hint("Use '--all' to also show hardware that cannot be deployed on right now.")
+    else:
+        # Nothing matched at all: a filter value is probably a typo, so name the ones that exist nowhere.
+        unknown = [
+            f"{flag} '{value}' (valid: {', '.join(sorted(valid))})"
+            for flag, value, valid in (
+                ("--vendor", vendor, {hw.vendor for hw in hardware_list}),
+                ("--region", region, {hw.region for hw in hardware_list}),
+                ("--accelerator", accelerator, {hw.accelerator for hw in hardware_list}),
+                ("--instance-type", instance_type, {hw.instance_type for hw in hardware_list}),
+            )
+            if value is not None and value.lower() not in {v.lower() for v in valid}
+        ]
+        out.hint(
+            f"No such hardware: {'; '.join(unknown)}."
+            if unknown
+            # Each value exists, they just never occur together.
+            else "No hardware matches all of these filters at once. Try dropping one."
+        )
 
 
 @ie_cli.command(
@@ -271,7 +395,11 @@ def deploy(
         ),
     ] = None,
 ) -> None:
-    """Deploy an Inference Endpoint from a Hub repository."""
+    """Deploy an Inference Endpoint from a Hub repository.
+
+    Run `hf endpoints hardware` to list the valid `--vendor`, `--region`, `--accelerator`, `--instance-type` and
+    `--instance-size` combinations.
+    """
     custom_image_dict = _build_custom_image(
         custom_image,
         engine=engine,

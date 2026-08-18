@@ -2285,6 +2285,9 @@ Use `hf endpoints` to list, deploy, describe, and manage Inference Endpoints dir
 # Lists endpoints in your namespace
 >>> hf endpoints ls
 
+# List the hardware you can deploy on
+>>> hf endpoints hardware
+
 # Deploy an endpoint from Model Catalog
 >>> hf endpoints catalog deploy --repo openai/gpt-oss-120b --name my-endpoint
 
@@ -2306,6 +2309,29 @@ Use `hf endpoints` to list, deploy, describe, and manage Inference Endpoints dir
 
 > [!TIP]
 > Add `--namespace` to target an organization, `--token` to override authentication.
+
+#### Find hardware to deploy on
+
+`hf endpoints deploy` needs five hardware flags (`--vendor`, `--region`, `--accelerator`, `--instance-type` and `--instance-size`). `hf endpoints hardware` lists the valid combinations, with the price per replica per hour in USD and the accelerator quota of your namespace:
+
+```bash
+>>> hf endpoints hardware --vendor aws --region eu-west-1
+VENDOR REGION    ACCELERATOR INSTANCE_TYPE INSTANCE_SIZE MEMORY_GB GPU_MEMORY_GB PRICE_PER_HOUR QUOTA STATUS
+------ --------- ----------- ------------- ------------- --------- ------------- -------------- ----- ---------
+aws    eu-west-1 cpu         intel-spr     x1                  2.0                        0.033 0/60  available
+aws    eu-west-1 cpu         intel-spr     x2                  4.0                        0.067 0/60  available
+aws    eu-west-1 cpu         intel-spr     x4                  8.0                        0.134 0/60  available
+aws    eu-west-1 cpu         intel-spr     x8                 16.0                        0.268 0/60  available
+aws    eu-west-1 cpu         intel-spr     x16                32.0                        0.536 0/60  available
+aws    eu-west-1 gpu         nvidia-a10g   x1                 30.0            24            1.0 0/16  available
+aws    eu-west-1 gpu         nvidia-t4     x1                 15.0            16            0.5 1/30  available
+Hint: Deploy on one of these, e.g.: hf endpoints deploy my-endpoint --repo <repo> --framework <framework> --vendor aws --region eu-west-1 --accelerator cpu --instance-type intel-spr --instance-size x1
+```
+
+The filter flags are the deploy flags (`--vendor`, `--region`, `--accelerator`, `--instance-type`), so whatever you filter on is what you pass to `deploy`. Only hardware you can deploy on right now is listed: a usable status, and enough accelerator quota left in your namespace for one replica. Add `--all` to also see what is deprecated, temporarily unavailable or out of quota. `--format json` adds the remaining per-replica specs (vCPUs, architecture, number of accelerators) to each entry.
+
+> [!TIP]
+> Quota is per namespace, and it decides which rows are listed at all. If you are deploying into an organization, pass the same `--namespace` you will pass to `deploy` — otherwise you are looking at your personal quota, which can both hide hardware the organization can deploy on and show hardware it cannot.
 
 #### Deploy a custom container
 

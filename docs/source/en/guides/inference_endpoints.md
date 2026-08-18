@@ -12,6 +12,33 @@ This guide assumes `huggingface_hub` is correctly installed and that your machin
 > Note that this is still an experimental feature. Let us know what you think if you use it!
 
 
+## Find hardware to deploy on
+
+The `accelerator`, `vendor`, `region`, `instance_type` and `instance_size` values accepted by [`create_inference_endpoint`] depend on each other. Use [`list_inference_endpoints_hardware`] to list the valid combinations, along with their price per hour and the accelerator quota of your namespace:
+
+```py
+>>> from huggingface_hub import list_inference_endpoints_hardware
+
+>>> for hw in list_inference_endpoints_hardware():
+...     if hw.accelerator == "gpu" and hw.status == "available":
+...         print(hw.vendor, hw.region, hw.instance_type, hw.instance_size, hw.price_per_hour)
+aws us-east-1 nvidia-l4 x1 0.8
+aws us-east-1 nvidia-l4 x4 3.8
+...
+```
+
+Quota is per namespace, so pass the `namespace` you will deploy into (it defaults to your own account):
+
+```py
+>>> list_inference_endpoints_hardware(namespace="my-org")
+```
+
+Or via CLI:
+
+```bash
+hf endpoints hardware --accelerator gpu
+```
+
 ## Create an Inference Endpoint
 
 The first step is to create an Inference Endpoint using [`create_inference_endpoint`]:
