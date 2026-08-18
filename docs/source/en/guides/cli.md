@@ -2359,7 +2359,7 @@ To deploy your own Docker image instead of a Hugging Face managed one, pass `--f
 
 #### Deploy a managed engine image
 
-`--custom-image` alone deploys an arbitrary container. Add `--engine` to run the image as one of the engines the API manages (`vllm`, `sglang`, `tgi`, `tei`, `llamacpp`, `hf-serve`, ...), which unlocks the engine's own settings, including `--tensor-parallel-size` and `--data-parallel-size`. vLLM and SGLang default to a single accelerator while the endpoint gets every accelerator of its instance, so on a multi-accelerator instance set one of them explicitly. Left unset, the model loads onto one accelerator, the rest sit idle, and the endpoint still reports healthy, which is why the API now rejects that configuration:
+`--custom-image` alone deploys an arbitrary container. Add `--engine` to run it as one of the engines the API manages (`vllm`, `sglang`, `tgi`, `tei`, `llamacpp`, `hf-serve`, ...), which unlocks that engine's settings, including `--tensor-parallel-size` and `--data-parallel-size`. vLLM and SGLang default to one accelerator while the endpoint gets every accelerator of its instance, so leaving both unset loads the model onto one and idles the rest, while still reporting healthy. The API rejects that configuration:
 
 ```bash
 >>> hf endpoints deploy gpt-oss-120b-vllm \
@@ -2371,15 +2371,15 @@ To deploy your own Docker image instead of a Hugging Face managed one, pass `--f
       --tensor-parallel-size 8
 ```
 
-Note the difference from the `--container-args "... --tp 8"` above: `--tensor-parallel-size` writes into the engine's `model.image` config, which is what the API validates the instance's accelerator count against, while `--container-args` only appends a flag to the container's command line. Use `--container-args` for engine flags with no image field, and for plain custom containers, which have no parallelism fields at all.
+This is not the same as `--container-args "... --tp 8"` above: `--tensor-parallel-size` writes into the engine's `model.image` config, which is what the API validates against the instance's accelerator count, while `--container-args` only appends a flag to the command line. Use `--container-args` for engine flags with no image field, and for plain custom containers, which have no parallelism fields.
 
-To retune an endpoint that is already running, pass the sizes to `hf endpoints update` on their own. The API takes `model.image` as a whole and requires `url` inside it, so the image currently configured on the endpoint is fetched and updated in place, leaving its other settings alone:
+To retune a running endpoint, pass the sizes on their own. `model.image` is sent as a whole and requires `url`, so the endpoint's current image is fetched and updated in place:
 
 ```bash
 >>> hf endpoints update gpt-oss-120b-vllm --tensor-parallel-size 4 --data-parallel-size 2
 ```
 
-`hf endpoints update` also accepts `--custom-image` and `--engine`, which is the only way to change an endpoint's image from the CLI. That path replaces `model.image` rather than patching it, so run `hf endpoints describe` first and pass back the settings you want to keep.
+`hf endpoints update` also takes `--custom-image` and `--engine`, the only way to change an endpoint's image from the CLI. That path replaces `model.image` instead of patching it, so run `hf endpoints describe` first and pass back what you want to keep.
 
 ### hf endpoints catalog
 
