@@ -159,9 +159,10 @@ For containers that need a custom entrypoint or runtime flags, pass `container_c
 #### Parallelism on multi-accelerator instances
 
 vLLM and SGLang default to one accelerator while the endpoint is allocated every accelerator of its instance, so
-leaving the parallelism unset loads the model onto one and idles the rest, while still reporting healthy: you pay for
-all of them and get the throughput of one. (TGI derives its shard count from the instance and is not affected.) The API
-rejects such a deployment. Set `tensorParallelSize` to shard one model copy across the accelerators, or
+leaving the parallelism unset would load the model onto one and idle the rest while still reporting healthy, so you pay
+for all of them and get the throughput of one. That is why the API now rejects such a deployment. (TGI derives its
+shard count from the instance and is not affected.) Set `tensorParallelSize` to shard one model copy across the
+accelerators, or
 `dataParallelSize` (vLLM only) to run one copy per accelerator:
 
 ```py

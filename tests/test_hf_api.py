@@ -4969,14 +4969,25 @@ def test_update_inference_endpoint_parallelism_fetches_current_image(mocker):
     }
 
 
-def test_update_inference_endpoint_parallelism_refuses_to_round_trip_credentials(mocker):
-    """The API returns registry credentials redacted (`{"username": "", "password": null}`), so echoing the
-    fetched image back would overwrite them."""
+@pytest.mark.parametrize(
+    "current_image, match",
+    [
+        # The API returns registry credentials redacted (`{"username": "", "password": null}`), so echoing the
+        # fetched image back would overwrite them.
+        (
+            {"custom": {"url": "my-registry/private:v1", "credentials": {"username": "", "password": None}}},
+            "registry credentials",
+        ),
+        (None, "Could not read the image"),
+    ],
+    ids=["credentials", "no_image"],
+)
+def test_update_inference_endpoint_parallelism_refuses_unmergeable_image(mocker, current_image, match: str):
     api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
-    current_image = {"custom": {"url": "my-registry/private:v1", "credentials": {"username": "", "password": None}}}
-    mocker.patch.object(api, "get_inference_endpoint", return_value=Mock(raw={"model": {"image": current_image}}))
-    with pytest.raises(ValueError, match="registry credentials"):
-        api.update_inference_endpoint(name="private-endpoint", namespace="Wauplin", tensor_parallel_size=8)
+    raw = {"model": {"image": current_image} if current_image else {}}
+    mocker.patch.object(api, "get_inference_endpoint", return_value=Mock(raw=raw))
+    with pytest.raises(ValueError, match=match):
+        api.update_inference_endpoint(name="e", namespace="Wauplin", tensor_parallel_size=8)
 
 
 class TestHfApiVerifyChecksums:

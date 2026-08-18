@@ -9900,15 +9900,15 @@ class HfApi:
                 image = (current.raw.get("model") or {}).get("image")
                 if not image:
                     raise ValueError(
-                        f"Could not read the image currently configured on endpoint '{name}'. Pass `custom_image`"
-                        " explicitly to set the parallelism sizes."
+                        f"Could not read the image currently configured on endpoint '{name}'. Pass the full"
+                        " image explicitly to set the parallelism sizes."
                     )
                 if "credentials" in next(iter(image.values()), {}):
                     # The API does not return registry credentials in full, so echoing the fetched image back
                     # would overwrite them with the redacted values.
                     raise ValueError(
                         f"Endpoint '{name}' runs an image with registry credentials, which cannot be safely"
-                        " round-tripped. Pass `custom_image` explicitly to set the parallelism sizes."
+                        " round-tripped. Pass the full image explicitly to set the parallelism sizes."
                     )
             payload["model"]["image"] = _set_parallelism_in_image(
                 image, tensor_parallel_size=tensor_parallel_size, data_parallel_size=data_parallel_size

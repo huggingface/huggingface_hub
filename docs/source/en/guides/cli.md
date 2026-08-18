@@ -2359,7 +2359,7 @@ To deploy your own Docker image instead of a Hugging Face managed one, pass `--f
 
 #### Deploy a managed engine image
 
-`--custom-image` alone deploys an arbitrary container. Add `--engine` to run it as one of the engines the API manages (`vllm`, `sglang`, `tgi`, `tei`, `llamacpp`, `hf-serve`, ...), which unlocks that engine's settings, including `--tensor-parallel-size` and `--data-parallel-size`. vLLM and SGLang default to one accelerator while the endpoint gets every accelerator of its instance, so leaving both unset loads the model onto one and idles the rest, while still reporting healthy. The API rejects that configuration:
+`--custom-image` alone deploys an arbitrary container. Add `--engine` to run it as one of the engines the API manages (`vllm`, `sglang`, `tgi`, `tei`, `llamacpp`, `hf-serve`, ...), which unlocks that engine's settings, including `--tensor-parallel-size` and `--data-parallel-size`. vLLM and SGLang default to one accelerator while the endpoint gets every accelerator of its instance, so leaving both unset would load the model onto one and idle the rest while still reporting healthy, which is why the API now rejects that configuration:
 
 ```bash
 >>> hf endpoints deploy gpt-oss-120b-vllm \

@@ -59,8 +59,8 @@ def _set_parallelism_in_image(
     ):
         if value is not None and image_key not in supported:
             warnings.warn(
-                f"`{name}` is not a known setting of the '{image_key}' image, which the API silently ignores"
-                f" instead of rejecting. It is used by: {', '.join(supported)}.",
+                f"`{name}` is not a known setting of the '{image_key}' image: the API will silently drop it."
+                f" Engines that support it: {', '.join(supported)}.",
                 UserWarning,
             )
 

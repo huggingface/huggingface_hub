@@ -361,6 +361,8 @@ def deploy(
     engine: EngineOpt = None,
     health_route: HealthRouteOpt = None,
     port: PortOpt = None,
+    tensor_parallel_size: TensorParallelSizeOpt = None,
+    data_parallel_size: DataParallelSizeOpt = None,
     container_command: Annotated[
         str | None,
         Option(
@@ -381,8 +383,6 @@ def deploy(
             ),
         ),
     ] = None,
-    tensor_parallel_size: TensorParallelSizeOpt = None,
-    data_parallel_size: DataParallelSizeOpt = None,
     env: EnvOpt = None,
     env_file: EnvFileOpt = None,
     secrets: SecretsOpt = None,
@@ -578,6 +578,22 @@ def update(
             help="The task on which to deploy the model (e.g. 'text-classification').",
         ),
     ] = None,
+    custom_image: Annotated[
+        str | None,
+        Option(
+            "--custom-image",
+            help=(
+                "Docker image URL for the container to run (e.g. 'nexagi/sglang:v0.5.12'). Replaces the image "
+                "currently configured on the endpoint rather than patching it, so pass the engine and container "
+                "settings you want to keep along with it, run 'hf endpoints describe NAME' first to see them."
+            ),
+        ),
+    ] = None,
+    engine: EngineOpt = None,
+    health_route: HealthRouteOpt = None,
+    port: PortOpt = None,
+    tensor_parallel_size: TensorParallelSizeOpt = None,
+    data_parallel_size: DataParallelSizeOpt = None,
     container_command: Annotated[
         str | None,
         Option(
@@ -601,22 +617,6 @@ def update(
             ),
         ),
     ] = None,
-    custom_image: Annotated[
-        str | None,
-        Option(
-            "--custom-image",
-            help=(
-                "Docker image URL for the container to run (e.g. 'nexagi/sglang:v0.5.12'). Replaces the image "
-                "currently configured on the endpoint rather than patching it, so pass the engine and container "
-                "settings you want to keep along with it, run 'hf endpoints describe NAME' first to see them."
-            ),
-        ),
-    ] = None,
-    engine: EngineOpt = None,
-    health_route: HealthRouteOpt = None,
-    port: PortOpt = None,
-    tensor_parallel_size: TensorParallelSizeOpt = None,
-    data_parallel_size: DataParallelSizeOpt = None,
     min_replica: Annotated[
         int | None,
         Option(
@@ -650,9 +650,8 @@ def update(
     token: TokenOpt = None,
 ) -> None:
     """Update an existing endpoint."""
-    # The sizes are only fed to the image built here when there is one to write them into, so that `--engine` gets
-    # checked on that path. Without `--custom-image` they travel on their own and `update_inference_endpoint`
-    # merges them into the image the endpoint currently runs.
+    # Exactly one path carries the sizes: into the image built here when `--custom-image` gives us one, otherwise
+    # as kwargs, for `update_inference_endpoint` to merge into the image the endpoint currently runs.
     custom_image_dict = _build_custom_image(
         custom_image,
         engine=engine,
@@ -674,8 +673,8 @@ def update(
             custom_image=custom_image_dict,
             container_command=shlex.split(container_command) if container_command is not None else None,
             container_args=shlex.split(container_args) if container_args is not None else None,
-            tensor_parallel_size=tensor_parallel_size,
-            data_parallel_size=data_parallel_size,
+            tensor_parallel_size=tensor_parallel_size if custom_image is None else None,
+            data_parallel_size=data_parallel_size if custom_image is None else None,
             accelerator=accelerator,
             instance_size=instance_size,
             instance_type=instance_type,
