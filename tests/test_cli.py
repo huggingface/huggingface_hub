@@ -3107,6 +3107,33 @@ def test_build_custom_image_rejects_image_flags_without_image() -> None:
         _build_custom_image(None, engine="vllm", tensor_parallel_size=8)
 
 
+@pytest.mark.parametrize(
+    "engine, sizes",
+    [
+        ("tgi", {"tensor_parallel_size": 8}),
+        ("sglang", {"data_parallel_size": 2}),
+        ("VLLM", {"tensor_parallel_size": 8}),
+    ],
+    ids=["tgi_tensor", "sglang_data", "unknown_engine"],
+)
+def test_build_custom_image_warns_for_engine_without_the_field(engine: str, sizes: dict) -> None:
+    """The API drops a field the engine doesn't declare instead of rejecting it, so deploy must surface the no-op."""
+    with pytest.warns(UserWarning, match="not a known setting"):
+        _build_custom_image(IMAGE_URL, engine=engine, **sizes)
+
+
+@pytest.mark.parametrize(
+    "engine, sizes",
+    [("vllm", {"tensor_parallel_size": 8, "data_parallel_size": 2}), ("sglang", {"tensor_parallel_size": 4})],
+    ids=["vllm_both", "sglang_tensor"],
+)
+def test_build_custom_image_does_not_warn_for_supported_sizes(
+    engine: str, sizes: dict, recwarn: pytest.WarningsRecorder
+) -> None:
+    _build_custom_image(IMAGE_URL, engine=engine, **sizes)
+    assert not [w for w in recwarn if "not a known setting" in str(w.message)]
+
+
 def test_build_custom_image_rejects_parallelism_without_engine() -> None:
     """Without an engine key the API ignores the parallelism fields instead of rejecting them, which would
     deploy an endpoint quietly running on a single accelerator."""

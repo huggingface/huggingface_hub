@@ -11,6 +11,7 @@ from huggingface_hub._inference_endpoints import (
     InferenceEndpointType,
 )
 from huggingface_hub.errors import CLIError, HfHubHTTPError
+from huggingface_hub.hf_api import _set_parallelism_in_image
 
 from ._cli_utils import (
     EnvFileOpt,
@@ -815,8 +816,12 @@ def _build_custom_image(
         config["healthRoute"] = health_route
     if port is not None:
         config["port"] = port
-    if tensor_parallel_size is not None:
-        config["tensorParallelSize"] = tensor_parallel_size
-    if data_parallel_size is not None:
-        config["dataParallelSize"] = data_parallel_size
-    return {ENGINE_IMAGE_KEYS.get(engine, engine): config} if engine else config
+    if engine is None:
+        return config
+    # Delegate the sizes so this and `update_inference_endpoint` share one rule, including the warning when
+    # the engine does not declare the field.
+    return _set_parallelism_in_image(
+        {ENGINE_IMAGE_KEYS.get(engine, engine): config},
+        tensor_parallel_size=tensor_parallel_size,
+        data_parallel_size=data_parallel_size,
+    )
