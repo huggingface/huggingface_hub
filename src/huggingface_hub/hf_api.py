@@ -65,7 +65,12 @@ from ._commit_api import (
 )
 from ._dataset_viewer import DatasetParquetEntry
 from ._eval_results import EvalResultEntry, parse_eval_result_entries
-from ._inference_endpoints import InferenceEndpoint, InferenceEndpointScalingMetric, InferenceEndpointType
+from ._inference_endpoints import (
+    InferenceEndpoint,
+    InferenceEndpointHardware,
+    InferenceEndpointScalingMetric,
+    InferenceEndpointType,
+)
 from ._jobs_api import (
     TERMINAL_JOB_STAGES,
     JobHardware,
@@ -9387,6 +9392,9 @@ class HfApi:
     ) -> InferenceEndpoint:
         """Create a new Inference Endpoint.
 
+        The `accelerator`, `instance_size`, `instance_type`, `region` and `vendor` values depend on each other; use
+        [`list_inference_endpoints_hardware`] to list the valid combinations.
+
         Args:
             name (`str`):
                 The unique name for the new Inference Endpoint.
@@ -10052,6 +10060,50 @@ class HfApi:
         hf_raise_for_status(response)
 
         return InferenceEndpoint.from_raw(response.json(), namespace=namespace, token=token)
+
+    def list_inference_endpoints_hardware(
+        self, *, namespace: str | None = None, token: bool | str | None = None
+    ) -> list[InferenceEndpointHardware]:
+        """List the hardware available to deploy an Inference Endpoint on.
+
+        Each entry carries the exact `vendor`, `region`, `accelerator`, `instance_type` and `instance_size` values
+        expected by [`create_inference_endpoint`], along with the price and the accelerator quota of the namespace.
+
+        Args:
+            namespace (`str`, *optional*):
+                The namespace whose available hardware and accelerator quota to list. Defaults to the current user.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+
+        Returns:
+            `list[InferenceEndpointHardware]`: The hardware available in every vendor and region, including the
+            hardware that is currently unavailable or deprecated.
+
+        Example:
+        ```python
+        >>> from huggingface_hub import HfApi
+        >>> api = HfApi()
+        >>> hardware = api.list_inference_endpoints_hardware()
+        >>> [hw.id for hw in hardware if hw.accelerator == "gpu" and hw.status == "available"]
+        ['aws-us-east-1-nvidia-l4-x1', 'aws-us-east-1-nvidia-l4-x4', ...]
+        ```
+        """
+        namespace = namespace or self._get_namespace(token=token)
+
+        response = get_session().get(
+            f"{constants.INFERENCE_ENDPOINTS_ENDPOINT}/provider/{namespace}",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+
+        return [
+            InferenceEndpointHardware.from_raw(compute, vendor=vendor["name"], region=region["name"])
+            for vendor in response.json()["vendors"]
+            for region in vendor["regions"]
+            for compute in region["computes"]
+        ]
 
     def _get_namespace(self, token: bool | str | None = None) -> str:
         """Get the default namespace for the current user."""
@@ -15177,6 +15229,7 @@ resume_inference_endpoint = api.resume_inference_endpoint
 scale_to_zero_inference_endpoint = api.scale_to_zero_inference_endpoint
 create_inference_endpoint_from_catalog = api.create_inference_endpoint_from_catalog
 list_inference_catalog = api.list_inference_catalog
+list_inference_endpoints_hardware = api.list_inference_endpoints_hardware
 
 # Collections API
 get_collection = api.get_collection
