@@ -196,14 +196,6 @@ currently configured on the endpoint is fetched and updated in place, leaving it
 >>> endpoint.update(tensor_parallel_size=4)
 ```
 
-This is also how to unblock an endpoint created before the parallelism became mandatory. Such an endpoint fails on an
-explicit resume or on any other update until one of the two sizes is set, so set it first and resume afterwards:
-
-```bash
-hf endpoints update my-endpoint-name --tensor-parallel-size 8
-hf endpoints resume my-endpoint-name
-```
-
 Passing the same value through `container_args` (`--tp 8`) is not equivalent: it reaches the engine as a command-line
 flag, but not the `model.image` config the API validates the instance's accelerator count against. Use `container_args`
 for engine flags that have no image field, and for plain custom containers, which have no parallelism fields at all.

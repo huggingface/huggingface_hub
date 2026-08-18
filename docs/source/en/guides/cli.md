@@ -2379,13 +2379,6 @@ To retune an endpoint that is already running, pass the sizes to `hf endpoints u
 >>> hf endpoints update gpt-oss-120b-vllm --tensor-parallel-size 4 --data-parallel-size 2
 ```
 
-This is also how to unblock an endpoint created before the parallelism became mandatory: it fails on an explicit resume, and on any other update, until one of the two sizes is set. Set it first, then resume (traffic-triggered wake-ups are not affected):
-
-```bash
->>> hf endpoints update my-endpoint --tensor-parallel-size 8
->>> hf endpoints resume my-endpoint
-```
-
 `hf endpoints update` also accepts `--custom-image` and `--engine`, which is the only way to change an endpoint's image from the CLI. That path replaces `model.image` rather than patching it, so run `hf endpoints describe` first and pass back the settings you want to keep.
 
 ### hf endpoints catalog
