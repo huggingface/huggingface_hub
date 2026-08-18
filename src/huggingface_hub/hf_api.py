@@ -9618,7 +9618,6 @@ class HfApi:
                 "framework": framework,
                 "repository": repository,
                 "revision": revision,
-                "task": task,
                 "image": image,
             },
             "name": name,
@@ -9631,6 +9630,9 @@ class HfApi:
         if scaling_metric:
             payload["compute"]["scaling"]["measure"] = {scaling_metric: scaling_threshold}  # type: ignore
         model_payload: dict[str, Any] = payload["model"]
+        # `model.task` is not nullable server-side, unlike `revision`, so omit it rather than sending null.
+        if task is not None:
+            model_payload["task"] = task
         if container_command is not None:
             model_payload["command"] = container_command
         if container_args is not None:
