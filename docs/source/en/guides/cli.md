@@ -2357,6 +2357,30 @@ To deploy your own Docker image instead of a Hugging Face managed one, pass `--f
       --container-args "--enable-auto-tool-choice --tool-call-parser lfm2"
 ```
 
+#### Deploy a managed engine image
+
+`--custom-image` alone deploys an arbitrary container. Add `--engine` to run it as one of the engines the API manages (`vllm`, `sglang`, `tgi`, `tei`, `llamacpp`, `hf-serve`, ...), which unlocks that engine's settings, including `--tensor-parallel-size` and `--data-parallel-size`. vLLM and SGLang default to one accelerator while the endpoint gets every accelerator of its instance, so leaving both unset would load the model onto one and idle the rest while still reporting healthy, which is why the API now rejects that configuration:
+
+```bash
+>>> hf endpoints deploy gpt-oss-120b-vllm \
+      --repo openai/gpt-oss-120b \
+      --framework custom \
+      --accelerator gpu --vendor aws --region us-east-1 \
+      --instance-type nvidia-h200 --instance-size x8 \
+      --engine vllm --custom-image vllm/vllm-openai:v0.23.0 \
+      --tensor-parallel-size 8
+```
+
+This is not the same as `--container-args "... --tp 8"` above: `--tensor-parallel-size` writes into the engine's `model.image` config, which is what the API validates against the instance's accelerator count, while `--container-args` only appends a flag to the command line. Use `--container-args` for engine flags with no image field, and for plain custom containers, which have no parallelism fields.
+
+To retune a running endpoint, pass the sizes on their own. `model.image` is sent as a whole and requires `url`, so the endpoint's current image is fetched and updated in place:
+
+```bash
+>>> hf endpoints update gpt-oss-120b-vllm --tensor-parallel-size 4 --data-parallel-size 2
+```
+
+`hf endpoints update` also takes `--custom-image` and `--engine`, the only way to change an endpoint's image from the CLI. That path replaces `model.image` instead of patching it, so run `hf endpoints describe` first and pass back what you want to keep.
+
 ### hf endpoints catalog
 
 Use `hf endpoints catalog` to interact with the Inference Endpoints Model Catalog. Deploy models directly from the catalog with optimized configurations.

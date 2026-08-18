@@ -1,4 +1,5 @@
 import time
+import warnings
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -15,6 +16,60 @@ if TYPE_CHECKING:
     from .inference._generated._async_client import AsyncInferenceClient
 
 logger = logging.get_logger(__name__)
+
+
+def _build_endpoint_image_payload(custom_image: dict) -> dict:
+    """Build the `model.image` payload of an Inference Endpoint from a user-provided image dict.
+
+    `model.image` is a union keyed by variant (`{"vLLM": {...}}`, `{"custom": {...}}`, ...). Only a flat
+    container dict has a top-level `url` (required server-side, and no variant is named `url`), so dicts with
+    one are wrapped in `{"custom": ...}`. Everything else is forwarded as-is, so variants added to the API
+    later work without a release.
+    """
+    if "url" in custom_image:
+        return {"custom": custom_image}
+    return custom_image
+
+
+# Image variants that declare `tensorParallelSize` / `dataParallelSize`. The API ignores a field a variant doesn't
+# declare instead of rejecting it, so these only drive a warning: a wrong engine gets a visible no-op rather than a
+# silent one, and an engine the API adds later still works without a `huggingface_hub` release.
+_TENSOR_PARALLEL_IMAGE_KEYS = ("sGLang", "vLLM")
+_DATA_PARALLEL_IMAGE_KEYS = ("vLLM",)
+
+
+def _set_parallelism_in_image(
+    image: dict,
+    *,
+    tensor_parallel_size: int | None = None,
+    data_parallel_size: int | None = None,
+) -> dict:
+    """Write the parallelism sizes into a `model.image` payload.
+
+    They are engine settings, so they live inside the engine config (`{"vLLM": {"url": ..., "tensorParallelSize": 8}}`)
+    rather than at the top level. Returns a new image dict, the input is left untouched.
+    """
+    image_key = next(iter(image), None)
+    if image_key is None:
+        raise ValueError("Cannot set the parallelism sizes: the image payload is empty.")
+
+    for value, name, supported in (
+        (tensor_parallel_size, "tensor_parallel_size", _TENSOR_PARALLEL_IMAGE_KEYS),
+        (data_parallel_size, "data_parallel_size", _DATA_PARALLEL_IMAGE_KEYS),
+    ):
+        if value is not None and image_key not in supported:
+            warnings.warn(
+                f"`{name}` is not a known setting of the '{image_key}' image: the API will silently drop it."
+                f" Engines that support it: {', '.join(supported)}.",
+                UserWarning,
+            )
+
+    image = {image_key: {**image[image_key]}}
+    if tensor_parallel_size is not None:
+        image[image_key]["tensorParallelSize"] = tensor_parallel_size
+    if data_parallel_size is not None:
+        image[image_key]["dataParallelSize"] = data_parallel_size
+    return image
 
 
 class InferenceEndpointStatus(str, Enum):
@@ -269,6 +324,8 @@ class InferenceEndpoint:
         custom_image: dict | None = None,
         container_command: list[str] | None = None,
         container_args: list[str] | None = None,
+        tensor_parallel_size: int | None = None,
+        data_parallel_size: int | None = None,
         secrets: dict[str, str] | None = None,
     ) -> "InferenceEndpoint":
         """Update the Inference Endpoint.
@@ -312,6 +369,12 @@ class InferenceEndpoint:
             container_args (`list[str]`, *optional*):
                 Arguments appended to the container entrypoint (maps to `model.args` in the API payload). Works with
                 both managed engine images (e.g. vLLM, SGLang) and custom images.
+            tensor_parallel_size (`int`, *optional*):
+                Number of accelerators to shard a single model copy across (vLLM and SGLang images). When
+                `custom_image` is not given, the image currently configured on the endpoint is fetched and updated
+                in place, as the API requires `model.image` as a whole.
+            data_parallel_size (`int`, *optional*):
+                Number of model copies to run, one per accelerator (vLLM images).
             secrets (`dict[str, str]`, *optional*):
                 Secret values to inject in the container environment.
         Returns:
@@ -334,6 +397,8 @@ class InferenceEndpoint:
             custom_image=custom_image,
             container_command=container_command,
             container_args=container_args,
+            tensor_parallel_size=tensor_parallel_size,
+            data_parallel_size=data_parallel_size,
             secrets=secrets,
             token=self._token,  # type: ignore [arg-type]
         )

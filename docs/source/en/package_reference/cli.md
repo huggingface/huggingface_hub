@@ -1767,9 +1767,12 @@ $ hf endpoints deploy [OPTIONS] NAME
 * `--scaling-metric [pendingRequests|hardwareUsage]`: The metric reference for scaling.
 * `--scaling-threshold FLOAT`: The scaling metric threshold used to trigger a scale up. Ignored when scaling metric is not provided.
 * `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
-* `--custom-image TEXT`: Docker image URL for a custom container (e.g. 'nexagi/sglang:v0.5.12'). Requires '--framework custom'.
-* `--health-route TEXT`: Health check route exposed by the custom container (e.g. '/health'). Requires --custom-image.
-* `--port INTEGER`: Port the custom container listens on (e.g. 30000). Requires --custom-image.
+* `--custom-image TEXT`: Docker image URL for the container to run (e.g. 'nexagi/sglang:v0.5.12'). Requires '--framework custom'.
+* `--engine [custom|hf-serve|llamacpp|sglang|tei|tgi|tgi-neuron|vllm|vllm-neuron]`: Managed engine image to run --custom-image with (e.g. 'vllm'). Defaults to an arbitrary container.
+* `--health-route TEXT`: Health check route exposed by the container (e.g. '/health'). Requires --custom-image.
+* `--port INTEGER`: Port the container listens on (e.g. 30000). Requires --custom-image.
+* `--tensor-parallel-size INTEGER`: Number of accelerators to shard a single model copy across (vLLM and SGLang engines only).
+* `--data-parallel-size INTEGER`: Number of model copies to run, one per accelerator (vLLM engine only).
 * `--container-command TEXT`: Override the container entrypoint, as a quoted string split into tokens (e.g. "python -m sglang.launch_server").
 * `--container-args TEXT`: Arguments appended to the container entrypoint, as a quoted string split into tokens (e.g. "--tp 8 --reasoning-parser qwen3").
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
@@ -1781,6 +1784,7 @@ $ hf endpoints deploy [OPTIONS] NAME
 
 Examples
   $ hf endpoints deploy my-endpoint --repo gpt2 --framework pytorch ...
+  $ hf endpoints deploy my-endpoint --repo openai/gpt-oss-120b --framework custom --engine vllm --custom-image vllm/vllm-openai:v0.23.0 --tensor-parallel-size 8 ...
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -2000,6 +2004,12 @@ $ hf endpoints update [OPTIONS] NAME
 * `--framework TEXT`: The machine learning framework used for the model (e.g. 'custom').
 * `--revision TEXT`: The specific model revision to deploy on the Inference Endpoint (e.g. '6c0e6080953db56375760c0471a8c5f2929baf11').
 * `--task TEXT`: The task on which to deploy the model (e.g. 'text-classification').
+* `--custom-image TEXT`: Docker image URL for the container to run (e.g. 'nexagi/sglang:v0.5.12'). Replaces the image currently configured on the endpoint rather than patching it, so pass the engine and container settings you want to keep along with it, run 'hf endpoints describe NAME' first to see them.
+* `--engine [custom|hf-serve|llamacpp|sglang|tei|tgi|tgi-neuron|vllm|vllm-neuron]`: Managed engine image to run --custom-image with (e.g. 'vllm'). Defaults to an arbitrary container.
+* `--health-route TEXT`: Health check route exposed by the container (e.g. '/health'). Requires --custom-image.
+* `--port INTEGER`: Port the container listens on (e.g. 30000). Requires --custom-image.
+* `--tensor-parallel-size INTEGER`: Number of accelerators to shard a single model copy across (vLLM and SGLang engines only).
+* `--data-parallel-size INTEGER`: Number of model copies to run, one per accelerator (vLLM engine only).
 * `--container-command TEXT`: Override the container entrypoint, as a quoted string split into tokens (e.g. "python -m sglang.launch_server"). Replaces the current value; pass an empty string to clear it.
 * `--container-args TEXT`: Arguments appended to the container entrypoint, as a quoted string split into tokens (e.g. "--enable-auto-tool-choice --tool-call-parser lfm2"). Replaces the arguments currently set on the endpoint rather than adding to them, so include the ones you want to keep, run 'hf endpoints describe NAME' first to see them. Pass an empty string to clear them.
 * `--min-replica INTEGER`: The minimum number of replicas (instances) to keep running for the Inference Endpoint.
@@ -2012,6 +2022,7 @@ $ hf endpoints update [OPTIONS] NAME
 
 Examples
   $ hf endpoints update my-endpoint --min-replica 2
+  $ hf endpoints update my-endpoint --tensor-parallel-size 8
   $ hf endpoints update my-endpoint --container-args "--enable-auto-tool-choice --tool-call-parser lfm2"
 
 Learn more

@@ -25,6 +25,7 @@ from huggingface_hub.cli.cache import CacheDeletionCounts
 from huggingface_hub.cli.download import download
 from huggingface_hub.cli.hf import app
 from huggingface_hub.cli.hf import main as hf_main
+from huggingface_hub.cli.inference_endpoints import _build_custom_image
 from huggingface_hub.cli.jobs import _get_jobs_stats_rows, _parse_and_sync_job_volumes, _parse_namespace_from_job_id
 from huggingface_hub.cli.skills import build_skill_md
 from huggingface_hub.cli.upload import _resolve_upload_paths, upload
@@ -2762,7 +2763,7 @@ class TestInferenceEndpointsCommands:
             )
         assert result.exit_code != 0
         api_cls.return_value.create_inference_endpoint.assert_not_called()
-        assert "require --custom-image" in (result.stdout + str(result.exception))
+        assert "--custom-image is required" in (result.stdout + str(result.exception))
 
     def test_deploy_from_catalog(self, runner: CliRunner) -> None:
         endpoint = Mock(raw={"name": "catalog"})
@@ -2829,8 +2830,11 @@ class TestInferenceEndpointsCommands:
             framework=None,
             revision=None,
             task=None,
+            custom_image=None,
             container_command=None,
             container_args=None,
+            tensor_parallel_size=None,
+            data_parallel_size=None,
             accelerator="gpu",
             instance_size="x4",
             instance_type=None,
@@ -2863,6 +2867,19 @@ class TestInferenceEndpointsCommands:
         assert kwargs["container_args"] == ["--enable-auto-tool-choice", "--tool-call-parser", "lfm2"]
         assert kwargs["container_command"] is None
         assert '"name": "updated"' in result.stdout
+
+    def test_update_parallelism_alone(self, runner: CliRunner) -> None:
+        """The one-liner for retuning an already-deployed endpoint: no image needed, `HfApi` merges into the
+        one currently configured."""
+        endpoint = Mock(raw={"name": "updated"})
+        with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.update_inference_endpoint.return_value = endpoint
+            result = runner.invoke(app, ["endpoints", "update", "my-endpoint", "--tensor-parallel-size", "8"])
+        assert result.exit_code == 0, result.stdout
+        _, kwargs = api.update_inference_endpoint.call_args
+        assert kwargs["tensor_parallel_size"] == 8
+        assert kwargs["custom_image"] is None
 
     def test_update_container_args_empty_string_resets(self, runner: CliRunner) -> None:
         endpoint = Mock(raw={"name": "updated"})
@@ -2969,6 +2986,57 @@ class TestInferenceEndpointsCommands:
         api.list_inference_catalog.assert_called_once_with(token=None)
         assert '"models"' in result.stdout
         assert '"model"' in result.stdout
+
+
+IMAGE_URL = "vllm/vllm-openai:v0.23.0"
+
+
+@pytest.mark.parametrize(
+    "engine, extra, expected",
+    [
+        # No engine: a flat container config, which `HfApi` keys as `custom`.
+        (None, {"health_route": "/health", "port": 8000}, {"url": IMAGE_URL, "healthRoute": "/health", "port": 8000}),
+        # An engine is keyed by the API's variant name, and the sizes go inside that config.
+        (
+            "vllm",
+            {"tensor_parallel_size": 8, "data_parallel_size": 2},
+            {"vLLM": {"url": IMAGE_URL, "tensorParallelSize": 8, "dataParallelSize": 2}},
+        ),
+        # An engine this version doesn't know about is forwarded as typed, so the API names the bad variant
+        # instead of the config being silently reshaped into a custom container.
+        ("VLLM", {}, {"VLLM": {"url": IMAGE_URL}}),
+    ],
+    ids=["no_engine", "engine_with_sizes", "unknown_engine"],
+)
+def test_build_custom_image(engine: str | None, extra: dict, expected: dict) -> None:
+    assert _build_custom_image(IMAGE_URL, engine=engine, **extra) == expected
+
+
+@pytest.mark.parametrize(
+    "engine, sizes",
+    [("tgi", {"tensor_parallel_size": 8}), ("sglang", {"data_parallel_size": 2})],
+    ids=["tgi_tensor", "sglang_data"],
+)
+def test_build_custom_image_warns_for_engine_without_the_field(engine: str, sizes: dict) -> None:
+    """Deploy must go through `_set_parallelism_in_image`: the API drops a field the engine doesn't declare
+    rather than rejecting it, so writing the sizes here directly would leave the no-op silent."""
+    with pytest.warns(UserWarning, match="not a known setting"):
+        _build_custom_image(IMAGE_URL, engine=engine, **sizes)
+
+
+@pytest.mark.parametrize(
+    "custom_image, extra, match",
+    [
+        (None, {"engine": "vllm", "tensor_parallel_size": 8}, "--custom-image is required"),
+        # Without an engine key the API ignores the parallelism fields rather than rejecting them, which would
+        # deploy an endpoint quietly running on a single accelerator.
+        (IMAGE_URL, {"tensor_parallel_size": 8}, "require --engine"),
+    ],
+    ids=["flags_without_image", "sizes_without_engine"],
+)
+def test_build_custom_image_rejects(custom_image: str | None, extra: dict, match: str) -> None:
+    with pytest.raises(CLIError, match=match):
+        _build_custom_image(custom_image, **extra)
 
 
 def _hardware(instance_type: str, **kwargs) -> InferenceEndpointHardware:
