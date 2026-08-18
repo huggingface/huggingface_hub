@@ -158,12 +158,11 @@ For containers that need a custom entrypoint or runtime flags, pass `container_c
 
 #### Parallelism on multi-accelerator instances
 
-vLLM and SGLang default to a single accelerator, while the endpoint is allocated every accelerator of its instance. On a
-multi-accelerator instance you must therefore set the parallelism explicitly: otherwise the model loads onto one
-accelerator, the rest sit idle, and the endpoint still reports healthy, so you pay for all of them and get the
-throughput of one. (TGI derives its shard count from the instance, so it is not affected.) The API rejects a vLLM or
-SGLang deployment that leaves both unset on a multi-accelerator instance. Set `tensorParallelSize` to shard one model
-copy across the accelerators, or `dataParallelSize` (vLLM only) to run one copy per accelerator:
+vLLM and SGLang default to one accelerator while the endpoint is allocated every accelerator of its instance, so
+leaving the parallelism unset loads the model onto one and idles the rest, while still reporting healthy: you pay for
+all of them and get the throughput of one. (TGI derives its shard count from the instance and is not affected.) The API
+rejects such a deployment. Set `tensorParallelSize` to shard one model copy across the accelerators, or
+`dataParallelSize` (vLLM only) to run one copy per accelerator:
 
 ```py
 >>> endpoint = create_inference_endpoint(
@@ -179,8 +178,7 @@ copy across the accelerators, or `dataParallelSize` (vLLM only) to run one copy 
 ... )
 ```
 
-From the CLI, `--engine` selects the managed engine image and `--tensor-parallel-size` / `--data-parallel-size` are
-written into its config:
+From the CLI, `--engine` selects the managed engine image and the two flags are written into its config:
 
 ```bash
 hf endpoints deploy gpt-oss-120b-vllm --repo openai/gpt-oss-120b --framework custom \
@@ -188,17 +186,17 @@ hf endpoints deploy gpt-oss-120b-vllm --repo openai/gpt-oss-120b --framework cus
   --engine vllm --custom-image vllm/vllm-openai:v0.23.0 --tensor-parallel-size 8
 ```
 
-To retune an endpoint that is already deployed, use [`~InferenceEndpoint.update`] or `hf endpoints update` with
-`tensor_parallel_size` alone. The API takes `model.image` as a whole and requires `url` inside it, so the image
-currently configured on the endpoint is fetched and updated in place, leaving its other settings alone:
+To retune a deployed endpoint, pass `tensor_parallel_size` alone to [`~InferenceEndpoint.update`] or
+`hf endpoints update`. `model.image` is sent as a whole and requires `url`, so the endpoint's current image is fetched
+and updated in place:
 
 ```py
 >>> endpoint.update(tensor_parallel_size=4)
 ```
 
-Passing the same value through `container_args` (`--tp 8`) is not equivalent: it reaches the engine as a command-line
-flag, but not the `model.image` config the API validates the instance's accelerator count against. Use `container_args`
-for engine flags that have no image field, and for plain custom containers, which have no parallelism fields at all.
+`container_args` (`--tp 8`) is not equivalent: it reaches the engine as a command-line flag, not the `model.image`
+config the API validates against the instance's accelerator count. Use it for engine flags with no image field, and for
+plain custom containers, which have no parallelism fields.
 
 ### Get or list existing Inference Endpoints
 
