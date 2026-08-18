@@ -3013,6 +3013,18 @@ def test_build_custom_image(engine: str | None, extra: dict, expected: dict) -> 
 
 
 @pytest.mark.parametrize(
+    "engine, sizes",
+    [("tgi", {"tensor_parallel_size": 8}), ("sglang", {"data_parallel_size": 2})],
+    ids=["tgi_tensor", "sglang_data"],
+)
+def test_build_custom_image_warns_for_engine_without_the_field(engine: str, sizes: dict) -> None:
+    """Deploy must go through `_set_parallelism_in_image`: the API drops a field the engine doesn't declare
+    rather than rejecting it, so writing the sizes here directly would leave the no-op silent."""
+    with pytest.warns(UserWarning, match="not a known setting"):
+        _build_custom_image(IMAGE_URL, engine=engine, **sizes)
+
+
+@pytest.mark.parametrize(
     "custom_image, extra, match",
     [
         (None, {"engine": "vllm", "tensor_parallel_size": 8}, "--custom-image is required"),
