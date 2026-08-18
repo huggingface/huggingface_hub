@@ -131,10 +131,12 @@ For containers that need a custom entrypoint or runtime flags, pass `container_c
 
 #### Parallelism on multi-accelerator instances
 
-vLLM and SGLang use a single accelerator by default, while the endpoint is allocated every accelerator of its instance.
-On a multi-accelerator instance you must therefore set the parallelism explicitly, otherwise the extra accelerators stay
-idle. Set `tensorParallelSize` to shard one model copy across the accelerators, or `dataParallelSize` (vLLM only) to run
-one copy per accelerator:
+vLLM and SGLang default to a single accelerator, while the endpoint is allocated every accelerator of its instance. On a
+multi-accelerator instance you must therefore set the parallelism explicitly: otherwise the model loads onto one
+accelerator, the rest sit idle, and the endpoint still reports healthy, so you pay for all of them and get the
+throughput of one. (TGI derives its shard count from the instance, so it is not affected.) The API rejects a vLLM or
+SGLang deployment that leaves both unset on a multi-accelerator instance. Set `tensorParallelSize` to shard one model
+copy across the accelerators, or `dataParallelSize` (vLLM only) to run one copy per accelerator:
 
 ```py
 >>> endpoint = create_inference_endpoint(
@@ -165,6 +167,14 @@ currently configured on the endpoint is fetched and updated in place, leaving it
 
 ```py
 >>> endpoint.update(tensor_parallel_size=4)
+```
+
+This is also how to unblock an endpoint created before the parallelism became mandatory. Such an endpoint fails on an
+explicit resume or on any other update until one of the two sizes is set, so set it first and resume afterwards:
+
+```bash
+hf endpoints update my-endpoint-name --tensor-parallel-size 8
+hf endpoints resume my-endpoint-name
 ```
 
 Passing the same value through `container_args` (`--tp 8`) is not equivalent: it reaches the engine as a command-line

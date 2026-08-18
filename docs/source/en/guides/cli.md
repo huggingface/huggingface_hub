@@ -2333,7 +2333,7 @@ To deploy your own Docker image instead of a Hugging Face managed one, pass `--f
 
 #### Deploy a managed engine image
 
-`--custom-image` alone deploys an arbitrary container. Add `--engine` to run the image as one of the engines the API manages (`vllm`, `sglang`, `tgi`, `tei`, `llamacpp`, `hf-serve`, ...), which unlocks the engine's own settings, including `--tensor-parallel-size` and `--data-parallel-size`. vLLM and SGLang use a single accelerator by default, so on a multi-accelerator instance set one of them explicitly or the extra accelerators stay idle:
+`--custom-image` alone deploys an arbitrary container. Add `--engine` to run the image as one of the engines the API manages (`vllm`, `sglang`, `tgi`, `tei`, `llamacpp`, `hf-serve`, ...), which unlocks the engine's own settings, including `--tensor-parallel-size` and `--data-parallel-size`. vLLM and SGLang default to a single accelerator while the endpoint gets every accelerator of its instance, so on a multi-accelerator instance set one of them explicitly. Left unset, the model loads onto one accelerator, the rest sit idle, and the endpoint still reports healthy, which is why the API now rejects that configuration:
 
 ```bash
 >>> hf endpoints deploy gpt-oss-120b-vllm \
@@ -2351,6 +2351,13 @@ To retune an endpoint that is already running, pass the sizes to `hf endpoints u
 
 ```bash
 >>> hf endpoints update gpt-oss-120b-vllm --tensor-parallel-size 4 --data-parallel-size 2
+```
+
+This is also how to unblock an endpoint created before the parallelism became mandatory: it fails on an explicit resume, and on any other update, until one of the two sizes is set. Set it first, then resume (traffic-triggered wake-ups are not affected):
+
+```bash
+>>> hf endpoints update my-endpoint --tensor-parallel-size 8
+>>> hf endpoints resume my-endpoint
 ```
 
 `hf endpoints update` also accepts `--custom-image` and `--engine`, which is the only way to change an endpoint's image from the CLI. That path replaces `model.image` rather than patching it, so run `hf endpoints describe` first and pass back the settings you want to keep.
