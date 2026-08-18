@@ -9897,12 +9897,9 @@ class HfApi:
             image = payload["model"].get("image")
             if not image:
                 current = self.get_inference_endpoint(name, namespace=namespace, token=token)
-                image = (current.raw.get("model") or {}).get("image")
-                if not image:
-                    raise ValueError(
-                        f"Could not read the image currently configured on endpoint '{name}'. Pass the full"
-                        " image explicitly to set the parallelism sizes."
-                    )
+                # `model.image` is required server-side, so an endpoint always has one. If it somehow doesn't,
+                # `_set_parallelism_in_image` rejects the empty payload below.
+                image = (current.raw.get("model") or {}).get("image") or {}
                 if "credentials" in next(iter(image.values()), {}):
                     # The API does not return registry credentials in full, so echoing the fetched image back
                     # would overwrite them with the redacted values.
