@@ -1,4 +1,5 @@
 import time
+import warnings
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -15,6 +16,60 @@ if TYPE_CHECKING:
     from .inference._generated._async_client import AsyncInferenceClient
 
 logger = logging.get_logger(__name__)
+
+
+def _build_endpoint_image_payload(custom_image: dict) -> dict:
+    """Build the `model.image` payload of an Inference Endpoint from a user-provided image dict.
+
+    `model.image` is a union keyed by variant (`{"vLLM": {...}}`, `{"custom": {...}}`, ...). Only a flat
+    container dict has a top-level `url` (required server-side, and no variant is named `url`), so dicts with
+    one are wrapped in `{"custom": ...}`. Everything else is forwarded as-is, so variants added to the API
+    later work without a release.
+    """
+    if "url" in custom_image:
+        return {"custom": custom_image}
+    return custom_image
+
+
+# Image variants that declare `tensorParallelSize` / `dataParallelSize`. The API ignores a field a variant doesn't
+# declare instead of rejecting it, so these only drive a warning: a wrong engine gets a visible no-op rather than a
+# silent one, and an engine the API adds later still works without a `huggingface_hub` release.
+_TENSOR_PARALLEL_IMAGE_KEYS = ("sGLang", "vLLM")
+_DATA_PARALLEL_IMAGE_KEYS = ("vLLM",)
+
+
+def _set_parallelism_in_image(
+    image: dict,
+    *,
+    tensor_parallel_size: int | None = None,
+    data_parallel_size: int | None = None,
+) -> dict:
+    """Write the parallelism sizes into a `model.image` payload.
+
+    They are engine settings, so they live inside the engine config (`{"vLLM": {"url": ..., "tensorParallelSize": 8}}`)
+    rather than at the top level. Returns a new image dict, the input is left untouched.
+    """
+    image_key = next(iter(image), None)
+    if image_key is None:
+        raise ValueError("Cannot set the parallelism sizes: the image payload is empty.")
+
+    for value, name, supported in (
+        (tensor_parallel_size, "tensor_parallel_size", _TENSOR_PARALLEL_IMAGE_KEYS),
+        (data_parallel_size, "data_parallel_size", _DATA_PARALLEL_IMAGE_KEYS),
+    ):
+        if value is not None and image_key not in supported:
+            warnings.warn(
+                f"`{name}` is not a known setting of the '{image_key}' image, which the API silently ignores"
+                f" instead of rejecting. It is used by: {', '.join(supported)}.",
+                UserWarning,
+            )
+
+    image = {image_key: {**image[image_key]}}
+    if tensor_parallel_size is not None:
+        image[image_key]["tensorParallelSize"] = tensor_parallel_size
+    if data_parallel_size is not None:
+        image[image_key]["dataParallelSize"] = data_parallel_size
+    return image
 
 
 class InferenceEndpointStatus(str, Enum):

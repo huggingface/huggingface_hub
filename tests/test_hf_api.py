@@ -37,6 +37,10 @@ from huggingface_hub._commit_api import (
     CommitOperationDelete,
     _fetch_upload_modes,
 )
+from huggingface_hub._inference_endpoints import (
+    _build_endpoint_image_payload,
+    _set_parallelism_in_image,
+)
 from huggingface_hub.community import DiscussionComment, DiscussionWithDetails
 from huggingface_hub.errors import (
     BadRequestError,
@@ -68,8 +72,6 @@ from huggingface_hub.hf_api import (
     User,
     WebhookInfo,
     WebhookWatchedItem,
-    _build_endpoint_image_payload,
-    _set_parallelism_in_image,
     repo_type_and_id_from_hf_id,
 )
 from huggingface_hub.repocard_data import DatasetCardData, ModelCardData

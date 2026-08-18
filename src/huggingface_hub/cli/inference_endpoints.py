@@ -9,9 +9,9 @@ from huggingface_hub._inference_endpoints import (
     InferenceEndpointHardware,
     InferenceEndpointScalingMetric,
     InferenceEndpointType,
+    _set_parallelism_in_image,
 )
 from huggingface_hub.errors import CLIError, HfHubHTTPError
-from huggingface_hub.hf_api import _set_parallelism_in_image
 
 from ._cli_utils import (
     EnvFileOpt,
