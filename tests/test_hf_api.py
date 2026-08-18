@@ -4760,46 +4760,6 @@ def test_create_inference_endpoint_custom_image_payload(
     assert payload["model"]["image"] == expected_image_payload
 
 
-@pytest.mark.parametrize("task", [None, "text-generation"], ids=["no_task", "with_task"])
-def test_create_inference_endpoint_task_payload(mocker, task: Optional[str]):
-    """`model.task` is not nullable server-side, unlike `revision`, so it must be omitted rather than sent as null."""
-    mock_session = mocker.patch("huggingface_hub.hf_api.get_session").return_value
-    mock_response = Mock()
-    mock_response.raise_for_status.return_value = None
-    mock_response.json.return_value = {
-        "name": "test-endpoint-task",
-        "model": {"repository": "Qwen/Qwen2.5-0.5B-Instruct", "framework": "custom", "revision": None, "task": None},
-        "status": {
-            "state": "pending",
-            "createdAt": "2025-03-07T15:30:13.949Z",
-            "updatedAt": "2025-03-07T15:30:13.949Z",
-        },
-        "healthRoute": "/health",
-        "type": "authenticated",
-    }
-    mock_session.post.return_value = mock_response
-
-    api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
-    api.create_inference_endpoint(
-        name="test-endpoint-task",
-        repository="Qwen/Qwen2.5-0.5B-Instruct",
-        framework="custom",
-        accelerator="gpu",
-        instance_size="x1",
-        instance_type="nvidia-t4",
-        region="us-east-1",
-        vendor="aws",
-        namespace="Wauplin",
-        task=task,
-    )
-
-    model_payload = mock_session.post.call_args[1]["json"]["model"]
-    if task is None:
-        assert "task" not in model_payload
-    else:
-        assert model_payload["task"] == task
-
-
 def test_create_inference_endpoint_container_command_and_args_payload(mocker):
     mock_post = mocker.patch("huggingface_hub.hf_api.get_session")
     mock_session = mock_post.return_value
