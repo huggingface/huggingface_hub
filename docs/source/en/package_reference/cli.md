@@ -1668,7 +1668,7 @@ $ hf endpoints catalog deploy [OPTIONS]
 * `--repo TEXT`: The name of the model repository associated with the Inference Endpoint (e.g. 'openai/gpt-oss-120b').  [required]
 * `--name TEXT`: Endpoint name.
 * `--accelerator TEXT`: The hardware accelerator to be used for inference (e.g. 'cpu', 'gpu', 'neuron').
-* `--namespace TEXT`: The user or organization namespace to operate in. Defaults to the current user's namespace.
+* `--namespace TEXT`: The namespace associated with the Inference Endpoint. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -1719,7 +1719,7 @@ $ hf endpoints delete [OPTIONS] NAME
 
 **Options**:
 
-* `--namespace TEXT`: The user or organization namespace to operate in. Defaults to the current user's namespace.
+* `--namespace TEXT`: The namespace associated with the Inference Endpoint. Defaults to the current user's namespace.
 * `--yes`: Skip confirmation prompts.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
@@ -1758,7 +1758,7 @@ $ hf endpoints deploy [OPTIONS] NAME
 * `--instance-type TEXT`: The cloud instance type where the Inference Endpoint will be deployed (e.g. 'intel-icl').  [required]
 * `--region TEXT`: The cloud region in which the Inference Endpoint will be created (e.g. 'us-east-1').  [required]
 * `--vendor TEXT`: The cloud provider or vendor where the Inference Endpoint will be hosted (e.g. 'aws').  [required]
-* `--namespace TEXT`: The user or organization namespace to operate in. Defaults to the current user's namespace.
+* `--namespace TEXT`: The namespace associated with the Inference Endpoint. Defaults to the current user's namespace.
 * `--task TEXT`: The task on which to deploy the model (e.g. 'text-classification').
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--min-replica INTEGER`: The minimum number of replicas (instances) to keep running for the Inference Endpoint.  [default: 1]
@@ -1803,7 +1803,7 @@ $ hf endpoints describe [OPTIONS] NAME
 
 **Options**:
 
-* `--namespace TEXT`: The user or organization namespace to operate in. Defaults to the current user's namespace.
+* `--namespace TEXT`: The namespace associated with the Inference Endpoint. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -1833,7 +1833,7 @@ $ hf endpoints hardware [OPTIONS]
 
 **Options**:
 
-* `--namespace TEXT`: The user or organization namespace to operate in. Defaults to the current user's namespace.
+* `--namespace TEXT`: The namespace associated with the Inference Endpoint. Defaults to the current user's namespace.
 * `--vendor TEXT`: Only show hardware hosted by this cloud provider (e.g. 'aws').
 * `--region TEXT`: Only show hardware available in this cloud region (e.g. 'us-east-1').
 * `--accelerator TEXT`: Only show hardware with this accelerator (e.g. 'cpu', 'gpu', 'neuron').
@@ -1863,7 +1863,7 @@ $ hf endpoints list [OPTIONS]
 
 **Options**:
 
-* `--namespace TEXT`: The user or organization namespace to operate in. Defaults to the current user's namespace.
+* `--namespace TEXT`: The namespace associated with the Inference Endpoint. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -1907,7 +1907,7 @@ $ hf endpoints pause [OPTIONS] NAME
 
 **Options**:
 
-* `--namespace TEXT`: The user or organization namespace to operate in. Defaults to the current user's namespace.
+* `--namespace TEXT`: The namespace associated with the Inference Endpoint. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -1935,7 +1935,7 @@ $ hf endpoints resume [OPTIONS] NAME
 
 **Options**:
 
-* `--namespace TEXT`: The user or organization namespace to operate in. Defaults to the current user's namespace.
+* `--namespace TEXT`: The namespace associated with the Inference Endpoint. Defaults to the current user's namespace.
 * `--fail-if-already-running`: If `True`, the method will raise an error if the Inference Endpoint is already running.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
@@ -1964,7 +1964,7 @@ $ hf endpoints scale-to-zero [OPTIONS] NAME
 
 **Options**:
 
-* `--namespace TEXT`: The user or organization namespace to operate in. Defaults to the current user's namespace.
+* `--namespace TEXT`: The namespace associated with the Inference Endpoint. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -1992,7 +1992,7 @@ $ hf endpoints update [OPTIONS] NAME
 
 **Options**:
 
-* `--namespace TEXT`: The user or organization namespace to operate in. Defaults to the current user's namespace.
+* `--namespace TEXT`: The namespace associated with the Inference Endpoint. Defaults to the current user's namespace.
 * `--repo TEXT`: The name of the model repository associated with the Inference Endpoint (e.g. 'openai/gpt-oss-120b').
 * `--accelerator TEXT`: The hardware accelerator to be used for inference (e.g. 'cpu').
 * `--instance-size TEXT`: The size or type of the instance to be used for hosting the model (e.g. 'x4').

@@ -45,7 +45,7 @@ NameOpt = Annotated[
 NamespaceOpt = Annotated[
     str | None,
     Option(
-        help="The user or organization namespace to operate in. Defaults to the current user's namespace.",
+        help="The namespace associated with the Inference Endpoint. Defaults to the current user's namespace.",
     ),
 ]
 
