@@ -118,3 +118,49 @@ class DeepInfraAutomaticSpeechRecognitionTask(TaskProviderHelper):
                 if isinstance(segment, dict)
             ]
         return result
+
+
+class DeepInfraTextToSpeechTask(TaskProviderHelper):
+    def __init__(self):
+        super().__init__(provider=_PROVIDER, base_url=_BASE_URL, task="text-to-speech")
+
+    def _prepare_route(self, mapped_model: str, api_key: str) -> str:
+        return "/v1/openai/audio/speech"
+
+    def _prepare_payload_as_dict(
+        self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
+    ) -> dict | None:
+        # `voice` is model-specific and optional; we pass it through and let the API surface a
+        # clear error when a model requires one. `model` is applied last so parameters cannot
+        # override the mapped provider model.
+        return {
+            "input": inputs,
+            **filter_none(parameters),
+            "model": provider_mapping_info.provider_id,
+        }
+
+    def get_response(self, response: bytes | dict, request_params: RequestParameters | None = None) -> Any:
+        if isinstance(response, bytes):
+            return response
+        raise ValueError(f"Expected raw audio bytes for text-to-speech, got {type(response).__name__}.")
+
+
+class DeepInfraFeatureExtractionTask(TaskProviderHelper):
+    def __init__(self):
+        super().__init__(provider=_PROVIDER, base_url=_BASE_URL, task="feature-extraction")
+
+    def _prepare_route(self, mapped_model: str, api_key: str) -> str:
+        return "/v1/openai/embeddings"
+
+    def _prepare_payload_as_dict(
+        self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
+    ) -> dict | None:
+        # `model` is applied last so parameters cannot override the mapped provider model.
+        return {
+            "input": inputs,
+            **filter_none(parameters),
+            "model": provider_mapping_info.provider_id,
+        }
+
+    def get_response(self, response: bytes | dict, request_params: RequestParameters | None = None) -> Any:
+        return [item["embedding"] for item in _as_dict(response)["data"]]

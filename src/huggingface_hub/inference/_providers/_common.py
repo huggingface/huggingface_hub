@@ -275,7 +275,18 @@ class BaseConversationalTask(TaskProviderHelper):
         parameters: dict,
         provider_mapping_info: InferenceProviderMapping,
     ) -> dict | None:
-        return filter_none({"messages": inputs, **parameters, "model": provider_mapping_info.provider_id})
+        # `model` is serialized first so that a router/proxy can resolve the target provider from a
+        # small prefix of the request body instead of buffering the whole payload — `messages` can
+        # hold megabytes of base64-encoded images.
+        # `parameters` also carries a caller-supplied "model" (see `InferenceClient.chat_completion`),
+        # which must not take precedence over the provider-mapped id: drop it from the spread.
+        return filter_none(
+            {
+                "model": provider_mapping_info.provider_id,
+                "messages": inputs,
+                **{key: value for key, value in parameters.items() if key != "model"},
+            }
+        )
 
 
 class AutoRouterConversationalTask(BaseConversationalTask):

@@ -1,4 +1,6 @@
+import copy
 import os
+import pickle
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -361,6 +363,15 @@ def test_revision_str():
     assert revision.resolved == COMMIT_HASH
 
 
+def test_revision_str_is_picklable():
+    revision = ResolvedRevision(resolved=COMMIT_HASH, initial="refs/pr/4")
+
+    for restored in (pickle.loads(pickle.dumps(revision)), copy.deepcopy(revision)):
+        assert restored == "refs/pr/4"
+        assert restored.initial == "refs/pr/4"
+        assert restored.resolved == COMMIT_HASH
+
+
 class TestResolveRevision:
     @pytest.fixture(scope="class", autouse=True)
     def _shared_repo(self, request, api: HfApi):
@@ -413,5 +424,5 @@ class TestResolveRevision:
         # Everything is cached at this point => works offline as well
         with offline():
             assert hf_hub_download(self.repo_id, "dummy_file.txt", revision=revision, cache_dir=tmp_path).endswith(
-                f"{self.commit_hash}/dummy_file.txt"
+                os.path.join(self.commit_hash, "dummy_file.txt")
             )
