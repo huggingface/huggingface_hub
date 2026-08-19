@@ -480,7 +480,7 @@ def _get_jobs_stats_rows(
             f"{_format_size(metrics['rx_bps'])}bps / {_format_size(metrics['tx_bps'])}bps",
         ]
         if metrics["gpus"] and isinstance(metrics["gpus"], dict):
-            rows = [row] + [[""] * len(row)] * (len(metrics["gpus"]) - 1)
+            rows = [row] + [[""] * len(row) for _ in range(len(metrics["gpus"]) - 1)]
             for row, gpu_id in zip(rows, sorted(metrics["gpus"])):
                 gpu = metrics["gpus"][gpu_id]
                 row += [

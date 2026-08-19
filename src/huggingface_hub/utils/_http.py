@@ -458,10 +458,12 @@ def _http_backoff_base(
     if "data" in kwargs and isinstance(kwargs["data"], (io.IOBase, SliceFileObj)):
         io_obj_initial_pos = kwargs["data"].tell()
 
-    client = get_session()
     while True:
         nb_tries += 1
         ratelimit_reset = None
+        # Fetched on each attempt: a previous attempt may have closed the shared client (see `close_session` below),
+        # and closed `httpx.Client` objects cannot be reused.
+        client = get_session()
         try:
             # If `data` is used and is a file object (or any IO), set back cursor to
             # initial position.
@@ -488,6 +490,7 @@ def _http_backoff_base(
                 if (
                     response.status_code == 429
                     and (ratelimit_info := parse_ratelimit_headers(response.headers)) is not None
+                    and ratelimit_info.remaining == 0
                 ):
                     ratelimit_reset = ratelimit_info.reset_in_seconds
                 elif (retry_after := _parse_retry_after(response.headers)) is not None:
@@ -897,7 +900,8 @@ def hf_raise_for_status(response: httpx.Response, endpoint_name: str | None = No
 
         elif response.status_code == 429:
             ratelimit_info = parse_ratelimit_headers(response.headers)
-            if ratelimit_info is not None:
+            # Headers are set on every response: only use them if they are the reason for the 429.
+            if ratelimit_info is not None and ratelimit_info.remaining == 0:
                 message = (
                     f"\n\n429 Too Many Requests: you have reached your '{ratelimit_info.resource_type}' rate limit."
                 )
