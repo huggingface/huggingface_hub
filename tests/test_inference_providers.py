@@ -516,8 +516,43 @@ class TestFalAIProvider:
 
     def test_text_to_video_payload(self):
         helper = FalAITextToVideoTask()
-        payload = helper._prepare_payload_as_dict("a cat walking", {"num_frames": 16}, "username/repo_name")
+        payload = helper._prepare_payload_as_dict(
+            "a cat walking",
+            {"num_frames": 16},
+            InferenceProviderMapping(
+                provider="fal-ai",
+                hf_model_id="username/repo_name",
+                providerId="username/repo_name",
+                task="text-to-video",
+                status="live",
+            ),
+        )
         assert payload == {"prompt": "a cat walking", "num_frames": 16}
+
+    def test_text_to_video_payload_with_lora(self):
+        helper = FalAITextToVideoTask()
+        payload = helper._prepare_payload_as_dict(
+            "a cat walking",
+            {},
+            InferenceProviderMapping(
+                provider="fal-ai",
+                hf_model_id="username/repo_name",
+                providerId="provider-id/text-to-video/lora",
+                task="text-to-video",
+                status="live",
+                adapter="lora",
+                adapterWeightsPath="pytorch_lora_weights.safetensors",
+            ),
+        )
+        assert payload == {
+            "prompt": "a cat walking",
+            "loras": [
+                {
+                    "path": "https://huggingface.co/username/repo_name/resolve/main/pytorch_lora_weights.safetensors",
+                    "scale": 1,
+                }
+            ],
+        }
 
     def test_text_to_video_response(self, mocker):
         helper = FalAITextToVideoTask()
