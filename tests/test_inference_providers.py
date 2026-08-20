@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from pytest import LogCaptureFixture
 
+from huggingface_hub import constants
 from huggingface_hub.hf_api import InferenceProviderMapping
 from huggingface_hub.inference._common import RequestParameters
 from huggingface_hub.inference._providers import PROVIDERS, get_provider_helper
@@ -548,7 +549,11 @@ class TestFalAIProvider:
             "prompt": "a cat walking",
             "loras": [
                 {
-                    "path": "https://huggingface.co/username/repo_name/resolve/main/pytorch_lora_weights.safetensors",
+                    "path": constants.HUGGINGFACE_CO_URL_TEMPLATE.format(
+                        repo_id="username/repo_name",
+                        revision="main",
+                        filename="pytorch_lora_weights.safetensors",
+                    ),
                     "scale": 1,
                 }
             ],
