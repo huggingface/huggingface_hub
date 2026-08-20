@@ -1687,7 +1687,7 @@ def _get_metadata_or_catch_error(
 
     # Skip the per-file HEAD call when the file metadata can be rebuilt from a tree listing cached on disk.
     if tree_cache_folder is not None and REGEX_COMMIT_HASH.match(revision):
-        tree_metadata = _xet_file_metadata_from_tree_cache(
+        tree_metadata = _file_metadata_from_tree_cache(
             tree_cache_folder=tree_cache_folder,
             repo_id=repo_id,
             repo_type=repo_type,
@@ -1831,7 +1831,7 @@ def _detach_tracebacks(error: BaseException) -> None:
         pending.extend(exc for exc in (current.__cause__, current.__context__) if exc is not None)
 
 
-def _xet_file_metadata_from_tree_cache(
+def _file_metadata_from_tree_cache(
     *,
     tree_cache_folder: str,
     repo_id: str,
@@ -1839,43 +1839,55 @@ def _xet_file_metadata_from_tree_cache(
     commit_hash: str,
     filename: str,
     endpoint: str | None,
-) -> tuple[str, str, str, int, XetFileData, None] | None:
+) -> tuple[str, str, str, int, XetFileData | None, None] | None:
     """Rebuild the metadata a HEAD call would return, from the on-disk tree listing cache.
 
-    The optimization is intentionally limited to Xet files when Xet is enabled: that's the only case where
-    skipping the HEAD call pays off, since Xet downloads don't rely on the `/resolve` redirect the HEAD call
-    would resolve. For regular files (or when Xet is unavailable) we return `None` and let the caller make the
-    HEAD call as usual. Also returns `None` when the commit's tree listing or the file is not cached.
+    Skipping the per-file HEAD call whenever the tree listing is cached saves a round-trip per file, and is
+    required in setups where the HEAD call itself cannot be used reliably - e.g. downloading through a mirror
+    or reverse proxy that strips the `Content-Length` header from HEAD responses (see the `HF_HUB_DISABLE_XET`
+    use case where downloads must go through such a proxy).
+
+    For LFS-tracked files, ETag/size mirror the server's HEAD response: they come from the LFS metadata
+    (`lfs_sha256`/`lfs_size`) available in the tree listing. When Xet is available and the entry carries a valid
+    Xet hash, the returned metadata also includes the `XetFileData` so the download can use the Xet protocol.
+    Otherwise `xet_file_data` is `None` and the download falls back to the regular HTTP flow through the
+    `/resolve` endpoint (which is exactly what a mirror/proxy setup wants).
+
+    For regular (non-LFS) files, ETag/size come from the git blob (`blob_id`/`size`), matching what the server
+    returns on a HEAD call.
+
+    Returns `None` when the commit's tree listing or the file is not cached, or when the entry does not carry
+    enough metadata to rebuild the HEAD response.
     """
-    if not is_xet_available():
-        return None
     tree_entries = read_tree_cache(tree_cache_folder, commit_hash)
     if tree_entries is None:
         return None
     entry = tree_entries.get(filename)
-    if (
-        entry is None
-        or entry.xet_hash is None
-        or not is_valid_xet_hash(entry.xet_hash)
-        or entry.lfs_sha256 is None
-        or entry.lfs_size is None
-    ):
+    if entry is None:
         return None
 
-    xet_file_data = XetFileData(
-        file_hash=entry.xet_hash,
-        refresh_route=xet_connection_info_refresh_url(
-            token_type=XetTokenType.READ,
-            repo_id=repo_id,
-            repo_type=repo_type,
-            revision=commit_hash,
-            endpoint=endpoint,
-        ),
-    )
-    # Mirror the server's HEAD response: ETag/size come from the LFS metadata for LFS-tracked files (which Xet
-    # files are).
-    etag = entry.lfs_sha256
-    file_size = entry.lfs_size
+    if entry.lfs_sha256 is not None and entry.lfs_size is not None:
+        # LFS-tracked file: ETag/size mirror the server's HEAD response.
+        etag = entry.lfs_sha256
+        file_size = entry.lfs_size
+        xet_file_data = None
+        if is_xet_available() and entry.xet_hash is not None and is_valid_xet_hash(entry.xet_hash):
+            xet_file_data = XetFileData(
+                file_hash=entry.xet_hash,
+                refresh_route=xet_connection_info_refresh_url(
+                    token_type=XetTokenType.READ,
+                    repo_id=repo_id,
+                    repo_type=repo_type,
+                    revision=commit_hash,
+                    endpoint=endpoint,
+                ),
+            )
+    else:
+        # Regular file: use the git blob metadata from the tree listing.
+        etag = entry.blob_id
+        file_size = entry.size
+        xet_file_data = None
+
     location = hf_hub_url(repo_id, filename, repo_type=repo_type, revision=commit_hash, endpoint=endpoint)
     return (location, etag, commit_hash, file_size, xet_file_data, None)
 

@@ -28,8 +28,8 @@ from huggingface_hub._tree_cache import (
 )
 from huggingface_hub.errors import CachedRepoTreeNotFoundError
 from huggingface_hub.file_download import (
+    _file_metadata_from_tree_cache,
     _get_metadata_or_catch_error,
-    _xet_file_metadata_from_tree_cache,
     hf_hub_url,
     repo_folder_name,
 )
@@ -131,15 +131,17 @@ def tree_cache_folder(tmp_path: Path):
 
 
 class TestTreeCacheSkipsHeadCall:
-    """The download path rebuilds metadata from the cached tree for Xet files, skipping the per-file HEAD call.
+    """The download path rebuilds metadata from the cached tree listing, skipping the per-file HEAD call.
 
-    The optimization is intentionally limited to Xet files (when Xet is enabled): that's the only case where
-    skipping the HEAD pays off. Regular files always HEAD, even with a cached tree.
+    Skipping the HEAD call is beneficial for Xet files (when Xet is enabled) but is also required in setups
+    where the HEAD call cannot be used reliably, e.g. when downloading through a reverse proxy that strips
+    the `Content-Length` header from HEAD responses (`HF_HUB_DISABLE_XET=1` + mirror). Regular files and
+    non-Xet downloads therefore also benefit from the cached tree.
     """
 
     def test_xet_file_metadata_from_tree_cache(self, tree_cache_folder: str):
         with patch("huggingface_hub.file_download.is_xet_available", return_value=True):
-            result = _xet_file_metadata_from_tree_cache(
+            result = _file_metadata_from_tree_cache(
                 tree_cache_folder=str(tree_cache_folder),
                 repo_id="user/repo",
                 repo_type="model",
@@ -160,41 +162,46 @@ class TestTreeCacheSkipsHeadCall:
             token_type=XetTokenType.READ, repo_id="user/repo", repo_type="model", revision=COMMIT_HASH
         )
 
-    def test_non_xet_file_returns_none(self, tree_cache_folder: str):
-        # `config.json` is a regular (non-Xet) file => the cache is not used, the caller must HEAD.
+    def test_non_xet_file_returns_metadata(self, tree_cache_folder: str):
+        # `config.json` is a regular (non-LFS) file: metadata is rebuilt from the git blob info.
         with patch("huggingface_hub.file_download.is_xet_available", return_value=True):
-            assert (
-                _xet_file_metadata_from_tree_cache(
-                    tree_cache_folder=tree_cache_folder,
-                    repo_id="user/repo",
-                    repo_type="model",
-                    commit_hash=COMMIT_HASH,
-                    filename="config.json",
-                    endpoint=None,
-                )
-                is None
+            result = _file_metadata_from_tree_cache(
+                tree_cache_folder=tree_cache_folder,
+                repo_id="user/repo",
+                repo_type="model",
+                commit_hash=COMMIT_HASH,
+                filename="config.json",
+                endpoint=None,
             )
+        assert result is not None
+        _location, etag, _commit_hash, size, xet_file_data, _error = result
+        assert etag == "blob-config"  # git blob id
+        assert size == 5
+        assert xet_file_data is None
 
-    def test_xet_file_returns_none_when_xet_unavailable(self, tree_cache_folder: str):
-        # Even a Xet file falls back to the HEAD call when Xet is not enabled.
+    def test_xet_file_returns_metadata_without_xet_when_xet_unavailable(self, tree_cache_folder: str):
+        # With Xet disabled, a Xet/LFS file still gets metadata from the cache (HTTP download flow) instead
+        # of falling back to the HEAD call.
         with patch("huggingface_hub.file_download.is_xet_available", return_value=False):
-            assert (
-                _xet_file_metadata_from_tree_cache(
-                    tree_cache_folder=tree_cache_folder,
-                    repo_id="user/repo",
-                    repo_type="model",
-                    commit_hash=COMMIT_HASH,
-                    filename="model.safetensors",
-                    endpoint=None,
-                )
-                is None
+            result = _file_metadata_from_tree_cache(
+                tree_cache_folder=tree_cache_folder,
+                repo_id="user/repo",
+                repo_type="model",
+                commit_hash=COMMIT_HASH,
+                filename="model.safetensors",
+                endpoint=None,
             )
+        assert result is not None
+        _location, etag, _commit_hash, size, xet_file_data, _error = result
+        assert etag == "sha256-model"
+        assert size == 1024
+        assert xet_file_data is None  # regular HTTP download through /resolve
 
     def test_no_tree_cache_returns_none(self, tmp_path: Path):  # not populated
         storage_folder = tmp_path / repo_folder_name(repo_id="user/repo", repo_type="model")
         with patch("huggingface_hub.file_download.is_xet_available", return_value=True):
             assert (
-                _xet_file_metadata_from_tree_cache(
+                _file_metadata_from_tree_cache(
                     tree_cache_folder=str(storage_folder),
                     repo_id="user/repo",
                     repo_type="model",
@@ -230,25 +237,28 @@ class TestTreeCacheSkipsHeadCall:
         assert xet_file_data is not None
         assert error is None
 
-    def test_get_metadata_heads_for_non_xet_file(self, tree_cache_folder: str):
-        # A regular file is not served from the tree cache => the HEAD call must still happen.
+    def test_get_metadata_skips_head_for_non_xet_file(self, tree_cache_folder: str):
+        # A regular (non-LFS) file is now also served from the tree cache => no HEAD call.
         with (
             patch("huggingface_hub.file_download.is_xet_available", return_value=True),
             patch("huggingface_hub.file_download.get_hf_file_metadata", side_effect=RuntimeError("HEAD called")),
         ):
-            with pytest.raises(RuntimeError, match="HEAD called"):
-                _get_metadata_or_catch_error(
-                    repo_id="user/repo",
-                    filename="config.json",
-                    repo_type="model",
-                    revision=COMMIT_HASH,
-                    endpoint=None,
-                    etag_timeout=10,
-                    headers={},
-                    token=None,
-                    local_files_only=False,
-                    tree_cache_folder=tree_cache_folder,
-                )
+            _url, etag, commit_hash, size, xet_file_data, error = _get_metadata_or_catch_error(
+                repo_id="user/repo",
+                filename="config.json",
+                repo_type="model",
+                revision=COMMIT_HASH,
+                endpoint=None,
+                etag_timeout=10,
+                headers={},
+                token=None,
+                local_files_only=False,
+                tree_cache_folder=tree_cache_folder,
+            )
+        assert etag == "blob-config"
+        assert size == 5
+        assert xet_file_data is None
+        assert error is None
 
     def test_get_metadata_does_not_use_tree_cache_for_branch(self, tree_cache_folder: str):
         # A branch/tag could have moved since the listing was cached => the HEAD call must still happen.
@@ -311,7 +321,7 @@ class TestGetCachedRepoTree:
 
 
 class TestTreeCacheForLocalDir:
-    def test_xet_file_metadata_from_tree_cache_reads_local_dir_location(self, tmp_path: Path):
+    def test_file_metadata_from_tree_cache_reads_local_dir_location(self, tmp_path: Path):
         # Metadata under .cache/huggingface/trees/...
         folder = tree_cache_folder_for_local_dir(str(tmp_path))
         assert folder == str(tmp_path / ".cache" / "huggingface")
@@ -319,7 +329,7 @@ class TestTreeCacheForLocalDir:
 
         # Cache is read correctly
         with patch("huggingface_hub.file_download.is_xet_available", return_value=True):
-            result = _xet_file_metadata_from_tree_cache(
+            result = _file_metadata_from_tree_cache(
                 tree_cache_folder=folder,
                 repo_id="user/repo",
                 repo_type="model",
