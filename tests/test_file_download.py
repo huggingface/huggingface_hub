@@ -355,6 +355,21 @@ class TestCachedDownload:
                 for call in calls:
                     _check_user_agent(call.kwargs["headers"])
 
+    def test_prefer_offline_skips_head_when_cached(self):
+        with SoftTemporaryDirectory() as cache_dir:
+            path = hf_hub_download(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, cache_dir=cache_dir)
+            with patch("huggingface_hub.constants.HF_HUB_DOWNLOAD_MODE", "prefer_offline"):
+                with patch("huggingface_hub.file_download._get_metadata_or_catch_error") as mock_head:
+                    cached_path = hf_hub_download(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, cache_dir=cache_dir)
+            mock_head.assert_not_called()
+            assert cached_path == path
+
+    def test_prefer_offline_downloads_when_missing(self):
+        with SoftTemporaryDirectory() as cache_dir:
+            with patch("huggingface_hub.constants.HF_HUB_DOWNLOAD_MODE", "prefer_offline"):
+                path = hf_hub_download(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, cache_dir=cache_dir)
+            assert Path(path).is_file()
+
     def test_hf_hub_url_with_empty_subfolder(self):
         """
         Check subfolder arg is processed correctly when empty string is passed to
@@ -753,6 +768,59 @@ class TestHfHubDownloadToLocalDir:
             self.api.hf_hub_download(
                 self.repo_id, filename=self.file_name, local_dir=self.local_dir, local_files_only=True
             )
+
+    def test_prefer_offline_and_file_exists(self, monkeypatch):
+        self.file_path.write_text("content2")
+        monkeypatch.setattr(constants, "HF_HUB_DOWNLOAD_MODE", "prefer_offline")
+
+        with self.with_patch_head() as mock:
+            path = self.api.hf_hub_download(self.repo_id, filename=self.file_name, local_dir=self.local_dir)
+        mock.assert_not_called()
+        assert Path(path) == self.file_path
+        assert self.file_path.read_text() == "content2"
+
+    def test_prefer_offline_and_file_missing(self, monkeypatch):
+        monkeypatch.setattr(constants, "HF_HUB_DOWNLOAD_MODE", "prefer_offline")
+        path = self.api.hf_hub_download(
+            self.repo_id, filename=self.file_name, cache_dir=self.hub_cache_dir, local_dir=self.local_dir
+        )
+        assert Path(path) == self.file_path
+        assert self.file_path.is_file()
+
+    def test_prefer_offline_pins_missing_file_to_sibling_metadata(self, monkeypatch):
+        """Missing files must use sibling `.metadata` commit, not Hub tip / empty hub refs."""
+        monkeypatch.setattr(constants, "HF_HUB_DOWNLOAD_MODE", "prefer_offline")
+        self.file_path.write_text("content")
+        write_download_metadata(self.local_dir, self.file_name, self.commit_hash_1, etag=self.file_etag)
+
+        with self.with_patch_head() as mock_head:
+            mock_head.return_value = (
+                "https://example.com/lfs.bin",
+                self.lfs_etag,
+                self.commit_hash_1,
+                7,
+                None,
+                None,
+            )
+            with self.with_patch_download() as mock_download:
+                self.api.hf_hub_download(
+                    self.repo_id,
+                    filename=self.lfs_name,
+                    cache_dir=self.hub_cache_dir,
+                    local_dir=self.local_dir,
+                )
+        assert mock_head.call_args.kwargs["revision"] == self.commit_hash_1
+        mock_download.assert_called_once()
+
+    def test_prefer_offline_reuses_file_when_metadata_matches_pin(self, monkeypatch):
+        monkeypatch.setattr(constants, "HF_HUB_DOWNLOAD_MODE", "prefer_offline")
+        self.file_path.write_text("content")
+        write_download_metadata(self.local_dir, self.file_name, self.commit_hash_1, etag=self.file_etag)
+
+        with self.with_patch_head() as mock:
+            path = self.api.hf_hub_download(self.repo_id, filename=self.file_name, local_dir=self.local_dir)
+        mock.assert_not_called()
+        assert Path(path) == self.file_path
 
     def test_metadata_ok_and_etag_match(self):
         # 1 HEAD call + return early

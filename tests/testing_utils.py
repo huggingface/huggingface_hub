@@ -111,7 +111,7 @@ def offline(mode=OfflineSimulationMode.CONNECTION_FAILS, timeout=1e-16):
             with patch("huggingface_hub.utils._http._GLOBAL_CLIENT", offline_client):
                 yield
     elif mode is OfflineSimulationMode.HF_HUB_OFFLINE_SET_TO_1:
-        with patch("huggingface_hub.constants.HF_HUB_OFFLINE", True):
+        with patch("huggingface_hub.constants.HF_HUB_DOWNLOAD_MODE", "offline"):
             yield
     else:
         raise ValueError("Please use a value from the OfflineSimulationMode enum.")

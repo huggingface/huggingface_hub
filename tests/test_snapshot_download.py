@@ -206,6 +206,26 @@ class TestSnapshotDownload:
             storage_folder = snapshot_download(self.repo_id, local_dir=tmpdir, local_files_only=True)
             assert str(tmpdir) == storage_folder
 
+    def test_prefer_offline_uses_cached_snapshot(self):
+        with SoftTemporaryDirectory() as tmpdir:
+            snapshot_download(self.repo_id, cache_dir=tmpdir)
+            with patch("huggingface_hub.constants.HF_HUB_DOWNLOAD_MODE", "prefer_offline"):
+                with patch("huggingface_hub._snapshot_download.HfApi.repo_info", side_effect=AssertionError) as mock:
+                    storage_folder = snapshot_download(self.repo_id, cache_dir=tmpdir)
+                mock.assert_not_called()
+            assert self.second_commit_hash in storage_folder
+
+    def test_prefer_offline_fetches_missing_file_from_cached_revision(self):
+        with SoftTemporaryDirectory() as tmpdir:
+            storage_folder = snapshot_download(self.repo_id, cache_dir=tmpdir)
+            os.remove(os.path.join(storage_folder, "dummy_file.txt"))
+            with patch("huggingface_hub.constants.HF_HUB_DOWNLOAD_MODE", "prefer_offline"):
+                with patch("huggingface_hub._snapshot_download.HfApi.repo_info", side_effect=AssertionError) as mock:
+                    storage_folder = snapshot_download(self.repo_id, cache_dir=tmpdir)
+                mock.assert_not_called()
+            with open(os.path.join(storage_folder, "dummy_file.txt")) as f:
+                assert f.read() == "v2"
+
     def test_download_model_to_local_dir_with_offline_mode(self):
         """Test that an already downloaded folder is returned when there is a connection error"""
         # first download folder to local_dir
@@ -399,6 +419,14 @@ class TestResolveRevision:
         # Already resolved => returned as is (no network call)
         with offline():
             assert api.resolve_revision(self.repo_id, revision=revision, cache_dir=tmp_path) is revision
+
+    def test_resolve_revision_prefer_offline(self, api: HfApi, tmp_path: Path):
+        api.resolve_revision(self.repo_id, cache_dir=tmp_path)
+        with patch("huggingface_hub.constants.HF_HUB_DOWNLOAD_MODE", "prefer_offline"):
+            with patch.object(api, "repo_info", side_effect=AssertionError) as mock:
+                revision = api.resolve_revision(self.repo_id, cache_dir=tmp_path)
+            mock.assert_not_called()
+        assert revision.resolved == self.commit_hash
 
     def test_resolve_revision_not_cached(self, api: HfApi, tmp_path: Path):
         with offline():

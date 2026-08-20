@@ -697,6 +697,46 @@ def _create_symlink(src: str, dst: str, new_blob: bool = False) -> None:
         shutil.copyfile(abs_src, abs_dst)
 
 
+def _get_cached_commit_hash(storage_folder: str, revision: str) -> str | None:
+    """Return the commit hash for `revision` if it is already a hash or a cached ref.
+
+    Reads `refs/{revision}` written by a previous download. Returns `None` when nothing
+    is cached locally (the caller should then resolve the revision from the Hub).
+    """
+    if REGEX_COMMIT_HASH.match(revision):
+        return revision
+    ref_path = Path(storage_folder) / "refs" / revision
+    if ref_path.is_file():
+        commit_hash = ref_path.read_text().strip()
+        return commit_hash or None
+    return None
+
+
+def _get_local_dir_cached_commit_hash(local_dir: str | Path) -> str | None:
+    """Return the newest commit hash recorded in `local_dir` download `.metadata` files.
+
+    `local_dir` downloads do not write hub-cache `refs/`, so prefer_offline uses these
+    sibling metadata entries to pin missing-file fetches to the same revision.
+    """
+    download_dir = Path(local_dir) / ".cache" / "huggingface" / "download"
+    if not download_dir.is_dir():
+        return None
+    best: tuple[float, str] | None = None
+    for metadata_path in download_dir.rglob("*.metadata"):
+        try:
+            with metadata_path.open() as f:
+                commit_hash = f.readline().strip()
+                f.readline()  # etag
+                timestamp = float(f.readline().strip())
+        except Exception:
+            continue
+        if not REGEX_COMMIT_HASH.match(commit_hash):
+            continue
+        if best is None or timestamp > best[0]:
+            best = (timestamp, commit_hash)
+    return best[1] if best is not None else None
+
+
 def _cache_commit_hash_for_specific_revision(storage_folder: str, revision: str, commit_hash: str) -> None:
     """Cache reference between a revision (tag, branch or truncated commit hash) and the corresponding commit hash.
 
@@ -1068,6 +1108,13 @@ def _hf_hub_download_to_cache_dir(
     # cross-platform transcription of filename, to be used as a local file path.
     relative_filename = os.path.join(*filename.split("/"))
 
+    # prefer_offline: pin to the last cached commit so existing files skip the Hub and
+    # missing files are fetched from that same commit (no mixed revisions).
+    if constants.is_prefer_offline_mode() and not force_download and not REGEX_COMMIT_HASH.match(revision):
+        cached_commit = _get_cached_commit_hash(storage_folder, revision)
+        if cached_commit is not None:
+            revision = cached_commit
+
     # if user provides a commit_hash and they already have the file on disk, shortcut everything.
     if REGEX_COMMIT_HASH.match(revision):
         pointer_path = _get_pointer_path(storage_folder, revision, relative_filename)
@@ -1290,6 +1337,23 @@ def _hf_hub_download_to_local_dir(
     paths = get_local_download_paths(local_dir=local_dir, filename=filename)
     local_metadata = read_download_metadata(local_dir=local_dir, filename=filename)
 
+    prefer_offline = constants.is_prefer_offline_mode() and not force_download
+    requested_revision = revision
+    hub_storage = os.path.join(cache_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type))
+
+    # prefer_offline: pin to a known local commit so existing files and missing-file
+    # downloads stay on the same revision (do not mix an old config with new weights).
+    # Prefer this file's / sibling `.metadata` (local_dir does not write hub `refs/`),
+    # then fall back to hub-cache refs when present.
+    if prefer_offline and not REGEX_COMMIT_HASH.match(revision):
+        cached_commit = (
+            (local_metadata.commit_hash if local_metadata is not None else None)
+            or _get_local_dir_cached_commit_hash(local_dir)
+            or _get_cached_commit_hash(hub_storage, revision)
+        )
+        if cached_commit is not None:
+            revision = cached_commit
+
     # Local file exists + metadata exists + commit_hash matches => return file
     if (
         REGEX_COMMIT_HASH.match(revision)
@@ -1309,6 +1373,22 @@ def _hf_hub_download_to_local_dir(
             )
         if not force_download:
             return local_file
+
+    # prefer_offline with no known pin: reuse any existing file without a freshness HEAD.
+    # (If we did pin above and metadata mismatched, fall through and re-fetch from that pin.)
+    if prefer_offline and paths.file_path.is_file() and revision == requested_revision:
+        local_file = str(paths.file_path)
+        if dry_run:
+            commit_hash = local_metadata.commit_hash if local_metadata is not None else revision
+            return DryRunFileInfo(
+                commit_hash=commit_hash,
+                file_size=os.path.getsize(local_file),
+                filename=filename,
+                is_cached=True,
+                local_path=local_file,
+                will_download=False,
+            )
+        return local_file
 
     # Local file doesn't exist or commit_hash doesn't match => we need the etag
     # - Xet file => might be cached in /tree listing

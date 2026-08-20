@@ -1785,6 +1785,7 @@ Copy-and-paste the text below in your GitHub issue.
 - HF_ASSETS_CACHE: /home/wauplin/.cache/huggingface/assets
 - HF_TOKEN_PATH: /home/wauplin/.cache/huggingface/token
 - HF_STORED_TOKENS_PATH: /home/wauplin/.cache/huggingface/stored_tokens
+- HF_HUB_DOWNLOAD_MODE: auto
 - HF_HUB_OFFLINE: False
 - HF_HUB_DISABLE_TELEMETRY: False
 - HF_HUB_DISABLE_PROGRESS_BARS: None

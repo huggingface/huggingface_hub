@@ -127,6 +127,7 @@ from .file_download import (
     DryRunFileInfo,
     HfFileMetadata,
     _cache_commit_hash_for_specific_revision,
+    _get_cached_commit_hash,
     get_hf_file_metadata,
     hf_hub_url,
     repo_folder_name,
@@ -3744,6 +3745,11 @@ class HfApi:
         )
 
         error: Exception | None = None
+        if constants.is_prefer_offline_mode() and not local_files_only:
+            cached_sha = _get_cached_commit_hash(storage_folder, revision or constants.DEFAULT_REVISION)
+            if cached_sha is not None:
+                return ResolvedRevision(resolved=cached_sha, initial=revision)
+
         if not local_files_only:
             try:
                 sha = self.repo_info(repo_id=repo_id, repo_type=repo_type, revision=revision, token=token).sha

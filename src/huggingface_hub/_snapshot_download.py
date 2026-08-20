@@ -18,7 +18,14 @@ from .errors import (
     RepositoryNotFoundError,
     RevisionNotFoundError,
 )
-from .file_download import REGEX_COMMIT_HASH, DryRunFileInfo, hf_hub_download, repo_folder_name
+from .file_download import (
+    REGEX_COMMIT_HASH,
+    DryRunFileInfo,
+    _get_cached_commit_hash,
+    _get_local_dir_cached_commit_hash,
+    hf_hub_download,
+    repo_folder_name,
+)
 from .hf_api import HfApi, RepoFile
 from .utils import OfflineModeIsEnabled, filter_repo_objects, logging, validate_hf_hub_args
 from .utils._xet_progress_reporting import (
@@ -261,6 +268,27 @@ def snapshot_download(
         commit_hash = revision
 
     api_call_error: Exception | None = None
+    prefer_offline = constants.is_prefer_offline_mode() and not force_download
+
+    # prefer_offline: reuse the last cached commit. A complete snapshot is returned as-is.
+    # Missing files are fetched from that same commit (no mixed revisions).
+    # For `local_dir`, prefer sibling `.metadata` over hub-cache refs (local_dir may not write refs).
+    if commit_hash is None and prefer_offline and not local_files_only:
+        if local_dir is not None:
+            commit_hash = _get_local_dir_cached_commit_hash(local_dir)
+        if commit_hash is None:
+            commit_hash = _get_cached_commit_hash(storage_folder, revision)
+        if commit_hash is not None and not dry_run:
+            base_dir = local_dir if local_dir is not None else os.path.join(storage_folder, "snapshots", commit_hash)
+            if os.path.isdir(base_dir) and _is_snapshot_complete(
+                tree_cache_folder=tree_cache_folder,
+                commit_hash=commit_hash,
+                base_dir=base_dir,
+                allow_patterns=allow_patterns,
+                ignore_patterns=ignore_patterns,
+            ):
+                return str(Path(base_dir).resolve()) if local_dir is not None else base_dir
+
     if commit_hash is None and not local_files_only:
         # try/except logic to handle different errors => taken from `hf_hub_download`
         try:
@@ -291,7 +319,7 @@ def snapshot_download(
 
     # At this stage, if the commit hash is unknown it means either:
     # - internet connection is down
-    # - internet connection is deactivated (local_files_only=True or HF_HUB_OFFLINE=True)
+    # - internet connection is deactivated (local_files_only=True or download mode is offline)
     # - repo is private/gated and invalid/missing token sent
     # - Hub is down
     # => let's look if we can find the appropriate folder in the cache:
@@ -360,7 +388,7 @@ def snapshot_download(
             raise LocalEntryNotFoundError(
                 "Cannot find an appropriate cached snapshot folder for the specified revision on the local disk and "
                 "outgoing traffic has been disabled. To enable repo look-ups and downloads online, set "
-                "'HF_HUB_OFFLINE=0' as environment variable."
+                "'HF_HUB_DOWNLOAD_MODE=auto' as environment variable."
             ) from api_call_error
         elif isinstance(api_call_error, (RepositoryNotFoundError, GatedRepoError)) or (
             isinstance(api_call_error, HfHubHTTPError) and api_call_error.response.status_code == 401
@@ -579,6 +607,27 @@ def _raise_if_incomplete_snapshot(
         "to complete the snapshot.",
         snapshot_path=base_dir,
     ) from api_call_error
+
+
+def _is_snapshot_complete(
+    *,
+    tree_cache_folder: str,
+    commit_hash: str,
+    base_dir: str,
+    allow_patterns: list[str] | str | None,
+    ignore_patterns: list[str] | str | None,
+) -> bool:
+    """Return whether `base_dir` contains every file listed in the cached tree for `commit_hash`.
+
+    Returns `False` when the tree listing is not cached (we cannot tell, so the caller should not skip the Hub).
+    """
+    tree_entries = read_tree_cache(tree_cache_folder, commit_hash)
+    if tree_entries is None:
+        return False
+    expected = filter_repo_objects(
+        items=tree_entries.keys(), allow_patterns=allow_patterns, ignore_patterns=ignore_patterns
+    )
+    return all(_local_file_exists(base_dir, path) for path in expected)
 
 
 @validate_hf_hub_args

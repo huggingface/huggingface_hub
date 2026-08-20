@@ -265,7 +265,7 @@ class TestConfigureSession:
 
 class TestOfflineModeSession:
     def test_offline_mode(self):
-        with patch("huggingface_hub.constants.HF_HUB_OFFLINE", True):
+        with patch("huggingface_hub.constants.HF_HUB_DOWNLOAD_MODE", "offline"):
             set_client_factory(default_client_factory)
             client = get_session()
             with pytest.raises(OfflineModeIsEnabled):

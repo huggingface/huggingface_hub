@@ -84,7 +84,7 @@ class DeviceCodeError(Exception):
 
 
 class OfflineModeIsEnabled(ConnectionError):
-    """Raised when a request is made but `HF_HUB_OFFLINE=1` is set as environment variable."""
+    """Raised when a request is made but download mode is `offline` (`HF_HUB_DOWNLOAD_MODE=offline`)."""
 
 
 class HfHubHTTPError(HTTPError, OSError):

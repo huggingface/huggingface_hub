@@ -76,6 +76,20 @@ Defaults to `"warning"`.
 
 For more details, see [logging reference](../package_reference/utilities#huggingface_hub.utils.logging.get_verbosity).
 
+### HF_HUB_DOWNLOAD_MODE
+
+Controls how `huggingface_hub` talks to the Hub when downloading files. Must be one of
+`{"auto", "prefer_offline", "offline"}` (case-insensitive).
+
+- `auto` (default): A HEAD request checks whether a newer version is available, then the cache is reused or the file is downloaded.
+- `prefer_offline`: if a file is already cached for the requested revision, return it without contacting the Hub. Missing files are still downloaded, pinned to the last cached commit when one is known (so you do not mix an old `config.json` with new weights). Other Hub HTTP calls (`HfApi`, inference, ...) are unchanged.
+- `offline`: no HTTP calls at all. Cached files are used; a missing file raises an error.
+
+If `HF_HUB_DOWNLOAD_MODE` is set, `HF_HUB_OFFLINE` and `TRANSFORMERS_OFFLINE` are ignored.
+If it is unset, those legacy booleans are translated once at import time: `1`/`true`/`yes`/`on` becomes `offline`, any other value becomes `auto`.
+
+You can check the effective mode with `huggingface_hub.constants.HF_HUB_DOWNLOAD_MODE`, or [`is_offline_mode`](../package_reference/utilities#huggingface_hub.is_offline_mode) (True only for `offline`).
+
 ### HF_HUB_ETAG_TIMEOUT
 
 Integer value to define the number of seconds to wait for server response when fetching the latest metadata from a repo before downloading a file. If the request times out, `huggingface_hub` will default to the locally cached files. Setting a lower value speeds up the workflow for machines with a slow connection that have already cached files. A higher value guarantees the metadata call to succeed in more cases. Default to 10s.
@@ -122,11 +136,14 @@ If set, the log level for the `huggingface_hub` logger is set to DEBUG. Addition
 
 ### HF_HUB_OFFLINE
 
-If set, no HTTP calls will be made to the Hugging Face Hub. If you try to download files, only the cached files will be accessed. If no cache file is detected, an error is raised This is useful in case your network is slow and you don't care about having the latest version of a file.
+> [!WARNING]
+> Deprecated. Use [`HF_HUB_DOWNLOAD_MODE`](#hf_hub_download_mode) instead. `HF_HUB_OFFLINE` is only read at import time to derive a download mode when `HF_HUB_DOWNLOAD_MODE` is unset (`1` → `offline`, otherwise → `auto`).
 
-If `HF_HUB_OFFLINE=1` is set as environment variable and you call any method of [`HfApi`], an [`~huggingface_hub.errors.OfflineModeIsEnabled`] exception will be raised.
+If set, no HTTP calls will be made to the Hugging Face Hub. If you try to download files, only the cached files will be accessed. If no cache file is detected, an error is raised. This is useful in case your network is slow and you don't care about having the latest version of a file.
 
-**Note:** even if the latest version of a file is cached, calling `hf_hub_download` still triggers a HTTP request to check that a new version is not available. Setting `HF_HUB_OFFLINE=1` will skip this call which speeds up your loading time.
+If `HF_HUB_OFFLINE=1` is set as environment variable (and `HF_HUB_DOWNLOAD_MODE` is unset) and you call any method of [`HfApi`], an [`~huggingface_hub.errors.OfflineModeIsEnabled`] exception will be raised.
+
+**Note:** even if the latest version of a file is cached, calling `hf_hub_download` still triggers a HTTP request to check that a new version is not available. Setting `HF_HUB_DOWNLOAD_MODE=offline` (or the legacy `HF_HUB_OFFLINE=1`) will skip this call which speeds up your loading time. To skip the freshness check while still downloading missing files, use `HF_HUB_DOWNLOAD_MODE=prefer_offline`.
 
 If you want to check if offline mode is enabled or not, you can use the [`is_offline_mode`] helper.
 

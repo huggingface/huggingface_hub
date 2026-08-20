@@ -51,7 +51,7 @@ class TestSendTelemetry:
         assert self.mock_head.call_args[0][0] == f"{ENDPOINT_STAGING}/api/telemetry/foo%20bar"
 
     def test_hub_offline(self, mocker) -> None:
-        mocker.patch("huggingface_hub.utils._telemetry.constants.HF_HUB_OFFLINE", True)
+        mocker.patch("huggingface_hub.utils._telemetry.constants.HF_HUB_DOWNLOAD_MODE", "offline")
         send_telemetry(topic="topic")
         assert self.queue.empty()  # no tasks
         self.mock_head.assert_not_called()

@@ -185,7 +185,7 @@ except HfHubHTTPError as e:
 
 ### Check offline mode
 
-You can programmatically check if offline mode is enabled using `is_offline_mode`. Offline mode is enabled by setting `HF_HUB_OFFLINE=1` as environment variable.
+You can programmatically check if offline mode is enabled using `is_offline_mode`. Offline mode is enabled by setting `HF_HUB_DOWNLOAD_MODE=offline` (or the legacy `HF_HUB_OFFLINE=1` when `HF_HUB_DOWNLOAD_MODE` is unset).
 
 [[autodoc]] is_offline_mode
 
@@ -249,7 +249,7 @@ user as possible.
 
 `huggingface_hub` includes a helper to send telemetry data. This information helps us debug issues and prioritize new features.
 Users can disable telemetry collection at any time by setting the `HF_HUB_DISABLE_TELEMETRY=1` environment variable.
-Telemetry is also disabled in offline mode (i.e. when setting HF_HUB_OFFLINE=1).
+Telemetry is also disabled in offline mode (i.e. when `HF_HUB_DOWNLOAD_MODE=offline`, or the legacy `HF_HUB_OFFLINE=1`).
 
 If you are maintainer of a third-party library, sending telemetry data is as simple as making a call to [`send_telemetry`].
 Data is sent in a separate thread to reduce as much as possible the impact for users.

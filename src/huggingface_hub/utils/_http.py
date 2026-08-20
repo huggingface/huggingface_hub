@@ -258,7 +258,7 @@ def hf_request_event_hook(request: httpx.Request) -> None:
     """
     if constants.is_offline_mode():
         raise OfflineModeIsEnabled(
-            f"Cannot reach {request.url}: offline mode is enabled. To disable it, please unset the `HF_HUB_OFFLINE` environment variable."
+            f"Cannot reach {request.url}: offline mode is enabled. To disable it, set `HF_HUB_DOWNLOAD_MODE=auto`."
         )
 
     # Add random request ID => easier for server-side debugging

@@ -189,13 +189,44 @@ HF_ASSETS_CACHE = os.path.expandvars(
     )
 )
 
-HF_HUB_OFFLINE = _is_true(os.environ.get("HF_HUB_OFFLINE") or os.environ.get("TRANSFORMERS_OFFLINE"))
+HFHubDownloadMode = Literal["auto", "prefer_offline", "offline"]
+HF_HUB_DOWNLOAD_MODES: tuple[HFHubDownloadMode, ...] = typing.get_args(HFHubDownloadMode)
+
+
+def _hf_hub_download_mode() -> HFHubDownloadMode:
+    """Read download mode from the environment.
+
+    `HF_HUB_DOWNLOAD_MODE` wins when set. Otherwise the legacy `HF_HUB_OFFLINE` /
+    `TRANSFORMERS_OFFLINE` booleans are translated (`1` -> `offline`, `0` -> `auto`).
+    """
+    mode = (os.environ.get("HF_HUB_DOWNLOAD_MODE") or "").strip().lower()
+    if mode:
+        if mode not in HF_HUB_DOWNLOAD_MODES:
+            raise ValueError(
+                f"Invalid HF_HUB_DOWNLOAD_MODE={os.environ.get('HF_HUB_DOWNLOAD_MODE')!r}. "
+                f"Expected one of: {list(HF_HUB_DOWNLOAD_MODES)}."
+            )
+        return mode
+    if _is_true(os.environ.get("HF_HUB_OFFLINE") or os.environ.get("TRANSFORMERS_OFFLINE")):
+        return "offline"
+    return "auto"
+
+
+HF_HUB_DOWNLOAD_MODE = _hf_hub_download_mode()
+# Derived from `HF_HUB_DOWNLOAD_MODE` for backward compatibility. Downstream code that
+# still reads this constant will observe the effective offline state. Do not use it to
+# gate behavior in this library; use `HF_HUB_DOWNLOAD_MODE` / `is_offline_mode()`.
+HF_HUB_OFFLINE = HF_HUB_DOWNLOAD_MODE == "offline"
 
 
 def is_offline_mode() -> bool:
     """Returns whether we are in offline mode for the Hub.
 
     When offline mode is enabled, all HTTP requests made with `get_session` will raise an `OfflineModeIsEnabled` exception.
+
+    Offline mode is enabled by setting `HF_HUB_DOWNLOAD_MODE=offline`. The legacy
+    `HF_HUB_OFFLINE=1` (and `TRANSFORMERS_OFFLINE=1`) environment variables still enable
+    it when `HF_HUB_DOWNLOAD_MODE` is unset.
 
     Example:
         ```py
@@ -208,7 +239,19 @@ def is_offline_mode() -> bool:
                 ... # list files from Hub (complete experience)
         ```
     """
-    return HF_HUB_OFFLINE
+    return HF_HUB_DOWNLOAD_MODE == "offline"
+
+
+def is_prefer_offline_mode() -> bool:
+    """Returns whether downloads should reuse cached files without checking for updates.
+
+    When prefer-offline mode is enabled, existing cached files are returned as-is
+    (no freshness HEAD call). Missing files are still downloaded from the Hub, pinned
+    to the last cached revision when one is known.
+
+    Enabled by setting `HF_HUB_DOWNLOAD_MODE=prefer_offline`.
+    """
+    return HF_HUB_DOWNLOAD_MODE == "prefer_offline"
 
 
 # File created to mark that the version check has been done.

@@ -28,8 +28,8 @@ def send_telemetry(
 
     This usage data helps us debug issues and prioritize new features. However, we understand that not everyone wants
     to share additional information, and we respect your privacy. You can disable telemetry collection by setting the
-    `HF_HUB_DISABLE_TELEMETRY=1` as environment variable. Telemetry is also disabled in offline mode (i.e. when setting
-    `HF_HUB_OFFLINE=1`).
+    `HF_HUB_DISABLE_TELEMETRY=1` as environment variable. Telemetry is also disabled in offline mode (i.e. when
+    `HF_HUB_DOWNLOAD_MODE=offline`).
 
     Telemetry collection is run in a separate thread to minimize impact for the user.
 

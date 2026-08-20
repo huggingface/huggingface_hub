@@ -188,7 +188,7 @@ def _write_cached_registry(path: str, registry: Registry) -> None:
 
 def _fetch_registry() -> Registry | None:
     """Fetch the registry from the Hub. Returns `None` when offline or on any error."""
-    if constants.HF_HUB_OFFLINE:
+    if constants.is_offline_mode():
         return None
     try:
         from ._http import get_session

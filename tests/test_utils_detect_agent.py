@@ -162,7 +162,7 @@ class TestRegistryLoading:
         assert _detect_agent._load_registry() == _detect_agent._EMPTY_REGISTRY
 
     def test_fetch_skipped_when_offline(self, monkeypatch):
-        monkeypatch.setattr(constants, "HF_HUB_OFFLINE", True)
+        monkeypatch.setattr(constants, "HF_HUB_DOWNLOAD_MODE", "offline")
         assert _detect_agent._fetch_registry() is None
 
     def test_detection_never_raises_on_error(self, monkeypatch):
