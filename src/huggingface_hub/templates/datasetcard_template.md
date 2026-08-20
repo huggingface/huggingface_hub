@@ -4,7 +4,7 @@
 {{ card_data }}
 ---
 
-# Dataset Card for {{ pretty_name | default("Dataset Name", true) }}
+# Dataset Card for {{ pretty_name | default("Amharic Idiom Classification", true) }}
 
 <!-- Provide a quick summary of the dataset. -->
 
@@ -18,19 +18,17 @@
 
 {{ dataset_description | default("", true) }}
 
-- **Curated by:** {{ curators | default("[More Information Needed]", true)}}
-- **Funded by [optional]:** {{ funded_by | default("[More Information Needed]", true)}}
-- **Shared by [optional]:** {{ shared_by | default("[More Information Needed]", true)}}
-- **Language(s) (NLP):** {{ language | default("[More Information Needed]", true)}}
-- **License:** {{ license | default("[More Information Needed]", true)}}
+- **Curated by:** {{ Anduamlak Abebe Fenta and Melkam Enyew Gashaw | default("[More Information Needed]", true)}}
+- **Funded by [optional]:** {{ No external funding was received for the development of this dataset. | default("[More Information Needed]", true)}}
+- **Language(s) (NLP):** {{ Amharic | default("[More Information Needed]", true)}}
+- **License:** {{Dataset and derived metadata are released under CC BY 4.0. Original source materials remain subject to their respective copyright restrictions. | default("[More Information Needed]", true)}}
 
 ### Dataset Sources [optional]
 
 <!-- Provide the basic links for the dataset. -->
 
-- **Repository:** {{ repo | default("[More Information Needed]", true)}}
-- **Paper [optional]:** {{ paper | default("[More Information Needed]", true)}}
-- **Demo [optional]:** {{ demo | default("[More Information Needed]", true)}}
+- **Repository:** {{ Hugging Face Datasets Hub (URL will be added after publication) | default("[More Information Needed]", true)}}
+- **Paper [optional]:** {{ Amharic Idiom Classification Using Multilingual Transformer Models | default("[More Information Needed]", true)}}
 
 ## Uses
 
