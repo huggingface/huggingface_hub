@@ -674,6 +674,18 @@ To get detailed information about a specific bucket (returned as JSON), use `hf 
 }
 ```
 
+### Change bucket visibility
+
+To switch a bucket between private and public, use `hf buckets settings`:
+
+```bash
+# Make a bucket private
+>>> hf buckets settings username/my-bucket --private
+
+# Make it public again
+>>> hf buckets settings username/my-bucket --public
+```
+
 ### Delete a bucket
 
 To delete a bucket, use `hf buckets delete`. You will be prompted for confirmation unless you pass `--yes`:
