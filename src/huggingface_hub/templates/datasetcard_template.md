@@ -11,6 +11,7 @@
 {{ dataset_summary | default("", true) }}
 
 ## Dataset Details
+This dataset contains Amharic figurative expression samples designed for three-class classification: **Idiom**, **Proverb**, and **Literal**. The dataset was developed to support research on low-resource natural language processing, particularly figurative language understanding using multilingual transformer models.
 
 ### Dataset Description
 
