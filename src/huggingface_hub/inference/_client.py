@@ -1662,7 +1662,7 @@ class InferenceClient:
             api_key=self.token,
         )
         response = self._inner_post(request_parameters)
-        return _bytes_to_list(response)
+        return provider_helper.get_response(response)
 
     def summarization(
         self,
