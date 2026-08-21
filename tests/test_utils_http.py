@@ -11,6 +11,7 @@ import httpx
 import pytest
 from httpx import ConnectTimeout, HTTPError
 
+from huggingface_hub import constants
 from huggingface_hub.constants import ENDPOINT
 from huggingface_hub.errors import (
     BucketNotFoundError,
@@ -28,6 +29,7 @@ from huggingface_hub.utils._http import (
     _warn_on_warning_headers,
     default_client_factory,
     fix_hf_endpoint_in_url,
+    flag_as_download_call,
     get_async_session,
     get_session,
     hf_raise_for_status,
@@ -35,6 +37,8 @@ from huggingface_hub.utils._http import (
     parse_ratelimit_headers,
     set_client_factory,
 )
+
+from .testing_constants import ENDPOINT_STAGING
 
 
 URL = "https://www.google.com"
@@ -808,3 +812,37 @@ class TestRedactSensitiveBody:
         assert "refresh_token=<REDACTED>" in redacted
         assert "device_code=<REDACTED>" in redacted
         assert "client_id=abc" in redacted
+
+
+def test_flag_as_download_call_decorator():
+    def get_call():
+        return get_session().get(ENDPOINT_STAGING)
+
+    def is_flagged(response):
+        return response.request.headers.get(constants.X_HF_DOWNLOAD_COUNTER) == "1"
+
+    flagged_get_call = flag_as_download_call(get_call)
+
+    # Flagged call has a 'Hf-X-Download-Counter:: 1' header
+    assert not is_flagged(get_call())
+    assert is_flagged(flagged_get_call())
+
+    # Flag is reset between each call
+    assert not is_flagged(get_call())
+    assert is_flagged(flagged_get_call())
+
+    threaded_results = []
+    for count in range(4):
+        if count % 2 == 0:
+            thread = threading.Thread(target=lambda: threaded_results.append(flagged_get_call()))
+        else:
+            thread = threading.Thread(target=lambda: threaded_results.append(get_call()))
+        thread.start()
+        thread.join()
+
+    # Flag is thread-local, so only flagged calls have the header
+    for i, response in enumerate(threaded_results):
+        if i % 2 == 0:
+            assert is_flagged(response)
+        else:
+            assert not is_flagged(response)

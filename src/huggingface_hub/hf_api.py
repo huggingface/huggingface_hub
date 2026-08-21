@@ -162,7 +162,7 @@ from .utils import (
 from .utils import tqdm as hf_tqdm
 from .utils._auth import _get_token_from_environment, _get_token_from_file, _get_token_from_google_colab
 from .utils._deprecation import _deprecate_arguments, _deprecate_method
-from .utils._http import _httpx_follow_relative_redirects_with_backoff
+from .utils._http import _httpx_follow_relative_redirects_with_backoff, flag_as_download_call
 from .utils._runtime import is_xet_available
 from .utils._typing import CallableT
 from .utils._verification import collect_local_files, resolve_local_root, verify_maps
@@ -3662,6 +3662,7 @@ class HfApi:
         )
 
     @validate_hf_hub_args
+    @flag_as_download_call
     def resolve_revision(
         self,
         repo_id: str,
