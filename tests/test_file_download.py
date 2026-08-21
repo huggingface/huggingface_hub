@@ -26,14 +26,21 @@ import pytest
 
 from huggingface_hub import HfApi, constants
 from huggingface_hub._local_folder import write_download_metadata
-from huggingface_hub.errors import EntryNotFoundError, GatedRepoError, LocalEntryNotFoundError
+from huggingface_hub.errors import (
+    EntryNotFoundError,
+    FileMetadataError,
+    GatedRepoError,
+    LocalEntryNotFoundError,
+)
 from huggingface_hub.file_download import (
     _CACHED_NO_EXIST,
     HfFileMetadata,
     _check_disk_space,
     _create_symlink,
+    _get_metadata_or_catch_error,
     _get_pointer_path,
     _normalize_etag,
+    _raise_on_head_call_error,
     get_hf_file_metadata,
     hf_hub_download,
     hf_hub_url,
@@ -1500,3 +1507,73 @@ def _recursive_chmod(path: str, mode: int) -> None:
             os.chmod(os.path.join(root, d), mode)
         for f in files:
             os.chmod(os.path.join(root, f), mode)
+
+
+class TestRaiseOnHeadCallError:
+    """Tests for `_raise_on_head_call_error`."""
+
+    def test_raises_file_metadata_error_as_is(self) -> None:
+        """A `FileMetadataError` must be raised as-is, not masked as a connection issue.
+
+        Regression test for the misleading "check your connection" error reported when a
+        HEAD request on a mirror endpoint returns an absolute redirect that could not be
+        resolved into metadata (see issue #4637).
+        """
+        error = FileMetadataError("Distant resource does not seem to be on huggingface.co")
+        with pytest.raises(FileMetadataError) as exc_info:
+            _raise_on_head_call_error(error, force_download=False, local_files_only=False)
+        assert exc_info.value is error
+
+    def test_masks_connection_issue(self) -> None:
+        """A genuine network error is still reported as `LocalEntryNotFoundError`."""
+        with pytest.raises(LocalEntryNotFoundError):
+            _raise_on_head_call_error(ValueError("boom"), force_download=False, local_files_only=False)
+
+
+class TestMetadataDownloadHeaders:
+    """Tests for auth-header handling after metadata redirects."""
+
+    def _get_metadata(self, location: str, headers: dict[str, str]) -> None:
+        metadata = HfFileMetadata(
+            commit_hash="a" * 40,
+            etag="etag",
+            location=location,
+            size=1,
+            xet_file_data=None,
+        )
+        with patch("huggingface_hub.file_download.get_hf_file_metadata", return_value=metadata):
+            result = _get_metadata_or_catch_error(
+                repo_id="org/private-model",
+                filename="config.json",
+                repo_type="model",
+                revision="main",
+                endpoint="https://hf-mirror.com",
+                etag_timeout=10,
+                headers=headers,
+                token=True,
+                local_files_only=False,
+            )
+        assert result[-1] is None
+
+    def test_keeps_authorization_for_trusted_hub_redirect(self) -> None:
+        """A mirror redirect to a trusted Hub host must retain auth for gated repos."""
+        headers = {"authorization": "Bearer hf_test_token"}
+
+        self._get_metadata("https://huggingface.co/org/private-model/resolve/main/config.json", headers)
+
+        assert headers["authorization"] == "Bearer hf_test_token"
+
+    @pytest.mark.parametrize(
+        "location",
+        [
+            "https://cdn.example.com/org/private-model/config.json",
+            "http://huggingface.co/org/private-model/resolve/main/config.json",
+        ],
+    )
+    def test_removes_authorization_for_untrusted_or_plaintext_redirect(self, location: str) -> None:
+        """CDN and plaintext targets must not receive the Hub token."""
+        headers = {"authorization": "Bearer hf_test_token"}
+
+        self._get_metadata(location, headers)
+
+        assert "authorization" not in headers

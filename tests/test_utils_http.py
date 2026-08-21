@@ -1,3 +1,4 @@
+import logging
 import threading
 import time
 import weakref
@@ -22,6 +23,7 @@ from huggingface_hub.utils._http import (
     _WARNED_TOPICS,
     RateLimitInfo,
     _adjust_range_header,
+    _httpx_follow_relative_redirects_with_backoff,
     _parse_bucket_id_from_url,
     _parse_repo_info_from_url,
     _parse_retry_after,
@@ -808,3 +810,108 @@ class TestRedactSensitiveBody:
         assert "refresh_token=<REDACTED>" in redacted
         assert "device_code=<REDACTED>" in redacted
         assert "client_id=abc" in redacted
+
+
+class TestFollowRedirects:
+    """Tests for `_httpx_follow_relative_redirects_with_backoff`."""
+
+    BASE_URL = "https://huggingface.co/repo/resolve/main/config.json"
+
+    @pytest.fixture(autouse=True)
+    def setup(self) -> Generator[None, None, None]:
+        patcher = patch("huggingface_hub.utils._http.http_backoff")
+        self.mock_backoff = patcher.start()
+        yield
+        patcher.stop()
+
+    def _response(self, status_code: int, location: str | None = None) -> httpx.Response:
+        headers = {"Location": location} if location is not None else {}
+        return httpx.Response(status_code, headers=headers, request=httpx.Request("HEAD", self.BASE_URL))
+
+    def _follow(self, responses: list[httpx.Response]) -> httpx.Response:
+        self.mock_backoff.side_effect = responses
+        return _httpx_follow_relative_redirects_with_backoff("HEAD", self.BASE_URL)
+
+    def test_relative_redirect_is_followed(self) -> None:
+        """Relative redirects must still be followed (regression)."""
+        response = self._follow(
+            [
+                self._response(308, location="/repo/resolve/main/renamed.json"),
+                self._response(200),
+            ]
+        )
+        assert response.status_code == 200
+        assert self.mock_backoff.call_count == 2
+        assert (
+            self.mock_backoff.call_args_list[1].kwargs["url"]
+            == "https://huggingface.co/repo/resolve/main/renamed.json"
+        )
+
+    def test_absolute_redirect_to_hub_is_followed(self) -> None:
+        """Absolute redirect back to a trusted Hub endpoint must be followed.
+
+        This is the case of an endpoint configured with `HF_ENDPOINT` (e.g. a mirror)
+        that returns an absolute 308 redirect to huggingface.co.
+        """
+        response = self._follow(
+            [
+                self._response(308, location="https://huggingface.co/repo/resolve/main/config.json?download=true"),
+                self._response(200),
+            ]
+        )
+        assert response.status_code == 200
+        assert self.mock_backoff.call_count == 2
+        assert (
+            self.mock_backoff.call_args_list[1].kwargs["url"]
+            == "https://huggingface.co/repo/resolve/main/config.json?download=true"
+        )
+
+    def test_absolute_redirect_to_cdn_is_not_followed(self) -> None:
+        """Absolute redirect to a CDN (or any non-Hub host) must NOT be followed.
+
+        Following it would leak the authorization header to a third party.
+        """
+        response = self._follow([self._response(308, location="https://s3.us-east-1.amazonaws.com/some-bucket/file")])
+        assert response.status_code == 308
+        assert self.mock_backoff.call_count == 1
+
+    def test_absolute_redirect_over_plaintext_http_is_not_followed(self) -> None:
+        """Absolute redirect to a trusted host over plaintext http must NOT be followed.
+
+        The netloc allowlist alone is not enough: `http://huggingface.co/...` has a
+        trusted netloc but would leak the authorization header over plaintext.
+        """
+        response = self._follow([self._response(308, location="http://huggingface.co/repo/resolve/main/config.json")])
+        assert response.status_code == 308
+        assert self.mock_backoff.call_count == 1
+
+    def test_trusted_netlocs_track_runtime_endpoint_change(self) -> None:
+        """Trusted netlocs must reflect a runtime change of `constants.ENDPOINT`.
+
+        Regression test: the allowlist used to be computed at import time, so patching
+        `constants.ENDPOINT` (as `tests/conftest.py` does per test) was not reflected.
+        """
+        with patch("huggingface_hub.utils._http.constants.ENDPOINT", "https://mirror.example.com"):
+            response = self._follow(
+                [
+                    self._response(308, location="https://mirror.example.com/repo/resolve/main/config.json"),
+                    self._response(200),
+                ]
+            )
+        assert response.status_code == 200
+        assert self.mock_backoff.call_count == 2
+        assert (
+            self.mock_backoff.call_args_list[1].kwargs["url"]
+            == "https://mirror.example.com/repo/resolve/main/config.json"
+        )
+
+    def test_max_redirects_is_enforced(self, caplog: pytest.LogCaptureFixture) -> None:
+        """An endless redirect chain must be stopped after `_MAX_REDIRECTS` hops."""
+        from huggingface_hub.utils._http import _MAX_REDIRECTS
+
+        redirect = self._response(308, location="/repo/resolve/main/config.json")
+        with caplog.at_level(logging.WARNING, logger="huggingface_hub.utils._http"):
+            response = self._follow([redirect] * (_MAX_REDIRECTS + 1) + [self._response(200)])
+        assert response.status_code == 308  # stopped before reaching the 200
+        assert self.mock_backoff.call_count == _MAX_REDIRECTS + 1
+        assert any("Stopped following redirects" in record.message for record in caplog.records)
