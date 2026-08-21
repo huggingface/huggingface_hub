@@ -70,6 +70,15 @@ for candidate_name, package_names in _CANDIDATES.items():
             break
         except importlib.metadata.PackageNotFoundError:
             pass
+    # Fallback: in frozen environments (e.g. PyInstaller) metadata is often
+    # stripped while the module itself is bundled. Use find_spec as a fallback
+    # so that bundled packages are still detected.
+    if _package_versions[candidate_name] == "N/A":
+        try:
+            if importlib.util.find_spec(candidate_name) is not None:
+                _package_versions[candidate_name] = "unknown"
+        except (ModuleNotFoundError, ValueError):
+            pass
 
 
 def _get_version(package_name: str) -> str:
