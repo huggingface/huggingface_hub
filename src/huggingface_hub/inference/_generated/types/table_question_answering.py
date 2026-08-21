@@ -27,12 +27,12 @@ class TableQuestionAnsweringParameters(BaseInferenceType):
 
     padding: Optional["Padding"] = None
     """Activates and controls padding."""
-    sequential: bool | None = None
+    sequential: Optional[bool] = None
     """Whether to do inference sequentially or as a batch. Batching is faster, but models like
     SQA require the inference to be done sequentially to extract relations within sequences,
     given their conversational nature.
     """
-    truncation: bool | None = None
+    truncation: Optional[bool] = None
     """Activates and controls truncation."""
 
 
@@ -42,7 +42,7 @@ class TableQuestionAnsweringInput(BaseInferenceType):
 
     inputs: TableQuestionAnsweringInputData
     """One (table, question) pair to answer"""
-    parameters: TableQuestionAnsweringParameters | None = None
+    parameters: Optional[TableQuestionAnsweringParameters] = None
     """Additional inference parameters for Table Question Answering"""
 
 
@@ -58,5 +58,5 @@ class TableQuestionAnsweringOutputElement(BaseInferenceType):
     """list of strings made up of the answer cell values."""
     coordinates: list[list[int]]
     """Coordinates of the cells of the answers."""
-    aggregator: str | None = None
+    aggregator: Optional[str] = None
     """If the model has an aggregator, this returns the aggregator."""
