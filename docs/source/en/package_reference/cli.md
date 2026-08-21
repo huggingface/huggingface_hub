@@ -241,6 +241,7 @@ $ hf buckets [OPTIONS] COMMAND [ARGS]...
 * `list`: List buckets or files in a bucket. [alias: ls]
 * `move`: Move (rename) a bucket to a new name or...
 * `remove`: Remove files from a bucket. [alias: rm]
+* `settings`: Update bucket settings (visibility).
 * `sync`: Sync files between local directory and a...
 
 ### `hf buckets cp`
@@ -486,6 +487,37 @@ Examples
   $ hf buckets rm user/my-bucket/logs/ --recursive
   $ hf buckets rm user/my-bucket --recursive --include "*.tmp"
   $ hf buckets rm user/my-bucket/data/ --recursive --dry-run
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf buckets settings`
+
+Update bucket settings (visibility).
+
+**Usage**:
+
+```console
+$ hf buckets settings [OPTIONS] BUCKET_ID
+```
+
+**Arguments**:
+
+* `BUCKET_ID`: Bucket ID: namespace/bucket_name or hf://buckets/namespace/bucket_name  [required]
+
+**Options**:
+
+* `--private`: Make the bucket private.
+* `--public`: Make the bucket public.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf buckets settings user/my-bucket --private
+  $ hf buckets settings user/my-bucket --public
+  $ hf buckets settings hf://buckets/user/my-bucket --private
 
 Learn more
   Use `hf <command> --help` for more information about a command.
