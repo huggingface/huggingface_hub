@@ -10,6 +10,11 @@
 
 {{ dataset_summary | default("", true) }}
 
+DatasetCard.from_template(
+    pretty_name="Amharic Idiom Classification Dataset",
+    dataset_summary="This dataset contains Amharic figurative expression samples designed for three-class classification: **Idiom**, **Proverb**, and **Literal**.
+The dataset was developed to support research on low-resource natural language processing, particularly figurative language understanding using multilingual transformer models."
+)
 ## Dataset Details
 
 ### Dataset Description
