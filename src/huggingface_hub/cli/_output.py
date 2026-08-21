@@ -117,7 +117,7 @@ class Output:
             return
 
         if headers is None:
-            all_columns = list(items[0].keys())
+            all_columns = list(dict.fromkeys(col for item in items for col in item))
             headers = [col for col in all_columns if any(item.get(col) is not None for item in items)]
         rows = [[item.get(h) for h in headers] for item in items]
 

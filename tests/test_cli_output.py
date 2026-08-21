@@ -170,6 +170,26 @@ def test_table_empty(check):
     )
 
 
+def test_table_auto_headers_cover_every_item(capsys):
+    """Auto-detected headers come from every item, not only the first one.
+
+    Callers build rows with `_dataclass_to_dict`, which drops `None` fields, so two items
+    of the same type can have different key sets (e.g. `hf jobs inspect running_job finished_job`).
+    """
+    items = [
+        {"id": "job-1", "stage": "RUNNING"},
+        {"id": "job-2", "stage": "COMPLETED", "finished_at": "2026-08-21"},
+    ]
+
+    o = Output()
+    o.set_mode(HUMAN)
+    o.table(items)
+
+    captured = capsys.readouterr()
+    assert "FINISHED_AT" in captured.out
+    assert "2026-08-21" in captured.out
+
+
 def test_table_adaptive_shrinks_widest_column(monkeypatch, capsys):
     """Narrow terminal: the wide column gets shrunk, naturally-narrow columns are preserved."""
     monkeypatch.setattr(shutil, "get_terminal_size", lambda *_: os.terminal_size((40, 24)))
