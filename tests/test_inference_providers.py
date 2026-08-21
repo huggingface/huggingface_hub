@@ -21,6 +21,7 @@ from huggingface_hub.inference._providers.cohere import CohereConversationalTask
 from huggingface_hub.inference._providers.deepinfra import (
     DeepInfraAutomaticSpeechRecognitionTask,
     DeepInfraFeatureExtractionTask,
+    DeepInfraTextToImageTask,
     DeepInfraTextToSpeechTask,
 )
 from huggingface_hub.inference._providers.fal_ai import (
@@ -445,6 +446,52 @@ class TestDeepInfraProvider:
             "model": "Qwen/Qwen3-Embedding-0.6B",
         }
         assert helper.get_response(response) == [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
+
+    def test_text_to_image_url(self):
+        helper = DeepInfraTextToImageTask()
+        url = helper._prepare_url("hf_token", "stabilityai/sdxl-turbo")
+        assert url == "https://router.huggingface.co/deepinfra/v1/openai/images/generations"
+
+    def test_text_to_image_payload(self):
+        helper = DeepInfraTextToImageTask()
+        payload = helper._prepare_payload_as_dict(
+            "an astronaut riding a horse",
+            {"width": 1024, "height": 768, "num_inference_steps": None},
+            InferenceProviderMapping(
+                provider="deepinfra",
+                hf_model_id="stabilityai/sdxl-turbo",
+                providerId="stabilityai/sdxl-turbo",
+                task="text-to-image",
+                status="live",
+            ),
+        )
+        assert payload == {
+            "size": "1024x768",
+            "response_format": "b64_json",
+            "prompt": "an astronaut riding a horse",
+            "model": "stabilityai/sdxl-turbo",
+        }
+
+    def test_text_to_image_model_not_overridable(self):
+        helper = DeepInfraTextToImageTask()
+        payload = helper._prepare_payload_as_dict(
+            "a cat",
+            {"model": "attacker/model", "prompt": "attacker prompt"},
+            InferenceProviderMapping(
+                provider="deepinfra",
+                hf_model_id="stabilityai/sdxl-turbo",
+                providerId="stabilityai/sdxl-turbo",
+                task="text-to-image",
+                status="live",
+            ),
+        )
+        assert payload["model"] == "stabilityai/sdxl-turbo"
+        assert payload["prompt"] == "a cat"
+
+    def test_text_to_image_response(self):
+        helper = DeepInfraTextToImageTask()
+        response = {"data": [{"b64_json": base64.b64encode(b"image-bytes").decode()}]}
+        assert helper.get_response(response) == b"image-bytes"
 
 
 class TestFalAIProvider:
