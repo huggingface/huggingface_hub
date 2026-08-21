@@ -4,7 +4,7 @@
 {{ card_data }}
 ---
 
-# Dataset Card for {{ pretty_name | default("Dataset Name", true) }}
+# Dataset Card for {{ pretty_name | default("Amharic Idiom classification dataset", true) }}
 
 <!-- Provide a quick summary of the dataset. -->
 
