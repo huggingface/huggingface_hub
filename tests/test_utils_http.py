@@ -607,6 +607,31 @@ class TestRateLimitErrorMessage:
         assert "0/500" in error_msg
         assert "api/models/username/reponame" in error_msg
 
+    def test_429_with_non_exhausted_ratelimit_headers(self):
+        """Test 429 error ignores rate limit headers when the window is not exhausted."""
+        response = Mock(spec=httpx.Response)
+        response.status_code = 429
+        response.url = "https://huggingface.co/api/repos/create"
+        response.headers = httpx.Headers(
+            {
+                "ratelimit": '"api";r=99794;t=241',
+                "ratelimit-policy": '"fixed window";"api";q=100000;w=300',
+            }
+        )
+        response.raise_for_status.side_effect = httpx.HTTPStatusError("429", request=Mock(), response=response)
+        response.json.return_value = {
+            "error": "You have exceeded the rate limit for repository creation (300 per day)."
+        }
+
+        with pytest.raises(HfHubHTTPError) as exc_info:
+            hf_raise_for_status(response)
+
+        error_msg = str(exc_info.value)
+        assert "429 Too Many Requests" in error_msg
+        assert "'api' rate limit" not in error_msg
+        assert "99794/100000" not in error_msg
+        assert "repository creation" in error_msg
+
     def test_429_without_ratelimit_headers(self):
         """Test 429 error fallback when headers missing."""
         response = Mock(spec=httpx.Response)

@@ -2285,6 +2285,9 @@ Use `hf endpoints` to list, deploy, describe, and manage Inference Endpoints dir
 # Lists endpoints in your namespace
 >>> hf endpoints ls
 
+# List the hardware you can deploy on
+>>> hf endpoints hardware
+
 # Deploy an endpoint from Model Catalog
 >>> hf endpoints catalog deploy --repo openai/gpt-oss-120b --name my-endpoint
 
@@ -2307,6 +2310,29 @@ Use `hf endpoints` to list, deploy, describe, and manage Inference Endpoints dir
 > [!TIP]
 > Add `--namespace` to target an organization, `--token` to override authentication.
 
+#### Find hardware to deploy on
+
+`hf endpoints deploy` needs five hardware flags (`--vendor`, `--region`, `--accelerator`, `--instance-type` and `--instance-size`). `hf endpoints hardware` lists the valid combinations, with the price per replica per hour in USD and the accelerator quota of your namespace:
+
+```bash
+>>> hf endpoints hardware --vendor aws --region eu-west-1
+VENDOR REGION    ACCELERATOR INSTANCE_TYPE INSTANCE_SIZE MEMORY_GB GPU_MEMORY_GB PRICE_PER_HOUR QUOTA STATUS
+------ --------- ----------- ------------- ------------- --------- ------------- -------------- ----- ---------
+aws    eu-west-1 cpu         intel-spr     x1                  2.0                        0.033 0/60  available
+aws    eu-west-1 cpu         intel-spr     x2                  4.0                        0.067 0/60  available
+aws    eu-west-1 cpu         intel-spr     x4                  8.0                        0.134 0/60  available
+aws    eu-west-1 cpu         intel-spr     x8                 16.0                        0.268 0/60  available
+aws    eu-west-1 cpu         intel-spr     x16                32.0                        0.536 0/60  available
+aws    eu-west-1 gpu         nvidia-a10g   x1                 30.0            24            1.0 0/16  available
+aws    eu-west-1 gpu         nvidia-t4     x1                 15.0            16            0.5 1/30  available
+Hint: Deploy on one of these, e.g.: hf endpoints deploy my-endpoint --repo <repo> --framework <framework> --vendor aws --region eu-west-1 --accelerator cpu --instance-type intel-spr --instance-size x1
+```
+
+The filter flags are the deploy flags (`--vendor`, `--region`, `--accelerator`, `--instance-type`), so whatever you filter on is what you pass to `deploy`. Only hardware you can deploy on right now is listed: a usable status, and enough accelerator quota left in your namespace for one replica. Add `--all` to also see what is deprecated, temporarily unavailable or out of quota. `--format json` adds the remaining per-replica specs (vCPUs, architecture, number of accelerators) to each entry.
+
+> [!TIP]
+> Quota is per namespace, and it decides which rows are listed at all. If you are deploying into an organization, pass the same `--namespace` you will pass to `deploy` — otherwise you are looking at your personal quota, which can both hide hardware the organization can deploy on and show hardware it cannot.
+
 #### Deploy a custom container
 
 To deploy your own Docker image instead of a Hugging Face managed one, pass `--framework custom` together with `--custom-image`. The model repository is mounted at `/repository` inside the container. Use `--container-args` (and optionally `--container-command`) to pass a quoted launch string, `--env`/`--secrets` to inject environment variables, and `--type` to set the access type (`public`, `authenticated` or `private`):
@@ -2323,6 +2349,37 @@ To deploy your own Docker image instead of a Hugging Face managed one, pass `--f
       --env MODEL_ID=/repository \
       --type authenticated
 ```
+
+`--container-args` and `--container-command` are not limited to custom images: they map to `model.args` and `model.command` in the API payload, which apply to managed images as well. On an existing endpoint both flags replace the current value rather than adding to it, so pass the full list you want and use an empty string to clear it. Endpoints deployed from the catalog already come with tuned engine flags, so check `hf endpoints describe` before overwriting them:
+
+```bash
+>>> hf endpoints update my-endpoint \
+      --container-args "--enable-auto-tool-choice --tool-call-parser lfm2"
+```
+
+#### Deploy a managed engine image
+
+`--custom-image` alone deploys an arbitrary container. Add `--engine` to run it as one of the engines the API manages (`vllm`, `sglang`, `tgi`, `tei`, `llamacpp`, `hf-serve`, ...), which unlocks that engine's settings, including `--tensor-parallel-size` and `--data-parallel-size`. vLLM and SGLang default to one accelerator while the endpoint gets every accelerator of its instance, so leaving both unset would load the model onto one and idle the rest while still reporting healthy, which is why the API now rejects that configuration:
+
+```bash
+>>> hf endpoints deploy gpt-oss-120b-vllm \
+      --repo openai/gpt-oss-120b \
+      --framework custom \
+      --accelerator gpu --vendor aws --region us-east-1 \
+      --instance-type nvidia-h200 --instance-size x8 \
+      --engine vllm --custom-image vllm/vllm-openai:v0.23.0 \
+      --tensor-parallel-size 8
+```
+
+This is not the same as `--container-args "... --tp 8"` above: `--tensor-parallel-size` writes into the engine's `model.image` config, which is what the API validates against the instance's accelerator count, while `--container-args` only appends a flag to the command line. Use `--container-args` for engine flags with no image field, and for plain custom containers, which have no parallelism fields.
+
+To retune a running endpoint, pass the sizes on their own. `model.image` is sent as a whole and requires `url`, so the endpoint's current image is fetched and updated in place:
+
+```bash
+>>> hf endpoints update gpt-oss-120b-vllm --tensor-parallel-size 4 --data-parallel-size 2
+```
+
+`hf endpoints update` also takes `--custom-image` and `--engine`, the only way to change an endpoint's image from the CLI. That path replaces `model.image` instead of patching it, so run `hf endpoints describe` first and pass back what you want to keep.
 
 ### hf endpoints catalog
 

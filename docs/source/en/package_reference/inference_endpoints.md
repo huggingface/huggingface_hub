@@ -12,6 +12,7 @@ Inference Endpoints can be fully managed via API. The endpoints are documented w
 A subset of the Inference Endpoint features are implemented in [`HfApi`]:
 
 - [`get_inference_endpoint`] and [`list_inference_endpoints`] to get information about your Inference Endpoints
+- [`list_inference_endpoints_hardware`] to list the hardware you can deploy an Inference Endpoint on
 - [`create_inference_endpoint`], [`update_inference_endpoint`] and [`delete_inference_endpoint`] to deploy and manage Inference Endpoints
 - [`pause_inference_endpoint`] and [`resume_inference_endpoint`] to pause and resume an Inference Endpoint
 - [`scale_to_zero_inference_endpoint`] to manually scale an Endpoint to 0 replicas
@@ -25,6 +26,10 @@ The main dataclass is [`InferenceEndpoint`]. It contains information about a dep
   - client
   - async_client
   - all
+
+## InferenceEndpointHardware
+
+[[autodoc]] InferenceEndpointHardware
 
 ## InferenceEndpointStatus
 

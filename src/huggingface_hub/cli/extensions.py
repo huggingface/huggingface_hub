@@ -23,10 +23,12 @@ import venv
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from enum import Enum
+from html import unescape
 from pathlib import Path
 from typing import Annotated, Literal
 
 import click
+import httpx
 
 from huggingface_hub.errors import CLIError, CLIExtensionInstallError, ConfirmationError
 from huggingface_hub.utils import get_session, logging
@@ -50,6 +52,14 @@ _EXTENSIONS_DOWNLOAD_TIMEOUT = 10
 _EXTENSIONS_PIP_INSTALL_TIMEOUT = 300
 
 logger = logging.get_logger(__name__)
+
+
+class _GitHubRateLimitError(CLIError):
+    """The GitHub API refused the request because a rate limit is exhausted.
+
+    Distinguished from other `CLIError`s because it says nothing about the extension being handled:
+    it is not worth retrying on the next one, and it must not be mistaken for an install failure.
+    """
 
 
 class _ExtensionUpdateStatus(str, Enum):
@@ -122,13 +132,12 @@ def extension_install(
     if extension_dir.exists() and not force:
         raise CLIError(f"Extension '{short_name}' is already installed. Use --force to overwrite.")
 
-    branch, description = _fetch_github_repo_info(owner=owner, repo_name=repo_name)
+    if not _github_repo_exists(owner=owner, repo_name=repo_name):
+        raise CLIError(f"GitHub repository '{owner}/{repo_name}' not found. It must exist and be public.")
     if extension_dir.exists():
-        # --force reinstall: only remove the previous install once the repo metadata is resolved.
+        # --force reinstall: only remove the previous install once the repo is known to exist.
         shutil.rmtree(extension_dir)
-    manifest = _install_extension(
-        owner=owner, repo_name=repo_name, short_name=short_name, branch=branch, description=description
-    )
+    manifest = _install_extension(owner=owner, repo_name=repo_name, short_name=short_name)
     ext_type = manifest.type.capitalize()
     out.result(
         f"{ext_type} extension installed",
@@ -182,6 +191,9 @@ def extension_update(
         out.log(f"Checking '{manifest.short_name}' ({manifest.repo_id})...")
         try:
             update_status = _update_installed_extension(manifest)
+        except _GitHubRateLimitError:
+            # Every remaining extension would fail the same way, so stop rather than repeat it.
+            raise
         except Exception as error:
             # Keep updating the other extensions even if one fails.
             out.warning(f"Could not update '{manifest.short_name}' ({manifest.repo_id}): {error}. Skipping.")
@@ -245,7 +257,8 @@ def extension_list() -> None:
 @extensions_cli.command("search", examples=["hf extensions search"])
 def extension_search() -> None:
     """Search extensions available on GitHub (tagged with 'hf-extension' topic)."""
-    response = _github_get(
+    response = _github_request(
+        "GET",
         "https://api.github.com/search/repositories",
         params={"q": f"topic:{_EXTENSIONS_GITHUB_TOPIC}", "sort": "stars", "order": "desc", "per_page": 100},
     )
@@ -350,8 +363,11 @@ def _auto_install_official_extension(short_name: str) -> Path | None:
     if _get_extension_dir(short_name).exists():
         return None
 
+    # Every unknown `hf <command>` reaches this point, typos included, so the existence check must
+    # not spend REST API quota (see `_github_request`).
     try:
-        branch, description = _fetch_github_repo_info(owner=owner, repo_name=repo_name)
+        if not _github_repo_exists(owner=owner, repo_name=repo_name):
+            return None
     except Exception:
         return None
 
@@ -360,9 +376,7 @@ def _auto_install_official_extension(short_name: str) -> Path | None:
     except ConfirmationError:
         return None
     try:
-        manifest = _install_extension(
-            owner=owner, repo_name=repo_name, short_name=short_name, branch=branch, description=description
-        )
+        manifest = _install_extension(owner=owner, repo_name=repo_name, short_name=short_name)
         return Path(manifest.executable_path).expanduser()
     except Exception:
         return None
@@ -384,29 +398,18 @@ def _update_installed_extension(manifest: ExtensionManifest) -> _ExtensionUpdate
     owner, repo_name, short_name = manifest.owner, manifest.repo, manifest.short_name
 
     try:
-        branch, description = _fetch_github_repo_info(owner=owner, repo_name=repo_name)
+        latest_sha = _fetch_latest_commit_sha(owner=owner, repo_name=repo_name)
+    except _GitHubRateLimitError:
+        # Says nothing about this extension in particular, so let the caller stop the whole run.
+        raise
     except Exception as error:
         out.warning(f"Could not check updates for '{short_name}' ({owner}/{repo_name}): {error}. Skipping.")
-        return _ExtensionUpdateStatus.SKIPPED
-
-    latest_sha = _fetch_latest_commit_sha(owner=owner, repo_name=repo_name, branch=branch, warn=False)
-    if latest_sha is None:
-        out.warning(
-            f"Could not check updates for '{short_name}' ({owner}/{repo_name}): GitHub is unreachable. Skipping."
-        )
         return _ExtensionUpdateStatus.SKIPPED
 
     if latest_sha == manifest.commit_sha:
         return _ExtensionUpdateStatus.UP_TO_DATE
 
-    _install_extension(
-        owner=owner,
-        repo_name=repo_name,
-        short_name=short_name,
-        branch=branch,
-        description=description,
-        commit_sha=latest_sha,
-    )
+    _install_extension(owner=owner, repo_name=repo_name, short_name=short_name, commit_sha=latest_sha)
     return _ExtensionUpdateStatus.UPDATED
 
 
@@ -415,8 +418,6 @@ def _install_extension(
     owner: str,
     repo_name: str,
     short_name: str,
-    branch: str,
-    description: str | None = None,
     commit_sha: str | None = None,
 ) -> ExtensionManifest:
     """Fetch and install an extension (binary or Python package), then persist its manifest.
@@ -429,7 +430,7 @@ def _install_extension(
     installed = False
     try:
         try:
-            binary = _fetch_remote_binary(owner=owner, repo_name=repo_name, branch=branch, short_name=short_name)
+            binary = _fetch_remote_binary(owner=owner, repo_name=repo_name, short_name=short_name)
         except Exception:
             binary = None
 
@@ -439,8 +440,17 @@ def _install_extension(
             )
         else:
             executable_path = _install_python_extension(
-                extension_dir=extension_dir, owner=owner, repo_name=repo_name, short_name=short_name, branch=branch
+                extension_dir=extension_dir, owner=owner, repo_name=repo_name, short_name=short_name
             )
+
+        if commit_sha is None:
+            # The extension itself is on disk by now, fetched from the CDN. The SHA only feeds update
+            # detection, so a failure here must not throw the install away: without it, the next
+            # `hf extensions update` sees no known SHA, considers the extension outdated and reinstalls.
+            try:
+                commit_sha = _fetch_latest_commit_sha(owner=owner, repo_name=repo_name)
+            except Exception as error:
+                out.warning(f"Could not record a version for '{owner}/{repo_name}', installing anyway: {error}")
 
         manifest = ExtensionManifest(
             owner=owner,
@@ -450,10 +460,8 @@ def _install_extension(
             executable_path=str(executable_path),
             type="binary" if binary is not None else "python",
             installed_at=datetime.now(timezone.utc),
-            description=_try_fetch_remote_description(
-                owner=owner, repo_name=repo_name, branch=branch, candidate_description=description
-            ),
-            commit_sha=commit_sha or _fetch_latest_commit_sha(owner=owner, repo_name=repo_name, branch=branch),
+            description=_try_fetch_remote_description(owner=owner, repo_name=repo_name),
+            commit_sha=commit_sha,
         )
         manifest.save(extension_dir)
         installed = True
@@ -477,24 +485,24 @@ def _install_extension(
             shutil.rmtree(extension_dir, ignore_errors=True)
 
 
-def _fetch_latest_commit_sha(*, owner: str, repo_name: str, branch: str, warn: bool = True) -> str | None:
-    """Best-effort fetch of the latest commit SHA for a branch, used to detect available updates."""
-    try:
-        response = _github_get(
-            f"https://api.github.com/repos/{owner}/{repo_name}/commits/{branch}",
-            headers={"Accept": "application/vnd.github.sha"},
-        )
-        return response.text.strip() or None
-    except Exception as error:
-        if warn:
-            out.warning(f"Could not fetch latest commit SHA for '{repo_name}' ({owner}/{repo_name}): {error}")
-        return None
+def _fetch_latest_commit_sha(*, owner: str, repo_name: str) -> str:
+    """Fetch the latest commit SHA on the default branch, used to detect available updates.
+
+    The only REST API call left in the install and update paths. Raises on failure: callers decide
+    whether a missing SHA is fatal, and report the reason themselves.
+    """
+    response = _github_request(
+        "GET",
+        f"https://api.github.com/repos/{owner}/{repo_name}/commits/HEAD",
+        headers={"Accept": "application/vnd.github.sha"},
+    )
+    return response.text.strip()
 
 
-def _fetch_remote_binary(*, owner: str, repo_name: str, branch: str, short_name: str) -> bytes:
+def _fetch_remote_binary(*, owner: str, repo_name: str, short_name: str) -> bytes:
     executable_name = _get_executable_name(short_name)
-    raw_url = f"https://raw.githubusercontent.com/{owner}/{repo_name}/refs/heads/{branch}/{executable_name}"
-    response = _github_get(raw_url)
+    raw_url = f"https://raw.githubusercontent.com/{owner}/{repo_name}/HEAD/{executable_name}"
+    response = _github_request("GET", raw_url)
     return response.content
 
 
@@ -509,10 +517,8 @@ def _install_binary_extension(*, extension_dir: Path, short_name: str, binary: b
     return executable_path
 
 
-def _install_python_extension(
-    *, extension_dir: Path, owner: str, repo_name: str, short_name: str, branch: str
-) -> Path:
-    source_url = f"https://github.com/{owner}/{repo_name}/archive/refs/heads/{branch}.zip"
+def _install_python_extension(*, extension_dir: Path, owner: str, repo_name: str, short_name: str) -> Path:
+    source_url = f"https://github.com/{owner}/{repo_name}/archive/HEAD.zip"
     venv_dir = extension_dir / "venv"
     venv_python = _get_venv_bin_path(venv_dir, "python.exe" if os.name == "nt" else "python")
     uv_path = shutil.which("uv")
@@ -555,20 +561,22 @@ def _install_python_extension(
     return venv_executable.resolve()
 
 
-def _try_fetch_remote_description(
-    owner: str, repo_name: str, branch: str, candidate_description: str | None
-) -> str | None:
+_GITHUB_ABOUT_RE = re.compile(r'<meta name="description" content="([^"]*)"')
+
+
+def _try_fetch_remote_description(owner: str, repo_name: str) -> str | None:
     """Try to fetch project description either from:
     - manifest.json
     - pyproject.toml
+    - the repository's GitHub "About" field
 
     Only best effort, no error handling.
     """
-    base = f"https://raw.githubusercontent.com/{owner}/{repo_name}/refs/heads/{branch}"
+    base = f"https://raw.githubusercontent.com/{owner}/{repo_name}/HEAD"
 
     # from manifest.json
     try:
-        response = _github_get(f"{base}/{MANIFEST_FILENAME}")
+        response = _github_request("GET", f"{base}/{MANIFEST_FILENAME}")
         description = response.json().get("description")
         if isinstance(description, str):
             return description
@@ -577,7 +585,7 @@ def _try_fetch_remote_description(
 
     # from pyproject.toml
     try:
-        response = _github_get(f"{base}/pyproject.toml")
+        response = _github_request("GET", f"{base}/pyproject.toml")
 
         # Weak parser but ok for "best effort"
         for line in response.text.splitlines():
@@ -588,8 +596,18 @@ def _try_fetch_remote_description(
     except Exception:
         pass
 
-    # fallback to value fetched from GH API directly
-    return candidate_description
+    # from the repo page's "About" field. Served by github.com, so it costs no REST API quota.
+    try:
+        response = _github_request("GET", f"https://github.com/{owner}/{repo_name}")
+        if (match := _GITHUB_ABOUT_RE.search(response.text)) is not None:
+            # GitHub renders "<about> - <owner>/<repo>", and unrelated boilerplate when About is empty.
+            content = unescape(match.group(1))
+            if (description := content.removesuffix(f" - {owner}/{repo_name}")) != content:
+                return description
+    except Exception:
+        pass
+
+    return None
 
 
 def _get_extension_dir(short_name: str) -> Path:
@@ -599,27 +617,77 @@ def _get_extension_dir(short_name: str) -> Path:
     return EXTENSIONS_ROOT.expanduser() / f"hf-{short_name}"
 
 
-def _github_get(url: str, *, params: dict | None = None, headers: dict | None = None):
-    """Perform a GitHub GET request.
+def _github_request(
+    method: str, url: str, *, params: dict | None = None, headers: dict | None = None
+) -> httpx.Response:
+    """Perform a GitHub request.
 
-    Shared by every GitHub/Raw fetch in this module so the timeout and redirect policy are shared.
+    Shared by every GitHub/Raw fetch in this module so the timeout, redirect and rate-limit policy are
+    shared.
+
+    Unauthenticated `api.github.com` calls are capped per IP address, and that quota is shared with
+    everything else calling GitHub from the same network (NAT, VPN, CI egress). Remote refs are therefore
+    always addressed as `HEAD`, which GitHub resolves to the repo's default branch on
+    `raw.githubusercontent.com`, on the archive endpoint and on the REST API alike: no
+    `GET /repos/{owner}/{repo}` lookup is needed to discover the branch name.
     """
-    response = get_session().get(
+    response = get_session().request(
+        method,
         url,
         params=params,
         headers=headers,
         follow_redirects=True,
         timeout=_EXTENSIONS_DOWNLOAD_TIMEOUT,
     )
+    # Primary limits report an exhausted quota, secondary ones only ask to back off.
+    if response.status_code in (403, 429) and (
+        response.headers.get("x-ratelimit-remaining") == "0" or "retry-after" in response.headers
+    ):
+        raise _GitHubRateLimitError(_rate_limit_message(response.headers))
     response.raise_for_status()
     return response
 
 
-def _fetch_github_repo_info(*, owner: str, repo_name: str) -> tuple[str, str | None]:
-    """Fetch `default_branch` + `description` for a GitHub repo from `GET /repos/{owner}/{repo}`."""
-    response = _github_get(f"https://api.github.com/repos/{owner}/{repo_name}")
-    data = response.json()
-    return data["default_branch"], data.get("description")
+def _rate_limit_message(headers: httpx.Headers) -> str:
+    """Message for a GitHub rate-limit rejection, built from the response headers.
+
+    The cap itself is deliberately not quoted: it depends on the endpoint (60/hour on the core API,
+    10/minute on search), so only the wait is reported.
+
+    `retry-after` wins over `x-ratelimit-reset`: GitHub rides the primary window's reset timestamp on
+    every REST response, secondary rate limits included, so on a back-off it would point at an hourly
+    window that is not the one being enforced.
+    """
+    message = (
+        "GitHub API rate limit exceeded. Unauthenticated requests are capped per IP address, and that "
+        "quota is shared with anything else calling GitHub from your network."
+    )
+    if (retry_after := headers.get("retry-after")) is not None:
+        message += f" Retry in {retry_after}s."
+    elif (reset := headers.get("x-ratelimit-reset")) is not None:
+        try:
+            reset_at = datetime.fromtimestamp(int(reset), tz=timezone.utc).astimezone()
+        except (OverflowError, OSError, ValueError):
+            pass
+        else:
+            message += f" It resets at {reset_at:%H:%M:%S %Z}."
+    return message
+
+
+def _github_repo_exists(*, owner: str, repo_name: str) -> bool:
+    """Whether a public GitHub repo exists.
+
+    Resolved against `github.com` rather than `GET /repos/{owner}/{repo}` to keep the check off the
+    metered REST API (see `_github_request`). Only a 404 answers `False`: any other failure is reported
+    as such, so callers never present an unreachable GitHub as a missing repo.
+    """
+    try:
+        _github_request("HEAD", f"https://github.com/{owner}/{repo_name}")
+    except httpx.HTTPError as error:
+        if isinstance(error, httpx.HTTPStatusError) and error.response.status_code == 404:
+            return False
+        raise CLIError(f"Could not reach GitHub to check whether '{owner}/{repo_name}' exists: {error}") from error
+    return True
 
 
 def _get_executable_name(short_name: str) -> str:

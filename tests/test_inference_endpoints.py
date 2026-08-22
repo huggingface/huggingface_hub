@@ -149,6 +149,109 @@ MOCK_UPDATE = {
 }
 
 
+# Trimmed response of `GET /v2/provider/{namespace}`: 2 vendors, one region each, with a mix of statuses.
+MOCK_PROVIDERS = {
+    "vendors": [
+        {
+            "name": "aws",
+            "status": "available",
+            "regions": [
+                {
+                    "name": "us-east-1",
+                    "label": "N. Virginia",
+                    "status": "available",
+                    "computes": [
+                        {
+                            "id": "aws-us-east-1-nvidia-l4-x1",
+                            "accelerator": "gpu",
+                            "numAccelerators": 1,
+                            "numCpus": 7,
+                            "memoryGb": 30.0,
+                            "gpuMemoryGb": 24,
+                            "instanceType": "nvidia-l4",
+                            "instanceSize": "x1",
+                            "architecture": "Nvidia L4",
+                            "status": "available",
+                            "pricePerHour": 0.8,
+                            "quota": {"maxAccelerators": 16, "usedAccelerators": 1},
+                        },
+                        {
+                            "id": "aws-us-east-1-intel-spr-x1",
+                            "accelerator": "cpu",
+                            "numAccelerators": 1,
+                            "memoryGb": 2.0,
+                            "gpuMemoryGb": None,
+                            "instanceType": "intel-spr",
+                            "instanceSize": "x1",
+                            "architecture": "Intel Sapphire Rapids",
+                            "status": "available",
+                            "pricePerHour": 0.033,
+                            "quota": {"maxAccelerators": 60, "usedAccelerators": 0},
+                        },
+                    ],
+                }
+            ],
+        },
+        {
+            "name": "gcp",
+            "status": "available",
+            "regions": [
+                {
+                    "name": "us-east4",
+                    "label": "Virginia",
+                    "status": "available",
+                    "computes": [
+                        {
+                            "id": "gcp-us-east4-nvidia-a100-x8",
+                            "accelerator": "gpu",
+                            "numAccelerators": 8,
+                            "numCpus": 96,
+                            "memoryGb": 680.0,
+                            "gpuMemoryGb": 640,
+                            "instanceType": "nvidia-a100",
+                            "instanceSize": "x8",
+                            "architecture": "Nvidia A100",
+                            "status": "reserved",
+                            "pricePerHour": 28.8,
+                            "quota": {"maxAccelerators": 2, "usedAccelerators": 0},
+                        }
+                    ],
+                }
+            ],
+        },
+    ]
+}
+
+
+@patch("huggingface_hub.hf_api.get_session")
+def test_list_hardware(mock_get_session: Mock):
+    """Test the vendor/region/compute matrix is flattened into a list of hardware."""
+    mock_get_session.return_value.get.return_value = Mock(status_code=200, json=lambda: MOCK_PROVIDERS)
+
+    hardware = HfApi().list_inference_endpoints_hardware(namespace="foo")
+
+    assert mock_get_session.return_value.get.call_args[0][0].endswith("/provider/foo")
+    assert [hw.id for hw in hardware] == [
+        "aws-us-east-1-nvidia-l4-x1",
+        "aws-us-east-1-intel-spr-x1",
+        "gcp-us-east4-nvidia-a100-x8",
+    ]
+
+    # Vendor and region come from the enclosing objects, the rest from the compute itself.
+    gpu, cpu, reserved = hardware
+    assert (gpu.vendor, gpu.region) == ("aws", "us-east-1")
+    assert (gpu.accelerator, gpu.instance_type, gpu.instance_size) == ("gpu", "nvidia-l4", "x1")
+    assert (gpu.gpu_memory_gb, gpu.num_cpus, gpu.price_per_hour) == (24, 7, 0.8)
+    assert (gpu.used_accelerators, gpu.max_accelerators) == (1, 16)
+
+    # 'gpuMemoryGb' is null and 'numCpus' is missing on CPU hardware.
+    assert cpu.gpu_memory_gb is None
+    assert cpu.num_cpus is None
+
+    # Hardware that cannot be deployed on right now is returned as well, with its status.
+    assert (reserved.vendor, reserved.region, reserved.status) == ("gcp", "us-east4", "reserved")
+
+
 def test_from_raw_initialization():
     """Test InferenceEndpoint is correctly initialized from raw dict."""
     endpoint = InferenceEndpoint.from_raw(MOCK_INITIALIZING, namespace="foo")

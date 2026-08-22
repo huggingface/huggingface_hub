@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from pytest import LogCaptureFixture
 
+from huggingface_hub import constants
 from huggingface_hub.hf_api import InferenceProviderMapping
 from huggingface_hub.inference._common import RequestParameters
 from huggingface_hub.inference._providers import PROVIDERS, get_provider_helper
@@ -17,7 +18,11 @@ from huggingface_hub.inference._providers._common import (
     recursive_merge,
 )
 from huggingface_hub.inference._providers.cohere import CohereConversationalTask
-from huggingface_hub.inference._providers.deepinfra import DeepInfraAutomaticSpeechRecognitionTask
+from huggingface_hub.inference._providers.deepinfra import (
+    DeepInfraAutomaticSpeechRecognitionTask,
+    DeepInfraFeatureExtractionTask,
+    DeepInfraTextToSpeechTask,
+)
 from huggingface_hub.inference._providers.fal_ai import (
     _POLLING_INTERVAL,
     FalAIAutomaticSpeechRecognitionTask,
@@ -344,6 +349,103 @@ class TestDeepInfraProvider:
         with pytest.raises(ValueError):
             helper.get_response({"text": 123})
 
+    def test_text_to_speech_url(self):
+        helper = DeepInfraTextToSpeechTask()
+        url = helper._prepare_url("hf_token", "hexgrad/Kokoro-82M")
+        assert url == "https://router.huggingface.co/deepinfra/v1/openai/audio/speech"
+
+    def test_text_to_speech_payload(self):
+        helper = DeepInfraTextToSpeechTask()
+        payload = helper._prepare_payload_as_dict(
+            "Hello, world!",
+            {"voice": "af_bella", "speed": 1.0},
+            InferenceProviderMapping(
+                provider="deepinfra",
+                hf_model_id="hexgrad/Kokoro-82M",
+                providerId="hexgrad/Kokoro-82M",
+                task="text-to-speech",
+                status="live",
+            ),
+        )
+        assert payload == {
+            "input": "Hello, world!",
+            "voice": "af_bella",
+            "speed": 1.0,
+            "model": "hexgrad/Kokoro-82M",
+        }
+
+    def test_text_to_speech_model_not_overridable(self):
+        helper = DeepInfraTextToSpeechTask()
+        payload = helper._prepare_payload_as_dict(
+            "Hello, world!",
+            {"model": "attacker/model"},
+            InferenceProviderMapping(
+                provider="deepinfra",
+                hf_model_id="hexgrad/Kokoro-82M",
+                providerId="hexgrad/Kokoro-82M",
+                task="text-to-speech",
+                status="live",
+            ),
+        )
+        assert payload["model"] == "hexgrad/Kokoro-82M"
+
+    def test_text_to_speech_response(self):
+        helper = DeepInfraTextToSpeechTask()
+        assert helper.get_response(b"audio_bytes") == b"audio_bytes"
+        with pytest.raises(ValueError):
+            helper.get_response({"not": "bytes"})
+
+    def test_feature_extraction_url(self):
+        helper = DeepInfraFeatureExtractionTask()
+        url = helper._prepare_url("hf_token", "Qwen/Qwen3-Embedding-0.6B")
+        assert url == "https://router.huggingface.co/deepinfra/v1/openai/embeddings"
+
+    def test_feature_extraction_payload(self):
+        helper = DeepInfraFeatureExtractionTask()
+        payload = helper._prepare_payload_as_dict(
+            "Hello, world!",
+            {"encoding_format": "float"},
+            InferenceProviderMapping(
+                provider="deepinfra",
+                hf_model_id="Qwen/Qwen3-Embedding-0.6B",
+                providerId="Qwen/Qwen3-Embedding-0.6B",
+                task="feature-extraction",
+                status="live",
+            ),
+        )
+        assert payload == {
+            "input": "Hello, world!",
+            "encoding_format": "float",
+            "model": "Qwen/Qwen3-Embedding-0.6B",
+        }
+
+    def test_feature_extraction_model_not_overridable(self):
+        helper = DeepInfraFeatureExtractionTask()
+        payload = helper._prepare_payload_as_dict(
+            "Hello, world!",
+            {"model": "attacker/model"},
+            InferenceProviderMapping(
+                provider="deepinfra",
+                hf_model_id="Qwen/Qwen3-Embedding-0.6B",
+                providerId="Qwen/Qwen3-Embedding-0.6B",
+                task="feature-extraction",
+                status="live",
+            ),
+        )
+        assert payload["model"] == "Qwen/Qwen3-Embedding-0.6B"
+
+    def test_feature_extraction_response(self):
+        helper = DeepInfraFeatureExtractionTask()
+        response = {
+            "object": "list",
+            "data": [
+                {"object": "embedding", "index": 0, "embedding": [0.1, 0.2, 0.3]},
+                {"object": "embedding", "index": 1, "embedding": [0.4, 0.5, 0.6]},
+            ],
+            "model": "Qwen/Qwen3-Embedding-0.6B",
+        }
+        assert helper.get_response(response) == [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
+
 
 class TestFalAIProvider:
     def test_prepare_headers_fal_ai_key(self):
@@ -415,8 +517,47 @@ class TestFalAIProvider:
 
     def test_text_to_video_payload(self):
         helper = FalAITextToVideoTask()
-        payload = helper._prepare_payload_as_dict("a cat walking", {"num_frames": 16}, "username/repo_name")
+        payload = helper._prepare_payload_as_dict(
+            "a cat walking",
+            {"num_frames": 16},
+            InferenceProviderMapping(
+                provider="fal-ai",
+                hf_model_id="username/repo_name",
+                providerId="username/repo_name",
+                task="text-to-video",
+                status="live",
+            ),
+        )
         assert payload == {"prompt": "a cat walking", "num_frames": 16}
+
+    def test_text_to_video_payload_with_lora(self):
+        helper = FalAITextToVideoTask()
+        payload = helper._prepare_payload_as_dict(
+            "a cat walking",
+            {},
+            InferenceProviderMapping(
+                provider="fal-ai",
+                hf_model_id="username/repo_name",
+                providerId="provider-id/text-to-video/lora",
+                task="text-to-video",
+                status="live",
+                adapter="lora",
+                adapterWeightsPath="pytorch_lora_weights.safetensors",
+            ),
+        )
+        assert payload == {
+            "prompt": "a cat walking",
+            "loras": [
+                {
+                    "path": constants.HUGGINGFACE_CO_URL_TEMPLATE.format(
+                        repo_id="username/repo_name",
+                        revision="main",
+                        filename="pytorch_lora_weights.safetensors",
+                    ),
+                    "scale": 1,
+                }
+            ],
+        }
 
     def test_text_to_video_response(self, mocker):
         helper = FalAITextToVideoTask()
