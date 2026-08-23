@@ -45,6 +45,7 @@ from huggingface_hub.inference._providers.hf_inference import (
     HFInferenceFeatureExtractionTask,
     HFInferenceTask,
 )
+from huggingface_hub.inference._providers.llmtech import LLMTechConversationalTask
 from huggingface_hub.inference._providers.novita import NovitaConversationalTask, NovitaTextGenerationTask
 from huggingface_hub.inference._providers.nscale import NscaleConversationalTask, NscaleTextToImageTask
 from huggingface_hub.inference._providers.openai import OpenAIConversationalTask
@@ -910,6 +911,18 @@ class TestGroqProvider:
         """Test route preparation for Groq conversational task."""
         helper = GroqConversationalTask()
         assert helper._prepare_route("username/repo_name", "hf_token") == "/openai/v1/chat/completions"
+
+
+class TestLLMTechProvider:
+    def test_prepare_route(self):
+        """Test route preparation for LLM Tech conversational task."""
+        helper = LLMTechConversationalTask()
+        assert helper._prepare_route("username/repo_name", "hf_token") == "/v1/chat/completions"
+
+    def test_prepare_base_url_direct_call(self):
+        """Direct calls with a provider key go to LLM Tech, routed calls go through HF."""
+        helper = LLMTechConversationalTask()
+        assert helper._prepare_base_url("llmtech_key") == "https://api.llmtech.eu"
 
 
 class TestHFInferenceProvider:
