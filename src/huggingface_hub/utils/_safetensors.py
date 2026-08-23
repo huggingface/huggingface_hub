@@ -4,6 +4,8 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Literal
 
+from huggingface_hub.errors import SafetensorsParsingError
+
 
 FILENAME_T = str
 TENSOR_NAME_T = str
@@ -109,3 +111,24 @@ class SafetensorsRepoMetadata:
             for dtype, nb_parameters_ in file_metadata.parameter_count.items():
                 parameter_count[dtype] += nb_parameters_
         self.parameter_count = dict(parameter_count)
+
+
+def _assert_weight_map_matches_shard_headers(
+    weight_map: dict[TENSOR_NAME_T, FILENAME_T],
+    files_metadata: dict[FILENAME_T, SafetensorsFileMetadata],
+) -> None:
+    """Raise if the index maps a tensor to a shard that does not list it."""
+    missing = [
+        (tensor_name, shard)
+        for tensor_name, shard in weight_map.items()
+        if files_metadata.get(shard) is None or tensor_name not in files_metadata[shard].tensors
+    ]
+    if not missing:
+        return
+    shown = missing[:5]
+    extra = f" (and {len(missing) - 5} more)" if len(missing) > 5 else ""
+    details = "; ".join(f"{name!r} listed in {shard!r}" for name, shard in shown)
+    raise SafetensorsParsingError(
+        "Safetensors index weight_map points at tensors that are not in the mapped shard headers: "
+        f"{details}{extra}."
+    )

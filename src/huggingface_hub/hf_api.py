@@ -164,6 +164,7 @@ from .utils._auth import _get_token_from_environment, _get_token_from_file, _get
 from .utils._deprecation import _deprecate_arguments, _deprecate_method
 from .utils._http import _httpx_follow_relative_redirects_with_backoff
 from .utils._runtime import is_xet_available
+from .utils._safetensors import _assert_weight_map_matches_shard_headers
 from .utils._typing import CallableT
 from .utils._verification import collect_local_files, resolve_local_root, verify_maps
 from .utils.endpoint_helpers import _is_emission_within_threshold
@@ -6971,6 +6972,8 @@ class HfApi:
                 desc="Parse safetensors files",
                 tqdm_class=hf_tqdm,
             )
+
+            _assert_weight_map_matches_shard_headers(weight_map, files_metadata)
 
             return SafetensorsRepoMetadata(
                 metadata=index.get("metadata", None),
@@ -15111,6 +15114,8 @@ def get_local_safetensors_metadata(path: str | Path) -> SafetensorsRepoMetadata:
         for shard_filename in set(weight_map.values()):
             shard_path = path / shard_filename
             files_metadata[shard_filename] = parse_local_safetensors_file_metadata(shard_path)
+
+        _assert_weight_map_matches_shard_headers(weight_map, files_metadata)
 
         return SafetensorsRepoMetadata(
             metadata=index.get("metadata", None),
