@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from itertools import chain
 from pathlib import Path, PurePosixPath
-from typing import Any, NoReturn, Union
+from typing import Any, Literal, NoReturn, Union, overload
 from urllib.parse import quote, unquote
 
 import fsspec
@@ -386,6 +386,18 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
                 else:
                     self._bucket_exists_cache.pop(resolved_path.bucket_id, None)
 
+    @overload
+    def open(
+        self,
+        path,
+        mode: Literal["ab", "mb"],
+        block_size=None,
+        cache_options=None,
+        compression=None,
+        **kwargs,
+    ) -> "HfFileSystemMutateFile":
+        ...
+
     def open(
         self,
         path,
@@ -394,7 +406,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         cache_options=None,
         compression=None,
         **kwargs,
-    ):
+    ) -> fsspec.spec.AbstractBufferedFile:
         """
         Return a file-like object from the filesystem
 
