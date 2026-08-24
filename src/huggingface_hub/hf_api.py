@@ -15019,29 +15019,59 @@ class HfApi:
             token=token
         )
         try:
-            with session.new_range_upload(
+            commit = session.new_range_upload(
                 file_metadata.xet_file_data.file_hash,
                 file_metadata.size,
                 token_refresh_url=refresh_url,
                 token_refresh_headers=headers,
                 custom_headers=xet_headers,
                 progress_callback=progress_callback,
-            ) as commit:
+            )
+            try:
                 if edit:
                     for (start, end), data in edit:
-                        commit.insert(start, end).write(data)
+                        commit.edit(start, end).write(data)
                 if insert:
                     for loc, data in insert:
                         commit.insert(loc, len(data)).write(data)
                 if delete:
                     for loc, length in delete:
                         commit.delete(loc, loc + length)
+                report = commit.commit()
+            except KeyboardInterrupt:
+                commit.abort()
+                raise
+            finally:
+                # Clean up the commit resources
+                try:
+                    commit.close()
+                except Exception:
+                    pass
         except KeyboardInterrupt:
             abort_xet_session()
             raise
         finally:
             if owns_progress and progress is not None:
                 progress.close()
+
+        # Update the Hub file reference with the new hash and size
+        if report is not None and report.file_info is not None:
+            from huggingface_hub._buckets import _BucketCopyFile
+
+            # Use _BucketCopyFile to update the file reference.
+            # We copy from the same bucket (self-referential) to update the file hash.
+            self._batch_bucket_files(
+                bucket_id=bucket_id,
+                copy=[
+                    _BucketCopyFile(
+                        destination=remote_path,
+                        xet_hash=report.file_info.hash,
+                        source_repo_type="bucket",
+                        source_repo_id=bucket_id,
+                    )
+                ],
+                token=token,
+            )
         return
 
 
