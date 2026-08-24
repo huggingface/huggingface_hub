@@ -13,11 +13,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import warnings
+from unittest.mock import MagicMock
 
 import pytest
 
 from huggingface_hub import HfApi
-from huggingface_hub._buckets import BucketFile, BucketInfo
+from huggingface_hub._buckets import (
+    BucketFile,
+    BucketInfo,
+    SyncOperation,
+    SyncPlan,
+    _execute_plan,
+    _list_remote_files,
+)
 from huggingface_hub._jobs_api import _derive_job_volume_name
 from huggingface_hub.errors import BucketNotFoundError, EntryNotFoundError, HfHubHTTPError
 
@@ -605,3 +613,52 @@ def test_sync_job_volume_empty_dir_uploads_placeholder(api: HfApi, tmp_path):
         if isinstance(entry, BucketFile)
     }
     assert files == {f"{volume.path}/.keep"}
+
+
+# -- sync path traversal (see #4540 for the repo-download equivalent) --
+
+
+# Server-supplied bucket keys that would escape the local destination when joined onto it.
+UNSAFE_BUCKET_KEYS = [
+    "/etc/cron.d/evil",  # POSIX absolute
+    "C:/Windows/System32/evil.txt",  # Windows drive-absolute (the reported vector)
+    "C:\\Windows\\System32\\evil",  # Windows drive-absolute (backslashes)
+    "../../../../etc/passwd",  # parent traversal
+    "\\\\attacker\\share\\evil",  # UNC path
+]
+
+
+def _remote_bucket_file(path: str) -> BucketFile:
+    return BucketFile(type="file", path=path, size=7, xetHash="abc")
+
+
+@pytest.mark.parametrize("key", UNSAFE_BUCKET_KEYS)
+def test_list_remote_files_rejects_path_traversal(key: str):
+    # A malicious/compromised bucket returning an anchored or traversing key must be rejected at listing time.
+    api = MagicMock()
+    api.list_bucket_tree.return_value = [_remote_bucket_file(key)]
+    with pytest.raises(ValueError, match="Invalid filename"):
+        list(_list_remote_files(api, "user/bucket", prefix=""))
+
+
+def test_list_remote_files_accepts_safe_path():
+    api = MagicMock()
+    api.list_bucket_tree.return_value = [_remote_bucket_file("sub/file.txt")]
+    (rel_path, size, _, _) = next(iter(_list_remote_files(api, "user/bucket", prefix="")))
+    assert rel_path == "sub/file.txt"
+    assert size == 7
+
+
+def test_execute_plan_download_rejects_path_traversal(tmp_path):
+    # Guards the --apply path: a plan file loaded from disk never goes through _list_remote_files.
+    dest = tmp_path / "dest"
+    api = MagicMock()
+    plan = SyncPlan(
+        source="hf://buckets/user/bucket",
+        dest=str(dest),
+        timestamp="2026-01-01T00:00:00+00:00",
+        operations=[SyncOperation(action="download", path="C:/Windows/System32/evil.txt", size=7)],
+    )
+    with pytest.raises(ValueError, match="Invalid filename"):
+        _execute_plan(plan, api)
+    api.download_bucket_files.assert_not_called()

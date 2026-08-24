@@ -30,6 +30,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
 from . import constants, logging
+from ._local_folder import _validate_relative_filename
 from .errors import BucketNotFoundError
 from .utils import (
     HfUri,
@@ -465,6 +466,9 @@ def _list_remote_files(api: "HfApi", bucket_id: str, prefix: str) -> Iterator[tu
                 continue
         else:
             rel_path = path
+        # Reject server-supplied paths that would escape the local destination when joined onto it
+        # (absolute / drive-relative / UNC / '..'). Same guard as repo downloads (see PR #4540).
+        _validate_relative_filename(rel_path)
         mtime_ms = item.mtime.timestamp() * 1000 if item.mtime else 0
         yield rel_path, item.size, mtime_ms, item
 
@@ -940,6 +944,8 @@ def _execute_plan(plan: SyncPlan, api: "HfApi", verbose: bool = False, status: A
 
         for op in plan.operations:
             if op.action == "download":
+                # Re-validate here too: an --apply'd plan file does not go through _list_remote_files.
+                _validate_relative_filename(op.path)
                 local_file = os.path.join(local_path, op.path)
                 # Ensure parent directory exists
                 os.makedirs(os.path.dirname(local_file), exist_ok=True)
