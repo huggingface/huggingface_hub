@@ -14701,7 +14701,7 @@ class HfApi:
         if xet_file_data is None:
             raise ValueError(f"Could not parse xet file data for '{remote_path}' in bucket '{bucket_id}'.")
 
-        size = response.headers.get("Content-Length")
+        size = response.headers.get("X-Linked-Size")
         if size is None:
             raise ValueError(f"Could not get size for '{remote_path}' in bucket '{bucket_id}'.")
 
@@ -14957,6 +14957,92 @@ class HfApi:
             quiet=quiet,
             token=token,
         )
+
+    def mutate_bucket_file(
+        self,
+        *,
+        bucket_id: str,
+        remote_path: str,
+        edit: list[tuple[tuple[int, int], bytes]] | None = None,
+        insert: list[tuple[int, bytes]] | None = None,
+        delete: list[tuple[int, int]] | None = None,
+        token: bool | str | None = None,
+    ) -> None:
+        # TODO(QL): TRY IT OUT !!! (+ debug lol)
+        from .utils._xet import (
+            XetTokenType,
+            abort_xet_session,
+            get_xet_session,
+            xet_connection_info_refresh_url,
+            xet_headers_without_auth,
+        )
+        from .utils._xet_progress_reporting import XetUploadProgressReporter
+
+        if edit:
+            edit = [((start, end), data) for (start, end), data in edit if start < end or (start == end and len(data) > 0)]
+        if insert:
+            insert = [(loc, data) for loc, data in insert if len(data) > 0]
+        if delete:
+            delete = [(loc, length) for loc, length in delete if length > 0]
+        if not (edit or insert or delete):
+            return
+
+        headers = self._build_hf_headers(token=token)
+
+        if not are_progress_bars_disabled():
+            _progress = XetUploadProgressReporter(total_files=1)
+        else:
+            _progress = None
+
+        refresh_url = xet_connection_info_refresh_url(
+            token_type=XetTokenType.WRITE,
+            repo_id=bucket_id,
+            repo_type="bucket",
+            endpoint=self.endpoint,
+        )
+        xet_headers = xet_headers_without_auth(headers)
+
+        owns_progress = _progress is None
+        if _progress is not None:
+            progress = _progress
+            progress.reset_for_next_commit()
+            progress_callback = progress.update_progress
+        elif not are_progress_bars_disabled():
+            progress = XetUploadProgressReporter()
+            progress_callback = progress.update_progress
+        else:
+            progress, progress_callback = None, None
+        session = get_xet_session()
+        file_metadata = self.get_bucket_file_metadata(
+            bucket_id=bucket_id,
+            remote_path=remote_path,
+            token=token
+        )
+        try:
+            with session.new_range_upload(
+                file_metadata.xet_file_data.file_hash,
+                file_metadata.size,
+                token_refresh_url=refresh_url,
+                token_refresh_headers=headers,
+                custom_headers=xet_headers,
+                progress_callback=progress_callback,
+            ) as commit:
+                if edit:
+                    for (start, end), data in edit:
+                        commit.insert(start, end).write(data)
+                if insert:
+                    for loc, data in insert:
+                        commit.insert(loc, len(data)).write(data)
+                if delete:
+                    for loc, length in delete:
+                        commit.delete(loc, loc + length)
+        except KeyboardInterrupt:
+            abort_xet_session()
+            raise
+        finally:
+            if owns_progress and progress is not None:
+                progress.close()
+        return
 
 
 def _parse_revision_from_pr_url(pr_url: str) -> str:
