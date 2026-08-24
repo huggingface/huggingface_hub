@@ -11,51 +11,23 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Contains commands to manage webhooks on the Hugging Face Hub.
-
-Usage:
-    # list all webhooks
-    hf webhooks ls
-
-    # show details of a single webhook
-    hf webhooks info <webhook_id>
-
-    # create a new webhook
-    hf webhooks create --url https://example.com/hook --watch model:bert-base-uncased
-
-    # create a webhook watching multiple items and domains
-    hf webhooks create --url https://example.com/hook --watch org:HuggingFace --watch model:gpt2 --domain repo
-
-    # update a webhook
-    hf webhooks update <webhook_id> --url https://new-url.com/hook
-
-    # enable / disable a webhook
-    hf webhooks enable <webhook_id>
-    hf webhooks disable <webhook_id>
-
-    # delete a webhook
-    hf webhooks delete <webhook_id>
-"""
+"""Contains commands to manage webhooks on the Hugging Face Hub."""
 
 import enum
-import json
-from typing import Annotated, Optional, get_args, get_type_hints
+from typing import Annotated, get_args, get_type_hints
 
-import typer
+import click
 
 from huggingface_hub.constants import WEBHOOK_DOMAIN_T
 from huggingface_hub.hf_api import WebhookWatchedItem
 
 from ._cli_utils import (
-    FormatOpt,
-    OutputFormat,
-    QuietOpt,
     TokenOpt,
-    api_object_to_dict,
     get_hf_api,
-    print_list_output,
     typer_factory,
 )
+from ._framework import Argument, Option
+from ._output import out
 
 
 # Build enums dynamically from Literal types to avoid duplication
@@ -77,20 +49,20 @@ def _parse_watch(values: list[str]) -> list[WebhookWatchedItem]:
         List of WebhookWatchedItem objects.
 
     Raises:
-        typer.BadParameter: If any value doesn't match the expected format.
+        click.BadParameter: If any value doesn't match the expected format.
     """
     items = []
     valid_types = tuple(_WATCHED_TYPES)
     for v in values:
         if ":" not in v:
-            raise typer.BadParameter(
+            raise click.BadParameter(
                 f"Expected format 'type:name' (e.g. 'model:bert-base-uncased'), got '{v}'."
                 f" Valid types: {', '.join(valid_types)}."
             )
         kind, name = v.split(":", 1)
         if kind not in valid_types:
-            raise typer.BadParameter(f"Invalid type '{kind}'. Valid types: {', '.join(valid_types)}.")
-        items.append(WebhookWatchedItem(type=kind, name=name))  # type: ignore[arg-type]
+            raise click.BadParameter(f"Invalid type '{kind}'. Valid types: {', '.join(valid_types)}.")
+        items.append(WebhookWatchedItem(type=kind, name=name))  # type: ignore
     return items
 
 
@@ -102,32 +74,25 @@ webhooks_cli = typer_factory(help="Manage webhooks on the Hub.")
     examples=[
         "hf webhooks ls",
         "hf webhooks ls --format json",
-        "hf webhooks ls -q",
+        "hf webhooks ls --format quiet",
     ],
 )
 def webhooks_ls(
-    format: FormatOpt = OutputFormat.table,
-    quiet: QuietOpt = False,
     token: TokenOpt = None,
 ) -> None:
     """List all webhooks for the current user."""
     api = get_hf_api(token=token)
-    results = [api_object_to_dict(w) for w in api.list_webhooks()]
-    print_list_output(
-        results,
-        format=format,
-        quiet=quiet,
-        headers=["id", "url", "disabled", "domains", "watched"],
-        row_fn=lambda item: [
-            item.get("id", ""),
-            item.get("url") or "(job)",
-            str(item.get("disabled", False)),
-            ", ".join(item.get("domains") or []),
-            ", ".join(
-                f"{w['type']}:{w['name']}" if isinstance(w, dict) else str(w) for w in (item.get("watched") or [])
-            ),
-        ],
-    )
+    results = [
+        {
+            "id": w.id,
+            "url": w.url or "(job)",
+            "disabled": w.disabled,
+            "domains": w.domains or [],
+            "watched": [f"{wi.type}:{wi.name}" for wi in (w.watched or [])],
+        }
+        for w in api.list_webhooks()
+    ]
+    out.table(results)
 
 
 @webhooks_cli.command(
@@ -137,13 +102,13 @@ def webhooks_ls(
     ],
 )
 def webhooks_info(
-    webhook_id: Annotated[str, typer.Argument(help="The ID of the webhook.")],
+    webhook_id: Annotated[str, Argument(help="The ID of the webhook.")],
     token: TokenOpt = None,
 ) -> None:
-    """Show full details for a single webhook as JSON."""
+    """Show full details for a single webhook."""
     api = get_hf_api(token=token)
     webhook = api.get_webhook(webhook_id)
-    print(json.dumps(api_object_to_dict(webhook), indent=2))
+    out.dict(webhook)
 
 
 @webhooks_cli.command(
@@ -157,32 +122,32 @@ def webhooks_info(
 def webhooks_create(
     watch: Annotated[
         list[str],
-        typer.Option(
+        Option(
             "--watch",
             help="Item to watch, in 'type:name' format (e.g. 'model:bert-base-uncased'). Repeatable.",
         ),
     ],
     url: Annotated[
-        Optional[str],
-        typer.Option(help="URL to send webhook payloads to. Mutually exclusive with --job-id."),
+        str | None,
+        Option(help="URL to send webhook payloads to. Mutually exclusive with --job-id."),
     ] = None,
     job_id: Annotated[
-        Optional[str],
-        typer.Option(
+        str | None,
+        Option(
             "--job-id",
             help="ID of a Job to trigger (from job.id) instead of pinging a URL. Mutually exclusive with --url.",
         ),
     ] = None,
     domain: Annotated[
-        Optional[list[WebhookDomain]],
-        typer.Option(
+        list[WebhookDomain] | None,
+        Option(
             "--domain",
             help="Domain to watch: 'repo' or 'discussions'. Repeatable. Defaults to all domains.",
         ),
     ] = None,
     secret: Annotated[
-        Optional[str],
-        typer.Option(help="Optional secret used to sign webhook payloads."),
+        str | None,
+        Option(help="Optional secret used to sign webhook payloads."),
     ] = None,
     token: TokenOpt = None,
 ) -> None:
@@ -191,15 +156,14 @@ def webhooks_create(
     Provide either --url (to ping a remote server) or --job-id (to trigger a Job), but not both.
     """
     if url is not None and job_id is not None:
-        raise typer.BadParameter("Provide either --url or --job-id, not both.")
+        raise click.BadParameter("Provide either --url or --job-id, not both.")
     if url is None and job_id is None:
-        raise typer.BadParameter("Provide either --url or --job-id.")
+        raise click.BadParameter("Provide either --url or --job-id.")
     api = get_hf_api(token=token)
     watched_items = _parse_watch(watch)
     domains = [d.value for d in domain] if domain else None
     webhook = api.create_webhook(url=url, job_id=job_id, watched=watched_items, domains=domains, secret=secret)  # type: ignore
-    print(f"Webhook created: {webhook.id}")
-    print(json.dumps(api_object_to_dict(webhook), indent=2))
+    out.result("Webhook created", id=webhook.id)
 
 
 @webhooks_cli.command(
@@ -211,14 +175,14 @@ def webhooks_create(
     ],
 )
 def webhooks_update(
-    webhook_id: Annotated[str, typer.Argument(help="The ID of the webhook to update.")],
+    webhook_id: Annotated[str, Argument(help="The ID of the webhook to update.")],
     url: Annotated[
-        Optional[str],
-        typer.Option(help="New URL to send webhook payloads to."),
+        str | None,
+        Option(help="New URL to send webhook payloads to."),
     ] = None,
     watch: Annotated[
-        Optional[list[str]],
-        typer.Option(
+        list[str] | None,
+        Option(
             "--watch",
             help=(
                 "New list of items to watch, in 'type:name' format. "
@@ -227,15 +191,15 @@ def webhooks_update(
         ),
     ] = None,
     domain: Annotated[
-        Optional[list[WebhookDomain]],
-        typer.Option(
+        list[WebhookDomain] | None,
+        Option(
             "--domain",
             help="New list of domains to watch: 'repo' or 'discussions'. Repeatable.",
         ),
     ] = None,
     secret: Annotated[
-        Optional[str],
-        typer.Option(help="New secret used to sign webhook payloads."),
+        str | None,
+        Option(help="New secret used to sign webhook payloads."),
     ] = None,
     token: TokenOpt = None,
 ) -> None:
@@ -244,8 +208,7 @@ def webhooks_update(
     watched_items = _parse_watch(watch) if watch else None
     domains = [d.value for d in domain] if domain else None
     webhook = api.update_webhook(webhook_id, url=url, watched=watched_items, domains=domains, secret=secret)  # type: ignore
-    print(f"Webhook updated: {webhook.id}")
-    print(json.dumps(api_object_to_dict(webhook), indent=2))
+    out.result("Webhook updated", id=webhook.id)
 
 
 @webhooks_cli.command(
@@ -255,13 +218,13 @@ def webhooks_update(
     ],
 )
 def webhooks_enable(
-    webhook_id: Annotated[str, typer.Argument(help="The ID of the webhook to enable.")],
+    webhook_id: Annotated[str, Argument(help="The ID of the webhook to enable.")],
     token: TokenOpt = None,
 ) -> None:
     """Enable a disabled webhook."""
     api = get_hf_api(token=token)
     webhook = api.enable_webhook(webhook_id)
-    print(f"Webhook enabled: {webhook.id}")
+    out.result("Webhook enabled", id=webhook.id)
 
 
 @webhooks_cli.command(
@@ -271,13 +234,13 @@ def webhooks_enable(
     ],
 )
 def webhooks_disable(
-    webhook_id: Annotated[str, typer.Argument(help="The ID of the webhook to disable.")],
+    webhook_id: Annotated[str, Argument(help="The ID of the webhook to disable.")],
     token: TokenOpt = None,
 ) -> None:
     """Disable an active webhook."""
     api = get_hf_api(token=token)
     webhook = api.disable_webhook(webhook_id)
-    print(f"Webhook disabled: {webhook.id}")
+    out.result("Webhook disabled", id=webhook.id)
 
 
 @webhooks_cli.command(
@@ -288,10 +251,10 @@ def webhooks_disable(
     ],
 )
 def webhooks_delete(
-    webhook_id: Annotated[str, typer.Argument(help="The ID of the webhook to delete.")],
+    webhook_id: Annotated[str, Argument(help="The ID of the webhook to delete.")],
     yes: Annotated[
         bool,
-        typer.Option(
+        Option(
             "--yes",
             "-y",
             help="Skip confirmation prompt.",
@@ -300,11 +263,7 @@ def webhooks_delete(
     token: TokenOpt = None,
 ) -> None:
     """Delete a webhook permanently."""
-    if not yes:
-        confirm = typer.confirm(f"Are you sure you want to delete webhook '{webhook_id}'?")
-        if not confirm:
-            print("Aborted.")
-            raise typer.Abort()
+    out.confirm(f"Are you sure you want to delete webhook '{webhook_id}'?", yes=yes)
     api = get_hf_api(token=token)
     api.delete_webhook(webhook_id)
-    print(f"Webhook deleted: {webhook_id}")
+    out.result("Webhook deleted", id=webhook_id)

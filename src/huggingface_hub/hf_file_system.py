@@ -1,20 +1,21 @@
 import os
-import re
 import tempfile
 import threading
 from collections import deque
+from collections.abc import Iterable, Iterator
 from contextlib import ExitStack
 from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime
 from itertools import chain
 from pathlib import Path, PurePosixPath
-from typing import Any, Iterable, Iterator, NoReturn, Optional, Union
+from typing import Any, NoReturn, Union
 from urllib.parse import quote, unquote
 
 import fsspec
 import httpx
 from fsspec.callbacks import _DEFAULT_CALLBACK, NoOpCallback, TqdmCallback
+from fsspec.config import apply_config
 from fsspec.utils import isfilelike
 
 from . import constants
@@ -27,20 +28,9 @@ from .errors import (
     RevisionNotFoundError,
 )
 from .file_download import hf_hub_url, http_get
-from .hf_api import BucketFile, BucketFolder, HfApi, LastCommitInfo, RepoFile, RepoFolder
-from .utils import HFValidationError, hf_raise_for_status, http_backoff, http_stream_backoff
+from .hf_api import SPECIAL_REFS_REVISION_REGEX, BucketFile, BucketFolder, HfApi, LastCommitInfo, RepoFile, RepoFolder
+from .utils import HFValidationError, hf_raise_for_status, http_backoff, http_stream_backoff, parse_hf_uri
 from .utils.insecure_hashlib import md5
-
-
-# Regex used to match special revisions with "/" in them (see #1710)
-SPECIAL_REFS_REVISION_REGEX = re.compile(
-    r"""
-    (^refs\/convert\/\w+)     # `refs/convert/parquet` revisions
-    |
-    (^refs\/pr\/\d+)          # PR revisions
-    """,
-    re.VERBOSE,
-)
 
 
 @dataclass
@@ -66,7 +56,7 @@ class HfFileSystemResolvedRepositoryPath(HfFileSystemResolvedPath):
     path: str = field(init=False)
     # The part placed after '@' in the initial path. It can be a quoted or unquoted refs revision.
     # Used to reconstruct the unresolved path to return to the user.
-    _raw_revision: Optional[str] = field(default=None, repr=False)
+    _raw_revision: str | None = field(default=None, repr=False)
 
     def __post_init__(self):
         repo_path = constants.REPO_TYPES_URL_PREFIXES.get(self.repo_type, "") + self.repo_id
@@ -120,6 +110,9 @@ class _Cached(_cached_base):
 
     def __call__(cls, *args, **kwargs):
         # Hack: override https://github.com/fsspec/filesystem_spec/blob/dcb167e8f50e6273d4cfdfc4cab8fc5aa4c958bf/fsspec/spec.py#L65
+        # Apply fsspec config (env vars / config files) before tokenizing so that
+        # HfFileSystem picks up defaults the same way other fsspec filesystems do.
+        kwargs = apply_config(cls, kwargs)
         skip = kwargs.pop("skip_instance_cache", False)
         fs_token = cls._tokenize(cls, threading.get_ident(), *args, **kwargs)
         fs_token_main_thread = cls._tokenize(cls, threading.main_thread().ident, *args, **kwargs)
@@ -144,7 +137,7 @@ class _Cached(_cached_base):
             return obj
 
 
-class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
+class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[conflicting-metaclass]
     """
     Access a remote Hugging Face Hub repository as if were a local file system.
 
@@ -217,10 +210,10 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
     def __init__(
         self,
         *args,
-        endpoint: Optional[str] = None,
-        token: Union[bool, str, None] = None,
-        block_size: Optional[int] = None,
-        expand_info: Optional[bool] = None,
+        endpoint: str | None = None,
+        token: bool | str | None = None,
+        block_size: int | None = None,
+        expand_info: bool | None = None,
         **storage_options,
     ):
         super().__init__(*args, **storage_options)
@@ -232,11 +225,9 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         # Maps (repo_type, repo_id, revision) to a 2-tuple with:
         #  * the 1st element indicating whether the repository and the revision exist
         #  * the 2nd element being the exception raised if the repository or revision doesn't exist
-        self._repo_and_revision_exists_cache: dict[
-            tuple[str, str, Optional[str]], tuple[bool, Optional[Exception]]
-        ] = {}
+        self._repo_and_revision_exists_cache: dict[tuple[str, str, str | None], tuple[bool, Exception | None]] = {}
         # Same for buckets
-        self._bucket_exists_cache: dict[str, tuple[bool, Optional[Exception]]] = {}
+        self._bucket_exists_cache: dict[str, tuple[bool, Exception | None]] = {}
         # Note: special case for buckets: revision is always None
         # Maps parent directory path to path infos
         self.dircache: dict[str, list[dict[str, Any]]] = {}
@@ -254,8 +245,8 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         return h.hexdigest()
 
     def _repo_and_revision_exist(
-        self, repo_type: str, repo_id: str, revision: Optional[str]
-    ) -> tuple[bool, Optional[Exception]]:
+        self, repo_type: str, repo_id: str, revision: str | None
+    ) -> tuple[bool, Exception | None]:
         if (repo_type, repo_id, revision) not in self._repo_and_revision_exists_cache:
             try:
                 self._api.repo_info(
@@ -272,7 +263,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
                 self._repo_and_revision_exists_cache[(repo_type, repo_id, None)] = True, None
         return self._repo_and_revision_exists_cache[(repo_type, repo_id, revision)]
 
-    def _bucket_exists(self, bucket_id: str) -> tuple[bool, Optional[Exception]]:
+    def _bucket_exists(self, bucket_id: str) -> tuple[bool, Exception | None]:
         if bucket_id not in self._bucket_exists_cache:
             try:
                 self._api.bucket_info(bucket_id)
@@ -283,8 +274,8 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         return self._bucket_exists_cache[bucket_id]
 
     def resolve_path(
-        self, path: str, revision: Optional[str] = None
-    ) -> Union[HfFileSystemResolvedRepositoryPath, HfFileSystemResolvedBucketPath]:
+        self, path: str, revision: str | None = None
+    ) -> HfFileSystemResolvedRepositoryPath | HfFileSystemResolvedBucketPath:
         """
         Resolve a Hugging Face file system path into its components.
 
@@ -303,92 +294,65 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
             `NotImplementedError`:
                 If trying to list repositories.
         """
-
-        def _align_revision_in_path_with_revision(
-            revision_in_path: Optional[str], revision: Optional[str]
-        ) -> Optional[str]:
-            if revision is not None:
-                if revision_in_path is not None and revision_in_path != revision:
-                    raise ValueError(
-                        f'Revision specified in path ("{revision_in_path}") and in `revision` argument ("{revision}")'
-                        " are not the same."
-                    )
-            else:
-                revision = revision_in_path
-            return revision
-
         path = self._strip_protocol(path)
         if not path:
-            # can't list repositories at root
             raise NotImplementedError("Access to buckets and repositories lists is not implemented.")
-        elif path.split("/")[0] == "buckets":
-            bucket_id = "/".join(path.split("/")[1:3])
-            path = "/".join(path.split("/")[3:])
-            bucket_exists, err = self._bucket_exists(bucket_id)
+        if path.count("/") == 0:
+            raise ValueError(
+                f"Repository id must be 'namespace/name', got '{path}'. Single-segment ids (e.g. 'gpt2') are no longer supported."
+            )
+
+        parsed = parse_hf_uri(f"{constants.HF_PROTOCOL}{path}")
+
+        # --- Buckets ---
+        if parsed.is_bucket:
+            bucket_exists, err = self._bucket_exists(parsed.id)
             if not bucket_exists:
                 _raise_file_not_found(path, err)
-            return HfFileSystemResolvedBucketPath(bucket_id=bucket_id, path=path)
-        elif path.split("/")[0] + "/" in constants.REPO_TYPES_URL_PREFIXES.values():
-            if "/" not in path:
-                # can't list repositories at the repository type level
-                raise NotImplementedError("Access to repositories lists is not implemented.")
-            repo_type, path = path.split("/", 1)
-            repo_type = constants.REPO_TYPES_MAPPING[repo_type]
-        else:
-            repo_type = constants.REPO_TYPE_MODEL
-        if path.count("/") > 0:
-            if "@" in "/".join(path.split("/")[:2]):
-                repo_id, revision_in_path = path.split("@", 1)
-                if "/" in revision_in_path:
-                    match = SPECIAL_REFS_REVISION_REGEX.search(revision_in_path)
-                    if match is not None and revision in (None, match.group()):
-                        # Handle `refs/convert/parquet` and PR revisions separately
-                        path_in_repo = SPECIAL_REFS_REVISION_REGEX.sub("", revision_in_path).lstrip("/")
-                        revision_in_path = match.group()
-                    else:
-                        revision_in_path, path_in_repo = revision_in_path.split("/", 1)
-                else:
-                    path_in_repo = ""
-                revision = _align_revision_in_path_with_revision(unquote(revision_in_path), revision)
-                repo_and_revision_exist, err = self._repo_and_revision_exist(repo_type, repo_id, revision)
-                if not repo_and_revision_exist:
-                    _raise_file_not_found(path, err)
-            else:
-                revision_in_path = None
-                repo_id_with_namespace = "/".join(path.split("/")[:2])
-                path_in_repo_with_namespace = "/".join(path.split("/")[2:])
-                repo_id_without_namespace = path.split("/")[0]
-                path_in_repo_without_namespace = "/".join(path.split("/")[1:])
-                repo_id = repo_id_with_namespace
-                path_in_repo = path_in_repo_with_namespace
-                repo_and_revision_exist, err = self._repo_and_revision_exist(repo_type, repo_id, revision)
-                if not repo_and_revision_exist:
-                    if isinstance(err, (RepositoryNotFoundError, HFValidationError)):
-                        repo_id = repo_id_without_namespace
-                        path_in_repo = path_in_repo_without_namespace
-                        repo_and_revision_exist, _ = self._repo_and_revision_exist(repo_type, repo_id, revision)
-                        if not repo_and_revision_exist:
-                            _raise_file_not_found(path, err)
-                    else:
-                        _raise_file_not_found(path, err)
-        else:
-            repo_id = path
-            path_in_repo = ""
-            if "@" in path:
-                repo_id, revision_in_path = path.split("@", 1)
-                revision = _align_revision_in_path_with_revision(unquote(revision_in_path), revision)
-            else:
-                revision_in_path = None
-            repo_and_revision_exist, _ = self._repo_and_revision_exist(repo_type, repo_id, revision)
+            return HfFileSystemResolvedBucketPath(bucket_id=parsed.id, path=parsed.path_in_repo)
+
+        # --- Repositories ---
+        # Align revision from path with explicit revision argument
+        if revision is not None and parsed.revision is not None and parsed.revision != revision:
+            # The caller provided an explicit revision that conflicts with what parse_hf_uri
+            # parsed. This can happen when a user has a branch literally named "refs" and a
+            # file at "pr/10" — parse_hf_uri would greedily match "refs/pr/10" as a special
+            # ref. Fall back to simple '@' splitting so the caller's revision wins.
+            path_without_type = path.split("/", 1)[1] if path.split("/")[0] in constants.HF_URI_TYPE_PREFIXES else path
+            repo_id, after_at = path_without_type.split("@", 1)
+            revision_in_path, path_in_repo = after_at.split("/", 1) if "/" in after_at else (after_at, "")
+            revision_in_path_decoded = unquote(revision_in_path)
+            if revision_in_path_decoded != revision:
+                raise ValueError(
+                    f'Revision specified in path ("{revision_in_path_decoded}") and in `revision` argument ("{revision}") are not the same.'
+                )
+            repo_and_revision_exist, err = self._repo_and_revision_exist(parsed.type, repo_id, revision)
             if not repo_and_revision_exist:
-                raise NotImplementedError("Access to repositories lists is not implemented.")
+                _raise_file_not_found(path, err)
+            return HfFileSystemResolvedRepositoryPath(
+                parsed.type, repo_id, revision, path_in_repo, _raw_revision=revision_in_path
+            )
+
+        if parsed.revision is not None and revision is None:
+            revision = parsed.revision
+
+        repo_and_revision_exist, err = self._repo_and_revision_exist(parsed.type, parsed.id, revision)
+        if not repo_and_revision_exist:
+            _raise_file_not_found(path, err)
+
+        # Extract raw revision from original path for unresolve() fidelity
+        raw_revision: str | None = None
+        if "@" in path and parsed.revision is not None:
+            path_without_type = path.split("/", 1)[1] if path.split("/")[0] in constants.HF_URI_TYPE_PREFIXES else path
+            raw_after_at = path_without_type.split("@", 1)[1]
+            raw_revision = raw_after_at[: -(len(parsed.path_in_repo) + 1)] if parsed.path_in_repo else raw_after_at
 
         revision = revision if revision is not None else constants.DEFAULT_REVISION
         return HfFileSystemResolvedRepositoryPath(
-            repo_type, repo_id, revision, path_in_repo, _raw_revision=revision_in_path
+            parsed.type, parsed.id, revision, parsed.path_in_repo, _raw_revision=raw_revision
         )
 
-    def invalidate_cache(self, path: Optional[str] = None) -> None:
+    def invalidate_cache(self, path: str | None = None) -> None:
         """
         Clear the cache for a given path.
 
@@ -421,12 +385,12 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
                 else:
                     self._bucket_exists_cache.pop(resolved_path.bucket_id, None)
 
-    def _open(  # type: ignore[override]
+    def _open(  # type: ignore
         self,
         path: str,
         mode: str = "rb",
-        block_size: Optional[int] = None,
-        revision: Optional[str] = None,
+        block_size: int | None = None,
+        revision: str | None = None,
         **kwargs,
     ) -> Union["HfFileSystemFile", "HfFileSystemStreamFile"]:
         block_size = block_size if block_size is not None else self.block_size
@@ -439,7 +403,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         else:
             return HfFileSystemFile(self, path, mode=mode, revision=revision, **kwargs)
 
-    def _rm(self, path: str, revision: Optional[str] = None, **kwargs) -> None:
+    def _rm(self, path: str, revision: str | None = None, **kwargs) -> None:
         resolved_path = self.resolve_path(path, revision=revision)
         if isinstance(resolved_path, HfFileSystemResolvedBucketPath):
             self._api.batch_bucket_files(resolved_path.bucket_id, delete=[resolved_path.path])
@@ -459,8 +423,8 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         self,
         path: str,
         recursive: bool = False,
-        maxdepth: Optional[int] = None,
-        revision: Optional[str] = None,
+        maxdepth: int | None = None,
+        revision: str | None = None,
         **kwargs,
     ) -> None:
         """
@@ -506,8 +470,8 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         self.invalidate_cache(path=resolved_path.unresolve())
 
     def ls(
-        self, path: str, detail: bool = True, refresh: bool = False, revision: Optional[str] = None, **kwargs
-    ) -> list[Union[str, dict[str, Any]]]:
+        self, path: str, detail: bool = True, refresh: bool = False, revision: str | None = None, **kwargs
+    ) -> list[str | dict[str, Any]]:
         """
         List the contents of a directory.
 
@@ -539,7 +503,10 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
             # Path could be a file
             if not resolved_path.path:
                 _raise_file_not_found(path, None)
-            out = self._ls_tree(self._parent(path), refresh=refresh, revision=revision, **kwargs)
+            try:
+                out = self._ls_tree(self._parent(path), refresh=refresh, revision=revision, **kwargs)
+            except EntryNotFoundError:
+                out = []
             out = [o for o in out if o["name"] == path]
             if len(out) == 0:
                 _raise_file_not_found(path, None)
@@ -550,9 +517,9 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         path: str,
         recursive: bool = False,
         refresh: bool = False,
-        revision: Optional[str] = None,
-        expand_info: Optional[bool] = None,
-        maxdepth: Optional[int] = None,
+        revision: str | None = None,
+        expand_info: bool | None = None,
+        maxdepth: int | None = None,
     ):
         expand_info = (
             expand_info if expand_info is not None else (self.expand_info if self.expand_info is not None else False)
@@ -626,7 +593,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
                     )
                 )
         else:
-            tree: Iterable[Union[RepoFile, RepoFolder, BucketFile, BucketFolder]]
+            tree: Iterable[RepoFile | RepoFolder | BucketFile | BucketFolder]
             if isinstance(resolved_path, HfFileSystemResolvedBucketPath):
                 tree = self._list_bucket_tree_with_folders(
                     resolved_path.bucket_id,
@@ -688,14 +655,19 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
 
     def _list_bucket_tree_with_folders(
         self, bucket_id: str, prefix: str, recursive: bool
-    ) -> Iterable[Union[BucketFile, BucketFolder]]:
+    ) -> Iterable[BucketFile | BucketFolder]:
         """Same as `HfApi.list_bucket_tree` but always includes folders"""
         bucket_files = self._api.list_bucket_tree(bucket_id, prefix, recursive=recursive)
         bucket_folders: dict[str, BucketFolder] = {}
         min_depth = 1 + prefix.count("/") if prefix else 0
-        out: list[Union[BucketFile, BucketFolder]] = []
+        out: list[BucketFile | BucketFolder] = []
 
         for bucket_entry in bucket_files:
+            # The server matches `prefix` lexically, so listing "logs" also returns "logs_existing/...".
+            # Filesystem semantics require path components => drop entries that aren't `prefix` itself
+            # or below it.
+            if prefix and bucket_entry.path != prefix and not bucket_entry.path.startswith(f"{prefix}/"):
+                continue
             out.append(bucket_entry)
 
             # If recursive=False, both files and folders are returned by the server => nothing to do
@@ -742,7 +714,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         path = self.resolve_path(path, revision=kwargs.get("revision")).unresolve()
         yield from super().walk(path, *args, **kwargs)
 
-    def glob(self, path: str, maxdepth: Optional[int] = None, **kwargs) -> list[str]:
+    def glob(self, path: str, maxdepth: int | None = None, **kwargs) -> list[str]:
         """
         Find files by glob-matching.
 
@@ -751,6 +723,8 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         Args:
             path (`str`):
                 Path pattern to match.
+            maxdepth (`int`, *optional*):
+                Maximum depth to descend into directories. By default, no limit.
 
         Returns:
             `list[str]`: List of paths matching the pattern.
@@ -761,13 +735,13 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
     def find(
         self,
         path: str,
-        maxdepth: Optional[int] = None,
+        maxdepth: int | None = None,
         withdirs: bool = False,
         detail: bool = False,
         refresh: bool = False,
-        revision: Optional[str] = None,
+        revision: str | None = None,
         **kwargs,
-    ) -> Union[list[str], dict[str, dict[str, Any]]]:
+    ) -> list[str] | dict[str, dict[str, Any]]:
         """
         List all files below path.
 
@@ -819,7 +793,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         else:
             return {name: out[name] for name in names}
 
-    def cp_file(self, path1: str, path2: str, revision: Optional[str] = None, **kwargs) -> None:
+    def cp_file(self, path1: str, path2: str, revision: str | None = None, **kwargs) -> None:
         """
         Copy a file within or between repositories.
 
@@ -904,7 +878,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         else:
             raise NotImplementedError(f"Cannot determined 'modified' for path '{path}' (info: {info})")
 
-    def info(self, path: str, refresh: bool = False, revision: Optional[str] = None, **kwargs) -> dict[str, Any]:
+    def info(self, path: str, refresh: bool = False, revision: str | None = None, **kwargs) -> dict[str, Any]:
         """
         Get information about a file or directory.
 
@@ -931,7 +905,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         expand_info = kwargs.get(
             "expand_info", self.expand_info if self.expand_info is not None else False
         )  # don't expose it as a parameter in the public API to follow the spec
-        out: Optional[dict[str, Any]]
+        out: dict[str, Any] | None
         if not resolved_path.path:
             # Path is the root directory
             out = {
@@ -1036,7 +1010,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
 
             self.info(path, **kwargs)
             return True
-        except:  # noqa: E722
+        except OSError:
             return False
 
     def isdir(self, path):
@@ -1072,7 +1046,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         """
         try:
             return self.info(path)["type"] == "file"
-        except:  # noqa: E722
+        except OSError:
             return False
 
     def url(self, path: str) -> str:
@@ -1150,7 +1124,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
         try:
             http_get(
                 url=self.url(resolve_remote_path.unresolve()),
-                temp_file=outfile,  # type: ignore[arg-type]
+                temp_file=outfile,  # type: ignore
                 displayed_filename=rpath,
                 expected_size=expected_size,
                 resume_size=0,
@@ -1198,7 +1172,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):
 
 
 class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
-    def __init__(self, fs: HfFileSystem, path: str, revision: Optional[str] = None, **kwargs):
+    def __init__(self, fs: HfFileSystem, path: str, revision: str | None = None, **kwargs):
         try:
             self.resolved_path = fs.resolve_path(path, revision=revision)
         except FileNotFoundError as e:
@@ -1278,7 +1252,7 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
         fs: HfFileSystem,
         path: str,
         mode: str = "rb",
-        revision: Optional[str] = None,
+        revision: str | None = None,
         block_size: int = 0,
         cache_type: str = "none",
         **kwargs,
@@ -1289,23 +1263,19 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
             raise ValueError(f"HfFileSystemStreamFile only supports cache_type='none' but got {cache_type}")
         if "w" in mode:
             raise ValueError(f"HfFileSystemStreamFile only supports reading but got mode='{mode}'")
-        try:
-            self.resolved_path = fs.resolve_path(path, revision=revision)
-        except FileNotFoundError as e:
-            if "w" in kwargs.get("mode", ""):
-                raise FileNotFoundError(
-                    f"{e}.\nMake sure the repository and revision exist before writing data."
-                ) from e
+        # Let a missing repo/revision/file surface as FileNotFoundError (as the buffered
+        # `HfFileSystemFile` does) instead of an AttributeError on `self.resolved_path` below.
+        self.resolved_path = fs.resolve_path(path, revision=revision)
         # avoid an unnecessary .info() call to instantiate .details
         self.details = {"name": self.resolved_path.unresolve(), "size": None}
         super().__init__(
             fs, self.resolved_path.unresolve(), mode=mode, block_size=block_size, cache_type=cache_type, **kwargs
         )
-        self.response: Optional[httpx.Response] = None
+        self.response: httpx.Response | None = None
         self.fs: HfFileSystem
         self._exit_stack = ExitStack()
         # streaming state
-        self._stream_iterator: Optional[Iterator[bytes]] = None
+        self._stream_iterator: Iterator[bytes] | None = None
         self._stream_buffer = bytearray()
 
     def seek(self, loc: int, whence: int = 0):
@@ -1429,7 +1399,7 @@ def safe_quote(s: str) -> str:
     return quote(s, safe="")
 
 
-def _raise_file_not_found(path: str, err: Optional[Exception]) -> NoReturn:
+def _raise_file_not_found(path: str, err: Exception | None) -> NoReturn:
     msg = path
     if isinstance(err, RepositoryNotFoundError):
         msg = f"{path} (repository not found)"

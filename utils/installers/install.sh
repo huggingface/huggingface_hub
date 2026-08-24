@@ -45,6 +45,7 @@ UPDATED_RC_FILE=""
 SKIP_PATH_UPDATE="false"
 UPDATED_FISH_PATH="false"
 WITH_TRANSFORMERS="false"
+EXCLUDE_SKILL="false"
 
 # Logging functions
 log_debug() {
@@ -96,6 +97,7 @@ Options:
   --force             Recreate the Hugging Face CLI virtual environment if it exists
   --no-modify-path    Skip adding the hf wrapper directory to PATH
   --with-transformers Also install the transformers CLI
+  --exclude-skill     Skip installing the `hf-cli` skill for AI agents
   -v, --verbose       Enable verbose output (includes full pip logs)
   --help, -h          Show this message and exit
 
@@ -138,6 +140,9 @@ while [ $# -gt 0 ]; do
             ;;
         --with-transformers)
             WITH_TRANSFORMERS="true"
+            ;;
+        --exclude-skill)
+            EXCLUDE_SKILL="true"
             ;;
         -v|--verbose)
             LOG_LEVEL=2
@@ -188,7 +193,7 @@ detect_os() {
 python_version_supported() {
     "$1" <<'PY' >/dev/null 2>&1
 import sys
-sys.exit(0 if sys.version_info >= (3, 9) else 1)
+sys.exit(0 if sys.version_info >= (3, 10) else 1)
 PY
 }
 
@@ -205,16 +210,16 @@ ensure_python() {
                 chosen="$candidate"
                 break
             else
-                log_warning "$candidate detected ($version_output) but Python 3.9+ is required."
+                log_warning "$candidate detected ($version_output) but Python 3.10+ is required."
             fi
         fi
     done
 
     if [ -z "$chosen" ]; then
-        log_error "Python 3.9+ is required but was not found."
+        log_error "Python 3.10+ is required but was not found."
         case "$(detect_os)" in
             macos)
-                log_info "On macOS: brew install python (or download Python 3.9+ from python.org)"
+                log_info "On macOS: brew install python (or download Python 3.10+ from python.org)"
                 ;;
             linux)
                 if command_exists apt-get || command_exists apt; then
@@ -224,11 +229,11 @@ ensure_python() {
                 elif command_exists yum; then
                     log_info "On CentOS/RHEL: sudo yum install python3 python3-pip"
                 else
-                    log_info "Install Python 3.9+ with your distro's package manager."
+                    log_info "Install Python 3.10+ with your distro's package manager."
                 fi
                 ;;
             *)
-                log_info "Install Python 3.9+ from https://www.python.org/downloads/"
+                log_info "Install Python 3.10+ from https://www.python.org/downloads/"
                 ;;
         esac
         exit 1
@@ -378,6 +383,22 @@ expose_cli_command() {
     log_info "Run without touching PATH: env PATH=\"$BIN_DIR:\$PATH\" hf --help"
 }
 
+# Install the `hf-cli` skill globally (opt-out with --exclude-skill)
+install_skill() {
+    if [ "$EXCLUDE_SKILL" = "true" ]; then
+        log_info "Skipping the hf-cli skill (--exclude-skill)"
+        return
+    fi
+
+    log_info "Installing the hf-cli skill for AI agents..."
+    if ! "$BIN_DIR/hf" skills add hf-cli --global --claude --force; then
+        log_warning "Failed to install the hf-cli skill. Install it later with: hf skills add -g --claude"
+        return
+    fi
+    log_info "The hf-cli skill was installed automatically so AI agents know how to use the hf CLI."
+    log_info "Pass --exclude-skill to skip it."
+}
+
 # Update PATH if needed
 update_path() {
     local shell_rc=""
@@ -512,6 +533,7 @@ main() {
     log_info "Install dir: $HF_CLI_DIR"
     log_info "Bin dir: $BIN_DIR"
     log_info "Skip PATH update: $SKIP_PATH_UPDATE"
+    log_info "Exclude skill: $EXCLUDE_SKILL"
 
     ensure_python
     create_directories
@@ -519,6 +541,7 @@ main() {
     install_hf_hub
     install_transformers
     expose_cli_command
+    install_skill
     update_path
     verify_installation
 

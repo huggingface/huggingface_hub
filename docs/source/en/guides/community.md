@@ -149,8 +149,11 @@ scripting, CI pipelines, or quick interactions without writing Python code.
 # List open discussions and PRs on a repo
 hf discussions list bigscience/bloom
 
-# View a specific discussion with comments
-hf discussions view bigscience/bloom 2 --comments
+# List discussions on a dataset repo
+hf discussions list nebius/SWE-rebench-V2 --type dataset
+
+# Get info for a specific discussion with comments
+hf discussions info bigscience/bloom 2 --comments
 
 # Create a new discussion
 hf discussions create username/repo-name --title "Bug report" --body "Description here"

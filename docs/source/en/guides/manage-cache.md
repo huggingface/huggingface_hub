@@ -6,6 +6,9 @@ rendered properly in your Markdown viewer.
 
 `huggingface_hub` utilizes the local disk as two caches, which avoid re-downloading items again. The first cache is a file-based cache, which caches individual files downloaded from the Hub and ensures that the same file is not downloaded again when a repo gets updated. The second cache is a chunk cache, where each chunk represents a byte range from a file and ensures that chunks that are shared across files are only downloaded once.
 
+> [!TIP]
+> This guide covers the Python-specific cache management tools provided by `huggingface_hub`. For a language-agnostic overview of how the Hugging Face Hub cache system works, see the [Hub documentation on local caching](https://huggingface.co/docs/hub/local-cache).
+
 ## File-based caching
 
 The Hugging Face Hub cache-system is designed to be the central cache shared across libraries
@@ -50,6 +53,7 @@ In order to achieve this, all folders contain the same skeleton:
 │  ├─ refs
 │  ├─ blobs
 │  ├─ snapshots
+│  ├─ trees
 ...
 ```
 
@@ -90,6 +94,18 @@ That `README.md` file is actually a symlink linking to the blob that has the has
 
 By creating the skeleton this way we open the mechanism to file sharing: if the same file was fetched in
 revision `bbbbbb`, it would have the same hash and the file would not need to be re-downloaded.
+
+### Trees
+
+The `trees` folder caches the list of files that a repository contains at a given commit. A commit is immutable, so its file list never changes. This means the list can be cached forever without ever needing to be checked again against the Hub.
+
+Each cached list is named after a commit hash and stored as a JSON file, for example `trees/aaaaaa.json`. For every file in the repository at that commit, it records what is needed to download the file: its path, its size and its hash. This is the same information the Hub would otherwise return, but it normally costs one network call per file to fetch it.
+
+This cache is written by [`snapshot_download`]. The first time you download a commit, the file list is fetched once and saved here. The next time you download the same commit, the list is read from disk instead of being fetched again. As a result, re-running a download when everything is already cached costs a single network call: the one needed to resolve the branch or tag name into a commit hash.
+
+Both [`snapshot_download`] and [`hf_hub_download`] read this cache to avoid network calls. When you download a file with a commit hash as revision (this is exactly what [`snapshot_download`] does internally for every file), the download metadata is read from the cached file list and the per-file network call is skipped. This means a [`hf_hub_download`] for a single file also benefits from a file list that an earlier [`snapshot_download`] saved for the same commit.
+
+Because the cached file list describes exactly what a commit should contain, [`snapshot_download`] can also tell whether a local snapshot is complete. If the Hub cannot be reached (you are offline, the connection fails, or you passed `local_files_only=True`) and some expected files are missing from the local snapshot, [`snapshot_download`] raises [`~errors.IncompleteSnapshotError`] instead of returning a partial folder. Before this, an incomplete snapshot was returned silently, which could leave you working with missing files without knowing it. Files excluded by `allow_patterns` or `ignore_patterns` are not counted as missing. The exception exposes the path to the incomplete snapshot via its `snapshot_path` attribute, so you can still locate the partially cached files if needed.
 
 ### .no_exist (advanced)
 
@@ -144,33 +160,83 @@ In practice, your cache should look like the following tree:
         │   └── [1.4K]  d7edf6bd2a681fb0175f7735299831ee1b22b812
         ├── [  96]  refs
         │   └── [  40]  main
-        └── [ 128]  snapshots
-            ├── [ 128]  2439f60ef33a0d46d85da5001d52aeda5b00ce9f
-            │   ├── [  52]  README.md -> ../../blobs/d7edf6bd2a681fb0175f7735299831ee1b22b812
-            │   └── [  76]  pytorch_model.bin -> ../../blobs/403450e234d65943a7dcf7e05a771ce3c92faa84dd07db4ac20f592037a1e4bd
-            └── [ 128]  bbc77c8132af1cc5cf678da3f1ddf2de43606d48
-                ├── [  52]  README.md -> ../../blobs/7cb18dc9bafbfcf74629a4b760af1b160957a83e
-                └── [  76]  pytorch_model.bin -> ../../blobs/403450e234d65943a7dcf7e05a771ce3c92faa84dd07db4ac20f592037a1e4bd
+        ├── [ 128]  snapshots
+        │   ├── [ 128]  2439f60ef33a0d46d85da5001d52aeda5b00ce9f
+        │   │   ├── [  52]  README.md -> ../../blobs/d7edf6bd2a681fb0175f7735299831ee1b22b812
+        │   │   └── [  76]  pytorch_model.bin -> ../../blobs/403450e234d65943a7dcf7e05a771ce3c92faa84dd07db4ac20f592037a1e4bd
+        │   └── [ 128]  bbc77c8132af1cc5cf678da3f1ddf2de43606d48
+        │       ├── [  52]  README.md -> ../../blobs/7cb18dc9bafbfcf74629a4b760af1b160957a83e
+        │       └── [  76]  pytorch_model.bin -> ../../blobs/403450e234d65943a7dcf7e05a771ce3c92faa84dd07db4ac20f592037a1e4bd
+        └── [  96]  trees
+            ├── [ 521]  2439f60ef33a0d46d85da5001d52aeda5b00ce9f.json
+            └── [ 521]  bbc77c8132af1cc5cf678da3f1ddf2de43606d48.json
 ```
+
+### CACHEDIR.TAG
+
+`huggingface_hub` automatically creates a
+[`CACHEDIR.TAG`](https://bford.info/cachedir/) file inside the cache directory. This
+tag follows the *Cache Directory Tagging Standard* and tells backup tools (e.g. Borg,
+restic, rsync) that the directory contains re-downloadable cache data and can safely be
+excluded from backups.
 
 ### Limitations
 
 In order to have an efficient cache-system, `huggingface-hub` uses symlinks. However,
 symlinks are not supported on all machines. This is a known limitation especially on
-Windows. When this is the case, `huggingface_hub` do not use the `blobs/` directory but
+Windows. When this is the case, `huggingface_hub` does not use the `blobs/` directory but
 directly stores the files in the `snapshots/` directory instead. This workaround allows
 users to download and cache files from the Hub exactly the same way. Tools to inspect
 and delete the cache (see below) are also supported. However, the cache-system is less
 efficient as a single file might be downloaded several times if multiple revisions of
-the same repo is downloaded.
+the same repo are downloaded.
 
 If you want to benefit from the symlink-based cache-system on a Windows machine, you
 either need to [activate Developer Mode](https://docs.microsoft.com/en-us/windows/apps/get-started/enable-your-device-for-development)
 or to run Python as an administrator.
 
+If you want to proactively use the no-symlink cache mode (e.g. on a shared filesystem that doesn't handle symlinks
+well), you can set the [`HF_HUB_DISABLE_SYMLINKS`](../package_reference/environment_variables#hfhubdisablesymlinks) environment variable to `1`. Files will be copied into `snapshots/`
+directly instead of symlinking to `blobs/`.
+
 When symlinks are not supported, a warning message is displayed to the user to alert
 them they are using a degraded version of the cache-system. This warning can be disabled
 by setting the `HF_HUB_DISABLE_SYMLINKS_WARNING` environment variable to true.
+
+## Pin a revision (advanced)
+
+> [!TIP]
+> If you are integrating the Hub in an ML library, a single [`snapshot_download`] call is still the recommended approach: it resolves the revision once, downloads everything in parallel and caches the file listing. What follows is only useful for complex libraries that download and load many components separately (config, weights, tokenizer, processor, adapters, ...) and cannot use a single call.
+
+When a library downloads several files one by one, each call has to resolve `revision="main"` into a commit hash again. This costs one HTTP call per file and, worse, two calls made a few seconds apart can land on two different commits if the repo is updated in between.
+
+[`HfApi.resolve_revision`] resolves the revision once and returns a [`ResolvedRevision`]:
+
+```py
+>>> from huggingface_hub import resolve_revision
+>>> revision = resolve_revision("openai-community/gpt2")
+>>> revision
+ResolvedRevision(initial=None, resolved='607a30d783dfa663caf39e06633721c8d4cfcd7e')
+```
+
+[`ResolvedRevision`] is a `str` subclass, so it can be passed to any `huggingface_hub` method taking a `revision` argument. Its string value is what the user initially requested (`"main"` here, hence readable error messages), while `.resolved` holds the commit hash:
+
+```py
+>>> revision == "main"
+True
+>>> revision.resolved
+'607a30d783dfa663caf39e06633721c8d4cfcd7e'
+```
+
+Download helpers ([`hf_hub_download`], [`snapshot_download`], [`get_cached_repo_tree`]) detect a [`ResolvedRevision`] and use the commit hash directly. Every file is guaranteed to come from the same commit, and once the files are cached no HTTP call is needed at all:
+
+```py
+>>> from huggingface_hub import hf_hub_download
+>>> config = hf_hub_download("openai-community/gpt2", "config.json", revision=revision)
+>>> weights = hf_hub_download("openai-community/gpt2", "model.safetensors", revision=revision)
+```
+
+The `revision` -> `commit hash` mapping is also written to the `refs/` folder of the cache (see [Refs](#refs)). This means that if the Hub cannot be reached later on (offline mode, connection error, timeout, Hub downtime), [`HfApi.resolve_revision`] transparently falls back to the cached value. If nothing is cached either, a [`~errors.RevisionResolutionError`] is raised.
 
 ## Chunk-based caching (Xet)
 
@@ -574,20 +640,26 @@ Dry run: no files were deleted.
 When working outside the default cache location, pair the command with
 `--cache-dir PATH`.
 
-To clean up detached snapshots in bulk, run `hf cache prune`. It automatically selects
-revisions that are no longer referenced by a branch or tag:
+To clean up cache garbage in bulk, run `hf cache prune`. It automatically deletes both
+revisions that are no longer referenced by a branch or tag and any leftover `.incomplete`
+files from interrupted downloads:
 
 ```text
 ➜ hf cache prune
-About to delete 3 unreferenced revision(s) (2.4G total).
+About to delete 3 unreferenced revision(s) and 2 incomplete download(s) (2.4G total).
   - model/t5-small:
       1c610f6b [refs/pr/1] 820.1M
       d4ec9b72 [(detached)] 640.5M
   - dataset/google/fleurs:
       2b91c8dd [(detached)] 937.6M
 Proceed? [y/N]: y
-Deleted 3 unreferenced revision(s); freed 2.4G.
+Deleted 3 unreferenced revision(s) and 2 incomplete download(s); freed 2.4G.
 ```
+
+`.incomplete` files are partial blobs left behind when a download is interrupted. They are
+not tracked by the revision-based scan, so `hf cache ls` only flags them with a hint
+(`Found X incomplete download(s) ...`) while `hf cache prune` is the command that actually
+removes them. `hf cache rm` never touches them, except when it deletes an entire repo.
 
 Both commands support `--dry-run`, `--yes`, and `--cache-dir` so you can preview, automate,
 and target alternate cache directories as needed.

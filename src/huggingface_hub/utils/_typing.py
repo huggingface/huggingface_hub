@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2022-present, the HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,15 +13,12 @@
 # limitations under the License.
 """Handle typing imports based on system compatibility."""
 
-import sys
-from typing import Any, Callable, Literal, Optional, Type, TypeVar, Union, get_args, get_origin
+from collections.abc import Callable
+from types import UnionType
+from typing import Any, Literal, TypeVar, Union, get_args, get_origin
 
 
-UNION_TYPES: list[Any] = [Union]
-if sys.version_info >= (3, 10):
-    from types import UnionType
-
-    UNION_TYPES += [UnionType]
+UNION_TYPES: list[Any] = [Union, UnionType]
 
 
 HTTP_METHOD_T = Literal["GET", "OPTIONS", "HEAD", "POST", "PUT", "PATCH", "DELETE"]
@@ -33,7 +29,7 @@ CallableT = TypeVar("CallableT", bound=Callable)
 _JSON_SERIALIZABLE_TYPES = (int, float, str, bool, type(None))
 
 
-def is_jsonable(obj: Any, _visited: Optional[set[int]] = None) -> bool:
+def is_jsonable(obj: Any, _visited: set[int] | None = None) -> bool:
     """Check if an object is JSON serializable.
 
     This is a weak check, as it does not check for the actual JSON serialization, but only for the types of the object.
@@ -78,7 +74,7 @@ def is_jsonable(obj: Any, _visited: Optional[set[int]] = None) -> bool:
         _visited.discard(obj_id)
 
 
-def is_simple_optional_type(type_: Type) -> bool:
+def is_simple_optional_type(type_: type) -> bool:
     """Check if a type is optional, i.e. Optional[Type] or Union[Type, None] or Type | None, where Type is a non-composite type."""
     if get_origin(type_) in UNION_TYPES:
         union_args = get_args(type_)
@@ -87,7 +83,7 @@ def is_simple_optional_type(type_: Type) -> bool:
     return False
 
 
-def unwrap_simple_optional_type(optional_type: Type) -> Type:
+def unwrap_simple_optional_type(optional_type: type) -> type:
     """Unwraps a simple optional type, i.e. returns Type from Optional[Type]."""
     for arg in get_args(optional_type):
         if arg is not type(None):

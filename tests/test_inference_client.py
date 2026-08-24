@@ -55,13 +55,16 @@ from huggingface_hub.inference._common import (
 from huggingface_hub.inference._providers import get_provider_helper
 from huggingface_hub.inference._providers.hf_inference import _build_chat_completion_url
 
-from .testing_utils import with_production_testing
+from .testing_constants import ENDPOINT_PRODUCTION
+
+
+pytestmark = pytest.mark.inference
 
 
 # Avoid calling APIs in VCRed tests
 _RECOMMENDED_MODELS_FOR_VCR = {
-    "black-forest-labs": {
-        "text-to-image": "black-forest-labs/FLUX.1-dev",
+    "baseten": {
+        "conversational": "moonshotai/Kimi-K3",
     },
     "cerebras": {
         "conversational": "meta-llama/Llama-3.3-70B-Instruct",
@@ -103,16 +106,6 @@ _RECOMMENDED_MODELS_FOR_VCR = {
         "zero-shot-classification": "facebook/bart-large-mnli",
         "zero-shot-image-classification": "openai/clip-vit-base-patch32",
     },
-    "hyperbolic": {
-        "text-generation": "meta-llama/Llama-3.1-405B",
-        "conversational": "meta-llama/Llama-3.2-3B-Instruct",
-        "text-to-image": "stabilityai/stable-diffusion-2",
-    },
-    "nebius": {
-        "conversational": "meta-llama/Llama-3.1-8B-Instruct",
-        "text-generation": "Qwen/Qwen2.5-32B-Instruct",
-        "text-to-image": "stabilityai/stable-diffusion-xl-base-1.0",
-    },
     "novita": {
         "text-generation": "NousResearch/Nous-Hermes-Llama2-13b",
         "conversational": "meta-llama/Llama-3.1-8B-Instruct",
@@ -122,9 +115,6 @@ _RECOMMENDED_MODELS_FOR_VCR = {
     },
     "replicate": {
         "text-to-image": "ByteDance/SDXL-Lightning",
-    },
-    "sambanova": {
-        "conversational": "meta-llama/Llama-3.1-8B-Instruct",
     },
     "textclf": {
         "text-generation": "meta-llama/Llama-3.1-8B-Instruct",
@@ -221,6 +211,23 @@ CHAT_COMPLETION_RESPONSE_FORMAT = {
 }
 
 
+def test_feature_extraction_accepts_list_inputs():
+    helper = MagicMock()
+    helper.prepare_request.return_value = MagicMock()
+    helper.get_response.return_value = [[1.0, 2.0], [3.0, 4.0]]
+    client = InferenceClient(model="sentence-transformers/all-MiniLM-L6-v2")
+
+    with (
+        patch("huggingface_hub.inference._client.get_provider_helper", return_value=helper),
+        patch.object(InferenceClient, "_inner_post", return_value=b"ignored"),
+    ):
+        embedding = client.feature_extraction(["Hi, who are you?", "How are you?"])
+
+    helper.prepare_request.assert_called_once()
+    assert helper.prepare_request.call_args.kwargs["inputs"] == ["Hi, who are you?", "How are you?"]
+    np.testing.assert_array_equal(embedding, np.array([[1.0, 2.0], [3.0, 4.0]], dtype="float32"))
+
+
 def list_clients(task: str) -> list[pytest.param]:
     """Get list of clients for a specific task, with proper skip handling."""
     clients = []
@@ -237,7 +244,6 @@ def list_clients(task: str) -> list[pytest.param]:
 
 
 @pytest.fixture()
-@with_production_testing
 def client(request):
     """
     Fixture to create client with proper skip handling.
@@ -261,21 +267,24 @@ def client(request):
 
 # Define fixtures for the files
 @pytest.fixture(scope="module")
-@with_production_testing
 def audio_file():
-    return hf_hub_download(repo_id="Narsil/image_dummy", repo_type="dataset", filename="sample1.flac")
+    return hf_hub_download(
+        repo_id="Narsil/image_dummy", repo_type="dataset", filename="sample1.flac", endpoint=ENDPOINT_PRODUCTION
+    )
 
 
 @pytest.fixture(scope="module")
-@with_production_testing
 def image_file():
-    return hf_hub_download(repo_id="Narsil/image_dummy", repo_type="dataset", filename="lena.png")
+    return hf_hub_download(
+        repo_id="Narsil/image_dummy", repo_type="dataset", filename="lena.png", endpoint=ENDPOINT_PRODUCTION
+    )
 
 
 @pytest.fixture(scope="module")
-@with_production_testing
 def document_file():
-    return hf_hub_download(repo_id="impira/docquery", repo_type="space", filename="contract.jpeg")
+    return hf_hub_download(
+        repo_id="impira/docquery", repo_type="space", filename="contract.jpeg", endpoint=ENDPOINT_PRODUCTION
+    )
 
 
 class TestBase:
@@ -293,7 +302,7 @@ class TestBase:
         monkeypatch.setattr("huggingface_hub.inference._providers.hf_inference._fetch_recommended_models", mock_fetch)
 
 
-@with_production_testing
+@pytest.mark.production
 @pytest.mark.skip("Temporary skipping tests for InferenceClient")
 class TestInferenceClient(TestBase):
     @pytest.mark.parametrize("client", list_clients("audio-classification"), indirect=True)
@@ -904,7 +913,7 @@ class TestHeadersAndCookies(TestBase):
         assert headers["Accept"] == "image/png"
 
 
-@with_production_testing
+@pytest.mark.production
 @pytest.mark.skip("Temporary skipping tests for TestOpenAICompatibility")
 class TestOpenAICompatibility(TestBase):
     def test_base_url_and_api_key(self):

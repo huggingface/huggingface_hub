@@ -21,9 +21,12 @@ Skips PATH modifications; `hf` must be invoked via its full path unless you add 
 .PARAMETER WithTransformers
 Also install the transformers CLI.
 
+.PARAMETER ExcludeSkill
+Skip installing the `hf-cli` skill for AI agents.
+
 .EXAMPLE
 powershell -c "irm https://hf.co/cli/install.ps1 | iex"
-powershell -c "irm https://hf.co/cli/install.ps1 | iex" -WithTransformers
+powershell -c "& ([scriptblock]::Create((irm https://hf.co/cli/install.ps1))) -WithTransformers"
 #>
 
 <#
@@ -37,7 +40,8 @@ param(
     [switch]$Force = $false,
     [switch]$Verbose,
     [switch]$NoModifyPath,
-    [switch]$WithTransformers = $false
+    [switch]$WithTransformers = $false,
+    [switch]$ExcludeSkill = $false
 )
 
 $script:LogLevel = if ($Verbose) { 2 } else { 1 }
@@ -140,14 +144,14 @@ function Test-PythonVersion {
         $version = & $PythonCmd --version 2>&1
         if ($version -match "Python 3\.(\d+)\.") {
             $minorVersion = [int]$matches[1]
-            return $minorVersion -ge 9 # Python 3.9+
+            return $minorVersion -ge 10 # Python 3.10+
         }
         return $false
     } catch { return $false }
 }
 
 function Find-Python {
-    Write-Log "Looking for Python 3.9+ installation..."
+    Write-Log "Looking for Python 3.10+ installation..."
 
     # Try common Python commands
     $pythonCommands = @("python", "python3", "py")
@@ -168,7 +172,7 @@ function Find-Python {
             $version = py -3 --version 2>&1
             if ($version -match "Python 3\.(\d+)\.") {
                 $minorVersion = [int]$matches[1]
-                if ($minorVersion -ge 9) {
+                if ($minorVersion -ge 10) {
                     Write-Log "Found compatible Python: $version using Python Launcher"
                     return "py -3"
                 }
@@ -176,10 +180,10 @@ function Find-Python {
         } catch { }
     }
 
-    Write-Log "Python 3.9+ is required but not found." "ERROR"
+    Write-Log "Python 3.10+ is required but not found." "ERROR"
     Write-Log "Please install Python from https://python.org or Microsoft Store" "ERROR"
     Write-Log "Make sure to check 'Add Python to PATH' during installation" "ERROR"
-    throw "Python 3.9+ not found"
+    throw "Python 3.10+ not found"
 }
 
 function New-Directories {
@@ -336,6 +340,24 @@ function Publish-HfCommand {
     Write-Log ('Run without updating PATH: & "{0}" --help' -f $hfExeTarget)
 }
 
+function Install-Skill {
+    # Opt-out with -ExcludeSkill
+    if ($ExcludeSkill) {
+        Write-Log "Skipping the hf-cli skill (-ExcludeSkill)"
+        return
+    }
+
+    Write-Log "Installing the hf-cli skill for AI agents..."
+    $hfExecutable = Join-Path $BIN_DIR "hf.exe"
+    & $hfExecutable skills add hf-cli --global --claude --force
+    if (-not $?) {
+        Write-Log "Failed to install the hf-cli skill. Install it later with: hf skills add -g --claude" "WARNING"
+        return
+    }
+    Write-Log "The hf-cli skill was installed automatically so AI agents know how to use the hf CLI."
+    Write-Log "Pass -ExcludeSkill to skip it."
+}
+
 function Update-Path {
     Write-Log "Checking PATH configuration..."
 
@@ -376,7 +398,7 @@ function Test-Installation {
     if (Test-Path $hfExecutable) {
         try {
             # Test the CLI
-            $output = & $hfExecutable version 2>&1
+            $output = & $hfExecutable version --format quiet 2>&1
             if ($?) {
                 Write-Log "CLI location: $hfExecutable"
                 Write-Log "Installation directory: $HF_CLI_DIR"
@@ -441,6 +463,7 @@ function Main {
         Install-HuggingFaceHub
         Install-Transformers
         Publish-HfCommand
+        Install-Skill
         if ($NoModifyPath) {
             Write-Log 'Skipping PATH modification (--no-modify-path).'
         } else {

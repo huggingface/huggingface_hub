@@ -13,15 +13,16 @@
 # limitations under the License.
 """Contains helpers to split tensors into shards."""
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Optional, TypeVar, Union
+from typing import Any, TypeVar
 
 from .. import logging
 
 
 TensorT = TypeVar("TensorT")
 TensorSizeFn_T = Callable[[TensorT], int]
-StorageIDFn_T = Callable[[TensorT], Optional[Any]]
+StorageIDFn_T = Callable[[TensorT], Any | None]
 
 MAX_SHARD_SIZE = "5GB"
 SIZE_UNITS = {
@@ -52,7 +53,7 @@ def split_state_dict_into_shards_factory(
     get_storage_size: TensorSizeFn_T,
     filename_pattern: str,
     get_storage_id: StorageIDFn_T = lambda tensor: None,
-    max_shard_size: Union[int, str] = MAX_SHARD_SIZE,
+    max_shard_size: int | str = MAX_SHARD_SIZE,
 ) -> StateDictSplit:
     """
     Split a model state dictionary in shards so that each shard is smaller than a given size.
@@ -151,10 +152,14 @@ def split_state_dict_into_shards_factory(
     # If we only have one shard, we return it => no need to build the index
     if nb_shards == 1:
         filename = filename_pattern.format(suffix="")
+        # Use the keys from the shard itself rather than `state_dict` directly, so that tensors
+        # skipped above (e.g. string tensors from bnb serialization) are excluded from the index,
+        # consistently with the multi-shard path below.
+        keys = list(shard_list[0].keys())
         return StateDictSplit(
             metadata={"total_size": total_size},
-            filename_to_tensors={filename: list(state_dict.keys())},
-            tensor_to_filename={key: filename for key in state_dict.keys()},
+            filename_to_tensors={filename: keys},
+            tensor_to_filename={key: filename for key in keys},
         )
 
     # Now that each tensor is assigned to a shard, let's assign a filename to each shard

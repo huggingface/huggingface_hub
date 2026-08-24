@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2022-present, the HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,7 +18,7 @@ import shutil
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal, Optional, Union
+from typing import Literal
 
 from huggingface_hub.errors import CacheNotFound, CorruptedCacheException
 
@@ -34,7 +33,7 @@ logger = logging.get_logger(__name__)
 REPO_TYPE_T = Literal["model", "dataset", "space"]
 
 # List of OS-created helper files that need to be ignored
-FILES_TO_IGNORE = [".DS_Store"]
+FILES_TO_IGNORE = [".DS_Store", "Thumbs.db", "desktop.ini"]
 
 
 @dataclass(frozen=True)
@@ -328,6 +327,25 @@ class DeleteCacheStrategy:
 
 
 @dataclass(frozen=True)
+class CachedIncompleteFileInfo:
+    """Frozen data structure holding information about a single incomplete download.
+
+    Interrupted downloads leave `<cache>/<repo>/blobs/<etag>.incomplete` files behind.
+    These are not part of any committed revision, so they are surfaced separately by
+    [`scan_cache_dir`].
+
+    Args:
+        file_path (`Path`):
+            Path of the `.incomplete` file in the `blobs` folder.
+        size_on_disk (`int`):
+            Size of the partially-downloaded file in bytes.
+    """
+
+    file_path: Path
+    size_on_disk: int
+
+
+@dataclass(frozen=True)
 class HFCacheInfo:
     """Frozen data structure holding information about the entire cache-system.
 
@@ -339,6 +357,9 @@ class HFCacheInfo:
         repos (`frozenset[CachedRepoInfo]`):
             Set of [`~CachedRepoInfo`] describing all valid cached repos found on the
             cache-system while scanning.
+        incomplete_files (`frozenset[CachedIncompleteFileInfo]`):
+            Set of [`~CachedIncompleteFileInfo`] describing orphaned `*.incomplete`
+            files left behind by interrupted downloads.
         warnings (`list[CorruptedCacheException]`):
             List of [`~CorruptedCacheException`] that occurred while scanning the cache.
             Those exceptions are captured so that the scan can continue. Corrupted repos
@@ -351,6 +372,7 @@ class HFCacheInfo:
 
     size_on_disk: int
     repos: frozenset[CachedRepoInfo]
+    incomplete_files: frozenset[CachedIncompleteFileInfo]
     warnings: list[CorruptedCacheException]
 
     @property
@@ -362,6 +384,11 @@ class HFCacheInfo:
         Example: "42.2K".
         """
         return _format_size(self.size_on_disk)
+
+    @property
+    def incomplete_size_on_disk(self) -> int:
+        """(property) Sum of all incomplete download sizes in bytes."""
+        return sum(file.size_on_disk for file in self.incomplete_files)
 
     def delete_revisions(self, *revisions: str) -> DeleteCacheStrategy:
         """Prepare the strategy to delete one or more revisions cached locally.
@@ -439,6 +466,15 @@ class HFCacheInfo:
 
                 # Blobs dir
                 for file in revision_to_delete.files:
+                    # Some files are not symlinks to the blobs dir: files copied instead of symlinked
+                    # (Windows, filesystems without symlink support) or files created by the user
+                    # inside the snapshot dir (e.g. build artifacts from a `pip install`). They are
+                    # already removed when deleting the snapshot dir -> count them but don't delete
+                    # them a second time.
+                    if revision_to_delete.snapshot_path in file.blob_path.parents:
+                        delete_strategy_expected_freed_size += file.size_on_disk
+                        continue
+
                     if file.blob_path not in delete_strategy_blobs:
                         is_file_alone = True
                         for revision in other_revisions:
@@ -509,7 +545,7 @@ class HFCacheInfo:
                     [
                         repo.repo_id,
                         repo.repo_type,
-                        "{:>12}".format(repo.size_on_disk_str),
+                        f"{repo.size_on_disk_str:>12}",
                         repo.nb_files,
                         repo.last_accessed_str,
                         repo.last_modified_str,
@@ -536,7 +572,7 @@ class HFCacheInfo:
                         repo.repo_id,
                         repo.repo_type,
                         revision.commit_hash,
-                        "{:>12}".format(revision.size_on_disk_str),
+                        f"{revision.size_on_disk_str:>12}",
                         revision.nb_files,
                         revision.last_modified_str,
                         ", ".join(sorted(revision.refs)),
@@ -558,7 +594,7 @@ class HFCacheInfo:
             )
 
 
-def scan_cache_dir(cache_dir: Optional[Union[str, Path]] = None) -> HFCacheInfo:
+def scan_cache_dir(cache_dir: str | Path | None = None) -> HFCacheInfo:
     """Scan the entire HF cache-system and return a [`~HFCacheInfo`] structure.
 
     Use `scan_cache_dir` in order to programmatically scan your cache-system. The cache
@@ -656,7 +692,11 @@ def scan_cache_dir(cache_dir: Optional[Union[str, Path]] = None) -> HFCacheInfo:
     repos: set[CachedRepoInfo] = set()
     warnings: list[CorruptedCacheException] = []
     for repo_path in cache_dir.iterdir():
+        if repo_path.name in FILES_TO_IGNORE:
+            continue
         if repo_path.name == ".locks":  # skip './.locks/' folder
+            continue
+        if repo_path.name == "CACHEDIR.TAG":  # skip CACHEDIR.TAG file
             continue
         try:
             repos.add(_scan_cached_repo(repo_path))
@@ -666,8 +706,26 @@ def scan_cache_dir(cache_dir: Optional[Union[str, Path]] = None) -> HFCacheInfo:
     return HFCacheInfo(
         repos=frozenset(repos),
         size_on_disk=sum(repo.size_on_disk for repo in repos),
+        incomplete_files=_scan_incomplete_files(cache_dir),
         warnings=warnings,
     )
+
+
+def _scan_incomplete_files(cache_dir: Path) -> frozenset[CachedIncompleteFileInfo]:
+    """Find orphaned `*.incomplete` partial-download files in the cache.
+
+    Interrupted downloads leave `<cache>/<repo>/blobs/<etag>.incomplete` files behind.
+    These are not part of any committed revision, so they are reported separately in the
+    [`~HFCacheInfo`] returned by [`scan_cache_dir`].
+    """
+    files: set[CachedIncompleteFileInfo] = set()
+    for path in cache_dir.glob("*/blobs/*.incomplete"):
+        try:
+            size_on_disk = path.stat().st_size
+        except OSError:
+            continue
+        files.add(CachedIncompleteFileInfo(file_path=path, size_on_disk=size_on_disk))
+    return frozenset(files)
 
 
 def _scan_cached_repo(repo_path: Path) -> CachedRepoInfo:
@@ -769,7 +827,7 @@ def _scan_cached_repo(repo_path: Path) -> CachedRepoInfo:
                 files=frozenset(cached_files),
                 refs=frozenset(refs_by_hash.pop(revision_path.name, set())),
                 size_on_disk=sum(
-                    blob_stats[blob_path].st_size for blob_path in set(file.blob_path for file in cached_files)
+                    blob_stats[blob_path].st_size for blob_path in {file.blob_path for file in cached_files}
                 ),
                 snapshot_path=revision_path,
                 last_modified=revision_last_modified,
@@ -824,18 +882,20 @@ def _try_delete_path(path: Path, path_type: str) -> None:
     If the path does not exist, error is logged as a warning and then ignored.
 
     Args:
-        path (`Path`)
+        path (`Path`):
             Path to delete. Can be a file or a folder.
-        path_type (`str`)
+        path_type (`str`):
             What path are we deleting ? Only for logging purposes. Example: "snapshot".
     """
-    logger.info(f"Delete {path_type}: {path}")
+    logger.debug(f"Delete {path_type}: {path}")
     try:
         if path.is_file():
             os.remove(path)
         else:
             shutil.rmtree(path)
     except FileNotFoundError:
-        logger.warning(f"Couldn't delete {path_type}: file not found ({path})", exc_info=True)
+        # Nothing to delete: the path is already gone. Log without traceback to avoid flooding the
+        # terminal when deleting many paths at once.
+        logger.warning(f"Couldn't delete {path_type}: file not found ({path})")
     except PermissionError:
         logger.warning(f"Couldn't delete {path_type}: permission denied ({path})", exc_info=True)

@@ -61,26 +61,62 @@ def bump_version(tag: str, bump_type: str = "patch") -> str:
     return f"{prefix}{major}.{minor}.{patch}"
 
 
-def run_opencode_skill(skill_name: str, version: str, missing_prs: list[int] | None = None) -> bool:
+def check_opencode_model(model: str) -> None:
+    """Verify that ``model`` is listed by ``opencode models``.
+
+    OpenCode exits 0 and prints an error line when an unknown model is passed
+    via ``--model``, so calls silently no-op unless we validate up front.
+    Raises ``RuntimeError`` if opencode is missing or the model is unknown.
+    """
+    opencode_cmd = shutil.which("opencode")
+    if not opencode_cmd:
+        raise RuntimeError("'opencode' command not found in PATH")
+
+    result = subprocess.run([opencode_cmd, "models"], check=True, capture_output=True, text=True)
+    available = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+    if model not in available:
+        raise RuntimeError(
+            f"RELEASE_NOTES_MODEL={model!r} not found in `opencode models` output. "
+            f"Expected the full `provider/model` form (e.g. `huggingface/zai-org/GLM-4.6`). "
+            f"{len(available)} model(s) available — first 10: {', '.join(available[:10])}"
+        )
+
+
+def run_opencode_skill(
+    skill_name: str,
+    version: str,
+    missing_prs: list[int] | None = None,
+    extra_prs: list[int] | None = None,
+) -> bool:
     """Run an OpenCode skill non-interactively.
 
     Args:
         skill_name: Name of the skill to run (e.g., "hf-release-notes")
         version: Target version for release notes
         missing_prs: List of missing PR numbers (for validation skill)
+        extra_prs: List of extra PR numbers to remove (for validation skill)
 
     Returns:
         True if successful, False otherwise
     """
-    if missing_prs:
-        # Validation skill - add missing PRs
-        prompt = (
-            f"Run the {skill_name} skill. "
-            f"The output directory is {OUTPUT_DIR}. "
-            f"Add the following missing PRs to the release notes at {OUTPUT_DIR}/RELEASE_NOTES_{version}.md: "
-            f"{', '.join(f'#{pr}' for pr in missing_prs)}. "
-            f"Read their details from {TMP_DIR}/pr_<number>.json files."
-        )
+    if missing_prs or extra_prs:
+        # Validation skill - fix missing and/or extra PRs
+        parts = [
+            f"Run the {skill_name} skill. ",
+            f"The output directory is {OUTPUT_DIR}. ",
+            f"Fix the release notes at {OUTPUT_DIR}/RELEASE_NOTES_{version}.md. ",
+        ]
+        if missing_prs:
+            parts.append(
+                f"Add the following missing PRs: {', '.join(f'#{pr}' for pr in missing_prs)}. "
+                f"Read their details from {TMP_DIR}/pr_<number>.json files. "
+            )
+        if extra_prs:
+            parts.append(
+                f"Remove the following extra PRs that do not belong to this release: "
+                f"{', '.join(f'#{pr}' for pr in extra_prs)}. "
+            )
+        prompt = "".join(parts)
     else:
         # Main generation skill
         prompt = (
@@ -129,6 +165,17 @@ def main(since_tag: str, bump_type: str = "patch", max_iterations: int = 3) -> i
     """
     t_total_start = time.monotonic()
 
+    # 0. Validate the configured model before doing any expensive work.
+    #    OpenCode exits 0 on unknown models, so a typo here would otherwise
+    #    silently produce empty release notes.
+    model = os.environ.get("RELEASE_NOTES_MODEL")
+    if model:
+        try:
+            check_opencode_model(model)
+        except RuntimeError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            return 1
+
     # 1. Clean up and setup directories
     if OUTPUT_DIR.exists():
         print("Cleaning up previous release notes...")
@@ -165,32 +212,52 @@ def main(since_tag: str, bump_type: str = "patch", max_iterations: int = 3) -> i
         return 1
     agent_calls += 1
 
+    # OpenCode can exit 0 without writing the expected file (e.g. auth/quota
+    # issues). Fail fast instead of falling through to a 0-byte output.
+    initial_output = OUTPUT_DIR / f"RELEASE_NOTES_{version}.md"
+    if not initial_output.exists() or initial_output.stat().st_size == 0:
+        print(
+            f"Error: OpenCode did not produce {initial_output} (or file is empty). "
+            f"Check OpenCode logs above for the real error.",
+            file=sys.stderr,
+        )
+        return 1
+
     # 5. Validation loop
     validation_iterations = 0
     missing_at_end = []
+    extra_at_end = []
     for i in range(max_iterations):
         validation_iterations += 1
         print(f"\nValidation iteration {i + 1}/{max_iterations}...")
-        missing = validate_release_notes(version)
+        missing, extra = validate_release_notes(version)
 
-        if not missing:
-            print("All PRs included in release notes")
+        if not missing and not extra:
+            print("Release notes match the manifest exactly")
             break
 
-        print(f"Missing {len(missing)} PRs: {', '.join(f'#{pr}' for pr in missing)}")
+        if missing:
+            print(f"Missing {len(missing)} PRs: {', '.join(f'#{pr}' for pr in missing)}")
+        if extra:
+            print(f"Extra {len(extra)} PRs: {', '.join(f'#{pr}' for pr in extra)}")
 
         if i < max_iterations - 1:
-            print("Running validation skill to add missing PRs...")
-            if not run_opencode_skill("hf-release-notes:validate", version, missing):
+            print("Running validation skill to fix release notes...")
+            if not run_opencode_skill("hf-release-notes:validate", version, missing or None, extra or None):
                 print("Warning: Validation skill failed", file=sys.stderr)
             agent_calls += 1
     else:
-        # Loop completed without all PRs included
-        missing = validate_release_notes(version)
-        if missing:
+        # Loop completed without exact match
+        missing, extra = validate_release_notes(version)
+        if missing or extra:
             missing_at_end = missing
-            print(f"\nWarning: Still missing {len(missing)} PRs after {max_iterations} iterations")
-            print(f"Missing: {', '.join(f'#{pr}' for pr in missing)}")
+            extra_at_end = extra
+            if missing:
+                print(f"\nWarning: Still missing {len(missing)} PRs after {max_iterations} iterations")
+                print(f"Missing: {', '.join(f'#{pr}' for pr in missing)}")
+            if extra:
+                print(f"\nWarning: Still {len(extra)} extra PRs after {max_iterations} iterations")
+                print(f"Extra: {', '.join(f'#{pr}' for pr in extra)}")
     t_agent = time.monotonic() - t_agent_start
 
     # 6. Final output
@@ -207,6 +274,7 @@ def main(since_tag: str, bump_type: str = "patch", max_iterations: int = 3) -> i
     print(f"  Model:                 {os.environ.get('RELEASE_NOTES_MODEL', '(default)')}")
     print(f"  PRs fetched:           {len(pr_numbers)}")
     print(f"  PRs missing:           {len(missing_at_end)}")
+    print(f"  PRs extra:             {len(extra_at_end)}")
     print(f"  Agent calls:           {agent_calls}")
     print(f"  Validation iterations: {validation_iterations}")
     print(f"  Fetch time:            {t_fetch:.1f}s")
@@ -215,6 +283,13 @@ def main(since_tag: str, bump_type: str = "patch", max_iterations: int = 3) -> i
     print(f"  Output file:           {output_file}")
     print(f"  Output size:           {output_size:,} bytes")
     print("=" * 60)
+
+    if output_size == 0:
+        print(
+            f"Error: {output_file} is empty after validation loop.",
+            file=sys.stderr,
+        )
+        return 1
 
     print(f"\nRelease notes saved to {output_file}")
     return 0

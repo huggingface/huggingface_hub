@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2023-present, the HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,12 +14,13 @@
 """Contains command to upload a large folder with the CLI."""
 
 import os
-from typing import Annotated, Optional
+import warnings
+from typing import Annotated
 
-import typer
+import click
 
 from huggingface_hub import logging
-from huggingface_hub.utils import ANSI, disable_progress_bars
+from huggingface_hub.utils import disable_progress_bars
 
 from ._cli_utils import (
     PrivateOpt,
@@ -31,6 +31,8 @@ from ._cli_utils import (
     TokenOpt,
     get_hf_api,
 )
+from ._framework import Argument, Option
+from ._output import out
 
 
 logger = logging.get_logger(__name__)
@@ -46,7 +48,7 @@ def upload_large_folder(
     repo_id: RepoIdArg,
     local_path: Annotated[
         str,
-        typer.Argument(
+        Argument(
             help="Local path to the folder to upload.",
         ),
     ],
@@ -54,78 +56,78 @@ def upload_large_folder(
     revision: RevisionOpt = None,
     private: PrivateOpt = None,
     include: Annotated[
-        Optional[list[str]],
-        typer.Option(
+        list[str] | None,
+        Option(
             help="Glob patterns to match files to upload.",
         ),
     ] = None,
     exclude: Annotated[
-        Optional[list[str]],
-        typer.Option(
+        list[str] | None,
+        Option(
             help="Glob patterns to exclude from files to upload.",
         ),
     ] = None,
     token: TokenOpt = None,
     num_workers: Annotated[
-        Optional[int],
-        typer.Option(
+        int | None,
+        Option(
             help="Number of workers to use to hash, upload and commit files.",
         ),
     ] = None,
     no_report: Annotated[
         bool,
-        typer.Option(
+        Option(
             help="Whether to disable regular status report.",
         ),
     ] = False,
     no_bars: Annotated[
         bool,
-        typer.Option(
+        Option(
             help="Whether to disable progress bars.",
         ),
     ] = False,
 ) -> None:
-    """Upload a large folder to the Hub. Recommended for resumable uploads."""
+    """[Deprecated] Upload a large folder to the Hub. Use `hf upload` instead."""
     if not os.path.isdir(local_path):
-        raise typer.BadParameter("Large upload is only supported for folders.", param_hint="local_path")
+        raise click.BadParameter("Large upload is only supported for folders.", param_hint="local_path")
 
-    print(
-        ANSI.yellow(
-            "You are about to upload a large folder to the Hub using `hf upload-large-folder`. "
-            "This is a new feature so feedback is very welcome!\n"
-            "\n"
-            "A few things to keep in mind:\n"
-            "  - Repository limits still apply: https://huggingface.co/docs/hub/repositories-recommendations\n"
-            "  - Do not start several processes in parallel.\n"
-            "  - You can interrupt and resume the process at any time. "
-            "The script will pick up where it left off except for partially uploaded files that would have to be entirely reuploaded.\n"
-            "  - Do not upload the same folder to several repositories. If you need to do so, you must delete the `./.cache/huggingface/` folder first.\n"
-            "\n"
-            f"Some temporary metadata will be stored under `{local_path}/.cache/huggingface`.\n"
-            "  - You must not modify those files manually.\n"
-            "  - You must not delete the `./.cache/huggingface/` folder while a process is running.\n"
-            "  - You can delete the `./.cache/huggingface/` folder to reinitialize the upload state when process is not running. Files will have to be hashed and preuploaded again, except for already committed files.\n"
-            "\n"
-            "If the process output is too verbose, you can disable the progress bars with `--no-bars`. "
-            "You can also entirely disable the status report with `--no-report`.\n"
-            "\n"
-            "For more details, run `hf upload-large-folder --help` or check the documentation at "
-            "https://huggingface.co/docs/huggingface_hub/guides/upload#upload-a-large-folder."
-        )
+    # Build the equivalent `hf upload` command to recommend to the user.
+    equivalent = [f"hf upload {repo_id} '{local_path}' --repo-type {repo_type.value}"]
+    if revision is not None:
+        equivalent.append(f"--revision '{revision}'")
+    if private:
+        equivalent.append("--private")
+    for pattern in include or []:
+        equivalent.append(f"--include '{pattern}'")
+    for pattern in exclude or []:
+        equivalent.append(f"--exclude '{pattern}'")
+
+    out.warning(
+        "\n"
+        "================================================================================\n"
+        "`hf upload-large-folder` is DEPRECATED and will be removed in a future release.\n"
+        "\n"
+        "Use `hf upload` instead:\n"
+        "\n"
+        f"    {' '.join(equivalent)}\n"
+        "================================================================================"
     )
 
     if no_bars:
         disable_progress_bars()
 
     api = get_hf_api(token=token)
-    api.upload_large_folder(
-        repo_id=repo_id,
-        folder_path=local_path,
-        repo_type=repo_type.value,
-        revision=revision,
-        private=private,
-        allow_patterns=include,
-        ignore_patterns=exclude,
-        num_workers=num_workers,
-        print_report=not no_report,
-    )
+    with warnings.catch_warnings():
+        # Avoid printing the API-level deprecation warning on top of the CLI one above.
+        warnings.simplefilter("ignore", FutureWarning)
+        api.upload_large_folder(
+            repo_id=repo_id,
+            folder_path=local_path,
+            repo_type=repo_type.value,
+            revision=revision,
+            private=private,
+            allow_patterns=include,
+            ignore_patterns=exclude,
+            num_workers=num_workers,
+            print_report=not no_report,
+        )

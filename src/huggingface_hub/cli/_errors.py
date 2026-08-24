@@ -14,15 +14,22 @@
 """CLI error handling utilities."""
 
 import traceback
-from typing import Callable, Optional
+from collections.abc import Callable
 
 from huggingface_hub.errors import (
     BucketNotFoundError,
     CLIError,
     CLIExtensionInstallError,
+    DeviceCodeError,
+    EntryNotFoundError,
     GatedRepoError,
     HfHubHTTPError,
+    HfUriError,
+    IncompleteSnapshotError,
+    LocalEntryNotFoundError,
     LocalTokenNotFoundError,
+    OfflineModeIsEnabled,
+    OIDCError,
     RemoteEntryNotFoundError,
     RepositoryNotFoundError,
     RevisionNotFoundError,
@@ -35,7 +42,15 @@ def _format_repo_not_found(error: RepositoryNotFoundError) -> str:
         msg = f"{label} '{error.repo_id}' not found."
     else:
         msg = f"{label} not found."
-    msg += " If the repo is private, make sure you are authenticated."
+    msg += "\nIf the repo is private, make sure you are authenticated and your token has the required permissions."
+
+    msg += "\nIf the repo does not exist, create it with: "
+    if error.repo_id is not None:
+        type_flag = f" --type {error.repo_type}" if error.repo_type and error.repo_type != "model" else ""
+        msg += f"hf repos create {error.repo_id}{type_flag}"
+    else:
+        msg += "hf repos create <repo_id>"
+
     return msg
 
 
@@ -48,8 +63,14 @@ def _format_gated_repo(error: GatedRepoError) -> str:
 
 def _format_bucket_not_found(error: BucketNotFoundError) -> str:
     if error.bucket_id:
-        return f"Bucket '{error.bucket_id}' not found. If the bucket is private, make sure you are authenticated."
-    return "Bucket not found. Check the bucket id (namespace/name). If the bucket is private, make sure you are authenticated."
+        msg = f"Bucket '{error.bucket_id}' not found."
+        cmd = f"hf buckets create {error.bucket_id}"
+    else:
+        msg = "Bucket not found."
+        cmd = "hf buckets create <bucket_id>"
+    msg += "\nIf the bucket is private, make sure you are authenticated and your token has the required permissions."
+    msg += f"\nIf the bucket does not exist, create it with: {cmd}"
+    return msg
 
 
 def _format_entry_not_found(error: RemoteEntryNotFoundError) -> str:
@@ -61,6 +82,19 @@ def _format_entry_not_found(error: RemoteEntryNotFoundError) -> str:
         msg = f"File not found in {label}."
     if url:
         msg += f"\nURL: {url}"
+    return msg
+
+
+def _format_local_entry_not_found(error: LocalEntryNotFoundError) -> str:
+    cause = error.__cause__
+    if cause is not None:
+        return f"Local entry not found. {cause}"
+    return f"Local entry not found. {error}"
+
+
+def _format_incomplete_snapshot(error: IncompleteSnapshotError) -> str:
+    msg = _format_local_entry_not_found(error)
+    msg += f"\nIncomplete snapshot available at: {error.snapshot_path}"
     return msg
 
 
@@ -92,21 +126,29 @@ def _format_cli_extension_install_error(error: CLIExtensionInstallError) -> str:
 
 
 CLI_ERROR_MAPPINGS: dict[type[Exception], Callable[..., str]] = {
+    OfflineModeIsEnabled: lambda error: str(error),
     # GatedRepoError must come before RepositoryNotFoundError (it's a subclass).
     GatedRepoError: _format_gated_repo,
     BucketNotFoundError: _format_bucket_not_found,
     RepositoryNotFoundError: _format_repo_not_found,
     RevisionNotFoundError: _format_revision_not_found,
     LocalTokenNotFoundError: lambda _: "Not logged in. Run 'hf auth login' first.",
+    OIDCError: lambda error: f"OIDC Exchange failed. {error}",
+    DeviceCodeError: lambda error: f"Login failed: {error}",
     RemoteEntryNotFoundError: _format_entry_not_found,
+    # IncompleteSnapshotError must come before LocalEntryNotFoundError (it's a subclass).
+    IncompleteSnapshotError: _format_incomplete_snapshot,
+    LocalEntryNotFoundError: _format_local_entry_not_found,
+    EntryNotFoundError: lambda error: str(error),
     HfHubHTTPError: lambda error: str(error),
+    HfUriError: lambda error: f"Invalid HF URI: {error.uri}. {error.msg}",
     ValueError: lambda error: f"Invalid value. {error}",
     CLIExtensionInstallError: _format_cli_extension_install_error,
     CLIError: _format_cli_error,
 }
 
 
-def format_known_exception(error: Exception) -> Optional[str]:
+def format_known_exception(error: Exception) -> str | None:
     for exc_type, formatter in CLI_ERROR_MAPPINGS.items():
         if isinstance(error, exc_type):
             return formatter(error)

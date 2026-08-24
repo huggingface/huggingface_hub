@@ -53,6 +53,14 @@ models = hf_api.list_models()
 
 [[autodoc]] huggingface_hub.hf_api.BucketUrl
 
+### DatasetLeaderboardEntry
+
+[[autodoc]] huggingface_hub.hf_api.DatasetLeaderboardEntry
+
+### EvalResultEntry
+
+[[autodoc]] huggingface_hub.hf_api.EvalResultEntry
+
 ### SyncOperation
 
 [[autodoc]] huggingface_hub.SyncOperation
@@ -89,6 +97,10 @@ models = hf_api.list_models()
 
 [[autodoc]] huggingface_hub.hf_api.InferenceProviderMapping
 
+### KernelInfo
+
+[[autodoc]] huggingface_hub.hf_api.KernelInfo
+
 ### LFSFileInfo
 
 [[autodoc]] huggingface_hub.hf_api.LFSFileInfo
@@ -120,6 +132,10 @@ models = hf_api.list_models()
 ### SpaceInfo
 
 [[autodoc]] huggingface_hub.hf_api.SpaceInfo
+
+### SpaceSearchResult
+
+[[autodoc]] huggingface_hub._space_api.SpaceSearchResult
 
 ### TensorInfo
 

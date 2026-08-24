@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from io import SEEK_END, SEEK_SET, BytesIO
 from pathlib import Path
 from threading import Lock, Thread
-from typing import Optional, Union
+from typing import Optional
 
 from .hf_api import DEFAULT_IGNORE_PATTERNS, CommitInfo, CommitOperationAdd, HfApi
 from .utils import filter_repo_objects
@@ -101,15 +101,15 @@ class CommitScheduler:
         self,
         *,
         repo_id: str,
-        folder_path: Union[str, Path],
-        every: Union[int, float] = 5,
-        path_in_repo: Optional[str] = None,
-        repo_type: Optional[str] = None,
-        revision: Optional[str] = None,
-        private: Optional[bool] = None,
-        token: Optional[str] = None,
-        allow_patterns: Optional[Union[list[str], str]] = None,
-        ignore_patterns: Optional[Union[list[str], str]] = None,
+        folder_path: str | Path,
+        every: int | float = 5,
+        path_in_repo: str | None = None,
+        repo_type: str | None = None,
+        revision: str | None = None,
+        private: bool | None = None,
+        token: str | None = None,
+        allow_patterns: list[str] | str | None = None,
+        ignore_patterns: list[str] | str | None = None,
         squash_history: bool = False,
         hf_api: Optional["HfApi"] = None,
     ) -> None:
@@ -186,7 +186,7 @@ class CommitScheduler:
         """
         return self.api.run_as_future(self._push_to_hub)
 
-    def _push_to_hub(self) -> Optional[CommitInfo]:
+    def _push_to_hub(self) -> CommitInfo | None:
         if self.__stopped:  # If stopped, already scheduled commits are ignored
             return None
 
@@ -201,7 +201,7 @@ class CommitScheduler:
             logger.error(f"Error while pushing to Hub: {e}")  # Depending on the setup, error might be silenced
             raise
 
-    def push_to_hub(self) -> Optional[CommitInfo]:
+    def push_to_hub(self) -> CommitInfo | None:
         """
         Push folder to the Hub and return the commit info.
 
@@ -296,7 +296,7 @@ class PartialFileIO(BytesIO):
             will be read (and uploaded).
     """
 
-    def __init__(self, file_path: Union[str, Path], size_limit: int) -> None:
+    def __init__(self, file_path: str | Path, size_limit: int) -> None:
         self._file_path = Path(file_path)
         self._file = self._file_path.open("rb")
         self._size_limit = min(size_limit, os.fstat(self._file.fileno()).st_size)
@@ -338,7 +338,7 @@ class PartialFileIO(BytesIO):
             return self._file.seek(self._size_limit)
         return pos
 
-    def read(self, __size: Optional[int] = -1) -> bytes:
+    def read(self, __size: int | None = -1) -> bytes:
         """Read at most `__size` bytes from the file.
 
         Behavior is the same as a regular file, except that it is capped to the size limit.

@@ -6,7 +6,7 @@ rendered properly in your Markdown viewer.
 
 Before you start, you will need to set up your environment by installing the appropriate packages.
 
-`huggingface_hub` is tested on **Python 3.9+**.
+`huggingface_hub` is tested on **Python 3.10+**.
 
 ## Install with pip
 
@@ -17,19 +17,19 @@ A virtual environment makes it easier to manage different projects, and avoid co
 Start by creating a virtual environment in your project directory:
 
 ```bash
-python -m venv .env
+python -m venv .venv
 ```
 
 Activate the virtual environment. On Linux and macOS:
 
 ```bash
-source .env/bin/activate
+source .venv/bin/activate
 ```
 
 Activate virtual environment on Windows:
 
 ```bash
-.env/Scripts/activate
+.venv/Scripts/activate
 ```
 
 Now you're ready to install `huggingface_hub` [from the PyPi registry](https://pypi.org/project/huggingface-hub/):
@@ -51,7 +51,6 @@ pip install 'huggingface_hub[mcp,torch]'
 ```
 
 Here is the list of optional dependencies in `huggingface_hub`:
-- `cli`: provide a more convenient CLI interface for `huggingface_hub`.
 - `fastai`, `torch`: dependencies to run framework-specific features.
 - `dev`: dependencies to contribute to the lib. Includes `testing` (to run tests), `typing` (to run type checker) and `quality` (to run linters).
 
@@ -118,6 +117,8 @@ On Windows:
 ```powershell
 powershell -ExecutionPolicy ByPass -c "irm https://hf.co/cli/install.ps1 | iex"
 ```
+
+To upgrade an existing install, run `hf update` — it detects how `hf` was installed (standalone installer, Homebrew, or pip) and runs the matching command.
 
 ## Install with conda
 

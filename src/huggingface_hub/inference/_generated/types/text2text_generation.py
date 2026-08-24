@@ -15,9 +15,9 @@ Text2TextGenerationTruncationStrategy = Literal["do_not_truncate", "longest_firs
 class Text2TextGenerationParameters(BaseInferenceType):
     """Additional inference parameters for Text2text Generation"""
 
-    clean_up_tokenization_spaces: Optional[bool] = None
+    clean_up_tokenization_spaces: bool | None = None
     """Whether to clean up the potential extra spaces in the text output."""
-    generate_parameters: Optional[dict[str, Any]] = None
+    generate_parameters: dict[str, Any] | None = None
     """Additional parametrization of the text generation algorithm"""
     truncation: Optional["Text2TextGenerationTruncationStrategy"] = None
     """The truncation strategy to use"""
@@ -29,7 +29,7 @@ class Text2TextGenerationInput(BaseInferenceType):
 
     inputs: str
     """The input text data"""
-    parameters: Optional[Text2TextGenerationParameters] = None
+    parameters: Text2TextGenerationParameters | None = None
     """Additional inference parameters for Text2text Generation"""
 
 
@@ -38,5 +38,5 @@ class Text2TextGenerationOutput(BaseInferenceType):
     """Outputs of inference for the Text2text Generation task"""
 
     generated_text: Any
-    text2_text_generation_output_generated_text: Optional[str] = None
+    text2_text_generation_output_generated_text: str | None = None
     """The generated text."""

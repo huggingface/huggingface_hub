@@ -7,7 +7,7 @@ rendered properly in your Markdown viewer.
 Avant de commencer, vous allez avoir besoin de préparer votre environnement
 en installant les packages appropriés.
 
-`huggingface_hub` est testée sur **Python 3.9+**.
+`huggingface_hub` est testée sur **Python 3.10+**.
 
 ## Installation avec pip
 
@@ -18,19 +18,19 @@ afin d'éviter les problèmes de compatibilité entre les différentes dépendan
 Commencez par créer un environnement virtuel à l'emplacement de votre projet:
 
 ```bash
-python -m venv .env
+python -m venv .venv
 ```
 
 Activez l'environnement virtuel sur Linux et macOS:
 
 ```bash
-source .env/bin/activate
+source .venv/bin/activate
 ```
 
 Activez l'environnement virtuel sur Windows:
 
 ```bash
-.env/Scripts/activate
+.venv/Scripts/activate
 ```
 
 Maintenant, vous êtes prêts à installer `hugginface_hub` [depuis PyPi](https://pypi.org/project/huggingface-hub/):

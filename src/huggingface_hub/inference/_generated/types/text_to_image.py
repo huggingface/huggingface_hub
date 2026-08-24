@@ -3,7 +3,7 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from typing import Any, Optional
+from typing import Any
 
 from .base import BaseInferenceType, dataclass_with_extra
 
@@ -12,23 +12,23 @@ from .base import BaseInferenceType, dataclass_with_extra
 class TextToImageParameters(BaseInferenceType):
     """Additional inference parameters for Text To Image"""
 
-    guidance_scale: Optional[float] = None
+    guidance_scale: float | None = None
     """A higher guidance scale value encourages the model to generate images closely linked to
     the text prompt, but values too high may cause saturation and other artifacts.
     """
-    height: Optional[int] = None
+    height: int | None = None
     """The height in pixels of the output image"""
-    negative_prompt: Optional[str] = None
+    negative_prompt: str | None = None
     """One prompt to guide what NOT to include in image generation."""
-    num_inference_steps: Optional[int] = None
+    num_inference_steps: int | None = None
     """The number of denoising steps. More denoising steps usually lead to a higher quality
     image at the expense of slower inference.
     """
-    scheduler: Optional[str] = None
+    scheduler: str | None = None
     """Override the scheduler with a compatible one."""
-    seed: Optional[int] = None
+    seed: int | None = None
     """Seed for the random number generator."""
-    width: Optional[int] = None
+    width: int | None = None
     """The width in pixels of the output image"""
 
 
@@ -38,7 +38,7 @@ class TextToImageInput(BaseInferenceType):
 
     inputs: str
     """The input text data (sometimes called "prompt")"""
-    parameters: Optional[TextToImageParameters] = None
+    parameters: TextToImageParameters | None = None
     """Additional inference parameters for Text To Image"""
 
 

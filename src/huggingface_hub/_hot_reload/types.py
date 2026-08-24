@@ -13,7 +13,7 @@
 # limitations under the License.
 
 
-from typing import Literal, TypedDict, Union
+from typing import Literal, TypedDict
 
 from typing_extensions import NotRequired
 
@@ -56,6 +56,11 @@ class ReloadOperationUI(TypedDict):
     updated: bool
 
 
+class ReloadOperationFile(TypedDict):
+    kind: Literal["file"]
+    created: bool
+
+
 class ApiCreateReloadRequest(TypedDict):
     filepath: str
     contents: str
@@ -72,7 +77,7 @@ class ApiCreateReloadResponseError(TypedDict):
 
 
 class ApiCreateReloadResponse(TypedDict):
-    res: Union[ApiCreateReloadResponseError, ApiCreateReloadResponseSuccess]
+    res: ApiCreateReloadResponseError | ApiCreateReloadResponseSuccess
 
 
 class ApiGetReloadRequest(TypedDict):
@@ -80,13 +85,14 @@ class ApiGetReloadRequest(TypedDict):
 
 
 class ApiGetReloadEventSourceData(TypedDict):
-    data: Union[
-        ReloadOperationError,
-        ReloadOperationException,
-        ReloadOperationObject,
-        ReloadOperationRun,
-        ReloadOperationUI,
-    ]
+    data: (
+        ReloadOperationError
+        | ReloadOperationException
+        | ReloadOperationObject
+        | ReloadOperationRun
+        | ReloadOperationUI
+        | ReloadOperationFile
+    )
 
 
 class ApiGetStatusRequest(TypedDict):
@@ -112,4 +118,4 @@ class ApiFetchContentsResponseSuccess(TypedDict):
 
 
 class ApiFetchContentsResponse(TypedDict):
-    res: Union[ApiFetchContentsResponseError, ApiFetchContentsResponseSuccess]
+    res: ApiFetchContentsResponseError | ApiFetchContentsResponseSuccess

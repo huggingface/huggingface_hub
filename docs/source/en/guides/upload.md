@@ -65,7 +65,7 @@ This can prove useful if you want to clean a remote folder before pushing files 
 already exists.
 
 The example below uploads the local `./logs` folder to the remote `/experiment/logs/` folder. Only txt files are uploaded
-but before that, all previous logs on the repo on deleted. All of this in a single commit.
+but before that, all previous logs on the repo are deleted. All of this in a single commit.
 ```py
 >>> api.upload_folder(
 ...     folder_path="/path/to/local/folder/logs",
@@ -75,6 +75,25 @@ but before that, all previous logs on the repo on deleted. All of this in a sing
 ...     delete_patterns="*.txt", # Delete all remote text files before
 ... )
 ```
+
+### How files are uploaded
+
+When `hf_xet` is installed (which is the case by default), [`upload_folder`] uploads files through a streamed pipeline: files are checked against the Hub, uploaded to the Xet storage backend (which chunks, deduplicates and retries transfers internally), and committed in adaptive batches, all in parallel. In practice this means:
+
+- **Folders of any size**: small folders are uploaded in a single commit, while folders with many files are automatically split into several commits to stay below server limits. When this happens, follow-up commits get a ` (part 2)`, ` (part 3)`, ... suffix on the commit message.
+- **Resumable**: if the upload is interrupted for any reason, simply re-run the same call. Files already committed are detected and skipped, and chunks already uploaded are deduplicated — re-uploading them transfers (almost) no data. No local state is involved: you can even resume from a different machine. One exception: with `create_pr=True`, re-running opens a new pull request. We recommend re-run with `revision="refs/pr/N"` instead when resuming upload.
+- **No double read**: files are hashed while being chunked for upload, in a single read pass. There is no separate "hashing" phase before the upload starts.
+
+A live progress display keeps track of the three stages:
+
+```
+Found 5,000 files to upload
+  Preparing   ████████████████████  5,000 / 5,000 ✓
+  Uploading   ██████████████░░░░░░  423 / 603 files  3.8GB · 19.7MB/s
+  Committing  ██████████████████░░  4,580 / 5,000  6 commits
+```
+
+If `hf_xet` is not installed, [`upload_folder`] falls back to the legacy behavior: hash everything first, upload over HTTP, then create a single commit. We always recommend to keep `hf_xet` installed for better robustness
 
 ## Upload from the CLI
 
@@ -96,56 +115,39 @@ check if a local folder or file has the same name as the `repo_id`. If that's th
 Otherwise, an exception is raised asking the user to explicitly set `local_path`. In any case, if `path_in_repo` is not
 set, files are uploaded at the root of the repo.
 
+The destination can also be expressed as a single `hf://` URI following the grammar `hf://[<TYPE>/]<ID>[@<REVISION>][/<PATH>]` (see the [HF URIs reference](../package_reference/hf_uris) for the full syntax). The repo type, revision and `path_in_repo` are then read from the URI, which cannot be combined with the `--repo-type` and `--revision` options:
+
+```bash
+# Upload a single file to a dataset on a specific branch
+>>> hf upload hf://datasets/Wauplin/my-cool-dataset@my-branch/data/train.csv ./train.csv
+https://huggingface.co/datasets/Wauplin/my-cool-dataset/blob/my-branch/data/train.csv
+```
+
+> [!TIP]
+> For maximum upload throughput on large files, set the [`HF_XET_HIGH_PERFORMANCE=1`](../package_reference/environment_variables.md#hf_xet_high_performance) environment variable. This enables `hf_xet`'s high-performance mode, which saturates available bandwidth and CPU cores. Note: the legacy `HF_HUB_ENABLE_HF_TRANSFER=1` flag is no longer used since `hf_transfer` was removed in favor of `hf_xet` — set `HF_XET_HIGH_PERFORMANCE=1` instead.
+
 For more details about the CLI upload command, please refer to the [CLI guide](./cli#hf-upload).
 
 ## Upload a large folder
 
-In most cases, the [`upload_folder`] method and `hf upload` command should be the go-to solutions to upload files to the Hub. They ensure a single commit will be made, handle a lot of use cases, and fail explicitly when something wrong happens. However, when dealing with a large amount of data, you will usually prefer a resilient process even if it leads to more commits or requires more CPU usage. The [`upload_large_folder`] method has been implemented in that spirit:
-- it is resumable: the upload process is split into many small tasks (hashing files, pre-uploading them, and committing them). Each time a task is completed, the result is cached locally in a `./cache/huggingface` folder inside the folder you are trying to upload. By doing so, restarting the process after an interruption will resume all completed tasks.
-- it is multi-threaded: hashing large files and pre-uploading them benefits a lot from multithreading if your machine allows it.
-- it is resilient to errors: a high-level retry-mechanism has been added to retry each independent task indefinitely until it passes (no matter if it's a OSError, ConnectionError, PermissionError, etc.). This mechanism is double-edged. If transient errors happen, the process will continue and retry. If permanent errors happen (e.g. permission denied), it will retry indefinitely without solving the root cause.
-
-If you want more technical details about how `upload_large_folder` is implemented under the hood, please have a look to the [`upload_large_folder`] package reference.
-
-Here is how to use [`upload_large_folder`] in a script. The method signature is very similar to [`upload_folder`]:
+[`upload_folder`] and the `hf upload` command are the go-to solutions to upload files to the Hub, including for very large folders. Files are streamed to the Hub in several commits and the process resumes automatically if it gets interrupted. Simply re-run the same call and already-uploaded files are skipped.
 
 ```py
->>> api.upload_large_folder(
+>>> api.upload_folder(
 ...     repo_id="HuggingFaceM4/Docmatix",
 ...     repo_type="dataset",
 ...     folder_path="/path/to/local/docmatix",
 ... )
 ```
 
-You will see the following output in your terminal:
-```
-Repo created: https://huggingface.co/datasets/HuggingFaceM4/Docmatix
-Found 5 candidate files to upload
-Recovering from metadata files: 100%|█████████████████████████████████████| 5/5 [00:00<00:00, 542.66it/s]
-
----------- 2024-07-22 17:23:17 (0:00:00) ----------
-Files:   hashed 5/5 (5.0G/5.0G) | pre-uploaded: 0/5 (0.0/5.0G) | committed: 0/5 (0.0/5.0G) | ignored: 0
-Workers: hashing: 0 | get upload mode: 0 | pre-uploading: 5 | committing: 0 | waiting: 11
----------------------------------------------------
-```
-
-First, the repo is created if it didn't exist before. Then, the local folder is scanned for files to upload. For each file, we try to recover metadata information (from a previously interrupted upload). From there, it is able to launch workers and print an update status every 1 minute. Here, we can see that 5 files have already been hashed but not pre-uploaded. 5 workers are pre-uploading files while the 11 others are waiting for a task.
-
-A command line is also provided. You can define the number of workers and the level of verbosity in the terminal:
+or from the terminal:
 
 ```sh
-hf upload-large-folder HuggingFaceM4/Docmatix --repo-type=dataset /path/to/local/docmatix --num-workers=16
+hf upload HuggingFaceM4/Docmatix --repo-type=dataset /path/to/local/docmatix
 ```
 
-> [!TIP]
-> For large uploads, you have to set `repo_type="model"` or `--repo-type=model` explicitly. Usually, this information is implicit in all other `HfApi` methods. This is to avoid having data uploaded to a repository with a wrong type. If that's the case, you'll have to re-upload everything.
-
 > [!WARNING]
-> While being much more robust to upload large folders, `upload_large_folder` is more limited than [`upload_folder`] feature-wise. In practice:
-> - you cannot set a custom `path_in_repo`. If you want to upload to a subfolder, you need to set the proper structure locally.
-> - you cannot set a custom `commit_message` and `commit_description` since multiple commits are created.
-> - you cannot delete from the repo while uploading. Please make a separate commit first.
-> - you cannot create a PR directly. Please create a PR first (from the UI or using [`create_pull_request`]) and then commit to it by passing `revision`.
+> The legacy [`upload_large_folder`] method and `hf upload-large-folder` command are **deprecated** and will be removed in a future release. Use [`upload_folder`] / `hf upload` instead.
 
 ### Tips and tricks for large uploads
 
@@ -154,7 +156,7 @@ There are some limitations to be aware of when dealing with a large amount of da
 Check out our [Repository limitations and recommendations](https://huggingface.co/docs/hub/repositories-recommendations) guide for best practices on how to structure your repositories on the Hub. Let's move on with some practical tips to make your upload process as smooth as possible.
 
 - **Start small**: We recommend starting with a small amount of data to test your upload script. It's easier to iterate on a script when failing takes only a little time.
-- **Expect failures**: Streaming large amounts of data is challenging. You don't know what can happen, but it's always best to consider that something will fail at least once -no matter if it's due to your machine, your connection, or our servers. For example, if you plan to upload a large number of files, it's best to keep track locally of which files you already uploaded before uploading the next batch. You are ensured that an LFS file that is already committed will never be re-uploaded twice but checking it client-side can still save some time. This is what [`upload_large_folder`] does for you.
+- **Expect failures**: Streaming large amounts of data is challenging. You don't know what can happen, but it's always best to consider that something will fail at least once -no matter if it's due to your machine, your connection, or our servers. For example, if you plan to upload a large number of files, it's best to keep track locally of which files you already uploaded before uploading the next batch. You are ensured that an LFS file that is already committed will never be re-uploaded twice but checking it client-side can still save some time. This is what [`upload_folder`] does for you.
 - **Use `hf_xet`**: this leverages the new storage backend for the Hub, is written in Rust, and is now available for everyone to use. In fact, `hf_xet` is already enabled by default when using `huggingface_hub`! For maximum performance, set [`HF_XET_HIGH_PERFORMANCE=1`](../package_reference/environment_variables.md#hf_xet_high_performance) as an environment variable. Be aware that when high performance mode is enabled, the tool will try to use all available bandwidth and CPU cores.
 
 ## Advanced features
@@ -227,11 +229,42 @@ Future(...)
 Future(...)
 ```
 
-### Upload a folder by chunks
+### Copy files between repositories
 
-[`upload_folder`] makes it easy to upload an entire folder to the Hub. However, for large folders (thousands of files or
-hundreds of GB), we recommend using [`upload_large_folder`], which splits the upload into multiple commits. See the [Upload a large folder](#upload-a-large-folder) section for more details.
+Use [`copy_files`] to copy files or folders between repositories on the Hub without downloading or re-uploading large data. This is useful when you want to duplicate weights across model variants, copy dataset files between repos, or reorganize files across your repositories. Under the hood, it creates a commit with [`CommitOperationCopy`] operations.
 
+```py
+>>> from huggingface_hub import HfApi
+>>> api = HfApi()
+
+# Copy a single file between repos
+>>> api.copy_files(
+...     "hf://username/source-model/weights.safetensors",
+...     "hf://username/target-model/weights.safetensors",
+... )
+
+# Copy an entire folder
+>>> api.copy_files(
+...     "hf://datasets/username/source-dataset/data/",
+...     "hf://datasets/username/target-dataset/data/",
+... )
+```
+
+You can also copy within the same repository:
+
+```py
+# Duplicate a file in the same repo
+>>> api.copy_files(
+...     "hf://username/my-model/config.json",
+...     "hf://username/my-model/backup/config.json",
+... )
+```
+
+> [!TIP]
+> When copying a folder, a trailing `/` on the source uses rsync-style semantics meaning the *contents* of the folder are copied, without nesting the folder itself. Without a trailing `/`, the folder itself is nested at the destination.
+
+> [!TIP]
+> [`copy_files`] also supports copying files to [Buckets](./buckets). See the [Buckets guide](./buckets#copy-files-to-bucket) for more details.
 
 ### Scheduled uploads
 
@@ -368,11 +401,13 @@ There are three types of operations supported by [`create_commit`]:
 
 - [`CommitOperationDelete`] removes a file or a folder from a repository. This operation accepts `path_in_repo` as an argument.
 
-- [`CommitOperationCopy`] copies a file within a repository. This operation accepts three arguments:
+- [`CommitOperationCopy`] copies a file within a repository or across repositories. This operation accepts the following arguments:
 
   - `src_path_in_repo`: the repository path of the file to copy.
   - `path_in_repo`: the repository path where the file should be copied.
-  - `src_revision`: optional - the revision of the file to copy if your want to copy a file from a different branch/revision.
+  - `src_revision`: optional - the revision of the file to copy if you want to copy a file from a different branch/revision.
+  - `src_repo_id`: optional - the source repository to copy from (e.g. `"username/source-model"`). Defaults to the destination repository.
+  - `src_repo_type`: optional - the type of the source repository (`"model"`, `"dataset"` or `"space"`). Required when `src_repo_id` is set.
 
 For example, if you want to upload two files and delete a file in a Hub repository:
 

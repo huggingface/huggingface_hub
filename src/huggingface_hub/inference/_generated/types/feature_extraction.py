@@ -3,7 +3,7 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from typing import Literal, Optional, Union
+from typing import Literal, Optional
 
 from .base import BaseInferenceType, dataclass_with_extra
 
@@ -19,10 +19,10 @@ class FeatureExtractionInput(BaseInferenceType):
     https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-tei-import.ts.
     """
 
-    inputs: Union[list[str], str]
+    inputs: list[str] | str
     """The text or list of texts to embed."""
-    normalize: Optional[bool] = None
-    prompt_name: Optional[str] = None
+    normalize: bool | None = None
+    prompt_name: str | None = None
     """The name of the prompt that should be used by for encoding. If not set, no prompt
     will be applied.
     Must be a key in the `sentence-transformers` configuration `prompts` dictionary.
@@ -32,5 +32,5 @@ class FeatureExtractionInput(BaseInferenceType):
     "query: What is the capital of France?" because the prompt text will be prepended before
     any text to encode.
     """
-    truncate: Optional[bool] = None
+    truncate: bool | None = None
     truncation_direction: Optional["FeatureExtractionInputTruncationDirection"] = None

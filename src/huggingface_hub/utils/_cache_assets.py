@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2019-present, the HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from pathlib import Path
-from typing import Union
 
 from ..constants import HF_ASSETS_CACHE
 
@@ -23,7 +21,7 @@ def cached_assets_path(
     namespace: str = "default",
     subfolder: str = "default",
     *,
-    assets_dir: Union[str, Path, None] = None,
+    assets_dir: str | Path | None = None,
 ) -> Path:
     """Return a folder path to cache arbitrary files.
 

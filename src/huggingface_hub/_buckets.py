@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2026-present, the HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,17 +20,27 @@ import fnmatch
 import json
 import mimetypes
 import os
+import stat
 import sys
 import time
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Iterator, Literal, Optional, Union
+from typing import TYPE_CHECKING, Any, Literal
 
 from . import constants, logging
 from .errors import BucketNotFoundError
-from .utils import XetFileData, disable_progress_bars, enable_progress_bars, parse_datetime
-from .utils._terminal import StatusLine
+from .utils import (
+    HfUri,
+    StatusLine,
+    XetFileData,
+    disable_progress_bars,
+    enable_progress_bars,
+    parse_datetime,
+    parse_hf_uri,
+)
+from .utils._hf_uris import _looks_like_hf_url
 
 
 if TYPE_CHECKING:
@@ -48,20 +57,6 @@ _SYNC_TIME_WINDOW_MS = 1000  # 1s safety-window for file modification time compa
 # =============================================================================
 # Bucket data structures
 # =============================================================================
-
-
-def _split_bucket_id_and_prefix(path: str) -> tuple[str, str]:
-    """Split 'namespace/name(/optional/prefix)' into ('namespace/name', 'prefix').
-
-    Returns (bucket_id, prefix) where prefix may be empty string.
-    Raises ValueError if path doesn't contain at least namespace/name.
-    """
-    parts = path.split("/", 2)
-    if len(parts) < 2 or not parts[0] or not parts[1]:
-        raise ValueError(f"Invalid bucket path: '{path}'. Expected format: namespace/bucket_name")
-    bucket_id = f"{parts[0]}/{parts[1]}"
-    prefix = parts[2] if len(parts) > 2 else ""
-    return bucket_id, prefix
 
 
 @dataclass
@@ -99,13 +94,13 @@ class BucketInfo:
 
 @dataclass
 class _BucketAddFile:
-    source: Union[str, Path, bytes]
+    source: str | Path | bytes
     destination: str
 
-    xet_hash: Optional[str] = field(default=None)
-    size: Optional[int] = field(default=None)
+    xet_hash: str | None = field(default=None)
+    size: int | None = field(default=None)
     mtime: int = field(init=False)
-    content_type: Optional[str] = field(init=False)
+    content_type: str | None = field(init=False)
 
     def __post_init__(self) -> None:
         self.content_type = None
@@ -117,6 +112,21 @@ class _BucketAddFile:
         self.mtime = int(
             os.path.getmtime(self.source) * 1000 if not isinstance(self.source, bytes) else time.time() * 1000
         )
+
+
+@dataclass
+class _BucketCopyFile:
+    destination: str
+    xet_hash: str
+    source_repo_type: str  # "model", "dataset", "space", "bucket"
+    source_repo_id: str
+    size: int | None = field(default=None)
+    mtime: int = field(init=False)
+    content_type: str | None = field(init=False)
+
+    def __post_init__(self) -> None:
+        self.content_type = mimetypes.guess_type(self.destination)[0]
+        self.mtime = int(time.time() * 1000)
 
 
 @dataclass
@@ -150,7 +160,7 @@ class BucketUrl:
     - namespace (`str`)
     - bucket_id (`str`)
     - url (`str`)
-    - handle (`str`)
+    - uri (`HfUri`)
 
     Args:
         url (`str`):
@@ -163,7 +173,7 @@ class BucketUrl:
     endpoint: str = ""
     namespace: str = field(init=False)
     bucket_id: str = field(init=False)
-    handle: str = field(init=False)
+    uri: HfUri = field(init=False)
 
     def __post_init__(self) -> None:
         self.endpoint = self.endpoint or constants.ENDPOINT
@@ -173,13 +183,12 @@ class BucketUrl:
         # Remove leading "buckets/" prefix
         if url_path.startswith("buckets/"):
             url_path = url_path[len("buckets/") :]
-        bucket_id, prefix = _split_bucket_id_and_prefix(url_path)
-        if prefix:
+        parsed = _parse_bucket_uri(url_path)
+        if parsed.path_in_repo:
             raise ValueError(f"Unable to parse bucket URL: {self.url}")
-        self.namespace = bucket_id.split("/")[0]
-        self.bucket_id = bucket_id
-
-        self.handle = f"hf://buckets/{self.bucket_id}"
+        self.namespace = parsed.id.split("/")[0]
+        self.bucket_id = parsed.id
+        self.uri = parsed
 
 
 @dataclass
@@ -194,8 +203,8 @@ class BucketFile:
     path: str
     size: int
     xet_hash: str
-    mtime: Optional[datetime]
-    uploaded_at: Optional[datetime]
+    mtime: datetime | None
+    uploaded_at: datetime | None
 
     def __init__(self, **kwargs):
         self.type = kwargs.pop("type")
@@ -218,7 +227,7 @@ class BucketFolder:
 
     type: Literal["directory"]
     path: str
-    uploaded_at: Optional[datetime]
+    uploaded_at: datetime | None
 
     def __init__(self, **kwargs):
         self.type = kwargs.pop("type")
@@ -236,20 +245,37 @@ class BucketFolder:
 # =============================================================================
 
 
-def _parse_bucket_path(path: str) -> tuple[str, str]:
-    """Parse a bucket path like hf://buckets/namespace/bucket_name/prefix into (bucket_id, prefix).
+def _parse_bucket_uri(path: str) -> HfUri:
+    """Parse a bucket path into a HfUri.
 
-    Returns:
-        tuple: (bucket_id, prefix) where bucket_id is "namespace/bucket_name" and prefix may be empty string.
+    Accepts:
+    - `hf://buckets/namespace/name(/path/in/repo)` URIs,
+    - Hugging Face web URLs such as `https://huggingface.co/buckets/namespace/name(/tree/path)`,
+    - plain `namespace/name(/path/in/repo)` paths.
     """
-    if not path.startswith(BUCKET_PREFIX):
-        raise ValueError(f"Invalid bucket path: {path}. Must start with {BUCKET_PREFIX}")
-    return _split_bucket_id_and_prefix(path.removeprefix(BUCKET_PREFIX))
+    if path.startswith(constants.HF_PROTOCOL) or _looks_like_hf_url(path):
+        # Don't use 'if is_hf_uri(...)' here as we prefer 'parse_hf_uri(...)' to raise the exact error message.
+        parsed = parse_hf_uri(path)
+        if not parsed.is_bucket:
+            raise ValueError(f"Invalid bucket path: {path}. Must be a bucket URI (hf://buckets/...).")
+        return parsed
+    parts = path.split("/", 2)
+    if len(parts) < 2 or not parts[0] or not parts[1]:
+        raise ValueError(f"Invalid bucket path: '{path}'. Expected format: namespace/bucket_name")
+    bucket_id = f"{parts[0]}/{parts[1]}"
+    prefix = "/".join(parts[2:])
+    return HfUri(type="bucket", id=bucket_id, path_in_repo=prefix)
 
 
 def _is_bucket_path(path: str) -> bool:
-    """Check if a path is a bucket path."""
-    return path.startswith(BUCKET_PREFIX)
+    """Check if a path is a bucket path.
+
+    Do not raise if the path is not a hf:// URI.
+    Raise if the path is a hf:// URI but with an incorrect format.
+    """
+    if not path.startswith(constants.HF_PROTOCOL):
+        return False
+    return parse_hf_uri(path).is_bucket
 
 
 # =============================================================================
@@ -263,11 +289,11 @@ class SyncOperation:
 
     action: Literal["upload", "download", "delete", "skip"]
     path: str
-    size: Optional[int] = None
+    size: int | None = None
     reason: str = ""
-    local_mtime: Optional[str] = None
-    remote_mtime: Optional[str] = None
-    bucket_file: Optional[BucketFile] = None  # BucketFile when available (not serialized to plan file)
+    local_mtime: str | None = None
+    remote_mtime: str | None = None
+    bucket_file: BucketFile | None = None  # BucketFile when available (not serialized to plan file)
 
 
 @dataclass
@@ -279,7 +305,7 @@ class SyncPlan:
     timestamp: str
     operations: list[SyncOperation] = field(default_factory=list)
 
-    def summary(self) -> dict[str, Union[int, str]]:
+    def summary(self) -> dict[str, int | str]:
         uploads = sum(1 for op in self.operations if op.action == "upload")
         downloads = sum(1 for op in self.operations if op.action == "download")
         deletes = sum(1 for op in self.operations if op.action == "delete")
@@ -304,9 +330,9 @@ class FilterMatcher:
 
     def __init__(
         self,
-        include_patterns: Optional[list[str]] = None,
-        exclude_patterns: Optional[list[str]] = None,
-        filter_rules: Optional[list[tuple[str, str]]] = None,
+        include_patterns: list[str] | None = None,
+        exclude_patterns: list[str] | None = None,
+        filter_rules: list[tuple[str, str]] | None = None,
     ):
         """Initialize the filter matcher.
 
@@ -377,6 +403,21 @@ def _parse_filter_file(filter_file: str) -> list[tuple[str, str]]:
 # =============================================================================
 
 
+def _stat_local(path: str) -> tuple[int, float] | None:
+    """Stat a local file and return (size, mtime_ms).
+
+    Returns None if the path is missing or is a directory. Uses a single
+    ``os.stat`` call so callers don't pay for multiple syscalls per file.
+    """
+    try:
+        st = os.stat(path)
+    except OSError:
+        return None
+    if stat.S_ISDIR(st.st_mode):
+        return None
+    return st.st_size, st.st_mtime * 1000
+
+
 def _list_local_files(local_path: str) -> Iterator[tuple[str, int, float]]:
     """List all files in a local directory.
 
@@ -390,12 +431,13 @@ def _list_local_files(local_path: str) -> Iterator[tuple[str, int, float]]:
     for root, _, files in os.walk(local_path):
         for filename in files:
             full_path = os.path.join(root, filename)
+            stat_info = _stat_local(full_path)
+            if stat_info is None:
+                continue
             rel_path = os.path.relpath(full_path, local_path)
             # Normalize to forward slashes for consistency
             rel_path = rel_path.replace(os.sep, "/")
-            size = os.path.getsize(full_path)
-            mtime_ms = os.path.getmtime(full_path) * 1000
-            yield rel_path, size, mtime_ms
+            yield rel_path, stat_info[0], stat_info[1]
 
 
 def _list_remote_files(api: "HfApi", bucket_id: str, prefix: str) -> Iterator[tuple[str, int, float, Any]]:
@@ -450,7 +492,7 @@ def _compare_files_for_sync(
     ignore_sizes: bool,
     ignore_times: bool,
     ignore_existing: bool,
-    bucket_file: Optional[Any] = None,
+    bucket_file: Any | None = None,
 ) -> SyncOperation:
     """Compare source and dest files and return the appropriate sync operation.
 
@@ -518,8 +560,8 @@ def _compute_sync_plan(
     ignore_sizes: bool = False,
     existing: bool = False,
     ignore_existing: bool = False,
-    filter_matcher: Optional[FilterMatcher] = None,
-    status: Optional[Any] = None,
+    filter_matcher: FilterMatcher | None = None,
+    status: Any | None = None,
 ) -> SyncPlan:
     """Compute the sync plan by comparing source and destination.
 
@@ -539,11 +581,12 @@ def _compute_sync_plan(
         timestamp=datetime.now(timezone.utc).isoformat(),
     )
 
-    remote_total: Optional[int] = None
+    remote_total: int | None = None
     if is_upload:
         # Local -> Remote
         local_path = os.path.abspath(source)
-        bucket_id, prefix = _parse_bucket_path(dest)
+        parsed = _parse_bucket_uri(dest)
+        bucket_id, prefix = parsed.id, parsed.path_in_repo
 
         if not os.path.isdir(local_path):
             raise ValueError(f"Source must be a directory: {local_path}")
@@ -641,7 +684,8 @@ def _compute_sync_plan(
 
     else:
         # Remote -> Local (download)
-        bucket_id, prefix = _parse_bucket_path(source)
+        parsed = _parse_bucket_uri(source)
+        bucket_id, prefix = parsed.id, parsed.path_in_repo
         local_path = os.path.abspath(dest)
 
         # Get remote and local file lists
@@ -664,11 +708,26 @@ def _compute_sync_plan(
 
         local_files = {}
         if os.path.isdir(local_path):
-            for rel_path, size, mtime_ms in _list_local_files(local_path):
-                if filter_matcher.matches(rel_path):
-                    local_files[rel_path] = (size, mtime_ms)
-                if status:
-                    status.update(f"Scanning local directory ({len(local_files)} files)")
+            if delete:
+                # Full walk needed to discover local-only files for deletion.
+                for rel_path, size, mtime_ms in _list_local_files(local_path):
+                    if filter_matcher.matches(rel_path):
+                        local_files[rel_path] = (size, mtime_ms)
+                    if status:
+                        status.update(f"Scanning local directory ({len(local_files)} files)")
+            else:
+                # Without --delete, the plan only depends on paths that exist
+                # remotely. Stat just those instead of walking the whole tree,
+                # which can take minutes when dest sits in a large directory
+                # like ~/.cache/huggingface/.
+                for rel_path in remote_files:
+                    local_file = os.path.join(local_path, rel_path)
+                    stat_info = _stat_local(local_file)
+                    if stat_info is None:
+                        continue
+                    local_files[rel_path] = stat_info
+                    if status:
+                        status.update(f"Scanning local directory ({len(local_files)} files)")
         if status:
             status.done(f"Scanning local directory ({len(local_files)} files)")
 
@@ -822,34 +881,35 @@ def _load_plan(plan_file: str) -> SyncPlan:
 # =============================================================================
 
 
-def _execute_plan(plan: SyncPlan, api: "HfApi", verbose: bool = False, status: Optional[Any] = None) -> None:
+def _execute_plan(plan: SyncPlan, api: "HfApi", verbose: bool = False, status: Any | None = None) -> None:
     """Execute a sync plan."""
     is_upload = not _is_bucket_path(plan.source) and _is_bucket_path(plan.dest)
     is_download = _is_bucket_path(plan.source) and not _is_bucket_path(plan.dest)
 
     if is_upload:
         local_path = os.path.abspath(plan.source)
-        bucket_id, prefix = _parse_bucket_path(plan.dest)
-        prefix = prefix.rstrip("/")  # Avoid double slashes in remote paths
+        parsed = _parse_bucket_uri(plan.dest)
+        bucket_id, prefix = parsed.id, parsed.path_in_repo
 
         # Collect operations
-        add_files: list[tuple[Union[str, Path, bytes], str]] = []
+        add_files: list[tuple[str | Path | bytes, str]] = []
         delete_paths: list[str] = []
 
         for op in plan.operations:
-            if op.action == "upload":
-                local_file = os.path.join(local_path, op.path)
-                remote_path = f"{prefix}/{op.path}" if prefix else op.path
-                if verbose:
-                    print(f"  Uploading: {op.path} ({op.reason})")
-                add_files.append((local_file, remote_path))
-            elif op.action == "delete":
-                remote_path = f"{prefix}/{op.path}" if prefix else op.path
-                if verbose:
-                    print(f"  Deleting: {op.path} ({op.reason})")
-                delete_paths.append(remote_path)
-            elif op.action == "skip" and verbose:
-                print(f"  Skipping: {op.path} ({op.reason})")
+            match op.action:
+                case "upload":
+                    local_file = os.path.join(local_path, op.path)
+                    remote_path = f"{prefix}/{op.path}" if prefix else op.path
+                    if verbose:
+                        print(f"  Uploading: {op.path} ({op.reason})")
+                    add_files.append((local_file, remote_path))
+                case "delete":
+                    remote_path = f"{prefix}/{op.path}" if prefix else op.path
+                    if verbose:
+                        print(f"  Deleting: {op.path} ({op.reason})")
+                    delete_paths.append(remote_path)
+                case "skip" if verbose:
+                    print(f"  Skipping: {op.path} ({op.reason})")
 
         # Execute batch operations
         if add_files or delete_paths:
@@ -867,15 +927,15 @@ def _execute_plan(plan: SyncPlan, api: "HfApi", verbose: bool = False, status: O
             )
 
     elif is_download:
-        bucket_id, prefix = _parse_bucket_path(plan.source)
-        prefix = prefix.rstrip("/")  # Avoid double slashes in remote paths
+        parsed = _parse_bucket_uri(plan.source)
+        bucket_id, prefix = parsed.id, parsed.path_in_repo
         local_path = os.path.abspath(plan.dest)
 
         # Ensure local directory exists
         os.makedirs(local_path, exist_ok=True)
 
         # Collect download operations
-        download_files: list[tuple[Union[str, BucketFile], Union[str, Path]]] = []
+        download_files: list[tuple[str | BucketFile, str | Path]] = []
         delete_files: list[str] = []
 
         for op in plan.operations:
@@ -937,8 +997,8 @@ def _print_plan_summary(plan: SyncPlan) -> None:
 
 
 def sync_bucket_internal(
-    source: Optional[str] = None,
-    dest: Optional[str] = None,
+    source: str | None = None,
+    dest: str | None = None,
     *,
     api: "HfApi",
     delete: bool = False,
@@ -946,15 +1006,15 @@ def sync_bucket_internal(
     ignore_sizes: bool = False,
     existing: bool = False,
     ignore_existing: bool = False,
-    include: Optional[list[str]] = None,
-    exclude: Optional[list[str]] = None,
-    filter_from: Optional[str] = None,
-    plan: Optional[str] = None,
-    apply: Optional[str] = None,
+    include: list[str] | None = None,
+    exclude: list[str] | None = None,
+    filter_from: str | None = None,
+    plan: str | None = None,
+    apply: str | None = None,
     dry_run: bool = False,
     verbose: bool = False,
     quiet: bool = False,
-    token: Union[bool, str, None] = None,
+    token: bool | str | None = None,
 ) -> SyncPlan:
     """Sync files between a local directory and a bucket.
 
@@ -1038,7 +1098,14 @@ def sync_bucket_internal(
     if token is not None:
         from .hf_api import HfApi
 
-        api = HfApi(token=token)
+        api = HfApi(
+            endpoint=api.endpoint,
+            token=token,
+            library_name=api.library_name,
+            library_version=api.library_version,
+            user_agent=api.user_agent,
+            headers=api.headers,
+        )
     # --- Apply mode ---
     if apply:
         if source or dest:

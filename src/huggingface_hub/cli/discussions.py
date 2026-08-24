@@ -14,33 +14,26 @@
 """Contains commands to interact with discussions and pull requests on the Hugging Face Hub."""
 
 import enum
-import json
 import sys
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated
 
-import typer
+import click
 
 from huggingface_hub import constants
-from huggingface_hub.community import DiscussionComment, DiscussionWithDetails
-from huggingface_hub.utils import ANSI
 
 from ._cli_utils import (
     AuthorOpt,
-    FormatOpt,
     LimitOpt,
-    OutputFormat,
-    QuietOpt,
     RepoIdArg,
     RepoType,
     RepoTypeOpt,
     TokenOpt,
-    _format_cell,
-    api_object_to_dict,
     get_hf_api,
-    print_list_output,
     typer_factory,
 )
+from ._framework import Argument, Option
+from ._output import _dataclass_to_dict, out
 
 
 class DiscussionStatus(str, enum.Enum):
@@ -57,13 +50,6 @@ class DiscussionKind(str, enum.Enum):
     pull_request = "pull_request"
 
 
-class InfoFormat(str, enum.Enum):
-    """Output format for the info command."""
-
-    text = "text"
-    json = "json"
-
-
 # "merged" and "draft" are valid Discussion statuses but the Hub API filter
 # (DiscussionStatusFilter) only accepts "all", "open", "closed". When the user
 # asks for merged/draft we fetch with api_status=None (i.e. all) and filter
@@ -73,77 +59,22 @@ _CLIENT_SIDE_STATUSES = {"merged", "draft"}
 
 DiscussionNumArg = Annotated[
     int,
-    typer.Argument(
+    Argument(
         help="The discussion or pull request number.",
         min=1,
     ),
 ]
 
 
-def _format_status(status: str) -> str:
-    if status == "open":
-        return ANSI.green("open")
-    elif status == "closed":
-        return ANSI.red("closed")
-    elif status == "merged":
-        return ANSI.blue("merged")
-    elif status == "draft":
-        return ANSI.yellow("draft")
-    return status
-
-
-def _read_body(body: Optional[str], body_file: Optional[Path]) -> Optional[str]:
+def _read_body(body: str | None, body_file: Path | None) -> str | None:
     """Resolve body text from --body or --body-file (supports '-' for stdin)."""
     if body is not None and body_file is not None:
-        raise typer.BadParameter("Cannot use both --body and --body-file.")
+        raise click.BadParameter("Cannot use both --body and --body-file.")
     if body_file is not None:
         if str(body_file) == "-":
             return sys.stdin.read()
         return body_file.read_text(encoding="utf-8")
     return body
-
-
-def _print_discussion_info(details: DiscussionWithDetails, show_comments: bool = False) -> None:
-    kind = "Pull Request" if details.is_pull_request else "Discussion"
-
-    print(f"{ANSI.bold(details.title)} {ANSI.gray(f'#{details.num}')}")
-    parts = [_format_status(details.status), details.author, details.created_at.strftime("%Y-%m-%d %H:%M")]
-    if details.is_pull_request and details.target_branch:
-        parts.append(f"into {ANSI.bold(details.target_branch)}")
-    print(f"{kind}: {' · '.join(parts)}")
-
-    if details.is_pull_request and details.conflicting_files:
-        if details.conflicting_files is True:
-            print(ANSI.yellow("Has conflicting files"))
-        else:
-            print(ANSI.yellow(f"Conflicting files: {', '.join(details.conflicting_files)}"))
-
-    body = None
-    comments = []
-    for event in details.events:
-        if isinstance(event, DiscussionComment) and not event.hidden:
-            if body is None:
-                body = event
-            else:
-                comments.append(event)
-
-    if body and body.content.strip():
-        print()
-        print(body.content.strip())
-
-    if show_comments and comments:
-        print()
-        print(ANSI.gray("─" * 60))
-        for comment in comments:
-            print()
-            print(f"{ANSI.bold(comment.author)} · {comment.created_at.strftime('%Y-%m-%d %H:%M')}")
-            print(comment.content.strip())
-    elif comments:
-        print()
-        print(ANSI.gray(f"{len(comments)} comment{'s' if len(comments) != 1 else ''} (use --comments to show)"))
-
-    print()
-    print(f"View on Hub: {ANSI.blue(details.url)}")
 
 
 discussions_cli = typer_factory(help="Manage discussions and pull requests on the Hub.")
@@ -162,7 +93,7 @@ def discussion_list(
     repo_id: RepoIdArg,
     status: Annotated[
         DiscussionStatus,
-        typer.Option(
+        Option(
             "-s",
             "--status",
             help="Filter by status (open, closed, merged, draft, all).",
@@ -170,7 +101,7 @@ def discussion_list(
     ] = DiscussionStatus.open,
     kind: Annotated[
         DiscussionKind,
-        typer.Option(
+        Option(
             "-k",
             "--kind",
             help="Filter by kind (discussion, pull_request, all).",
@@ -179,14 +110,12 @@ def discussion_list(
     author: AuthorOpt = None,
     limit: LimitOpt = 30,
     repo_type: RepoTypeOpt = RepoType.model,
-    format: FormatOpt = OutputFormat.table,
-    quiet: QuietOpt = False,
     token: TokenOpt = None,
 ) -> None:
     """List discussions and pull requests on a repo."""
     api = get_hf_api(token=token)
 
-    api_status: Optional[constants.DiscussionStatusFilter]
+    api_status: constants.DiscussionStatusFilter | None
     if status == DiscussionStatus.open:
         api_status = "open"
     elif status == DiscussionStatus.closed:
@@ -194,7 +123,7 @@ def discussion_list(
     else:
         api_status = None
 
-    api_discussion_type: Optional[constants.DiscussionTypeFilter]
+    api_discussion_type: constants.DiscussionTypeFilter | None
     if kind == DiscussionKind.all:
         api_discussion_type = None
     else:
@@ -214,23 +143,11 @@ def discussion_list(
         if len(discussions) >= limit:
             break
 
-    items = [api_object_to_dict(d) for d in discussions]
-
-    print_list_output(
+    items = [_dataclass_to_dict(d) for d in discussions]
+    out.table(
         items,
-        format=format,
-        quiet=quiet,
-        id_key="num",
         headers=["num", "title", "is_pull_request", "status", "author", "created_at"],
-        row_fn=lambda item: [
-            f"#{item['num']}",
-            _format_cell(item.get("title", ""), max_len=50),
-            "PR" if item.get("is_pull_request") else "",
-            _format_status(str(item.get("status", ""))),
-            str(item.get("author", "")),
-            _format_cell(item.get("created_at", "")),
-        ],
-        alignments={"num": "right"},
+        id_key="num",
     )
 
 
@@ -238,70 +155,23 @@ def discussion_list(
     "info",
     examples=[
         "hf discussions info username/my-model 5",
-        "hf discussions info username/my-model 5 --comments",
-        "hf discussions info username/my-model 5 --diff",
         "hf discussions info username/my-model 5 --format json",
     ],
 )
 def discussion_info(
     repo_id: RepoIdArg,
     num: DiscussionNumArg,
-    comments: Annotated[
-        bool,
-        typer.Option(
-            "--comments",
-            help="Show all comments.",
-        ),
-    ] = False,
-    diff: Annotated[
-        bool,
-        typer.Option(
-            "--diff",
-            help="Show the diff (for pull requests).",
-        ),
-    ] = False,
-    no_color: Annotated[
-        bool,
-        typer.Option(
-            "--no-color",
-            help="Disable colored output.",
-        ),
-    ] = False,
     repo_type: RepoTypeOpt = RepoType.model,
-    format: Annotated[
-        InfoFormat,
-        typer.Option(
-            help="Output format (text or json).",
-        ),
-    ] = InfoFormat.text,
     token: TokenOpt = None,
 ) -> None:
     """Get info about a discussion or pull request."""
-    import os
-
-    if no_color:
-        os.environ["NO_COLOR"] = "1"
-
     api = get_hf_api(token=token)
     details = api.get_discussion_details(
         repo_id=repo_id,
         discussion_num=num,
         repo_type=repo_type.value,
     )
-
-    if format == InfoFormat.json:
-        result = api_object_to_dict(details)
-        if not diff:
-            result.pop("diff", None)
-        print(json.dumps(result, indent=2))
-        return
-
-    _print_discussion_info(details, show_comments=comments)
-
-    if diff and details.diff:
-        print()
-        print(ANSI.gray("─" * 60))
-        print(details.diff)
+    out.dict(details)
 
 
 @discussions_cli.command(
@@ -317,28 +187,28 @@ def discussion_create(
     repo_id: RepoIdArg,
     title: Annotated[
         str,
-        typer.Option(
+        Option(
             "--title",
             help="The title of the discussion or pull request.",
         ),
     ],
     body: Annotated[
-        Optional[str],
-        typer.Option(
+        str | None,
+        Option(
             "--body",
             help="The description (supports Markdown).",
         ),
     ] = None,
     body_file: Annotated[
-        Optional[Path],
-        typer.Option(
+        Path | None,
+        Option(
             "--body-file",
             help="Read the description from a file. Use '-' for stdin.",
         ),
     ] = None,
     pull_request: Annotated[
         bool,
-        typer.Option(
+        Option(
             "--pull-request",
             "--pr",
             help="Create a pull request instead of a discussion.",
@@ -358,10 +228,8 @@ def discussion_create(
         pull_request=pull_request,
     )
     kind = "pull request" if pull_request else "discussion"
-    print(f"Created {kind} {ANSI.bold(f'#{discussion.num}')} on {ANSI.bold(repo_id)}")
-    if pull_request:
-        print(f"Push changes to: {ANSI.bold(f'refs/pr/{discussion.num}')}")
-    print(f"View on Hub: {ANSI.blue(discussion.url)}")
+    ref = f"refs/pr/{discussion.num}" if pull_request else None
+    out.result(f"Created {kind} #{discussion.num} on {repo_id}", num=discussion.num, url=discussion.url, ref=ref)
 
 
 @discussions_cli.command(
@@ -375,15 +243,15 @@ def discussion_comment(
     repo_id: RepoIdArg,
     num: DiscussionNumArg,
     body: Annotated[
-        Optional[str],
-        typer.Option(
+        str | None,
+        Option(
             "--body",
             help="The comment text (supports Markdown).",
         ),
     ] = None,
     body_file: Annotated[
-        Optional[Path],
-        typer.Option(
+        Path | None,
+        Option(
             "--body-file",
             help="Read the comment from a file. Use '-' for stdin.",
         ),
@@ -394,7 +262,7 @@ def discussion_comment(
     """Comment on a discussion or pull request."""
     comment = _read_body(body, body_file)
     if comment is None:
-        raise typer.BadParameter("Either --body or --body-file is required.")
+        raise click.BadParameter("Either --body or --body-file is required.")
     api = get_hf_api(token=token)
     api.comment_discussion(
         repo_id=repo_id,
@@ -402,7 +270,55 @@ def discussion_comment(
         comment=comment,
         repo_type=repo_type.value,
     )
-    print(f"Commented on #{num} in {ANSI.bold(repo_id)}")
+    out.result(f"Commented on #{num} in {repo_id}", num=num, repo=repo_id)
+
+
+@discussions_cli.command(
+    "edit",
+    examples=[
+        'hf discussions edit username/my-model 5 abc123 --body "Updated comment."',
+        "hf discussions edit username/my-model 5 abc123 --body-file fixed.md",
+    ],
+)
+def discussion_edit(
+    repo_id: RepoIdArg,
+    num: DiscussionNumArg,
+    comment_id: Annotated[
+        str,
+        Argument(
+            help="The ID of the comment to edit (see 'hf discussions info ... --format json').",
+        ),
+    ],
+    body: Annotated[
+        str | None,
+        Option(
+            "--body",
+            help="The new comment text (supports Markdown).",
+        ),
+    ] = None,
+    body_file: Annotated[
+        Path | None,
+        Option(
+            "--body-file",
+            help="Read the new comment from a file. Use '-' for stdin.",
+        ),
+    ] = None,
+    repo_type: RepoTypeOpt = RepoType.model,
+    token: TokenOpt = None,
+) -> None:
+    """Edit an existing comment on a discussion or pull request."""
+    new_content = _read_body(body, body_file)
+    if new_content is None:
+        raise click.BadParameter("Either --body or --body-file is required.")
+    api = get_hf_api(token=token)
+    api.edit_discussion_comment(
+        repo_id=repo_id,
+        discussion_num=num,
+        comment_id=comment_id,
+        new_content=new_content,
+        repo_type=repo_type.value,
+    )
+    out.result(f"Edited comment {comment_id} on #{num} in {repo_id}", num=num, repo=repo_id, comment_id=comment_id)
 
 
 @discussions_cli.command(
@@ -416,15 +332,15 @@ def discussion_close(
     repo_id: RepoIdArg,
     num: DiscussionNumArg,
     comment: Annotated[
-        Optional[str],
-        typer.Option(
+        str | None,
+        Option(
             "--comment",
             help="An optional comment to post when closing.",
         ),
     ] = None,
     yes: Annotated[
         bool,
-        typer.Option(
+        Option(
             "--yes",
             "-y",
             help="Skip confirmation prompt.",
@@ -434,11 +350,7 @@ def discussion_close(
     token: TokenOpt = None,
 ) -> None:
     """Close a discussion or pull request."""
-    if not yes:
-        confirm = typer.confirm(f"Close #{num} on '{repo_id}'?")
-        if not confirm:
-            print("Aborted.")
-            raise typer.Exit()
+    out.confirm(f"Close #{num} on '{repo_id}'?", yes=yes)
     api = get_hf_api(token=token)
     api.change_discussion_status(
         repo_id=repo_id,
@@ -447,7 +359,7 @@ def discussion_close(
         comment=comment,
         repo_type=repo_type.value,
     )
-    print(f"Closed #{num} in {ANSI.bold(repo_id)}")
+    out.result(f"Closed #{num} in {repo_id}", num=num, repo=repo_id)
 
 
 @discussions_cli.command(
@@ -461,15 +373,15 @@ def discussion_reopen(
     repo_id: RepoIdArg,
     num: DiscussionNumArg,
     comment: Annotated[
-        Optional[str],
-        typer.Option(
+        str | None,
+        Option(
             "--comment",
             help="An optional comment to post when reopening.",
         ),
     ] = None,
     yes: Annotated[
         bool,
-        typer.Option(
+        Option(
             "--yes",
             "-y",
             help="Skip confirmation prompt.",
@@ -479,11 +391,7 @@ def discussion_reopen(
     token: TokenOpt = None,
 ) -> None:
     """Reopen a closed discussion or pull request."""
-    if not yes:
-        confirm = typer.confirm(f"Reopen #{num} on '{repo_id}'?")
-        if not confirm:
-            print("Aborted.")
-            raise typer.Exit()
+    out.confirm(f"Reopen #{num} on '{repo_id}'?", yes=yes)
     api = get_hf_api(token=token)
     api.change_discussion_status(
         repo_id=repo_id,
@@ -492,7 +400,7 @@ def discussion_reopen(
         comment=comment,
         repo_type=repo_type.value,
     )
-    print(f"Reopened #{num} in {ANSI.bold(repo_id)}")
+    out.result(f"Reopened #{num} in {repo_id}", num=num, repo=repo_id)
 
 
 @discussions_cli.command(
@@ -506,7 +414,7 @@ def discussion_rename(
     num: DiscussionNumArg,
     new_title: Annotated[
         str,
-        typer.Argument(
+        Argument(
             help="The new title.",
         ),
     ],
@@ -521,7 +429,7 @@ def discussion_rename(
         new_title=new_title,
         repo_type=repo_type.value,
     )
-    print(f"Renamed #{num} to {ANSI.bold(new_title)} in {ANSI.bold(repo_id)}")
+    out.result(f"Renamed #{num} in {repo_id}", num=num, repo=repo_id, title=new_title)
 
 
 @discussions_cli.command(
@@ -535,15 +443,15 @@ def discussion_merge(
     repo_id: RepoIdArg,
     num: DiscussionNumArg,
     comment: Annotated[
-        Optional[str],
-        typer.Option(
+        str | None,
+        Option(
             "--comment",
             help="An optional comment to post when merging.",
         ),
     ] = None,
     yes: Annotated[
         bool,
-        typer.Option(
+        Option(
             "--yes",
             "-y",
             help="Skip confirmation prompt.",
@@ -553,11 +461,7 @@ def discussion_merge(
     token: TokenOpt = None,
 ) -> None:
     """Merge a pull request."""
-    if not yes:
-        confirm = typer.confirm(f"Merge #{num} on '{repo_id}'?")
-        if not confirm:
-            print("Aborted.")
-            raise typer.Exit()
+    out.confirm(f"Merge #{num} on '{repo_id}'?", yes=yes)
     api = get_hf_api(token=token)
     api.merge_pull_request(
         repo_id=repo_id,
@@ -565,7 +469,7 @@ def discussion_merge(
         comment=comment,
         repo_type=repo_type.value,
     )
-    print(f"Merged #{num} in {ANSI.bold(repo_id)}")
+    out.result(f"Merged #{num} in {repo_id}", num=num, repo=repo_id)
 
 
 @discussions_cli.command(
@@ -588,6 +492,6 @@ def discussion_diff(
         repo_type=repo_type.value,
     )
     if details.diff:
-        print(details.diff)
+        out.text(details.diff)
     else:
-        print("No diff available.")
+        out.text("No diff available.")

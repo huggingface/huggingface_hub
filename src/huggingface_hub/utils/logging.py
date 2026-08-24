@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2020 Optuna, Hugging Face
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -26,7 +25,6 @@ from logging import (
     WARN,  # NOQA
     WARNING,  # NOQA
 )
-from typing import Optional
 
 from .. import constants
 
@@ -77,7 +75,7 @@ def _reset_library_root_logger() -> None:
     library_root_logger.setLevel(logging.NOTSET)
 
 
-def get_logger(name: Optional[str] = None) -> logging.Logger:
+def get_logger(name: str | None = None) -> logging.Logger:
     """
         Returns a logger with the specified name. This function is not supposed
         to be directly accessed by library users.

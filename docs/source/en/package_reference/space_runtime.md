@@ -8,9 +8,11 @@ Check the [`HfApi`] documentation page for the reference of methods to manage yo
 
 - Duplicate a Space: [`duplicate_space`]
 - Fetch current runtime: [`get_space_runtime`]
+- Fetch build or run logs: [`fetch_space_logs`]
 - Manage secrets: [`add_space_secret`] and [`delete_space_secret`]
 - Manage hardware: [`request_space_hardware`]
 - Manage state: [`pause_space`], [`restart_space`], [`set_space_sleep_time`]
+- Wait until Space is ready: [`wait_for_space`]
 
 ## Data structures
 
@@ -33,3 +35,7 @@ Check the [`HfApi`] documentation page for the reference of methods to manage yo
 ### SpaceVariable
 
 [[autodoc]] SpaceVariable
+
+### SpaceTemplate
+
+[[autodoc]] SpaceTemplate

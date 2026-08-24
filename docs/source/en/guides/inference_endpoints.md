@@ -12,6 +12,33 @@ This guide assumes `huggingface_hub` is correctly installed and that your machin
 > Note that this is still an experimental feature. Let us know what you think if you use it!
 
 
+## Find hardware to deploy on
+
+The `accelerator`, `vendor`, `region`, `instance_type` and `instance_size` values accepted by [`create_inference_endpoint`] depend on each other. Use [`list_inference_endpoints_hardware`] to list the valid combinations, along with their price per hour and the accelerator quota of your namespace:
+
+```py
+>>> from huggingface_hub import list_inference_endpoints_hardware
+
+>>> for hw in list_inference_endpoints_hardware():
+...     if hw.accelerator == "gpu" and hw.status == "available":
+...         print(hw.vendor, hw.region, hw.instance_type, hw.instance_size, hw.price_per_hour)
+aws us-east-1 nvidia-l4 x1 0.8
+aws us-east-1 nvidia-l4 x4 3.8
+...
+```
+
+Quota is per namespace, so pass the `namespace` you will deploy into (it defaults to your own account):
+
+```py
+>>> list_inference_endpoints_hardware(namespace="my-org")
+```
+
+Or via CLI:
+
+```bash
+hf endpoints hardware --accelerator gpu
+```
+
 ## Create an Inference Endpoint
 
 The first step is to create an Inference Endpoint using [`create_inference_endpoint`]:
@@ -27,7 +54,7 @@ The first step is to create an Inference Endpoint using [`create_inference_endpo
 ...     accelerator="cpu",
 ...     vendor="aws",
 ...     region="us-east-1",
-...     type="protected",
+...     type="authenticated",
 ...     instance_size="x2",
 ...     instance_type="intel-icl"
 ... )
@@ -46,7 +73,7 @@ hf endpoints catalog deploy --repo openai/gpt-oss-120b --accelerator gpu
 ```
 
 
-In this example, we created a `protected` Inference Endpoint named `"my-endpoint-name"`, to serve [gpt2](https://huggingface.co/gpt2) for `text-generation`. A `protected` Inference Endpoint means your token is required to access the API. We also need to provide additional information to configure the hardware requirements, such as vendor, region, accelerator, instance type, and size. You can check out the list of available resources [here](https://api.endpoints.huggingface.cloud/#/v2%3A%3Aprovider/list_vendors). Alternatively, you can create an Inference Endpoint manually using the [Web interface](https://ui.endpoints.huggingface.co/new) for convenience. Refer to this [guide](https://huggingface.co/docs/inference-endpoints/guides/advanced) for details on advanced settings and their usage.
+In this example, we created an `authenticated` Inference Endpoint named `"my-endpoint-name"`, to serve [gpt2](https://huggingface.co/gpt2) for `text-generation`. An `authenticated` Inference Endpoint means your token is required to access the API. We also need to provide additional information to configure the hardware requirements, such as vendor, region, accelerator, instance type, and size. You can check out the list of available resources [here](https://api.endpoints.huggingface.cloud/#/v2%3A%3Aprovider/list_vendors). Alternatively, you can create an Inference Endpoint manually using the [Web interface](https://ui.endpoints.huggingface.co) for convenience. Refer to this [guide](https://huggingface.co/docs/inference-endpoints/guides/advanced) for details on advanced settings and their usage.
 
 The value returned by [`create_inference_endpoint`] is an [`InferenceEndpoint`] object:
 
@@ -82,11 +109,11 @@ By default the Inference Endpoint is built from a docker image provided by Huggi
 ...     accelerator="gpu",
 ...     vendor="aws",
 ...     region="us-east-1",
-...     type="protected",
+...     type="authenticated",
 ...     instance_size="x1",
 ...     instance_type="nvidia-a10g",
 ...     custom_image={
-...         "health_route": "/health",
+...         "healthRoute": "/health",
 ...         "env": {
 ...             "MAX_BATCH_PREFILL_TOKENS": "2048",
 ...             "MAX_INPUT_LENGTH": "1024",
@@ -99,6 +126,78 @@ By default the Inference Endpoint is built from a docker image provided by Huggi
 ```
 
 The value to pass as `custom_image` is a dictionary containing a url to the docker container and configuration to run it. For more details about it, checkout the [Swagger documentation](https://api.endpoints.huggingface.cloud/#/v2%3A%3Aendpoint/create_endpoint).
+
+`custom_image` also accepts the engine-specific container types supported by the API, by keying the dictionary with the engine name (`vLLM`, `vLLMNeuron`, `sGLang`, `tgi`, `tgiNeuron`, `tei`, `llamacpp`, `hfServe`, ...) instead of leaving it flat. Each engine takes the usual container fields (`url`, `port`, `healthRoute`) plus its own tuning options. Any dict without a top-level `url` is forwarded to the API untouched, so engines added to the API later work without upgrading `huggingface_hub`:
+
+```python
+# Start an Inference Endpoint running the vLLM engine image
+>>> endpoint = create_inference_endpoint(
+...     "llama-3-1-8b-instruct-vllm",
+...     repository="meta-llama/Llama-3.1-8B-Instruct",
+...     framework="pytorch",
+...     task="text-generation",
+...     accelerator="gpu",
+...     vendor="aws",
+...     region="us-east-1",
+...     instance_size="x1",
+...     instance_type="nvidia-l4",
+...     custom_image={
+...         "vLLM": {
+...             "url": "vllm/vllm-openai:v0.23.0",
+...             "healthRoute": "/health",
+...             "port": 8000,
+...             "tensorParallelSize": 1,
+...         }
+...     },
+... )
+```
+
+Without the engine key, the same dictionary is sent as a plain custom container, so the engine-specific options (here `tensorParallelSize`) are dropped.
+
+For containers that need a custom entrypoint or runtime flags, pass `container_command` and/or `container_args` (each a list of tokens). They map to `model.command` and `model.args` in the API payload. They are not tied to custom images: managed engine images (e.g. vLLM, SGLang) accept engine flags through `container_args` as well. The same is available from the CLI via `hf endpoints deploy ... --container-command "..." --container-args "..."`.
+
+#### Parallelism on multi-accelerator instances
+
+vLLM and SGLang default to one accelerator while the endpoint is allocated every accelerator of its instance, so
+leaving the parallelism unset would load the model onto one and idle the rest while still reporting healthy, so you pay
+for all of them and get the throughput of one. That is why the API now rejects such a deployment. (TGI derives its
+shard count from the instance and is not affected.) Set `tensorParallelSize` to shard one model copy across the
+accelerators, or
+`dataParallelSize` (vLLM only) to run one copy per accelerator:
+
+```py
+>>> endpoint = create_inference_endpoint(
+...     "gpt-oss-120b-vllm",
+...     repository="openai/gpt-oss-120b",
+...     framework="custom",
+...     accelerator="gpu",
+...     instance_size="x8",
+...     instance_type="nvidia-h200",
+...     region="us-east-1",
+...     vendor="aws",
+...     custom_image={"vLLM": {"url": "vllm/vllm-openai:v0.23.0", "tensorParallelSize": 8}},
+... )
+```
+
+From the CLI, `--engine` selects the managed engine image and the two flags are written into its config:
+
+```bash
+hf endpoints deploy gpt-oss-120b-vllm --repo openai/gpt-oss-120b --framework custom \
+  --accelerator gpu --instance-size x8 --instance-type nvidia-h200 --region us-east-1 --vendor aws \
+  --engine vllm --custom-image vllm/vllm-openai:v0.23.0 --tensor-parallel-size 8
+```
+
+To retune a deployed endpoint, pass `tensor_parallel_size` alone to [`~InferenceEndpoint.update`] or
+`hf endpoints update`. `model.image` is sent as a whole and requires `url`, so the endpoint's current image is fetched
+and updated in place:
+
+```py
+>>> endpoint.update(tensor_parallel_size=4)
+```
+
+`container_args` (`--tp 8`) is not equivalent: it reaches the engine as a command-line flag, not the `model.image`
+config the API validates against the instance's accelerator count. Use it for engine flags with no image field, and for
+plain custom containers, which have no parallelism fields.
 
 ### Get or list existing Inference Endpoints
 
@@ -246,6 +345,11 @@ InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2
 # Update to larger instance
 >>> endpoint.update(accelerator="cpu", instance_size="x4", instance_type="intel-icl")
 InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2-large', status='pending', url=None)
+
+# Update the container arguments, e.g. engine flags on an endpoint running vLLM or SGLang.
+# Replaces the current value, it is not appended.
+>>> endpoint.update(container_args=["--enable-auto-tool-choice", "--tool-call-parser", "lfm2"])
+InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2-large', status='pending', url=None)
 ```
 
 Or via CLI:
@@ -254,6 +358,11 @@ Or via CLI:
 hf endpoints update my-endpoint-name --repo gpt2-large
 hf endpoints update my-endpoint-name --min-replica 2 --max-replica 6
 hf endpoints update my-endpoint-name --accelerator cpu --instance-size x4 --instance-type intel-icl
+hf endpoints update my-endpoint-name --container-args "--enable-auto-tool-choice --tool-call-parser lfm2"
+# Merged into the image currently configured on the endpoint.
+hf endpoints update my-endpoint-name --tensor-parallel-size 8
+# Or replace the image entirely, in which case pass back the settings you want to keep.
+hf endpoints update my-endpoint-name --engine vllm --custom-image vllm/vllm-openai:v0.23.0 --port 8000
 ```
 
 ### Delete the endpoint

@@ -1,0 +1,1322 @@
+# Unified release workflow for huggingface_hub.
+#
+# This workflow handles the full release lifecycle through a single workflow_dispatch trigger. It supports three release
+# types: "minor-prerelease" to publish a release candidate, "minor-release" to publish the final version, and
+# "patch-release" to publish a bugfix on an existing release branch.
+#
+# For a typical minor release, the process is as follows. First, trigger a "minor-prerelease" run from main. This creates
+# a release branch (e.g., v1.6-release), bumps the version to an RC (e.g., 1.6.0.rc0), publishes it to PyPI, creates a
+# draft GitHub release with AI-generated notes, and opens test branches in downstream repositories (transformers,
+# datasets, diffusers, sentence-transformers). Subsequent prereleases for the same minor version reuse the existing
+# draft release (no duplicate). Once the RC has been validated MANUALLY, trigger a "minor-release" run. This promotes
+# the version to the final release (e.g., 1.6.0), publishes to PyPI, updates the existing draft release
+# to point to the final tag, and opens a PR to bump main to the next dev version (e.g., 1.7.0.dev0).
+#
+# For a patch release, cherry-pick fixes to the release branch first, then trigger a "patch-release" run. This increments
+# the patch version (e.g., 1.6.1), publishes to PyPI, and creates a GitHub release. Patch releases are NOT marked as
+# "latest release" on GitHub — only minor releases get that label, so that the latest minor version stays highlighted.
+#
+# The workflow uses GITHUB_TOKEN for most git operations (branch creation, tag push) and a GitHub App token
+# (huggingface-hub-bot) for PR creation in the post-release job. If a publish job fails, re-run it from the
+# Actions UI rather than reintroducing a tag-triggered fallback (which would bypass the `pypi` environment gate).
+#
+# PyPI publishing uses Trusted Publishing (OIDC), no PyPI token is stored. The Trusted Publisher must be
+# configured on PyPI for both `huggingface-hub` and `hf` to accept this workflow, and the `pypi` GitHub
+# Environment (with required reviewers) must exist in the repo settings.
+#
+# Required secrets:
+# - HUGGINGFACE_HUB_AUTOMATIC_RC_TESTING : open PRs for automatic RC testing in downstream repositories
+# - RELEASE_NOTES_HF_TOKEN               : HF TOKEN scoped to Inference Providers used for automated release notes generation
+# - RELEASE_BUCKET_HF_TOKEN              : HF TOKEN scoped to push data to the huggingface/releases bucket
+# - APP_ID_HUGGINGFACE_HUB_BOT           : GitHub App ID for huggingface-hub-bot (PRs, issues, releases)
+# - APP_SECRET_PEM_HUGGINGFACE_HUB_BOT   : GitHub App private key for huggingface-hub-bot
+# - APP_ID_HUB_SKILLS_REPO               : GitHub App ID for creating tokens to access the skills repo
+# - APP_SECRET_PREM_HUB_SKILLS_REPO      : GitHub App private key for the skills repo
+# - SLACK_BOT_TOKEN                      : Slack Bot User OAuth Token (scopes: chat:write, reactions:write, files:write)
+#
+# Required repository variables:
+# - SLACK_CHANNEL_ID                     : Slack channel ID for release notifications
+# - RELEASE_NOTES_MODEL                  : HF model ID used to generate release notes and Slack announcement (e.g. `zai-org/GLM-5.1`)
+#
+# An additional secret for OpenCode authentication is needed for automated release notes generation
+# (see the release-notes job below).
+
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: "Type of release"
+        required: true
+        type: choice
+        options:
+          - minor-prerelease
+          - minor-release
+          - patch-release
+
+permissions: {}
+
+jobs:
+  # ============================================================
+  # 1. PREPARE — detect version, create branch, bump, commit, tag, push
+  # ============================================================
+  prepare:
+    permissions:
+      contents: read   # branch/tag push uses the app token (see checkout below)
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      branch: ${{ steps.version.outputs.branch }}
+      is_prerelease: ${{ steps.version.outputs.is_prerelease }}
+      since_tag: ${{ steps.version.outputs.since_tag }}
+      bump_type: ${{ steps.version.outputs.bump_type }}
+      message_ts: ${{ steps.slack.outputs.message_ts }}
+    steps:
+      # Push the release branch/tag with a GitHub App token rather than the default GITHUB_TOKEN.
+      # GitHub does not emit events for GITHUB_TOKEN-authored pushes (recursion guard), so a
+      # GITHUB_TOKEN push to v*-release never triggered build_documentation.yaml and versioned
+      # docs stopped publishing. An App-token push triggers downstream workflows normally.
+      - name: Create GitHub App token
+        id: app_token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1  # v3.2.0
+        with:
+          app-id: ${{ secrets.APP_ID_HUGGINGFACE_HUB_BOT }}
+          private-key: ${{ secrets.APP_SECRET_PEM_HUGGINGFACE_HUB_BOT }}
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ steps.app_token.outputs.token }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Detect version
+        id: version
+        env:
+          RELEASE_TYPE: ${{ inputs.release_type }}
+        run: |
+          set -euo pipefail
+
+          case "$RELEASE_TYPE" in
+            minor-prerelease)
+              # Read dev version from __init__.py: "1.6.0.dev0" → "1.6.0"
+              DEV_VERSION=$(grep -oP '__version__ = "\K[^"]+' src/huggingface_hub/__init__.py)
+              BASE_VERSION=$(echo "$DEV_VERSION" | sed 's/\.dev0//')
+
+              # Find existing RC tags for this base version to determine next RC number
+              LATEST_RC=$(git tag --sort=-v:refname | grep "^v${BASE_VERSION}\.rc" | head -1 || echo "")
+              if [[ -n "$LATEST_RC" ]]; then
+                RC_NUM=$(echo "$LATEST_RC" | grep -oP '\.rc\K[0-9]+')
+                RC_NUM=$((RC_NUM + 1))
+              else
+                RC_NUM=0
+              fi
+
+              VERSION="${BASE_VERSION}.rc${RC_NUM}"
+              ;;
+            minor-release)
+              # Read dev version from __init__.py to scope the RC lookup to this minor version
+              DEV_VERSION=$(grep -oP '__version__ = "\K[^"]+' src/huggingface_hub/__init__.py)
+              BASE_VERSION=$(echo "$DEV_VERSION" | sed 's/\.dev0//')
+              LATEST_RC=$(git tag --sort=-v:refname | grep -E "^v${BASE_VERSION}\.rc[0-9]+$" | head -1 || echo "")
+              if [[ -z "$LATEST_RC" ]]; then
+                echo "::error::No RC tag found for v${BASE_VERSION}. Run a prerelease first."
+                exit 1
+              fi
+              # v1.6.0.rc0 → 1.6.0
+              VERSION=$(echo "$LATEST_RC" | sed -E 's/^v//;s/\.rc.*//')
+              ;;
+            patch-release)
+              # Find the latest stable (non-RC) release tag
+              LATEST_RELEASE=$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1 || echo "")
+              if [[ -z "$LATEST_RELEASE" ]]; then
+                echo "::error::No release tag found."
+                exit 1
+              fi
+              CURRENT=$(echo "$LATEST_RELEASE" | sed 's/^v//')
+              IFS='.' read -r MAJOR MINOR_NUM PATCH_NUM <<< "$CURRENT"
+              PATCH_NUM=$((PATCH_NUM + 1))
+              VERSION="${MAJOR}.${MINOR_NUM}.${PATCH_NUM}"
+              ;;
+          esac
+
+          # Derive tag, branch, and prerelease flag
+          TAG="v${VERSION}"
+          MINOR=$(echo "$VERSION" | sed -E 's/^([0-9]+\.[0-9]+).*/\1/')
+          BRANCH="v${MINOR}-release"
+
+          if [[ "$VERSION" == *.rc* ]]; then
+            IS_PRERELEASE=true
+          else
+            IS_PRERELEASE=false
+          fi
+
+          # Determine since_tag (for release notes) and bump_type
+          if [[ "$RELEASE_TYPE" == "patch-release" ]]; then
+            # Patch: PRs since the latest tag on this branch
+            SINCE_TAG=$(git tag --sort=-v:refname | grep -E "^v${MINOR}\.[0-9]+$" | head -1 || echo "")
+            BUMP_TYPE="patch"
+          else
+            # Prerelease or release: PRs since the last stable release
+            SINCE_TAG=$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1 || echo "")
+            BUMP_TYPE="minor"
+          fi
+
+          # Validate: tag must not already exist
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "::error::Tag $TAG already exists!"
+            exit 1
+          fi
+
+          # Set outputs
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+          echo "is_prerelease=$IS_PRERELEASE" >> $GITHUB_OUTPUT
+          echo "since_tag=$SINCE_TAG" >> $GITHUB_OUTPUT
+          echo "bump_type=$BUMP_TYPE" >> $GITHUB_OUTPUT
+
+          # Step summary
+          echo "## Release Summary" >> $GITHUB_STEP_SUMMARY
+          echo "| Key | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Type | \`$RELEASE_TYPE\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Version | \`$VERSION\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Tag | \`$TAG\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Branch | \`$BRANCH\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Since tag | \`$SINCE_TAG\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Prerelease | \`$IS_PRERELEASE\` |" >> $GITHUB_STEP_SUMMARY
+
+      - name: Notify Slack — release started
+        id: slack
+        continue-on-error: true
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL_ID: ${{ vars.SLACK_CHANNEL_ID }}
+          VERSION: ${{ steps.version.outputs.version }}
+          TAG: ${{ steps.version.outputs.tag }}
+          BRANCH: ${{ steps.version.outputs.branch }}
+          RELEASE_TYPE: ${{ inputs.release_type }}
+          ACTOR: ${{ github.actor }}
+          ACTOR_URL: ${{ github.server_url }}/${{ github.actor }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+
+          case "${RELEASE_TYPE}" in
+            minor-prerelease) TYPE_EMOJI="🏗️" TYPE_LABEL="Pre-release" ;;
+            minor-release)    TYPE_EMOJI="🚢" TYPE_LABEL="Release" ;;
+            patch-release)    TYPE_EMOJI="🐛" TYPE_LABEL="Patch" ;;
+          esac
+
+          TEXT="${TYPE_EMOJI} *${TYPE_LABEL} \`${TAG}\` started*"$'\n'">Branch: \`${BRANCH}\` • Triggered by <${ACTOR_URL}|@${ACTOR}> • <${RUN_URL}|View run>"
+
+          RESPONSE=$(curl -s -X POST https://slack.com/api/chat.postMessage \
+            -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n \
+              --arg channel "$SLACK_CHANNEL_ID" \
+              --arg text "$TEXT" \
+              '{channel: $channel, text: $text, unfurl_links: false}')")
+
+          TS=$(echo "$RESPONSE" | jq -r '.ts // empty')
+          if [[ -n "$TS" ]]; then
+            echo "message_ts=$TS" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create or checkout release branch
+        run: |
+          BRANCH="${{ steps.version.outputs.branch }}"
+          RELEASE_TYPE="${{ inputs.release_type }}"
+
+          if [[ "$RELEASE_TYPE" == "minor-prerelease" ]]; then
+            # For minor-prerelease: create branch from main if it doesn't exist, or reuse existing
+            if git ls-remote --heads origin "$BRANCH" | grep -q "$BRANCH"; then
+              echo "Branch $BRANCH already exists, checking out..."
+              git fetch origin "$BRANCH"
+              git checkout "$BRANCH"
+              git pull origin "$BRANCH"
+            else
+              echo "Creating branch $BRANCH from main..."
+              git checkout -b "$BRANCH"
+            fi
+          else
+            # For release/patch: branch must already exist
+            if ! git ls-remote --heads origin "$BRANCH" | grep -q "$BRANCH"; then
+              echo "::error::Branch $BRANCH does not exist. Run a prerelease first."
+              exit 1
+            fi
+            git fetch origin "$BRANCH"
+            git checkout "$BRANCH"
+            git pull origin "$BRANCH"
+          fi
+
+      - name: Update version in __init__.py
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          sed -i -E "s/__version__ = \".*\"/__version__ = \"${VERSION}\"/" src/huggingface_hub/__init__.py
+          echo "Updated version to:"
+          grep "__version__" src/huggingface_hub/__init__.py
+
+      - name: Commit, tag, and push
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          BRANCH="${{ steps.version.outputs.branch }}"
+          IS_PRERELEASE="${{ steps.version.outputs.is_prerelease }}"
+
+          git add src/huggingface_hub/__init__.py
+          git commit -m "Release: ${TAG}"
+
+          if [[ "$IS_PRERELEASE" == "true" ]]; then
+            git tag "$TAG" -m "${TAG} pre-release"
+          else
+            git tag "$TAG" -m "${TAG} release"
+          fi
+
+          git push -u --tags origin "$BRANCH"
+
+  # ============================================================
+  # 2. PUBLISH — PyPI (huggingface_hub)
+  #
+  # Uses PyPI Trusted Publishing (OIDC) instead of long-lived API tokens.
+  # Generates PEP 740 attestations / Sigstore provenance for every artifact.
+  # Requires:
+  #   - a Trusted Publisher configured on PyPI for `huggingface-hub` matching
+  #     repo `huggingface/huggingface_hub`, workflow `release.yml`, env `pypi`
+  #   - a `pypi` GitHub Environment with required reviewers
+  # ============================================================
+  publish-pypi:
+    permissions:
+      contents: read
+      id-token: write      # mint OIDC token for PyPI Trusted Publishing
+      attestations: write  # generate PEP 740 / Sigstore attestations
+    environment:
+      name: pypi
+      url: https://pypi.org/project/huggingface-hub/
+    needs: prepare
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: "3.10"
+      - name: Install build frontend
+        run: pip install build
+      - name: Build package
+        run: python -m build
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # v1.14.2
+        with:
+          attestations: true
+          print-hash: true
+
+      - name: Notify Slack
+        if: ${{ always() && needs.prepare.outputs.message_ts }}
+        continue-on-error: true
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL_ID: ${{ vars.SLACK_CHANNEL_ID }}
+        run: |
+          if [[ "${{ job.status }}" == "success" ]]; then
+            TEXT="✅ *PyPI* — \`huggingface-hub ${{ needs.prepare.outputs.version }}\` <https://pypi.org/project/huggingface-hub/#history|published>"
+          else
+            TEXT="❌ *PyPI* — \`huggingface-hub\` publish failed"
+          fi
+          curl -s -X POST https://slack.com/api/chat.postMessage \
+            -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n \
+              --arg channel "$SLACK_CHANNEL_ID" \
+              --arg text "$TEXT" \
+              --arg thread_ts "${{ needs.prepare.outputs.message_ts }}" \
+              '{channel: $channel, text: $text, thread_ts: $thread_ts, unfurl_links: false}')" > /dev/null
+
+  # ============================================================
+  # 3. PUBLISH — PyPI (hf CLI)
+  #
+  # Same Trusted Publishing setup as `publish-pypi`, scoped to the `hf`
+  # project on PyPI. Requires a separate Trusted Publisher on the `hf`
+  # PyPI project with identical workflow/env constraints.
+  # ============================================================
+  publish-hf-cli:
+    permissions:
+      contents: read
+      id-token: write      # mint OIDC token for PyPI Trusted Publishing
+      attestations: write  # generate PEP 740 / Sigstore attestations
+    environment:
+      name: pypi
+      url: https://pypi.org/project/hf/
+    needs: prepare
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: "3.10"
+      - name: Install build frontend
+        run: pip install build
+      - name: Build hf CLI package
+        run: cd utils/hf && python -m build --wheel
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # v1.14.2
+        with:
+          packages-dir: utils/hf/dist
+          attestations: true
+          print-hash: true
+
+      - name: Notify Slack
+        if: ${{ always() && needs.prepare.outputs.message_ts }}
+        continue-on-error: true
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL_ID: ${{ vars.SLACK_CHANNEL_ID }}
+        run: |
+          if [[ "${{ job.status }}" == "success" ]]; then
+            TEXT="✅ *PyPI* — \`hf (CLI) ${{ needs.prepare.outputs.version }}\` <https://pypi.org/project/hf/#history|published>"
+          else
+            TEXT="❌ *PyPI* — \`hf (CLI)\` publish failed"
+          fi
+          curl -s -X POST https://slack.com/api/chat.postMessage \
+            -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n \
+              --arg channel "$SLACK_CHANNEL_ID" \
+              --arg text "$TEXT" \
+              --arg thread_ts "${{ needs.prepare.outputs.message_ts }}" \
+              '{channel: $channel, text: $text, thread_ts: $thread_ts, unfurl_links: false}')" > /dev/null
+
+  # ============================================================
+  # 4. RELEASE NOTES — manage GitHub releases
+  #
+  # Strategy per release type (one GitHub release per minor version):
+  #   - patch-release:    create a new draft release with GitHub auto-generated notes.
+  #   - minor-prerelease: if no draft release exists for this minor version, generate
+  #                        notes using the AI script and create a draft prerelease.
+  #                        Subsequent prereleases for the same minor are no-ops.
+  #   - minor-release:    find the existing draft prerelease and update its tag/title
+  #                        to the final version (removing prerelease flag).
+  # ============================================================
+  release-notes:
+    permissions:
+      contents: write   # create and edit GitHub releases
+    needs: prepare
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+          fetch-depth: 0
+
+      # --- Patch release: create release with GitHub auto-generated notes ---
+      - name: Create GitHub release (patch)
+        if: ${{ inputs.release_type == 'patch-release' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ needs.prepare.outputs.tag }}" \
+            --title "v${{ needs.prepare.outputs.version }}" \
+            --draft \
+            --generate-notes
+
+      # --- Prerelease: generate notes only if no draft exists for this minor ---
+      - name: Check for existing draft release
+        if: ${{ inputs.release_type == 'minor-prerelease' }}
+        id: check_draft
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          MINOR=$(echo "${{ needs.prepare.outputs.version }}" | sed -E 's/^([0-9]+\.[0-9]+).*/\1/')
+          # Look for any existing GitHub release (draft or published) matching this minor version
+          EXISTING=$(gh release list --json tagName,isDraft --limit 100 \
+            | jq -r ".[] | select(.tagName | startswith(\"v${MINOR}.\")) | .tagName" | head -1)
+          if [[ -n "$EXISTING" ]]; then
+            echo "Draft release already exists for v${MINOR}: $EXISTING — skipping"
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "No existing release for v${MINOR} — will generate notes"
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        if: ${{ inputs.release_type == 'minor-prerelease' && steps.check_draft.outputs.skip != 'true' }}
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        if: ${{ inputs.release_type == 'minor-prerelease' && steps.check_draft.outputs.skip != 'true' }}
+        run: pip install PyGithub
+
+      - name: Install OpenCode
+        if: ${{ inputs.release_type == 'minor-prerelease' && steps.check_draft.outputs.skip != 'true' }}
+        run: curl -fsSL https://opencode.ai/install | bash -s -- --version ${{ vars.OPENCODE_VERSION }}
+
+      - name: Verify OpenCode checksum
+        if: ${{ inputs.release_type == 'minor-prerelease' && steps.check_draft.outputs.skip != 'true' }}
+        run: echo "${{ vars.OPENCODE_SHA256 }}  $(which opencode)" | sha256sum -c -
+
+      - name: Generate release notes with OpenCode
+        if: ${{ inputs.release_type == 'minor-prerelease' && steps.check_draft.outputs.skip != 'true' }}
+        env:
+          HF_TOKEN: ${{ secrets.RELEASE_NOTES_HF_TOKEN }}
+          GITHUB_TOKEN_RELEASE_NOTES: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_NOTES_MODEL: ${{ vars.RELEASE_NOTES_MODEL }}
+        run: |
+          python -m utils.release_notes.generate_release_notes \
+            --since "${{ needs.prepare.outputs.since_tag }}" \
+            --${{ needs.prepare.outputs.bump_type }}
+
+      - name: Create draft GitHub release (prerelease)
+        if: ${{ inputs.release_type == 'minor-prerelease' && steps.check_draft.outputs.skip != 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ needs.prepare.outputs.tag }}"
+
+          # Find generated notes file produced by the OpenCode step above.
+          NOTES_FILE=""
+          for f in .release-notes/RELEASE_NOTES_*.md; do
+            if [[ -f "$f" && -s "$f" ]]; then
+              NOTES_FILE="$f"
+              break
+            fi
+          done
+
+          if [[ -z "$NOTES_FILE" ]]; then
+            echo "::error::No generated release notes file found in .release-notes/. Refusing to create a release with GitHub auto-generated notes (they can exceed the 125k-char body limit). Fix the release-notes step and re-run."
+            exit 1
+          fi
+
+          echo "Using generated release notes from $NOTES_FILE"
+          # Extract title from first line (strip "# " prefix) and use rest as body
+          TITLE=$(head -1 "$NOTES_FILE" | sed 's/^# //')
+          tail -n +2 "$NOTES_FILE" > "${NOTES_FILE}.body"
+          gh release create "$TAG" --draft --prerelease --title "$TITLE" --notes-file "${NOTES_FILE}.body"
+
+      # Archive the RAW AI-generated notes to the bucket now, before they are manually
+      # reviewed/edited on the GitHub draft release. The edited version is uploaded
+      # side by side during the minor-release run (see the archive-release-notes job).
+      # Collecting both every week lets us compare the model output against the human
+      # edits and improve the generation prompt over time.
+      - name: Upload raw release notes to bucket
+        if: ${{ inputs.release_type == 'minor-prerelease' && steps.check_draft.outputs.skip != 'true' }}
+        env:
+          HF_TOKEN: ${{ secrets.RELEASE_BUCKET_HF_TOKEN }}
+        run: |
+          VERSION="${{ needs.prepare.outputs.version }}"
+          BASE_VERSION=$(echo "$VERSION" | sed -E 's/\.rc.*//')
+
+          # Locate the raw notes file produced by the OpenCode step above.
+          NOTES_FILE=""
+          for f in .release-notes/RELEASE_NOTES_*.md; do
+            if [[ -f "$f" && -s "$f" ]]; then
+              NOTES_FILE="$f"
+              break
+            fi
+          done
+          if [[ -z "$NOTES_FILE" ]]; then
+            echo "::warning::No raw release notes file found in .release-notes/; skipping bucket upload."
+            exit 0
+          fi
+
+          pip install -e .
+
+          # Upload the raw notes under a stable name. The edited notes are uploaded
+          # to the same folder during the minor-release run, side by side.
+          hf cp "$NOTES_FILE" \
+            "hf://buckets/huggingface/releases/huggingface_hub/${BASE_VERSION}/release_notes_raw.txt"
+
+      # --- Minor release: update existing draft to point to the final tag ---
+      - name: Promote draft release to final version
+        if: ${{ inputs.release_type == 'minor-release' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ needs.prepare.outputs.tag }}"
+          VERSION="${{ needs.prepare.outputs.version }}"
+          MINOR=$(echo "$VERSION" | sed -E 's/^([0-9]+\.[0-9]+).*/\1/')
+
+          # Find the existing draft release for this minor version
+          EXISTING_TAG=$(gh release list --json tagName --limit 100 \
+            | jq -r ".[] | select(.tagName | startswith(\"v${MINOR}.\")) | .tagName" | head -1)
+
+          if [[ -n "$EXISTING_TAG" ]]; then
+            echo "Updating existing draft release from $EXISTING_TAG to $TAG"
+            gh release edit "$EXISTING_TAG" \
+              --tag "$TAG" \
+              --prerelease=false \
+              --latest
+          else
+            echo "::warning::No draft release found for v${MINOR}. Creating new release with auto-generated notes."
+            gh release create "$TAG" \
+              --title "v${VERSION}" \
+              --draft \
+              --generate-notes
+          fi
+
+      - name: Notify Slack
+        if: ${{ always() && needs.prepare.outputs.message_ts }}
+        continue-on-error: true
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL_ID: ${{ vars.SLACK_CHANNEL_ID }}
+        run: |
+          RELEASES_URL="${{ github.server_url }}/${{ github.repository }}/releases"
+          if [[ "${{ job.status }}" == "success" ]]; then
+            TEXT="✅ *Release notes* — <${RELEASES_URL}|draft created> (\`${{ inputs.release_type }}\`)"
+          else
+            TEXT="❌ *Release notes* — failed"
+          fi
+          curl -s -X POST https://slack.com/api/chat.postMessage \
+            -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n \
+              --arg channel "$SLACK_CHANNEL_ID" \
+              --arg text "$TEXT" \
+              --arg thread_ts "${{ needs.prepare.outputs.message_ts }}" \
+              '{channel: $channel, text: $text, thread_ts: $thread_ts, unfurl_links: false}')" > /dev/null
+
+  # ============================================================
+  # 4b. SLACK MESSAGE — generate Slack announcement for prereleases
+  # ============================================================
+  slack-message:
+    permissions:
+      contents: write  # need write to list draft releases
+    needs: [prepare, release-notes]
+    # Use !cancelled() so this job runs even if release-notes failed (we fetch the draft directly from GitHub).
+    # This also allows re-running this job after manually editing the draft release notes.
+    if: ${{ !cancelled() && needs.prepare.result == 'success' && needs.prepare.outputs.is_prerelease == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install PyGithub
+
+      - name: Install OpenCode
+        run: curl -fsSL https://opencode.ai/install | bash -s -- --version ${{ vars.OPENCODE_VERSION }}
+
+      - name: Verify OpenCode checksum
+        run: echo "${{ vars.OPENCODE_SHA256 }}  $(which opencode)" | sha256sum -c -
+
+      - name: Fetch release notes from GitHub
+        id: fetch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ needs.prepare.outputs.version }}"
+          MINOR=$(echo "$VERSION" | sed -E 's/^([0-9]+\.[0-9]+).*/\1/')
+
+          # Find the release for this minor version (draft or published prerelease)
+          RELEASE_TAG=$(gh release list --json tagName,isDraft,isPrerelease --limit 100 \
+            | jq -r ".[] | select(.isDraft or .isPrerelease) | select(.tagName | startswith(\"v${MINOR}.\")) | .tagName" | head -1)
+
+          if [[ -z "$RELEASE_TAG" ]]; then
+            echo "::warning::No release found for v${MINOR}. Skipping Slack message generation (likely because release-notes failed)."
+            echo "found=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "Found release: $RELEASE_TAG"
+          gh release view "$RELEASE_TAG" --json body -q '.body' > notes.md
+          echo "found=true" >> $GITHUB_OUTPUT
+
+      - name: Generate Slack message
+        if: ${{ steps.fetch.outputs.found == 'true' }}
+        env:
+          HF_TOKEN: ${{ secrets.RELEASE_NOTES_HF_TOKEN }}
+          RELEASE_NOTES_MODEL: ${{ vars.RELEASE_NOTES_MODEL }}
+        run: |
+          VERSION="${{ needs.prepare.outputs.version }}"
+          BASE_VERSION=$(echo "$VERSION" | sed -E 's/\.rc.*//')
+          # Create output directory (.release-notes/ is in .gitignore so absent after checkout)
+          mkdir -p .release-notes
+          python -m utils.release_notes.generate_slack_message \
+            --version "v${BASE_VERSION}" \
+            --rc-version "${VERSION}" \
+            --input notes.md
+
+      - name: Print Slack message to summary
+        if: ${{ steps.fetch.outputs.found == 'true' }}
+        run: |
+          VERSION="${{ needs.prepare.outputs.version }}"
+          BASE_VERSION=$(echo "$VERSION" | sed -E 's/\.rc.*//')
+          echo "## Slack Announcement" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat ".release-notes/SLACK_MESSAGE_v${BASE_VERSION}.md" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Notify Slack
+        if: ${{ always() && needs.prepare.outputs.message_ts }}
+        continue-on-error: true
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL_ID: ${{ vars.SLACK_CHANNEL_ID }}
+        run: |
+          VERSION="${{ needs.prepare.outputs.version }}"
+          BASE_VERSION=$(echo "$VERSION" | sed -E 's/\.rc.*//')
+          SLACK_MSG_FILE=".release-notes/SLACK_MESSAGE_v${BASE_VERSION}.md"
+
+          if [[ "${{ steps.fetch.outputs.found }}" != "true" ]]; then
+            TEXT="⚠️ *Slack announcement* — skipped (no release found)"
+          elif [[ "${{ job.status }}" == "success" ]]; then
+            TEXT="✅ *Slack announcement* — message generated"
+          else
+            TEXT="❌ *Slack announcement* — generation failed"
+          fi
+          curl -s -X POST https://slack.com/api/chat.postMessage \
+            -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n \
+              --arg channel "$SLACK_CHANNEL_ID" \
+              --arg text "$TEXT" \
+              --arg thread_ts "${{ needs.prepare.outputs.message_ts }}" \
+              '{channel: $channel, text: $text, thread_ts: $thread_ts, unfurl_links: false}')" > /dev/null
+
+          # Upload the generated Slack announcement as a file in the thread
+          if [[ -f "$SLACK_MSG_FILE" ]]; then
+            FILE_SIZE=$(wc -c < "$SLACK_MSG_FILE")
+            UPLOAD_RESP=$(curl -s -X POST https://slack.com/api/files.getUploadURLExternal \
+              -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+              -H "Content-Type: application/x-www-form-urlencoded" \
+              -d "filename=slack_announcement_v${BASE_VERSION}.md&length=${FILE_SIZE}")
+
+            UPLOAD_URL=$(echo "$UPLOAD_RESP" | jq -r '.upload_url // empty')
+            FILE_ID=$(echo "$UPLOAD_RESP" | jq -r '.file_id // empty')
+
+            if [[ -n "$UPLOAD_URL" && -n "$FILE_ID" ]]; then
+              curl -s -X POST "$UPLOAD_URL" -F "file=@${SLACK_MSG_FILE}" > /dev/null
+              curl -s -X POST https://slack.com/api/files.completeUploadExternal \
+                -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+                -H "Content-Type: application/json" \
+                -d "$(jq -n \
+                  --arg file_id "$FILE_ID" \
+                  --arg channel "$SLACK_CHANNEL_ID" \
+                  --arg thread_ts "${{ needs.prepare.outputs.message_ts }}" \
+                  '{files: [{id: $file_id}], channel_id: $channel, thread_ts: $thread_ts}')" > /dev/null
+            fi
+          fi
+
+  # ============================================================
+  # 4c. ARCHIVE RELEASE NOTES — upload edited notes to the bucket on minor-release
+  #
+  # Runs on minor-release (not prerelease) so that release notes can be
+  # manually reviewed/edited between the RC and the final release. Fetches the
+  # (possibly edited) notes from the GitHub release and uploads them to the HF
+  # bucket as release_notes_edited.txt, side by side with the release_notes_raw.txt
+  # that the release-notes job uploaded at prerelease time. Collecting both every
+  # week lets us compare the raw model output against the human edits and improve
+  # the generation prompt over time.
+  # ============================================================
+  archive-release-notes:
+    permissions:
+      contents: write  # need write to list draft releases
+    needs: [prepare, release-notes]
+    # Use !cancelled() so this job runs even if release-notes failed (we fetch the draft directly from GitHub).
+    # This also allows re-running this job after manually editing the draft release notes.
+    if: ${{ !cancelled() && needs.prepare.result == 'success' && inputs.release_type == 'minor-release' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -e .
+
+      - name: Fetch release notes from GitHub
+        id: fetch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ needs.prepare.outputs.tag }}"
+          VERSION="${{ needs.prepare.outputs.version }}"
+          MINOR=$(echo "$VERSION" | sed -E 's/^([0-9]+\.[0-9]+).*/\1/')
+
+          # After the release-notes job, the draft release has been promoted to the final tag.
+          # Try the exact tag first, then fall back to searching by minor version.
+          RELEASE_TAG=""
+          if gh release view "$TAG" --json tagName -q '.tagName' >/dev/null 2>&1; then
+            RELEASE_TAG="$TAG"
+          else
+            RELEASE_TAG=$(gh release list --json tagName,isDraft --limit 100 \
+              | jq -r ".[] | select(.tagName | startswith(\"v${MINOR}.\")) | .tagName" | head -1)
+          fi
+
+          if [[ -z "$RELEASE_TAG" ]]; then
+            echo "::warning::No release found for v${MINOR}. Skipping archive (likely because release-notes failed)."
+            echo "found=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "Found release: $RELEASE_TAG"
+          mkdir -p .release-notes
+          gh release view "$RELEASE_TAG" --json body -q '.body' > .release-notes/notes.md
+          echo "found=true" >> $GITHUB_OUTPUT
+
+      - name: Upload edited release notes to bucket
+        if: ${{ steps.fetch.outputs.found == 'true' }}
+        env:
+          HF_TOKEN: ${{ secrets.RELEASE_BUCKET_HF_TOKEN }}
+        run: |
+          VERSION="${{ needs.prepare.outputs.version }}"
+          BASE_VERSION=$(echo "$VERSION" | sed -E 's/\.rc.*//')
+
+          # Upload the edited notes side by side with the release_notes_raw.txt that
+          # the release-notes job uploaded at prerelease time.
+          hf cp .release-notes/notes.md \
+            "hf://buckets/huggingface/releases/huggingface_hub/${BASE_VERSION}/release_notes_edited.txt"
+
+      - name: Print release notes to summary
+        if: ${{ steps.fetch.outputs.found == 'true' }}
+        run: |
+          echo "## Edited Release Notes (archived to bucket)" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat .release-notes/notes.md >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Notify Slack
+        if: ${{ always() && needs.prepare.outputs.message_ts }}
+        continue-on-error: true
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL_ID: ${{ vars.SLACK_CHANNEL_ID }}
+        run: |
+          VERSION="${{ needs.prepare.outputs.version }}"
+          BASE_VERSION=$(echo "$VERSION" | sed -E 's/\.rc.*//')
+          BUCKET_URL="https://huggingface.co/buckets/huggingface/releases/tree/huggingface_hub/${BASE_VERSION}"
+          if [[ "${{ steps.fetch.outputs.found }}" != "true" ]]; then
+            TEXT="⚠️ *Release notes archive* — skipped (no release found)"
+          elif [[ "${{ job.status }}" == "success" ]]; then
+            TEXT="✅ *Release notes archive* — <${BUCKET_URL}|raw + edited uploaded to bucket>"
+          else
+            TEXT="❌ *Release notes archive* — failed"
+          fi
+          curl -s -X POST https://slack.com/api/chat.postMessage \
+            -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n \
+              --arg channel "$SLACK_CHANNEL_ID" \
+              --arg text "$TEXT" \
+              --arg thread_ts "${{ needs.prepare.outputs.message_ts }}" \
+              '{channel: $channel, text: $text, thread_ts: $thread_ts, unfurl_links: false}')" > /dev/null
+
+  # ============================================================
+  # 5. DOWNSTREAM TESTING — test RC in transformers, datasets, etc.
+  # ============================================================
+  test-downstream:
+    permissions:
+      contents: read
+    needs: [prepare, publish-pypi]
+    if: ${{ needs.prepare.outputs.is_prerelease == 'true' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target-repo: ["transformers", "datasets", "diffusers", "sentence-transformers"]
+    steps:
+      - name: Wait for prerelease to be available on PyPI
+        env:
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          echo "Waiting for huggingface-hub==${VERSION} on PyPI..."
+          for i in $(seq 1 20); do
+            if pip install "huggingface-hub==${VERSION}" 2>/dev/null; then
+              echo "Package available on PyPI!"
+              exit 0
+            fi
+            echo "Not available yet, retrying in 15s... ($i/20)"
+            sleep 15
+          done
+          echo "::error::Package not available on PyPI after 5 minutes"
+          exit 1
+
+      - name: Checkout target repo
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          repository: huggingface/${{ matrix.target-repo }}
+          path: ${{ matrix.target-repo }}
+          token: ${{ secrets.HUGGINGFACE_HUB_AUTOMATIC_RC_TESTING }}
+
+      - name: Configure Git
+        run: |
+          cd ${{ matrix.target-repo }}
+          git config user.name "Hugging Face Bot (RC Testing)"
+          git config user.email "bot@huggingface.co"
+
+      - name: Create test branch and update dependencies
+        run: |
+          cd ${{ matrix.target-repo }}
+          VERSION="${{ needs.prepare.outputs.version }}"
+          BRANCH_NAME="ci-test-huggingface-hub-${VERSION}-release"
+
+          git checkout -b "$BRANCH_NAME"
+
+          # Update setup.py if exists
+          if [ -f "setup.py" ]; then
+            sed -i -E "s/\"huggingface-hub(>=|==)[^\"]*\"/\"huggingface-hub==${VERSION}\"/" setup.py
+            git add setup.py
+          fi
+
+          # transformers-specific
+          if [ "${{ matrix.target-repo }}" = "transformers" ]; then
+            sed -i -E "s/\"huggingface-hub(>=|==)[^\"]*\"/\"huggingface-hub==${VERSION}\"/" src/transformers/dependency_versions_table.py
+            git add src/transformers/dependency_versions_table.py
+
+            # The current Transformers PR CI delegates to reusable workflows from
+            # huggingface/transformers-ci. Copy those workflows into this test
+            # branch so the prerelease patch applies to the actual quality install.
+            curl -fsSL https://raw.githubusercontent.com/huggingface/transformers-ci/main/.github/workflows/pr-ci_dynamic_caller_example.yml \
+              -o .github/workflows/pr-ci_dynamic_caller_example.yml
+            curl -fsSL https://raw.githubusercontent.com/huggingface/transformers-ci/main/.github/workflows/pr-ci_reusable_test_job.yml \
+              -o .github/workflows/pr-ci_reusable_test_job.yml
+            sed -i -E "s|uses: huggingface/transformers-ci/\.github/workflows/pr-ci_dynamic_caller_example\.yml@[^[:space:]]+.*|uses: ./.github/workflows/pr-ci_dynamic_caller_example.yml # patched for hfh prerelease|" .github/workflows/pr-ci-caller.yml
+            git add .github/workflows/pr-ci-caller.yml .github/workflows/pr-ci_dynamic_caller_example.yml .github/workflows/pr-ci_reusable_test_job.yml
+          fi
+
+          # diffusers-specific
+          if [ "${{ matrix.target-repo }}" = "diffusers" ]; then
+            sed -i -E "s/\"huggingface-hub\":.*/\"huggingface-hub\": \"huggingface-hub==${VERSION}\",/" src/diffusers/dependency_versions_table.py
+            git add src/diffusers/dependency_versions_table.py
+          fi
+
+          # sentence-transformers-specific
+          if [ "${{ matrix.target-repo }}" = "sentence-transformers" ]; then
+            sed -i -E "s/\"huggingface-hub(>=|==)[^\"]*\"/\"huggingface-hub==${VERSION}\"/" pyproject.toml
+            git add pyproject.toml
+          fi
+
+          # Enable prerelease flag in workflow files.
+          # Skipped for sentence-transformers: its pyproject.toml pin already forces our RC, and
+          # --prerelease=allow would also pull in unrelated prereleases (e.g. tokenizers) that break
+          # the latest transformers and cause spurious CI failures.
+          if [ "${{ matrix.target-repo }}" != "sentence-transformers" ]; then
+            find .github/workflows/ -type f -exec perl -0pi -e 's/uv pip install (?!--prerelease=allow )/uv pip install --prerelease=allow /g' {} +
+            git add .github/workflows/
+          fi
+
+          git --no-pager diff --staged
+          git commit -m "Test hfh ${VERSION}"
+          git push --set-upstream origin "$BRANCH_NAME"
+
+      - name: Print URLs
+        run: |
+          VERSION="${{ needs.prepare.outputs.version }}"
+          BRANCH_NAME="ci-test-huggingface-hub-${VERSION}-release"
+          echo "### ${{ matrix.target-repo }}" >> $GITHUB_STEP_SUMMARY
+          echo "- [Actions](https://github.com/huggingface/${{ matrix.target-repo }}/actions)" >> $GITHUB_STEP_SUMMARY
+          echo "- [Compare](https://github.com/huggingface/${{ matrix.target-repo }}/compare/main...${BRANCH_NAME})" >> $GITHUB_STEP_SUMMARY
+
+      - name: Notify Slack
+        if: ${{ always() && needs.prepare.outputs.message_ts }}
+        continue-on-error: true
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL_ID: ${{ vars.SLACK_CHANNEL_ID }}
+        run: |
+          REPO="${{ matrix.target-repo }}"
+          VERSION="${{ needs.prepare.outputs.version }}"
+          BRANCH_NAME="ci-test-huggingface-hub-${VERSION}-release"
+          COMPARE_URL="https://github.com/huggingface/${REPO}/compare/main...${BRANCH_NAME}"
+          if [[ "${{ job.status }}" == "success" ]]; then
+            TEXT="✅ *Downstream* — \`${REPO}\` <${COMPARE_URL}|test branch pushed>"
+          else
+            TEXT="❌ *Downstream* — \`${REPO}\` failed"
+          fi
+          curl -s -X POST https://slack.com/api/chat.postMessage \
+            -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n \
+              --arg channel "$SLACK_CHANNEL_ID" \
+              --arg text "$TEXT" \
+              --arg thread_ts "${{ needs.prepare.outputs.message_ts }}" \
+              '{channel: $channel, text: $text, thread_ts: $thread_ts, unfurl_links: false}')" > /dev/null
+
+  # ============================================================
+  # 6. POST-RELEASE — open PR to bump main to next dev version
+  # ============================================================
+  post-release:
+    permissions:
+      contents: read   # write operations use app token
+    needs: [prepare, publish-pypi]
+    if: ${{ inputs.release_type == 'minor-release' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create GitHub App token
+        id: app_token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1  # v3.2.0
+        with:
+          app-id: ${{ secrets.APP_ID_HUGGINGFACE_HUB_BOT }}
+          private-key: ${{ secrets.APP_SECRET_PEM_HUGGINGFACE_HUB_BOT }}
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: main
+          token: ${{ steps.app_token.outputs.token }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "huggingface-hub-bot[bot]"
+          git config user.email "huggingface-hub-bot[bot]@users.noreply.github.com"
+
+      - name: Create version bump PR
+        id: bump_pr
+        env:
+          GH_TOKEN: ${{ steps.app_token.outputs.token }}
+        run: |
+          VERSION="${{ needs.prepare.outputs.version }}"
+          MAJOR=$(echo "$VERSION" | cut -d. -f1)
+          MINOR=$(echo "$VERSION" | cut -d. -f2)
+          NEXT_MINOR=$((MINOR + 1))
+          DEV_VERSION="${MAJOR}.${NEXT_MINOR}.0.dev0"
+
+          # Guard: skip if main already has an equal or higher version
+          CURRENT_VERSION=$(grep -oP '__version__ = "\K[^"]+' src/huggingface_hub/__init__.py)
+          CURRENT_MINOR=$(echo "$CURRENT_VERSION" | cut -d. -f2)
+          if [[ "$CURRENT_MINOR" -ge "$NEXT_MINOR" ]]; then
+            echo "::warning::main is already at ${CURRENT_VERSION} (>= ${DEV_VERSION}). Skipping version bump."
+            exit 0
+          fi
+
+          PR_BRANCH="post-release-v${VERSION}"
+          git checkout -b "$PR_BRANCH"
+
+          sed -i -E "s/__version__ = \".*\"/__version__ = \"${DEV_VERSION}\"/" src/huggingface_hub/__init__.py
+          git add src/huggingface_hub/__init__.py
+          git commit -m "Post-release: bump version to ${DEV_VERSION}"
+          git push -u origin "$PR_BRANCH"
+
+          PR_URL=$(gh pr create \
+            --title "Post-release: bump version to ${DEV_VERSION}" \
+            --body "Automated version bump after v${VERSION} release." \
+            --base main)
+          echo "pr_url=$PR_URL" >> $GITHUB_OUTPUT
+
+      - name: Notify Slack
+        if: ${{ always() && needs.prepare.outputs.message_ts }}
+        continue-on-error: true
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL_ID: ${{ vars.SLACK_CHANNEL_ID }}
+        run: |
+          PR_URL="${{ steps.bump_pr.outputs.pr_url }}"
+          if [[ "${{ job.status }}" == "success" && -n "$PR_URL" ]]; then
+            TEXT="✅ *Post-release* — <${PR_URL}|version bump PR> opened"
+          elif [[ "${{ job.status }}" == "success" ]]; then
+            TEXT="✅ *Post-release* — skipped (version already bumped)"
+          else
+            TEXT="❌ *Post-release* — failed"
+          fi
+          curl -s -X POST https://slack.com/api/chat.postMessage \
+            -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n \
+              --arg channel "$SLACK_CHANNEL_ID" \
+              --arg text "$TEXT" \
+              --arg thread_ts "${{ needs.prepare.outputs.message_ts }}" \
+              '{channel: $channel, text: $text, thread_ts: $thread_ts, unfurl_links: false}')" > /dev/null
+
+  # ============================================================
+  # 7. SYNC HF CLI SKILL — update skill docs in skills repo
+  # ============================================================
+  sync-hf-cli-skill:
+    permissions:
+      contents: read   # write operations use app token
+    needs: prepare
+    if: ${{ needs.prepare.outputs.is_prerelease != 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout huggingface_hub
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -e .
+
+      - name: Generate skill docs
+        run: |
+          mkdir -p /tmp/hf-cli-skill
+          hf skills preview > /tmp/hf-cli-skill/SKILL.md
+
+      - name: Create GitHub App token
+        id: app_token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1  # v3.2.0
+        with:
+          app-id: ${{ secrets.APP_ID_HUB_SKILLS_REPO }}
+          private-key: ${{ secrets.APP_SECRET_PREM_HUB_SKILLS_REPO }}
+          repositories: skills
+
+      - name: Checkout skills repo
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          repository: huggingface/skills
+          token: ${{ steps.app_token.outputs.token }}
+          path: skills-repo
+
+      - name: Copy generated files
+        run: cp /tmp/hf-cli-skill/SKILL.md skills-repo/skills/hf-cli/
+
+      - name: Check for changes
+        id: check_changes
+        working-directory: skills-repo
+        run: |
+          git diff --quiet && echo "changed=false" >> $GITHUB_OUTPUT || echo "changed=true" >> $GITHUB_OUTPUT
+
+      - name: Create Pull Request
+        if: steps.check_changes.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1  # v8.1.1
+        with:
+          token: ${{ steps.app_token.outputs.token }}
+          path: skills-repo
+          branch: sync/hf-cli-${{ github.run_id }}
+          delete-branch: true
+          title: "Sync HF CLI Skill (${{ needs.prepare.outputs.tag }})"
+          reviewers: hanouticelina
+          body: |
+            Auto-generated from [huggingface_hub@${{ github.sha }}](https://github.com/huggingface/huggingface_hub/commit/${{ github.sha }})
+
+            Triggered by changes to `src/huggingface_hub/cli/`
+
+            ---
+            This PR was created automatically by the [release](https://github.com/huggingface/huggingface_hub/blob/main/.github/workflows/release.yml) workflow.
+          commit-message: "Sync HF CLI skill from huggingface_hub@${{ github.sha }}"
+          labels: |
+            automated
+            cli-sync
+
+      - name: Notify Slack
+        if: ${{ always() && needs.prepare.outputs.message_ts }}
+        continue-on-error: true
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL_ID: ${{ vars.SLACK_CHANNEL_ID }}
+        run: |
+          if [[ "${{ job.status }}" == "success" ]]; then
+            TEXT="✅ *CLI skill sync* — done"
+          else
+            TEXT="❌ *CLI skill sync* — failed"
+          fi
+          curl -s -X POST https://slack.com/api/chat.postMessage \
+            -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n \
+              --arg channel "$SLACK_CHANNEL_ID" \
+              --arg text "$TEXT" \
+              --arg thread_ts "${{ needs.prepare.outputs.message_ts }}" \
+              '{channel: $channel, text: $text, thread_ts: $thread_ts, unfurl_links: false}')" > /dev/null
+
+  # ============================================================
+  # 8. NOTIFY PRs — comment on each PR included in the release
+  # ============================================================
+  notify-prs:
+    permissions:
+      contents: read   # write operations use app token
+    needs: [prepare, publish-pypi]
+    if: ${{ inputs.release_type != 'minor-prerelease' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create GitHub App token
+        id: app_token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1  # v3.2.0
+        with:
+          app-id: ${{ secrets.APP_ID_HUGGINGFACE_HUB_BOT }}
+          private-key: ${{ secrets.APP_SECRET_PEM_HUGGINGFACE_HUB_BOT }}
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+          fetch-depth: 0
+
+      - name: Comment on PRs included in this release
+        env:
+          GH_TOKEN: ${{ steps.app_token.outputs.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          SINCE_TAG: ${{ needs.prepare.outputs.since_tag }}
+          RELEASE_URL: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ needs.prepare.outputs.tag }}
+          REPO: ${{ github.repository }}
+        run: |
+          # Best-effort by design: a single PR can fail for reasons unrelated to the others. We keep going through the
+          # whole list, retry each API call once, and only fail the job at the very end so that as many PRs as possible
+          # get notified. Buffer stdout and only echo it back for the attempt that succeeded: on an HTTP error
+          # `gh api` writes the raw error body to stdout (bypassing --jq), so forwarding a failed
+          # attempt's stdout would pollute the caller's output (e.g. make HAS_BOT_COMMENT non-empty).
+          retry() {
+            local output
+            if output=$("$@"); then
+              printf '%s' "$output"
+              return 0
+            fi
+            echo "  API call failed, retrying in 2s..." >&2
+            sleep 2
+            if output=$("$@"); then
+              printf '%s' "$output"
+              return 0
+            fi
+            return 1
+          }
+
+          # Extract unique PR numbers from commit messages between the two tags
+          PR_NUMBERS=$(git log "${SINCE_TAG}..${TAG}" --oneline | grep -oP '\(#\K[0-9]+(?=\))' | sort -un)
+
+          if [[ -z "$PR_NUMBERS" ]]; then
+            echo "No PRs found between ${SINCE_TAG} and ${TAG}"
+            exit 0
+          fi
+
+          echo "Found PRs: $(echo $PR_NUMBERS | tr '\n' ' ')"
+          COMMENTED=0
+          SKIPPED=0
+          FAILED=()
+
+          for PR_NUM in $PR_NUMBERS; do
+            # Check if huggingface-hub-bot already commented on this PR
+            if ! HAS_BOT_COMMENT=$(retry gh api "repos/${REPO}/issues/${PR_NUM}/comments" \
+              --paginate --jq '.[] | select(.user.login == "huggingface-hub-bot[bot]") | .id'); then
+              echo "::warning::Could not list comments on PR #${PR_NUM} — skipping it"
+              FAILED+=("$PR_NUM")
+              continue
+            fi
+
+            if [[ -n "$HAS_BOT_COMMENT" ]]; then
+              echo "Skipping PR #${PR_NUM} — bot already commented"
+              SKIPPED=$((SKIPPED + 1))
+              continue
+            fi
+
+            # Post comment
+            BODY="This PR has been shipped as part of the [${TAG}](${RELEASE_URL}) release."
+            if retry gh api "repos/${REPO}/issues/${PR_NUM}/comments" -f body="$BODY" > /dev/null; then
+              echo "Commented on PR #${PR_NUM}"
+              COMMENTED=$((COMMENTED + 1))
+            else
+              echo "::warning::Could not comment on PR #${PR_NUM}"
+              FAILED+=("$PR_NUM")
+            fi
+          done
+
+          echo "Done: ${COMMENTED} commented, ${SKIPPED} skipped, ${#FAILED[@]} failed"
+
+          if [[ ${#FAILED[@]} -gt 0 ]]; then
+            echo "::error::Could not notify ${#FAILED[@]} PR(s): ${FAILED[*]}"
+            exit 1
+          fi
+
+      - name: Notify Slack
+        if: ${{ always() && needs.prepare.outputs.message_ts }}
+        continue-on-error: true
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL_ID: ${{ vars.SLACK_CHANNEL_ID }}
+        run: |
+          if [[ "${{ job.status }}" == "success" ]]; then
+            TEXT="✅ *PR notifications* — commented on included PRs"
+          else
+            TEXT="❌ *PR notifications* — failed"
+          fi
+          curl -s -X POST https://slack.com/api/chat.postMessage \
+            -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n \
+              --arg channel "$SLACK_CHANNEL_ID" \
+              --arg text "$TEXT" \
+              --arg thread_ts "${{ needs.prepare.outputs.message_ts }}" \
+              '{channel: $channel, text: $text, thread_ts: $thread_ts, unfurl_links: false}')" > /dev/null
+
+  # ============================================================
+  # 9. SLACK — final status update
+  # ============================================================
+  slack-complete:
+    needs: [prepare, publish-pypi, publish-hf-cli, release-notes, slack-message, archive-release-notes, test-downstream, post-release, sync-hf-cli-skill, notify-prs]
+    if: ${{ always() && needs.prepare.outputs.message_ts }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update Slack message with final status
+        continue-on-error: true
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL_ID: ${{ vars.SLACK_CHANNEL_ID }}
+        run: |
+          MESSAGE_TS="${{ needs.prepare.outputs.message_ts }}"
+          TAG="${{ needs.prepare.outputs.tag }}"
+          BRANCH="${{ needs.prepare.outputs.branch }}"
+          RELEASE_TYPE="${{ inputs.release_type }}"
+          ACTOR="${{ github.actor }}"
+          ACTOR_URL="${{ github.server_url }}/${{ github.actor }}"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+          # Check if any job failed or was cancelled (including prepare itself,
+          # which can fail after posting the Slack message, e.g. during git push)
+          FAILED=false
+          for result in \
+            "${{ needs.prepare.result }}" \
+            "${{ needs.publish-pypi.result }}" \
+            "${{ needs.publish-hf-cli.result }}" \
+            "${{ needs.release-notes.result }}" \
+            "${{ needs.slack-message.result }}" \
+            "${{ needs.archive-release-notes.result }}" \
+            "${{ needs.test-downstream.result }}" \
+            "${{ needs.post-release.result }}" \
+            "${{ needs.sync-hf-cli-skill.result }}" \
+            "${{ needs.notify-prs.result }}"; do
+            if [[ "$result" == "failure" || "$result" == "cancelled" ]]; then
+              FAILED=true
+              break
+            fi
+          done
+
+          case "$RELEASE_TYPE" in
+            minor-prerelease) TYPE_LABEL="Pre-release" ;;
+            minor-release)    TYPE_LABEL="Release" ;;
+            patch-release)    TYPE_LABEL="Patch" ;;
+          esac
+
+          if [[ "$FAILED" == "true" ]]; then
+            TEXT="❌ *${TYPE_LABEL} \`${TAG}\` failed*"$'\n'">Branch: \`${BRANCH}\` • Triggered by <${ACTOR_URL}|@${ACTOR}> • <${RUN_URL}|View run>"
+            REACTION="x"
+          else
+            TEXT="✅ *${TYPE_LABEL} \`${TAG}\` completed*"$'\n'">Branch: \`${BRANCH}\` • Triggered by <${ACTOR_URL}|@${ACTOR}> • <${RUN_URL}|View run>"
+            REACTION="white_check_mark"
+          fi
+
+          # Update the original message
+          curl -s -X POST https://slack.com/api/chat.update \
+            -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n \
+              --arg channel "$SLACK_CHANNEL_ID" \
+              --arg text "$TEXT" \
+              --arg ts "$MESSAGE_TS" \
+              '{channel: $channel, text: $text, ts: $ts}')" > /dev/null
+
+          # Add status reaction
+          curl -s -X POST https://slack.com/api/reactions.add \
+            -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n \
+              --arg channel "$SLACK_CHANNEL_ID" \
+              --arg name "$REACTION" \
+              --arg timestamp "$MESSAGE_TS" \
+              '{channel: $channel, name: $name, timestamp: $timestamp}')" > /dev/null

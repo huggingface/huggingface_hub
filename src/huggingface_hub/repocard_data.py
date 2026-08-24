@@ -1,7 +1,7 @@
 import copy
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any, Optional, Union
+from typing import Any
 
 from huggingface_hub.utils import logging, yaml_dump
 
@@ -84,52 +84,52 @@ class EvalResult:
 
     # A pretty name for the task.
     # Example: Speech Recognition
-    task_name: Optional[str] = None
+    task_name: str | None = None
 
     # The name of the dataset configuration used in `load_dataset()`.
     # Example: fr in `load_dataset("common_voice", "fr")`.
     # See the `datasets` docs for more info:
     # https://huggingface.co/docs/datasets/package_reference/loading_methods#datasets.load_dataset.name
-    dataset_config: Optional[str] = None
+    dataset_config: str | None = None
 
     # The split used in `load_dataset()`.
     # Example: test
-    dataset_split: Optional[str] = None
+    dataset_split: str | None = None
 
     # The revision (AKA Git Sha) of the dataset used in `load_dataset()`.
     # Example: 5503434ddd753f426f4b38109466949a1217c2bb
-    dataset_revision: Optional[str] = None
+    dataset_revision: str | None = None
 
     # The arguments passed during `Metric.compute()`.
     # Example for `bleu`: max_order: 4
-    dataset_args: Optional[dict[str, Any]] = None
+    dataset_args: dict[str, Any] | None = None
 
     # A pretty name for the metric.
     # Example: Test WER
-    metric_name: Optional[str] = None
+    metric_name: str | None = None
 
     # The name of the metric configuration used in `load_metric()`.
     # Example: bleurt-large-512 in `load_metric("bleurt", "bleurt-large-512")`.
     # See the `datasets` docs for more info: https://huggingface.co/docs/datasets/v2.1.0/en/loading#load-configurations
-    metric_config: Optional[str] = None
+    metric_config: str | None = None
 
     # The arguments passed during `Metric.compute()`.
     # Example for `bleu`: max_order: 4
-    metric_args: Optional[dict[str, Any]] = None
+    metric_args: dict[str, Any] | None = None
 
     # Indicates whether the metrics originate from Hugging Face's [evaluation service](https://huggingface.co/spaces/autoevaluate/model-evaluator) or not. Automatically computed by Hugging Face, do not set.
-    verified: Optional[bool] = None
+    verified: bool | None = None
 
     # A JSON Web Token that is used to verify whether the metrics originate from Hugging Face's [evaluation service](https://huggingface.co/spaces/autoevaluate/model-evaluator) or not.
-    verify_token: Optional[str] = None
+    verify_token: str | None = None
 
     # The name of the source of the evaluation result.
     # Example: Open LLM Leaderboard
-    source_name: Optional[str] = None
+    source_name: str | None = None
 
     # The URL of the source of the evaluation result.
     # Example: https://huggingface.co/spaces/open-llm-leaderboard/open_llm_leaderboard
-    source_url: Optional[str] = None
+    source_url: str | None = None
 
     @property
     def unique_identifier(self) -> tuple:
@@ -195,20 +195,26 @@ class CardData:
         """
         pass
 
-    def to_yaml(self, line_break=None, original_order: Optional[list[str]] = None) -> str:
+    def to_yaml(self, line_break=None, original_order: list[str] | None = None) -> str:
         """Dumps CardData to a YAML block for inclusion in a README.md file.
 
         Args:
             line_break (str, *optional*):
                 The line break to use when dumping to yaml.
+            original_order (`list[str]`, *optional*):
+                If provided, reorder the metadata fields to match this list before dumping.
+                Any keys not in `original_order` are appended after the listed keys, preserving
+                their existing relative order. Useful for round-tripping a YAML block without
+                shuffling its keys.
 
         Returns:
             `str`: CardData represented as a YAML block.
         """
         if original_order:
+            original_order_set = set(original_order)
             self.__dict__ = {
                 k: self.__dict__[k]
-                for k in original_order + list(set(self.__dict__.keys()) - set(original_order))
+                for k in original_order + [k for k in self.__dict__ if k not in original_order_set]
                 if k in self.__dict__
             }
         return yaml_dump(self.to_dict(), sort_keys=False, line_break=line_break).strip()
@@ -246,8 +252,8 @@ class CardData:
 
 
 def _validate_eval_results(
-    eval_results: Optional[Union[EvalResult, list[EvalResult]]],
-    model_name: Optional[str],
+    eval_results: EvalResult | list[EvalResult] | None,
+    model_name: str | None,
 ) -> list[EvalResult]:
     if eval_results is None:
         return []
@@ -329,18 +335,18 @@ class ModelCardData(CardData):
     def __init__(
         self,
         *,
-        base_model: Optional[Union[str, list[str]]] = None,
-        datasets: Optional[Union[str, list[str]]] = None,
-        eval_results: Optional[list[EvalResult]] = None,
-        language: Optional[Union[str, list[str]]] = None,
-        library_name: Optional[str] = None,
-        license: Optional[str] = None,
-        license_name: Optional[str] = None,
-        license_link: Optional[str] = None,
-        metrics: Optional[list[str]] = None,
-        model_name: Optional[str] = None,
-        pipeline_tag: Optional[str] = None,
-        tags: Optional[list[str]] = None,
+        base_model: str | list[str] | None = None,
+        datasets: str | list[str] | None = None,
+        eval_results: list[EvalResult] | None = None,
+        language: str | list[str] | None = None,
+        library_name: str | None = None,
+        license: str | None = None,
+        license_name: str | None = None,
+        license_link: str | None = None,
+        metrics: list[str] | None = None,
+        model_name: str | None = None,
+        pipeline_tag: str | None = None,
+        tags: list[str] | None = None,
         ignore_metadata_errors: bool = False,
         **kwargs,
     ):
@@ -434,19 +440,19 @@ class DatasetCardData(CardData):
     def __init__(
         self,
         *,
-        language: Optional[Union[str, list[str]]] = None,
-        license: Optional[Union[str, list[str]]] = None,
-        annotations_creators: Optional[Union[str, list[str]]] = None,
-        language_creators: Optional[Union[str, list[str]]] = None,
-        multilinguality: Optional[Union[str, list[str]]] = None,
-        size_categories: Optional[Union[str, list[str]]] = None,
-        source_datasets: Optional[list[str]] = None,
-        task_categories: Optional[Union[str, list[str]]] = None,
-        task_ids: Optional[Union[str, list[str]]] = None,
-        paperswithcode_id: Optional[str] = None,
-        pretty_name: Optional[str] = None,
-        train_eval_index: Optional[dict] = None,
-        config_names: Optional[Union[str, list[str]]] = None,
+        language: str | list[str] | None = None,
+        license: str | list[str] | None = None,
+        annotations_creators: str | list[str] | None = None,
+        language_creators: str | list[str] | None = None,
+        multilinguality: str | list[str] | None = None,
+        size_categories: str | list[str] | None = None,
+        source_datasets: list[str] | None = None,
+        task_categories: str | list[str] | None = None,
+        task_ids: str | list[str] | None = None,
+        paperswithcode_id: str | None = None,
+        pretty_name: str | None = None,
+        train_eval_index: dict | None = None,
+        config_names: str | list[str] | None = None,
         ignore_metadata_errors: bool = False,
         **kwargs,
     ):
@@ -477,29 +483,29 @@ class SpaceCardData(CardData):
     To get an exhaustive reference of Spaces configuration, please visit https://huggingface.co/docs/hub/spaces-config-reference#spaces-configuration-reference.
 
     Args:
-        title (`str`, *optional*)
+        title (`str`, *optional*):
             Title of the Space.
-        sdk (`str`, *optional*)
+        sdk (`str`, *optional*):
             SDK of the Space (one of `gradio`, `streamlit`, `docker`, or `static`).
-        sdk_version (`str`, *optional*)
+        sdk_version (`str`, *optional*):
             Version of the used SDK (if Gradio/Streamlit sdk).
-        python_version (`str`, *optional*)
+        python_version (`str`, *optional*):
             Python version used in the Space (if Gradio/Streamlit sdk).
-        app_file (`str`, *optional*)
+        app_file (`str`, *optional*):
             Path to your main application file (which contains either gradio or streamlit Python code, or static html code).
             Path is relative to the root of the repository.
-        app_port (`str`, *optional*)
+        app_port (`str`, *optional*):
             Port on which your application is running. Used only if sdk is `docker`.
-        license (`str`, *optional*)
+        license (`str`, *optional*):
             License of this model. Example: apache-2.0 or any license from
             https://huggingface.co/docs/hub/repositories-licenses.
-        duplicated_from (`str`, *optional*)
+        duplicated_from (`str`, *optional*):
             ID of the original Space if this is a duplicated Space.
-        models (list[`str`], *optional*)
+        models (`list[str]`, *optional*):
             List of models related to this Space. Should be a dataset ID found on https://hf.co/models.
-        datasets (`list[str]`, *optional*)
+        datasets (`list[str]`, *optional*):
             List of datasets related to this Space. Should be a dataset ID found on https://hf.co/datasets.
-        tags (`list[str]`, *optional*)
+        tags (`list[str]`, *optional*):
             List of tags to add to your Space that can be used when filtering on the Hub.
         ignore_metadata_errors (`str`):
             If True, errors while parsing the metadata section will be ignored. Some information might be lost during
@@ -524,17 +530,17 @@ class SpaceCardData(CardData):
     def __init__(
         self,
         *,
-        title: Optional[str] = None,
-        sdk: Optional[str] = None,
-        sdk_version: Optional[str] = None,
-        python_version: Optional[str] = None,
-        app_file: Optional[str] = None,
-        app_port: Optional[int] = None,
-        license: Optional[str] = None,
-        duplicated_from: Optional[str] = None,
-        models: Optional[list[str]] = None,
-        datasets: Optional[list[str]] = None,
-        tags: Optional[list[str]] = None,
+        title: str | None = None,
+        sdk: str | None = None,
+        sdk_version: str | None = None,
+        python_version: str | None = None,
+        app_file: str | None = None,
+        app_port: int | None = None,
+        license: str | None = None,
+        duplicated_from: str | None = None,
+        models: list[str] | None = None,
+        datasets: list[str] | None = None,
+        tags: list[str] | None = None,
         ignore_metadata_errors: bool = False,
         **kwargs,
     ):
@@ -760,7 +766,7 @@ def eval_results_to_model_index(model_name: str, eval_results: list[EvalResult])
     return _remove_none(model_index)
 
 
-def _to_unique_list(tags: Optional[list[str]]) -> Optional[list[str]]:
+def _to_unique_list(tags: list[str] | None) -> list[str] | None:
     if tags is None:
         return tags
     unique_tags = []  # make tags unique + keep order explicitly

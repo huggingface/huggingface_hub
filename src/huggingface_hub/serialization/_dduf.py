@@ -4,10 +4,11 @@ import mmap
 import os
 import shutil
 import zipfile
+from collections.abc import Generator, Iterable
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Generator, Iterable, Union
+from typing import Any
 
 from ..errors import DDUFCorruptedFileError, DDUFExportError, DDUFInvalidEntryNameError
 
@@ -87,7 +88,7 @@ class DDUFEntry:
             return f.read(self.length).decode(encoding=encoding)
 
 
-def read_dduf_file(dduf_path: Union[os.PathLike, str]) -> dict[str, DDUFEntry]:
+def read_dduf_file(dduf_path: os.PathLike | str) -> dict[str, DDUFEntry]:
     """
     Read a DDUF file and return a dictionary of entries.
 
@@ -156,9 +157,7 @@ def read_dduf_file(dduf_path: Union[os.PathLike, str]) -> dict[str, DDUFEntry]:
     return entries
 
 
-def export_entries_as_dduf(
-    dduf_path: Union[str, os.PathLike], entries: Iterable[tuple[str, Union[str, Path, bytes]]]
-) -> None:
+def export_entries_as_dduf(dduf_path: str | os.PathLike, entries: Iterable[tuple[str, str | Path | bytes]]) -> None:
     """Write a DDUF file from an iterable of entries.
 
     This is a lower-level helper than [`export_folder_as_dduf`] that allows more flexibility when serializing data.
@@ -247,7 +246,7 @@ def export_entries_as_dduf(
     logger.info(f"Done writing DDUF file {dduf_path}")
 
 
-def export_folder_as_dduf(dduf_path: Union[str, os.PathLike], folder_path: Union[str, os.PathLike]) -> None:
+def export_folder_as_dduf(dduf_path: str | os.PathLike, folder_path: str | os.PathLike) -> None:
     """
     Export a folder as a DDUF file.
 
@@ -283,7 +282,7 @@ def export_folder_as_dduf(dduf_path: Union[str, os.PathLike], folder_path: Union
     export_entries_as_dduf(dduf_path, _iterate_over_folder())
 
 
-def _dump_content_in_archive(archive: zipfile.ZipFile, filename: str, content: Union[str, os.PathLike, bytes]) -> None:
+def _dump_content_in_archive(archive: zipfile.ZipFile, filename: str, content: str | os.PathLike | bytes) -> None:
     with archive.open(filename, "w", force_zip64=True) as archive_fh:
         if isinstance(content, (str, Path)):
             content_path = Path(content)
@@ -295,7 +294,7 @@ def _dump_content_in_archive(archive: zipfile.ZipFile, filename: str, content: U
             raise DDUFExportError(f"Invalid content type for {filename}. Must be str, Path or bytes.")
 
 
-def _load_content(content: Union[str, Path, bytes]) -> bytes:
+def _load_content(content: str | Path | bytes) -> bytes:
     """Load the content of an entry as bytes.
 
     Used only for small checks (not to dump content into archive).

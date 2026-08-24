@@ -1,7 +1,7 @@
 """Contains all custom errors."""
 
+from enum import Enum
 from pathlib import Path
-from typing import Optional, Union
 
 from httpx import HTTPError, Response
 
@@ -12,9 +12,9 @@ from httpx import HTTPError, Response
 class CacheNotFound(Exception):
     """Exception thrown when the Huggingface cache is not found."""
 
-    cache_dir: Union[str, Path]
+    cache_dir: str | Path
 
-    def __init__(self, msg: str, cache_dir: Union[str, Path], *args, **kwargs):
+    def __init__(self, msg: str, cache_dir: str | Path, *args, **kwargs):
         super().__init__(msg, *args, **kwargs)
         self.cache_dir = cache_dir
 
@@ -23,11 +23,61 @@ class CorruptedCacheException(Exception):
     """Exception for any unexpected structure in the Huggingface cache-system."""
 
 
+class CachedRepoTreeNotFoundError(Exception):
+    """Raised by [`get_cached_repo_tree`] when no tree listing is cached for the requested revision.
+
+    The tree listing is populated as a side effect of [`snapshot_download`].
+    """
+
+
 # HEADERS ERRORS
 
 
 class LocalTokenNotFoundError(EnvironmentError):
     """Raised if local token is required but not found."""
+
+
+# OIDC ERRORS
+
+
+class OIDCError(Exception):
+    """Raised when keyless CI/CD auth via OIDC token exchange ("Trusted Publishers") cannot proceed.
+
+    Typically because `HF_OIDC_RESOURCE` is set but no id token is available: not running in a
+    supported CI provider and `HF_OIDC_ID_TOKEN` is unset.
+
+    See https://huggingface.co/docs/hub/trusted-publishers.
+    """
+
+
+# DEVICE CODE OAUTH ERRORS
+
+
+class OAuthErrorCode(str, Enum):
+    """Known OAuth `error` codes returned by the Hub's token endpoint (RFC 6749 / RFC 8628)."""
+
+    AUTHORIZATION_PENDING = "authorization_pending"
+    SLOW_DOWN = "slow_down"
+    EXPIRED_TOKEN = "expired_token"
+    ACCESS_DENIED = "access_denied"
+    INVALID_GRANT = "invalid_grant"
+
+
+class DeviceCodeError(Exception):
+    """Raised when the Device Code OAuth login flow (RFC 8628) or an OAuth token refresh fails.
+
+    Covers failures at any step: requesting the device code, polling for the token,
+    authorization denied/expired, or unexpected server responses.
+
+    Attributes:
+        error_code (`str`, *optional*):
+            The OAuth `error` code returned by the server, if any. Known values are listed in
+            [`OAuthErrorCode`] but the server may return other codes.
+    """
+
+    def __init__(self, message: str, error_code: str | None = None):
+        super().__init__(message)
+        self.error_code = error_code
 
 
 # HTTP ERRORS
@@ -72,7 +122,7 @@ class HfHubHTTPError(HTTPError, OSError):
         message: str,
         *,
         response: Response,
-        server_message: Optional[str] = None,
+        server_message: str | None = None,
     ):
         self.request_id = (
             response.headers.get("x-request-id")
@@ -90,7 +140,7 @@ class HfHubHTTPError(HTTPError, OSError):
 
     @classmethod
     def _reconstruct_hf_hub_http_error(
-        cls, message: str, response: Response, server_message: Optional[str]
+        cls, message: str, response: Response, server_message: str | None
     ) -> "HfHubHTTPError":
         return cls(message, response=response, server_message=server_message)
 
@@ -171,6 +221,23 @@ class HFValidationError(ValueError):
     """
 
 
+class HfUriError(ValueError):
+    """Raised when an `hf://...` URI is malformed.
+
+    See [`parse_hf_uri`] and the
+    [HF URIs reference](https://huggingface.co/docs/huggingface_hub/main/en/package_reference/hf_uris)
+    for the canonical syntax.
+
+    Inherits from [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError).
+    """
+
+    def __init__(self, uri: str, msg: str):
+        self.uri = uri
+        self.msg = msg
+        full_msg = f"Invalid HF URI '{uri}'. {msg}" if uri else f"Invalid HF URI. {msg}"
+        super().__init__(full_msg)
+
+
 # FILE METADATA ERRORS
 
 
@@ -206,11 +273,26 @@ class BucketNotFoundError(HfHubHTTPError):
 
     Bucket Not Found for url: https://huggingface.co/api/buckets/namespace/name.
     Please make sure you specified the correct bucket id (namespace/name).
-    If the bucket is private, make sure you are authenticated.
+    If the bucket is private, make sure you are authenticated and your token has the required permissions.
     ```
     """
 
-    bucket_id: Optional[str] = None
+    bucket_id: str | None = None
+
+
+# JOB ERRORS
+
+
+class JobNotFoundError(HfHubHTTPError):
+    """
+    Raised when trying to access a Job that does not exist.
+
+    Attributes:
+        job_id (`str`):
+            The job id that was not found.
+    """
+
+    job_id: str
 
 
 # REPOSITORY ERRORS
@@ -237,13 +319,13 @@ class RepositoryNotFoundError(HfHubHTTPError):
 
     Repository Not Found for url: https://huggingface.co/api/models/%3Cnon_existent_repository%3E.
     Please make sure you specified the correct `repo_id` and `repo_type`.
-    If the repo is private, make sure you are authenticated.
+    If the repo is private, make sure you are authenticated and your token has the required permissions.
     Invalid username or password.
     ```
     """
 
-    repo_id: Optional[str] = None
-    repo_type: Optional[str] = None
+    repo_id: str | None = None
+    repo_type: str | None = None
 
 
 class GatedRepoError(RepositoryNotFoundError):
@@ -312,8 +394,16 @@ class RevisionNotFoundError(HfHubHTTPError):
     ```
     """
 
-    repo_id: Optional[str] = None
-    repo_type: Optional[str] = None
+    repo_id: str | None = None
+    repo_type: str | None = None
+
+
+class RevisionResolutionError(Exception):
+    """
+    Raised by [`HfApi.resolve_revision`] when a revision cannot be resolved to a commit hash: the Hub could not be
+    reached (offline mode, connection error, timeout, Hub downtime, ...) and no matching entry was found in the
+    local cache.
+    """
 
 
 # ENTRY ERRORS
@@ -358,8 +448,8 @@ class RemoteEntryNotFoundError(HfHubHTTPError, EntryNotFoundError):
     ```
     """
 
-    repo_id: Optional[str] = None
-    repo_type: Optional[str] = None
+    repo_id: str | None = None
+    repo_type: str | None = None
 
 
 class LocalEntryNotFoundError(FileNotFoundError, EntryNotFoundError):
@@ -379,6 +469,23 @@ class LocalEntryNotFoundError(FileNotFoundError, EntryNotFoundError):
 
     def __init__(self, message: str):
         super().__init__(message)
+
+
+class IncompleteSnapshotError(LocalEntryNotFoundError):
+    """
+    Raised by [`snapshot_download`] when the Hub cannot be reached (offline, connection issue, or
+    `local_files_only=True`) and the cached snapshot is known to be incomplete: some files listed in
+    the repository's cached tree listing are missing from the local snapshot.
+
+    This is a subclass of [`LocalEntryNotFoundError`] for backward compatibility.
+
+    The `snapshot_path` attribute holds the path to the incomplete local snapshot, so a downstream library can locate
+    the latest cached files even though they are known to be incomplete.
+    """
+
+    def __init__(self, message: str, snapshot_path: str):
+        super().__init__(message)
+        self.snapshot_path = snapshot_path
 
 
 # REQUEST ERROR
@@ -447,20 +554,15 @@ class StrictDataclassClassValidationError(StrictDataclassError):
 # XET ERRORS
 
 
-class XetError(Exception):
-    """Base exception for errors related to Xet Storage."""
-
-
-class XetAuthorizationError(XetError):
-    """Exception thrown when the user does not have the right authorization to use Xet Storage."""
-
-
-class XetRefreshTokenError(XetError):
-    """Exception thrown when the refresh token is invalid."""
-
-
 class XetDownloadError(Exception):
     """Exception thrown when the download from Xet Storage fails."""
+
+
+# LFS ERRORS
+
+
+class FileDuplicationError(Exception):
+    """Raised when duplicating files across repos fails."""
 
 
 # CLI ERRORS
@@ -470,5 +572,46 @@ class CLIError(Exception):
     """CLI error with clean message (no traceback by default)."""
 
 
+class ConfirmationError(CLIError):
+    """Raised when a confirmation prompt is declined (non-interactive mode)."""
+
+
 class CLIExtensionInstallError(CLIError):
     """Error during CLI extension installation."""
+
+
+# SANDBOX ERRORS
+
+
+class SandboxError(Exception):
+    """Base exception for sandbox operations (see `huggingface_hub.Sandbox`).
+
+    Attributes:
+        status_code: The HTTP status returned by the in-sandbox server, if the error
+            originated from an API response (e.g. `404` for a missing file). `None` otherwise.
+    """
+
+    def __init__(self, message: str, *, status_code: int | None = None) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+
+
+class SandboxCommandError(SandboxError):
+    """Raised when a command run in a sandbox exits with a non-zero code.
+
+    Attributes:
+        cmd: The command that failed.
+        result: The full `SandboxCommandResult` (exit_code, stdout, stderr, ...).
+    """
+
+    def __init__(self, cmd, result) -> None:
+        self.cmd = cmd
+        self.result = result
+        stderr_tail = result.stderr[-1000:] if result.stderr else "<empty>"
+        if result.timed_out:
+            reason = "timed out"
+        elif result.signal is not None:
+            reason = f"was killed by signal {result.signal}"
+        else:
+            reason = f"exited with code {result.exit_code}"
+        super().__init__(f"Command {cmd!r} {reason}. stderr:\n{stderr_tail}")

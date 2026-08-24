@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2026 The HuggingFace Team. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -37,7 +36,7 @@ class DatasetParquetEntry:
     size: int
 
 
-def execute_raw_sql_query(sql_query: str, *, token: Union[str, bool, None] = None) -> list[dict[str, Any]]:
+def execute_raw_sql_query(sql_query: str, *, token: str | bool | None = None) -> list[dict[str, Any]]:
     normalized_query = sql_query.strip().rstrip(";").strip()
     _raise_on_forbidden_query(normalized_query)
 
@@ -74,7 +73,7 @@ def _raise_on_forbidden_query(query: str) -> None:
 
 
 def _get_duckdb_connection(
-    token: Union[str, bool, None],
+    token: str | bool | None,
 ) -> Union["duckdb.DuckDBPyConnection", "_DuckDBCliConnection"]:
     try:
         # If DuckDB is installed as a Python package, use it!
@@ -108,7 +107,7 @@ class _DuckDBCliConnection:
     """
 
     binary_path: str
-    token: Union[str, bool, None]
+    token: str | bool | None
 
     def __post_init__(self) -> None:
         self._setup_statements = _build_duckdb_secret_statements(self.token)
@@ -158,7 +157,7 @@ class _DuckDBCliRelation:
         return json.loads(result.stdout.strip())
 
 
-def _build_duckdb_secret_statements(token: Union[str, bool, None]) -> list[str]:
+def _build_duckdb_secret_statements(token: str | bool | None) -> list[str]:
     if token is None or token is True:
         token = get_token()
 

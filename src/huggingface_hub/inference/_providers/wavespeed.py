@@ -1,7 +1,7 @@
 import base64
 import time
 from abc import ABC
-from typing import Any, Optional, Union
+from typing import Any
 from urllib.parse import urlparse
 
 from huggingface_hub.hf_api import InferenceProviderMapping
@@ -26,8 +26,8 @@ class WavespeedAITask(TaskProviderHelper, ABC):
 
     def get_response(
         self,
-        response: Union[bytes, dict],
-        request_params: Optional[RequestParameters] = None,
+        response: bytes | dict,
+        request_params: RequestParameters | None = None,
     ) -> Any:
         response_dict = _as_dict(response)
         data = response_dict.get("data", {})
@@ -91,7 +91,7 @@ class WavespeedAITextToImageTask(WavespeedAITask):
         inputs: Any,
         parameters: dict,
         provider_mapping_info: InferenceProviderMapping,
-    ) -> Optional[dict]:
+    ) -> dict | None:
         return {"prompt": inputs, **filter_none(parameters)}
 
 
@@ -109,7 +109,7 @@ class WavespeedAIImageToImageTask(WavespeedAITask):
         inputs: Any,
         parameters: dict,
         provider_mapping_info: InferenceProviderMapping,
-    ) -> Optional[dict]:
+    ) -> dict | None:
         # Convert inputs to image (URL or base64)
         if isinstance(inputs, str) and inputs.startswith(("http://", "https://")):
             image = inputs

@@ -206,8 +206,8 @@ def _make_inner_post_async(code: str) -> str:
     # Update AsyncInferenceClient._inner_post() implementation
     code = re.sub(
         r"""
-        def[ ]_inner_post\( # definition
-            (\n.*?\"\"\".*?\"\"\"\n) # Group1: docstring
+        def[ ]_inner_post\( # definition (implementation, not overloads)
+            ([^\n]*:\n\s*\"\"\".*?\"\"\"\n) # Group1: signature tail + docstring
             .*? # implementation (to be overwritten)
         (\n\W*def ) # Group2: next method
         """,

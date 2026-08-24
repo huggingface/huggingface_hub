@@ -11,7 +11,7 @@ Spec is: github.com/git-lfs/git-lfs/blob/master/docs/custom-transfers.md
 To launch debugger while developing:
 
 ``` [lfs "customtransfer.multipart"]
-path = /path/to/huggingface_hub/.env/bin/python args = -m debugpy --listen 5678
+path = /path/to/huggingface_hub/.venv/bin/python args = -m debugpy --listen 5678
 --wait-for-client
 /path/to/huggingface_hub/src/huggingface_hub/commands/huggingface_cli.py
 lfs-multipart-upload ```"""
@@ -20,15 +20,15 @@ import json
 import os
 import subprocess
 import sys
-from typing import Annotated, Optional
-
-import typer
+from typing import Annotated
 
 from huggingface_hub.errors import CLIError
 from huggingface_hub.lfs import LFS_MULTIPART_UPLOAD_COMMAND
 
 from ..utils import get_session, hf_raise_for_status, logging
 from ..utils._lfs import SliceFileObj
+from ._framework import Argument
+from ._output import out
 
 
 logger = logging.get_logger(__name__)
@@ -37,7 +37,7 @@ logger = logging.get_logger(__name__)
 def lfs_enable_largefiles(
     path: Annotated[
         str,
-        typer.Argument(
+        Argument(
             help="Local path to repository you want to configure.",
         ),
     ],
@@ -61,7 +61,7 @@ def lfs_enable_largefiles(
         check=True,
         cwd=local_path,
     )
-    print("Local repo set up for largefiles")
+    out.result("Local repo set up for largefiles", path=local_path)
 
 
 def write_msg(msg: dict):
@@ -71,7 +71,7 @@ def write_msg(msg: dict):
     sys.stdout.flush()
 
 
-def read_msg() -> Optional[dict]:
+def read_msg() -> dict | None:
     """Read Line delimited JSON from stdin."""
     msg = json.loads(sys.stdin.readline().strip())
 

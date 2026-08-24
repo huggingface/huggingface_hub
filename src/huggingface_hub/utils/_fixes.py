@@ -4,9 +4,9 @@ import shutil
 import stat
 import tempfile
 import time
+from collections.abc import Callable, Generator
 from functools import partial
 from pathlib import Path
-from typing import Callable, Generator, Optional, Union
 
 import yaml
 from filelock import BaseFileLock, FileLock, SoftFileLock, Timeout
@@ -32,9 +32,9 @@ yaml_dump: Callable[..., str] = partial(yaml.dump, stream=None, allow_unicode=Tr
 
 @contextlib.contextmanager
 def SoftTemporaryDirectory(
-    suffix: Optional[str] = None,
-    prefix: Optional[str] = None,
-    dir: Optional[Union[Path, str]] = None,
+    suffix: str | None = None,
+    prefix: str | None = None,
+    dir: Path | str | None = None,
     **kwargs,
 ) -> Generator[Path, None, None]:
     """
@@ -74,9 +74,7 @@ def _set_write_permission_and_retry(func, path, excinfo):
 
 
 @contextlib.contextmanager
-def WeakFileLock(
-    lock_file: Union[str, Path], *, timeout: Optional[float] = None
-) -> Generator[BaseFileLock, None, None]:
+def WeakFileLock(lock_file: str | Path, *, timeout: float | None = None) -> Generator[BaseFileLock, None, None]:
     """A filelock with some custom logic.
 
     This filelock is weaker than the default filelock in that:

@@ -1,4 +1,4 @@
-from typing import Any, Optional, Union
+from typing import Any
 
 from huggingface_hub.hf_api import InferenceProviderMapping
 from huggingface_hub.inference._common import RequestParameters, _as_dict, _as_url
@@ -26,7 +26,7 @@ class ReplicateTask(TaskProviderHelper):
 
     def _prepare_payload_as_dict(
         self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
-    ) -> Optional[dict]:
+    ) -> dict | None:
         mapped_model = provider_mapping_info.provider_id
         payload: dict[str, Any] = {"input": {"prompt": inputs, **filter_none(parameters)}}
         if ":" in mapped_model:
@@ -34,7 +34,7 @@ class ReplicateTask(TaskProviderHelper):
             payload["version"] = version
         return payload
 
-    def get_response(self, response: Union[bytes, dict], request_params: Optional[RequestParameters] = None) -> Any:
+    def get_response(self, response: bytes | dict, request_params: RequestParameters | None = None) -> Any:
         response_dict = _as_dict(response)
         if response_dict.get("output") is None:
             raise TimeoutError(
@@ -53,8 +53,8 @@ class ReplicateTextToImageTask(ReplicateTask):
 
     def _prepare_payload_as_dict(
         self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
-    ) -> Optional[dict]:
-        payload: dict = super()._prepare_payload_as_dict(inputs, parameters, provider_mapping_info)  # type: ignore[assignment]
+    ) -> dict | None:
+        payload: dict = super()._prepare_payload_as_dict(inputs, parameters, provider_mapping_info)  # type: ignore
         if provider_mapping_info.adapter_weights_path is not None:
             payload["input"]["lora_weights"] = f"https://huggingface.co/{provider_mapping_info.hf_model_id}"
         return payload
@@ -66,8 +66,8 @@ class ReplicateTextToSpeechTask(ReplicateTask):
 
     def _prepare_payload_as_dict(
         self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
-    ) -> Optional[dict]:
-        payload: dict = super()._prepare_payload_as_dict(inputs, parameters, provider_mapping_info)  # type: ignore[assignment]
+    ) -> dict | None:
+        payload: dict = super()._prepare_payload_as_dict(inputs, parameters, provider_mapping_info)  # type: ignore
         payload["input"]["text"] = payload["input"].pop("prompt")  # rename "prompt" to "text" for TTS
         return payload
 
@@ -81,7 +81,7 @@ class ReplicateAutomaticSpeechRecognitionTask(ReplicateTask):
         inputs: Any,
         parameters: dict,
         provider_mapping_info: InferenceProviderMapping,
-    ) -> Optional[dict]:
+    ) -> dict | None:
         mapped_model = provider_mapping_info.provider_id
         audio_url = _as_url(inputs, default_mime_type="audio/wav")
 
@@ -97,7 +97,7 @@ class ReplicateAutomaticSpeechRecognitionTask(ReplicateTask):
 
         return payload
 
-    def get_response(self, response: Union[bytes, dict], request_params: Optional[RequestParameters] = None) -> Any:
+    def get_response(self, response: bytes | dict, request_params: RequestParameters | None = None) -> Any:
         response_dict = _as_dict(response)
         output = response_dict.get("output")
 
@@ -111,7 +111,7 @@ class ReplicateAutomaticSpeechRecognitionTask(ReplicateTask):
             if isinstance(first_item, dict):
                 output = first_item
 
-        text: Optional[str] = None
+        text: str | None = None
         if isinstance(output, dict):
             transcription = output.get("transcription")
             if isinstance(transcription, str):
@@ -139,7 +139,7 @@ class ReplicateImageToImageTask(ReplicateTask):
 
     def _prepare_payload_as_dict(
         self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
-    ) -> Optional[dict]:
+    ) -> dict | None:
         image_url = _as_url(inputs, default_mime_type="image/jpeg")
 
         # Different Replicate models expect the image in different keys

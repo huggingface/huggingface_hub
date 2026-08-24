@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2023-present, the HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,18 +16,19 @@
 Kept for backward compatibility. Users are nudged to use `hf repos delete-files` instead.
 """
 
-import sys
-from typing import Annotated, Optional
+from typing import Annotated
 
-import typer
-
-from huggingface_hub import logging
-from huggingface_hub.utils import ANSI
-
-from ._cli_utils import RepoIdArg, RepoType, RepoTypeOpt, RevisionOpt, TokenOpt, get_hf_api, typer_factory
-
-
-logger = logging.get_logger(__name__)
+from ._cli_utils import (
+    RepoIdArg,
+    RepoType,
+    RepoTypeOpt,
+    RevisionOpt,
+    TokenOpt,
+    get_hf_api,
+    typer_factory,
+)
+from ._framework import Argument, Option
+from ._output import out
 
 
 repo_files_cli = typer_factory(
@@ -43,36 +43,33 @@ def repo_files_delete(
     repo_id: RepoIdArg,
     patterns: Annotated[
         list[str],
-        typer.Argument(
+        Argument(
             help="Glob patterns to match files to delete. Based on fnmatch, '*' matches files recursively.",
         ),
     ],
     repo_type: RepoTypeOpt = RepoType.model,
     revision: RevisionOpt = None,
     commit_message: Annotated[
-        Optional[str],
-        typer.Option(
+        str | None,
+        Option(
             help="The summary / title / first line of the generated commit.",
         ),
     ] = None,
     commit_description: Annotated[
-        Optional[str],
-        typer.Option(
+        str | None,
+        Option(
             help="The description of the generated commit.",
         ),
     ] = None,
     create_pr: Annotated[
         bool,
-        typer.Option(
+        Option(
             help="Whether to create a new Pull Request for these changes.",
         ),
     ] = False,
     token: TokenOpt = None,
 ) -> None:
-    print(
-        ANSI.yellow("FutureWarning: `hf repo-files delete` is deprecated. Use `hf repos delete-files` instead."),
-        file=sys.stderr,
-    )
+    out.warning("`hf repo-files delete` is deprecated. Use `hf repos delete-files` instead.")
     api = get_hf_api(token=token)
     url = api.delete_files(
         delete_patterns=patterns,
@@ -83,5 +80,4 @@ def repo_files_delete(
         commit_description=commit_description,
         create_pr=create_pr,
     )
-    print(f"Files correctly deleted from repo. Commit: {url}.")
-    logging.set_verbosity_warning()
+    out.result("Files deleted", repo_id=repo_id, commit_url=url)
