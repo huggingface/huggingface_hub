@@ -1,6 +1,7 @@
 import os
 import tempfile
 import threading
+import time
 from collections import deque
 from collections.abc import Iterable, Iterator
 from contextlib import ExitStack
@@ -385,6 +386,56 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
                 else:
                     self._bucket_exists_cache.pop(resolved_path.bucket_id, None)
 
+    def open(
+        self,
+        path,
+        mode="rb",
+        block_size=None,
+        cache_options=None,
+        compression=None,
+        **kwargs,
+    ):
+        """
+        Return a file-like object from the filesystem
+
+        The resultant instance must function correctly in a context ``with``
+        block.
+
+        Parameters
+        ----------
+        path: str
+            Target file
+        mode: str like 'rb', 'w', 'a'
+            See builtin ``open()``.
+            There is an extra mode 'mb' (mutate bytes in-place) allows insert(), delete(), edit() and append().
+            It is available thanks to Xet which stores files by chunks.
+        block_size: int
+            Some indication of buffering - this is a value in bytes
+        cache_options : dict, optional
+            Extra arguments to pass through to the cache.
+        compression: string or None
+            If given, open file using compression codec. Can either be a compression
+            name (a key in ``fsspec.compression.compr``) or "infer" to guess the
+            compression from the filename suffix.
+        encoding, errors, newline: passed on to TextIOWrapper for text mode
+        """
+        mutate_mode = "m" if "m" in mode else ("a" if "a" in mode else None)
+        if mutate_mode:
+            if "b" not in mode:
+                raise NotImplementedError(f"Mode '{mutate_mode}' is not implemented, use 'mb' instead")
+            if compression is not None:
+                raise NotImplementedError(f"Mode '{mutate_mode}' with compression is not implemented")
+            if cache_options is not None or kwargs.get("cache_type") is not None:
+                raise NotImplementedError(f"Mode '{mutate_mode}' with cache is not implemented.")
+        return super().open(
+            path,
+            mode=mode,
+            block_size=block_size,
+            cache_options=cache_options,
+            compression=compression,
+            **kwargs,
+        )
+
     def _open(  # type: ignore
         self,
         path: str,
@@ -396,8 +447,8 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         block_size = block_size if block_size is not None else self.block_size
         if block_size is not None:
             kwargs["block_size"] = block_size
-        if "a" in mode:
-            raise NotImplementedError("Appending to remote files is not yet supported.")
+        if "a" in mode or "m" in mode:
+            return HfFileSystemMutateFile(self, path, mode=mode, **kwargs)
         if block_size == 0:
             return HfFileSystemStreamFile(self, path, mode=mode, revision=revision, **kwargs)
         else:
@@ -1389,6 +1440,324 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
             raise
 
         self._stream_iterator = self.response.iter_bytes()
+
+
+class HfFileSystemMutateFile(fsspec.spec.AbstractBufferedFile):
+    MIN_SECONDS_BETWEEN_UPDATES = 5.
+
+    def __init__(self,
+            fs: HfFileSystem,
+            path: str,
+            mode="rb",
+            block_size="default",
+            autocommit=True,
+            size=None,
+            **kwargs,
+        ):
+        from fsspec.caching import BaseCache
+
+        if mode not in {"mb", "ab"}:
+            raise NotImplementedError("File mode not supported")
+        try:
+            resolved_path = fs.resolve_path(path)
+            path = resolved_path.unresolve()
+            fs.info(path)
+        except FileNotFoundError as e:
+            raise FileNotFoundError(
+                f"{e}.\nMake sure the bucket and file exist before writing data."
+            ) from e
+        if not isinstance(resolved_path, HfFileSystemResolvedBucketPath):
+            raise ValueError(f"File mode '{mode}' is only available for Storage Buckets (hf://buckets/...)")
+        self.resolved_path = resolved_path
+
+        # required by AbstractBufferedFile
+        self.path = path
+        self.fs = fs
+        self.mode = mode
+        self.blocksize = (
+            self.DEFAULT_BLOCK_SIZE if block_size in ["default", None] else block_size
+        )
+        self.autocommit = autocommit
+        self.closed = False
+        self.forced = False
+        self.size = size if size is not None else self.details["size"]
+        self.original_size = self.size
+        self.cache = BaseCache(self.blocksize, self._fetch_range, self.size)
+        self.loc = self.size if "a" in mode else 0
+        self.kwargs = kwargs
+
+        # specific to HfFileSystemMutateFile
+        self.ranges: list[range | bytes] = [range(0, self.size)]
+        self.buffer_size = 0
+        self.last_update_time: float | None = None
+
+    def __del__(self):
+        if not hasattr(self, "resolved_path"):
+            # Means that the constructor failed. Nothing to do.
+            return
+        return super().__del__()
+
+    def _fetch_range(self, start: int, end: int) -> bytes:
+        ranges_contents: list[bytes] = []
+        offset = 0
+        for range_ in self.ranges:
+            if isinstance(range_, range):
+                range_to_fetch = range(range_.start + max(0, start - offset), range_.stop + min(0, end - offset - len(range_)))
+                if range_to_fetch.start < range_to_fetch.stop:
+                    headers = {
+                        "range": f"bytes={range_to_fetch.start}-{range_to_fetch.stop - 1}",
+                        **self.fs._api._build_hf_headers(),
+                    }
+                    url = self.url()
+                    r = http_backoff("GET", url, headers=headers, timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT)
+                    hf_raise_for_status(r)
+                    ranges_contents.append(r.content)
+            else:
+                range_to_fetch = range(max(0, start - offset), len(range_) + min(0, end - offset - len(range_)))
+                if range_to_fetch.start < range_to_fetch.stop:
+                    ranges_contents.append(range_[range_to_fetch.start:range_to_fetch.stop])
+            offset += len(range_)
+        return b"".join(ranges_contents)
+
+    def _upload_ranges(self) -> None:
+        original_offset = 0
+        insert: list[tuple[int, bytes]] = []
+        delete: list[tuple[int, int]] = []
+        for range_ in self.ranges:
+            if isinstance(range_, range):
+                if range_.start > original_offset:
+                    delete.append((original_offset, range_.start - original_offset))
+                original_offset = range_.stop
+            else:
+                insert.append((original_offset, range_))
+        if original_offset < self.original_size:
+            delete.append((original_offset, self.original_size))
+        if insert or delete:
+            self.fs._api.mutate_bucket_file(
+                bucket_id=self.resolved_path.bucket_id,
+                remote_path=self.resolved_path.path,
+                insert=insert or None,
+                delete=delete or None,
+            )
+            self.fs.invalidate_cache(
+                path=self.resolved_path.unresolve(),
+            )
+            self.original_size = self.size
+            self.ranges = [range(0, self.size)]
+            self.buffer_size = 0
+            self._details = None
+
+    def url(self) -> str:
+        return self.fs.url(self.path)
+
+    def readable(self):
+        """Whether opened for reading"""
+        return not self.closed
+
+    def read(self, length=-1):
+        """Read remote file.
+
+        If `length` is not provided or is -1, the entire file is downloaded and read. On POSIX systems the file is
+        loaded in memory directly. Otherwise, the file is downloaded to a temporary file and read from there.
+        """
+        if self.mode == "rb" and (length is None or length == -1) and self.loc == 0 and self.ranges == [range(0, self.original_size)]:
+            with self.fs.open(self.path, "rb", block_size=0) as f:  # block_size=0 enables fast streaming
+                out = f.read()
+                self.loc += len(out)
+                return out
+
+        length = -1 if length is None else int(length)
+        if length < 0:
+            length = self.size - self.loc
+        if self.closed:
+            raise ValueError("I/O operation on closed file.")
+        if length == 0:
+            # don't even bother calling fetch
+            return b""
+        out = self.cache._fetch(self.loc, self.loc + length)
+        self.loc += len(out)
+        return out
+
+    def seek(self, loc, whence=0):
+        """Set current file location
+
+        Parameters
+        ----------
+        loc: int
+            byte location
+        whence: {0, 1, 2}
+            from start of file, current location or end of file, resp.
+        """
+        loc = int(loc)
+        if whence == 0:
+            nloc = loc
+        elif whence == 1:
+            nloc = self.loc + loc
+        elif whence == 2:
+            nloc = self.size + loc
+        else:
+            raise ValueError(f"invalid whence ({whence}, should be 0, 1 or 2)")
+        if nloc < 0:
+            raise ValueError("Seek before start of file")
+        self.loc = nloc
+        return self.loc
+
+    def writable(self):
+        """Whether opened for writing"""
+        return not self.closed
+
+    def write(self, data: bytes | str):
+        """
+        Write data to buffer.
+
+        Buffer only sent on flush() or if buffer is greater than
+        or equal to blocksize.
+
+        Parameters
+        ----------
+        data: bytes
+            Set of bytes to be written.
+        """
+        return self.edit((self.loc, self.loc + len(data)), data)
+
+    def edit(self, byte_range: tuple[int, int], data: bytes | str):
+        """
+        Write data to buffer.
+
+        Buffer only sent on flush() or if buffer is greater than
+        or equal to blocksize.
+
+        Parameters
+        ----------
+        byte_range: tuple[int, int]
+            (start, end) where to edit the file.
+        data: bytes
+            Set of bytes to be placed in the specified range.
+            Size can be different than the range.
+        """
+        if self.closed:
+            raise ValueError("I/O operation on closed file.")
+        if isinstance(data, str):
+            data = data.encode("utf-8")
+
+        start, end = byte_range
+        if start == end and not data:
+            return
+
+        new_ranges: list[range, bytes] = []
+        offset = 0
+        done = False
+        def add_range(range_: range | bytes):
+            if new_ranges and isinstance(new_ranges[-1], bytes) and isinstance(range_, bytes):
+                new_ranges[-1] += range_
+            else:
+                new_ranges.append(range_)
+
+        for range_ in self.ranges:
+            if offset <= start <= offset + len(range_) <= end:
+                if offset < start:
+                    add_range(range_[:start - offset])
+                if data and not done:
+                    add_range(data)
+                    done = True
+            elif start <= offset <= offset + len(range_) <= end:
+                pass
+            elif start <= offset <= end <= offset + len(range_):
+                if data and not done:
+                    add_range(data)
+                    done = True
+                if end < offset + len(range_):
+                    add_range(range_[end - offset - len(range_):])
+            elif offset <= start <= end <= offset + len(range_):
+                if offset < start:
+                    add_range(range_[:start - offset])
+                if data and not done:
+                    add_range(data)
+                    done = True
+                if end < offset + len(range_):
+                    add_range(range_[end - offset - len(range_):])
+            else:
+                add_range(range_)
+            offset += len(range_)
+        self.ranges = new_ranges
+
+        self.loc = byte_range[0] + len(data)
+        self.buffer_size += len(data)
+        self.size += end - start + len(data)
+        if self.last_update_time is None:
+            self.last_update_time = time.time()
+        if self.flush():
+            self.last_update_time = time.time()
+        return len(data)
+
+    def insert(self, loc: int, data: bytes | str):
+        """
+        Write data to buffer.
+
+        Buffer only sent on flush() or if buffer is greater than
+        or equal to blocksize.
+
+        Parameters
+        ----------
+        loc: int
+            Where to insert the data.
+        data: bytes
+            Set of bytes to be inserted.
+        """
+        return self.edit((loc, loc), data)
+
+    def append(self, data: bytes | str):
+        """
+        Write data to buffer.
+
+        Buffer only sent on flush() or if buffer is greater than
+        or equal to blocksize.
+
+        Parameters
+        ----------
+        data: bytes
+            Set of bytes to be appended at the end of the file.
+        """
+        return self.edit((self.size, self.size + len(data)), data)
+
+    def delete(self, loc: int, length: int):
+        """
+        Write data to buffer.
+
+        Buffer only sent on flush() or if buffer is greater than
+        or equal to blocksize.
+
+        Parameters
+        ----------
+        loc: int
+            Where to insert the data.
+        length: int
+            Number of bytes to delete.
+        """
+        return self.edit((loc, loc + length), b"")
+
+    def flush(self, force=False):
+        """
+        Write buffered data to backend store.
+
+        Writes the current buffer, if it is larger than the block-size, or if
+        the file is being closed.
+
+        Parameters
+        ----------
+        force: bool
+            When closing, write the last block even if it is smaller than
+            blocks are allowed to be. Disallows further writing to this file.
+        """
+
+        if self.closed:
+            raise ValueError("Flush on closed file")
+        if force or (self.buffer_size >= self.blocksize and self.last_update_time and (time.time() - self.last_update_time) > self.MIN_SECONDS_BETWEEN_UPDATES):
+            self._upload_ranges()
+            return True
+        else:
+            # Defer write on small block or quick update
+            return False
 
 
 def safe_revision(revision: str) -> str:
