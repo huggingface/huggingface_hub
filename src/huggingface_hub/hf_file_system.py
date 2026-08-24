@@ -398,6 +398,18 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
     ) -> "HfFileSystemMutateFile":
         ...
 
+    @overload
+    def open(
+        self,
+        path,
+        mode: str,
+        block_size=None,
+        cache_options=None,
+        compression=None,
+        **kwargs,
+    ) -> fsspec.spec.AbstractBufferedFile:
+        ...
+
     def open(
         self,
         path,
