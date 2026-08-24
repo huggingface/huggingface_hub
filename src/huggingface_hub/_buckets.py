@@ -466,8 +466,7 @@ def _list_remote_files(api: "HfApi", bucket_id: str, prefix: str) -> Iterator[tu
                 continue
         else:
             rel_path = path
-        # Reject server-supplied paths that would escape the local destination when joined onto it
-        # (absolute / drive-relative / UNC / '..'). Same guard as repo downloads (see PR #4540).
+        # Reject server keys that would escape the local dir when joined onto it (see PR #4540).
         _validate_relative_filename(rel_path)
         mtime_ms = item.mtime.timestamp() * 1000 if item.mtime else 0
         yield rel_path, item.size, mtime_ms, item
@@ -890,9 +889,7 @@ def _execute_plan(plan: SyncPlan, api: "HfApi", verbose: bool = False, status: A
     is_upload = not _is_bucket_path(plan.source) and _is_bucket_path(plan.dest)
     is_download = _is_bucket_path(plan.source) and not _is_bucket_path(plan.dest)
 
-    # Every operation path is joined onto a local directory below (download → write, delete → remove,
-    # upload → read). An --apply'd plan is loaded from disk and never went through _list_remote_files,
-    # so validate every path here, before touching the filesystem. See PR #4540 for the repo equivalent.
+    # Validate here too: an --apply'd plan is read from disk, bypassing the _list_remote_files guard.
     for op in plan.operations:
         _validate_relative_filename(op.path)
 
