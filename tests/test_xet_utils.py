@@ -6,9 +6,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 from _pytest.monkeypatch import MonkeyPatch
 
+from huggingface_hub.errors import XetDownloadCancelledError
 from huggingface_hub.utils._xet import (
     XetDownloadCancellation,
-    XetDownloadCancelledError,
     XetSessionHolder,
     XetTokenType,
     is_valid_xet_hash,
@@ -131,8 +131,9 @@ def test_xet_download_cancellation_aborts_only_its_groups():
     first_group = MagicMock()
     unrelated_group = MagicMock()
 
-    with first_cancellation.track(first_group), second_cancellation.track(unrelated_group):
-        first_cancellation.cancel()
+    first_cancellation.register(first_group)
+    second_cancellation.register(unrelated_group)
+    first_cancellation.cancel()
 
     first_group.abort.assert_called_once_with()
     unrelated_group.abort.assert_not_called()
@@ -143,8 +144,33 @@ def test_xet_download_cancellation_rejects_late_groups():
     cancellation.cancel()
 
     with pytest.raises(XetDownloadCancelledError, match="Xet download was cancelled"):
-        with cancellation.track(MagicMock()):
-            pytest.fail("cancelled operations must not register new Xet groups")
+        cancellation.register(MagicMock())
+
+
+def test_xet_download_cancellation_ignores_unregistered_groups():
+    cancellation = XetDownloadCancellation()
+    group = MagicMock()
+
+    cancellation.register(group)
+    cancellation.unregister(group)
+    cancellation.unregister(group)  # unregistering twice must not raise
+    cancellation.cancel()
+
+    group.abort.assert_not_called()
+
+
+def test_xet_download_cancellation_keeps_aborting_after_a_group_raises():
+    """`abort()` reaches Rust: a PyO3 panic is a `BaseException`, not an `Exception`."""
+    cancellation = XetDownloadCancellation()
+    panicking_group = MagicMock()
+    panicking_group.abort.side_effect = BaseException("panic from Rust code")
+    healthy_group = MagicMock()
+
+    cancellation.register(panicking_group)
+    cancellation.register(healthy_group)
+    cancellation.cancel()
+
+    healthy_group.abort.assert_called_once_with()
 
 
 # ---------------------------------------------------------------------------

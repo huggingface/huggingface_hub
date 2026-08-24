@@ -11,6 +11,7 @@ from typing import Protocol
 import httpx
 
 from .. import constants
+from ..errors import XetDownloadCancelledError
 from . import validate_hf_hub_args
 
 
@@ -109,12 +110,16 @@ class _XetDownloadGroup(Protocol):
     def abort(self) -> None: ...
 
 
-class XetDownloadCancelledError(Exception):
-    """Raised when a download reaches Xet after its owning operation was cancelled."""
-
-
 class XetDownloadCancellation:
-    """Cancel only the Xet download groups owned by one high-level operation."""
+    """Cancel only the Xet download groups owned by one high-level operation.
+
+    A group must stay registered for as long as a worker can be blocked inside it. `hf_xet`'s
+    `wait_to_finish()` (called by the group's `__exit__`) only polls for `KeyboardInterrupt` on the
+    main thread, so a worker blocked there can be woken up by nothing but an external `abort()`.
+    Registration is therefore a plain `register`/`unregister` pair rather than a context manager: a
+    `with` block nested inside the group's own `with` would unwind first and leave exactly that
+    window untracked.
+    """
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
@@ -127,20 +132,21 @@ class XetDownloadCancellation:
             if self._cancelled:
                 raise XetDownloadCancelledError("Xet download was cancelled")
 
-    @contextmanager
-    def track(self, group: _XetDownloadGroup) -> Iterator[None]:
-        """Register a group unless cancellation has already been requested."""
-        group_id = id(group)
+    def register(self, group: _XetDownloadGroup) -> None:
+        """Track a group unless cancellation has already been requested.
+
+        Raises [`XetDownloadCancelledError`] if it has, so the caller leaves the group's `with` block
+        through the exception path: `hf_xet` then aborts the group instead of waiting on it.
+        """
         with self._lock:
             if self._cancelled:
                 raise XetDownloadCancelledError("Xet download was cancelled")
-            self._groups[group_id] = group
+            self._groups[id(group)] = group
 
-        try:
-            yield
-        finally:
-            with self._lock:
-                self._groups.pop(group_id, None)
+    def unregister(self, group: _XetDownloadGroup) -> None:
+        """Stop tracking a group that can no longer block its worker."""
+        with self._lock:
+            self._groups.pop(id(group), None)
 
     def cancel(self) -> None:
         """Prevent new groups from starting and abort all currently tracked groups."""
@@ -149,7 +155,11 @@ class XetDownloadCancellation:
             groups = list(self._groups.values())
 
         for group in groups:
-            with suppress(Exception):
+            # `abort()` crosses into Rust: a PyO3 panic surfaces as `pyo3_runtime.PanicException`,
+            # which derives from `BaseException`. Suppressing only `Exception` would let one bad
+            # group skip the abort of every group after it - and those workers would stay blocked.
+            # A group that finished concurrently is also fair game here; aborting it is a no-op.
+            with suppress(BaseException):
                 group.abort()
 
 

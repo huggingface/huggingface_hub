@@ -558,6 +558,14 @@ class XetDownloadError(Exception):
     """Exception thrown when the download from Xet Storage fails."""
 
 
+class XetDownloadCancelledError(XetDownloadError):
+    """Exception thrown when a download reaches Xet Storage after its owning operation was cancelled.
+
+    Raised in `snapshot_download` worker threads once the user interrupts the download: the remaining
+    files must not start a new Xet transfer.
+    """
+
+
 # LFS ERRORS
 
 

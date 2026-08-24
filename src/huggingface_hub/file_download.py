@@ -7,7 +7,6 @@ import stat
 import time
 import uuid
 import warnings
-from contextlib import nullcontext
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, BinaryIO, Literal, NoReturn, overload
@@ -570,6 +569,11 @@ def xet_get(
         tqdm_class=tqdm_class,
         external_reconstruction_bar=_tqdm_bar,
     ) as progress:
+        # Registered outside the group's `with` block on purpose: `start_download_file` only queues
+        # the download, and the blocking wait happens in the group's `__exit__` (hf_xet's
+        # `wait_to_finish()`). A nested `with` would unregister the group *before* that wait, which is
+        # exactly the window a Ctrl+C needs to reach.
+        tracked_group = None
         try:
             with session.new_file_download_group(
                 token_refresh_url=xet_file_data.refresh_route,
@@ -577,16 +581,25 @@ def xet_get(
                 custom_headers=xet_headers,
                 progress_callback=progress.update_progress,
             ) as group:
-                with cancellation.track(group) if cancellation is not None else nullcontext():
-                    group.start_download_file(
-                        XetFileInfo(xet_file_data.file_hash, expected_size), str(incomplete_path.absolute())
-                    )
+                if cancellation is not None:
+                    # Raises if cancellation already happened, so `__exit__` aborts instead of waiting.
+                    cancellation.register(group)
+                    tracked_group = group
+                group.start_download_file(
+                    XetFileInfo(xet_file_data.file_hash, expected_size), str(incomplete_path.absolute())
+                )
         except KeyboardInterrupt:
+            # Only reachable on the main thread: `wait_to_finish()` polls for Ctrl+C via
+            # `PyErr_CheckSignals()`, which is a no-op in worker threads. Worker downloads are instead
+            # stopped from the outside by `cancel()` (see `hf_thread_map(cancel_on_interrupt=...)`).
             if cancellation is not None:
                 cancellation.cancel()
             else:
                 abort_xet_session()
             raise
+        finally:
+            if cancellation is not None and tracked_group is not None:
+                cancellation.unregister(tracked_group)
 
 
 def _normalize_etag(etag: str | None) -> str | None:

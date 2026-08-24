@@ -364,6 +364,33 @@ class TestHfThreadMap:
 
         assert cancel_called.is_set()
 
+    def test_cancel_on_interrupt_runs_before_the_executor_waits_for_workers(self):
+        """The callback must fire inside the `with executor` block.
+
+        `Executor.__exit__` calls `shutdown(wait=True)`, so a worker that only a callback can unblock
+        must be released before we get there - otherwise `snapshot_download` hangs on Ctrl+C.
+        """
+        workers_started = threading.Barrier(2)
+        blocked_worker_released = threading.Event()
+        shutdown_order = []
+
+        def fn(x):
+            workers_started.wait(timeout=5)
+            if x == 0:
+                raise KeyboardInterrupt
+            # Mirrors a worker stuck in hf_xet's `wait_to_finish()`: only an external abort wakes it.
+            assert blocked_worker_released.wait(timeout=5), "worker was never released"
+            shutdown_order.append("worker-finished")
+
+        def cancel_on_interrupt():
+            shutdown_order.append("cancel-called")
+            blocked_worker_released.set()
+
+        with pytest.raises(KeyboardInterrupt):
+            hf_thread_map(fn, range(2), max_workers=2, cancel_on_interrupt=cancel_on_interrupt, disable=True)
+
+        assert shutdown_order == ["cancel-called", "worker-finished"]
+
     def test_shares_tqdm_lock_with_worker_threads(self):
         # A custom bar class: hf_thread_map must share a single lock with the worker threads so bars
         # created inside `fn` don't race on concurrent updates (mirrors tqdm.contrib's `ensure_lock`).

@@ -1,4 +1,5 @@
 import os
+import threading
 from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import DEFAULT, MagicMock, Mock, patch
@@ -6,6 +7,7 @@ from unittest.mock import DEFAULT, MagicMock, Mock, patch
 import pytest
 
 from huggingface_hub import snapshot_download
+from huggingface_hub.errors import XetDownloadCancelledError
 from huggingface_hub.file_download import (
     HfFileMetadata,
     get_hf_file_metadata,
@@ -17,7 +19,6 @@ from huggingface_hub.file_download import (
 from huggingface_hub.utils import XetFileData
 from huggingface_hub.utils._xet import (
     XetDownloadCancellation,
-    XetDownloadCancelledError,
     xet_download_cancellation_scope,
 )
 
@@ -70,6 +71,82 @@ def test_xet_get_registers_group_with_scoped_cancellation(tmp_path):
         )
 
     group.abort.assert_called_once_with()
+
+
+def test_xet_get_unregisters_group_once_it_can_no_longer_block(tmp_path):
+    """A finished download must not be aborted by a later, unrelated cancellation."""
+    cancellation = XetDownloadCancellation()
+    session = MagicMock()
+    group = session.new_file_download_group.return_value.__enter__.return_value
+
+    with (
+        xet_download_cancellation_scope(cancellation),
+        patch("huggingface_hub.utils._xet.get_xet_session", return_value=session),
+    ):
+        xet_get(
+            incomplete_path=tmp_path / "done.incomplete",
+            xet_file_data=XetFileData(file_hash="mock_hash", refresh_route="mock/route"),
+            headers={},
+        )
+
+    cancellation.cancel()
+    group.abort.assert_not_called()
+
+
+def test_xet_get_aborts_group_blocked_in_wait_to_finish(tmp_path):
+    """Mirror hf_xet's contract: `start_download_file` only queues the download.
+
+    The blocking wait happens in `XetFileDownloadGroup.__exit__` (`wait_to_finish`), which does not
+    observe Ctrl+C from a worker thread. `cancel()` must reach that group, otherwise the worker stays
+    blocked and `snapshot_download` hangs in `Executor.shutdown(wait=True)`.
+    """
+    cancellation = XetDownloadCancellation()
+    entered_wait = threading.Event()
+    unblocked = threading.Event()
+    aborted = []
+
+    class FakeGroup:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc_info):
+            entered_wait.set()
+            if not unblocked.wait(timeout=5):
+                raise AssertionError("wait_to_finish() was never unblocked: the worker is stuck")
+            return False
+
+        def start_download_file(self, file_info, dest_path):
+            return "download-handle"
+
+        def abort(self):
+            aborted.append(True)
+            unblocked.set()
+
+    session = MagicMock()
+    session.new_file_download_group.return_value = FakeGroup()
+    worker_errors = []
+
+    def worker():
+        try:
+            with xet_download_cancellation_scope(cancellation):
+                xet_get(
+                    incomplete_path=tmp_path / "waiting.incomplete",
+                    xet_file_data=XetFileData(file_hash="mock_hash", refresh_route="mock/route"),
+                    headers={},
+                )
+        except BaseException as error:  # noqa: BLE001
+            worker_errors.append(error)
+
+    with patch("huggingface_hub.utils._xet.get_xet_session", return_value=session):
+        thread = threading.Thread(target=worker, daemon=True)
+        thread.start()
+        assert entered_wait.wait(timeout=5), "worker never reached wait_to_finish()"
+        cancellation.cancel()
+        thread.join(timeout=5)
+
+    assert aborted, "cancel() must abort the group that is blocked in wait_to_finish()"
+    assert not thread.is_alive()
+    assert not worker_errors, f"worker failed: {worker_errors!r}"
 
 
 @pytest.mark.production
