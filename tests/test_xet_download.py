@@ -15,6 +15,11 @@ from huggingface_hub.file_download import (
     xet_get,
 )
 from huggingface_hub.utils import XetFileData
+from huggingface_hub.utils._xet import (
+    XetDownloadCancellation,
+    XetDownloadCancelledError,
+    xet_download_cancellation_scope,
+)
 
 from .testing_constants import (
     DUMMY_XET_FILE,
@@ -23,6 +28,48 @@ from .testing_constants import (
 
 
 pytestmark = pytest.mark.xet
+
+
+def test_xet_get_rejects_cancelled_worker_before_creating_session(tmp_path):
+    cancellation = XetDownloadCancellation()
+    cancellation.cancel()
+
+    with (
+        xet_download_cancellation_scope(cancellation),
+        patch("huggingface_hub.utils._xet.get_xet_session") as get_xet_session,
+    ):
+        with pytest.raises(XetDownloadCancelledError, match="Xet download was cancelled"):
+            xet_get(
+                incomplete_path=tmp_path / "cancelled.incomplete",
+                xet_file_data=XetFileData(file_hash="mock_hash", refresh_route="mock/route"),
+                headers={},
+            )
+
+    get_xet_session.assert_not_called()
+
+
+def test_xet_get_registers_group_with_scoped_cancellation(tmp_path):
+    cancellation = XetDownloadCancellation()
+    session = MagicMock()
+    group_context = session.new_file_download_group.return_value
+    group = group_context.__enter__.return_value
+
+    def cancel_during_download(*args, **kwargs):
+        cancellation.cancel()
+
+    group.start_download_file.side_effect = cancel_during_download
+
+    with (
+        xet_download_cancellation_scope(cancellation),
+        patch("huggingface_hub.utils._xet.get_xet_session", return_value=session),
+    ):
+        xet_get(
+            incomplete_path=tmp_path / "tracked.incomplete",
+            xet_file_data=XetFileData(file_hash="mock_hash", refresh_route="mock/route"),
+            headers={},
+        )
+
+    group.abort.assert_called_once_with()
 
 
 @pytest.mark.production

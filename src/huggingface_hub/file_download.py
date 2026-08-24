@@ -7,6 +7,7 @@ import stat
 import time
 import uuid
 import warnings
+from contextlib import nullcontext
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, BinaryIO, Literal, NoReturn, overload
@@ -545,10 +546,18 @@ def xet_get(
     if len(displayed_filename) > 40:
         displayed_filename = f"{displayed_filename[:40]}(…)"
 
-    from .utils._xet import abort_xet_session, get_xet_session, xet_headers_without_auth
+    from .utils._xet import (
+        abort_xet_session,
+        get_xet_download_cancellation,
+        get_xet_session,
+        xet_headers_without_auth,
+    )
     from .utils._xet_progress_reporting import XetDownloadProgressReporter
 
     xet_headers = xet_headers_without_auth(headers)
+    cancellation = get_xet_download_cancellation()
+    if cancellation is not None:
+        cancellation.raise_if_cancelled()
 
     session = get_xet_session()
 
@@ -568,11 +577,15 @@ def xet_get(
                 custom_headers=xet_headers,
                 progress_callback=progress.update_progress,
             ) as group:
-                group.start_download_file(
-                    XetFileInfo(xet_file_data.file_hash, expected_size), str(incomplete_path.absolute())
-                )
+                with cancellation.track(group) if cancellation is not None else nullcontext():
+                    group.start_download_file(
+                        XetFileInfo(xet_file_data.file_hash, expected_size), str(incomplete_path.absolute())
+                    )
         except KeyboardInterrupt:
-            abort_xet_session()
+            if cancellation is not None:
+                cancellation.cancel()
+            else:
+                abort_xet_session()
             raise
 
 

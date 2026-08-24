@@ -7,6 +7,8 @@ import pytest
 from _pytest.monkeypatch import MonkeyPatch
 
 from huggingface_hub.utils._xet import (
+    XetDownloadCancellation,
+    XetDownloadCancelledError,
     XetSessionHolder,
     XetTokenType,
     is_valid_xet_hash,
@@ -121,6 +123,28 @@ def test_env_var_hf_hub_disable_xet() -> None:
     monkeypatch.setattr("huggingface_hub.constants.HF_HUB_DISABLE_XET", True)
 
     assert not is_xet_available()
+
+
+def test_xet_download_cancellation_aborts_only_its_groups():
+    first_cancellation = XetDownloadCancellation()
+    second_cancellation = XetDownloadCancellation()
+    first_group = MagicMock()
+    unrelated_group = MagicMock()
+
+    with first_cancellation.track(first_group), second_cancellation.track(unrelated_group):
+        first_cancellation.cancel()
+
+    first_group.abort.assert_called_once_with()
+    unrelated_group.abort.assert_not_called()
+
+
+def test_xet_download_cancellation_rejects_late_groups():
+    cancellation = XetDownloadCancellation()
+    cancellation.cancel()
+
+    with pytest.raises(XetDownloadCancelledError, match="Xet download was cancelled"):
+        with cancellation.track(MagicMock()):
+            pytest.fail("cancelled operations must not register new Xet groups")
 
 
 # ---------------------------------------------------------------------------

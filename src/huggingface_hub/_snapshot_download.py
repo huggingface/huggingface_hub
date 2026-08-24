@@ -21,7 +21,7 @@ from .errors import (
 from .file_download import REGEX_COMMIT_HASH, DryRunFileInfo, hf_hub_download, repo_folder_name
 from .hf_api import HfApi, RepoFile
 from .utils import OfflineModeIsEnabled, filter_repo_objects, logging, validate_hf_hub_args
-from .utils._xet import abort_xet_session
+from .utils._xet import XetDownloadCancellation, xet_download_cancellation_scope
 from .utils._xet_progress_reporting import (
     XET_BYTES_BAR_FORMAT,
     XET_TRANSFER_BAR_FORMAT,
@@ -498,9 +498,11 @@ def snapshot_download(
     # Pass the commit_hash as revision to hf_hub_download to skip network call if:
     # - file is cached
     # - or xet file with metadata cached in /tree cache
+    xet_cancellation = XetDownloadCancellation()
+
     def _inner_hf_hub_download(repo_file: str) -> None:
-        results.append(
-            hf_hub_download(  # type: ignore
+        with xet_download_cancellation_scope(xet_cancellation):
+            result = hf_hub_download(  # type: ignore
                 repo_id,
                 filename=repo_file,
                 repo_type=repo_type,
@@ -518,7 +520,7 @@ def snapshot_download(
                 tqdm_class=_AggregatedTqdm,  # type: ignore
                 dry_run=dry_run,
             )
-        )
+        results.append(result)
 
     hf_thread_map(
         _inner_hf_hub_download,
@@ -526,7 +528,7 @@ def snapshot_download(
         desc=tqdm_desc,
         max_workers=max_workers,
         tqdm_class=tqdm_class,
-        cancel_running=abort_xet_session,
+        cancel_on_interrupt=xet_cancellation.cancel,
     )
 
     _finish_transfer_bar(transfer_progress)

@@ -17,6 +17,7 @@ from huggingface_hub.errors import (
 from huggingface_hub.file_download import repo_folder_name
 from huggingface_hub.hf_api import RepoFile
 from huggingface_hub.utils import SoftTemporaryDirectory, _http
+from huggingface_hub.utils._xet import get_xet_download_cancellation
 
 from .testing_constants import TOKEN
 from .testing_utils import OfflineSimulationMode, offline, repo_name
@@ -46,23 +47,32 @@ def test_tree_with_redacted_xet_hash_is_not_cached(tmp_path: Path):
     assert read_tree_cache(str(storage_folder), COMMIT_HASH) is None
 
 
-def test_snapshot_download_cancels_running_xet_downloads_on_error(tmp_path: Path):
+def test_snapshot_download_scopes_xet_cancellation_to_workers(tmp_path: Path):
     repo_file = RepoFile(path="model.safetensors", size=42, oid="blob-model")
+    controller = MagicMock()
+    seen_controllers = []
 
-    def interrupting_thread_map(*args, cancel_running, **kwargs):
-        cancel_running()
+    def fake_hf_hub_download(*args, **kwargs):
+        seen_controllers.append(get_xet_download_cancellation())
+
+    def interrupting_thread_map(fn, iterable, *, cancel_on_interrupt, **kwargs):
+        fn(next(iter(iterable)))
+        cancel_on_interrupt()
         raise KeyboardInterrupt
 
     with (
         patch("huggingface_hub._snapshot_download.HfApi.repo_info", return_value=MagicMock(sha=COMMIT_HASH)),
         patch("huggingface_hub._snapshot_download.HfApi.list_repo_tree", return_value=[repo_file]),
-        patch("huggingface_hub._snapshot_download.abort_xet_session") as abort_xet_session,
+        patch("huggingface_hub._snapshot_download.XetDownloadCancellation", return_value=controller),
+        patch("huggingface_hub._snapshot_download.hf_hub_download", side_effect=fake_hf_hub_download),
         patch("huggingface_hub._snapshot_download.hf_thread_map", side_effect=interrupting_thread_map),
     ):
         with pytest.raises(KeyboardInterrupt):
             snapshot_download("user/repo", cache_dir=tmp_path)
 
-    abort_xet_session.assert_called_once_with()
+    controller.cancel.assert_called_once_with()
+    assert seen_controllers == [controller]
+    assert get_xet_download_cancellation() is None
 
 
 class TestSnapshotDownload:

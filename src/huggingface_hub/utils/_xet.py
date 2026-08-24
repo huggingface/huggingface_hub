@@ -1,8 +1,12 @@
 import os
 import re
 import threading
+from collections.abc import Iterator
+from contextlib import contextmanager, suppress
+from contextvars import ContextVar
 from dataclasses import dataclass
 from enum import Enum
+from typing import Protocol
 
 import httpx
 
@@ -99,6 +103,74 @@ def xet_connection_info_refresh_url(
         # => pass "/None" in URL and server will return a token for PR refs.
         url += f"/{revision}"
     return url
+
+
+class _XetDownloadGroup(Protocol):
+    def abort(self) -> None: ...
+
+
+class XetDownloadCancelledError(Exception):
+    """Raised when a download reaches Xet after its owning operation was cancelled."""
+
+
+class XetDownloadCancellation:
+    """Cancel only the Xet download groups owned by one high-level operation."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._cancelled = False
+        self._groups: dict[int, _XetDownloadGroup] = {}
+
+    def raise_if_cancelled(self) -> None:
+        """Reject work that reaches Xet after cancellation was requested."""
+        with self._lock:
+            if self._cancelled:
+                raise XetDownloadCancelledError("Xet download was cancelled")
+
+    @contextmanager
+    def track(self, group: _XetDownloadGroup) -> Iterator[None]:
+        """Register a group unless cancellation has already been requested."""
+        group_id = id(group)
+        with self._lock:
+            if self._cancelled:
+                raise XetDownloadCancelledError("Xet download was cancelled")
+            self._groups[group_id] = group
+
+        try:
+            yield
+        finally:
+            with self._lock:
+                self._groups.pop(group_id, None)
+
+    def cancel(self) -> None:
+        """Prevent new groups from starting and abort all currently tracked groups."""
+        with self._lock:
+            self._cancelled = True
+            groups = list(self._groups.values())
+
+        for group in groups:
+            with suppress(Exception):
+                group.abort()
+
+
+_XET_DOWNLOAD_CANCELLATION = ContextVar[XetDownloadCancellation | None](
+    "huggingface_hub_xet_download_cancellation", default=None
+)
+
+
+@contextmanager
+def xet_download_cancellation_scope(cancellation: XetDownloadCancellation) -> Iterator[None]:
+    """Make a cancellation controller visible to Xet downloads in the current execution context."""
+    token = _XET_DOWNLOAD_CANCELLATION.set(cancellation)
+    try:
+        yield
+    finally:
+        _XET_DOWNLOAD_CANCELLATION.reset(token)
+
+
+def get_xet_download_cancellation() -> XetDownloadCancellation | None:
+    """Return the cancellation controller for the current high-level operation, if any."""
+    return _XET_DOWNLOAD_CANCELLATION.get()
 
 
 class XetSessionHolder:
