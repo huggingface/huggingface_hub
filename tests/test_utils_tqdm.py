@@ -326,6 +326,26 @@ class TestHfThreadMap:
         # The failing first task cancels the queued tasks instead of running all 50.
         assert len(started) < 50
 
+    def test_cancels_running_tasks_on_error_before_executor_shutdown(self):
+        workers_started = threading.Barrier(2)
+        release_running_task = threading.Event()
+        cancel_called = threading.Event()
+
+        def fn(x):
+            workers_started.wait(timeout=5)
+            if x == 0:
+                raise ValueError("boom")
+            release_running_task.wait(timeout=5)
+
+        def cancel_running():
+            cancel_called.set()
+            release_running_task.set()
+
+        with pytest.raises(ValueError, match="boom"):
+            hf_thread_map(fn, range(2), max_workers=2, cancel_running=cancel_running, disable=True)
+
+        assert cancel_called.is_set()
+
     def test_shares_tqdm_lock_with_worker_threads(self):
         # A custom bar class: hf_thread_map must share a single lock with the worker threads so bars
         # created inside `fn` don't race on concurrent updates (mirrors tqdm.contrib's `ensure_lock`).

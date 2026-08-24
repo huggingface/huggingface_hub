@@ -399,6 +399,7 @@ def hf_thread_map(
     *,
     max_workers: int | None = None,
     tqdm_class: type[old_tqdm] | None = None,
+    cancel_running: Callable[[], None] | None = None,
     **tqdm_kwargs,
 ) -> list[R]:
     """Drop-in replacement for `tqdm.contrib.concurrent.thread_map`.
@@ -419,6 +420,9 @@ def hf_thread_map(
             Maximum number of worker threads. Defaults to tqdm's own default.
         tqdm_class (`type`, *optional*):
             Progress bar class to use. Defaults to `huggingface_hub`'s `tqdm`.
+        cancel_running (`Callable`, *optional*):
+            Callback invoked on error after pending futures are cancelled. Use it to cooperatively stop tasks that
+            are already running before the executor waits for them to finish.
         **tqdm_kwargs:
             Additional keyword arguments forwarded to the progress bar (e.g. `desc`).
 
@@ -445,5 +449,7 @@ def hf_thread_map(
             # (mirrors `tqdm.contrib.concurrent.thread_map`, which relies on `Executor.map` for this).
             for future in future_to_index:
                 future.cancel()
+            if cancel_running is not None:
+                cancel_running()
             raise
     return cast("list[R]", results)

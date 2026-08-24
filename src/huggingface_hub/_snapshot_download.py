@@ -21,6 +21,7 @@ from .errors import (
 from .file_download import REGEX_COMMIT_HASH, DryRunFileInfo, hf_hub_download, repo_folder_name
 from .hf_api import HfApi, RepoFile
 from .utils import OfflineModeIsEnabled, filter_repo_objects, logging, validate_hf_hub_args
+from .utils._xet import abort_xet_session
 from .utils._xet_progress_reporting import (
     XET_BYTES_BAR_FORMAT,
     XET_TRANSFER_BAR_FORMAT,
@@ -525,6 +526,7 @@ def snapshot_download(
         desc=tqdm_desc,
         max_workers=max_workers,
         tqdm_class=tqdm_class,
+        cancel_running=abort_xet_session,
     )
 
     _finish_transfer_bar(transfer_progress)

@@ -46,6 +46,25 @@ def test_tree_with_redacted_xet_hash_is_not_cached(tmp_path: Path):
     assert read_tree_cache(str(storage_folder), COMMIT_HASH) is None
 
 
+def test_snapshot_download_cancels_running_xet_downloads_on_error(tmp_path: Path):
+    repo_file = RepoFile(path="model.safetensors", size=42, oid="blob-model")
+
+    def interrupting_thread_map(*args, cancel_running, **kwargs):
+        cancel_running()
+        raise KeyboardInterrupt
+
+    with (
+        patch("huggingface_hub._snapshot_download.HfApi.repo_info", return_value=MagicMock(sha=COMMIT_HASH)),
+        patch("huggingface_hub._snapshot_download.HfApi.list_repo_tree", return_value=[repo_file]),
+        patch("huggingface_hub._snapshot_download.abort_xet_session") as abort_xet_session,
+        patch("huggingface_hub._snapshot_download.hf_thread_map", side_effect=interrupting_thread_map),
+    ):
+        with pytest.raises(KeyboardInterrupt):
+            snapshot_download("user/repo", cache_dir=tmp_path)
+
+    abort_xet_session.assert_called_once_with()
+
+
 class TestSnapshotDownload:
     @pytest.fixture(scope="class", autouse=True)
     def _shared_repo(self, request, api: HfApi):
