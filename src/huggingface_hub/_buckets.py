@@ -890,6 +890,12 @@ def _execute_plan(plan: SyncPlan, api: "HfApi", verbose: bool = False, status: A
     is_upload = not _is_bucket_path(plan.source) and _is_bucket_path(plan.dest)
     is_download = _is_bucket_path(plan.source) and not _is_bucket_path(plan.dest)
 
+    # Every operation path is joined onto a local directory below (download → write, delete → remove,
+    # upload → read). An --apply'd plan is loaded from disk and never went through _list_remote_files,
+    # so validate every path here, before touching the filesystem. See PR #4540 for the repo equivalent.
+    for op in plan.operations:
+        _validate_relative_filename(op.path)
+
     if is_upload:
         local_path = os.path.abspath(plan.source)
         parsed = _parse_bucket_uri(plan.dest)
@@ -944,8 +950,6 @@ def _execute_plan(plan: SyncPlan, api: "HfApi", verbose: bool = False, status: A
 
         for op in plan.operations:
             if op.action == "download":
-                # Re-validate here too: an --apply'd plan file does not go through _list_remote_files.
-                _validate_relative_filename(op.path)
                 local_file = os.path.join(local_path, op.path)
                 # Ensure parent directory exists
                 os.makedirs(os.path.dirname(local_file), exist_ok=True)

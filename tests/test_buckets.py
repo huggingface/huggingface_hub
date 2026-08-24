@@ -662,3 +662,21 @@ def test_execute_plan_download_rejects_path_traversal(tmp_path):
     with pytest.raises(ValueError, match="Invalid filename"):
         _execute_plan(plan, api)
     api.download_bucket_files.assert_not_called()
+
+
+def test_execute_plan_delete_rejects_path_traversal(tmp_path):
+    # A crafted --apply'd plan must not delete files outside the destination via a traversing delete op.
+    dest = tmp_path / "dest"
+    dest.mkdir()
+    outside = tmp_path / "outside.txt"
+    outside.write_text("keep me")
+    api = MagicMock()
+    plan = SyncPlan(
+        source="hf://buckets/user/bucket",
+        dest=str(dest),
+        timestamp="2026-01-01T00:00:00+00:00",
+        operations=[SyncOperation(action="delete", path="../outside.txt", size=7)],
+    )
+    with pytest.raises(ValueError, match="Invalid filename"):
+        _execute_plan(plan, api)
+    assert outside.exists()  # not deleted
