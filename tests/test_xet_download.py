@@ -7,7 +7,7 @@ from unittest.mock import DEFAULT, MagicMock, Mock, patch
 import pytest
 
 from huggingface_hub import snapshot_download
-from huggingface_hub.errors import XetDownloadCancelledError
+from huggingface_hub.errors import DownloadCancelledError
 from huggingface_hub.file_download import (
     HfFileMetadata,
     get_hf_file_metadata,
@@ -17,9 +17,9 @@ from huggingface_hub.file_download import (
     xet_get,
 )
 from huggingface_hub.utils import XetFileData
-from huggingface_hub.utils._xet import (
-    XetDownloadCancellation,
-    xet_download_cancellation_scope,
+from huggingface_hub.utils._download_cancellation import (
+    DownloadCancellation,
+    download_cancellation_scope,
 )
 
 from .testing_constants import (
@@ -32,14 +32,14 @@ pytestmark = pytest.mark.xet
 
 
 def test_xet_get_rejects_cancelled_worker_before_creating_session(tmp_path):
-    cancellation = XetDownloadCancellation()
+    cancellation = DownloadCancellation()
     cancellation.cancel()
 
     with (
-        xet_download_cancellation_scope(cancellation),
+        download_cancellation_scope(cancellation),
         patch("huggingface_hub.utils._xet.get_xet_session") as get_xet_session,
     ):
-        with pytest.raises(XetDownloadCancelledError, match="Xet download was cancelled"):
+        with pytest.raises(DownloadCancelledError, match="Download was cancelled"):
             xet_get(
                 incomplete_path=tmp_path / "cancelled.incomplete",
                 xet_file_data=XetFileData(file_hash="mock_hash", refresh_route="mock/route"),
@@ -50,7 +50,7 @@ def test_xet_get_rejects_cancelled_worker_before_creating_session(tmp_path):
 
 
 def test_xet_get_registers_group_with_scoped_cancellation(tmp_path):
-    cancellation = XetDownloadCancellation()
+    cancellation = DownloadCancellation()
     session = MagicMock()
     group_context = session.new_file_download_group.return_value
     group = group_context.__enter__.return_value
@@ -61,7 +61,7 @@ def test_xet_get_registers_group_with_scoped_cancellation(tmp_path):
     group.start_download_file.side_effect = cancel_during_download
 
     with (
-        xet_download_cancellation_scope(cancellation),
+        download_cancellation_scope(cancellation),
         patch("huggingface_hub.utils._xet.get_xet_session", return_value=session),
     ):
         xet_get(
@@ -75,12 +75,12 @@ def test_xet_get_registers_group_with_scoped_cancellation(tmp_path):
 
 def test_xet_get_unregisters_group_once_it_can_no_longer_block(tmp_path):
     """A finished download must not be aborted by a later, unrelated cancellation."""
-    cancellation = XetDownloadCancellation()
+    cancellation = DownloadCancellation()
     session = MagicMock()
     group = session.new_file_download_group.return_value.__enter__.return_value
 
     with (
-        xet_download_cancellation_scope(cancellation),
+        download_cancellation_scope(cancellation),
         patch("huggingface_hub.utils._xet.get_xet_session", return_value=session),
     ):
         xet_get(
@@ -100,7 +100,7 @@ def test_xet_get_aborts_group_blocked_in_wait_to_finish(tmp_path):
     observe Ctrl+C from a worker thread. `cancel()` must reach that group, otherwise the worker stays
     blocked and `snapshot_download` hangs in `Executor.shutdown(wait=True)`.
     """
-    cancellation = XetDownloadCancellation()
+    cancellation = DownloadCancellation()
     entered_wait = threading.Event()
     unblocked = threading.Event()
     aborted = []
@@ -128,7 +128,7 @@ def test_xet_get_aborts_group_blocked_in_wait_to_finish(tmp_path):
 
     def worker():
         try:
-            with xet_download_cancellation_scope(cancellation):
+            with download_cancellation_scope(cancellation):
                 xet_get(
                     incomplete_path=tmp_path / "waiting.incomplete",
                     xet_file_data=XetFileData(file_hash="mock_hash", refresh_route="mock/route"),

@@ -162,6 +162,7 @@ from .utils import (
 from .utils import tqdm as hf_tqdm
 from .utils._auth import _get_token_from_environment, _get_token_from_file, _get_token_from_google_colab
 from .utils._deprecation import _deprecate_arguments, _deprecate_method
+from .utils._download_cancellation import DownloadCancellation, download_cancellation_scope
 from .utils._http import _httpx_follow_relative_redirects_with_backoff
 from .utils._runtime import is_xet_available
 from .utils._typing import CallableT
@@ -14256,20 +14257,28 @@ class HfApi:
                 raise EntryNotFoundError(f"No files found at '{source_str}' in {source.type} '{source.id}'.")
 
         if pending_downloads:
+            cancellation = DownloadCancellation()
 
             def _download_and_collect(item: tuple[str, str]) -> None:
                 file_path, target_path = item
-                local_path = self.hf_hub_download(
-                    repo_id=source.id,
-                    repo_type=source.type,
-                    filename=file_path,
-                    revision=source.revision,
-                    token=token,
-                    tqdm_class=silent_tqdm,  # type: ignore
-                )
+                # Entered per worker: `ContextVar`s are not inherited by `ThreadPoolExecutor` threads.
+                with download_cancellation_scope(cancellation):
+                    local_path = self.hf_hub_download(
+                        repo_id=source.id,
+                        repo_type=source.type,
+                        filename=file_path,
+                        revision=source.revision,
+                        token=token,
+                        tqdm_class=silent_tqdm,  # type: ignore
+                    )
                 all_adds.append((local_path, target_path))
 
-            hf_thread_map(_download_and_collect, pending_downloads, desc="Downloading text files for copy")
+            hf_thread_map(
+                _download_and_collect,
+                pending_downloads,
+                desc="Downloading text files for copy",
+                cancel_on_interrupt=cancellation.cancel,
+            )
 
         # Send copies first (no upload needed), then adds (may need upload)
         if all_copies:

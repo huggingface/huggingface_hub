@@ -26,7 +26,12 @@ import pytest
 
 from huggingface_hub import HfApi, constants
 from huggingface_hub._local_folder import write_download_metadata
-from huggingface_hub.errors import EntryNotFoundError, GatedRepoError, LocalEntryNotFoundError
+from huggingface_hub.errors import (
+    DownloadCancelledError,
+    EntryNotFoundError,
+    GatedRepoError,
+    LocalEntryNotFoundError,
+)
 from huggingface_hub.file_download import (
     _CACHED_NO_EXIST,
     HfFileMetadata,
@@ -41,6 +46,10 @@ from huggingface_hub.file_download import (
     try_to_load_from_cache,
 )
 from huggingface_hub.utils import SoftTemporaryDirectory, WeakFileLock, get_session, hf_raise_for_status
+from huggingface_hub.utils._download_cancellation import (
+    DownloadCancellation,
+    download_cancellation_scope,
+)
 from huggingface_hub.utils._headers import build_hf_headers
 from huggingface_hub.utils._http import _http_backoff_base
 
@@ -1046,6 +1055,86 @@ class TestHfHubDownloadRelativePaths:
         relative_filename = "folder\\..\\..\\..\\file.txt" if os.name == "nt" else "folder/../../../file.txt"
         with pytest.raises(ValueError):
             _get_pointer_path("path/to/storage", "abcdef", relative_filename)
+
+
+class TestHttpGetCancellation:
+    """`http_get` runs in `snapshot_download` worker threads, which never observe a `KeyboardInterrupt`."""
+
+    @staticmethod
+    def _mock_response(chunks):
+        mock_response = Mock()
+        mock_response.headers = {"Content-Length": "100"}
+        mock_response.status_code = 200
+        mock_response.iter_bytes.return_value = chunks
+        return mock_response
+
+    def test_stops_between_chunks_once_cancelled(self):
+        cancellation = DownloadCancellation()
+        written = []
+
+        def chunks():
+            yield b"0" * 10
+            written.append("first")
+            cancellation.cancel()  # e.g. the main thread reacting to Ctrl+C
+            yield b"0" * 10
+            written.append("second")  # must never run
+
+        with patch("huggingface_hub.file_download.http_stream_backoff") as mock_stream_backoff:
+            mock_stream_backoff.return_value.__enter__.return_value = self._mock_response(chunks())
+            mock_stream_backoff.return_value.__exit__.return_value = None
+            temp_file = io.BytesIO()
+
+            with download_cancellation_scope(cancellation):
+                with pytest.raises(DownloadCancelledError, match="Download was cancelled"):
+                    http_get("fake_url", temp_file=temp_file)
+
+        assert written == ["first"]
+        assert temp_file.getvalue() == b"0" * 10
+
+    def test_does_not_start_when_already_cancelled(self):
+        cancellation = DownloadCancellation()
+        cancellation.cancel()
+
+        with patch("huggingface_hub.file_download.http_stream_backoff") as mock_stream_backoff:
+            with download_cancellation_scope(cancellation):
+                with pytest.raises(DownloadCancelledError, match="Download was cancelled"):
+                    http_get("fake_url", temp_file=io.BytesIO())
+
+        mock_stream_backoff.assert_not_called()
+
+    def test_cancellation_is_not_retried_as_a_transient_error(self):
+        """The retry path catches httpx errors only; a cancellation must not resume the download."""
+        cancellation = DownloadCancellation()
+
+        def chunks():
+            yield b"0" * 10
+            cancellation.cancel()
+            yield b"0" * 10
+
+        with patch("huggingface_hub.file_download.http_stream_backoff") as mock_stream_backoff:
+            mock_stream_backoff.return_value.__enter__.return_value = self._mock_response(chunks())
+            mock_stream_backoff.return_value.__exit__.return_value = None
+
+            with download_cancellation_scope(cancellation):
+                with pytest.raises(DownloadCancelledError):
+                    http_get("fake_url", temp_file=io.BytesIO())
+
+        assert mock_stream_backoff.call_count == 1
+
+    def test_is_a_no_op_without_a_scope(self):
+        """A plain `hf_hub_download` has no controller: behaviour must be unchanged."""
+
+        def chunks():
+            yield b"0" * 100
+
+        with patch("huggingface_hub.file_download.http_stream_backoff") as mock_stream_backoff:
+            mock_stream_backoff.return_value.__enter__.return_value = self._mock_response(chunks())
+            mock_stream_backoff.return_value.__exit__.return_value = None
+            temp_file = io.BytesIO()
+
+            http_get("fake_url", temp_file=temp_file)
+
+        assert temp_file.getvalue() == b"0" * 100
 
 
 class TestHttpGet:

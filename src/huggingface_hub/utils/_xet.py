@@ -1,17 +1,12 @@
 import os
 import re
 import threading
-from collections.abc import Iterator
-from contextlib import contextmanager, suppress
-from contextvars import ContextVar
 from dataclasses import dataclass
 from enum import Enum
-from typing import Protocol
 
 import httpx
 
 from .. import constants
-from ..errors import XetDownloadCancelledError
 from . import validate_hf_hub_args
 
 
@@ -104,83 +99,6 @@ def xet_connection_info_refresh_url(
         # => pass "/None" in URL and server will return a token for PR refs.
         url += f"/{revision}"
     return url
-
-
-class _XetDownloadGroup(Protocol):
-    def abort(self) -> None: ...
-
-
-class XetDownloadCancellation:
-    """Cancel only the Xet download groups owned by one high-level operation.
-
-    A group must stay registered for as long as a worker can be blocked inside it. `hf_xet`'s
-    `wait_to_finish()` (called by the group's `__exit__`) only polls for `KeyboardInterrupt` on the
-    main thread, so a worker blocked there can be woken up by nothing but an external `abort()`.
-    Registration is therefore a plain `register`/`unregister` pair rather than a context manager: a
-    `with` block nested inside the group's own `with` would unwind first and leave exactly that
-    window untracked.
-    """
-
-    def __init__(self) -> None:
-        self._lock = threading.Lock()
-        self._cancelled = False
-        self._groups: dict[int, _XetDownloadGroup] = {}
-
-    def raise_if_cancelled(self) -> None:
-        """Reject work that reaches Xet after cancellation was requested."""
-        with self._lock:
-            if self._cancelled:
-                raise XetDownloadCancelledError("Xet download was cancelled")
-
-    def register(self, group: _XetDownloadGroup) -> None:
-        """Track a group unless cancellation has already been requested.
-
-        Raises [`XetDownloadCancelledError`] if it has, so the caller leaves the group's `with` block
-        through the exception path: `hf_xet` then aborts the group instead of waiting on it.
-        """
-        with self._lock:
-            if self._cancelled:
-                raise XetDownloadCancelledError("Xet download was cancelled")
-            self._groups[id(group)] = group
-
-    def unregister(self, group: _XetDownloadGroup) -> None:
-        """Stop tracking a group that can no longer block its worker."""
-        with self._lock:
-            self._groups.pop(id(group), None)
-
-    def cancel(self) -> None:
-        """Prevent new groups from starting and abort all currently tracked groups."""
-        with self._lock:
-            self._cancelled = True
-            groups = list(self._groups.values())
-
-        for group in groups:
-            # `abort()` crosses into Rust: a PyO3 panic surfaces as `pyo3_runtime.PanicException`,
-            # which derives from `BaseException`. Suppressing only `Exception` would let one bad
-            # group skip the abort of every group after it - and those workers would stay blocked.
-            # A group that finished concurrently is also fair game here; aborting it is a no-op.
-            with suppress(BaseException):
-                group.abort()
-
-
-_XET_DOWNLOAD_CANCELLATION = ContextVar[XetDownloadCancellation | None](
-    "huggingface_hub_xet_download_cancellation", default=None
-)
-
-
-@contextmanager
-def xet_download_cancellation_scope(cancellation: XetDownloadCancellation) -> Iterator[None]:
-    """Make a cancellation controller visible to Xet downloads in the current execution context."""
-    token = _XET_DOWNLOAD_CANCELLATION.set(cancellation)
-    try:
-        yield
-    finally:
-        _XET_DOWNLOAD_CANCELLATION.reset(token)
-
-
-def get_xet_download_cancellation() -> XetDownloadCancellation | None:
-    """Return the cancellation controller for the current high-level operation, if any."""
-    return _XET_DOWNLOAD_CANCELLATION.get()
 
 
 class XetSessionHolder:

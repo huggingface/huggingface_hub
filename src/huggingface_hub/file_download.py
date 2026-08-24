@@ -26,6 +26,7 @@ from ._local_folder import (
 from ._revision import ResolvedRevision
 from ._tree_cache import read_tree_cache, tree_cache_folder_for_local_dir
 from .errors import (
+    DownloadCancelledError,
     FileMetadataError,
     GatedRepoError,
     HfHubHTTPError,
@@ -46,6 +47,7 @@ from .utils import (
     tqdm,
     validate_hf_hub_args,
 )
+from .utils._download_cancellation import get_download_cancellation
 from .utils._http import (
     _DEFAULT_RETRY_ON_EXCEPTIONS,
     _DEFAULT_RETRY_ON_STATUS_CODES,
@@ -362,6 +364,11 @@ def http_get(
         # If the file is already fully downloaded, we don't need to download it again.
         return
 
+    # Re-checked on every retry too: a cancelled download must not resume.
+    cancellation = get_download_cancellation()
+    if cancellation is not None:
+        cancellation.raise_if_cancelled()
+
     initial_headers = headers
     headers = copy.deepcopy(headers) or {}
     if resume_size > 0:
@@ -437,6 +444,11 @@ def http_get(
             new_resume_size = resume_size
             try:
                 for chunk in response.iter_bytes(chunk_size=constants.DOWNLOAD_CHUNK_SIZE):
+                    if cancellation is not None and cancellation.is_cancelled:
+                        # Worker threads never see the `KeyboardInterrupt`, so stopping is cooperative:
+                        # the check runs between chunks, bounding the delay by one `DOWNLOAD_CHUNK_SIZE`
+                        # rather than by the remaining size of the file.
+                        raise DownloadCancelledError(f"Download was cancelled ({displayed_filename})")
                     if chunk:  # filter out keep-alive new chunks
                         progress.update(len(chunk))
                         if callable(update_transfer := getattr(progress, "update_transfer", None)):
@@ -545,16 +557,11 @@ def xet_get(
     if len(displayed_filename) > 40:
         displayed_filename = f"{displayed_filename[:40]}(…)"
 
-    from .utils._xet import (
-        abort_xet_session,
-        get_xet_download_cancellation,
-        get_xet_session,
-        xet_headers_without_auth,
-    )
+    from .utils._xet import abort_xet_session, get_xet_session, xet_headers_without_auth
     from .utils._xet_progress_reporting import XetDownloadProgressReporter
 
     xet_headers = xet_headers_without_auth(headers)
-    cancellation = get_xet_download_cancellation()
+    cancellation = get_download_cancellation()
     if cancellation is not None:
         cancellation.raise_if_cancelled()
 

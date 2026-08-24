@@ -245,6 +245,14 @@ class DryRunError(OSError):
     """Error triggered when a dry run is requested but cannot be performed (e.g. invalid repo)."""
 
 
+class DownloadCancelledError(Exception):
+    """Exception thrown when a download starts, or resumes, after its owning operation was cancelled.
+
+    Raised in worker threads of helpers such as [`snapshot_download`] once the user interrupts the
+    download: the remaining files must not start a new transfer.
+    """
+
+
 class FileMetadataError(OSError):
     """Error triggered when the metadata of a file on the Hub cannot be retrieved (missing ETag or commit_hash).
 
@@ -556,14 +564,6 @@ class StrictDataclassClassValidationError(StrictDataclassError):
 
 class XetDownloadError(Exception):
     """Exception thrown when the download from Xet Storage fails."""
-
-
-class XetDownloadCancelledError(XetDownloadError):
-    """Exception thrown when a download reaches Xet Storage after its owning operation was cancelled.
-
-    Raised in `snapshot_download` worker threads once the user interrupts the download: the remaining
-    files must not start a new Xet transfer.
-    """
 
 
 # LFS ERRORS
