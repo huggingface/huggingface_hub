@@ -5,7 +5,12 @@ from typing import Annotated
 
 import click
 
-from huggingface_hub._inference_endpoints import InferenceEndpointScalingMetric, InferenceEndpointType
+from huggingface_hub._inference_endpoints import (
+    InferenceEndpointHardware,
+    InferenceEndpointScalingMetric,
+    InferenceEndpointType,
+    _set_parallelism_in_image,
+)
 from huggingface_hub.errors import CLIError, HfHubHTTPError
 
 from ._cli_utils import (
@@ -21,7 +26,7 @@ from ._cli_utils import (
     typer_factory,
 )
 from ._framework import Argument, Option
-from ._output import out
+from ._output import _dataclass_to_dict, out
 
 
 ie_cli = typer_factory(help="Manage Hugging Face Inference Endpoints.")
@@ -42,6 +47,59 @@ NamespaceOpt = Annotated[
     str | None,
     Option(
         help="The namespace associated with the Inference Endpoint. Defaults to the current user's namespace.",
+    ),
+]
+
+# Maps the CLI `--engine` values to the `model.image` variant keys of the API payload. `huggingface` and
+# `huggingfaceNeuron` are left out on purpose: they are the managed Hugging Face images and take no image URL.
+ENGINE_IMAGE_KEYS = {
+    "custom": "custom",
+    "hf-serve": "hfServe",
+    "llamacpp": "llamacpp",
+    "sglang": "sGLang",
+    "tei": "tei",
+    "tgi": "tgi",
+    "tgi-neuron": "tgiNeuron",
+    "vllm": "vLLM",
+    "vllm-neuron": "vLLMNeuron",
+}
+
+EngineOpt = Annotated[
+    str | None,
+    Option(
+        "--engine",
+        click_type=SoftChoice(list(ENGINE_IMAGE_KEYS)),
+        help="Managed engine image to run --custom-image with (e.g. 'vllm'). Defaults to an arbitrary container.",
+    ),
+]
+
+HealthRouteOpt = Annotated[
+    str | None,
+    Option(
+        help="Health check route exposed by the container (e.g. '/health'). Requires --custom-image.",
+    ),
+]
+
+PortOpt = Annotated[
+    int | None,
+    Option(
+        help="Port the container listens on (e.g. 30000). Requires --custom-image.",
+    ),
+]
+
+TensorParallelSizeOpt = Annotated[
+    int | None,
+    Option(
+        "--tensor-parallel-size",
+        help="Number of accelerators to shard a single model copy across (vLLM and SGLang engines only).",
+    ),
+]
+
+DataParallelSizeOpt = Annotated[
+    int | None,
+    Option(
+        "--data-parallel-size",
+        help="Number of model copies to run, one per accelerator (vLLM engine only).",
     ),
 ]
 
@@ -81,7 +139,134 @@ def ls(
     out.table(results, id_key="name")
 
 
-@ie_cli.command(name="deploy", examples=["hf endpoints deploy my-endpoint --repo gpt2 --framework pytorch ..."])
+# A denylist like the Endpoints UI uses, so a new server-side status shows up instead of silently disappearing.
+_UNDEPLOYABLE_STATUSES = {"deprecated", "not_available"}
+
+
+def _is_deployable(hw: InferenceEndpointHardware) -> bool:
+    """Whether the namespace can deploy one replica on this hardware right now: usable status and enough quota."""
+    return (
+        hw.status not in _UNDEPLOYABLE_STATUSES and hw.max_accelerators - hw.used_accelerators >= hw.num_accelerators
+    )
+
+
+@ie_cli.command(
+    "hardware",
+    examples=[
+        "hf endpoints hardware",
+        "hf endpoints hardware --vendor aws --accelerator gpu",
+    ],
+)
+def hardware(
+    namespace: NamespaceOpt = None,
+    vendor: Annotated[
+        str | None,
+        Option(help="Only show hardware hosted by this cloud provider (e.g. 'aws')."),
+    ] = None,
+    region: Annotated[
+        str | None,
+        Option(help="Only show hardware available in this cloud region (e.g. 'us-east-1')."),
+    ] = None,
+    accelerator: Annotated[
+        str | None,
+        Option(help="Only show hardware with this accelerator (e.g. 'cpu', 'gpu', 'neuron')."),
+    ] = None,
+    instance_type: Annotated[
+        str | None,
+        Option(help="Only show hardware of this instance type (e.g. 'nvidia-l4')."),
+    ] = None,
+    show_all: Annotated[
+        bool,
+        Option(
+            "-a",
+            "--all",
+            help="Also show hardware that cannot be deployed on right now (unavailable, deprecated or out of quota).",
+        ),
+    ] = False,
+    token: TokenOpt = None,
+) -> None:
+    """List the hardware available to deploy an Inference Endpoint on.
+
+    Only the hardware the namespace can deploy on right now is listed: a usable status, and enough accelerator
+    quota left for one replica. Use `--all` to list every combination the API returns.
+
+    Quota is per namespace, so pass the same `--namespace` you will pass to `hf endpoints deploy`. Prices are in
+    USD, per replica per hour.
+    """
+    api = get_hf_api(token=token)
+    hardware_list = api.list_inference_endpoints_hardware(namespace=namespace, token=token)
+
+    # Both sides lowercased: relying on the server's casing would turn a change into a silently empty result.
+    matching = [
+        hw
+        for hw in hardware_list
+        if (vendor is None or hw.vendor.lower() == vendor.lower())
+        and (region is None or hw.region.lower() == region.lower())
+        and (accelerator is None or hw.accelerator.lower() == accelerator.lower())
+        and (instance_type is None or hw.instance_type.lower() == instance_type.lower())
+    ]
+    visible = [hw for hw in matching if show_all or _is_deployable(hw)]
+    # Smallest size first per instance type; 'instance_size' can't be the key, 'x16' sorts before 'x2'.
+    visible.sort(key=lambda hw: (hw.vendor, hw.region, hw.accelerator, hw.instance_type, hw.num_accelerators))
+
+    # Add a quota column, keeping the rest of the dict whole since '--format json' emits it.
+    items = [_dataclass_to_dict(hw) | {"quota": f"{hw.used_accelerators}/{hw.max_accelerators}"} for hw in visible]
+    out.table(
+        items,
+        # Redundant and always-null columns are dropped here but stay in the items for '--format json'.
+        headers=[
+            "vendor",
+            "region",
+            "accelerator",
+            "instance_type",
+            "instance_size",
+            "memory_gb",
+            "gpu_memory_gb",
+            "price_per_hour",
+            "quota",
+            "status",
+        ],
+        id_key="id",
+    )
+    # The example must be one 'deploy' accepts, and with '--all' the first row may not be.
+    if (hw := next((hw for hw in visible if _is_deployable(hw)), None)) is not None:
+        out.hint(
+            f"Deploy on one of these, e.g.: hf endpoints deploy my-endpoint --repo <repo> --framework <framework> "
+            f"--vendor {hw.vendor} --region {hw.region} --accelerator {hw.accelerator} "
+            f"--instance-type {hw.instance_type} --instance-size {hw.instance_size}"
+        )
+    elif visible:  # only reachable with '--all'
+        out.hint("None of these can be deployed on right now, see the QUOTA and STATUS columns.")
+    elif matching:  # all matches were dropped as undeployable
+        out.hint("Use '--all' to also show hardware that cannot be deployed on right now.")
+    else:
+        # Nothing matched at all: a filter value is probably a typo, so name the ones that exist nowhere.
+        unknown = [
+            f"{flag} '{value}' (valid: {', '.join(sorted(valid))})"
+            for flag, value, valid in (
+                ("--vendor", vendor, {hw.vendor for hw in hardware_list}),
+                ("--region", region, {hw.region for hw in hardware_list}),
+                ("--accelerator", accelerator, {hw.accelerator for hw in hardware_list}),
+                ("--instance-type", instance_type, {hw.instance_type for hw in hardware_list}),
+            )
+            if value is not None and value.lower() not in {v.lower() for v in valid}
+        ]
+        out.hint(
+            f"No such hardware: {'; '.join(unknown)}."
+            if unknown
+            # Each value exists, they just never occur together.
+            else "No hardware matches all of these filters at once. Try dropping one."
+        )
+
+
+@ie_cli.command(
+    name="deploy",
+    examples=[
+        "hf endpoints deploy my-endpoint --repo gpt2 --framework pytorch ...",
+        "hf endpoints deploy my-endpoint --repo openai/gpt-oss-120b --framework custom --engine vllm "
+        "--custom-image vllm/vllm-openai:v0.23.0 --tensor-parallel-size 8 ...",
+    ],
+)
 def deploy(
     name: NameArg,
     repo: Annotated[
@@ -170,21 +355,14 @@ def deploy(
         str | None,
         Option(
             "--custom-image",
-            help="Docker image URL for a custom container (e.g. 'nexagi/sglang:v0.5.12'). Requires '--framework custom'.",
+            help="Docker image URL for the container to run (e.g. 'nexagi/sglang:v0.5.12'). Requires '--framework custom'.",
         ),
     ] = None,
-    health_route: Annotated[
-        str | None,
-        Option(
-            help="Health check route exposed by the custom container (e.g. '/health'). Requires --custom-image.",
-        ),
-    ] = None,
-    port: Annotated[
-        int | None,
-        Option(
-            help="Port the custom container listens on (e.g. 30000). Requires --custom-image.",
-        ),
-    ] = None,
+    engine: EngineOpt = None,
+    health_route: HealthRouteOpt = None,
+    port: PortOpt = None,
+    tensor_parallel_size: TensorParallelSizeOpt = None,
+    data_parallel_size: DataParallelSizeOpt = None,
     container_command: Annotated[
         str | None,
         Option(
@@ -218,19 +396,19 @@ def deploy(
         ),
     ] = None,
 ) -> None:
-    """Deploy an Inference Endpoint from a Hub repository."""
-    # --health-route and --port are container-level fields, and the only container payload this
-    # command can build is the custom one, so they need --custom-image. Container command/args are
-    # top-level model fields and apply to managed engine images too, so they are not gated.
-    if custom_image is None and (health_route is not None or port is not None):
-        raise CLIError("--health-route and --port require --custom-image.")
-    custom_image_dict: dict | None = None
-    if custom_image is not None:
-        custom_image_dict = {"url": custom_image}
-        if health_route is not None:
-            custom_image_dict["healthRoute"] = health_route
-        if port is not None:
-            custom_image_dict["port"] = port
+    """Deploy an Inference Endpoint from a Hub repository.
+
+    Run `hf endpoints hardware` to list the valid `--vendor`, `--region`, `--accelerator`, `--instance-type` and
+    `--instance-size` combinations.
+    """
+    custom_image_dict = _build_custom_image(
+        custom_image,
+        engine=engine,
+        health_route=health_route,
+        port=port,
+        tensor_parallel_size=tensor_parallel_size,
+        data_parallel_size=data_parallel_size,
+    )
 
     env_map = {key: value or "" for key, value in parse_env_map(env, env_file).items()}
     secrets_map = {key: value or "" for key, value in parse_env_map(secrets, secrets_file).items()}
@@ -351,6 +529,7 @@ def describe(
 @ie_cli.command(
     examples=[
         "hf endpoints update my-endpoint --min-replica 2",
+        "hf endpoints update my-endpoint --tensor-parallel-size 8",
         'hf endpoints update my-endpoint --container-args "--enable-auto-tool-choice --tool-call-parser lfm2"',
     ]
 )
@@ -399,6 +578,22 @@ def update(
             help="The task on which to deploy the model (e.g. 'text-classification').",
         ),
     ] = None,
+    custom_image: Annotated[
+        str | None,
+        Option(
+            "--custom-image",
+            help=(
+                "Docker image URL for the container to run (e.g. 'nexagi/sglang:v0.5.12'). Replaces the image "
+                "currently configured on the endpoint rather than patching it, so pass the engine and container "
+                "settings you want to keep along with it, run 'hf endpoints describe NAME' first to see them."
+            ),
+        ),
+    ] = None,
+    engine: EngineOpt = None,
+    health_route: HealthRouteOpt = None,
+    port: PortOpt = None,
+    tensor_parallel_size: TensorParallelSizeOpt = None,
+    data_parallel_size: DataParallelSizeOpt = None,
     container_command: Annotated[
         str | None,
         Option(
@@ -455,6 +650,17 @@ def update(
     token: TokenOpt = None,
 ) -> None:
     """Update an existing endpoint."""
+    # Exactly one path carries the sizes: into the image built here when `--custom-image` gives us one, otherwise
+    # as kwargs, for `update_inference_endpoint` to merge into the image the endpoint currently runs.
+    custom_image_dict = _build_custom_image(
+        custom_image,
+        engine=engine,
+        health_route=health_route,
+        port=port,
+        tensor_parallel_size=tensor_parallel_size if custom_image is not None else None,
+        data_parallel_size=data_parallel_size if custom_image is not None else None,
+    )
+
     api = get_hf_api(token=token)
     try:
         endpoint = api.update_inference_endpoint(
@@ -464,8 +670,11 @@ def update(
             framework=framework,
             revision=revision,
             task=task,
+            custom_image=custom_image_dict,
             container_command=shlex.split(container_command) if container_command is not None else None,
             container_args=shlex.split(container_args) if container_args is not None else None,
+            tensor_parallel_size=tensor_parallel_size if custom_image is None else None,
+            data_parallel_size=data_parallel_size if custom_image is None else None,
             accelerator=accelerator,
             instance_size=instance_size,
             instance_type=instance_type,
@@ -565,3 +774,53 @@ def scale_to_zero(
         raise click.exceptions.Exit(code=error.response.status_code) from error
 
     out.dict(endpoint.raw)
+
+
+def _build_custom_image(
+    custom_image: str | None,
+    *,
+    engine: str | None = None,
+    health_route: str | None = None,
+    port: int | None = None,
+    tensor_parallel_size: int | None = None,
+    data_parallel_size: int | None = None,
+) -> dict | None:
+    """Build the `custom_image` argument of `HfApi` from the flat image flags.
+
+    A bare image URL describes a custom container and is passed flat, `HfApi` keys it as `custom`. `--engine`
+    selects a managed engine image instead, whose config is keyed by the API's variant name. An engine this
+    version doesn't know about is forwarded as typed, so the API names the bad variant.
+    """
+    if custom_image is None:
+        # These flags all describe the container image, and the only image these commands can build is the one
+        # --custom-image names. Container command/args are top-level model fields, hence not listed here.
+        image_flags = {
+            "--engine": engine,
+            "--health-route": health_route,
+            "--port": port,
+            "--tensor-parallel-size": tensor_parallel_size,
+            "--data-parallel-size": data_parallel_size,
+        }
+        if used := [flag for flag, value in image_flags.items() if value is not None]:
+            raise CLIError(f"--custom-image is required when using {', '.join(used)}.")
+        return None
+
+    if engine is None and (tensor_parallel_size is not None or data_parallel_size is not None):
+        # Without an engine the config is a plain custom container, whose parallelism fields the API ignores
+        # rather than rejects. Fail here instead of deploying something that quietly runs on one accelerator.
+        raise CLIError("--tensor-parallel-size and --data-parallel-size require --engine (e.g. --engine vllm).")
+
+    config: dict = {"url": custom_image}
+    if health_route is not None:
+        config["healthRoute"] = health_route
+    if port is not None:
+        config["port"] = port
+    if engine is None:
+        return config
+    # Delegate the sizes so this and `update_inference_endpoint` share one rule, including the warning when
+    # the engine does not declare the field.
+    return _set_parallelism_in_image(
+        {ENGINE_IMAGE_KEYS.get(engine, engine): config},
+        tensor_parallel_size=tensor_parallel_size,
+        data_parallel_size=data_parallel_size,
+    )

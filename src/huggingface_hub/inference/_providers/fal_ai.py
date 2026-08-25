@@ -171,7 +171,15 @@ class FalAITextToVideoTask(FalAIQueueTask):
     def _prepare_payload_as_dict(
         self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
     ) -> dict | None:
-        return {"prompt": inputs, **filter_none(parameters)}
+        payload: dict[str, Any] = {"prompt": inputs, **filter_none(parameters)}
+        if provider_mapping_info.adapter_weights_path is not None:
+            lora_path = constants.HUGGINGFACE_CO_URL_TEMPLATE.format(
+                repo_id=provider_mapping_info.hf_model_id,
+                revision="main",
+                filename=provider_mapping_info.adapter_weights_path,
+            )
+            payload["loras"] = [{"path": lora_path, "scale": 1}]
+        return payload
 
     def get_response(
         self,
