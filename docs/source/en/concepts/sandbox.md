@@ -61,7 +61,7 @@ Every sandbox job also carries two stable labels for discovery — `hf-sandbox=1
 The token is delivered to the server via a Job secret. The client re-derives it on demand from the public nonce in the label. This has some nice consequences:
 
 - **Stateless reconnection.** [`Sandbox.connect(id)`] works from any machine that holds the same HF token — read the nonce from the label, recompute the token. No local files, no state to copy.
-- **The HF token never enters the sandbox** (unless you opt in with `forward_hf_token=True`), so code running inside cannot exfiltrate your credentials.
+- **The HF token is not passed to the sandbox as an environment variable or job secret** (unless you opt in with `forward_hf_token=True`). This is not a hard guarantee that your credentials stay out of reach: the process listening on the sandbox port is whatever the image starts first, so an untrusted image may be able to observe the requests the client sends — including their `Authorization` header. Treat credentials reachable from a sandbox as potentially exposed to it.
 - **Per-sandbox scope.** Each sandbox has a unique nonce, so a leaked sandbox token compromises that one sandbox only. Other namespace members hold a different HF token and cannot derive it.
 
 ## Dedicated sandboxes (`Sandbox.create`)
@@ -207,7 +207,7 @@ All numbers are measured against real HF Jobs on `cpu-basic`, with the client on
 | Build on Jobs, no new service                                         | inherits billing, hardware, permissions; works in any image                     |
 | Static Rust binary, downloaded at startup                             | no Python/pip; ~6s cold start vs 30–90s for a pip-based bootstrap               |
 | Hand-rolled HTTP/1.1                                                  | minimal frameworks buffer chunked responses and break live streaming (verified) |
-| Stateless HMAC auth                                                   | reconnect from anywhere; HF token never enters the sandbox                      |
+| Stateless HMAC auth                                                   | reconnect from anywhere; per-sandbox scoped token instead of the HF token       |
 | `run()` raises on non-zero exit (`check=False` opts out)              | best DX for "run code, see the error" loops (E2B-style)                         |
 | `idle_timeout` watchdog instead of client-side cleanup                | persistent sandboxes are a feature; leaked ones still die                       |
 | Pools = uid + Landlock, server-authoritative capacity, no local state | fast same-user fan-out; correct under concurrency; reattachable anywhere        |

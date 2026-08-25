@@ -13976,6 +13976,51 @@ class HfApi:
         hf_raise_for_status(response)
 
     @validate_hf_hub_args
+    def update_bucket_settings(
+        self,
+        bucket_id: str,
+        *,
+        private: bool,
+        token: bool | str | None = None,
+    ) -> None:
+        """Update the settings of a bucket on the Hub.
+
+        Currently, the only supported setting is the bucket's visibility.
+
+        Args:
+            bucket_id (`str`):
+                The ID of the bucket (e.g. `"username/my-bucket"`).
+            private (`bool`):
+                Whether to make the bucket private.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Raises:
+            [`~errors.BucketNotFoundError`]: If the bucket cannot be found. This may be because it doesn't exist,
+            or because it is set to `private` and you do not have access.
+
+        Example:
+            ```python
+            >>> from huggingface_hub import update_bucket_settings
+
+            >>> # Make a bucket public
+            >>> update_bucket_settings(bucket_id="Wauplin/first-bucket", private=False)
+
+            >>> # Make it private again
+            >>> update_bucket_settings(bucket_id="Wauplin/first-bucket", private=True)
+            ```
+        """
+        response = get_session().put(
+            f"{self.endpoint}/api/buckets/{bucket_id}/settings",
+            headers=self._build_hf_headers(token=token),
+            json={"private": private},
+        )
+        hf_raise_for_status(response)
+
+    @validate_hf_hub_args
     def list_bucket_tree(
         self,
         bucket_id: str,
@@ -15326,6 +15371,7 @@ bucket_info = api.bucket_info
 list_buckets = api.list_buckets
 delete_bucket = api.delete_bucket
 move_bucket = api.move_bucket
+update_bucket_settings = api.update_bucket_settings
 list_bucket_tree = api.list_bucket_tree
 get_bucket_paths_info = api.get_bucket_paths_info
 copy_files = api.copy_files
