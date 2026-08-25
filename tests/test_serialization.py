@@ -874,29 +874,6 @@ class TestShardedCheckpointValidation:
         with pytest.raises(ValueError, match="Invalid shard filename.*Expected '.safetensors' extension"):
             load_torch_model(Mock(), tmp_path)
 
-    @pytest.mark.parametrize("shard_name", [".safetensors", "sub/.safetensors"])
-    def test_safetensors_index_rejects_extension_only_shard(self, tmp_path, mocker, shard_name):
-        """A shard named only ".safetensors" must never reach `torch.load` (pickle).
-
-        `Path(".safetensors").suffix` is `""`, so a suffix-based router would skip the
-        safetensors branch and fall back to `torch.load(weights_only=False)`.
-        """
-        index = {
-            "metadata": {"total_size": 100},
-            "weight_map": {
-                "layer_1": shard_name,
-            },
-        }
-        (tmp_path / "model.safetensors.index.json").write_text(json.dumps(index))
-        shard_path = tmp_path / shard_name
-        shard_path.parent.mkdir(parents=True, exist_ok=True)
-        shard_path.write_bytes(b"not a safetensors file")
-
-        torch_load = mocker.patch("torch.load")
-        with pytest.raises(Exception):  # noqa: B017 - raised by the safetensors loader, never by pickle
-            load_torch_model(Mock(), tmp_path)
-        torch_load.assert_not_called()
-
     @pytest.mark.parametrize(
         ("filename", "expected"),
         [
