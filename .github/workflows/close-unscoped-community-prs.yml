@@ -53,16 +53,10 @@ jobs:
           script: |
             const MARKER = "<!-- close-unscoped-community-pr -->";
             const MAX_REFERENCES = 20;
-            // Two different questions. Whether an issue was discussed: a reply from anyone on the
-            // team counts, read from `author_association` so a new team member needs no edit here.
-            // Whether a PR is already being handled: only the maintainers, since any of the many
-            // org members could drop a passing comment on a PR without taking it on.
-            const TEAM_ASSOCIATIONS = new Set(["OWNER", "MEMBER", "COLLABORATOR"]);
 
             const maintainers = process.env.MAINTAINERS.split(",").map((login) => login.trim());
             const logins = new Set(maintainers.map((login) => login.toLowerCase()));
             const isMaintainer = (user) => user != null && logins.has(user.login.toLowerCase());
-            const scopesIssue = (comment) => isMaintainer(comment.user) || TEAM_ASSOCIATIONS.has(comment.author_association);
             const dryRun = process.env.DRY_RUN === "true";
 
             const { data: pr } = await github.rest.pulls.get({
@@ -76,7 +70,10 @@ jobs:
             // Load-bearing: `dependabot[bot]` and our own app bots report `CONTRIBUTOR`, which the
             // check below does not exempt.
             if (pr.user.type === "Bot" || pr.user.login.endsWith("[bot]")) return skip("opened by a bot");
-            if (TEAM_ASSOCIATIONS.has(pr.author_association)) {
+            // Anyone with write access here is out of scope, whatever their name. Every other
+            // decision below asks for one of `MAINTAINERS` specifically: an org member commenting
+            // is not the same as one of us taking the change on.
+            if (["OWNER", "MEMBER", "COLLABORATOR"].includes(pr.author_association)) {
               return skip(`author is ${pr.author_association}, so they have write access here`);
             }
             if (isMaintainer(pr.user)) return skip("opened by a maintainer");
@@ -130,14 +127,14 @@ jobs:
                 throw error;
               }
               if (issue.pull_request) continue; // a PR, not an issue
-              // Only a reply counts. A maintainer opening an issue is not agreement that someone
-              // else should implement it: CONTRIBUTING.md says we usually pick those up ourselves.
+              // Only a maintainer reply counts. Them opening the issue is not agreement that
+              // someone else should implement it: CONTRIBUTING.md says we pick those up ourselves.
               const comments = await github.paginate(github.rest.issues.listComments, {
                 ...context.repo,
                 issue_number: number,
                 per_page: 100,
               });
-              const reply = comments.find(scopesIssue);
+              const reply = comments.find((comment) => isMaintainer(comment.user));
               if (reply) {
                 scoped = { number, login: reply.user.login };
                 break;
