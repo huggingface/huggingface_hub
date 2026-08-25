@@ -55,8 +55,8 @@ jobs:
             const MAX_REFERENCES = 20;
             // `author_association` is the server's answer to "does this person have write access
             // here", for both the PR author and whoever replied on an issue. Relying on it means a
-            // new team member counts without editing this file. `MAINTAINERS` is the list we ping,
-            // and the fallback when there is no association to read (a `reopened` event sender).
+            // new team member counts without editing this file. `MAINTAINERS` is only the list we
+            // ping in the comment, plus a safety net against ever closing a maintainer's own PR.
             const TEAM_ASSOCIATIONS = new Set(["OWNER", "MEMBER", "COLLABORATOR"]);
 
             const maintainers = process.env.MAINTAINERS.split(",").map((login) => login.trim());
@@ -81,9 +81,11 @@ jobs:
             }
             if (isNamedMaintainer(pr.user)) return skip("opened by a maintainer");
 
-            // Reopening is how a maintainer overrides a previous close, so don't close it again.
-            if (context.payload.action === "reopened" && isNamedMaintainer(context.payload.sender)) {
-              return skip(`reopened by @${context.payload.sender.login}`);
+            // Only the author or someone with triage/write access can reopen a PR, so anyone other
+            // than the author reopening it is a deliberate override. Don't undo it.
+            const sender = context.payload.sender;
+            if (context.payload.action === "reopened" && sender.login.toLowerCase() !== pr.user.login.toLowerCase()) {
+              return skip(`reopened by @${sender.login}`);
             }
 
             // A maintainer already engaged with the PR itself, so let the human decision stand.
