@@ -6972,6 +6972,13 @@ class HfApi:
                 tqdm_class=hf_tqdm,
             )
 
+            for tensor_name, filename in weight_map.items():
+                if tensor_name not in files_metadata[filename].tensors:
+                    raise SafetensorsParsingError(
+                        f"Safetensors index for '{repo_id}' is inconsistent: tensor '{tensor_name}' is mapped to "
+                        f"'{filename}' but is not present in that file."
+                    )
+
             return SafetensorsRepoMetadata(
                 metadata=index.get("metadata", None),
                 sharded=True,
