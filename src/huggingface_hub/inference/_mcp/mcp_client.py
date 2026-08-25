@@ -183,7 +183,7 @@ class MCPClient:
             read, write = await self.exit_stack.enter_async_context(sse_client(**client_kwargs))
         elif type == "http":
             # Handle StreamableHTTP server
-            from mcp.client.streamable_http import streamablehttp_client
+            from mcp.client.streamable_http import streamable_http_client
 
             logger.info(f"Connecting to StreamableHTTP MCP server at: {params['url']}")
 
@@ -191,7 +191,7 @@ class MCPClient:
             for key in ["headers", "timeout", "sse_read_timeout", "terminate_on_close"]:
                 if params.get(key) is not None:
                     client_kwargs[key] = params[key]
-            read, write, _ = await self.exit_stack.enter_async_context(streamablehttp_client(**client_kwargs))
+            read, write, _ = await self.exit_stack.enter_async_context(streamable_http_client(**client_kwargs))
             # ^ TODO: should be handle `get_session_id_callback`? (function to retrieve the current session ID)
         else:
             raise ValueError(f"Unsupported server type: {type}")
