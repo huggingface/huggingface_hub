@@ -53,16 +53,16 @@ jobs:
           script: |
             const MARKER = "<!-- close-unscoped-community-pr -->";
             const MAX_REFERENCES = 20;
-            // `author_association` is the server's answer to "does this person have write access
-            // here", for both the PR author and whoever replied on an issue. Relying on it means a
-            // new team member counts without editing this file. `MAINTAINERS` is only the list we
-            // ping in the comment, plus a safety net against ever closing a maintainer's own PR.
+            // Two different questions. Whether an issue was discussed: a reply from anyone on the
+            // team counts, read from `author_association` so a new team member needs no edit here.
+            // Whether a PR is already being handled: only the maintainers, since any of the many
+            // org members could drop a passing comment on a PR without taking it on.
             const TEAM_ASSOCIATIONS = new Set(["OWNER", "MEMBER", "COLLABORATOR"]);
 
             const maintainers = process.env.MAINTAINERS.split(",").map((login) => login.trim());
             const logins = new Set(maintainers.map((login) => login.toLowerCase()));
-            const isNamedMaintainer = (user) => user != null && logins.has(user.login.toLowerCase());
-            const isMaintainer = (user, association) => isNamedMaintainer(user) || TEAM_ASSOCIATIONS.has(association);
+            const isMaintainer = (user) => user != null && logins.has(user.login.toLowerCase());
+            const scopesIssue = (comment) => isMaintainer(comment.user) || TEAM_ASSOCIATIONS.has(comment.author_association);
             const dryRun = process.env.DRY_RUN === "true";
 
             const { data: pr } = await github.rest.pulls.get({
@@ -79,7 +79,7 @@ jobs:
             if (TEAM_ASSOCIATIONS.has(pr.author_association)) {
               return skip(`author is ${pr.author_association}, so they have write access here`);
             }
-            if (isNamedMaintainer(pr.user)) return skip("opened by a maintainer");
+            if (isMaintainer(pr.user)) return skip("opened by a maintainer");
 
             // Only the author or someone with triage/write access can reopen a PR, so anyone other
             // than the author reopening it is a deliberate override. Don't undo it.
@@ -93,7 +93,7 @@ jobs:
               github.paginate(github.rest.issues.listComments, { ...context.repo, issue_number: pr.number, per_page: 100 }),
               github.paginate(github.rest.pulls.listReviews, { ...context.repo, pull_number: pr.number, per_page: 100 }),
             ]);
-            const engaged = [...prComments, ...prReviews].find((event) => isMaintainer(event.user, event.author_association));
+            const engaged = [...prComments, ...prReviews].find((event) => isMaintainer(event.user));
             if (engaged) return skip(`@${engaged.user.login} already commented on or reviewed it`);
 
             // The author can reopen their own PR, so we may land on the same one twice.
@@ -137,7 +137,7 @@ jobs:
                 issue_number: number,
                 per_page: 100,
               });
-              const reply = comments.find((comment) => isMaintainer(comment.user, comment.author_association));
+              const reply = comments.find(scopesIssue);
               if (reply) {
                 scoped = { number, login: reply.user.login };
                 break;
