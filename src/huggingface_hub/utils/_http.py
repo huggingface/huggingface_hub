@@ -691,6 +691,9 @@ def http_stream_backoff(
     )
 
 
+_MAX_REDIRECTS = 20  # same bound as httpx's default max_redirects
+
+
 def _httpx_follow_hub_redirects_with_backoff(
     method: HTTP_METHOD_T, url: str, *, retry_on_errors: bool = False, **httpx_kwargs
 ) -> httpx.Response:
@@ -722,7 +725,7 @@ def _httpx_follow_hub_redirects_with_backoff(
         {} if retry_on_errors else {"retry_on_exceptions": (), "retry_on_status_codes": ()}
     )
 
-    for _ in range(20):  # same bound as httpx's default max_redirects
+    for _ in range(_MAX_REDIRECTS):
         response = http_backoff(
             method=method,
             url=url,
@@ -743,7 +746,7 @@ def _httpx_follow_hub_redirects_with_backoff(
 
         url = target
 
-    raise httpx.TooManyRedirects(f"Exceeded 20 redirects while resolving '{url}'.")
+    raise httpx.TooManyRedirects(f"Exceeded {_MAX_REDIRECTS} redirects while resolving '{url}'.")
 
 
 def _is_same_or_hub_host(url: str, target: str) -> bool:
