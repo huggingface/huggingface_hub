@@ -195,6 +195,29 @@ def test_delete_bucket_not_found():
 
 
 # =============================================================================
+# Settings
+# =============================================================================
+
+
+def test_bucket_settings(api: HfApi, bucket_write: str):
+    result = cli(f"hf buckets settings {bucket_write} --private")
+    assert result.exit_code == 0
+    assert api.bucket_info(bucket_write).private is True
+
+    result = cli(f"hf buckets settings {bucket_write} --public")
+    assert result.exit_code == 0
+    assert api.bucket_info(bucket_write).private is False
+
+
+def test_bucket_settings_requires_exactly_one_flag(bucket_read: str):
+    result = cli(f"hf buckets settings {bucket_read} --private --public")
+    assert result.exit_code != 0
+
+    result = cli(f"hf buckets settings {bucket_read}")
+    assert result.exit_code != 0
+
+
+# =============================================================================
 # Remove / rm  (file removal only)
 # =============================================================================
 
