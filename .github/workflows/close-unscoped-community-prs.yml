@@ -1,6 +1,7 @@
-# Enforces the "open an issue first" policy from CONTRIBUTING.md for first-time contributors:
-# a PR from someone who never contributed before is closed unless it links an issue that a
-# maintainer already replied to.
+# Enforces the "open an issue first" policy from CONTRIBUTING.md for community contributions:
+# a PR from anyone without write access on this repo is closed unless it links an issue that a
+# maintainer already replied to. This includes contributors who already had a PR merged, since
+# the policy is about scoping work upfront, not about being new.
 #
 # Uses `pull_request_target` because `GITHUB_TOKEN` is read-only for PRs opened from forks.
 # The PR branch is never checked out, so no untrusted code runs here.
@@ -10,7 +11,7 @@
 # `github.event_name == 'pull_request_target'` from `DRY_RUN` below. Until then, act on a
 # single PR with `workflow_dispatch` and `dry_run` unchecked.
 
-name: Close unscoped first-time PRs
+name: Close unscoped community PRs
 
 on:
   pull_request_target:
@@ -33,7 +34,7 @@ permissions: {}
 # in between would leave "I am closing this" on an open PR. Serializing also keeps the
 # already-commented check below reliable when two events land on the same PR.
 concurrency:
-  group: close-unscoped-first-pr-${{ github.event.pull_request.number || inputs.pr_number }}
+  group: close-unscoped-community-pr-${{ github.event.pull_request.number || inputs.pr_number }}
   cancel-in-progress: false
 
 jobs:
@@ -50,17 +51,18 @@ jobs:
           DRY_RUN: ${{ inputs.dry_run || github.event_name == 'pull_request_target' }}
         with:
           script: |
-            const MARKER = "<!-- close-unscoped-first-pr -->";
+            const MARKER = "<!-- close-unscoped-community-pr -->";
             const MAX_REFERENCES = 20;
-            // Trusting `author_association` means a new team member counts without editing this
-            // file. `MAINTAINERS` stays as the list we ping and as a fallback when the API
-            // reports no association (e.g. the sender of a `reopened` event).
+            // `author_association` is the server's answer to "does this person have write access
+            // here", for both the PR author and whoever replied on an issue. Relying on it means a
+            // new team member counts without editing this file. `MAINTAINERS` is the list we ping,
+            // and the fallback when there is no association to read (a `reopened` event sender).
             const TEAM_ASSOCIATIONS = new Set(["OWNER", "MEMBER", "COLLABORATOR"]);
 
             const maintainers = process.env.MAINTAINERS.split(",").map((login) => login.trim());
             const logins = new Set(maintainers.map((login) => login.toLowerCase()));
-            const isMaintainer = (user, association) =>
-              (user != null && logins.has(user.login.toLowerCase())) || TEAM_ASSOCIATIONS.has(association);
+            const isNamedMaintainer = (user) => user != null && logins.has(user.login.toLowerCase());
+            const isMaintainer = (user, association) => isNamedMaintainer(user) || TEAM_ASSOCIATIONS.has(association);
             const dryRun = process.env.DRY_RUN === "true";
 
             const { data: pr } = await github.rest.pulls.get({
@@ -71,14 +73,16 @@ jobs:
             const skip = (reason) => core.info(`Skipping PR #${pr.number}: ${reason}`);
 
             if (pr.state !== "open") return skip("already closed");
+            // Load-bearing: `dependabot[bot]` and our own app bots report `CONTRIBUTOR`, which the
+            // check below does not exempt.
             if (pr.user.type === "Bot" || pr.user.login.endsWith("[bot]")) return skip("opened by a bot");
-            if (!["FIRST_TIMER", "FIRST_TIME_CONTRIBUTOR", "NONE"].includes(pr.author_association)) {
-              return skip(`author association is ${pr.author_association}, not a first-time contributor`);
+            if (TEAM_ASSOCIATIONS.has(pr.author_association)) {
+              return skip(`author is ${pr.author_association}, so they have write access here`);
             }
-            if (isMaintainer(pr.user, pr.author_association)) return skip("opened by a maintainer");
+            if (isNamedMaintainer(pr.user)) return skip("opened by a maintainer");
 
             // Reopening is how a maintainer overrides a previous close, so don't close it again.
-            if (context.payload.action === "reopened" && isMaintainer(context.payload.sender)) {
+            if (context.payload.action === "reopened" && isNamedMaintainer(context.payload.sender)) {
               return skip(`reopened by @${context.payload.sender.login}`);
             }
 
