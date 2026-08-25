@@ -4,6 +4,11 @@
 #
 # Uses `pull_request_target` because `GITHUB_TOKEN` is read-only for PRs opened from forks.
 # The PR branch is never checked out, so no untrusted code runs here.
+#
+# The automatic trigger is dry-run only for now: it logs its decision without commenting or
+# closing, so we can watch it against real PRs. To enable enforcement, drop
+# `github.event_name == 'pull_request_target'` from `DRY_RUN` below. Until then, act on a
+# single PR with `workflow_dispatch` and `dry_run` unchecked.
 
 name: Close unscoped first-time PRs
 
@@ -24,9 +29,12 @@ on:
 
 permissions: {}
 
+# Deliberately not `cancel-in-progress`: commenting and closing are two calls, and a cancellation
+# in between would leave "I am closing this" on an open PR. Serializing also keeps the
+# already-commented check below reliable when two events land on the same PR.
 concurrency:
   group: close-unscoped-first-pr-${{ github.event.pull_request.number || inputs.pr_number }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   check-scoped-issue:
@@ -39,12 +47,20 @@ jobs:
         env:
           MAINTAINERS: Wauplin,hanouticelina
           PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
-          DRY_RUN: ${{ inputs.dry_run || false }}
+          DRY_RUN: ${{ inputs.dry_run || github.event_name == 'pull_request_target' }}
         with:
           script: |
+            const MARKER = "<!-- close-unscoped-first-pr -->";
+            const MAX_REFERENCES = 20;
+            // Trusting `author_association` means a new team member counts without editing this
+            // file. `MAINTAINERS` stays as the list we ping and as a fallback when the API
+            // reports no association (e.g. the sender of a `reopened` event).
+            const TEAM_ASSOCIATIONS = new Set(["OWNER", "MEMBER", "COLLABORATOR"]);
+
             const maintainers = process.env.MAINTAINERS.split(",").map((login) => login.trim());
-            const lowercased = new Set(maintainers.map((login) => login.toLowerCase()));
-            const isMaintainer = (user) => user != null && lowercased.has(user.login.toLowerCase());
+            const logins = new Set(maintainers.map((login) => login.toLowerCase()));
+            const isMaintainer = (user, association) =>
+              (user != null && logins.has(user.login.toLowerCase())) || TEAM_ASSOCIATIONS.has(association);
             const dryRun = process.env.DRY_RUN === "true";
 
             const { data: pr } = await github.rest.pulls.get({
@@ -59,7 +75,7 @@ jobs:
             if (!["FIRST_TIMER", "FIRST_TIME_CONTRIBUTOR", "NONE"].includes(pr.author_association)) {
               return skip(`author association is ${pr.author_association}, not a first-time contributor`);
             }
-            if (isMaintainer(pr.user)) return skip("opened by a maintainer");
+            if (isMaintainer(pr.user, pr.author_association)) return skip("opened by a maintainer");
 
             // Reopening is how a maintainer overrides a previous close, so don't close it again.
             if (context.payload.action === "reopened" && isMaintainer(context.payload.sender)) {
@@ -71,8 +87,11 @@ jobs:
               github.paginate(github.rest.issues.listComments, { ...context.repo, issue_number: pr.number, per_page: 100 }),
               github.paginate(github.rest.pulls.listReviews, { ...context.repo, pull_number: pr.number, per_page: 100 }),
             ]);
-            const engaged = [...prComments, ...prReviews].find((event) => isMaintainer(event.user));
+            const engaged = [...prComments, ...prReviews].find((event) => isMaintainer(event.user, event.author_association));
             if (engaged) return skip(`@${engaged.user.login} already commented on or reviewed it`);
+
+            // The author can reopen their own PR, so we may land on the same one twice.
+            const alreadyNotified = prComments.some((comment) => comment.body?.includes(MARKER));
 
             // Any `#123` or issue URL in the title or body counts as a reference. Over-matching is
             // intentional: a false reference leaves the PR open, a missed one closes it.
@@ -87,19 +106,25 @@ jobs:
                 referenced.add(Number(number));
               }
             }
-            core.info(`Referenced numbers: ${[...referenced].join(", ") || "none"}`);
+            // Each reference costs an API round-trip, so cap them: a body stuffed with `#N` should
+            // not be able to burn the token's hourly budget.
+            const candidates = [...referenced].sort((a, b) => a - b);
+            core.info(`Referenced numbers: ${candidates.join(", ") || "none"}`);
+            if (candidates.length > MAX_REFERENCES) {
+              core.info(`Only checking the first ${MAX_REFERENCES} of ${candidates.length} references`);
+            }
 
             let scoped = null;
-            for (const number of [...referenced].sort((a, b) => a - b)) {
+            for (const number of candidates.slice(0, MAX_REFERENCES)) {
               let issue;
               try {
                 ({ data: issue } = await github.rest.issues.get({ ...context.repo, issue_number: number }));
               } catch (error) {
-                if (error.status === 404) continue;
+                if (error.status === 404 || error.status === 410) continue;
                 throw error;
               }
               if (issue.pull_request) continue; // a PR, not an issue
-              if (isMaintainer(issue.user)) {
+              if (isMaintainer(issue.user, issue.author_association)) {
                 scoped = { number, login: issue.user.login, action: "opened it" };
                 break;
               }
@@ -108,7 +133,7 @@ jobs:
                 issue_number: number,
                 per_page: 100,
               });
-              const reply = comments.find((comment) => isMaintainer(comment.user));
+              const reply = comments.find((comment) => isMaintainer(comment.user, comment.author_association));
               if (reply) {
                 scoped = { number, login: reply.user.login, action: "replied to it" };
                 break;
@@ -130,16 +155,20 @@ jobs:
               "If you would like to take this further:",
               "1. Open an issue describing what is wrong or missing, why it matters, and how you would expect it to work.",
               `2. Wait for a maintainer (${maintainers.map((login) => `@${login}`).join(" or ")}) to reply and agree on the approach.`,
-              "3. Reopen this PR and link that issue in the description.",
+              "3. Link that issue in this PR's description, then reopen the PR.",
               "",
               "Documentation improvements and typo fixes are always welcome without an issue. If that is what this PR does, say so here and a maintainer will reopen it.",
             ].join("\n");
 
             if (dryRun) {
-              core.info(`[dry run] Would close PR #${pr.number} with comment:\n${body}`);
+              core.info(`[dry run] Would close PR #${pr.number}${alreadyNotified ? " (already commented)" : " with comment"}:\n${body}`);
               return;
             }
 
-            await github.rest.issues.createComment({ ...context.repo, issue_number: pr.number, body });
+            if (alreadyNotified) {
+              core.info("Already commented on this PR once, closing without repeating it");
+            } else {
+              await github.rest.issues.createComment({ ...context.repo, issue_number: pr.number, body: `${body}\n\n${MARKER}` });
+            }
             await github.rest.pulls.update({ ...context.repo, pull_number: pr.number, state: "closed" });
             core.notice(`Closed PR #${pr.number}: no linked issue with a maintainer reply`);
