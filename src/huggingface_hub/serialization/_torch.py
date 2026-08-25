@@ -32,6 +32,8 @@ from ._base import MAX_SHARD_SIZE, StateDictSplit, split_state_dict_into_shards_
 
 logger = logging.get_logger(__file__)
 
+SAFETENSORS_EXTENSION = ".safetensors"
+
 if TYPE_CHECKING:
     import torch
 
@@ -533,7 +535,12 @@ def _load_sharded_checkpoint(
                 f"Invalid shard filename '{shard_file}' in index file '{index_file}'. "
                 "Shard filenames must be relative paths without '..' components."
             )
-        # Reject extension mismatch (e.g. .bin shard in a .safetensors index)
+        # Reject extension mismatch (e.g. .bin shard in a .safetensors index).
+        # This check MUST use the same matching semantics as `_is_safetensors`, which is what
+        # `load_state_dict_from_file` uses to route a shard to the safetensors loader. Any
+        # disagreement between the two lets a shard pass validation here and still be routed to
+        # `torch.load(weights_only=False)` (arbitrary pickle deserialization) below — which is
+        # exactly what happens with `Path(...).suffix` for a shard named ".safetensors".
         if not shard_file.endswith(expected_extension):
             raise ValueError(
                 f"Invalid shard filename '{shard_file}' in index file '{index_file}'. "
@@ -631,7 +638,7 @@ def load_state_dict_from_file(
         )
 
     # Load safetensors checkpoint
-    if checkpoint_path.suffix == ".safetensors":
+    if _is_safetensors(checkpoint_path):
         try:
             from safetensors import safe_open
             from safetensors.torch import load_file
@@ -681,6 +688,18 @@ def load_state_dict_from_file(
 
 
 # HELPERS
+
+
+def _is_safetensors(filename: Union[str, os.PathLike]) -> bool:
+    """Whether `filename` must be loaded with the safetensors loader.
+
+    Uses a plain `str.endswith` check instead of `Path(filename).suffix == ".safetensors"`:
+    `Path` treats a name that is only an extension (e.g. ".safetensors", or "sub/.safetensors")
+    as a hidden file with no suffix, so the suffix comparison returns `False` and such a file
+    would silently fall back to `torch.load` (pickle). Shard validation in
+    `_load_sharded_checkpoint` uses `endswith` too, so both must stay consistent.
+    """
+    return str(filename).endswith(SAFETENSORS_EXTENSION)
 
 
 def _validate_keys_for_strict_loading(
