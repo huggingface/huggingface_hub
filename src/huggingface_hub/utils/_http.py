@@ -701,11 +701,8 @@ def _httpx_follow_hub_redirects_with_backoff(
 
     Used to fetch HEAD /resolve on repo or bucket files.
 
-    A redirect is followed when it targets the host of the current request (e.g. a renamed repository, or the
-    `/api/resolve-cache/` route) or another known Hub host (e.g. an `HF_ENDPOINT` mirror redirecting to
-    `huggingface.co`). Redirects to any other host are *not* followed: those point to a CDN or storage bucket, the
-    file metadata is already carried by the redirect response itself, and the authorization header must not be
-    forwarded off the Hub.
+    Redirects to the same host or another Hub host are followed. Redirects to any other host (CDN, storage
+    bucket) are not: the file metadata is on the redirect response itself and the auth header must not leave the Hub.
 
     A backoff mechanism retries the HTTP call on errors (429, 5xx, timeout, network errors).
 
