@@ -73,9 +73,12 @@ if _staging_mode:
     ENDPOINT = _HF_DEFAULT_STAGING_ENDPOINT
     HUGGINGFACE_CO_URL_TEMPLATE = _HF_DEFAULT_STAGING_ENDPOINT + "/{repo_id}/resolve/{revision}/{filename}"
 
-# Hosts whose web URLs can be parsed into a ``hf://`` URI (see ``huggingface_hub/utils/_hf_uris.py``).
-# Includes the public Hub host and its ``hf.co`` short domain, the staging host, and the host of the
-# currently configured ``ENDPOINT`` so that self-hosted / staging endpoints work too.
+# Hosts we consider to be Hugging Face Hub endpoints. Includes the public Hub host and its ``hf.co`` short
+# domain, the staging host, and the host of the currently configured ``ENDPOINT`` so that self-hosted / staging
+# endpoints work too.
+# Used to parse web URLs into ``hf://`` URIs (see ``huggingface_hub/utils/_hf_uris.py``) and to decide which
+# redirects to follow while resolving files (see ``huggingface_hub/utils/_http.py``). The latter forwards the
+# authorization header to these hosts, so only add a host that is trusted with the user's token.
 HF_URL_HOSTS: frozenset[str] = frozenset(
     {"hf.co"}
     | {
