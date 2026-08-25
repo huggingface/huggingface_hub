@@ -130,10 +130,8 @@ jobs:
                 throw error;
               }
               if (issue.pull_request) continue; // a PR, not an issue
-              if (isMaintainer(issue.user, issue.author_association)) {
-                scoped = { number, login: issue.user.login, action: "opened it" };
-                break;
-              }
+              // Only a reply counts. A maintainer opening an issue is not agreement that someone
+              // else should implement it: CONTRIBUTING.md says we usually pick those up ourselves.
               const comments = await github.paginate(github.rest.issues.listComments, {
                 ...context.repo,
                 issue_number: number,
@@ -141,13 +139,13 @@ jobs:
               });
               const reply = comments.find((comment) => isMaintainer(comment.user, comment.author_association));
               if (reply) {
-                scoped = { number, login: reply.user.login, action: "replied to it" };
+                scoped = { number, login: reply.user.login };
                 break;
               }
             }
 
             if (scoped) {
-              core.info(`Keeping PR #${pr.number} open: @${scoped.login} ${scoped.action} in #${scoped.number}`);
+              core.info(`Keeping PR #${pr.number} open: @${scoped.login} replied to it in #${scoped.number}`);
               return;
             }
 
