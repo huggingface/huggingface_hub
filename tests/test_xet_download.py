@@ -245,7 +245,9 @@ class TestXetFileDownload:
 
         with self._patch_xet_file_metadata(with_xet_data=True):
             with patch("huggingface_hub.utils._xet.get_xet_session", return_value=mock_session):
-                with patch("huggingface_hub.utils._xet.fetch_xet_connection_info", return_value=mock_connection_info):
+                with patch(
+                    "huggingface_hub.utils._xet.refresh_xet_connection_info", return_value=mock_connection_info
+                ):
                     with patch("huggingface_hub.file_download._create_symlink"):
                         hf_hub_download(
                             DUMMY_XET_MODEL_ID,

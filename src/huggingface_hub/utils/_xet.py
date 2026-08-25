@@ -103,16 +103,18 @@ def parse_xet_connection_info_from_headers(headers: Mapping[str, str]) -> XetCon
     )
 
 
-def fetch_xet_connection_info(refresh_route: str, headers: dict[str, str]) -> XetConnectionInfo:
+@validate_hf_hub_args
+def refresh_xet_connection_info(
+    *,
+    file_data: XetFileData,
+    headers: dict[str, str],
+) -> XetConnectionInfo:
     """
-    Fetch the xet connection info (CAS endpoint, access token and expiration) from the Hub.
-
-    Results are cached until expiration so that concurrent and successive downloads share a single
-    token request per repo revision, instead of hitting the Hub API once per file.
-
+    Utilizes the information in the parsed metadata to request the Hub xet connection information.
+    This includes the access token, expiration, and XET service URL.
     Args:
-        refresh_route (`str`):
-            The fully-qualified URL of the token endpoint.
+        file_data: (`XetFileData`):
+            The file data needed to refresh the xet connection information.
         headers (`dict[str, str]`):
             Headers to use for the request, including authorization headers and user agent.
     Returns:
@@ -124,10 +126,42 @@ def fetch_xet_connection_info(refresh_route: str, headers: dict[str, str]) -> Xe
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
             If the Hub API response is improperly formatted.
     """
-    cache_key = _connection_info_cache_key(refresh_route, headers)
+    if file_data.refresh_route is None:
+        raise ValueError("The provided xet metadata does not contain a refresh endpoint.")
+    return _fetch_xet_connection_info_with_url(file_data.refresh_route, headers)
+
+
+@validate_hf_hub_args
+def _fetch_xet_connection_info_with_url(
+    url: str,
+    headers: dict[str, str],
+) -> XetConnectionInfo:
+    """
+    Requests the xet connection info from the supplied URL. This includes the
+    access token, expiration time, and endpoint to use for the xet storage service.
+
+    Result is cached to avoid redundant requests.
+
+    Args:
+        url: (`str`):
+            The access token endpoint URL.
+        headers (`dict[str, str]`):
+            Headers to use for the request, including authorization headers and user agent.
+    Returns:
+        `XetConnectionInfo`:
+            The connection information needed to make the request to the xet storage service.
+    Raises:
+        [`~utils.HfHubHTTPError`]
+            If the Hub API returned an error.
+        [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+            If the Hub API response is improperly formatted.
+    """
+    # Check cache first
+    cache_key = _cache_key(url, headers)
     cached_info = XET_CONNECTION_INFO_CACHE.get(cache_key)
-    if cached_info is not None and not _is_expired(cached_info):
-        return cached_info
+    if cached_info is not None:
+        if not _is_expired(cached_info):
+            return cached_info
 
     # The lock collapses concurrent workers into a single token request per expired/missing key.
     with _XET_CONNECTION_INFO_LOCK:
@@ -135,30 +169,38 @@ def fetch_xet_connection_info(refresh_route: str, headers: dict[str, str]) -> Xe
         if cached_info is not None and not _is_expired(cached_info):
             return cached_info
 
-        resp = http_backoff("GET", refresh_route, headers=headers)
+        # Fetch from server
+        resp = http_backoff("GET", url, headers=headers)
         hf_raise_for_status(resp)
 
-        connection_info = parse_xet_connection_info_from_headers(resp.headers)
-        if connection_info is None:
+        metadata = parse_xet_connection_info_from_headers(resp.headers)
+        if metadata is None:
             raise ValueError("Xet headers have not been correctly set by the server.")
 
-        # Evict expired entries and enforce the cache size limit
-        for key, value in list(XET_CONNECTION_INFO_CACHE.items()):
-            if _is_expired(value):
-                XET_CONNECTION_INFO_CACHE.pop(key, None)
+        # Delete expired cache entries
+        for k, v in list(XET_CONNECTION_INFO_CACHE.items()):
+            if _is_expired(v):
+                XET_CONNECTION_INFO_CACHE.pop(k, None)
+
+        # Enforce cache size limit
         if len(XET_CONNECTION_INFO_CACHE) >= XET_CONNECTION_INFO_CACHE_SIZE:
             XET_CONNECTION_INFO_CACHE.pop(next(iter(XET_CONNECTION_INFO_CACHE)))
 
-        XET_CONNECTION_INFO_CACHE[cache_key] = connection_info
-        return connection_info
+        # Update cache
+        XET_CONNECTION_INFO_CACHE[cache_key] = metadata
+
+        return metadata
 
 
-def _connection_info_cache_key(url: str, headers: dict[str, str]) -> str:
-    lower_headers = {key.lower(): value for key, value in headers.items()}  # casing is not guaranteed here
-    return f"{url}|{lower_headers.get('authorization', '')}"
+def _cache_key(url: str, headers: dict[str, str]) -> str:
+    """Return a unique cache key for the given request parameters."""
+    lower_headers = {k.lower(): v for k, v in headers.items()}  # casing is not guaranteed here
+    auth_header = lower_headers.get("authorization", "")
+    return f"{url}|{auth_header}"
 
 
 def _is_expired(connection_info: XetConnectionInfo) -> bool:
+    """Check if the given XET connection info is expired."""
     return connection_info.expiration_unix_epoch <= int(time.time()) + XET_CONNECTION_INFO_SAFETY_PERIOD
 
 
