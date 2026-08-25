@@ -3,6 +3,13 @@ rendered properly in your Markdown viewer.
 -->
 # Sandboxes
 
+> [!WARNING]
+> Sandboxes are an **experimental** feature. The API, the defaults and the underlying implementation may change at any
+> time without notice, and the isolation guarantees are best-effort. In particular, do not rely on a sandbox to keep
+> secrets away from the code running inside it: a sandbox image you don't fully trust may be able to observe requests
+> made to the in-job server, including the credentials used to authenticate them. Treat any credential reachable by a
+> sandbox as potentially exposed to that sandbox, and prefer short-lived, narrowly-scoped tokens.
+
 A sandbox is an isolated cloud machine you can spin up in seconds, run commands in with live-streamed output, and move files in and out of — all from Python or the CLI. Sandboxes are built on top of [Jobs](./jobs): under the hood, a sandbox is just a Job running a tiny server that exposes command execution and file transfer over HTTP.
 
 They are a good fit whenever you need to run code somewhere other than your own machine:
@@ -148,7 +155,7 @@ A sandbox outlives the process that created it — you can create it now and rec
 
 - `idle_timeout` (default 10 minutes) is the real keeper: it shuts the sandbox down once no API call is made and no process is running, so abandoned sandboxes stop billing. Set it at create time (`Sandbox.create(idle_timeout="30m")`) or pass `None` to disable.
 - The job also has a fixed 24h maximum lifetime as a hard backstop (not configurable).
-- Your HF token is never sent into the sandbox unless you opt in with `forward_hf_token=True`.
+- `forward_hf_token=True` explicitly exposes your HF token to the code running in the sandbox (as `HF_TOKEN`). Even with `forward_hf_token=False`, don't treat the sandbox as a hard boundary for your credentials — see the warning at the top of this page.
 
 ## Many sandboxes at once: SandboxPool
 

@@ -244,6 +244,16 @@ def test_move_bucket_rename(api: HfApi, bucket_write: str):
     api.delete_bucket(new_bucket_id)
 
 
+def test_update_bucket_settings(api: HfApi, bucket_write: str):
+    assert api.bucket_info(bucket_write).private is False
+
+    api.update_bucket_settings(bucket_write, private=True)
+    assert api.bucket_info(bucket_write).private is True
+
+    api.update_bucket_settings(bucket_write, private=False)
+    assert api.bucket_info(bucket_write).private is False
+
+
 def test_list_bucket_tree_on_public_bucket(api: HfApi, bucket_read: str):
     tree = list(api.list_bucket_tree(bucket_read))
     assert len(tree) == 4
