@@ -18,7 +18,7 @@ from huggingface_hub.serialization import (
     split_torch_state_dict_into_shards,
 )
 from huggingface_hub.serialization._base import parse_size_to_int
-from huggingface_hub.serialization._torch import _load_sharded_checkpoint
+from huggingface_hub.serialization._torch import _is_safetensors, _load_sharded_checkpoint
 from huggingface_hub.utils import is_torch_available
 
 
@@ -873,6 +873,22 @@ class TestShardedCheckpointValidation:
 
         with pytest.raises(ValueError, match="Invalid shard filename.*Expected '.safetensors' extension"):
             load_torch_model(Mock(), tmp_path)
+
+    @pytest.mark.parametrize(
+        ("filename", "expected"),
+        [
+            ("model.safetensors", True),
+            ("model-00001-of-00002.safetensors", True),
+            (".safetensors", True),  # extension-only name: `Path(...).suffix` would return ""
+            ("sub/.safetensors", True),
+            (Path("model.safetensors"), True),
+            ("model.bin", False),
+            ("model.safetensors.index.json", False),
+            ("safetensors", False),
+        ],
+    )
+    def test_is_safetensors(self, filename, expected):
+        assert _is_safetensors(filename) is expected
 
     def test_safetensors_index_rejects_path_traversal(self, tmp_path):
         """A shard filename with '..' path traversal must be rejected."""
