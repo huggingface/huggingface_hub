@@ -1605,7 +1605,7 @@ class HfFileSystemMutateFile(fsspec.spec.AbstractBufferedFile):
 
         # specific to HfFileSystemMutateFile
         self.file_hash = file_hash if file_hash is not None else self.details["xet_hash"]
-        self.ranges: list[range | bytes] = [range(0, self.size)]
+        self.ranges: list[range | bytearray] = [range(0, self.size)]
         self.buffer_size = 0
         self.last_update_time: float | None = None
         self.send_interval = (
@@ -1639,7 +1639,7 @@ class HfFileSystemMutateFile(fsspec.spec.AbstractBufferedFile):
             else:
                 range_to_fetch = range(max(0, start - offset), len(range_) + min(0, end - offset - len(range_)))
                 if range_to_fetch.start < range_to_fetch.stop:
-                    ranges_contents.append(range_[range_to_fetch.start:range_to_fetch.stop])
+                    ranges_contents.append(bytes(range_[range_to_fetch.start:range_to_fetch.stop]))
             offset += len(range_)
         return b"".join(ranges_contents)
 
@@ -1656,7 +1656,7 @@ class HfFileSystemMutateFile(fsspec.spec.AbstractBufferedFile):
         self.original_size = self.size
         self.buffer_size = 0
 
-    def _upload_ranges_inner(self, ranges: list[range, bytes], original_size: int) -> None:
+    def _upload_ranges_inner(self, ranges: list[range | bytearray], original_size: int) -> None:
         original_offset = 0
         insert: list[tuple[int, bytes]] = []
         delete: list[tuple[int, int]] = []
@@ -1666,7 +1666,7 @@ class HfFileSystemMutateFile(fsspec.spec.AbstractBufferedFile):
                     delete.append((original_offset, range_.start - original_offset))
                 original_offset = range_.stop
             else:
-                insert.append((original_offset, range_))
+                insert.append((original_offset, bytes(range_)))
         if original_offset < original_size:
             delete.append((original_offset, original_size - original_offset))
         if insert or delete:
@@ -1780,19 +1780,31 @@ class HfFileSystemMutateFile(fsspec.spec.AbstractBufferedFile):
         if start == end and not data:
             return
 
-        new_ranges: list[range, bytes] = []
+        new_ranges: list[range, bytearray] = []
         offset = 0
         done = False
-        def add_range(range_: range | bytes):
-            if new_ranges and isinstance(new_ranges[-1], bytes) and isinstance(range_, bytes):
-                new_ranges[-1] += range_
-            else:
-                new_ranges.append(range_)
 
+        def add_range(range_or_bytes: range | bytearray | bytes):
+            """Add a new range and use byterarray appends when possible (this would make the list of ranges very long)"""
+            if new_ranges and isinstance(new_ranges[-1], bytearray) and isinstance(range_or_bytes, bytes):
+                new_ranges[-1] += range_or_bytes
+            else:
+                new_ranges.append(range_or_bytes if isinstance(range_or_bytes, (range, bytearray)) else bytearray(range_or_bytes))
+
+        def fast_slice(range_: range | bytearray, start=None, end=None):
+            """slice a range and avoid slicing a bytearray when possible (this would cause a copy)"""
+            if start is not None and start > 0:
+                return range_[start:]
+            elif end is not None and end < len(range_):
+                return range_[:end]
+            else:
+                return range_
+
+        # note: this could be optimized with an offset index
         for range_ in self.ranges:
             if offset <= start <= offset + len(range_) <= end:
                 if offset < start:
-                    add_range(range_[:start - offset])
+                    add_range(fast_slice(range_, end=start - offset))
                 if data and not done:
                     add_range(data)
                     done = True
@@ -1803,15 +1815,15 @@ class HfFileSystemMutateFile(fsspec.spec.AbstractBufferedFile):
                     add_range(data)
                     done = True
                 if end < offset + len(range_):
-                    add_range(range_[end - offset - len(range_):])
+                    add_range(fast_slice(range_, start=end - offset - len(range_)))
             elif offset <= start <= end <= offset + len(range_):
                 if offset < start:
-                    add_range(range_[:start - offset])
+                    add_range(fast_slice(range_, end=start - offset))
                 if data and not done:
                     add_range(data)
                     done = True
                 if end < offset + len(range_):
-                    add_range(range_[end - offset - len(range_):])
+                    add_range(fast_slice(range_, start=end - offset - len(range_)))
             else:
                 add_range(range_)
             offset += len(range_)
