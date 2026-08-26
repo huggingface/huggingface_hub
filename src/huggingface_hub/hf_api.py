@@ -14989,19 +14989,24 @@ class HfApi:
                 List of deletes to apply, in the form `(loc, length)`.
                 The range [`loc`, `loc + length`) is deleted.
         """
+        if edit:
+            edit = [
+                ((start, end), data) for (start, end), data in edit if start < end or (start == end and len(data) > 0)
+            ]
+        if insert:
+            insert = [(loc, data) for loc, data in insert if len(data) > 0]
+        if delete:
+            delete = [(loc, length) for loc, length in delete if length > 0]
+        if not (edit or insert or delete):
+            return
         from .utils._xet_progress_reporting import XetUploadProgressReporter
-
 
         if not are_progress_bars_disabled():
             _progress = XetUploadProgressReporter(total_files=1)
         else:
             _progress = None
 
-        file_metadata = self.get_bucket_file_metadata(
-            bucket_id=bucket_id,
-            remote_path=remote_path,
-            token=token
-        )
+        file_metadata = self.get_bucket_file_metadata(bucket_id=bucket_id, remote_path=remote_path, token=token)
         self._mutate_bucket_file(
             bucket_id=bucket_id,
             remote_path=remote_path,
@@ -15010,9 +15015,8 @@ class HfApi:
             delete=delete,
             _progress=_progress,
             _file_hash=file_metadata.xet_file_data.file_hash,
-            _file_size=file_metadata.size
+            _file_size=file_metadata.size,
         )
-
 
     def _mutate_bucket_file(
         self,
@@ -15040,15 +15044,6 @@ class HfApi:
         )
         from .utils._xet_progress_reporting import XetUploadProgressReporter
 
-        if edit:
-            edit = [((start, end), data) for (start, end), data in edit if start < end or (start == end and len(data) > 0)]
-        if insert:
-            insert = [(loc, data) for loc, data in insert if len(data) > 0]
-        if delete:
-            delete = [(loc, length) for loc, length in delete if length > 0]
-        if not (edit or insert or delete):
-            return
-
         owns_progress = _progress is None
         if _progress is not None:
             progress = _progress
@@ -15061,11 +15056,7 @@ class HfApi:
             progress, progress_callback = None, None
 
         if _file_hash is None or _file_size is None:
-            file_metadata = self.get_bucket_file_metadata(
-                bucket_id=bucket_id,
-                remote_path=remote_path,
-                token=token
-            )
+            file_metadata = self.get_bucket_file_metadata(bucket_id=bucket_id, remote_path=remote_path, token=token)
             file_hash = file_metadata.xet_file_data.file_hash
             file_size = file_metadata.size
         else:

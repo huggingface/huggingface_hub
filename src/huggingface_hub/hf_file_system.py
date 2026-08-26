@@ -13,7 +13,7 @@ from datetime import datetime
 from functools import partial
 from itertools import chain
 from pathlib import Path, PurePosixPath
-from typing import Any, Literal, NoReturn, Union, overload
+from typing import Any, Literal, NoReturn, Union, overload, override
 from urllib.parse import quote, unquote
 
 import fsspec
@@ -398,8 +398,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         cache_options=None,
         compression=None,
         **kwargs,
-    ) -> "HfFileSystemMutateFile":
-        ...
+    ) -> "HfFileSystemMutateFile": ...
 
     @overload
     def open(
@@ -410,8 +409,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         cache_options=None,
         compression=None,
         **kwargs,
-    ) -> "MutableTextIOWrapper":
-        ...
+    ) -> "MutableTextIOWrapper": ...
 
     @overload
     def open(
@@ -422,8 +420,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         cache_options=None,
         compression=None,
         **kwargs,
-    ) -> io.TextIOWrapper:
-        ...
+    ) -> io.TextIOWrapper: ...
 
     @overload
     def open(
@@ -434,10 +431,10 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         cache_options=None,
         compression=None,
         **kwargs,
-    ) -> fsspec.spec.AbstractBufferedFile:
-        ...
+    ) -> fsspec.spec.AbstractBufferedFile: ...
 
-    def open(
+    @override
+    def open(  # ty: ignore[invalid-method-override]
         self,
         path,
         mode="rb",
@@ -445,7 +442,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         cache_options=None,
         compression=None,
         **kwargs,
-    ) -> fsspec.spec.AbstractBufferedFile:
+    ) -> fsspec.spec.AbstractBufferedFile | "HfFileSystemMutateFile" | io.TextIOWrapper | "MutableTextIOWrapper":
         """
         Return a file-like object from the filesystem
 
@@ -476,11 +473,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
                 raise NotImplementedError(f"Mode '{mutate_mode}' with compression is not implemented")
             if "b" not in mode:
                 mode = mode.replace("t", "") + "b"
-                text_kwargs = {
-                    k: kwargs.pop(k)
-                    for k in ["encoding", "errors", "newline"]
-                    if k in kwargs
-                }
+                text_kwargs = {k: kwargs.pop(k) for k in ["encoding", "errors", "newline"] if k in kwargs}
                 buffer = super().open(
                     path,
                     mode=mode,
@@ -506,7 +499,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         block_size: int | None = None,
         revision: str | None = None,
         **kwargs,
-    ) -> Union["HfFileSystemFile", "HfFileSystemStreamFile"]:
+    ) -> Union["HfFileSystemFile", "HfFileSystemStreamFile", "HfFileSystemMutateFile"]:
         block_size = block_size if block_size is not None else self.block_size
         if block_size is not None:
             kwargs["block_size"] = block_size
@@ -1554,21 +1547,22 @@ class HfFileSystemMutateFile(fsspec.spec.AbstractBufferedFile):
     ```
     """
 
-    DEFAULT_SEND_INTERVAL = 10.
+    DEFAULT_SEND_INTERVAL = 10.0
 
-    def __init__(self,
-            fs: HfFileSystem,
-            path: str,
-            mode: str = "rb",
-            block_size: str | int | None = "default",
-            send_interval: str | int | None = "default",
-            autocommit: bool=True,
-            cache_type: str | None ="readahead",
-            cache_options: dict | None =None,
-            size: int | None = None,
-            file_hash: str | None = None,
-            **kwargs,
-        ):
+    def __init__(
+        self,
+        fs: HfFileSystem,
+        path: str,
+        mode: str = "rb",
+        block_size: Literal["default"] | int | None = "default",
+        send_interval: Literal["default"] | int | None = "default",
+        autocommit: bool = True,
+        cache_type: str | None = "readahead",
+        cache_options: dict | None = None,
+        size: int | None = None,
+        file_hash: str | None = None,
+        **kwargs,
+    ):
         from fsspec.core import caches
 
         if mode not in {"mb", "ab"}:
@@ -1587,9 +1581,7 @@ class HfFileSystemMutateFile(fsspec.spec.AbstractBufferedFile):
         self.path = path
         self.fs = fs
         self.mode = mode
-        self.blocksize = (
-            self.DEFAULT_BLOCK_SIZE if block_size in ["default", None] else block_size
-        )
+        self.blocksize = self.DEFAULT_BLOCK_SIZE if block_size in ["default", None] else block_size
         self.autocommit = autocommit
         self.closed = False
         self.forced = False
@@ -1597,9 +1589,7 @@ class HfFileSystemMutateFile(fsspec.spec.AbstractBufferedFile):
         self.original_size = self.size
         self.cache_type = cache_type
         self.cache_options = cache_options
-        self.cache = caches[cache_type](
-            self.blocksize, self._fetch_range, self.size, **(cache_options or {})
-        )
+        self.cache = caches[cache_type](self.blocksize, self._fetch_range, self.size, **(cache_options or {}))
         self.loc = self.size if "a" in mode else 0
         self.kwargs = kwargs
 
@@ -1608,9 +1598,7 @@ class HfFileSystemMutateFile(fsspec.spec.AbstractBufferedFile):
         self.ranges: list[range | bytearray] = [range(0, self.size)]
         self.buffer_size = 0
         self.last_update_time: float | None = None
-        self.send_interval = (
-            self.DEFAULT_SEND_INTERVAL if send_interval in ["default", None] else send_interval
-        )
+        self.send_interval = self.DEFAULT_SEND_INTERVAL if send_interval in ["default", None] else send_interval
         self.task = None
 
     def __del__(self):
@@ -1621,12 +1609,16 @@ class HfFileSystemMutateFile(fsspec.spec.AbstractBufferedFile):
 
     def _fetch_range(self, start: int, end: int) -> bytes:
         if self.task is not None and not self.task.done():
-            raise NotImplementedError("Attempted to read a file while blocks are being sent but this is not implemented. Use f.flush(force=True) to send blocks first.")
+            raise NotImplementedError(
+                "Attempted to read a file while blocks are being sent but this is not implemented. Use f.flush(force=True) to send blocks first."
+            )
         ranges_contents: list[bytes] = []
         offset = 0
         for range_ in self.ranges:
             if isinstance(range_, range):
-                range_to_fetch = range(range_.start + max(0, start - offset), range_.stop + min(0, end - offset - len(range_)))
+                range_to_fetch = range(
+                    range_.start + max(0, start - offset), range_.stop + min(0, end - offset - len(range_))
+                )
                 if range_to_fetch.start < range_to_fetch.stop:
                     headers = {
                         "range": f"bytes={range_to_fetch.start}-{range_to_fetch.stop - 1}",
@@ -1639,7 +1631,7 @@ class HfFileSystemMutateFile(fsspec.spec.AbstractBufferedFile):
             else:
                 range_to_fetch = range(max(0, start - offset), len(range_) + min(0, end - offset - len(range_)))
                 if range_to_fetch.start < range_to_fetch.stop:
-                    ranges_contents.append(bytes(range_[range_to_fetch.start:range_to_fetch.stop]))
+                    ranges_contents.append(bytes(range_[range_to_fetch.start : range_to_fetch.stop]))
             offset += len(range_)
         return b"".join(ranges_contents)
 
@@ -1648,7 +1640,9 @@ class HfFileSystemMutateFile(fsspec.spec.AbstractBufferedFile):
             while not self.task.done():
                 time.sleep(0.1)
         if defer:
-            self.task = _get_deferred_executor().submit(partial(self._upload_ranges_inner, self.ranges, self.original_size))
+            self.task = _get_deferred_executor().submit(
+                partial(self._upload_ranges_inner, self.ranges, self.original_size)
+            )
         else:
             self._upload_ranges_inner(self.ranges, self.original_size)
             self.task = None
@@ -1696,7 +1690,12 @@ class HfFileSystemMutateFile(fsspec.spec.AbstractBufferedFile):
         If `length` is not provided or is -1, the entire file is downloaded and read. On POSIX systems the file is
         loaded in memory directly. Otherwise, the file is downloaded to a temporary file and read from there.
         """
-        if self.mode == "rb" and (length is None or length == -1) and self.loc == 0 and self.ranges == [range(0, self.original_size)]:
+        if (
+            self.mode == "rb"
+            and (length is None or length == -1)
+            and self.loc == 0
+            and self.ranges == [range(0, self.original_size)]
+        ):
             with self.fs.open(self.path, "rb", block_size=0) as f:  # block_size=0 enables fast streaming
                 out = f.read()
                 self.loc += len(out)
@@ -1782,7 +1781,7 @@ class HfFileSystemMutateFile(fsspec.spec.AbstractBufferedFile):
         if start == end and not data:
             return
 
-        new_ranges: list[range, bytearray] = []
+        new_ranges: list[range | bytearray] = []
         offset = 0
         done = False
 
@@ -1791,7 +1790,9 @@ class HfFileSystemMutateFile(fsspec.spec.AbstractBufferedFile):
             if new_ranges and isinstance(new_ranges[-1], bytearray) and isinstance(range_or_bytes, bytes):
                 new_ranges[-1] += range_or_bytes
             else:
-                new_ranges.append(range_or_bytes if isinstance(range_or_bytes, (range, bytearray)) else bytearray(range_or_bytes))
+                new_ranges.append(
+                    range_or_bytes if isinstance(range_or_bytes, (range, bytearray)) else bytearray(range_or_bytes)
+                )
 
         def fast_slice(range_: range | bytearray, start=None, end=None):
             """slice a range and avoid slicing a bytearray when possible (this would cause a copy)"""
@@ -1970,7 +1971,7 @@ class MutableTextIOWrapper(io.TextIOWrapper):
         data: bytes
             Set of bytes to be written.
         """
-        return self.buffer.write(data.encode(self.encoding, errors=self.errors))
+        return self.buffer.write(data.encode(self.encoding, errors=self.errors or "strict"))
 
     def edit(self, byte_range: tuple[int, int], data: str):
         """
@@ -1987,7 +1988,7 @@ class MutableTextIOWrapper(io.TextIOWrapper):
             Set of bytes to be placed in the specified range.
             Size can be different than the range.
         """
-        return self.buffer.edit(byte_range, data.encode(self.encoding, errors=self.errors))
+        return self.buffer.edit(byte_range, data.encode(self.encoding, errors=self.errors or "strict"))
 
     def insert(self, loc: int, data: str):
         """
@@ -2003,7 +2004,7 @@ class MutableTextIOWrapper(io.TextIOWrapper):
         data: bytes
             Set of bytes to be inserted.
         """
-        return self.buffer.insert(loc, data.encode(self.encoding, errors=self.errors))
+        return self.buffer.insert(loc, data.encode(self.encoding, errors=self.errors or "strict"))
 
     def append(self, data: str):
         """
@@ -2017,7 +2018,7 @@ class MutableTextIOWrapper(io.TextIOWrapper):
         data: bytes
             Set of bytes to be appended at the end of the file.
         """
-        return self.buffer.append(data.encode(self.encoding, errors=self.errors))
+        return self.buffer.append(data.encode(self.encoding, errors=self.errors or "strict"))
 
     def delete(self, loc: int, length: int):
         """
@@ -2108,9 +2109,7 @@ def _get_deferred_executor():
     global _deferred_executor
     with _deferred_executor_lock:
         if _deferred_executor is None:
-            _deferred_executor = ThreadPoolExecutor(
-                thread_name_prefix=_DEFERRED_CLOSE_THREAD_NAME
-            )
+            _deferred_executor = ThreadPoolExecutor(thread_name_prefix=_DEFERRED_CLOSE_THREAD_NAME)
         return _deferred_executor
 
 
