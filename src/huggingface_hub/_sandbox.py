@@ -96,7 +96,9 @@ def _derive_sandbox_token(hf_token: str, nonce: str) -> str:
 
     Stateless: any machine holding the same HF token can recompute it from the
     nonce stored in the job's labels, so `Sandbox.connect(job_id)` needs no local state.
-    The HF token itself is never sent to the sandbox.
+    Only the derived token is passed to the sandbox server as a job secret; the HF token
+    itself is not. Note this is not a hardened boundary: an untrusted image can own the
+    sandbox port, so don't treat it as a guarantee that credentials stay out of the sandbox.
     """
     return hmac.new(hf_token.encode(), f"hf-sandbox:{nonce}".encode(), hashlib.sha256).hexdigest()
 

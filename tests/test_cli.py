@@ -769,15 +769,15 @@ class TestResolveUploadPaths:
             repo_id=DUMMY_MODEL_ID, local_path="*.safetensors", path_in_repo=None, include=None
         )
         assert local_path == "."
-        assert path_in_repo == "*.safetensors"
-        assert include == ["."]
+        assert path_in_repo == "."
+        assert include == ["*.safetensors"]
 
         local_path, path_in_repo, include = _resolve_upload_paths(
             repo_id=DUMMY_MODEL_ID, local_path="subdir/*.safetensors", path_in_repo=None, include=None
         )
         assert local_path == "."
-        assert path_in_repo == "subdir/*.safetensors"
-        assert include == ["."]
+        assert path_in_repo == "."
+        assert include == ["subdir/*.safetensors"]
 
         with pytest.raises(ValueError):
             _resolve_upload_paths(

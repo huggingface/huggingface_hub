@@ -32,6 +32,8 @@ from ._base import MAX_SHARD_SIZE, StateDictSplit, split_state_dict_into_shards_
 
 logger = logging.get_logger(__file__)
 
+SAFETENSORS_EXTENSION = ".safetensors"
+
 if TYPE_CHECKING:
     import torch
 
@@ -631,7 +633,7 @@ def load_state_dict_from_file(
         )
 
     # Load safetensors checkpoint
-    if checkpoint_path.suffix == ".safetensors":
+    if _is_safetensors(checkpoint_path):
         try:
             from safetensors import safe_open
             from safetensors.torch import load_file
@@ -681,6 +683,11 @@ def load_state_dict_from_file(
 
 
 # HELPERS
+
+
+def _is_safetensors(filename: Union[str, os.PathLike]) -> bool:
+    """Whether `filename` must be loaded with the safetensors loader."""
+    return str(filename).endswith(SAFETENSORS_EXTENSION)
 
 
 def _validate_keys_for_strict_loading(

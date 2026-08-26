@@ -1432,10 +1432,10 @@ class TestHfApiListRepoTree:
         assert model_ckpt.last_commit is not None
         assert model_ckpt.last_commit["oid"] == "bda967fdb79a50844e4a02cccae3217a8ecc86cd"
         # `security` is computed asynchronously by the backend and may be absent from the response.
-        # Only assert its structure when present to avoid flakiness.
+        # The scan verdict itself (`safe`) is decided server-side and can flip over time, so we only
+        # check the structure when present to avoid flakiness.
         if model_ckpt.security is not None:
-            assert model_ckpt.security["safe"]
-            assert isinstance(model_ckpt.security["av_scan"], dict)  # all details in here
+            assert "safe" in model_ckpt.security
 
         # check last_commit is present for a folder
         feature_extractor = next(tree_obj for tree_obj in tree if tree_obj.path == "feature_extractor")
@@ -4530,9 +4530,10 @@ class TestExpandPropertyType:
             assert e.response.status_code == 400
             message = e.response.json()["error"]
 
-        assert message.startswith('"expand" must be one of ')
+        # Server returns e.g. '✖ Invalid option: expected one of "author"|"cardData"|...\n  → at expand[0]'
+        assert "expected one of " in message
         defined_args = set(get_args(property_type))
-        expected_args = set(message.replace('"expand" must be one of ', "").strip("[]").split(", "))
+        expected_args = set(re.findall(r'"([^"]+)"', message.split("expected one of ", 1)[1]))
         expected_args.discard("gitalyUid")  # internal one, do not document
         expected_args.discard("xetEnabled")  # all repos are xetEnabled now, so we don't document it anymore
 

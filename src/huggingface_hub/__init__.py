@@ -357,6 +357,7 @@ _SUBMOD_ATTRS = {
         "sync_job_volume",
         "trigger_scheduled_job",
         "unlike",
+        "update_bucket_settings",
         "update_collection_item",
         "update_collection_metadata",
         "update_collection_resource_group",
@@ -1136,6 +1137,7 @@ __all__ = [
     "try_to_load_from_cache",
     "typer_factory",
     "unlike",
+    "update_bucket_settings",
     "update_collection_item",
     "update_collection_metadata",
     "update_collection_resource_group",
@@ -1555,6 +1557,7 @@ if TYPE_CHECKING:  # pragma: no cover
         sync_job_volume,  # noqa: F401
         trigger_scheduled_job,  # noqa: F401
         unlike,  # noqa: F401
+        update_bucket_settings,  # noqa: F401
         update_collection_item,  # noqa: F401
         update_collection_metadata,  # noqa: F401
         update_collection_resource_group,  # noqa: F401
