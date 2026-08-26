@@ -14,7 +14,7 @@ import httpx
 import pytest
 from click.testing import CliRunner
 
-from huggingface_hub import HfApi, constants
+from huggingface_hub import HfApi, InferenceEndpointHardware, constants
 from huggingface_hub._dataset_viewer import DatasetParquetEntry
 from huggingface_hub._jobs_api import JobInfo, JobOwner, _create_job_spec, _derive_job_volume_name
 from huggingface_hub._space_api import Volume
@@ -25,6 +25,7 @@ from huggingface_hub.cli.cache import CacheDeletionCounts
 from huggingface_hub.cli.download import download
 from huggingface_hub.cli.hf import app
 from huggingface_hub.cli.hf import main as hf_main
+from huggingface_hub.cli.inference_endpoints import _build_custom_image
 from huggingface_hub.cli.jobs import _get_jobs_stats_rows, _parse_and_sync_job_volumes, _parse_namespace_from_job_id
 from huggingface_hub.cli.skills import build_skill_md
 from huggingface_hub.cli.upload import _resolve_upload_paths, upload
@@ -768,15 +769,15 @@ class TestResolveUploadPaths:
             repo_id=DUMMY_MODEL_ID, local_path="*.safetensors", path_in_repo=None, include=None
         )
         assert local_path == "."
-        assert path_in_repo == "*.safetensors"
-        assert include == ["."]
+        assert path_in_repo == "."
+        assert include == ["*.safetensors"]
 
         local_path, path_in_repo, include = _resolve_upload_paths(
             repo_id=DUMMY_MODEL_ID, local_path="subdir/*.safetensors", path_in_repo=None, include=None
         )
         assert local_path == "."
-        assert path_in_repo == "subdir/*.safetensors"
-        assert include == ["."]
+        assert path_in_repo == "."
+        assert include == ["subdir/*.safetensors"]
 
         with pytest.raises(ValueError):
             _resolve_upload_paths(
@@ -2762,7 +2763,7 @@ class TestInferenceEndpointsCommands:
             )
         assert result.exit_code != 0
         api_cls.return_value.create_inference_endpoint.assert_not_called()
-        assert "require --custom-image" in (result.stdout + str(result.exception))
+        assert "--custom-image is required" in (result.stdout + str(result.exception))
 
     def test_deploy_from_catalog(self, runner: CliRunner) -> None:
         endpoint = Mock(raw={"name": "catalog"})
@@ -2829,8 +2830,11 @@ class TestInferenceEndpointsCommands:
             framework=None,
             revision=None,
             task=None,
+            custom_image=None,
             container_command=None,
             container_args=None,
+            tensor_parallel_size=None,
+            data_parallel_size=None,
             accelerator="gpu",
             instance_size="x4",
             instance_type=None,
@@ -2863,6 +2867,19 @@ class TestInferenceEndpointsCommands:
         assert kwargs["container_args"] == ["--enable-auto-tool-choice", "--tool-call-parser", "lfm2"]
         assert kwargs["container_command"] is None
         assert '"name": "updated"' in result.stdout
+
+    def test_update_parallelism_alone(self, runner: CliRunner) -> None:
+        """The one-liner for retuning an already-deployed endpoint: no image needed, `HfApi` merges into the
+        one currently configured."""
+        endpoint = Mock(raw={"name": "updated"})
+        with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.update_inference_endpoint.return_value = endpoint
+            result = runner.invoke(app, ["endpoints", "update", "my-endpoint", "--tensor-parallel-size", "8"])
+        assert result.exit_code == 0, result.stdout
+        _, kwargs = api.update_inference_endpoint.call_args
+        assert kwargs["tensor_parallel_size"] == 8
+        assert kwargs["custom_image"] is None
 
     def test_update_container_args_empty_string_resets(self, runner: CliRunner) -> None:
         endpoint = Mock(raw={"name": "updated"})
@@ -2969,6 +2986,196 @@ class TestInferenceEndpointsCommands:
         api.list_inference_catalog.assert_called_once_with(token=None)
         assert '"models"' in result.stdout
         assert '"model"' in result.stdout
+
+
+IMAGE_URL = "vllm/vllm-openai:v0.23.0"
+
+
+@pytest.mark.parametrize(
+    "engine, extra, expected",
+    [
+        # No engine: a flat container config, which `HfApi` keys as `custom`.
+        (None, {"health_route": "/health", "port": 8000}, {"url": IMAGE_URL, "healthRoute": "/health", "port": 8000}),
+        # An engine is keyed by the API's variant name, and the sizes go inside that config.
+        (
+            "vllm",
+            {"tensor_parallel_size": 8, "data_parallel_size": 2},
+            {"vLLM": {"url": IMAGE_URL, "tensorParallelSize": 8, "dataParallelSize": 2}},
+        ),
+        # An engine this version doesn't know about is forwarded as typed, so the API names the bad variant
+        # instead of the config being silently reshaped into a custom container.
+        ("VLLM", {}, {"VLLM": {"url": IMAGE_URL}}),
+    ],
+    ids=["no_engine", "engine_with_sizes", "unknown_engine"],
+)
+def test_build_custom_image(engine: str | None, extra: dict, expected: dict) -> None:
+    assert _build_custom_image(IMAGE_URL, engine=engine, **extra) == expected
+
+
+@pytest.mark.parametrize(
+    "engine, sizes",
+    [("tgi", {"tensor_parallel_size": 8}), ("sglang", {"data_parallel_size": 2})],
+    ids=["tgi_tensor", "sglang_data"],
+)
+def test_build_custom_image_warns_for_engine_without_the_field(engine: str, sizes: dict) -> None:
+    """Deploy must go through `_set_parallelism_in_image`: the API drops a field the engine doesn't declare
+    rather than rejecting it, so writing the sizes here directly would leave the no-op silent."""
+    with pytest.warns(UserWarning, match="not a known setting"):
+        _build_custom_image(IMAGE_URL, engine=engine, **sizes)
+
+
+@pytest.mark.parametrize(
+    "custom_image, extra, match",
+    [
+        (None, {"engine": "vllm", "tensor_parallel_size": 8}, "--custom-image is required"),
+        # Without an engine key the API ignores the parallelism fields rather than rejecting them, which would
+        # deploy an endpoint quietly running on a single accelerator.
+        (IMAGE_URL, {"tensor_parallel_size": 8}, "require --engine"),
+    ],
+    ids=["flags_without_image", "sizes_without_engine"],
+)
+def test_build_custom_image_rejects(custom_image: str | None, extra: dict, match: str) -> None:
+    with pytest.raises(CLIError, match=match):
+        _build_custom_image(custom_image, **extra)
+
+
+def _hardware(instance_type: str, **kwargs) -> InferenceEndpointHardware:
+    """Build a hardware entry, overriding only the fields a test cares about. The id is derived like the server does."""
+    fields = {
+        "vendor": "aws",
+        "region": "us-east-1",
+        "accelerator": "gpu",
+        "instance_type": instance_type,
+        "instance_size": "x1",
+        "architecture": instance_type.title(),
+        "num_accelerators": 1,
+        "num_cpus": 7,
+        "memory_gb": 30.0,
+        "gpu_memory_gb": 24,
+        "price_per_hour": 0.8,
+        "status": "available",
+        "max_accelerators": 16,
+        "used_accelerators": 1,
+        **kwargs,
+    }
+    id = "-".join(fields[key] for key in ("vendor", "region", "instance_type", "instance_size"))
+    return InferenceEndpointHardware(id=id, **fields)
+
+
+class TestInferenceEndpointsHardwareCommand:
+    """Tests for `hf endpoints hardware`."""
+
+    HARDWARE = [
+        _hardware("nvidia-h200", region="us-west-2", price_per_hour=5.0, status="deprecated"),
+        _hardware("nvidia-h100", price_per_hour=10.0, max_accelerators=0, used_accelerators=0),
+        _hardware("intel-spr", accelerator="cpu", price_per_hour=0.033, gpu_memory_gb=None, num_cpus=None),
+        _hardware("nvidia-l4"),
+        _hardware("nvidia-a100", vendor="gcp", region="us-east4", price_per_hour=3.6),
+    ]
+
+    @pytest.fixture
+    def api(self) -> Generator[Mock, None, None]:
+        with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_inference_endpoints_hardware.return_value = list(self.HARDWARE)
+            yield api
+
+    def test_hides_hardware_that_cannot_be_deployed_on(self, runner: CliRunner, api: Mock) -> None:
+        result = runner.invoke(app, ["endpoints", "hardware", "--format", "json"])
+        assert result.exit_code == 0
+        api.list_inference_endpoints_hardware.assert_called_once_with(namespace=None, token=None)
+        listed = json.loads(result.stdout)
+        assert [hw["id"] for hw in listed] == [
+            "aws-us-east-1-intel-spr-x1",
+            "aws-us-east-1-nvidia-l4-x1",
+            "gcp-us-east4-nvidia-a100-x1",
+        ]
+        assert listed[0]["price_per_hour"] == 0.033  # a number, not "$0.033"
+
+    def test_all_includes_hardware_that_cannot_be_deployed_on(self, runner: CliRunner, api: Mock) -> None:
+        result = runner.invoke(app, ["endpoints", "hardware", "--all", "--format", "json"])
+        assert result.exit_code == 0
+        listed = {hw["id"] for hw in json.loads(result.stdout)}
+        assert "aws-us-west-2-nvidia-h200-x1" in listed  # deprecated
+        assert "aws-us-east-1-nvidia-h100-x1" in listed  # out of quota
+
+    @pytest.mark.parametrize(
+        "overrides, is_listed",
+        [
+            ({}, True),
+            ({"status": "low_availability"}, True),  # scarce, but still deployable
+            ({"status": "reserved"}, True),  # capacity reserved for the namespace
+            ({"status": "not_available"}, False),
+            ({"status": "deprecated"}, False),
+            ({"num_accelerators": 8, "used_accelerators": 0, "max_accelerators": 8}, True),  # exactly enough quota
+            ({"max_accelerators": 0, "used_accelerators": 0}, False),  # no quota at all
+            ({"num_accelerators": 8, "used_accelerators": 4, "max_accelerators": 8}, False),  # 4 left, x8 needs 8
+        ],
+    )
+    def test_default_lists_only_deployable_hardware(
+        self, runner: CliRunner, api: Mock, overrides: dict, is_listed: bool
+    ) -> None:
+        api.list_inference_endpoints_hardware.return_value = [_hardware("nvidia-l4", **overrides)]
+        result = runner.invoke(app, ["endpoints", "hardware", "--format", "quiet"])
+        assert result.exit_code == 0
+        assert result.stdout.split() == (["aws-us-east-1-nvidia-l4-x1"] if is_listed else [])
+
+    @pytest.mark.parametrize(
+        "flags, expected_ids",
+        [
+            (["--vendor", "gcp"], ["gcp-us-east4-nvidia-a100-x1"]),
+            (["--vendor", "AWS", "--accelerator", "GPU"], ["aws-us-east-1-nvidia-l4-x1"]),
+            (["--region", "us-east-1", "--instance-type", "intel-spr"], ["aws-us-east-1-intel-spr-x1"]),
+            (["--vendor", "gcp", "--accelerator", "cpu"], []),
+        ],
+    )
+    def test_filters(self, runner: CliRunner, api: Mock, flags: list[str], expected_ids: list[str]) -> None:
+        result = runner.invoke(app, ["endpoints", "hardware", *flags, "--format", "quiet"])
+        assert result.exit_code == 0
+        assert result.stdout.split() == expected_ids
+
+    def test_human_output_reports_quota_and_a_deploy_command(self, runner: CliRunner, api: Mock) -> None:
+        result = runner.invoke(app, ["endpoints", "hardware", "--vendor", "gcp", "--format", "human"])
+        assert result.exit_code == 0
+        # both, since 'gpu_memory_gb' is null on CPU hardware
+        assert {"MEMORY_GB", "GPU_MEMORY_GB"} <= set(result.stdout.splitlines()[0].split())
+        assert "3.6" in result.stdout  # price, as a bare number
+        assert "1/16" in result.stdout  # quota, as used/max
+        assert (
+            "--vendor gcp --region us-east4 --accelerator gpu --instance-type nvidia-a100 --instance-size x1"
+            in result.stderr
+        )
+
+    def test_all_does_not_suggest_deploying_on_undeployable_hardware(self, runner: CliRunner, api: Mock) -> None:
+        result = runner.invoke(
+            app, ["endpoints", "hardware", "--all", "--instance-type", "nvidia-h200", "--format", "json"]
+        )
+        assert result.exit_code == 0
+        assert [hw["id"] for hw in json.loads(result.stdout)] == ["aws-us-west-2-nvidia-h200-x1"]  # listed, as asked
+        assert "hf endpoints deploy" not in result.stderr  # but not offered as an example
+        assert "None of these can be deployed on right now" in result.stderr
+
+    def test_hints_at_all_when_only_undeployable_hardware_matches(self, runner: CliRunner, api: Mock) -> None:
+        result = runner.invoke(app, ["endpoints", "hardware", "--instance-type", "nvidia-h200", "--format", "human"])
+        assert result.exit_code == 0
+        assert "No results found." in result.stdout
+        assert "Use '--all'" in result.stderr
+
+    @pytest.mark.parametrize(
+        "flags, expected_hint",
+        [
+            (["--vendor", "asw"], "No such hardware: --vendor 'asw' (valid: aws, gcp)."),
+            # 'gcp' and 'cpu' both exist, just never on the same hardware.
+            (["--vendor", "gcp", "--accelerator", "cpu"], "No hardware matches all of these filters at once."),
+        ],
+    )
+    def test_hints_at_valid_values_when_no_hardware_matches_at_all(
+        self, runner: CliRunner, api: Mock, flags: list[str], expected_hint: str
+    ) -> None:
+        result = runner.invoke(app, ["endpoints", "hardware", *flags, "--format", "human"])
+        assert result.exit_code == 0
+        assert "No results found." in result.stdout
+        assert expected_hint in result.stderr
 
 
 @contextmanager

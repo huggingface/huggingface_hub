@@ -1634,7 +1634,8 @@ def get_hf_file_metadata(
         # Do not use directly `url` as we might have followed relative redirects.
         location=response.headers.get("Location") or str(response.request.url),  # type: ignore
         size=_int_or_none(
-            response.headers.get(constants.HUGGINGFACE_HEADER_X_LINKED_SIZE) or response.headers.get("Content-Length")
+            response.headers.get(constants.HUGGINGFACE_HEADER_X_LINKED_SIZE)
+            or (None if response.is_redirect else response.headers.get("Content-Length"))
         ),
         xet_file_data=parse_xet_file_data_from_response(response, endpoint=endpoint),  # type: ignore
     )

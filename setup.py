@@ -47,7 +47,7 @@ extras["fastai"] = [
 
 extras["hf_xet"] = [HF_XET_VERSION]
 
-extras["mcp"] = ["mcp>=1.8.0"]
+extras["mcp"] = ["mcp>=1.8.0, <2.0.0"]
 
 extras["testing"] = (
     extras["oauth"]

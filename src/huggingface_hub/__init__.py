@@ -46,7 +46,7 @@ import sys
 from typing import TYPE_CHECKING
 
 
-__version__ = "1.28.0.dev0"
+__version__ = "1.29.0.dev0"
 
 # Alphabetical order of definitions is ensured in tests
 # WARNING: any comment added in this dictionary definition will be lost when
@@ -72,6 +72,7 @@ _SUBMOD_ATTRS = {
     "_inference_endpoints": [
         "InferenceEndpoint",
         "InferenceEndpointError",
+        "InferenceEndpointHardware",
         "InferenceEndpointStatus",
         "InferenceEndpointTimeoutError",
         "InferenceEndpointType",
@@ -295,6 +296,7 @@ _SUBMOD_ATTRS = {
         "list_datasets",
         "list_inference_catalog",
         "list_inference_endpoints",
+        "list_inference_endpoints_hardware",
         "list_jobs",
         "list_jobs_hardware",
         "list_lfs_files",
@@ -355,6 +357,7 @@ _SUBMOD_ATTRS = {
         "sync_job_volume",
         "trigger_scheduled_job",
         "unlike",
+        "update_bucket_settings",
         "update_collection_item",
         "update_collection_metadata",
         "update_collection_resource_group",
@@ -785,6 +788,7 @@ __all__ = [
     "InferenceClient",
     "InferenceEndpoint",
     "InferenceEndpointError",
+    "InferenceEndpointHardware",
     "InferenceEndpointStatus",
     "InferenceEndpointTimeoutError",
     "InferenceEndpointType",
@@ -1047,6 +1051,7 @@ __all__ = [
     "list_datasets",
     "list_inference_catalog",
     "list_inference_endpoints",
+    "list_inference_endpoints_hardware",
     "list_jobs",
     "list_jobs_hardware",
     "list_lfs_files",
@@ -1132,6 +1137,7 @@ __all__ = [
     "try_to_load_from_cache",
     "typer_factory",
     "unlike",
+    "update_bucket_settings",
     "update_collection_item",
     "update_collection_metadata",
     "update_collection_resource_group",
@@ -1270,6 +1276,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from ._inference_endpoints import (
         InferenceEndpoint,  # noqa: F401
         InferenceEndpointError,  # noqa: F401
+        InferenceEndpointHardware,  # noqa: F401
         InferenceEndpointStatus,  # noqa: F401
         InferenceEndpointTimeoutError,  # noqa: F401
         InferenceEndpointType,  # noqa: F401
@@ -1489,6 +1496,7 @@ if TYPE_CHECKING:  # pragma: no cover
         list_datasets,  # noqa: F401
         list_inference_catalog,  # noqa: F401
         list_inference_endpoints,  # noqa: F401
+        list_inference_endpoints_hardware,  # noqa: F401
         list_jobs,  # noqa: F401
         list_jobs_hardware,  # noqa: F401
         list_lfs_files,  # noqa: F401
@@ -1549,6 +1557,7 @@ if TYPE_CHECKING:  # pragma: no cover
         sync_job_volume,  # noqa: F401
         trigger_scheduled_job,  # noqa: F401
         unlike,  # noqa: F401
+        update_bucket_settings,  # noqa: F401
         update_collection_item,  # noqa: F401
         update_collection_metadata,  # noqa: F401
         update_collection_resource_group,  # noqa: F401
