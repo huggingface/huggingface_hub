@@ -3121,8 +3121,6 @@ class InferenceClient:
                 The input text to classify.
             candidate_labels (`list[str]`):
                 The set of possible class labels to classify the text into.
-            labels (`list[str]`, *optional*):
-                (deprecated) List of strings. Each string is the verbalization of a possible label for the input text.
             multi_label (`bool`, *optional*):
                 Whether multiple candidate labels can be true. If false, the scores are normalized such that the sum of
                 the label likelihoods for each sequence is 1. If true, the labels are considered independent and
@@ -3214,8 +3212,6 @@ class InferenceClient:
         *,
         model: str | None = None,
         hypothesis_template: str | None = None,
-        # deprecated argument
-        labels: list[str] = None,  # type: ignore
     ) -> list[ZeroShotImageClassificationOutputElement]:
         """
         Provide input image and text labels to predict text labels for the image.
@@ -3225,8 +3221,6 @@ class InferenceClient:
                 The input image to caption. It can be raw bytes, an image file, a URL to an online image, or a PIL Image.
             candidate_labels (`list[str]`):
                 The candidate labels for this image
-            labels (`list[str]`, *optional*):
-                (deprecated) List of string possible labels. There must be at least 2 labels.
             model (`str`, *optional*):
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. This parameter overrides the model defined at the instance level. If not provided, the default recommended zero-shot image classification model will be used.
@@ -3250,7 +3244,7 @@ class InferenceClient:
 
         >>> client.zero_shot_image_classification(
         ...     "https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Cute_dog.jpg/320px-Cute_dog.jpg",
-        ...     labels=["dog", "cat", "horse"],
+        ...     candidate_labels=["dog", "cat", "horse"],
         ... )
         [ZeroShotImageClassificationOutputElement(label='dog', score=0.956),...]
         ```

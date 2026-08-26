@@ -2733,7 +2733,7 @@ class HfApi:
         ... )
 
         # List FiftyOne datasets (identified by the tag "fiftyone" in dataset card)
-        >>> api.list_datasets(tags="fiftyone")
+        >>> api.list_datasets(filter="tag:fiftyone")
         ```
 
         Example usage with the `search` argument:
