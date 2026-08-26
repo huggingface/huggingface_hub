@@ -1,13 +1,16 @@
+import io
 import os
 import tempfile
 import threading
 import time
 from collections import deque
 from collections.abc import Iterable, Iterator
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import ExitStack
 from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime
+from functools import partial
 from itertools import chain
 from pathlib import Path, PurePosixPath
 from typing import Any, Literal, NoReturn, Union, overload
@@ -402,6 +405,30 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
     def open(
         self,
         path,
+        mode: Literal["a", "m", "at", "mt"],
+        block_size=None,
+        cache_options=None,
+        compression=None,
+        **kwargs,
+    ) -> "MutableTextIOWrapper":
+        ...
+
+    @overload
+    def open(
+        self,
+        path,
+        mode: Literal["r", "rt", "w", "wb"],
+        block_size=None,
+        cache_options=None,
+        compression=None,
+        **kwargs,
+    ) -> io.TextIOWrapper:
+        ...
+
+    @overload
+    def open(
+        self,
+        path,
         mode: str,
         block_size=None,
         cache_options=None,
@@ -445,12 +472,24 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         """
         mutate_mode = "m" if "m" in mode else ("a" if "a" in mode else None)
         if mutate_mode:
-            if "b" not in mode:
-                raise NotImplementedError(f"Mode '{mutate_mode}' is not implemented, use 'mb' instead")
             if compression is not None:
                 raise NotImplementedError(f"Mode '{mutate_mode}' with compression is not implemented")
-            if cache_options is not None or kwargs.get("cache_type") is not None:
-                raise NotImplementedError(f"Mode '{mutate_mode}' with cache is not implemented.")
+            if "b" not in mode:
+                mode = mode.replace("t", "") + "b"
+                text_kwargs = {
+                    k: kwargs.pop(k)
+                    for k in ["encoding", "errors", "newline"]
+                    if k in kwargs
+                }
+                buffer = super().open(
+                    path,
+                    mode=mode,
+                    block_size=block_size,
+                    cache_options=cache_options,
+                    compression=compression,
+                    **kwargs,
+                )
+                return MutableTextIOWrapper(buffer, **text_kwargs, write_through=True)
         return super().open(
             path,
             mode=mode,
@@ -1467,31 +1506,81 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
 
 
 class HfFileSystemMutateFile(fsspec.spec.AbstractBufferedFile):
-    MIN_SECONDS_BETWEEN_UPDATES = 5.
+    """Mutate a file in a bucket in-place, only re-uploading the parts
+    the caller actually rewrites.
+
+    Supported mutate operations: append, edit, insert, delete, truncate.
+
+    It uses a buffer that is only sent on flush(force=True) or if 10
+    seconds passed since last send and buffer is greater than or equal
+    to block_size.
+
+    Examples:
+
+    - Write logs progressively using the append mode "a":
+
+    ```py
+    from huggingface_hub import hffs
+
+    with hffs.open("buckets/username/my-bucket/logs.txt", "a") as f:
+        for log in logs:
+            f.write(log)
+    ```
+
+    - Edit a file header using the mutate mode "m":
+
+    ```py
+    from huggingface_hub import hffs
+
+    header_length = 16
+    new_header = b"MY_NEW_HEADER_00"
+    with hffs.open("buckets/username/my-bucket/data.bin", "mb") as f:
+        f.edit((0, header_length), new_header)
+    ```
+
+    - Remove a certain line using the mutate mode "m":
+
+    ```py
+    from huggingface_hub import hffs
+
+    line_idx_to_remove = 42
+    with hffs.open("buckets/username/my-bucket/doc.txt", "m") as f:
+        for i, line in enumerate(f):
+            if i == line_idx_to_remove:
+                line_loc = f.loc - len(line)
+                line_length = len(line)
+                f.delete(line_loc, line_length)
+                break
+    ```
+    """
+
+    DEFAULT_SEND_INTERVAL = 10.
 
     def __init__(self,
             fs: HfFileSystem,
             path: str,
-            mode="rb",
-            block_size="default",
-            autocommit=True,
-            size=None,
+            mode: str = "rb",
+            block_size: str | int | None = "default",
+            send_interval: str | int | None = "default",
+            autocommit: bool=True,
+            cache_type: str | None ="readahead",
+            cache_options: dict | None =None,
+            size: int | None = None,
+            file_hash: str | None = None,
             **kwargs,
         ):
-        from fsspec.caching import BaseCache
+        from fsspec.core import caches
 
         if mode not in {"mb", "ab"}:
             raise NotImplementedError("File mode not supported")
-        try:
-            resolved_path = fs.resolve_path(path)
-            path = resolved_path.unresolve()
-            fs.info(path)
-        except FileNotFoundError as e:
-            raise FileNotFoundError(
-                f"{e}.\nMake sure the bucket and file exist before writing data."
-            ) from e
+        resolved_path = fs.resolve_path(path)
         if not isinstance(resolved_path, HfFileSystemResolvedBucketPath):
             raise ValueError(f"File mode '{mode}' is only available for Storage Buckets (hf://buckets/...)")
+        path = resolved_path.unresolve()
+        try:
+            fs.info(path)
+        except FileNotFoundError:
+            fs.touch(path)
         self.resolved_path = resolved_path
 
         # required by AbstractBufferedFile
@@ -1506,14 +1595,23 @@ class HfFileSystemMutateFile(fsspec.spec.AbstractBufferedFile):
         self.forced = False
         self.size = size if size is not None else self.details["size"]
         self.original_size = self.size
-        self.cache = BaseCache(self.blocksize, self._fetch_range, self.size)
+        self.cache_type = cache_type
+        self.cache_options = cache_options
+        self.cache = caches[cache_type](
+            self.blocksize, self._fetch_range, self.size, **(cache_options or {})
+        )
         self.loc = self.size if "a" in mode else 0
         self.kwargs = kwargs
 
         # specific to HfFileSystemMutateFile
+        self.file_hash = file_hash if file_hash is not None else self.details["xet_hash"]
         self.ranges: list[range | bytes] = [range(0, self.size)]
         self.buffer_size = 0
         self.last_update_time: float | None = None
+        self.send_interval = (
+            self.DEFAULT_SEND_INTERVAL if send_interval in ["default", None] else send_interval
+        )
+        self.task = None
 
     def __del__(self):
         if not hasattr(self, "resolved_path"):
@@ -1522,6 +1620,8 @@ class HfFileSystemMutateFile(fsspec.spec.AbstractBufferedFile):
         return super().__del__()
 
     def _fetch_range(self, start: int, end: int) -> bytes:
+        if self.task is not None and not self.task.done():
+            raise NotImplementedError("Attempted to read a file while blocks are being sent but this is not implemented. Use f.flush(force=True) to send blocks first.")
         ranges_contents: list[bytes] = []
         offset = 0
         for range_ in self.ranges:
@@ -1543,32 +1643,44 @@ class HfFileSystemMutateFile(fsspec.spec.AbstractBufferedFile):
             offset += len(range_)
         return b"".join(ranges_contents)
 
-    def _upload_ranges(self) -> None:
+    def _upload_ranges(self, defer: bool) -> None:
+        if self.task is not None:
+            while not self.task.done():
+                time.sleep(0.1)
+        if defer:
+            self.task = _get_deferred_executor().submit(partial(self._upload_ranges_inner, self.ranges, self.original_size))
+        else:
+            self._upload_ranges_inner(self.ranges, self.original_size)
+            self.task = None
+        self.ranges = [range(0, self.size)]
+        self.original_size = self.size
+        self.buffer_size = 0
+
+    def _upload_ranges_inner(self, ranges: list[range, bytes], original_size: int) -> None:
         original_offset = 0
         insert: list[tuple[int, bytes]] = []
         delete: list[tuple[int, int]] = []
-        for range_ in self.ranges:
+        for range_ in ranges:
             if isinstance(range_, range):
                 if range_.start > original_offset:
                     delete.append((original_offset, range_.start - original_offset))
                 original_offset = range_.stop
             else:
                 insert.append((original_offset, range_))
-        if original_offset < self.original_size:
-            delete.append((original_offset, self.original_size))
+        if original_offset < original_size:
+            delete.append((original_offset, original_size - original_offset))
         if insert or delete:
-            self.fs._api.mutate_bucket_file(
+            self.file_hash = self.fs._api._mutate_bucket_file(
                 bucket_id=self.resolved_path.bucket_id,
                 remote_path=self.resolved_path.path,
                 insert=insert or None,
                 delete=delete or None,
+                _file_hash=self.file_hash,
+                _file_size=self.original_size,
             )
             self.fs.invalidate_cache(
                 path=self.resolved_path.unresolve(),
             )
-            self.original_size = self.size
-            self.ranges = [range(0, self.size)]
-            self.buffer_size = 0
             self._details = None
 
     def url(self) -> str:
@@ -1630,7 +1742,7 @@ class HfFileSystemMutateFile(fsspec.spec.AbstractBufferedFile):
         """Whether opened for writing"""
         return not self.closed
 
-    def write(self, data: bytes | str):
+    def write(self, data: bytes):
         """
         Write data to buffer.
 
@@ -1644,7 +1756,7 @@ class HfFileSystemMutateFile(fsspec.spec.AbstractBufferedFile):
         """
         return self.edit((self.loc, self.loc + len(data)), data)
 
-    def edit(self, byte_range: tuple[int, int], data: bytes | str):
+    def edit(self, byte_range: tuple[int, int], data: bytes):
         """
         Write data to buffer.
 
@@ -1661,10 +1773,10 @@ class HfFileSystemMutateFile(fsspec.spec.AbstractBufferedFile):
         """
         if self.closed:
             raise ValueError("I/O operation on closed file.")
-        if isinstance(data, str):
-            data = data.encode("utf-8")
+        from fsspec.core import caches
 
         start, end = byte_range
+        end = min(self.size, end)
         if start == end and not data:
             return
 
@@ -1705,16 +1817,19 @@ class HfFileSystemMutateFile(fsspec.spec.AbstractBufferedFile):
             offset += len(range_)
         self.ranges = new_ranges
 
-        self.loc = byte_range[0] + len(data)
+        self.loc = start + len(data)
         self.buffer_size += len(data)
-        self.size += end - start + len(data)
+        self.size += len(data) - (end - start)
+        self.cache = caches[self.cache_type](
+            self.blocksize, self._fetch_range, self.size, **(self.cache_options or {})
+        )
         if self.last_update_time is None:
             self.last_update_time = time.time()
-        if self.flush():
+        if self.flush(defer=True):
             self.last_update_time = time.time()
         return len(data)
 
-    def insert(self, loc: int, data: bytes | str):
+    def insert(self, loc: int, data: bytes):
         """
         Write data to buffer.
 
@@ -1730,7 +1845,7 @@ class HfFileSystemMutateFile(fsspec.spec.AbstractBufferedFile):
         """
         return self.edit((loc, loc), data)
 
-    def append(self, data: bytes | str):
+    def append(self, data: bytes):
         """
         Write data to buffer.
 
@@ -1742,7 +1857,7 @@ class HfFileSystemMutateFile(fsspec.spec.AbstractBufferedFile):
         data: bytes
             Set of bytes to be appended at the end of the file.
         """
-        return self.edit((self.size, self.size + len(data)), data)
+        return self.insert(self.size, data)
 
     def delete(self, loc: int, length: int):
         """
@@ -1760,28 +1875,175 @@ class HfFileSystemMutateFile(fsspec.spec.AbstractBufferedFile):
         """
         return self.edit((loc, loc + length), b"")
 
-    def flush(self, force=False):
+    def truncate(self, size: int | None = None):
+        """
+        Write data to buffer.
+
+        Buffer only sent on flush() or if buffer is greater than
+        or equal to blocksize.
+
+        Parameters
+        ----------
+        size: int | None
+            Resize the file to the given size in bytes.
+        """
+        if size is None:
+            size = self.loc
+        if size < self.size:
+            self.delete(size, self.size - size)
+        elif self.size < size:
+            self.append(b"\0" * (size - self.size))
+        return self.size
+
+    def flush(self, force=False, defer=False):
         """
         Write buffered data to backend store.
 
-        Writes the current buffer, if it is larger than the block-size, or if
-        the file is being closed.
+        Writes the current buffer if it being closed, or if:
+        - the buffer size is larger than blocksize
+        - AND the last update was more than 10 seconds ago
+        - AND the last update has finished
 
         Parameters
         ----------
         force: bool
-            When closing, write the last block even if it is smaller than
-            blocks are allowed to be. Disallows further writing to this file.
+            Send the buffer even if it is smaller than
+            blocks are allowed to be.
+        defer: bool
+            Send the buffer in the background, non-blocking.
         """
 
         if self.closed:
             raise ValueError("Flush on closed file")
-        if force or (self.buffer_size >= self.blocksize and self.last_update_time and (time.time() - self.last_update_time) > self.MIN_SECONDS_BETWEEN_UPDATES):
-            self._upload_ranges()
+        if force or (
+            self.buffer_size >= self.blocksize
+            and self.last_update_time
+            and (time.time() - self.last_update_time) > self.send_interval
+            and (self.task is None or self.task.done())
+        ):
+            self._upload_ranges(defer=defer)
             return True
         else:
             # Defer write on small block or quick update
             return False
+
+
+class MutableTextIOWrapper(io.TextIOWrapper):
+    buffer: HfFileSystemMutateFile
+
+    @property
+    def loc(self) -> int:
+        return self.buffer.loc
+
+    def write(self, data: str):
+        """
+        Write data to buffer.
+
+        Buffer only sent on flush() or if buffer is greater than
+        or equal to blocksize.
+
+        Parameters
+        ----------
+        data: bytes
+            Set of bytes to be written.
+        """
+        return self.buffer.write(data.encode(self.encoding, errors=self.errors))
+
+    def edit(self, byte_range: tuple[int, int], data: str):
+        """
+        Write data to buffer.
+
+        Buffer only sent on flush() or if buffer is greater than
+        or equal to blocksize.
+
+        Parameters
+        ----------
+        byte_range: tuple[int, int]
+            (start, end) where to edit the file.
+        data: bytes
+            Set of bytes to be placed in the specified range.
+            Size can be different than the range.
+        """
+        return self.buffer.edit(byte_range, data.encode(self.encoding, errors=self.errors))
+
+    def insert(self, loc: int, data: str):
+        """
+        Write data to buffer.
+
+        Buffer only sent on flush() or if buffer is greater than
+        or equal to blocksize.
+
+        Parameters
+        ----------
+        loc: int
+            Where to insert the data.
+        data: bytes
+            Set of bytes to be inserted.
+        """
+        return self.buffer.insert(loc, data.encode(self.encoding, errors=self.errors))
+
+    def append(self, data: str):
+        """
+        Write data to buffer.
+
+        Buffer only sent on flush() or if buffer is greater than
+        or equal to blocksize.
+
+        Parameters
+        ----------
+        data: bytes
+            Set of bytes to be appended at the end of the file.
+        """
+        return self.buffer.append(data.encode(self.encoding, errors=self.errors))
+
+    def delete(self, loc: int, length: int):
+        """
+        Write data to buffer.
+
+        Buffer only sent on flush() or if buffer is greater than
+        or equal to blocksize.
+
+        Parameters
+        ----------
+        loc: int
+            Where to insert the data.
+        length: int
+            Number of bytes to delete.
+        """
+        return self.buffer.delete(loc, length)
+
+    def truncate(self, size: int | None = None):
+        """
+        Write data to buffer.
+
+        Buffer only sent on flush() or if buffer is greater than
+        or equal to blocksize.
+
+        Parameters
+        ----------
+        size: int | None
+            Resize the file to the given size in bytes.
+        """
+        return self.buffer.truncate(size)
+
+    def flush(self, force=False, defer=False):
+        """
+        Write buffered data to backend store.
+
+        Writes the current buffer if it being closed, or if:
+        - the buffer size is larger than blocksize
+        - AND the last update was more than 10 seconds ago
+        - AND the last update has finished
+
+        Parameters
+        ----------
+        force: bool
+            Send the buffer even if it is smaller than
+            blocks are allowed to be.
+        defer: bool
+            Send the buffer in the background, non-blocking.
+        """
+        return self.buffer.flush(force=force, defer=defer)
 
 
 def safe_revision(revision: str) -> str:
@@ -1812,6 +2074,21 @@ def make_instance(cls, args, kwargs, instance_state):
     for attr, state_value in instance_state.items():
         setattr(fs, attr, state_value)
     return fs
+
+
+_DEFERRED_CLOSE_THREAD_NAME = "hffs-deferred"
+_deferred_executor = None
+_deferred_executor_lock = threading.Lock()
+
+
+def _get_deferred_executor():
+    global _deferred_executor
+    with _deferred_executor_lock:
+        if _deferred_executor is None:
+            _deferred_executor = ThreadPoolExecutor(
+                thread_name_prefix=_DEFERRED_CLOSE_THREAD_NAME
+            )
+        return _deferred_executor
 
 
 hffs = HfFileSystem()

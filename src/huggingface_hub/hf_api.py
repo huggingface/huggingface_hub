@@ -14968,7 +14968,69 @@ class HfApi:
         delete: list[tuple[int, int]] | None = None,
         token: bool | str | None = None,
     ) -> None:
-        # TODO(QL): TRY IT OUT !!! (+ debug lol)
+        """Mutate an existing file in a bucket in-place, only re-uploading the parts the caller actually rewrites.
+
+        See [`HfFileSystemMutateFile`] to use this feature with a file-like API.
+
+        Args:
+            bucket_id (`str`):
+                The ID of the bucket (e.g. `"username/my-bucket"`).
+            remote_path (`str`):
+                the file to mutate.
+            edit (`list[tuple[tuple[int, int], bytes]]`, *optional*):
+                List edits to apply, in the form `((start, end), data)`.
+                Ranges [`start`, `end`) are replaced with `data`, which can
+                be of any size (not necessarily the size of the replaced range).
+            insert (`list[tuple[int, bytes]]`, *optional*):
+                List of inserts to apply, in the form `(loc, data)`.
+                The content of `data` is inserted at location `loc`, and shifts
+                the rest of the file.
+            delete (`list[tuple[int, bytes]]`, *optional*):
+                List of deletes to apply, in the form `(loc, length)`.
+                The range [`loc`, `loc + length`) is deleted.
+        """
+        from .utils._xet_progress_reporting import XetUploadProgressReporter
+
+
+        if not are_progress_bars_disabled():
+            _progress = XetUploadProgressReporter(total_files=1)
+        else:
+            _progress = None
+
+        file_metadata = self.get_bucket_file_metadata(
+            bucket_id=bucket_id,
+            remote_path=remote_path,
+            token=token
+        )
+        self._mutate_bucket_file(
+            bucket_id=bucket_id,
+            remote_path=remote_path,
+            edit=edit,
+            insert=insert,
+            delete=delete,
+            _progress=_progress,
+            _file_hash=file_metadata.xet_file_data.file_hash,
+            _file_size=file_metadata.size
+        )
+
+
+    def _mutate_bucket_file(
+        self,
+        *,
+        bucket_id: str,
+        remote_path: str,
+        edit: list[tuple[tuple[int, int], bytes]] | None = None,
+        insert: list[tuple[int, bytes]] | None = None,
+        delete: list[tuple[int, int]] | None = None,
+        token: bool | str | None = None,
+        _progress: XetUploadProgressReporter | None = None,
+        _file_hash: str | None = None,
+        _file_size: int | None = None,
+    ) -> str:
+        """
+        Internal method: process a single batch of bucket file mutate operations (upload to XET + call /batch).
+        Returns the new file's xet hash.
+        """
         from .utils._xet import (
             XetTokenType,
             abort_xet_session,
@@ -14987,13 +15049,30 @@ class HfApi:
         if not (edit or insert or delete):
             return
 
-        headers = self._build_hf_headers(token=token)
-
-        if not are_progress_bars_disabled():
-            _progress = XetUploadProgressReporter(total_files=1)
+        owns_progress = _progress is None
+        if _progress is not None:
+            progress = _progress
+            progress.reset_for_next_commit()
+            progress_callback = progress.update_progress
+        elif not are_progress_bars_disabled():
+            progress = XetUploadProgressReporter(total_files=1)
+            progress_callback = progress.update_progress
         else:
-            _progress = None
+            progress, progress_callback = None, None
 
+        if _file_hash is None or _file_size is None:
+            file_metadata = self.get_bucket_file_metadata(
+                bucket_id=bucket_id,
+                remote_path=remote_path,
+                token=token
+            )
+            file_hash = file_metadata.xet_file_data.file_hash
+            file_size = file_metadata.size
+        else:
+            file_hash = _file_hash
+            file_size = _file_size
+
+        headers = self._build_hf_headers(token=token)
         refresh_url = xet_connection_info_refresh_url(
             token_type=XetTokenType.WRITE,
             repo_id=bucket_id,
@@ -15002,30 +15081,18 @@ class HfApi:
         )
         xet_headers = xet_headers_without_auth(headers)
 
-        owns_progress = _progress is None
-        if _progress is not None:
-            progress = _progress
-            progress.reset_for_next_commit()
-            progress_callback = progress.update_progress
-        elif not are_progress_bars_disabled():
-            progress = XetUploadProgressReporter()
-            progress_callback = progress.update_progress
-        else:
-            progress, progress_callback = None, None
-        session = get_xet_session()
-        file_metadata = self.get_bucket_file_metadata(
-            bucket_id=bucket_id,
-            remote_path=remote_path,
-            token=token
-        )
         try:
-            commit = session.new_range_upload(
-                file_metadata.xet_file_data.file_hash,
-                file_metadata.size,
+            commit = get_xet_session().new_range_upload(
+                file_hash,
+                file_size,
                 token_refresh_url=refresh_url,
                 token_refresh_headers=headers,
                 custom_headers=xet_headers,
                 progress_callback=progress_callback,
+            )
+            logger.debug(
+                f"About to commit to a file on the hub: {len(edit or [])} edit(s), {len(insert or [])} insert(s) and"
+                f" {len(delete or [])} deletion(s)."
             )
             try:
                 if edit:
@@ -15072,7 +15139,7 @@ class HfApi:
                 ],
                 token=token,
             )
-        return
+        return report.file_info.hash
 
 
 def _parse_revision_from_pr_url(pr_url: str) -> str:
