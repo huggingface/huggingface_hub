@@ -294,7 +294,7 @@ class InferenceClient:
                 if len(error.response.text) > 0:
                     msg += f"{os.linesep}{error.response.text}{os.linesep}"
                 error.args = (msg,) + error.args[1:]
-            if error.response.status_code == 504 and not stream:
+            if error.response.status_code == 504 and not stream and request_parameters.task == "conversational":
                 msg = str(error.args[0])
                 msg += (
                     f"{os.linesep}Note: the request timed out before the model finished generating."
