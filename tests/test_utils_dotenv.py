@@ -30,6 +30,25 @@ def test_export_and_inline_comment():
     assert load_dotenv(data) == {"KEY": "value"}
 
 
+def test_hash_without_preceding_whitespace_is_kept():
+    # A '#' only starts an inline comment when preceded by whitespace, matching
+    # python-dotenv and the rest of the ecosystem. A bare '#' inside an
+    # unquoted value (hex color, password, URL fragment, ...) is part of the
+    # value, not a comment. This used to be truncated at the first '#'.
+    data = """
+    COLOR=#FF0000
+    PASSWORD=p@ss#word
+    URL=http://example.com/page#section
+    COMMENTED=value # trailing comment
+    """
+    assert load_dotenv(data) == {
+        "COLOR": "#FF0000",
+        "PASSWORD": "p@ss#word",
+        "URL": "http://example.com/page#section",
+        "COMMENTED": "value",
+    }
+
+
 def test_ignore_invalid_lines():
     data = """
     this is not valid
