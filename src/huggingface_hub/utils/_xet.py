@@ -17,8 +17,8 @@ _REGEX_XET_HASH = re.compile(r"^[0-9a-fA-F]{64}$")
 XET_CONNECTION_INFO_SAFETY_PERIOD = 60  # seconds
 XET_CONNECTION_INFO_CACHE_SIZE = 1_000
 XET_CONNECTION_INFO_CACHE: dict[str, "XetConnectionInfo"] = {}
-_XET_CONNECTION_INFO_LOCKS: dict[str, threading.Lock] = {}
-_XET_CONNECTION_INFO_LOCKS_GUARD = threading.Lock()
+_XET_CONNECTION_INFO_LOCK = threading.Lock()  # guards the cache dict and the per-key lock registry
+_XET_CONNECTION_INFO_KEY_LOCKS: dict[str, threading.Lock] = {}
 
 
 def is_valid_xet_hash(xet_hash: str) -> bool:
@@ -166,14 +166,7 @@ def _fetch_xet_connection_info_with_url(
 
     # A per-key lock collapses concurrent workers into a single token request per expired/missing
     # key, without blocking fetches for other keys (e.g. other repos downloaded in parallel).
-    with _XET_CONNECTION_INFO_LOCKS_GUARD:
-        key_lock = _XET_CONNECTION_INFO_LOCKS.get(cache_key)
-        if key_lock is None:
-            if len(_XET_CONNECTION_INFO_LOCKS) >= XET_CONNECTION_INFO_CACHE_SIZE:
-                _XET_CONNECTION_INFO_LOCKS.pop(next(iter(_XET_CONNECTION_INFO_LOCKS)))
-            key_lock = _XET_CONNECTION_INFO_LOCKS[cache_key] = threading.Lock()
-
-    with key_lock:
+    with _key_lock(cache_key):
         cached_info = XET_CONNECTION_INFO_CACHE.get(cache_key)
         if cached_info is not None and not _is_expired(cached_info):
             return cached_info
@@ -186,17 +179,18 @@ def _fetch_xet_connection_info_with_url(
         if metadata is None:
             raise ValueError("Xet headers have not been correctly set by the server.")
 
-        # Delete expired cache entries
-        for k, v in list(XET_CONNECTION_INFO_CACHE.items()):
-            if _is_expired(v):
-                XET_CONNECTION_INFO_CACHE.pop(k, None)
+        with _XET_CONNECTION_INFO_LOCK:
+            # Delete expired cache entries
+            for k, v in list(XET_CONNECTION_INFO_CACHE.items()):
+                if _is_expired(v):
+                    XET_CONNECTION_INFO_CACHE.pop(k, None)
 
-        # Enforce cache size limit
-        if len(XET_CONNECTION_INFO_CACHE) >= XET_CONNECTION_INFO_CACHE_SIZE:
-            XET_CONNECTION_INFO_CACHE.pop(next(iter(XET_CONNECTION_INFO_CACHE)))
+            # Enforce cache size limit
+            if len(XET_CONNECTION_INFO_CACHE) >= XET_CONNECTION_INFO_CACHE_SIZE:
+                XET_CONNECTION_INFO_CACHE.pop(next(iter(XET_CONNECTION_INFO_CACHE)))
 
-        # Update cache
-        XET_CONNECTION_INFO_CACHE[cache_key] = metadata
+            # Update cache
+            XET_CONNECTION_INFO_CACHE[cache_key] = metadata
 
         return metadata
 
@@ -206,6 +200,12 @@ def _cache_key(url: str, headers: dict[str, str]) -> str:
     lower_headers = {k.lower(): v for k, v in headers.items()}  # casing is not guaranteed here
     auth_header = lower_headers.get("authorization", "")
     return f"{url}|{auth_header}"
+
+
+def _key_lock(cache_key: str) -> threading.Lock:
+    """Return the lock guarding token fetches for `cache_key`, creating it if needed."""
+    with _XET_CONNECTION_INFO_LOCK:
+        return _XET_CONNECTION_INFO_KEY_LOCKS.setdefault(cache_key, threading.Lock())
 
 
 def _is_expired(connection_info: XetConnectionInfo) -> bool:
