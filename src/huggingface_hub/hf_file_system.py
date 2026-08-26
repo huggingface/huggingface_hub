@@ -1511,9 +1511,9 @@ class HfFileSystemMutateFile(fsspec.spec.AbstractBufferedFile):
 
     Supported mutate operations: append, edit, insert, delete, truncate.
 
-    It uses a buffer that is only sent on flush(force=True) or if 10
-    seconds passed since last send and buffer is greater than or equal
-    to block_size.
+    It uses a buffer that is only sent on flush(force=True) or if buffer
+    is greater than or equal to block_size (and there is also a minimum
+    10 second interval between sends to avoid doing too many requests).
 
     Examples:
 
@@ -1746,8 +1746,9 @@ class HfFileSystemMutateFile(fsspec.spec.AbstractBufferedFile):
         """
         Write data to buffer.
 
-        Buffer only sent on flush() or if buffer is greater than
-        or equal to blocksize.
+        Buffer only sent on flush() or if buffer is greater than or
+        equal to blocksize (and there is also a minimum 10 second
+        interval between sends to avoid doing too many requests).
 
         Parameters
         ----------
@@ -1760,8 +1761,9 @@ class HfFileSystemMutateFile(fsspec.spec.AbstractBufferedFile):
         """
         Write data to buffer.
 
-        Buffer only sent on flush() or if buffer is greater than
-        or equal to blocksize.
+        Buffer only sent on flush() or if buffer is greater than or
+        equal to blocksize (and there is also a minimum 10 second
+        interval between sends to avoid doing too many requests).
 
         Parameters
         ----------
@@ -1845,8 +1847,9 @@ class HfFileSystemMutateFile(fsspec.spec.AbstractBufferedFile):
         """
         Write data to buffer.
 
-        Buffer only sent on flush() or if buffer is greater than
-        or equal to blocksize.
+        Buffer only sent on flush() or if buffer is greater than or
+        equal to blocksize (and there is also a minimum 10 second
+        interval between sends to avoid doing too many requests).
 
         Parameters
         ----------
@@ -1861,8 +1864,9 @@ class HfFileSystemMutateFile(fsspec.spec.AbstractBufferedFile):
         """
         Write data to buffer.
 
-        Buffer only sent on flush() or if buffer is greater than
-        or equal to blocksize.
+        Buffer only sent on flush() or if buffer is greater than or
+        equal to blocksize (and there is also a minimum 10 second
+        interval between sends to avoid doing too many requests).
 
         Parameters
         ----------
@@ -1875,8 +1879,9 @@ class HfFileSystemMutateFile(fsspec.spec.AbstractBufferedFile):
         """
         Write data to buffer.
 
-        Buffer only sent on flush() or if buffer is greater than
-        or equal to blocksize.
+        Buffer only sent on flush() or if buffer is greater than or
+        equal to blocksize (and there is also a minimum 10 second
+        interval between sends to avoid doing too many requests).
 
         Parameters
         ----------
@@ -1891,8 +1896,9 @@ class HfFileSystemMutateFile(fsspec.spec.AbstractBufferedFile):
         """
         Write data to buffer.
 
-        Buffer only sent on flush() or if buffer is greater than
-        or equal to blocksize.
+        Buffer only sent on flush() or if buffer is greater than or
+        equal to blocksize (and there is also a minimum 10 second
+        interval between sends to avoid doing too many requests).
 
         Parameters
         ----------
@@ -1911,7 +1917,7 @@ class HfFileSystemMutateFile(fsspec.spec.AbstractBufferedFile):
         """
         Write buffered data to backend store.
 
-        Writes the current buffer if it being closed, or if:
+        Writes the current buffer if force=True, or if:
         - the buffer size is larger than blocksize
         - AND the last update was more than 10 seconds ago
         - AND the last update has finished
@@ -1920,7 +1926,12 @@ class HfFileSystemMutateFile(fsspec.spec.AbstractBufferedFile):
         ----------
         force: bool
             Send the buffer even if it is smaller than
-            blocks are allowed to be.
+            blocks are allowed to be and even if last block
+            was sent less than 10 seconds ago.
+
+            If the last update wasn't finished, it waits for
+            it to finish before flushing.
+
         defer: bool
             Send the buffer in the background, non-blocking.
         """
