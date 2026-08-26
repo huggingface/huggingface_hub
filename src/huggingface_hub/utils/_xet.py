@@ -17,7 +17,8 @@ _REGEX_XET_HASH = re.compile(r"^[0-9a-fA-F]{64}$")
 XET_CONNECTION_INFO_SAFETY_PERIOD = 60  # seconds
 XET_CONNECTION_INFO_CACHE_SIZE = 1_000
 XET_CONNECTION_INFO_CACHE: dict[str, "XetConnectionInfo"] = {}
-_XET_CONNECTION_INFO_LOCK = threading.Lock()
+_XET_CONNECTION_INFO_LOCKS: dict[str, threading.Lock] = {}
+_XET_CONNECTION_INFO_LOCKS_GUARD = threading.Lock()
 
 
 def is_valid_xet_hash(xet_hash: str) -> bool:
@@ -163,8 +164,16 @@ def _fetch_xet_connection_info_with_url(
         if not _is_expired(cached_info):
             return cached_info
 
-    # The lock collapses concurrent workers into a single token request per expired/missing key.
-    with _XET_CONNECTION_INFO_LOCK:
+    # A per-key lock collapses concurrent workers into a single token request per expired/missing
+    # key, without blocking fetches for other keys (e.g. other repos downloaded in parallel).
+    with _XET_CONNECTION_INFO_LOCKS_GUARD:
+        key_lock = _XET_CONNECTION_INFO_LOCKS.get(cache_key)
+        if key_lock is None:
+            if len(_XET_CONNECTION_INFO_LOCKS) >= XET_CONNECTION_INFO_CACHE_SIZE:
+                _XET_CONNECTION_INFO_LOCKS.pop(next(iter(_XET_CONNECTION_INFO_LOCKS)))
+            key_lock = _XET_CONNECTION_INFO_LOCKS[cache_key] = threading.Lock()
+
+    with key_lock:
         cached_info = XET_CONNECTION_INFO_CACHE.get(cache_key)
         if cached_info is not None and not _is_expired(cached_info):
             return cached_info
