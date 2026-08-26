@@ -2678,8 +2678,6 @@ class HfApi:
                 A string or list of strings that can be used to identify datasets on
                 the Hub by the size of the dataset such as `100K<n<1M` or
                 `1M<n<10M`.
-            tags (`str` or `List`, *optional*):
-                Deprecated. Pass tags in `filter` to filter datasets by tags.
             task_categories (`str` or `List`, *optional*):
                 A string or list of strings that can be used to identify datasets on
                 the Hub by the designed task, such as `audio_classification` or
@@ -2734,7 +2732,7 @@ class HfApi:
         ... )
 
         # List FiftyOne datasets (identified by the tag "fiftyone" in dataset card)
-        >>> api.list_datasets(tags="fiftyone")
+        >>> api.list_datasets(filter="fiftyone")
         ```
 
         Example usage with the `search` argument:
