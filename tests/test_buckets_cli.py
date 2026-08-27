@@ -291,6 +291,10 @@ def test_rm_recursive(api: HfApi, bucket_write: str):
             (b"a", "logs/a.log"),
             (b"b", "logs/b.log"),
             (b"deep", "logs/sub/deep.log"),
+            # Lexical siblings — must NOT be deleted
+            (b"sibling", "logs.json"),
+            (b"sibling_backup", "logs_backup/a.log"),
+            (b"sibling_x", "logsx/c.log"),
         ],
     )
 
@@ -299,7 +303,12 @@ def test_rm_recursive(api: HfApi, bucket_write: str):
     assert "3 file(s)" in result.output
     assert "totaling" in result.output
 
-    assert _remote_files(api, bucket_write) == {"keep.txt"}
+    assert _remote_files(api, bucket_write) == {
+        "keep.txt",
+        "logs.json",
+        "logs_backup/a.log",
+        "logsx/c.log",
+    }
 
 
 def test_rm_recursive_dry_run(api: HfApi, bucket_write: str):

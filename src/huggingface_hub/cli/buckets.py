@@ -426,6 +426,17 @@ def remove(
                 status.update(f"Listing files from remote ({len(all_files)} files)")
         status.done(f"Listing files from remote ({len(all_files)} files)")
 
+        # Filter out lexical siblings: the server matches prefix lexically
+        # (e.g. prefix "logs" also returns "logs.json", "logs_backup/...").
+        # Filesystem semantics require that only the prefix itself and files
+        # directly under prefix/ are kept.
+        if prefix:
+            all_files = [
+                f
+                for f in all_files
+                if f.path == prefix or f.path.startswith(prefix + "/")
+            ]
+
         if include or exclude:
             matcher = FilterMatcher(include_patterns=include, exclude_patterns=exclude)
             matched_files = [f for f in all_files if matcher.matches(f.path)]
