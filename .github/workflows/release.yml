@@ -20,8 +20,8 @@
 # (huggingface-hub-bot) for PR creation in the post-release job. If a publish job fails, re-run it from the
 # Actions UI rather than reintroducing a tag-triggered fallback (which would bypass the `pypi` environment gate).
 #
-# The HF CLI skill sync is NOT part of this workflow: the tag push triggers `sync-hf-cli-skill.yml`, which also bumps
-# the plugin version and regenerates the skills repo artifacts. Adding a job here would open a second, invalid PR.
+# The HF CLI skill sync lives in the sync-hf-cli-skill job below and nowhere else. A second, tag-triggered workflow
+# used to do the same thing, which meant every release opened two PRs on huggingface/skills. Do not reintroduce it.
 #
 # PyPI publishing uses Trusted Publishing (OIDC), no PyPI token is stored. The Trusted Publisher must be
 # configured on PyPI for both `huggingface-hub` and `hf` to accept this workflow, and the `pypi` GitHub
@@ -33,6 +33,8 @@
 # - RELEASE_BUCKET_HF_TOKEN              : HF TOKEN scoped to push data to the huggingface/releases bucket
 # - APP_ID_HUGGINGFACE_HUB_BOT           : GitHub App ID for huggingface-hub-bot (PRs, issues, releases)
 # - APP_SECRET_PEM_HUGGINGFACE_HUB_BOT   : GitHub App private key for huggingface-hub-bot
+# - APP_ID_HUB_SKILLS_REPO               : GitHub App ID for creating tokens to access the skills repo
+# - APP_SECRET_PREM_HUB_SKILLS_REPO      : GitHub App private key for the skills repo
 # - SLACK_BOT_TOKEN                      : Slack Bot User OAuth Token (scopes: chat:write, reactions:write, files:write)
 #
 # Required repository variables:
@@ -1035,7 +1037,119 @@ jobs:
               '{channel: $channel, text: $text, thread_ts: $thread_ts, unfurl_links: false}')" > /dev/null
 
   # ============================================================
-  # 7. NOTIFY PRs — comment on each PR included in the release
+  # 7. SYNC HF CLI SKILL — update skill docs in the skills repo
+  # ============================================================
+  sync-hf-cli-skill:
+    permissions:
+      contents: read   # write operations use app token
+    needs: prepare
+    if: ${{ needs.prepare.outputs.is_prerelease != 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout huggingface_hub
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -e .
+
+      - name: Generate skill docs
+        env:
+          HF_HOME: /tmp/hf-home
+        run: |
+          mkdir -p /tmp/hf-cli-skill
+          mkdir -p "$HF_HOME" && touch "$HF_HOME/.check_for_update_done"
+          hf skills preview > /tmp/hf-cli-skill/SKILL.md
+
+      - name: Create GitHub App token
+        id: app_token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1  # v3.2.0
+        with:
+          app-id: ${{ secrets.APP_ID_HUB_SKILLS_REPO }}
+          private-key: ${{ secrets.APP_SECRET_PREM_HUB_SKILLS_REPO }}
+          repositories: skills
+
+      - name: Checkout skills repo
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          repository: huggingface/skills
+          token: ${{ steps.app_token.outputs.token }}
+          path: skills-repo
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@ae62891fec2bb8e7d6c99fc78c9fec3a63790f8d  # v10.0.0
+
+      - name: Copy generated files
+        run: cp /tmp/hf-cli-skill/SKILL.md skills-repo/skills/hf-cli/
+
+      - name: Check for HF CLI skill changes
+        id: check_changes
+        working-directory: skills-repo
+        # git diff returns zero if there is no diff
+        run: |
+          if git diff --quiet -- skills/hf-cli/SKILL.md; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No hf-cli skill changes; skipping PR"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Bump plugin version and regenerate skills repo artifacts
+        if: steps.check_changes.outputs.changed == 'true'
+        working-directory: skills-repo
+        run: |
+          uv run scripts/plugin_versions.py bump patch
+          ./scripts/publish.sh
+
+      - name: Create Pull Request
+        if: steps.check_changes.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1  # v8.1.1
+        with:
+          token: ${{ steps.app_token.outputs.token }}
+          path: skills-repo
+          branch: sync/hf-cli-${{ github.run_id }}
+          delete-branch: true
+          title: "Sync HF CLI Skill (${{ needs.prepare.outputs.tag }})"
+          reviewers: hanouticelina
+          body: |
+            Auto-generated from [huggingface_hub@${{ needs.prepare.outputs.tag }}](https://github.com/huggingface/huggingface_hub/tree/${{ needs.prepare.outputs.tag }})
+
+            ---
+            This PR was created automatically by the [release](https://github.com/huggingface/huggingface_hub/blob/main/.github/workflows/release.yml) workflow.
+          commit-message: "Sync HF CLI skill from huggingface_hub@${{ needs.prepare.outputs.tag }}"
+          labels: |
+            automated
+            cli-sync
+
+      - name: Notify Slack
+        if: ${{ always() && needs.prepare.outputs.message_ts }}
+        continue-on-error: true
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL_ID: ${{ vars.SLACK_CHANNEL_ID }}
+        run: |
+          if [[ "${{ job.status }}" == "success" ]]; then
+            TEXT="✅ *CLI skill sync* — done"
+          else
+            TEXT="❌ *CLI skill sync* — failed"
+          fi
+          curl -s -X POST https://slack.com/api/chat.postMessage \
+            -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n \
+              --arg channel "$SLACK_CHANNEL_ID" \
+              --arg text "$TEXT" \
+              --arg thread_ts "${{ needs.prepare.outputs.message_ts }}" \
+              '{channel: $channel, text: $text, thread_ts: $thread_ts, unfurl_links: false}')" > /dev/null
+
+  # ============================================================
+  # 8. NOTIFY PRs — comment on each PR included in the release
   # ============================================================
   notify-prs:
     permissions:
@@ -1152,10 +1266,10 @@ jobs:
               '{channel: $channel, text: $text, thread_ts: $thread_ts, unfurl_links: false}')" > /dev/null
 
   # ============================================================
-  # 8. SLACK — final status update
+  # 9. SLACK — final status update
   # ============================================================
   slack-complete:
-    needs: [prepare, publish-pypi, publish-hf-cli, release-notes, slack-message, archive-release-notes, test-downstream, post-release, notify-prs]
+    needs: [prepare, publish-pypi, publish-hf-cli, release-notes, slack-message, archive-release-notes, test-downstream, post-release, sync-hf-cli-skill, notify-prs]
     if: ${{ always() && needs.prepare.outputs.message_ts }}
     runs-on: ubuntu-latest
     steps:
@@ -1185,6 +1299,7 @@ jobs:
             "${{ needs.archive-release-notes.result }}" \
             "${{ needs.test-downstream.result }}" \
             "${{ needs.post-release.result }}" \
+            "${{ needs.sync-hf-cli-skill.result }}" \
             "${{ needs.notify-prs.result }}"; do
             if [[ "$result" == "failure" || "$result" == "cancelled" ]]; then
               FAILED=true
