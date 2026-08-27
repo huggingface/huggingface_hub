@@ -229,6 +229,7 @@ ensure_python() {
                 done
                 if [ -n "$shadowed" ]; then
                     log_info "Found $shadowed ($("$shadowed" --version 2>&1)), but an older Python earlier in your PATH shadows it."
+                    log_info "Put $(dirname "$shadowed") earlier in your PATH and re-run the installer."
                 else
                     log_info "On macOS: brew install python (or download Python 3.10+ from python.org)"
                 fi
