@@ -709,21 +709,21 @@ A continuous sync runs unattended, so it must not upload a file that is still be
 
 This is on by default and needs no flags. Files that are simply sitting on disk are **not** delayed — calmness is measured from the file's own mtime, so a directory of static files syncs immediately on the first pass. Only files actually being written wait.
 
-While a file is waiting, the sync says so, along with how long it has been quiet and how long it needs:
+On a terminal, watch mode draws a small panel that repaints in place rather than scrolling — it shows what is being watched, the calm period in force, and a row per file that has changed:
 
 ```text
-Continuous sync: ./data -> hf://buckets/user/my-bucket (every 5s, calm period 60s (<=1GiB) to 10m00s (>=10GiB), Ctrl-C to stop)
-  waiting: train.log (changed 3s ago, needs 60s quiet)
-  waiting: model.safetensors (changed 12s ago, needs 2m10s quiet)
-  upload: config.json (new file)
-Pass 4: 1 file(s) in 2s.
+watching:: ./data → hf://buckets/username/my-bucket
+calm 60s (≤1GiB) → 10m00s (≥10GiB)   lazy mode active
+
+2 files changed
+  train.log               ▅▅  ██████░░   45s/1m00s  ready in 15s
+  model-00001.safetensors ▁   ████████      stable  eta 4m10s
+uploaded 1 file in 2s
 ```
 
-Once a file has been quiet long enough it is uploaded, and the observed rate of change is reported alongside it:
+Each row carries two meters. The first is the **churn meter**, showing how rapidly the file is changing (`▇▇▇` for a write every second or two, down to `▁` for a file that has settled; blank until there are two samples to compare). The second is the **stability meter**, showing progress towards the calm period, with the elapsed/required times beside it. The tail says what has to happen next: `ready in 15s` while a file is still settling, or `eta 4m10s` — the predicted upload time — once it is stable.
 
-```text
-  upload: train.log (size differs, changes ~5s apart)
-```
+When output is not a terminal (redirected to a log file, or running under a supervisor), the panel degrades to plain appended lines, and a file is reported only when its status actually changes rather than on every pass.
 
 To override the ramp, use `--calm-time` for a fixed period regardless of size, or tune the two anchors:
 
@@ -749,7 +749,7 @@ A file that is appended to forever — an active log with a write every few seco
 A large file can pass the calm check and *still* be a bad upload: if it changes every few minutes and the upload itself would take longer than that, the copy is stale before it lands and the bandwidth is wasted. Continuous sync predicts this from the file's observed rate of change and the measured upload throughput, and refuses to start an upload that would be overtaken at least twice while in flight:
 
 ```text
-  waiting: checkpoint.safetensors (~4m10s upload would be overtaken ~3x)
+  checkpoint.safetensors  ▃   ████████      stable  eta 4m10s, overtaken ~3x
 ```
 
 Throughput is learned from the uploads it actually performs, so the estimate improves as the sync runs. The file is uploaded on a later pass, once it has calmed down enough for the upload to finish before the next write.

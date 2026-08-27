@@ -21,6 +21,7 @@ import json
 import math
 import mimetypes
 import os
+import shutil
 import stat
 import sys
 import time
@@ -1220,6 +1221,162 @@ class StabilityTracker:
         self._measured = True
 
 
+# ── Watch display ─────────────────────────────────────────────────────────────
+
+
+@dataclass
+class WatchRow:
+    """One file's line in the watch display."""
+
+    path: str
+    quiet_for: float
+    calm_required: float
+    state: Literal["waiting", "ready", "deferred"]
+    mean_interval: float | None = None
+    eta: float | None = None
+    predicted_changes: float | None = None
+    note: str = ""
+
+
+def _bar(fraction: float, width: int = 8) -> str:
+    filled = min(width, max(0, round(fraction * width)))
+    return "\u2588" * filled + "\u2591" * (width - filled)
+
+
+def _churn_meter(interval: float | None) -> str:
+    """Three-cell meter of how rapidly a file is changing. Blank until we have two samples."""
+    if interval is None:
+        return "   "
+    if interval < 2:
+        return "\u2587\u2587\u2587"
+    if interval < 5:
+        return "\u2585\u2585 "
+    if interval < RAPID_CHANGE_SECONDS:
+        return "\u2583  "
+    return "\u2581  "
+
+
+class WatchDisplay:
+    """Minimal in-place TUI for `--watch`.
+
+    Repaints a small fixed block each pass rather than appending, so a long watch doesn't scroll the terminal.
+    Falls back to plain appended lines when stdout is not a TTY -- watch output is routinely redirected to a
+    log file, where cursor movement would be garbage.
+    """
+
+    def __init__(self, source: str, dest: str, calm_desc: str, quiet: bool = False):
+        self.source = source
+        self.dest = dest
+        self.calm_desc = calm_desc
+        self.quiet = quiet
+        self.tui = not quiet and sys.stdout.isatty()
+        self._painted = 0
+        self._announced: dict[str, str] = {}
+
+    # -- plain-mode helpers --
+
+    def _plain(self, msg: str) -> None:
+        if not self.quiet:
+            # flush on every write: watch output is typically redirected to a log file, where Python's block
+            # buffering would otherwise hide all progress until the process exits.
+            print(msg, flush=True)
+
+    def start(self) -> None:
+        if not self.tui:
+            self._plain(f"watching:: {self.source} -> {self.dest}")
+            self._plain(f"calm {self.calm_desc} | lazy mode active")
+
+    # -- painting --
+
+    def _compose(self, rows: list[WatchRow], last_event: str) -> list[str]:
+        width = max(40, shutil.get_terminal_size((100, 24)).columns)
+        name_width = min(38, max(12, *(len(r.path) for r in rows))) if rows else 12
+
+        lines = [
+            f"\033[1mwatching::\033[0m {self.source} \u2192 {self.dest}",
+            f"\033[90mcalm {self.calm_desc}   lazy mode active\033[0m",
+            "",
+        ]
+        if not rows:
+            lines.append("\033[90mno changes\033[0m")
+        else:
+            noun = "file" if len(rows) == 1 else "files"
+            lines.append(f"{len(rows)} {noun} changed")
+            for row in sorted(rows, key=lambda r: r.path):
+                name = row.path if len(row.path) <= name_width else "\u2026" + row.path[-(name_width - 1) :]
+                churn = _churn_meter(row.mean_interval)
+                if row.state == "waiting":
+                    frac = row.quiet_for / row.calm_required if row.calm_required else 1.0
+                    meter = _bar(frac)
+                    progress = f"{_format_duration(row.quiet_for)}/{_format_duration(row.calm_required)}"
+                    tail = f"ready in {_format_duration(max(0.0, row.calm_required - row.quiet_for))}"
+                elif row.state == "deferred":
+                    meter = _bar(1.0)
+                    progress = "stable"
+                    # Keep the panel terse; the full reason is in the plain/log rendering.
+                    tail = (
+                        f"eta {_format_duration(row.eta)}, overtaken ~{row.predicted_changes:.0f}x"
+                        if row.predicted_changes and row.eta is not None
+                        else "held"
+                    )
+                else:
+                    meter = _bar(1.0)
+                    progress = "stable"
+                    tail = f"eta {_format_duration(row.eta)}" if row.eta is not None else "uploading"
+                line = f"  {name:<{name_width}} {churn} {meter} {progress:>11}  \033[90m{tail}\033[0m"
+                lines.append(line[: width + 20])  # +20 slack for the ANSI escapes, which take no columns
+        if last_event:
+            lines.append(f"\033[90m{last_event}\033[0m")
+        return lines
+
+    def render(self, rows: list[WatchRow], last_event: str = "") -> None:
+        if self.quiet:
+            return
+        if not self.tui:
+            self._render_plain(rows, last_event)
+            return
+        lines = self._compose(rows, last_event)
+        out = []
+        if self._painted:
+            out.append(f"\033[{self._painted}A")  # back to the top of the previous block
+        for line in lines:
+            out.append("\033[2K" + line + "\n")
+        # Clear any lines left over from a taller previous frame.
+        for _ in range(max(0, self._painted - len(lines))):
+            out.append("\033[2K\n")
+        extra = max(0, self._painted - len(lines))
+        if extra:
+            out.append(f"\033[{extra}A")
+        sys.stdout.write("".join(out))
+        sys.stdout.flush()
+        self._painted = len(lines)
+
+    def _render_plain(self, rows: list[WatchRow], last_event: str) -> None:
+        """Append-only fallback: report a file only when its status changes, so logs stay readable."""
+        for row in sorted(rows, key=lambda r: r.path):
+            if row.state == "waiting":
+                msg = f"waiting: {row.path} ({_format_duration(row.quiet_for)} quiet of {_format_duration(row.calm_required)})"
+            elif row.state == "deferred":
+                msg = f"deferred: {row.path} ({row.note})"
+            else:
+                msg = f"ready: {row.path}"
+            if self._announced.get(row.path) != msg:
+                self._plain(f"  {msg}")
+                self._announced[row.path] = msg
+        for path in [p for p in self._announced if p not in {r.path for r in rows}]:
+            del self._announced[path]
+        if last_event:
+            self._plain(last_event)
+
+    def close(self, message: str) -> None:
+        if self.quiet:
+            return
+        if self.tui:
+            sys.stdout.write("\n")
+            sys.stdout.flush()
+        self._plain(message)
+
+
 def _sync_continuous_loop(
     *,
     source: str,
@@ -1239,8 +1396,8 @@ def _sync_continuous_loop(
 
     Each pass recomputes the plan from scratch -- `_compute_sync_plan` is a pure function of
     (source, dest, filters), so no state carries between passes and a crash mid-loop leaves nothing to
-    reconcile. The one thing that *is* carried across passes is `tracker`, which watches how each local file
-    changes over time so that files still being written are held back (see `StabilityTracker`).
+    reconcile. The two things that *are* carried across passes are `tracker`, which watches how each local file
+    changes over time so files still being written are held back (see `StabilityTracker`), and the display.
 
     Returns the plan from the final pass (on `KeyboardInterrupt`), so callers still get a `SyncPlan` back as in
     one-shot mode.
@@ -1252,24 +1409,14 @@ def _sync_continuous_loop(
     last_plan = SyncPlan(source=source, dest=dest, timestamp=datetime.now(timezone.utc).isoformat())
     backoff = interval
     passes = 0
-    # Files held back on the previous pass, so we only announce a change of state rather than repeating
-    # ourselves every interval.
-    announced: dict[str, str] = {}
-
-    def emit(msg: str = "") -> None:
-        # flush on every write: continuous mode is typically redirected to a log file, where Python's block
-        # buffering would otherwise hide all progress until the process exits.
-        if not quiet:
-            print(msg, flush=True)
 
     if tracker.calm_override is not None:
-        calm_desc = f"calm period {_format_duration(tracker.calm_override)}"
+        calm_desc = _format_duration(tracker.calm_override)
     else:
-        calm_desc = (
-            f"calm period {_format_duration(tracker.calm_min)} (<=1GiB) to "
-            f"{_format_duration(tracker.calm_max)} (>=10GiB)"
-        )
-    emit(f"Continuous sync: {source} -> {dest} (every {interval:g}s, {calm_desc}, Ctrl-C to stop)")
+        calm_desc = f"{_format_duration(tracker.calm_min)} (\u22641GiB) \u2192 {_format_duration(tracker.calm_max)} (\u226510GiB)"
+    display = WatchDisplay(source, dest, calm_desc, quiet=quiet)
+    display.start()
+    last_event = ""
 
     try:
         while True:
@@ -1284,7 +1431,6 @@ def _sync_continuous_loop(
                 return verdict.calm
 
             try:
-                status = StatusLine(enabled=not quiet)
                 last_plan = _compute_sync_plan(
                     source=source,
                     dest=dest,
@@ -1295,53 +1441,65 @@ def _sync_continuous_loop(
                     existing=existing,
                     ignore_existing=ignore_existing,
                     filter_matcher=filter_matcher,
-                    status=status,
+                    # No StatusLine: its scanning updates would fight the watch display for the terminal.
+                    status=None,
                     local_filter=gate,
                 )
 
-                uploads = [op for op in last_plan.operations if op.action in ("upload", "download")]
-                if uploads:
-                    total_bytes = sum(op.size or 0 for op in uploads)
-                    for op in uploads:
-                        state = tracker._files.get(op.path)
-                        detail = ""
-                        if state is not None and state.mean_interval is not None:
-                            detail = f", changes ~{_format_duration(state.mean_interval)} apart"
-                        emit(f"  {op.action}: {op.path} ({op.reason}{detail})")
-                    if quiet:
-                        disable_progress_bars()
+                transfers = [op for op in last_plan.operations if op.action in ("upload", "download")]
+                rows = [
+                    WatchRow(
+                        path=path,
+                        quiet_for=v.quiet_for,
+                        calm_required=v.calm_required,
+                        state="deferred" if v.predicted_changes else "waiting",
+                        mean_interval=v.mean_interval,
+                        eta=v.eta,
+                        predicted_changes=v.predicted_changes,
+                        note=v.reason,
+                    )
+                    for path, v in held.items()
+                ]
+                for op in transfers:
+                    state = tracker._files.get(op.path)
+                    rows.append(
+                        WatchRow(
+                            path=op.path,
+                            quiet_for=0.0,
+                            calm_required=tracker.calm_required(op.size or 0),
+                            state="ready",
+                            mean_interval=state.mean_interval if state else None,
+                            eta=tracker.eta(op.size or 0),
+                        )
+                    )
+                display.render(rows, last_event)
+
+                if transfers:
+                    total_bytes = sum(op.size or 0 for op in transfers)
+                    # Progress bars would scribble over the display; our own eta column covers it.
+                    disable_progress_bars()
                     transfer_started = time.monotonic()
                     try:
-                        _execute_plan(last_plan, api, verbose=False, status=status)
+                        _execute_plan(last_plan, api, verbose=False, status=None)
                     finally:
-                        if quiet:
-                            enable_progress_bars()
+                        enable_progress_bars()
                     elapsed = time.monotonic() - transfer_started
                     tracker.record_transfer(total_bytes, elapsed)
-                    emit(f"Pass {passes}: {len(uploads)} file(s) in {_format_duration(elapsed)}.")
-                    announced.clear()
-
-                # Report held-back files, but only when their reason changes -- otherwise a file being written
-                # for an hour would print the same line every interval.
-                for path, verdict in sorted(held.items()):
-                    if announced.get(path) != verdict.reason:
-                        emit(f"  waiting: {path} ({verdict.reason})")
-                        announced[path] = verdict.reason
-                for path in [p for p in announced if p not in held]:
-                    del announced[path]
-
-                if not uploads and not held and verbose:
-                    emit(f"Pass {passes}: nothing to sync.")
+                    noun = "file" if len(transfers) == 1 else "files"
+                    last_event = f"uploaded {len(transfers)} {noun} in {_format_duration(elapsed)}"
+                    # Repaint without the now-finished rows so the block reflects reality immediately.
+                    display.render([r for r in rows if r.state != "ready"], last_event)
 
                 tracker.forget(set(held) | {op.path for op in last_plan.operations})
                 backoff = interval
             except KeyboardInterrupt:
                 raise
             except Exception as e:
-                # Keep the loop alive across transient Hub/network failures -- the whole point of continuous
-                # mode is that it outlives them. Back off so an outage doesn't hammer the API.
+                # Keep the loop alive across transient Hub/network failures -- the whole point of watch mode
+                # is that it outlives them. Back off so an outage doesn't hammer the API.
                 logger.warning(f"Sync pass {passes} failed: {e}")
-                emit(f"Pass {passes} failed ({e}); retrying in {_format_duration(backoff)}.")
+                last_event = f"pass {passes} failed ({e}); retrying in {_format_duration(backoff)}"
+                display.render([], last_event)
                 time.sleep(backoff)
                 backoff = min(backoff * 2, MAX_SYNC_BACKOFF)
                 continue
@@ -1349,7 +1507,7 @@ def _sync_continuous_loop(
             # Sleep the remainder of the interval, so a slow pass doesn't compound the period.
             time.sleep(max(0.0, interval - (time.monotonic() - started)))
     except KeyboardInterrupt:
-        emit(f"\nStopped after {passes} pass(es).")
+        display.close(f"stopped after {passes} pass(es)")
 
     return last_plan
 

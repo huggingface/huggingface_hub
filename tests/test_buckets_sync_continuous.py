@@ -15,6 +15,7 @@
 """Offline tests for continuous bucket sync (`hf buckets sync --continuous`)."""
 
 import os
+import re
 import time
 from unittest.mock import MagicMock, patch
 
@@ -30,7 +31,11 @@ from huggingface_hub._buckets import (
     StabilityTracker,
     SyncOperation,
     SyncPlan,
+    WatchDisplay,
+    WatchRow,
+    _bar,
     _calm_period_for_size,
+    _churn_meter,
     _compute_sync_plan,
     _format_duration,
     _sync_continuous_loop,
@@ -332,3 +337,117 @@ class TestContinuousLoop:
         # The loop kept going after the failure and did real work on a later pass.
         assert compute_mock.call_count == 3
         assert execute.call_count == 1
+
+
+class TestWatchDisplay:
+    """The watch panel repaints in place on a TTY and degrades to plain lines elsewhere."""
+
+    def _tty_display(self, monkeypatch):
+        monkeypatch.setattr("sys.stdout.isatty", lambda: True, raising=False)
+        return WatchDisplay("./data", BUCKET, "60s")
+
+    def test_plain_mode_when_not_a_tty(self, capsys):
+        # stdout is captured (not a TTY) under pytest, so this is the default path here.
+        display = WatchDisplay("./data", BUCKET, "60s")
+        assert not display.tui
+        display.start()
+        out = capsys.readouterr().out
+        assert "watching::" in out
+        assert "lazy mode active" in out
+        assert "\033[" not in out  # no cursor movement in a log file
+
+    def test_plain_mode_reports_a_file_only_when_its_status_changes(self, capsys):
+        display = WatchDisplay("./data", BUCKET, "60s")
+        display.start()
+        capsys.readouterr()
+        row = WatchRow("a.log", 3, 60, "waiting", 2.0)
+        display.render([row])
+        first = capsys.readouterr().out
+        display.render([row])  # identical status -> silence
+        second = capsys.readouterr().out
+        assert "a.log" in first
+        assert second == ""
+
+    def test_plain_mode_reprints_when_status_changes(self, capsys):
+        display = WatchDisplay("./data", BUCKET, "60s")
+        display.render([WatchRow("a.log", 3, 60, "waiting", 2.0)])
+        capsys.readouterr()
+        display.render([WatchRow("a.log", 30, 60, "waiting", 2.0)])
+        assert "a.log" in capsys.readouterr().out
+
+    def test_quiet_suppresses_everything(self, capsys):
+        display = WatchDisplay("./data", BUCKET, "60s", quiet=True)
+        display.start()
+        display.render([WatchRow("a.log", 3, 60, "waiting", 2.0)])
+        display.close("done")
+        assert capsys.readouterr().out == ""
+
+    def test_tui_moves_the_cursor_back_over_its_own_block(self, monkeypatch, capsys):
+        display = self._tty_display(monkeypatch)
+        assert display.tui
+        display.render([WatchRow("a.log", 3, 60, "waiting", 2.0)])
+        first = capsys.readouterr().out
+        painted = display._painted
+        display.render([WatchRow("a.log", 8, 60, "waiting", 2.0)])
+        second = capsys.readouterr().out
+        assert not re.search(r"\033\[\d+A", first)  # first frame does not rewind: nothing painted yet
+        assert f"\033[{painted}A" in second  # second frame rewinds exactly as far as it painted
+
+    def test_tui_clears_leftovers_when_the_frame_shrinks(self, monkeypatch, capsys):
+        display = self._tty_display(monkeypatch)
+        display.render([WatchRow(f"f{i}.log", 3, 60, "waiting") for i in range(4)])
+        tall = display._painted
+        capsys.readouterr()
+        display.render([])
+        out = capsys.readouterr().out
+        assert display._painted < tall
+        assert "\033[2K" in out  # leftover rows are erased, not left on screen
+
+    def test_row_shows_progress_and_eta(self, monkeypatch, capsys):
+        display = self._tty_display(monkeypatch)
+        display.render(
+            [
+                WatchRow("waiting.log", 30, 60, "waiting", 2.0),
+                WatchRow("ready.bin", 0, 60, "ready", None, 3.0),
+                WatchRow("held.bin", 60, 60, "deferred", 45.0, 250.0, 3.0),
+            ]
+        )
+        out = capsys.readouterr().out
+        assert "3 files changed" in out
+        assert "30s/1m00s" in out and "ready in 30s" in out
+        assert "eta 3s" in out
+        assert "overtaken ~3x" in out
+
+    def test_singular_and_empty_wording(self, monkeypatch, capsys):
+        display = self._tty_display(monkeypatch)
+        display.render([WatchRow("a.log", 3, 60, "waiting")])
+        assert "1 file changed" in capsys.readouterr().out
+        display.render([])
+        assert "no changes" in capsys.readouterr().out
+
+    def test_long_names_are_truncated_from_the_left(self, monkeypatch, capsys):
+        display = self._tty_display(monkeypatch)
+        display.render([WatchRow("a/very/deeply/nested/path/to/some/checkpoint-000123.safetensors", 3, 60, "waiting")])
+        out = capsys.readouterr().out
+        assert "\u2026" in out
+        assert "checkpoint-000123.safetensors" in out  # the informative tail survives
+
+
+class TestMeters:
+    def test_bar_endpoints(self):
+        assert _bar(0.0) == "\u2591" * 8
+        assert _bar(1.0) == "\u2588" * 8
+        assert _bar(0.5) == "\u2588" * 4 + "\u2591" * 4
+
+    def test_bar_clamps_out_of_range(self):
+        assert _bar(-1.0) == "\u2591" * 8
+        assert _bar(5.0) == "\u2588" * 8
+
+    def test_churn_meter_is_blank_without_samples(self):
+        assert _churn_meter(None).strip() == ""
+
+    def test_churn_meter_grows_with_rate(self):
+        rapid = _churn_meter(1.0).strip()
+        moderate = _churn_meter(4.0).strip()
+        calm = _churn_meter(60.0).strip()
+        assert len(rapid) > len(moderate) >= len(calm)
