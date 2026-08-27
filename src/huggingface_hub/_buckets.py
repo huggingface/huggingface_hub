@@ -562,12 +562,22 @@ def _compute_sync_plan(
     ignore_existing: bool = False,
     filter_matcher: FilterMatcher | None = None,
     status: Any | None = None,
+    min_age_seconds: float = 0.0,
 ) -> SyncPlan:
     """Compute the sync plan by comparing source and destination.
+
+    Args:
+        min_age_seconds (`float`, *optional*, defaults to `0.0`):
+            Ignore local files modified more recently than this many seconds ago. Used by continuous sync to
+            avoid uploading a file that is still being written. Only meaningful in the upload direction, and only
+            safe while ``delete`` is False -- an ignored file is invisible to the comparison, so it would otherwise
+            look like a deletion candidate on the remote side.
 
     Returns:
         SyncPlan with all operations to be performed
     """
+    if min_age_seconds and delete:
+        raise ValueError("min_age_seconds cannot be combined with delete: unsettled files would look deleted.")
     filter_matcher = filter_matcher or FilterMatcher()
     is_upload = not _is_bucket_path(source) and _is_bucket_path(dest)
     is_download = _is_bucket_path(source) and not _is_bucket_path(dest)
@@ -593,13 +603,22 @@ def _compute_sync_plan(
 
         # Get local and remote file lists
         local_files = {}
+        unsettled = 0
+        settle_cutoff_ms = (time.time() - min_age_seconds) * 1000 if min_age_seconds else None
         for rel_path, size, mtime_ms in _list_local_files(local_path):
+            if settle_cutoff_ms is not None and mtime_ms > settle_cutoff_ms:
+                # Still being written (or written a moment ago). Leave it for a later pass rather than
+                # uploading a torn copy.
+                unsettled += 1
+                continue
             if filter_matcher.matches(rel_path):
                 local_files[rel_path] = (size, mtime_ms)
             if status:
                 status.update(f"Scanning local directory ({len(local_files)} files)")
         if status:
             status.done(f"Scanning local directory ({len(local_files)} files)")
+        if unsettled:
+            logger.debug(f"Skipping {unsettled} local file(s) modified within the last {min_age_seconds}s.")
 
         remote_files = {}
         if status:
@@ -996,6 +1015,107 @@ def _print_plan_summary(plan: SyncPlan) -> None:
 # =============================================================================
 
 
+DEFAULT_SYNC_INTERVAL = 30.0
+DEFAULT_SYNC_SETTLE_TIME = 5.0
+# A failing pass backs off exponentially from the interval up to this ceiling, so a Hub outage doesn't turn
+# into a tight retry loop against the API.
+MAX_SYNC_BACKOFF = 300.0
+
+
+def _sync_continuous_loop(
+    *,
+    source: str,
+    dest: str,
+    api: "HfApi",
+    filter_matcher: FilterMatcher,
+    interval: float,
+    settle_time: float,
+    ignore_times: bool,
+    ignore_sizes: bool,
+    existing: bool,
+    ignore_existing: bool,
+    verbose: bool,
+    quiet: bool,
+) -> SyncPlan:
+    """Re-run a sync on an interval until interrupted.
+
+    Each pass recomputes the plan from scratch -- `_compute_sync_plan` is a pure function of
+    (source, dest, filters), so no state carries between passes and a crash mid-loop leaves nothing to
+    reconcile. Returns the plan from the final pass (on `KeyboardInterrupt`), so callers still get a
+    `SyncPlan` back as in one-shot mode.
+
+    Note: every pass re-lists the whole remote bucket. For large buckets on a short interval that is the
+    dominant cost of the loop. Caching remote state across passes is possible in the upload direction --
+    this process is the only writer -- but is deliberately left out of this first version.
+    """
+    last_plan = SyncPlan(source=source, dest=dest, timestamp=datetime.now(timezone.utc).isoformat())
+    backoff = interval
+    passes = 0
+
+    if not quiet:
+        # flush on every write: continuous mode is typically redirected to a log file, where Python's
+        # block buffering would otherwise hide all progress until the process exits.
+        print(f"Continuous sync: {source} -> {dest} (every {interval:g}s, Ctrl-C to stop)", flush=True)
+
+    try:
+        while True:
+            passes += 1
+            started = time.monotonic()
+            try:
+                status = StatusLine(enabled=not quiet)
+                last_plan = _compute_sync_plan(
+                    source=source,
+                    dest=dest,
+                    api=api,
+                    delete=False,  # refused upstream; see sync_bucket_internal
+                    ignore_times=ignore_times,
+                    ignore_sizes=ignore_sizes,
+                    existing=existing,
+                    ignore_existing=ignore_existing,
+                    filter_matcher=filter_matcher,
+                    status=status,
+                    min_age_seconds=settle_time,
+                )
+                summary = last_plan.summary()
+                changed = int(summary["uploads"]) + int(summary["downloads"])
+                if changed:
+                    if not quiet:
+                        _print_plan_summary(last_plan)
+                        sys.stdout.flush()
+                        print("Syncing...", flush=True)
+                    if quiet:
+                        disable_progress_bars()
+                    try:
+                        _execute_plan(last_plan, api, verbose=verbose, status=status)
+                    finally:
+                        if quiet:
+                            enable_progress_bars()
+                    if not quiet:
+                        print(f"Pass {passes}: synced {changed} file(s).", flush=True)
+                elif verbose and not quiet:
+                    print(f"Pass {passes}: nothing to sync.", flush=True)
+                backoff = interval
+            except KeyboardInterrupt:
+                raise
+            except Exception as e:
+                # Keep the loop alive across transient Hub/network failures -- the whole point of continuous
+                # mode is that it outlives them. Back off so an outage doesn't hammer the API.
+                logger.warning(f"Sync pass {passes} failed: {e}")
+                if not quiet:
+                    print(f"Pass {passes} failed ({e}); retrying in {backoff:g}s.", flush=True)
+                time.sleep(backoff)
+                backoff = min(backoff * 2, MAX_SYNC_BACKOFF)
+                continue
+
+            # Sleep the remainder of the interval, so a slow pass doesn't compound the period.
+            time.sleep(max(0.0, interval - (time.monotonic() - started)))
+    except KeyboardInterrupt:
+        if not quiet:
+            print(f"\nStopped after {passes} pass(es).", flush=True)
+
+    return last_plan
+
+
 def sync_bucket_internal(
     source: str | None = None,
     dest: str | None = None,
@@ -1012,6 +1132,9 @@ def sync_bucket_internal(
     plan: str | None = None,
     apply: str | None = None,
     dry_run: bool = False,
+    continuous: bool = False,
+    interval: float = DEFAULT_SYNC_INTERVAL,
+    settle_time: float = DEFAULT_SYNC_SETTLE_TIME,
     verbose: bool = False,
     quiet: bool = False,
     token: bool | str | None = None,
@@ -1052,6 +1175,14 @@ def sync_bucket_internal(
             Apply a previously saved plan file. When set, ``source`` and ``dest`` are not needed.
         dry_run (`bool`, *optional*, defaults to `False`):
             Print sync plan to stdout as JSONL without executing.
+        continuous (`bool`, *optional*, defaults to `False`):
+            Keep syncing on an interval until interrupted, instead of running a single pass. Cannot be
+            combined with ``delete``, ``plan``, ``apply`` or ``dry_run``.
+        interval (`float`, *optional*, defaults to `30.0`):
+            Seconds between passes in continuous mode.
+        settle_time (`float`, *optional*, defaults to `5.0`):
+            In continuous mode, ignore local files modified within this many seconds, so a file that is
+            still being written isn't uploaded half-finished. Set to 0 to disable.
         verbose (`bool`, *optional*, defaults to `False`):
             Show detailed per-file operations.
         quiet (`bool`, *optional*, defaults to `False`):
@@ -1130,6 +1261,8 @@ def sync_bucket_internal(
             raise ValueError("Cannot specify ignore_existing when using apply.")
         if dry_run:
             raise ValueError("Cannot specify dry_run when using apply.")
+        if continuous:
+            raise ValueError("Cannot specify continuous when using apply.")
 
         sync_plan = _load_plan(apply)
         status = StatusLine(enabled=not quiet)
@@ -1172,6 +1305,23 @@ def sync_bucket_internal(
     if dry_run and plan:
         raise ValueError("Cannot specify both dry_run and plan.")
 
+    if continuous:
+        # A plan/dry-run describes one pass; neither composes with a loop.
+        if plan or dry_run:
+            raise ValueError("Cannot specify continuous with plan or dry_run.")
+        if delete:
+            # Deliberately refused rather than merely warned about: an unattended loop that propagates
+            # deletions turns one transient local failure (a directory briefly unreadable, a disk hiccup)
+            # into unrecoverable remote data loss, with nobody watching. Run a one-shot sync for deletes.
+            raise ValueError(
+                "Cannot specify delete with continuous: an unattended loop could propagate accidental "
+                "local deletions to the remote. Run a one-shot `sync --delete` instead."
+            )
+        if interval <= 0:
+            raise ValueError("interval must be greater than 0.")
+        if settle_time < 0:
+            raise ValueError("settle_time cannot be negative.")
+
     # Validate local path
     if source_is_bucket:
         if os.path.exists(dest) and not os.path.isdir(dest):
@@ -1190,6 +1340,22 @@ def sync_bucket_internal(
         exclude_patterns=exclude,
         filter_rules=filter_rules,
     )
+
+    if continuous:
+        return _sync_continuous_loop(
+            source=source,
+            dest=dest,
+            api=api,
+            filter_matcher=filter_matcher,
+            interval=interval,
+            settle_time=settle_time,
+            ignore_times=ignore_times,
+            ignore_sizes=ignore_sizes,
+            existing=existing,
+            ignore_existing=ignore_existing,
+            verbose=verbose,
+            quiet=quiet,
+        )
 
     # Compute sync plan
     status = StatusLine(enabled=not quiet and not dry_run)

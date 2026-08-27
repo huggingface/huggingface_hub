@@ -38,6 +38,8 @@ from tqdm.auto import tqdm as base_tqdm
 
 from . import constants
 from ._buckets import (
+    DEFAULT_SYNC_INTERVAL,
+    DEFAULT_SYNC_SETTLE_TIME,
     BucketFile,
     BucketFileMetadata,
     BucketFolder,
@@ -14904,6 +14906,9 @@ class HfApi:
         plan: str | None = None,
         apply: str | None = None,
         dry_run: bool = False,
+        continuous: bool = False,
+        interval: float = DEFAULT_SYNC_INTERVAL,
+        settle_time: float = DEFAULT_SYNC_SETTLE_TIME,
         verbose: bool = False,
         quiet: bool = False,
         token: bool | str | None = None,
@@ -14942,6 +14947,14 @@ class HfApi:
                 Apply a previously saved plan file. When set, ``source`` and ``dest`` are not needed.
             dry_run (`bool`, *optional*, defaults to `False`):
                 Print sync plan to stdout as JSONL without executing.
+            continuous (`bool`, *optional*, defaults to `False`):
+                Keep syncing on an interval until interrupted, instead of running a single pass. Cannot be
+                combined with ``delete``, ``plan``, ``apply`` or ``dry_run``.
+            interval (`float`, *optional*, defaults to `30.0`):
+                Seconds between passes in continuous mode.
+            settle_time (`float`, *optional*, defaults to `5.0`):
+                In continuous mode, ignore local files modified within this many seconds, so a file that is
+                still being written isn't uploaded half-finished. Set to 0 to disable.
             verbose (`bool`, *optional*, defaults to `False`):
                 Show detailed per-file operations.
             quiet (`bool`, *optional*, defaults to `False`):
@@ -14979,6 +14992,9 @@ class HfApi:
             # Save plan for review, then apply
             >>> api.sync_bucket("./data", "hf://buckets/username/my-bucket", plan="sync-plan.jsonl")
             >>> api.sync_bucket(apply="sync-plan.jsonl")
+
+            # Keep a bucket mirrored to a local directory until interrupted
+            >>> api.sync_bucket("./checkpoints", "hf://buckets/username/my-bucket", continuous=True, interval=60)
             ```
         """
         return sync_bucket_internal(
@@ -14996,6 +15012,9 @@ class HfApi:
             plan=plan,
             apply=apply,
             dry_run=dry_run,
+            continuous=continuous,
+            interval=interval,
+            settle_time=settle_time,
             verbose=verbose,
             quiet=quiet,
             token=token,

@@ -677,6 +677,33 @@ The filter file uses `+` (include) and `-` (exclude) prefixes. Lines starting wi
 + *.json
 ```
 
+### Continuous sync
+
+By default `sync` runs a single pass and exits. Pass `--continuous` to keep it running, re-syncing on an interval until you interrupt it with `Ctrl-C`. This is useful for mirroring a job's output directory to a bucket while the job is still writing to it:
+
+```bash
+# Mirror ./checkpoints to the bucket, re-checking every 30s (default)
+>>> hf buckets sync ./checkpoints hf://buckets/username/my-bucket --continuous
+
+# Check more often, and only ship model weights
+>>> hf buckets sync ./checkpoints hf://buckets/username/my-bucket --continuous --interval 10 --include "*.safetensors"
+```
+
+Or via Python:
+
+```py
+>>> sync_bucket("./checkpoints", "hf://buckets/username/my-bucket", continuous=True, interval=10)
+```
+
+Each pass recomputes the plan from scratch, so only files that actually changed are transferred. A pass that fails (network blip, Hub outage) is logged and retried with exponential backoff rather than stopping the loop.
+
+Because a continuous sync runs unattended, two safety rules apply:
+
+- **Files still being written are skipped.** A file modified within the last `--settle-time` seconds (default `5`) is left for a later pass, so a half-written file isn't uploaded. Set `--settle-time 0` to disable this if your writes are atomic.
+- **`--delete` is not allowed with `--continuous`.** A transient local failure would otherwise propagate deletions to your bucket with nobody watching. Run a one-shot `sync --delete` when you want to prune the remote.
+
+`--continuous` also cannot be combined with `--plan`, `--apply`, or `--dry-run`, since those describe a single pass.
+
 ### Comparison modes
 
 By default, sync compares files using both size and modification time. You can customize this behavior:
