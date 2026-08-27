@@ -210,7 +210,7 @@ ensure_python() {
                 chosen="$candidate"
                 break
             else
-                log_warning "$candidate detected ($version_output) but Python 3.10+ is required."
+                log_warning "$candidate ($(command -v "$candidate")) is $version_output but Python 3.10+ is required."
             fi
         fi
     done
@@ -219,7 +219,21 @@ ensure_python() {
         log_error "Python 3.10+ is required but was not found."
         case "$(detect_os)" in
             macos)
-                log_info "On macOS: brew install python (or download Python 3.10+ from python.org)"
+                # A suitable Python is often already installed but shadowed by an older one earlier in PATH.
+                local shadowed="" location
+                for location in /opt/homebrew/bin/python3 /usr/local/bin/python3; do
+                    if [ -x "$location" ] && python_version_supported "$location"; then
+                        shadowed="$location"
+                        break
+                    fi
+                done
+                if [ -n "$shadowed" ]; then
+                    log_info "Found $shadowed ($("$shadowed" --version 2>&1)), but an older Python earlier in your PATH shadows it."
+                    log_info "Fix: put $(dirname "$shadowed") earlier in your PATH, or re-run the installer with:"
+                    log_info "  curl -LsSf https://hf.co/cli/install.sh | env PATH=\"$(dirname "$shadowed"):\$PATH\" bash"
+                else
+                    log_info "On macOS: brew install python (or download Python 3.10+ from python.org)"
+                fi
                 ;;
             linux)
                 if command_exists apt-get || command_exists apt; then
