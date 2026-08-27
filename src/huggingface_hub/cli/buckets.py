@@ -421,9 +421,16 @@ def remove(
             prefix=prefix or None,
             recursive=True,
         ):
-            if isinstance(item, BucketFile):
-                all_files.append(item)
-                status.update(f"Listing files from remote ({len(all_files)} files)")
+            if not isinstance(item, BucketFile):
+                continue
+            # The server-side prefix filter is a raw lexical match, so it can also return
+            # sibling keys that merely start with the same characters (e.g. prefix "logs"
+            # matching "logs.json" or "logs_backup/x"). Enforce a path-boundary match here,
+            # same as `_buckets.py` and `hf_api.py::_copy_to_bucket`.
+            if prefix and not (item.path == prefix or item.path.startswith(prefix + "/")):
+                continue
+            all_files.append(item)
+            status.update(f"Listing files from remote ({len(all_files)} files)")
         status.done(f"Listing files from remote ({len(all_files)} files)")
 
         if include or exclude:

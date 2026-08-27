@@ -15,6 +15,7 @@ import pytest
 from click.testing import CliRunner
 
 from huggingface_hub import HfApi, InferenceEndpointHardware, constants
+from huggingface_hub._buckets import BucketFile
 from huggingface_hub._dataset_viewer import DatasetParquetEntry
 from huggingface_hub._jobs_api import JobInfo, JobOwner, _create_job_spec, _derive_job_volume_name
 from huggingface_hub._space_api import Volume
@@ -4176,6 +4177,42 @@ class TestBucketTransport:
         # Volume is scoped to the shared subfolder via Volume.path
         assert len(extra_volumes) == 1
         assert extra_volumes[0].path == upload_prefixes.pop()
+
+
+class TestBucketsRemoveRecursivePrefixBoundary:
+    """`hf buckets remove <prefix> --recursive` must only delete files under a path boundary.
+
+    Regression test for a destructive bug where removing prefix "logs" would also delete
+    lexical siblings like "logs.json" or "logs_backup/x.txt" that merely start with the same
+    characters but are not nested under "logs/".
+    """
+
+    @staticmethod
+    def _bucket_file(path: str) -> BucketFile:
+        return BucketFile(type="file", path=path, size=1, xetHash="deadbeef", mtime=None, uploadedAt=None)
+
+    def test_remove_recursive_does_not_delete_lexical_siblings(self, runner: CliRunner) -> None:
+        server_returned_paths = [
+            "logs",  # exact match of the prefix itself
+            "logs/a.log",  # nested under prefix -> should be removed
+            "logs/sub/b.log",  # nested under prefix -> should be removed
+            "logs.json",  # lexical sibling -> must be kept
+            "logs_backup/x.txt",  # lexical sibling -> must be kept
+            "logsx/y.txt",  # lexical sibling -> must be kept
+        ]
+
+        with patch("huggingface_hub.cli.buckets.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_bucket_tree.return_value = [self._bucket_file(p) for p in server_returned_paths]
+            result = runner.invoke(app, ["buckets", "remove", "user/my-bucket/logs", "--recursive", "--yes"])
+
+        assert result.exit_code == 0
+        api.batch_bucket_files.assert_called_once()
+        deleted_paths = set(api.batch_bucket_files.call_args.kwargs["delete"])
+        assert deleted_paths == {"logs", "logs/a.log", "logs/sub/b.log"}
+        assert "logs.json" not in deleted_paths
+        assert "logs_backup/x.txt" not in deleted_paths
+        assert "logsx/y.txt" not in deleted_paths
 
     def test_update_job_labels(self, runner: CliRunner) -> None:
         with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
