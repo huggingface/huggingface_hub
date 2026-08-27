@@ -679,14 +679,14 @@ The filter file uses `+` (include) and `-` (exclude) prefixes. Lines starting wi
 
 ### Continuous sync
 
-By default `sync` runs a single pass and exits. Pass `--continuous` to keep it running, re-syncing on an interval until you interrupt it with `Ctrl-C`. This is useful for mirroring a job's output directory to a bucket while the job is still writing to it:
+By default `sync` runs a single pass and exits. Pass `--continuous` (or its alias `--watch`) to keep it running, re-syncing on an interval until you interrupt it with `Ctrl-C`. This is useful for mirroring a job's output directory to a bucket while the job is still writing to it:
 
 ```bash
 # Mirror ./checkpoints to the bucket, re-checking every 30s (default)
->>> hf buckets sync ./checkpoints hf://buckets/username/my-bucket --continuous
+>>> hf buckets sync ./checkpoints hf://buckets/username/my-bucket --watch
 
 # Check more often, and only ship model weights
->>> hf buckets sync ./checkpoints hf://buckets/username/my-bucket --continuous --interval 10 --include "*.safetensors"
+>>> hf buckets sync ./checkpoints hf://buckets/username/my-bucket --watch --interval 10 --include "*.safetensors"
 ```
 
 Or via Python:
@@ -695,14 +695,69 @@ Or via Python:
 >>> sync_bucket("./checkpoints", "hf://buckets/username/my-bucket", continuous=True, interval=10)
 ```
 
-Each pass recomputes the plan from scratch, so only files that actually changed are transferred. A pass that fails (network blip, Hub outage) is logged and retried with exponential backoff rather than stopping the loop.
+Each pass recomputes the plan from scratch, so only files that actually changed are transferred, and only the files actually uploaded are printed. A pass that fails (network blip, Hub outage) is logged and retried with exponential backoff rather than stopping the loop.
 
-Because a continuous sync runs unattended, two safety rules apply:
+#### Waiting for files to go quiet
 
-- **Files still being written are skipped.** A file modified within the last `--settle-time` seconds (default `5`) is left for a later pass, so a half-written file isn't uploaded. Set `--settle-time 0` to disable this if your writes are atomic.
+A continuous sync runs unattended, so it must not upload a file that is still being written. Each file has to sit **unchanged for a calm period** before it is eligible, and that period scales with size — a small log is cheap to re-upload if you guess wrong, a large checkpoint is not:
+
+| File size | Calm period |
+| --- | --- |
+| ≤ 1 GiB | 60s (`--calm-min`) |
+| between | log-interpolated |
+| ≥ 10 GiB | 10m (`--calm-max`) |
+
+This is on by default and needs no flags. Files that are simply sitting on disk are **not** delayed — calmness is measured from the file's own mtime, so a directory of static files syncs immediately on the first pass. Only files actually being written wait.
+
+While a file is waiting, the sync says so, along with how long it has been quiet and how long it needs:
+
+```text
+Continuous sync: ./data -> hf://buckets/user/my-bucket (every 5s, calm period 60s (<=1GiB) to 10m00s (>=10GiB), Ctrl-C to stop)
+  waiting: train.log (changed 3s ago, needs 60s quiet)
+  waiting: model.safetensors (changed 12s ago, needs 2m10s quiet)
+  upload: config.json (new file)
+Pass 4: 1 file(s) in 2s.
+```
+
+Once a file has been quiet long enough it is uploaded, and the observed rate of change is reported alongside it:
+
+```text
+  upload: train.log (size differs, changes ~5s apart)
+```
+
+To override the ramp, use `--calm-time` for a fixed period regardless of size, or tune the two anchors:
+
+```bash
+# Every file waits exactly 15s
+>>> hf buckets sync ./data hf://buckets/username/my-bucket --watch --calm-time 15
+
+# Upload sooner than the default, but still scale with size
+>>> hf buckets sync ./data hf://buckets/username/my-bucket --watch --calm-min 20 --calm-max 120
+
+# Disable the stability checks entirely (upload whatever is on disk each pass)
+>>> hf buckets sync ./data hf://buckets/username/my-bucket --watch --calm-time 0
+```
+
+<Tip warning={true}>
+
+A file that is appended to forever — an active log with a write every few seconds — never goes quiet, and so is never uploaded while the writer is running. It is uploaded once writing stops. If you want such a file shipped mid-flight, lower `--calm-time` to accept the risk of uploading a partial copy.
+
+</Tip>
+
+#### Expensive uploads that would be overtaken
+
+A large file can pass the calm check and *still* be a bad upload: if it changes every few minutes and the upload itself would take longer than that, the copy is stale before it lands and the bandwidth is wasted. Continuous sync predicts this from the file's observed rate of change and the measured upload throughput, and refuses to start an upload that would be overtaken at least twice while in flight:
+
+```text
+  waiting: checkpoint.safetensors (~4m10s upload would be overtaken ~3x)
+```
+
+Throughput is learned from the uploads it actually performs, so the estimate improves as the sync runs. The file is uploaded on a later pass, once it has calmed down enough for the upload to finish before the next write.
+
+#### Safety rules
+
 - **`--delete` is not allowed with `--continuous`.** A transient local failure would otherwise propagate deletions to your bucket with nobody watching. Run a one-shot `sync --delete` when you want to prune the remote.
-
-`--continuous` also cannot be combined with `--plan`, `--apply`, or `--dry-run`, since those describe a single pass.
+- **`--continuous` cannot be combined with `--plan`, `--apply`, or `--dry-run`**, since those describe a single pass.
 
 ### Comparison modes
 

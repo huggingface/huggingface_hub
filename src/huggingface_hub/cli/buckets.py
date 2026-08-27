@@ -20,8 +20,9 @@ import click
 from huggingface_hub import logging
 from huggingface_hub._buckets import (
     BUCKET_PREFIX,
+    DEFAULT_CALM_MAX,
+    DEFAULT_CALM_MIN,
     DEFAULT_SYNC_INTERVAL,
-    DEFAULT_SYNC_SETTLE_TIME,
     BucketFile,
     FilterMatcher,
     _parse_bucket_uri,
@@ -594,7 +595,8 @@ def settings(
         "hf buckets sync ./data hf://buckets/user/my-bucket --dry-run",
         "hf buckets sync ./data hf://buckets/user/my-bucket --dry-run | jq .",
         "hf buckets sync ./checkpoints hf://buckets/user/my-bucket --continuous",
-        "hf buckets sync ./logs hf://buckets/user/my-bucket --continuous --interval 10",
+        "hf buckets sync ./logs hf://buckets/user/my-bucket --watch --interval 10",
+        "hf buckets sync ./ckpt hf://buckets/user/my-bucket --watch --calm-min 30",
     ],
 )
 def sync(
@@ -653,6 +655,7 @@ def sync(
         bool,
         Option(
             "--continuous",
+            "--watch",
             help="Keep syncing on an interval until interrupted. Cannot be combined with --delete, --plan, --apply or --dry-run.",
         ),
     ] = False,
@@ -663,13 +666,27 @@ def sync(
             help="Seconds between passes in continuous mode.",
         ),
     ] = DEFAULT_SYNC_INTERVAL,
-    settle_time: Annotated[
+    calm_time: Annotated[
+        float | None,
+        Option(
+            "--calm-time",
+            help="Fixed seconds a file must sit unchanged before upload, overriding the size-based ramp. 0 disables stability checks.",
+        ),
+    ] = None,
+    calm_min: Annotated[
         float,
         Option(
-            "--settle-time",
-            help="In continuous mode, ignore local files modified within this many seconds so partially written files aren't uploaded. 0 disables.",
+            "--calm-min",
+            help="Calm period for files at or below 1 GiB.",
         ),
-    ] = DEFAULT_SYNC_SETTLE_TIME,
+    ] = DEFAULT_CALM_MIN,
+    calm_max: Annotated[
+        float,
+        Option(
+            "--calm-max",
+            help="Calm period for files at or above 10 GiB. Sizes in between are log-interpolated.",
+        ),
+    ] = DEFAULT_CALM_MAX,
     include: Annotated[
         list[str] | None,
         Option(
@@ -730,7 +747,9 @@ def sync(
         dry_run=dry_run,
         continuous=continuous,
         interval=interval,
-        settle_time=settle_time,
+        calm_time=calm_time,
+        calm_min=calm_min,
+        calm_max=calm_max,
         verbose=verbose,
         quiet=out.is_quiet(),
     )

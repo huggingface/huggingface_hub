@@ -18,12 +18,14 @@ This module contains the core buckets logic used by both the CLI and the Python 
 
 import fnmatch
 import json
+import math
 import mimetypes
 import os
 import stat
 import sys
 import time
-from collections.abc import Iterator
+from collections import deque
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -562,22 +564,22 @@ def _compute_sync_plan(
     ignore_existing: bool = False,
     filter_matcher: FilterMatcher | None = None,
     status: Any | None = None,
-    min_age_seconds: float = 0.0,
+    local_filter: "Callable[[str, int, float], bool] | None" = None,
 ) -> SyncPlan:
     """Compute the sync plan by comparing source and destination.
 
     Args:
-        min_age_seconds (`float`, *optional*, defaults to `0.0`):
-            Ignore local files modified more recently than this many seconds ago. Used by continuous sync to
-            avoid uploading a file that is still being written. Only meaningful in the upload direction, and only
-            safe while ``delete`` is False -- an ignored file is invisible to the comparison, so it would otherwise
-            look like a deletion candidate on the remote side.
+        local_filter (`Callable[[str, int, float], bool]`, *optional*):
+            Called as ``(rel_path, size, mtime_ms)`` for every local file; return False to leave the file out of
+            this plan entirely. Used by continuous sync to hold back files that are still being written. Only
+            meaningful in the upload direction, and only safe while ``delete`` is False -- an excluded file is
+            invisible to the comparison, so it would otherwise look like a deletion candidate on the remote side.
 
     Returns:
         SyncPlan with all operations to be performed
     """
-    if min_age_seconds and delete:
-        raise ValueError("min_age_seconds cannot be combined with delete: unsettled files would look deleted.")
+    if local_filter is not None and delete:
+        raise ValueError("local_filter cannot be combined with delete: held-back files would look deleted.")
     filter_matcher = filter_matcher or FilterMatcher()
     is_upload = not _is_bucket_path(source) and _is_bucket_path(dest)
     is_download = _is_bucket_path(source) and not _is_bucket_path(dest)
@@ -603,13 +605,11 @@ def _compute_sync_plan(
 
         # Get local and remote file lists
         local_files = {}
-        unsettled = 0
-        settle_cutoff_ms = (time.time() - min_age_seconds) * 1000 if min_age_seconds else None
+        held_back = 0
         for rel_path, size, mtime_ms in _list_local_files(local_path):
-            if settle_cutoff_ms is not None and mtime_ms > settle_cutoff_ms:
-                # Still being written (or written a moment ago). Leave it for a later pass rather than
-                # uploading a torn copy.
-                unsettled += 1
+            if local_filter is not None and not local_filter(rel_path, size, mtime_ms):
+                # Still being written. Leave it for a later pass rather than uploading a torn copy.
+                held_back += 1
                 continue
             if filter_matcher.matches(rel_path):
                 local_files[rel_path] = (size, mtime_ms)
@@ -617,8 +617,8 @@ def _compute_sync_plan(
                 status.update(f"Scanning local directory ({len(local_files)} files)")
         if status:
             status.done(f"Scanning local directory ({len(local_files)} files)")
-        if unsettled:
-            logger.debug(f"Skipping {unsettled} local file(s) modified within the last {min_age_seconds}s.")
+        if held_back:
+            logger.debug(f"Holding back {held_back} local file(s) that are still changing.")
 
         remote_files = {}
         if status:
@@ -1016,10 +1016,208 @@ def _print_plan_summary(plan: SyncPlan) -> None:
 
 
 DEFAULT_SYNC_INTERVAL = 30.0
-DEFAULT_SYNC_SETTLE_TIME = 5.0
 # A failing pass backs off exponentially from the interval up to this ceiling, so a Hub outage doesn't turn
 # into a tight retry loop against the API.
 MAX_SYNC_BACKOFF = 300.0
+
+# ── Volatility detection ──────────────────────────────────────────────────────
+#
+# A continuous sync must not upload a file that is still being written. The rule is "wait until the file has
+# been quiet for a while", and how long "a while" is scales with the file: a 4 KB log settling for a minute is
+# cheap insurance, whereas a 20 GB checkpoint being written by a training job needs far longer before it is
+# worth spending an upload on. The anchors below are the defaults the ramp interpolates between.
+CALM_SMALL_SIZE = 1024**3  # 1 GiB -- at or below this, wait DEFAULT_CALM_MIN
+CALM_LARGE_SIZE = 10 * 1024**3  # 10 GiB -- at or above this, wait DEFAULT_CALM_MAX
+DEFAULT_CALM_MIN = 60.0  # seconds
+DEFAULT_CALM_MAX = 600.0  # seconds
+
+# A file whose observed changes average closer together than this is "changing rapidly" -- reported as such,
+# and never uploaded regardless of the calm ramp.
+RAPID_CHANGE_SECONDS = 10.0
+
+# An upload predicted to take at least this long is expensive enough that it is worth refusing to start it when
+# the file is likely to change out from under us before it finishes.
+HIGH_ETA_SECONDS = 60.0
+# Refuse the upload if the file is predicted to change at least this many times while it is in flight.
+THRASH_CHANGE_LIMIT = 2.0
+# Throughput assumed until a real upload has been measured.
+ASSUMED_THROUGHPUT_BPS = 50 * 1024**2  # 50 MiB/s
+# How many inter-change intervals to average over.
+MAX_CHANGE_SAMPLES = 8
+
+
+def _calm_period_for_size(size: int, calm_min: float = DEFAULT_CALM_MIN, calm_max: float = DEFAULT_CALM_MAX) -> float:
+    """How long a file of this size must sit unchanged before it is considered safe to upload.
+
+    Flat at ``calm_min`` up to `CALM_SMALL_SIZE`, flat at ``calm_max`` from `CALM_LARGE_SIZE`, and a
+    log-interpolated ramp in between (size spans decades, so interpolating in log space is the honest choice).
+    """
+    if size <= CALM_SMALL_SIZE:
+        return calm_min
+    if size >= CALM_LARGE_SIZE:
+        return calm_max
+    ratio = math.log10(size / CALM_SMALL_SIZE) / math.log10(CALM_LARGE_SIZE / CALM_SMALL_SIZE)
+    return calm_min + ratio * (calm_max - calm_min)
+
+
+def _format_duration(seconds: float) -> str:
+    """Compact human duration: `4s`, `2m10s`, `1h03m`."""
+    seconds = max(0.0, seconds)
+    if seconds < 60:
+        return f"{seconds:.0f}s"
+    if seconds < 3600:
+        return f"{int(seconds // 60)}m{int(seconds % 60):02d}s"
+    return f"{int(seconds // 3600)}h{int((seconds % 3600) // 60):02d}m"
+
+
+@dataclass
+class FileStability:
+    """What we have observed about one local file across sync passes."""
+
+    size: int
+    mtime_ms: float
+    #: Wall-clock times at which we saw the file change.
+    change_times: Any = field(default_factory=lambda: deque(maxlen=MAX_CHANGE_SAMPLES))
+    #: Byte deltas for those same changes.
+    change_deltas: Any = field(default_factory=lambda: deque(maxlen=MAX_CHANGE_SAMPLES))
+
+    @property
+    def change_count(self) -> int:
+        return len(self.change_times)
+
+    @property
+    def mean_interval(self) -> float | None:
+        """Mean seconds between observed changes, or None with fewer than two samples."""
+        if len(self.change_times) < 2:
+            return None
+        spans = [b - a for a, b in zip(self.change_times, list(self.change_times)[1:])]
+        return sum(spans) / len(spans)
+
+    @property
+    def is_rapid(self) -> bool:
+        interval = self.mean_interval
+        return interval is not None and interval < RAPID_CHANGE_SECONDS
+
+
+@dataclass
+class StabilityVerdict:
+    """Why a file was uploaded or held back on this pass."""
+
+    calm: bool
+    reason: str
+    quiet_for: float
+    calm_required: float
+    mean_interval: float | None = None
+    eta: float | None = None
+    predicted_changes: float | None = None
+
+
+class StabilityTracker:
+    """Tracks per-file volatility so a continuous sync only uploads files that have gone quiet.
+
+    Calmness is judged from the file's own mtime rather than from when we first noticed it, so a directory of
+    static files syncs immediately on the first pass -- only files actually being written wait.
+    """
+
+    def __init__(
+        self,
+        calm_min: float = DEFAULT_CALM_MIN,
+        calm_max: float = DEFAULT_CALM_MAX,
+        calm_override: float | None = None,
+    ):
+        self.calm_min = calm_min
+        self.calm_max = calm_max
+        self.calm_override = calm_override
+        self._files: dict[str, FileStability] = {}
+        self._throughput_bps: float = ASSUMED_THROUGHPUT_BPS
+        self._measured = False
+
+    # -- observation --
+
+    def observe(self, path: str, size: int, mtime_ms: float, now: float | None = None) -> FileStability:
+        """Record the current state of a file, noting a change if it differs from last pass."""
+        now = time.time() if now is None else now
+        state = self._files.get(path)
+        if state is None:
+            state = FileStability(size=size, mtime_ms=mtime_ms)
+            self._files[path] = state
+            return state
+        if mtime_ms != state.mtime_ms or size != state.size:
+            state.change_times.append(now)
+            state.change_deltas.append(size - state.size)
+            state.size = size
+            state.mtime_ms = mtime_ms
+        return state
+
+    def forget(self, keep: set[str]) -> None:
+        """Drop state for files that no longer exist, so the tracker doesn't grow without bound."""
+        for path in [p for p in self._files if p not in keep]:
+            del self._files[path]
+
+    # -- decisions --
+
+    def calm_required(self, size: int) -> float:
+        if self.calm_override is not None:
+            return self.calm_override
+        return _calm_period_for_size(size, self.calm_min, self.calm_max)
+
+    def verdict(self, path: str, size: int, mtime_ms: float, now: float | None = None) -> StabilityVerdict:
+        """Decide whether `path` is quiet enough to upload, and explain why."""
+        now = time.time() if now is None else now
+        state = self.observe(path, size, mtime_ms, now)
+        required = self.calm_required(size)
+        quiet_for = max(0.0, now - mtime_ms / 1000)
+        interval = state.mean_interval
+
+        if required <= 0:
+            return StabilityVerdict(True, "stability checks disabled", quiet_for, required, interval)
+
+        if quiet_for < required:
+            return StabilityVerdict(
+                False,
+                f"changed {_format_duration(quiet_for)} ago, needs {_format_duration(required)} quiet",
+                quiet_for,
+                required,
+                interval,
+            )
+
+        # Note: we deliberately do NOT gate on `state.is_rapid` here. Reaching this point already means the
+        # file has been quiet for the full calm period, so it is not currently churning; `mean_interval` is
+        # drawn from samples that never expire, so gating on it would block a file that churned once and then
+        # settled -- forever. The observed rate is used below to predict the future, and for reporting.
+
+        # The file is quiet. Would it stay quiet long enough for the upload to finish?
+        eta = self.eta(size)
+        predicted = eta / interval if interval else None
+        if eta >= HIGH_ETA_SECONDS and predicted is not None and predicted >= THRASH_CHANGE_LIMIT:
+            return StabilityVerdict(
+                False,
+                f"~{_format_duration(eta)} upload would be overtaken ~{predicted:.0f}x",
+                quiet_for,
+                required,
+                interval,
+                eta,
+                predicted,
+            )
+
+        return StabilityVerdict(True, f"quiet for {_format_duration(quiet_for)}", quiet_for, required, interval, eta)
+
+    def is_calm(self, path: str, size: int, mtime_ms: float) -> bool:
+        """Predicate form, for use as `_compute_sync_plan(local_filter=...)`."""
+        return self.verdict(path, size, mtime_ms).calm
+
+    # -- throughput --
+
+    def eta(self, size: int) -> float:
+        return size / self._throughput_bps if self._throughput_bps > 0 else 0.0
+
+    def record_transfer(self, num_bytes: int, seconds: float) -> None:
+        """Fold a completed upload into the throughput estimate (EWMA once we have a real measurement)."""
+        if seconds <= 0 or num_bytes <= 0:
+            return
+        observed = num_bytes / seconds
+        self._throughput_bps = observed if not self._measured else 0.7 * self._throughput_bps + 0.3 * observed
+        self._measured = True
 
 
 def _sync_continuous_loop(
@@ -1029,7 +1227,7 @@ def _sync_continuous_loop(
     api: "HfApi",
     filter_matcher: FilterMatcher,
     interval: float,
-    settle_time: float,
+    tracker: StabilityTracker,
     ignore_times: bool,
     ignore_sizes: bool,
     existing: bool,
@@ -1037,12 +1235,15 @@ def _sync_continuous_loop(
     verbose: bool,
     quiet: bool,
 ) -> SyncPlan:
-    """Re-run a sync on an interval until interrupted.
+    """Re-run a sync on an interval until interrupted, uploading only files that have gone quiet.
 
     Each pass recomputes the plan from scratch -- `_compute_sync_plan` is a pure function of
     (source, dest, filters), so no state carries between passes and a crash mid-loop leaves nothing to
-    reconcile. Returns the plan from the final pass (on `KeyboardInterrupt`), so callers still get a
-    `SyncPlan` back as in one-shot mode.
+    reconcile. The one thing that *is* carried across passes is `tracker`, which watches how each local file
+    changes over time so that files still being written are held back (see `StabilityTracker`).
+
+    Returns the plan from the final pass (on `KeyboardInterrupt`), so callers still get a `SyncPlan` back as in
+    one-shot mode.
 
     Note: every pass re-lists the whole remote bucket. For large buckets on a short interval that is the
     dominant cost of the loop. Caching remote state across passes is possible in the upload direction --
@@ -1051,16 +1252,37 @@ def _sync_continuous_loop(
     last_plan = SyncPlan(source=source, dest=dest, timestamp=datetime.now(timezone.utc).isoformat())
     backoff = interval
     passes = 0
+    # Files held back on the previous pass, so we only announce a change of state rather than repeating
+    # ourselves every interval.
+    announced: dict[str, str] = {}
 
-    if not quiet:
-        # flush on every write: continuous mode is typically redirected to a log file, where Python's
-        # block buffering would otherwise hide all progress until the process exits.
-        print(f"Continuous sync: {source} -> {dest} (every {interval:g}s, Ctrl-C to stop)", flush=True)
+    def emit(msg: str = "") -> None:
+        # flush on every write: continuous mode is typically redirected to a log file, where Python's block
+        # buffering would otherwise hide all progress until the process exits.
+        if not quiet:
+            print(msg, flush=True)
+
+    if tracker.calm_override is not None:
+        calm_desc = f"calm period {_format_duration(tracker.calm_override)}"
+    else:
+        calm_desc = (
+            f"calm period {_format_duration(tracker.calm_min)} (<=1GiB) to "
+            f"{_format_duration(tracker.calm_max)} (>=10GiB)"
+        )
+    emit(f"Continuous sync: {source} -> {dest} (every {interval:g}s, {calm_desc}, Ctrl-C to stop)")
 
     try:
         while True:
             passes += 1
             started = time.monotonic()
+            held: dict[str, StabilityVerdict] = {}
+
+            def gate(rel_path: str, size: int, mtime_ms: float) -> bool:
+                verdict = tracker.verdict(rel_path, size, mtime_ms)
+                if not verdict.calm:
+                    held[rel_path] = verdict
+                return verdict.calm
+
             try:
                 status = StatusLine(enabled=not quiet)
                 last_plan = _compute_sync_plan(
@@ -1074,26 +1296,44 @@ def _sync_continuous_loop(
                     ignore_existing=ignore_existing,
                     filter_matcher=filter_matcher,
                     status=status,
-                    min_age_seconds=settle_time,
+                    local_filter=gate,
                 )
-                summary = last_plan.summary()
-                changed = int(summary["uploads"]) + int(summary["downloads"])
-                if changed:
-                    if not quiet:
-                        _print_plan_summary(last_plan)
-                        sys.stdout.flush()
-                        print("Syncing...", flush=True)
+
+                uploads = [op for op in last_plan.operations if op.action in ("upload", "download")]
+                if uploads:
+                    total_bytes = sum(op.size or 0 for op in uploads)
+                    for op in uploads:
+                        state = tracker._files.get(op.path)
+                        detail = ""
+                        if state is not None and state.mean_interval is not None:
+                            detail = f", changes ~{_format_duration(state.mean_interval)} apart"
+                        emit(f"  {op.action}: {op.path} ({op.reason}{detail})")
                     if quiet:
                         disable_progress_bars()
+                    transfer_started = time.monotonic()
                     try:
-                        _execute_plan(last_plan, api, verbose=verbose, status=status)
+                        _execute_plan(last_plan, api, verbose=False, status=status)
                     finally:
                         if quiet:
                             enable_progress_bars()
-                    if not quiet:
-                        print(f"Pass {passes}: synced {changed} file(s).", flush=True)
-                elif verbose and not quiet:
-                    print(f"Pass {passes}: nothing to sync.", flush=True)
+                    elapsed = time.monotonic() - transfer_started
+                    tracker.record_transfer(total_bytes, elapsed)
+                    emit(f"Pass {passes}: {len(uploads)} file(s) in {_format_duration(elapsed)}.")
+                    announced.clear()
+
+                # Report held-back files, but only when their reason changes -- otherwise a file being written
+                # for an hour would print the same line every interval.
+                for path, verdict in sorted(held.items()):
+                    if announced.get(path) != verdict.reason:
+                        emit(f"  waiting: {path} ({verdict.reason})")
+                        announced[path] = verdict.reason
+                for path in [p for p in announced if p not in held]:
+                    del announced[path]
+
+                if not uploads and not held and verbose:
+                    emit(f"Pass {passes}: nothing to sync.")
+
+                tracker.forget(set(held) | {op.path for op in last_plan.operations})
                 backoff = interval
             except KeyboardInterrupt:
                 raise
@@ -1101,8 +1341,7 @@ def _sync_continuous_loop(
                 # Keep the loop alive across transient Hub/network failures -- the whole point of continuous
                 # mode is that it outlives them. Back off so an outage doesn't hammer the API.
                 logger.warning(f"Sync pass {passes} failed: {e}")
-                if not quiet:
-                    print(f"Pass {passes} failed ({e}); retrying in {backoff:g}s.", flush=True)
+                emit(f"Pass {passes} failed ({e}); retrying in {_format_duration(backoff)}.")
                 time.sleep(backoff)
                 backoff = min(backoff * 2, MAX_SYNC_BACKOFF)
                 continue
@@ -1110,8 +1349,7 @@ def _sync_continuous_loop(
             # Sleep the remainder of the interval, so a slow pass doesn't compound the period.
             time.sleep(max(0.0, interval - (time.monotonic() - started)))
     except KeyboardInterrupt:
-        if not quiet:
-            print(f"\nStopped after {passes} pass(es).", flush=True)
+        emit(f"\nStopped after {passes} pass(es).")
 
     return last_plan
 
@@ -1134,7 +1372,9 @@ def sync_bucket_internal(
     dry_run: bool = False,
     continuous: bool = False,
     interval: float = DEFAULT_SYNC_INTERVAL,
-    settle_time: float = DEFAULT_SYNC_SETTLE_TIME,
+    calm_time: float | None = None,
+    calm_min: float = DEFAULT_CALM_MIN,
+    calm_max: float = DEFAULT_CALM_MAX,
     verbose: bool = False,
     quiet: bool = False,
     token: bool | str | None = None,
@@ -1180,9 +1420,13 @@ def sync_bucket_internal(
             combined with ``delete``, ``plan``, ``apply`` or ``dry_run``.
         interval (`float`, *optional*, defaults to `30.0`):
             Seconds between passes in continuous mode.
-        settle_time (`float`, *optional*, defaults to `5.0`):
-            In continuous mode, ignore local files modified within this many seconds, so a file that is
-            still being written isn't uploaded half-finished. Set to 0 to disable.
+        calm_time (`float`, *optional*):
+            Fixed number of seconds a file must sit unchanged before it is uploaded, overriding the
+            size-based ramp. `0` disables the stability checks entirely.
+        calm_min (`float`, *optional*, defaults to `60.0`):
+            Calm period for files at or below 1 GiB.
+        calm_max (`float`, *optional*, defaults to `600.0`):
+            Calm period for files at or above 10 GiB. Sizes in between are log-interpolated.
         verbose (`bool`, *optional*, defaults to `False`):
             Show detailed per-file operations.
         quiet (`bool`, *optional*, defaults to `False`):
@@ -1319,8 +1563,12 @@ def sync_bucket_internal(
             )
         if interval <= 0:
             raise ValueError("interval must be greater than 0.")
-        if settle_time < 0:
-            raise ValueError("settle_time cannot be negative.")
+        if calm_time is not None and calm_time < 0:
+            raise ValueError("calm_time cannot be negative.")
+        if calm_min < 0 or calm_max < 0:
+            raise ValueError("calm_min and calm_max cannot be negative.")
+        if calm_max < calm_min:
+            raise ValueError("calm_max cannot be smaller than calm_min.")
 
     # Validate local path
     if source_is_bucket:
@@ -1348,7 +1596,7 @@ def sync_bucket_internal(
             api=api,
             filter_matcher=filter_matcher,
             interval=interval,
-            settle_time=settle_time,
+            tracker=StabilityTracker(calm_min=calm_min, calm_max=calm_max, calm_override=calm_time),
             ignore_times=ignore_times,
             ignore_sizes=ignore_sizes,
             existing=existing,
