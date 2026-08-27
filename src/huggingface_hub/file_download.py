@@ -972,7 +972,8 @@ def hf_hub_download(
     elif isinstance(revision, ResolvedRevision):
         # Revision has already been resolved to a commit hash (see [`HfApi.resolve_revision`]) => use it directly.
         # This pins the download to an immutable commit and lets us skip network calls when it's already cached.
-        revision = revision.resolved
+        # A revision resolved for another repo does not apply here => fall back to the revision it requested.
+        revision = revision._commit_hash_for(repo_id, repo_type) or str(revision)
 
     if cache_dir is None:
         cache_dir = constants.HF_HUB_CACHE
