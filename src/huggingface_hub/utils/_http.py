@@ -23,7 +23,9 @@ import time
 import uuid
 from collections.abc import Callable, Generator, Mapping
 from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
+from functools import wraps
 from shlex import quote
 from typing import Any, TypeVar
 from urllib.parse import urlparse
@@ -46,7 +48,7 @@ from ..errors import (
 )
 from . import logging
 from ._lfs import SliceFileObj
-from ._typing import HTTP_METHOD_T
+from ._typing import HTTP_METHOD_T, CallableT
 
 
 logger = logging.get_logger(__name__)
@@ -247,6 +249,27 @@ def _parse_job_id_from_url(url: str) -> str | None:
     return match.group(1) if match else None
 
 
+_IS_DOWNLOAD_CALL: ContextVar[bool] = ContextVar("_IS_DOWNLOAD_CALL", default=False)
+
+
+def flag_as_download_call(fn: CallableT) -> CallableT:
+    """Decorator to tag all HTTP calls made by `fn` with the `X-HF-Download-Counter` header.
+
+    Applied on `hf_hub_download`, `snapshot_download`, etc. so that every call they make through [`get_session`]
+    is flagged as part of a download, no matter how deep in the call stack it happens.
+    """
+
+    @wraps(fn)
+    def _inner(*args, **kwargs):
+        token = _IS_DOWNLOAD_CALL.set(True)
+        try:
+            return fn(*args, **kwargs)
+        finally:
+            _IS_DOWNLOAD_CALL.reset(token)
+
+    return _inner  # type: ignore
+
+
 def hf_request_event_hook(request: httpx.Request) -> None:
     """
     Event hook that will be used to make HTTP requests to the Hugging Face Hub.
@@ -254,12 +277,16 @@ def hf_request_event_hook(request: httpx.Request) -> None:
     What it does:
     - Block requests if offline mode is enabled
     - Add a request ID to the request headers
+    - Flag the request as part of a download, if applicable
     - Log the request if debug mode is enabled
     """
     if constants.is_offline_mode():
         raise OfflineModeIsEnabled(
             f"Cannot reach {request.url}: offline mode is enabled. To disable it, please unset the `HF_HUB_OFFLINE` environment variable."
         )
+
+    if _IS_DOWNLOAD_CALL.get():
+        request.headers[constants.X_HF_DOWNLOAD_COUNTER] = "1"
 
     # Add random request ID => easier for server-side debugging
     if X_AMZN_TRACE_ID not in request.headers:
