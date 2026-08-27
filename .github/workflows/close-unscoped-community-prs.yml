@@ -6,10 +6,8 @@
 # Uses `pull_request_target` because `GITHUB_TOKEN` is read-only for PRs opened from forks.
 # The PR branch is never checked out, so no untrusted code runs here.
 #
-# The automatic trigger is dry-run only for now: it logs its decision without commenting or
-# closing, so we can watch it against real PRs. To enable enforcement, drop
-# `github.event_name == 'pull_request_target'` from `DRY_RUN` below. Until then, act on a
-# single PR with `workflow_dispatch` and `dry_run` unchecked.
+# A single PR can also be evaluated manually with `workflow_dispatch`, with `dry_run` checked
+# to only log the decision without commenting or closing.
 
 name: Close unscoped community PRs
 
@@ -48,7 +46,7 @@ jobs:
         env:
           MAINTAINERS: Wauplin,hanouticelina
           PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
-          DRY_RUN: ${{ inputs.dry_run || github.event_name == 'pull_request_target' }}
+          DRY_RUN: ${{ inputs.dry_run || false }}
         with:
           script: |
             const MARKER = "<!-- close-unscoped-community-pr -->";
