@@ -262,8 +262,8 @@ $ hf buckets cp [OPTIONS] SRC [DST]
 
 **Arguments**:
 
-* `SRC`: Source: local file, hf:// URI (repo or bucket), or - for stdin.  [required]
-* `[DST]`: Destination: local path, hf:// URI (repo or bucket), or - for stdout.
+* `SRC`: [required]
+* `[DST]`
 
 **Options**:
 
@@ -297,7 +297,7 @@ $ hf buckets create [OPTIONS] BUCKET_ID
 
 **Arguments**:
 
-* `BUCKET_ID`: Bucket ID: bucket_name, namespace/bucket_name, or hf://buckets/namespace/bucket_name  [required]
+* `BUCKET_ID`: [required]
 
 **Options**:
 
@@ -334,7 +334,7 @@ $ hf buckets delete [OPTIONS] BUCKET_ID
 
 **Arguments**:
 
-* `BUCKET_ID`: Bucket ID: namespace/bucket_name or hf://buckets/namespace/bucket_name  [required]
+* `BUCKET_ID`: [required]
 
 **Options**:
 
@@ -366,7 +366,7 @@ $ hf buckets info [OPTIONS] BUCKET_ID
 
 **Arguments**:
 
-* `BUCKET_ID`: Bucket ID: namespace/bucket_name or hf://buckets/namespace/bucket_name  [required]
+* `BUCKET_ID`: [required]
 
 **Options**:
 
@@ -397,7 +397,7 @@ $ hf buckets list [OPTIONS] [ARGUMENT]
 
 **Arguments**:
 
-* `[ARGUMENT]`: Namespace (user or org) to list buckets, or bucket ID (namespace/bucket_name(/prefix) or hf://buckets/...) to list files.
+* `[ARGUMENT]`
 
 **Options**:
 
@@ -437,8 +437,8 @@ $ hf buckets move [OPTIONS] FROM_ID TO_ID
 
 **Arguments**:
 
-* `FROM_ID`: Source bucket ID: namespace/bucket_name or hf://buckets/namespace/bucket_name  [required]
-* `TO_ID`: Destination bucket ID: namespace/bucket_name or hf://buckets/namespace/bucket_name  [required]
+* `FROM_ID`: [required]
+* `TO_ID`: [required]
 
 **Options**:
 
@@ -469,7 +469,7 @@ $ hf buckets remove [OPTIONS] ARGUMENT
 
 **Arguments**:
 
-* `ARGUMENT`: Bucket path: namespace/bucket_name/path or hf://buckets/namespace/bucket_name/path. With --recursive, namespace/bucket_name is also accepted to target all files.  [required]
+* `ARGUMENT`: [required]
 
 **Options**:
 
@@ -505,7 +505,7 @@ $ hf buckets settings [OPTIONS] BUCKET_ID
 
 **Arguments**:
 
-* `BUCKET_ID`: Bucket ID: namespace/bucket_name or hf://buckets/namespace/bucket_name  [required]
+* `BUCKET_ID`: [required]
 
 **Options**:
 
@@ -536,8 +536,8 @@ $ hf buckets sync [OPTIONS] [SOURCE] [DEST]
 
 **Arguments**:
 
-* `[SOURCE]`: Source path: local directory or hf://buckets/namespace/bucket_name(/prefix)
-* `[DEST]`: Destination path: local directory or hf://buckets/namespace/bucket_name(/prefix)
+* `[SOURCE]`
+* `[DEST]`
 
 **Options**:
 
@@ -661,7 +661,7 @@ $ hf cache rm [OPTIONS] TARGETS...
 
 **Arguments**:
 
-* `TARGETS...`: One or more repo IDs (e.g. model/bert-base-uncased), repo-level hf:// URIs, or revision hashes to delete.  [required]
+* `TARGETS...`: [required]
 
 **Options**:
 
@@ -700,7 +700,7 @@ $ hf cache verify [OPTIONS] REPO_ID
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
+* `REPO_ID`: [required]
 
 **Options**:
 
@@ -760,9 +760,9 @@ $ hf collections add-item [OPTIONS] COLLECTION_SLUG ITEM_ID ITEM_TYPE:{model|dat
 
 **Arguments**:
 
-* `COLLECTION_SLUG`: The collection slug (e.g., 'username/collection-slug').  [required]
-* `ITEM_ID`: The ID of the item to add (repo_id for repos, paper ID for papers).  [required]
-* `ITEM_TYPE:{model|dataset|space|paper|collection|bucket}`: The type of item (model, dataset, space, paper, collection, or bucket).  [required]
+* `COLLECTION_SLUG`: [required]
+* `ITEM_ID`: [required]
+* `ITEM_TYPE:{model|dataset|space|paper|collection|bucket}`: [required]
 
 **Options**:
 
@@ -793,7 +793,7 @@ $ hf collections create [OPTIONS] TITLE
 
 **Arguments**:
 
-* `TITLE`: The title of the collection.  [required]
+* `TITLE`: [required]
 
 **Options**:
 
@@ -826,7 +826,7 @@ $ hf collections delete [OPTIONS] COLLECTION_SLUG
 
 **Arguments**:
 
-* `COLLECTION_SLUG`: The collection slug (e.g., 'username/collection-slug').  [required]
+* `COLLECTION_SLUG`: [required]
 
 **Options**:
 
@@ -855,8 +855,8 @@ $ hf collections delete-item [OPTIONS] COLLECTION_SLUG ITEM_OBJECT_ID
 
 **Arguments**:
 
-* `COLLECTION_SLUG`: The collection slug (e.g., 'username/collection-slug').  [required]
-* `ITEM_OBJECT_ID`: The ID of the item in the collection (retrieved from `item_object_id` field returned by 'hf collections info'.  [required]
+* `COLLECTION_SLUG`: [required]
+* `ITEM_OBJECT_ID`: [required]
 
 **Options**:
 
@@ -876,7 +876,7 @@ $ hf collections info [OPTIONS] COLLECTION_SLUG
 
 **Arguments**:
 
-* `COLLECTION_SLUG`: The collection slug (e.g., 'username/collection-slug').  [required]
+* `COLLECTION_SLUG`: [required]
 
 **Options**:
 
@@ -932,7 +932,7 @@ $ hf collections update [OPTIONS] COLLECTION_SLUG
 
 **Arguments**:
 
-* `COLLECTION_SLUG`: The collection slug (e.g., 'username/collection-slug').  [required]
+* `COLLECTION_SLUG`: [required]
 
 **Options**:
 
@@ -966,8 +966,8 @@ $ hf collections update-item [OPTIONS] COLLECTION_SLUG ITEM_OBJECT_ID
 
 **Arguments**:
 
-* `COLLECTION_SLUG`: The collection slug (e.g., 'username/collection-slug').  [required]
-* `ITEM_OBJECT_ID`: The ID of the item in the collection (from 'item_object_id' field, not the repo_id).  [required]
+* `COLLECTION_SLUG`: [required]
+* `ITEM_OBJECT_ID`: [required]
 
 **Options**:
 
@@ -1003,8 +1003,8 @@ $ hf cp [OPTIONS] SRC [DST]
 
 **Arguments**:
 
-* `SRC`: Source: local file, hf:// URI (repo or bucket), or - for stdin.  [required]
-* `[DST]`: Destination: local path, hf:// URI (repo or bucket), or - for stdout.
+* `SRC`: [required]
+* `[DST]`
 
 **Options**:
 
@@ -1063,7 +1063,7 @@ $ hf datasets card [OPTIONS] DATASET_ID
 
 **Arguments**:
 
-* `DATASET_ID`: The dataset ID (e.g. `username/repo-name`).  [required]
+* `DATASET_ID`: [required]
 
 **Options**:
 
@@ -1095,7 +1095,7 @@ $ hf datasets info [OPTIONS] DATASET_ID
 
 **Arguments**:
 
-* `DATASET_ID`: The dataset ID (e.g. `username/repo-name`).  [required]
+* `DATASET_ID`: [required]
 
 **Options**:
 
@@ -1125,7 +1125,7 @@ $ hf datasets leaderboard [OPTIONS] DATASET_ID
 
 **Arguments**:
 
-* `DATASET_ID`: The benchmark dataset ID (e.g. `SWE-bench/SWE-bench_Verified`).  [required]
+* `DATASET_ID`: [required]
 
 **Options**:
 
@@ -1158,7 +1158,7 @@ $ hf datasets list [OPTIONS] [REPO_ID]
 
 **Arguments**:
 
-* `[REPO_ID]`: Dataset ID (e.g. `username/repo-name`) to list files from. If omitted, lists datasets.
+* `[REPO_ID]`
 
 **Options**:
 
@@ -1201,7 +1201,7 @@ $ hf datasets parquet [OPTIONS] DATASET_ID
 
 **Arguments**:
 
-* `DATASET_ID`: The dataset ID (e.g. `username/repo-name`).  [required]
+* `DATASET_ID`: [required]
 
 **Options**:
 
@@ -1233,7 +1233,7 @@ $ hf datasets sql [OPTIONS] SQL
 
 **Arguments**:
 
-* `SQL`: Raw SQL query to execute.  [required]
+* `SQL`: [required]
 
 **Options**:
 
@@ -1288,8 +1288,8 @@ $ hf discussions close [OPTIONS] REPO_ID NUM
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
-* `NUM`: The discussion or pull request number.  [required]
+* `REPO_ID`: [required]
+* `NUM`: [required]
 
 **Options**:
 
@@ -1320,8 +1320,8 @@ $ hf discussions comment [OPTIONS] REPO_ID NUM
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
-* `NUM`: The discussion or pull request number.  [required]
+* `REPO_ID`: [required]
+* `NUM`: [required]
 
 **Options**:
 
@@ -1352,7 +1352,7 @@ $ hf discussions create [OPTIONS] REPO_ID
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
+* `REPO_ID`: [required]
 
 **Options**:
 
@@ -1387,8 +1387,8 @@ $ hf discussions diff [OPTIONS] REPO_ID NUM
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
-* `NUM`: The discussion or pull request number.  [required]
+* `REPO_ID`: [required]
+* `NUM`: [required]
 
 **Options**:
 
@@ -1416,9 +1416,9 @@ $ hf discussions edit [OPTIONS] REPO_ID NUM COMMENT_ID
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
-* `NUM`: The discussion or pull request number.  [required]
-* `COMMENT_ID`: The ID of the comment to edit (see 'hf discussions info ... --format json').  [required]
+* `REPO_ID`: [required]
+* `NUM`: [required]
+* `COMMENT_ID`: [required]
 
 **Options**:
 
@@ -1449,8 +1449,8 @@ $ hf discussions info [OPTIONS] REPO_ID NUM
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
-* `NUM`: The discussion or pull request number.  [required]
+* `REPO_ID`: [required]
+* `NUM`: [required]
 
 **Options**:
 
@@ -1479,7 +1479,7 @@ $ hf discussions list [OPTIONS] REPO_ID
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
+* `REPO_ID`: [required]
 
 **Options**:
 
@@ -1514,8 +1514,8 @@ $ hf discussions merge [OPTIONS] REPO_ID NUM
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
-* `NUM`: The discussion or pull request number.  [required]
+* `REPO_ID`: [required]
+* `NUM`: [required]
 
 **Options**:
 
@@ -1546,9 +1546,9 @@ $ hf discussions rename [OPTIONS] REPO_ID NUM NEW_TITLE
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
-* `NUM`: The discussion or pull request number.  [required]
-* `NEW_TITLE`: The new title.  [required]
+* `REPO_ID`: [required]
+* `NUM`: [required]
+* `NEW_TITLE`: [required]
 
 **Options**:
 
@@ -1576,8 +1576,8 @@ $ hf discussions reopen [OPTIONS] REPO_ID NUM
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
-* `NUM`: The discussion or pull request number.  [required]
+* `REPO_ID`: [required]
+* `NUM`: [required]
 
 **Options**:
 
@@ -1608,8 +1608,8 @@ $ hf download [OPTIONS] REPO_ID [FILENAMES]...
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
-* `[FILENAMES]...`: Files to download (e.g. `config.json`, `data/metadata.jsonl`).
+* `REPO_ID`: [required]
+* `[FILENAMES]...`
 
 **Options**:
 
@@ -1747,7 +1747,7 @@ $ hf endpoints delete [OPTIONS] NAME
 
 **Arguments**:
 
-* `NAME`: Endpoint name.  [required]
+* `NAME`: [required]
 
 **Options**:
 
@@ -1779,7 +1779,7 @@ $ hf endpoints deploy [OPTIONS] NAME
 
 **Arguments**:
 
-* `NAME`: Endpoint name.  [required]
+* `NAME`: [required]
 
 **Options**:
 
@@ -1835,7 +1835,7 @@ $ hf endpoints describe [OPTIONS] NAME
 
 **Arguments**:
 
-* `NAME`: Endpoint name.  [required]
+* `NAME`: [required]
 
 **Options**:
 
@@ -1939,7 +1939,7 @@ $ hf endpoints pause [OPTIONS] NAME
 
 **Arguments**:
 
-* `NAME`: Endpoint name.  [required]
+* `NAME`: [required]
 
 **Options**:
 
@@ -1967,7 +1967,7 @@ $ hf endpoints resume [OPTIONS] NAME
 
 **Arguments**:
 
-* `NAME`: Endpoint name.  [required]
+* `NAME`: [required]
 
 **Options**:
 
@@ -1996,7 +1996,7 @@ $ hf endpoints scale-to-zero [OPTIONS] NAME
 
 **Arguments**:
 
-* `NAME`: Endpoint name.  [required]
+* `NAME`: [required]
 
 **Options**:
 
@@ -2024,7 +2024,7 @@ $ hf endpoints update [OPTIONS] NAME
 
 **Arguments**:
 
-* `NAME`: Endpoint name.  [required]
+* `NAME`: [required]
 
 **Options**:
 
@@ -2113,7 +2113,7 @@ $ hf extensions exec [OPTIONS] NAME
 
 **Arguments**:
 
-* `NAME`: Extension name (with or without `hf-` prefix).  [required]
+* `NAME`: [required]
 
 **Options**:
 
@@ -2143,7 +2143,7 @@ $ hf extensions install [OPTIONS] REPO_ID
 
 **Arguments**:
 
-* `REPO_ID`: GitHub extension repository in `[OWNER/]hf-<name>` format.  [required]
+* `REPO_ID`: [required]
 
 **Options**:
 
@@ -2194,7 +2194,7 @@ $ hf extensions remove [OPTIONS] NAME
 
 **Arguments**:
 
-* `NAME`: Extension name to remove (with or without `hf-` prefix).  [required]
+* `NAME`: [required]
 
 **Options**:
 
@@ -2242,7 +2242,7 @@ $ hf extensions update [OPTIONS] [NAME]
 
 **Arguments**:
 
-* `[NAME]`: Extension to update (with or without `hf-` prefix, optionally as `OWNER/hf-<name>`). If omitted, all installed extensions are checked and the outdated ones are updated.
+* `[NAME]`
 
 **Options**:
 
@@ -2299,7 +2299,7 @@ $ hf jobs cancel [OPTIONS] JOB_ID
 
 **Arguments**:
 
-* `JOB_ID`: Job ID (or 'namespace/job_id')  [required]
+* `JOB_ID`: [required]
 
 **Options**:
 
@@ -2349,7 +2349,7 @@ $ hf jobs inspect [OPTIONS] JOB_IDS...
 
 **Arguments**:
 
-* `JOB_IDS...`: Job IDs to inspect (or 'namespace/job_id')  [required]
+* `JOB_IDS...`: [required]
 
 **Options**:
 
@@ -2377,7 +2377,7 @@ $ hf jobs labels [OPTIONS] JOB_ID
 
 **Arguments**:
 
-* `JOB_ID`: Job ID (or 'namespace/job_id')  [required]
+* `JOB_ID`: [required]
 
 **Options**:
 
@@ -2455,7 +2455,7 @@ $ hf jobs logs [OPTIONS] JOB_ID
 
 **Arguments**:
 
-* `JOB_ID`: Job ID (or 'namespace/job_id')  [required]
+* `JOB_ID`: [required]
 
 **Options**:
 
@@ -2488,8 +2488,8 @@ $ hf jobs run [OPTIONS] IMAGE COMMAND...
 
 **Arguments**:
 
-* `IMAGE`: The Docker image to use.  [required]
-* `COMMAND...`: The command to run.  [required]
+* `IMAGE`: [required]
+* `COMMAND...`: [required]
 
 **Options**:
 
@@ -2560,7 +2560,7 @@ $ hf jobs scheduled delete [OPTIONS] SCHEDULED_JOB_ID
 
 **Arguments**:
 
-* `SCHEDULED_JOB_ID`: Scheduled Job ID (or 'namespace/scheduled_job_id')  [required]
+* `SCHEDULED_JOB_ID`: [required]
 
 **Options**:
 
@@ -2588,7 +2588,7 @@ $ hf jobs scheduled inspect [OPTIONS] SCHEDULED_JOB_IDS...
 
 **Arguments**:
 
-* `SCHEDULED_JOB_IDS...`: Scheduled Job IDs to inspect (or 'namespace/scheduled_job_id')  [required]
+* `SCHEDULED_JOB_IDS...`: [required]
 
 **Options**:
 
@@ -2616,7 +2616,7 @@ $ hf jobs scheduled labels [OPTIONS] SCHEDULED_JOB_ID
 
 **Arguments**:
 
-* `SCHEDULED_JOB_ID`: Scheduled Job ID (or 'namespace/scheduled_job_id')  [required]
+* `SCHEDULED_JOB_ID`: [required]
 
 **Options**:
 
@@ -2675,7 +2675,7 @@ $ hf jobs scheduled resume [OPTIONS] SCHEDULED_JOB_ID
 
 **Arguments**:
 
-* `SCHEDULED_JOB_ID`: Scheduled Job ID (or 'namespace/scheduled_job_id')  [required]
+* `SCHEDULED_JOB_ID`: [required]
 
 **Options**:
 
@@ -2703,9 +2703,9 @@ $ hf jobs scheduled run [OPTIONS] SCHEDULE IMAGE COMMAND...
 
 **Arguments**:
 
-* `SCHEDULE`: One of annually, yearly, monthly, weekly, daily, hourly, or a CRON schedule expression.  [required]
-* `IMAGE`: The Docker image to use.  [required]
-* `COMMAND...`: The command to run.  [required]
+* `SCHEDULE`: [required]
+* `IMAGE`: [required]
+* `COMMAND...`: [required]
 
 **Options**:
 
@@ -2746,7 +2746,7 @@ $ hf jobs scheduled suspend [OPTIONS] SCHEDULED_JOB_ID
 
 **Arguments**:
 
-* `SCHEDULED_JOB_ID`: Scheduled Job ID (or 'namespace/scheduled_job_id')  [required]
+* `SCHEDULED_JOB_ID`: [required]
 
 **Options**:
 
@@ -2774,7 +2774,7 @@ $ hf jobs scheduled trigger [OPTIONS] SCHEDULED_JOB_ID
 
 **Arguments**:
 
-* `SCHEDULED_JOB_ID`: Scheduled Job ID (or 'namespace/scheduled_job_id')  [required]
+* `SCHEDULED_JOB_ID`: [required]
 
 **Options**:
 
@@ -2820,9 +2820,9 @@ $ hf jobs scheduled uv run [OPTIONS] SCHEDULE SCRIPT [SCRIPT_ARGS]...
 
 **Arguments**:
 
-* `SCHEDULE`: One of annually, yearly, monthly, weekly, daily, hourly, or a CRON schedule expression.  [required]
-* `SCRIPT`: UV script to run (local file or URL)  [required]
-* `[SCRIPT_ARGS]...`: Arguments for the script
+* `SCHEDULE`: [required]
+* `SCRIPT`: [required]
+* `[SCRIPT_ARGS]...`
 
 **Options**:
 
@@ -2871,7 +2871,7 @@ $ hf jobs ssh [OPTIONS] JOB_ID
 
 **Arguments**:
 
-* `JOB_ID`: Job ID (or 'namespace/job_id')  [required]
+* `JOB_ID`: [required]
 
 **Options**:
 
@@ -2903,7 +2903,7 @@ $ hf jobs stats [OPTIONS] [JOB_IDS]...
 
 **Arguments**:
 
-* `[JOB_IDS]...`: Job IDs (or 'namespace/job_id')
+* `[JOB_IDS]...`
 
 **Options**:
 
@@ -2949,8 +2949,8 @@ $ hf jobs uv run [OPTIONS] SCRIPT [SCRIPT_ARGS]...
 
 **Arguments**:
 
-* `SCRIPT`: UV script to run (local file or URL)  [required]
-* `[SCRIPT_ARGS]...`: Arguments for the script
+* `SCRIPT`: [required]
+* `[SCRIPT_ARGS]...`
 
 **Options**:
 
@@ -3003,7 +3003,7 @@ $ hf jobs wait [OPTIONS] JOB_IDS...
 
 **Arguments**:
 
-* `JOB_IDS...`: Job IDs to wait for (or 'namespace/job_id').  [required]
+* `JOB_IDS...`: [required]
 
 **Options**:
 
@@ -3037,7 +3037,7 @@ $ hf lfs-enable-largefiles [OPTIONS] PATH
 
 **Arguments**:
 
-* `PATH`: Local path to repository you want to configure.  [required]
+* `PATH`: [required]
 
 **Options**:
 
@@ -3092,7 +3092,7 @@ $ hf models card [OPTIONS] MODEL_ID
 
 **Arguments**:
 
-* `MODEL_ID`: The model ID (e.g. `username/repo-name`).  [required]
+* `MODEL_ID`: [required]
 
 **Options**:
 
@@ -3124,7 +3124,7 @@ $ hf models info [OPTIONS] MODEL_ID
 
 **Arguments**:
 
-* `MODEL_ID`: The model ID (e.g. `username/repo-name`).  [required]
+* `MODEL_ID`: [required]
 
 **Options**:
 
@@ -3157,7 +3157,7 @@ $ hf models list [OPTIONS] [REPO_ID]
 
 **Arguments**:
 
-* `[REPO_ID]`: Model ID (e.g. `username/repo-name`) to list files from. If omitted, lists models.
+* `[REPO_ID]`
 
 **Options**:
 
@@ -3231,7 +3231,7 @@ $ hf papers info [OPTIONS] PAPER_ID
 
 **Arguments**:
 
-* `PAPER_ID`: The arXiv paper ID (e.g. '2502.08025').  [required]
+* `PAPER_ID`: [required]
 
 **Options**:
 
@@ -3292,7 +3292,7 @@ $ hf papers read [OPTIONS] PAPER_ID
 
 **Arguments**:
 
-* `PAPER_ID`: The arXiv paper ID (e.g. '2502.08025').  [required]
+* `PAPER_ID`: [required]
 
 **Options**:
 
@@ -3319,7 +3319,7 @@ $ hf papers search [OPTIONS] QUERY
 
 **Arguments**:
 
-* `QUERY`: Search query string.  [required]
+* `QUERY`: [required]
 
 **Options**:
 
@@ -3395,8 +3395,8 @@ $ hf repos branch create [OPTIONS] REPO_ID BRANCH
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
-* `BRANCH`: The name of the branch to create.  [required]
+* `REPO_ID`: [required]
+* `BRANCH`: [required]
 
 **Options**:
 
@@ -3427,8 +3427,8 @@ $ hf repos branch delete [OPTIONS] REPO_ID BRANCH
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
-* `BRANCH`: The name of the branch to delete.  [required]
+* `REPO_ID`: [required]
+* `BRANCH`: [required]
 
 **Options**:
 
@@ -3462,8 +3462,8 @@ $ hf repos cp [OPTIONS] SRC [DST]
 
 **Arguments**:
 
-* `SRC`: Source: local file, hf:// URI (repo or bucket), or - for stdin.  [required]
-* `[DST]`: Destination: local path, hf:// URI (repo or bucket), or - for stdout.
+* `SRC`: [required]
+* `[DST]`
 
 **Options**:
 
@@ -3498,7 +3498,7 @@ $ hf repos create [OPTIONS] REPO_ID
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
+* `REPO_ID`: [required]
 
 **Options**:
 
@@ -3547,7 +3547,7 @@ $ hf repos delete [OPTIONS] REPO_ID
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
+* `REPO_ID`: [required]
 
 **Options**:
 
@@ -3577,8 +3577,8 @@ $ hf repos delete-files [OPTIONS] REPO_ID PATTERNS...
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
-* `PATTERNS...`: Glob patterns to match files to delete. Based on fnmatch, '*' matches files recursively.  [required]
+* `REPO_ID`: [required]
+* `PATTERNS...`: [required]
 
 **Options**:
 
@@ -3612,8 +3612,8 @@ $ hf repos duplicate [OPTIONS] FROM_ID [TO_ID]
 
 **Arguments**:
 
-* `FROM_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
-* `[TO_ID]`: Destination repo ID (e.g. `myorg/my-copy`). Defaults to your namespace with the same repo name.
+* `FROM_ID`: [required]
+* `[TO_ID]`
 
 **Options**:
 
@@ -3685,8 +3685,8 @@ $ hf repos move [OPTIONS] FROM_ID TO_ID
 
 **Arguments**:
 
-* `FROM_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
-* `TO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
+* `FROM_ID`: [required]
+* `TO_ID`: [required]
 
 **Options**:
 
@@ -3714,7 +3714,7 @@ $ hf repos settings [OPTIONS] REPO_ID
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
+* `REPO_ID`: [required]
 
 **Options**:
 
@@ -3768,8 +3768,8 @@ $ hf repos tag create [OPTIONS] REPO_ID TAG
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
-* `TAG`: The name of the tag to create.  [required]
+* `REPO_ID`: [required]
+* `TAG`: [required]
 
 **Options**:
 
@@ -3800,8 +3800,8 @@ $ hf repos tag delete [OPTIONS] REPO_ID TAG
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
-* `TAG`: The name of the tag to delete.  [required]
+* `REPO_ID`: [required]
+* `TAG`: [required]
 
 **Options**:
 
@@ -3830,7 +3830,7 @@ $ hf repos tag list [OPTIONS] REPO_ID
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
+* `REPO_ID`: [required]
 
 **Options**:
 
@@ -3882,8 +3882,8 @@ $ hf sandbox cp [OPTIONS] SRC DST
 
 **Arguments**:
 
-* `SRC`: Source: a local path or <sandbox_id>:<path>.  [required]
-* `DST`: Destination: a local path or <sandbox_id>:<path>.  [required]
+* `SRC`: [required]
+* `DST`: [required]
 
 **Options**:
 
@@ -3917,7 +3917,7 @@ $ hf sandbox create [OPTIONS] [IMAGE]
 
 **Arguments**:
 
-* `[IMAGE]`: Docker image (needs /bin/sh).
+* `[IMAGE]`
 
 **Options**:
 
@@ -3960,8 +3960,8 @@ $ hf sandbox exec [OPTIONS] SANDBOX_ID COMMAND...
 
 **Arguments**:
 
-* `SANDBOX_ID`: The sandbox id as printed by `hf sandbox create`.  [required]
-* `COMMAND...`: The command to run.  [required]
+* `SANDBOX_ID`: [required]
+* `COMMAND...`: [required]
 
 **Options**:
 
@@ -3994,7 +3994,7 @@ $ hf sandbox kill [OPTIONS] [SANDBOX_ID]
 
 **Arguments**:
 
-* `[SANDBOX_ID]`: The sandbox or host id to terminate.
+* `[SANDBOX_ID]`
 
 **Options**:
 
@@ -4046,7 +4046,7 @@ $ hf sandbox pool create [OPTIONS] [IMAGE]
 
 **Arguments**:
 
-* `[IMAGE]`: Docker image for the hosts (needs /bin/sh).
+* `[IMAGE]`
 
 **Options**:
 
@@ -4080,7 +4080,7 @@ $ hf sandbox pool delete [OPTIONS] POOL_ID
 
 **Arguments**:
 
-* `POOL_ID`: Pool id to delete.  [required]
+* `POOL_ID`: [required]
 
 **Options**:
 
@@ -4152,8 +4152,8 @@ $ hf sandbox process kill [OPTIONS] SANDBOX_ID PID
 
 **Arguments**:
 
-* `SANDBOX_ID`: The sandbox id as printed by `hf sandbox create`.  [required]
-* `PID`: The pid as printed by `hf sandbox process ls`.  [required]
+* `SANDBOX_ID`: [required]
+* `PID`: [required]
 
 **Options**:
 
@@ -4181,7 +4181,7 @@ $ hf sandbox process ls [OPTIONS] SANDBOX_ID
 
 **Arguments**:
 
-* `SANDBOX_ID`: The sandbox id as printed by `hf sandbox create`.  [required]
+* `SANDBOX_ID`: [required]
 
 **Options**:
 
@@ -4212,8 +4212,8 @@ $ hf sandbox spawn [OPTIONS] SANDBOX_ID COMMAND...
 
 **Arguments**:
 
-* `SANDBOX_ID`: The sandbox id as printed by `hf sandbox create`.  [required]
-* `COMMAND...`: The command to run in the background.  [required]
+* `SANDBOX_ID`: [required]
+* `COMMAND...`: [required]
 
 **Options**:
 
@@ -4271,7 +4271,7 @@ $ hf skills add [OPTIONS] [NAME]
 
 **Arguments**:
 
-* `[NAME]`: Marketplace skill name.
+* `[NAME]`
 
 **Options**:
 
@@ -4343,7 +4343,7 @@ $ hf skills update [OPTIONS] [NAME]
 
 **Arguments**:
 
-* `[NAME]`: Optional installed skill name to update.
+* `[NAME]`
 
 **Options**:
 
@@ -4409,7 +4409,7 @@ $ hf spaces card [OPTIONS] SPACE_ID
 
 **Arguments**:
 
-* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+* `SPACE_ID`: [required]
 
 **Options**:
 
@@ -4447,7 +4447,7 @@ $ hf spaces dev-mode [OPTIONS] SPACE_ID
 
 **Arguments**:
 
-* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+* `SPACE_ID`: [required]
 
 **Options**:
 
@@ -4511,8 +4511,8 @@ $ hf spaces hot-reload [OPTIONS] SPACE_ID [FILENAME]
 
 **Arguments**:
 
-* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
-* `[FILENAME]`: Path to the Python file in the Space repository. Can be omitted when --local-file is specified and path in repository matches.
+* `SPACE_ID`: [required]
+* `[FILENAME]`
 
 **Options**:
 
@@ -4544,7 +4544,7 @@ $ hf spaces info [OPTIONS] SPACE_ID
 
 **Arguments**:
 
-* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+* `SPACE_ID`: [required]
 
 **Options**:
 
@@ -4577,7 +4577,7 @@ $ hf spaces list [OPTIONS] [REPO_ID]
 
 **Arguments**:
 
-* `[REPO_ID]`: Space ID (e.g. `username/repo-name`) to list files from. If omitted, lists spaces.
+* `[REPO_ID]`
 
 **Options**:
 
@@ -4623,7 +4623,7 @@ $ hf spaces logs [OPTIONS] SPACE_ID
 
 **Arguments**:
 
-* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+* `SPACE_ID`: [required]
 
 **Options**:
 
@@ -4656,7 +4656,7 @@ $ hf spaces pause [OPTIONS] SPACE_ID
 
 **Arguments**:
 
-* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+* `SPACE_ID`: [required]
 
 **Options**:
 
@@ -4683,7 +4683,7 @@ $ hf spaces restart [OPTIONS] SPACE_ID
 
 **Arguments**:
 
-* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+* `SPACE_ID`: [required]
 
 **Options**:
 
@@ -4712,7 +4712,7 @@ $ hf spaces search [OPTIONS] QUERY
 
 **Arguments**:
 
-* `QUERY`: Search query.  [required]
+* `QUERY`: [required]
 
 **Options**:
 
@@ -4766,7 +4766,7 @@ $ hf spaces secrets add [OPTIONS] SPACE_ID
 
 **Arguments**:
 
-* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+* `SPACE_ID`: [required]
 
 **Options**:
 
@@ -4797,8 +4797,8 @@ $ hf spaces secrets delete [OPTIONS] SPACE_ID KEY
 
 **Arguments**:
 
-* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
-* `KEY`: Name of the secret to remove.  [required]
+* `SPACE_ID`: [required]
+* `KEY`: [required]
 
 **Options**:
 
@@ -4827,7 +4827,7 @@ $ hf spaces secrets list [OPTIONS] SPACE_ID
 
 **Arguments**:
 
-* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+* `SPACE_ID`: [required]
 
 **Options**:
 
@@ -4854,7 +4854,7 @@ $ hf spaces settings [OPTIONS] SPACE_ID
 
 **Arguments**:
 
-* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+* `SPACE_ID`: [required]
 
 **Options**:
 
@@ -4888,7 +4888,7 @@ $ hf spaces ssh [OPTIONS] SPACE_ID
 
 **Arguments**:
 
-* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+* `SPACE_ID`: [required]
 
 **Options**:
 
@@ -4967,7 +4967,7 @@ $ hf spaces variables add [OPTIONS] SPACE_ID
 
 **Arguments**:
 
-* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+* `SPACE_ID`: [required]
 
 **Options**:
 
@@ -4998,8 +4998,8 @@ $ hf spaces variables delete [OPTIONS] SPACE_ID KEY
 
 **Arguments**:
 
-* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
-* `KEY`: Name of the variable to remove.  [required]
+* `SPACE_ID`: [required]
+* `KEY`: [required]
 
 **Options**:
 
@@ -5028,7 +5028,7 @@ $ hf spaces variables list [OPTIONS] SPACE_ID
 
 **Arguments**:
 
-* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+* `SPACE_ID`: [required]
 
 **Options**:
 
@@ -5075,7 +5075,7 @@ $ hf spaces volumes delete [OPTIONS] SPACE_ID
 
 **Arguments**:
 
-* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+* `SPACE_ID`: [required]
 
 **Options**:
 
@@ -5104,7 +5104,7 @@ $ hf spaces volumes list [OPTIONS] SPACE_ID
 
 **Arguments**:
 
-* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+* `SPACE_ID`: [required]
 
 **Options**:
 
@@ -5131,7 +5131,7 @@ $ hf spaces volumes set [OPTIONS] SPACE_ID
 
 **Arguments**:
 
-* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+* `SPACE_ID`: [required]
 
 **Options**:
 
@@ -5164,7 +5164,7 @@ $ hf spaces wait [OPTIONS] SPACE_ID
 
 **Arguments**:
 
-* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+* `SPACE_ID`: [required]
 
 **Options**:
 
@@ -5193,8 +5193,8 @@ $ hf sync [OPTIONS] [SOURCE] [DEST]
 
 **Arguments**:
 
-* `[SOURCE]`: Source path: local directory or hf://buckets/namespace/bucket_name(/prefix)
-* `[DEST]`: Destination path: local directory or hf://buckets/namespace/bucket_name(/prefix)
+* `[SOURCE]`
+* `[DEST]`
 
 **Options**:
 
@@ -5239,9 +5239,9 @@ $ hf upload [OPTIONS] REPO_ID [LOCAL_PATH] [PATH_IN_REPO]
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
-* `[LOCAL_PATH]`: Local path to the file or folder to upload. Wildcard patterns are supported. Defaults to current directory.
-* `[PATH_IN_REPO]`: Path of the file or folder in the repo. Defaults to the relative path of the file or folder.
+* `REPO_ID`: [required]
+* `[LOCAL_PATH]`
+* `[PATH_IN_REPO]`
 
 **Options**:
 
@@ -5282,8 +5282,8 @@ $ hf upload-large-folder [OPTIONS] REPO_ID LOCAL_PATH
 
 **Arguments**:
 
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
-* `LOCAL_PATH`: Local path to the folder to upload.  [required]
+* `REPO_ID`: [required]
+* `LOCAL_PATH`: [required]
 
 **Options**:
 
@@ -5389,7 +5389,7 @@ $ hf webhooks delete [OPTIONS] WEBHOOK_ID
 
 **Arguments**:
 
-* `WEBHOOK_ID`: The ID of the webhook to delete.  [required]
+* `WEBHOOK_ID`: [required]
 
 **Options**:
 
@@ -5418,7 +5418,7 @@ $ hf webhooks disable [OPTIONS] WEBHOOK_ID
 
 **Arguments**:
 
-* `WEBHOOK_ID`: The ID of the webhook to disable.  [required]
+* `WEBHOOK_ID`: [required]
 
 **Options**:
 
@@ -5445,7 +5445,7 @@ $ hf webhooks enable [OPTIONS] WEBHOOK_ID
 
 **Arguments**:
 
-* `WEBHOOK_ID`: The ID of the webhook to enable.  [required]
+* `WEBHOOK_ID`: [required]
 
 **Options**:
 
@@ -5472,7 +5472,7 @@ $ hf webhooks info [OPTIONS] WEBHOOK_ID
 
 **Arguments**:
 
-* `WEBHOOK_ID`: The ID of the webhook.  [required]
+* `WEBHOOK_ID`: [required]
 
 **Options**:
 
@@ -5524,7 +5524,7 @@ $ hf webhooks update [OPTIONS] WEBHOOK_ID
 
 **Arguments**:
 
-* `WEBHOOK_ID`: The ID of the webhook to update.  [required]
+* `WEBHOOK_ID`: [required]
 
 **Options**:
 
