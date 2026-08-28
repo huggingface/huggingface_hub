@@ -426,6 +426,10 @@ def remove(
                 status.update(f"Listing files from remote ({len(all_files)} files)")
         status.done(f"Listing files from remote ({len(all_files)} files)")
 
+        if prefix:
+            prefix = prefix.rstrip("/")
+            all_files = [file for file in all_files if file.path == prefix or file.path.startswith(f"{prefix}/")]
+
         if include or exclude:
             matcher = FilterMatcher(include_patterns=include, exclude_patterns=exclude)
             matched_files = [f for f in all_files if matcher.matches(f.path)]

@@ -320,6 +320,37 @@ def test_rm_recursive_dry_run(api: HfApi, bucket_write: str):
     assert _remote_files(api, bucket_write) == {"data/a.txt", "data/b.txt"}
 
 
+def test_rm_recursive_dry_run_respects_prefix_boundary(api: HfApi, bucket_write: str):
+    """'hf buckets rm --recursive' does not remove lexical prefix siblings."""
+    api.batch_bucket_files(
+        bucket_write,
+        add=[
+            (b"inside", "logs/a.txt"),
+            (b"deep", "logs/sub/deep.txt"),
+            (b"sibling", "logs.json"),
+            (b"sibling", "logs_backup/b.txt"),
+            (b"sibling", "logsx/c.txt"),
+        ],
+    )
+
+    result = cli(f"hf buckets rm {bucket_write}/logs --recursive --dry-run")
+    assert result.exit_code == 0
+    assert "2 file(s)" in result.output
+    assert f"delete: {BUCKET_PREFIX}{bucket_write}/logs/a.txt" in result.output
+    assert f"delete: {BUCKET_PREFIX}{bucket_write}/logs/sub/deep.txt" in result.output
+    for path in ("logs.json", "logs_backup/b.txt", "logsx/c.txt"):
+        assert f"delete: {BUCKET_PREFIX}{bucket_write}/{path}" not in result.output
+
+    # Files should still exist because this is a dry run.
+    assert _remote_files(api, bucket_write) == {
+        "logs/a.txt",
+        "logs/sub/deep.txt",
+        "logs.json",
+        "logs_backup/b.txt",
+        "logsx/c.txt",
+    }
+
+
 def test_rm_recursive_include(api: HfApi, bucket_write: str):
     """'hf buckets rm --recursive --include' only removes matching files."""
     api.batch_bucket_files(
