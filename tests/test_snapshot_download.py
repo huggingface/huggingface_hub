@@ -370,19 +370,9 @@ def test_revision_str_is_picklable():
         assert restored == "refs/pr/4"
         assert restored.initial == "refs/pr/4"
         assert restored.resolved == COMMIT_HASH
-        assert restored._commit_hash_for("user/repo", "dataset") == COMMIT_HASH
-
-
-def test_revision_str_commit_hash_for():
-    """The commit hash only applies to the repo the revision was resolved against."""
-    revision = ResolvedRevision(resolved=COMMIT_HASH, repo_id="user/repo")
-    assert revision._commit_hash_for("user/repo") == COMMIT_HASH
-    assert revision._commit_hash_for("user/repo", "model") == COMMIT_HASH
-    assert revision._commit_hash_for("user/repo", "dataset") is None
-    assert revision._commit_hash_for("user/other-repo") is None
-
-    # Built by hand, without a repo => assumed to fit any repo
-    assert ResolvedRevision(resolved=COMMIT_HASH)._commit_hash_for("user/repo") == COMMIT_HASH
+        # the repo it was resolved for survives as well, otherwise it would be resolved again for that same repo
+        assert restored._repo_id == "user/repo"
+        assert restored._repo_type == "dataset"
 
 
 class TestResolveRevision:
@@ -431,10 +421,10 @@ class TestResolveRevision:
         with pytest.raises(RepositoryNotFoundError):
             api.resolve_revision(self.repo_id, repo_type="dataset", revision=revision, cache_dir=tmp_path)
 
-        # Downloads target the requested revision of that repo, not the commit hash of the other one
-        path = hf_hub_download(other_repo_id, "dummy_file.txt", revision=revision, cache_dir=tmp_path)
-        assert path.endswith(os.path.join(other_commit_hash, "dummy_file.txt"))
-        assert snapshot_download(other_repo_id, revision=revision, cache_dir=tmp_path).endswith(other_commit_hash)
+        # Built by hand, without a repo => trusted for any repo
+        by_hand = ResolvedRevision(resolved=self.commit_hash)
+        with offline():
+            assert api.resolve_revision(other_repo_id, revision=by_hand, cache_dir=tmp_path) is by_hand
 
     def test_resolve_revision_not_cached(self, api: HfApi, tmp_path: Path):
         with offline():

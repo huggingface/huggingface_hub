@@ -250,16 +250,15 @@ def snapshot_download(
         token=token,
     )
 
-    # The revision already pins a commit if:
-    # - it's a `ResolvedRevision` resolved for this repo (see [`HfApi.resolve_revision`])
+    # The revision is already a commit hash if:
+    # - it's a `ResolvedRevision` (already resolved, see [`HfApi.resolve_revision`])
     # - it's a commit hash, which is immutable
     # => in both cases, there is nothing to resolve and the `repo_info` call can be skipped.
-    pinned_commit_hash: str | None = None
+    commit_hash: str | None = None
     if isinstance(revision, ResolvedRevision):
-        pinned_commit_hash = revision._commit_hash_for(repo_id, repo_type)
+        commit_hash = revision.resolved
     elif REGEX_COMMIT_HASH.match(revision):
-        pinned_commit_hash = revision
-    commit_hash: str | None = pinned_commit_hash
+        commit_hash = revision
 
     api_call_error: Exception | None = None
     if commit_hash is None and not local_files_only:
@@ -412,8 +411,8 @@ def snapshot_download(
     snapshot_folder = os.path.join(storage_folder, "snapshots", commit_hash)
     # if passed revision is not identical to commit_hash
     # then revision has to be a branch name or tag name.
-    # In that case store a ref, unless the revision came pinned: [`HfApi.resolve_revision`] already stored it.
-    if pinned_commit_hash is None and revision != commit_hash:
+    # In that case store a ref (except if ResolvedRevision, in which case it's already done).
+    if not isinstance(revision, ResolvedRevision) and revision != commit_hash:
         ref_path = os.path.join(storage_folder, "refs", revision)
         try:
             os.makedirs(os.path.dirname(ref_path), exist_ok=True)
@@ -652,20 +651,20 @@ def get_cached_repo_tree(
 
     # The tree cache is keyed by commit hash. Resolve the revision to a commit hash: either it already is one,
     # or it's a branch/tag name recorded in `refs/` by a previous download.
-    commit_hash = revision._commit_hash_for(repo_id, repo_type) if isinstance(revision, ResolvedRevision) else None
-    if commit_hash is None:
-        if REGEX_COMMIT_HASH.match(revision):
-            commit_hash = revision
-        else:
-            ref_path = os.path.join(storage_folder, "refs", revision)
-            if not os.path.isfile(ref_path):
-                raise CachedRepoTreeNotFoundError(
-                    f"No cached tree listing found for '{repo_id}' (revision '{revision}', repo_type '{repo_type}'): "
-                    f"the revision is not a commit hash and no matching ref is cached in '{storage_folder}'. "
-                    "Download the repo (e.g. with `snapshot_download`) to populate the cache first."
-                )
-            with open(ref_path) as f:
-                commit_hash = f.read()
+    if isinstance(revision, ResolvedRevision):
+        commit_hash = revision.resolved
+    elif REGEX_COMMIT_HASH.match(revision):
+        commit_hash = revision
+    else:
+        ref_path = os.path.join(storage_folder, "refs", revision)
+        if not os.path.isfile(ref_path):
+            raise CachedRepoTreeNotFoundError(
+                f"No cached tree listing found for '{repo_id}' (revision '{revision}', repo_type '{repo_type}'): "
+                f"the revision is not a commit hash and no matching ref is cached in '{storage_folder}'. "
+                "Download the repo (e.g. with `snapshot_download`) to populate the cache first."
+            )
+        with open(ref_path) as f:
+            commit_hash = f.read()
 
     tree_entries = read_tree_cache(tree_cache_folder, commit_hash)
     if tree_entries is None:

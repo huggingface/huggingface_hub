@@ -12,8 +12,8 @@ class ResolvedRevision(str):
     in the local cache (`refs/` folder).
 
     A commit hash only means something for the repo it was resolved against, so an instance also remembers that
-    repo. Passing it to another repo is not an error: the initially requested revision is used instead, and
-    resolved again if needed.
+    repo. Re-resolving it for another repo is not an error: the revision initially requested is resolved again
+    (see [`HfApi.resolve_revision`]).
 
     Attributes:
         initial (`str` or `None`):
@@ -60,12 +60,3 @@ class ResolvedRevision(str):
 
     def __repr__(self) -> str:
         return f"ResolvedRevision(initial={self.initial!r}, resolved={self.resolved!r})"
-
-    def _commit_hash_for(self, repo_id: str, repo_type: str | None = None) -> str | None:
-        """The commit hash to use for this repo, or `None` if the revision was resolved against another one."""
-        if self._repo_id is None or (self._repo_id, self._repo_type) == (
-            repo_id,
-            repo_type or constants.REPO_TYPE_MODEL,
-        ):
-            return self.resolved
-        return None

@@ -3729,15 +3729,18 @@ class HfApi:
             >>> weights = hf_hub_download("openai-community/gpt2", "model.safetensors", revision=revision)
             ```
         """
+        if repo_type is None:
+            repo_type = constants.REPO_TYPE_MODEL
+
         if isinstance(revision, ResolvedRevision):
-            if revision._commit_hash_for(repo_id, repo_type) is not None:
+            # A commit hash means nothing outside of the repo it was resolved for. `_repo_id=None` means the repo is
+            # unknown (instance built by hand), in which case it is assumed to fit any repo.
+            if revision._repo_id is None or (revision._repo_id, revision._repo_type) == (repo_id, repo_type):
                 return revision  # already resolved for this repo => nothing to do
             revision = revision.initial  # resolved for another repo => resolve what was initially requested
         if revision is not None and REGEX_COMMIT_HASH.match(revision):
             return ResolvedRevision(resolved=revision, initial=revision, repo_id=repo_id, repo_type=repo_type)
 
-        if repo_type is None:
-            repo_type = constants.REPO_TYPE_MODEL
         if cache_dir is None:
             cache_dir = constants.HF_HUB_CACHE
         storage_folder = str(
