@@ -3694,7 +3694,8 @@ class HfApi:
                 `None` or `"model"` if it is a model. Default is `None`.
             revision (`str`, *optional*):
                 The revision to resolve. Can be a branch name, a tag, a PR ref or a commit hash. Defaults to the
-                default branch. If a [`ResolvedRevision`] is passed, it is returned as is.
+                default branch. If a [`ResolvedRevision`] is passed, it is returned as is - unless it was resolved
+                against another repo, in which case the revision it initially requested is resolved again.
             cache_dir (`str`, `Path`, *optional*):
                 Path to the folder where cached files are stored. Defaults to the value of `HF_HUB_CACHE`.
             local_files_only (`bool`, *optional*, defaults to `False`):
@@ -3728,13 +3729,18 @@ class HfApi:
             >>> weights = hf_hub_download("openai-community/gpt2", "model.safetensors", revision=revision)
             ```
         """
-        if isinstance(revision, ResolvedRevision):
-            return revision
-        if revision is not None and REGEX_COMMIT_HASH.match(revision):
-            return ResolvedRevision(resolved=revision, initial=revision)
-
         if repo_type is None:
             repo_type = constants.REPO_TYPE_MODEL
+
+        if isinstance(revision, ResolvedRevision):
+            # A commit hash means nothing outside of the repo it was resolved for. `_repo_id=None` means the repo is
+            # unknown (instance built by hand), in which case it is assumed to fit any repo.
+            if revision._repo_id is None or (revision._repo_id, revision._repo_type) == (repo_id, repo_type):
+                return revision  # already resolved for this repo => nothing to do
+            revision = revision.initial  # resolved for another repo => resolve what was initially requested
+        if revision is not None and REGEX_COMMIT_HASH.match(revision):
+            return ResolvedRevision(resolved=revision, initial=revision, repo_id=repo_id, repo_type=repo_type)
+
         if cache_dir is None:
             cache_dir = constants.HF_HUB_CACHE
         storage_folder = str(
@@ -3752,7 +3758,7 @@ class HfApi:
                     )
                 except OSError as e:
                     logger.warning(f"Ignored error while caching commit hash for '{repo_id}': {e}.")
-                return ResolvedRevision(resolved=sha, initial=revision)
+                return ResolvedRevision(resolved=sha, initial=revision, repo_id=repo_id, repo_type=repo_type)
             except httpx.ProxyError:
                 # Actually raise on proxy error: a misconfigured proxy is not an unreachable Hub
                 raise
@@ -3768,7 +3774,9 @@ class HfApi:
         if ref_path.is_file():
             if error is not None:
                 logger.warning(f"Could not reach the Hub ({error}). Using cached commit hash for '{repo_id}'.")
-            return ResolvedRevision(resolved=ref_path.read_text().strip(), initial=revision)
+            return ResolvedRevision(
+                resolved=ref_path.read_text().strip(), initial=revision, repo_id=repo_id, repo_type=repo_type
+            )
 
         reason = (
             "'local_files_only=True' is set"

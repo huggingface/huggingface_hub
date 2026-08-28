@@ -238,6 +238,15 @@ Download helpers ([`hf_hub_download`], [`snapshot_download`], [`get_cached_repo_
 
 The `revision` -> `commit hash` mapping is also written to the `refs/` folder of the cache (see [Refs](#refs)). This means that if the Hub cannot be reached later on (offline mode, connection error, timeout, Hub downtime), [`HfApi.resolve_revision`] transparently falls back to the cached value. If nothing is cached either, a [`~errors.RevisionResolutionError`] is raised.
 
+A commit hash only means something for the repo it was resolved against, and download helpers use it as is. So a [`ResolvedRevision`] must only be passed to the repo it was resolved for. If a library also downloads from another repo (a base model, an adapter, a component living in its own repo, ...), it needs a revision resolved for that repo. Just pass the [`ResolvedRevision`] back to [`HfApi.resolve_revision`]: it remembers which repo it belongs to and resolves the revision initially requested (`"main"` here) again for the new repo.
+
+```py
+>>> other_revision = resolve_revision("openai-community/gpt2-medium", revision=revision)  # resolves "main" again
+>>> other_revision.resolved
+'6dcaa7a952f72f9298047fd5137cd6e4f05f41da'
+>>> config = hf_hub_download("openai-community/gpt2-medium", "config.json", revision=other_revision)
+```
+
 ## Chunk-based caching (Xet)
 
 To provide more efficient file transfers, `hf_xet` adds a `xet` directory to the existing `huggingface_hub` cache, creating additional caching layer to enable chunk-based deduplication. This cache holds chunks (immutable byte ranges of files ~64KB in size) and shards (a data structure that maps files to chunks). For more information on the Xet Storage system, see this [section](https://huggingface.co/docs/hub/xet/index).
