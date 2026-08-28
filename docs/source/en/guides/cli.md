@@ -2171,6 +2171,11 @@ Manage scheduled jobs using
 # List your active scheduled jobs
 >>> hf jobs scheduled ls
 
+# Same filters as `hf jobs ls`: --status, --label and --name
+>>> hf jobs scheduled ls --all
+>>> hf jobs scheduled ls --status suspended
+>>> hf jobs scheduled ls --name hourly-task --label env=prod
+
 # Inspect the status of a job
 >>> hf jobs scheduled inspect <scheduled_job_id>
 

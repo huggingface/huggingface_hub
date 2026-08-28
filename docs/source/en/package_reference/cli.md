@@ -2639,7 +2639,10 @@ Learn more
 
 #### `hf jobs scheduled list | ls | ps`
 
-List scheduled Jobs
+List scheduled Jobs.
+
+Use `--status` to filter by status (`active` or `suspended`) and `--label` to filter by `key=value` labels.
+A scheduled Job must match every filter to be listed.
 
 **Usage**:
 
@@ -2649,14 +2652,21 @@ $ hf jobs scheduled list | ls | ps [OPTIONS]
 
 **Options**:
 
-* `-a, --all`: Show all scheduled Jobs (default hides suspended)
+* `-a, --all`: Show all scheduled Jobs (default hides suspended). Cannot be combined with --status.
+* `--status [active|suspended]`: Only show scheduled Jobs with the given status. Comma-separated or repeated, e.g. `--status suspended`.
+* `-l, --label TEXT`: Only show scheduled Jobs with the given `key=value` label. Repeat to require several labels, e.g. `--label env=prod --label team=ml`.
+* `--name TEXT`: Only show scheduled Jobs with the given name (shortcut for `--label name=NAME`).
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `-f, --filter TEXT`: Filter output based on conditions provided (format: key=value)
+* `-f, --filter TEXT`: (Deprecated) Use `--status` and `--label` instead.
 * `--help`: Show this message and exit.
 
 Examples
   $ hf jobs scheduled ls
+  $ hf jobs scheduled ls -a
+  $ hf jobs scheduled ls --status suspended
+  $ hf jobs scheduled ls --name daily-script
+  $ hf jobs scheduled ls --label env=prod --label team=ml
 
 Learn more
   Use `hf <command> --help` for more information about a command.

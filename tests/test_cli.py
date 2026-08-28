@@ -3805,6 +3805,108 @@ class TestJobsCommand:
         assert kwargs["status"] == ["completed", "scheduling"]
         assert kwargs["labels"] == {"model": "Qwen3-06B"}
 
+    def _make_mock_scheduled_jobs(self):
+        """Create mock ScheduledJobInfo objects for testing `scheduled ls` output."""
+        from huggingface_hub._jobs_api import ScheduledJobInfo
+
+        return [
+            ScheduledJobInfo(
+                id="active-id",
+                createdAt="2026-01-15T10:30:00.000Z",
+                jobSpec={
+                    "dockerImage": "python:3.12",
+                    "command": ["python", "report.py"],
+                    "labels": {"name": "daily-report", "env": "prod"},
+                },
+                schedule="@daily",
+                suspend=False,
+                concurrency=False,
+                status={"nextJobRunAt": "2026-01-16T10:30:00.000Z"},
+                owner={"id": "user-id", "name": "testuser", "type": "user"},
+            ),
+            ScheduledJobInfo(
+                id="suspended-id",
+                createdAt="2026-01-14T08:00:00.000Z",
+                jobSpec={
+                    "dockerImage": "ubuntu:latest",
+                    "command": ["echo", "done"],
+                    "labels": {"name": "paused-task"},
+                },
+                schedule="@hourly",
+                suspend=True,
+                concurrency=False,
+                status={},
+                owner={"id": "user-id", "name": "testuser", "type": "user"},
+            ),
+        ]
+
+    def test_scheduled_ls_hides_suspended_by_default(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_scheduled_jobs.return_value = self._make_mock_scheduled_jobs()
+            result = runner.invoke(app, ["jobs", "scheduled", "ls"])
+        assert result.exit_code == 0
+        assert "active-id" in result.output
+        assert "suspended-id" not in result.output
+
+    def test_scheduled_ls_all_shows_suspended(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_scheduled_jobs.return_value = self._make_mock_scheduled_jobs()
+            result = runner.invoke(app, ["jobs", "scheduled", "ls", "-a"])
+        assert result.exit_code == 0
+        assert "active-id" in result.output
+        assert "suspended-id" in result.output
+
+    def test_scheduled_ls_status_suspended(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_scheduled_jobs.return_value = self._make_mock_scheduled_jobs()
+            result = runner.invoke(app, ["jobs", "scheduled", "ls", "--status", "suspended"])
+        assert result.exit_code == 0
+        assert "suspended-id" in result.output
+        assert "active-id" not in result.output
+
+    def test_scheduled_ls_all_and_status_are_exclusive(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_scheduled_jobs.return_value = self._make_mock_scheduled_jobs()
+            result = runner.invoke(app, ["jobs", "scheduled", "ls", "-a", "--status", "active"])
+        assert result.exit_code != 0
+
+    def test_scheduled_ls_invalid_status(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_scheduled_jobs.return_value = self._make_mock_scheduled_jobs()
+            result = runner.invoke(app, ["jobs", "scheduled", "ls", "--status", "running"])
+        assert result.exit_code != 0
+
+    def test_scheduled_ls_forwards_labels_and_name(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_scheduled_jobs.return_value = self._make_mock_scheduled_jobs()
+            result = runner.invoke(app, ["jobs", "scheduled", "ls", "--name", "daily-report", "--label", "env=prod"])
+        assert result.exit_code == 0
+        kwargs = api.list_scheduled_jobs.call_args.kwargs
+        assert kwargs["labels"] == {"env": "prod", "name": "daily-report"}
+
+    def test_scheduled_ls_rejects_name_and_name_label(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_scheduled_jobs.return_value = self._make_mock_scheduled_jobs()
+            result = runner.invoke(app, ["jobs", "scheduled", "ls", "--name", "daily-report", "--label", "name=other"])
+        assert result.exit_code != 0
+
+    def test_scheduled_ls_deprecated_filter_is_ignored(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_scheduled_jobs.return_value = self._make_mock_scheduled_jobs()
+            result = runner.invoke(app, ["jobs", "scheduled", "ls", "-f", "id=nope"])
+        # `-f`/`--filter` is ignored (a warning is printed on stderr) and does not filter anything out.
+        assert result.exit_code == 0
+        assert "active-id" in result.output
+        assert api.list_scheduled_jobs.call_args.kwargs["labels"] is None
+
     def test_ls_format_json(self, runner: CliRunner) -> None:
         """Test that `hf jobs ls -a --format json` outputs valid JSON with all fields."""
         import json

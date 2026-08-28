@@ -13053,6 +13053,7 @@ class HfApi:
     def list_scheduled_jobs(
         self,
         *,
+        labels: dict[str, str] | None = None,
         timeout: int | None = None,
         namespace: str | None = None,
         token: bool | str | None = None,
@@ -13061,6 +13062,10 @@ class HfApi:
         List scheduled compute Jobs on Hugging Face infrastructure.
 
         Args:
+            labels (`dict[str, str]`, *optional*):
+                Only return scheduled Jobs that have all the given `key=value` labels, e.g.
+                `{"env": "prod", "team": "ml"}`.
+
             timeout (`float`, *optional*):
                 Whether to set a timeout for the request to the Hub.
 
@@ -13071,16 +13076,33 @@ class HfApi:
                 A valid user access token. If not provided, the locally saved token will be used, which is the
                 recommended authentication method. Set to `False` to disable authentication.
                 Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+
+        Returns:
+            `list[ScheduledJobInfo]`: a list of [`ScheduledJobInfo`] objects.
         """
         if namespace is None:
             namespace = self.whoami(token=token)["name"]
+        params: dict[str, Any] = {}
+        if labels:
+            # The endpoint only supports a single `label` filter server-side. Send the first one to keep the
+            # payload small, then filter the remaining ones client-side.
+            key, value = next(iter(labels.items()))
+            params["label"] = f"{key}={value}"
         response = get_session().get(
             f"{self.endpoint}/api/scheduled-jobs/{namespace}",
             headers=self._build_hf_headers(token=token),
+            params=params or None,
             timeout=timeout,
         )
         hf_raise_for_status(response)
-        return [ScheduledJobInfo(**scheduled_job_info) for scheduled_job_info in response.json()]
+        scheduled_jobs = [ScheduledJobInfo(**scheduled_job_info) for scheduled_job_info in response.json()]
+        if labels:
+            scheduled_jobs = [
+                scheduled_job
+                for scheduled_job in scheduled_jobs
+                if all((scheduled_job.job_spec.labels or {}).get(key) == value for key, value in labels.items())
+            ]
+        return scheduled_jobs
 
     def inspect_scheduled_job(
         self,
