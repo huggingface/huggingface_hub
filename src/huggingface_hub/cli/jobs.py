@@ -1152,10 +1152,10 @@ def scheduled_ps(
 
     # Labels filtering
     labels: dict[str, str] = {}
-    for item in label or []:
-        if "=" not in item:
-            raise CLIError(f"Invalid label filter '{item}': must be in the form 'key=value'")
-        key, value = item.split("=", 1)
+    for raw_label in label or []:
+        if "=" not in raw_label:
+            raise CLIError(f"Invalid label filter '{raw_label}': must be in the form 'key=value'")
+        key, value = raw_label.split("=", 1)
         labels[key] = value
 
     # `--name` is a shortcut for the `name` label.
