@@ -19,9 +19,12 @@ from huggingface_hub.errors import (
     RepositoryNotFoundError,
 )
 from huggingface_hub.utils._http import (
+    _MAX_REDIRECTS,
     _WARNED_TOPICS,
     RateLimitInfo,
     _adjust_range_header,
+    _httpx_follow_hub_redirects_with_backoff,
+    _is_same_or_hub_host,
     _parse_bucket_id_from_url,
     _parse_repo_info_from_url,
     _parse_retry_after,
@@ -808,3 +811,110 @@ class TestRedactSensitiveBody:
         assert "refresh_token=<REDACTED>" in redacted
         assert "device_code=<REDACTED>" in redacted
         assert "client_id=abc" in redacted
+
+
+class TestIsSameOrHubHost:
+    """Tests for `_is_same_or_hub_host`."""
+
+    @pytest.mark.parametrize(
+        "url,target,expected",
+        [
+            # Same host, and known Hub hosts, are accepted.
+            ("https://hf-mirror.com/a", "https://hf-mirror.com/b", True),
+            ("https://hf-mirror.com/a", "https://huggingface.co/b", True),
+            ("https://hf-mirror.com/a", "https://hf.co/b", True),
+            # Host comparison is case-insensitive and ignores the port.
+            ("https://hf-mirror.com/a", "https://HuggingFace.CO/b", True),
+            ("https://hf-mirror.com:443/a", "https://hf-mirror.com/b", True),
+            # Anything else (CDN, storage bucket) is not.
+            ("https://hf-mirror.com/a", "https://cdn.example.com/b", False),
+            # An https -> http downgrade is refused, even towards a Hub host: the authorization
+            # header must not be sent over plaintext.
+            ("https://hf-mirror.com/a", "http://huggingface.co/b", False),
+            ("https://hf-mirror.com/a", "http://hf-mirror.com/b", False),
+            # An endpoint deliberately configured over http is left alone.
+            ("http://localhost:8080/a", "http://localhost:8080/b", True),
+        ],
+    )
+    def test_is_same_or_hub_host(self, url: str, target: str, expected: bool) -> None:
+        assert _is_same_or_hub_host(url, target) is expected
+
+
+class TestFollowHubRedirects:
+    """Tests for `_httpx_follow_hub_redirects_with_backoff`."""
+
+    BASE_URL = "https://hf-mirror.com/repo/resolve/main/config.json?base=old"
+
+    @pytest.fixture(autouse=True)
+    def setup(self) -> Generator[None, None, None]:
+        patcher = patch("huggingface_hub.utils._http.http_backoff")
+        self.mock_backoff = patcher.start()
+        yield
+        patcher.stop()
+
+    def _redirect(self, location: str) -> httpx.Response:
+        return httpx.Response(308, headers={"Location": location}, request=httpx.Request("HEAD", self.BASE_URL))
+
+    def _final(self) -> httpx.Response:
+        return httpx.Response(200, request=httpx.Request("HEAD", self.BASE_URL))
+
+    def _follow(self, location: str) -> httpx.Response:
+        """Answer one redirect to `location`, then a 200, and return the final response."""
+        self.mock_backoff.side_effect = [self._redirect(location), self._final()]
+        return _httpx_follow_hub_redirects_with_backoff("HEAD", self.BASE_URL)
+
+    def _requested_url(self, location: str) -> str:
+        """URL requested after following a redirect to `location`."""
+        self._follow(location)
+        return self.mock_backoff.call_args_list[-1].kwargs["url"]
+
+    def test_relative_redirect_keeps_target_query(self) -> None:
+        """The query of the redirect target must survive (e.g. the xet `?etag=...` lookup)."""
+        assert (
+            self._requested_url("/api/resolve-cache/config.json?etag=abc123")
+            == "https://hf-mirror.com/api/resolve-cache/config.json?etag=abc123"
+        )
+
+    def test_relative_redirect_does_not_inherit_base_query(self) -> None:
+        """A target without a query must not inherit the base query (RFC 3986)."""
+        assert (
+            self._requested_url("/api/resolve-cache/config.json")
+            == "https://hf-mirror.com/api/resolve-cache/config.json"
+        )
+
+    def test_relative_redirect_resolves_dot_segments(self) -> None:
+        """Dot-segments must be resolved rather than kept verbatim."""
+        assert (
+            self._requested_url("../other/config.json?etag=xyz")
+            == "https://hf-mirror.com/repo/resolve/other/config.json?etag=xyz"
+        )
+
+    def test_absolute_redirect_to_hub_host_is_followed(self) -> None:
+        """A mirror redirecting to the Hub is followed (this is the HF_ENDPOINT mirror case)."""
+        assert (
+            self._requested_url("https://huggingface.co/repo/resolve/main/config.json")
+            == "https://huggingface.co/repo/resolve/main/config.json"
+        )
+
+    def test_redirect_off_the_hub_is_not_followed(self) -> None:
+        """A CDN redirect carries the metadata itself and must be returned as-is."""
+        redirect = self._redirect("https://cdn.example.com/blob")
+        self.mock_backoff.side_effect = [redirect]
+        response = _httpx_follow_hub_redirects_with_backoff("HEAD", self.BASE_URL)
+        assert response is redirect
+        assert self.mock_backoff.call_count == 1
+
+    def test_downgrade_to_http_is_not_followed(self) -> None:
+        """An https -> http redirect must not be followed, even towards a Hub host."""
+        redirect = self._redirect("http://huggingface.co/repo/resolve/main/config.json")
+        self.mock_backoff.side_effect = [redirect]
+        response = _httpx_follow_hub_redirects_with_backoff("HEAD", self.BASE_URL)
+        assert response is redirect
+        assert self.mock_backoff.call_count == 1
+
+    def test_raises_after_too_many_redirects(self) -> None:
+        """An endless redirect loop is bounded by `_MAX_REDIRECTS`."""
+        self.mock_backoff.side_effect = [self._redirect("/loop") for _ in range(_MAX_REDIRECTS + 1)]
+        with pytest.raises(httpx.TooManyRedirects):
+            _httpx_follow_hub_redirects_with_backoff("HEAD", self.BASE_URL)
+        assert self.mock_backoff.call_count == _MAX_REDIRECTS

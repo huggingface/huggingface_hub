@@ -747,9 +747,17 @@ def _httpx_follow_hub_redirects_with_backoff(
 
 
 def _is_same_or_hub_host(url: str, target: str) -> bool:
-    """Whether `target` is served by the same host as `url`, or by a known Hub host."""
-    target_host = (urlparse(target).hostname or "").lower()
-    return target_host == (urlparse(url).hostname or "").lower() or target_host in constants.HF_URL_HOSTS
+    """Whether `target` is served by the same host as `url`, or by a known Hub host.
+
+    A target that downgrades https to http is never accepted: both call sites use this to decide
+    whether the authorization header may follow, and it must not be sent over plaintext.
+    """
+    parsed_url = urlparse(url)
+    parsed_target = urlparse(target)
+    if parsed_url.scheme == "https" and parsed_target.scheme != "https":
+        return False
+    target_host = (parsed_target.hostname or "").lower()
+    return target_host == (parsed_url.hostname or "").lower() or target_host in constants.HF_URL_HOSTS
 
 
 def fix_hf_endpoint_in_url(url: str, endpoint: str | None) -> str:
