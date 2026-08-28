@@ -46,6 +46,7 @@ from .replicate import (
     ReplicateTextToImageTask,
     ReplicateTextToSpeechTask,
 )
+from .scalattice import ScalatticeConversationalTask
 from .scaleway import ScalewayConversationalTask, ScalewayFeatureExtractionTask
 from .together import (
     TogetherConversationalTask,
@@ -85,6 +86,7 @@ PROVIDER_T = Literal[
     "ovhcloud",
     "publicai",
     "replicate",
+    "scalattice",
     "scaleway",
     "together",
     "wavespeed",
@@ -183,6 +185,9 @@ PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
         "text-to-image": ReplicateTextToImageTask(),
         "text-to-speech": ReplicateTextToSpeechTask(),
         "text-to-video": ReplicateTask("text-to-video"),
+    },
+    "scalattice": {
+        "conversational": ScalatticeConversationalTask(),
     },
     "scaleway": {
         "conversational": ScalewayConversationalTask(),
