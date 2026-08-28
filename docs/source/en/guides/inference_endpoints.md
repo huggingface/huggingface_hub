@@ -173,7 +173,7 @@ accelerators, or
 ...     accelerator="gpu",
 ...     instance_size="x8",
 ...     instance_type="nvidia-h200",
-...     region="us-east-1",
+...     region="us-west-2",
 ...     vendor="aws",
 ...     custom_image={"vLLM": {"url": "vllm/vllm-openai:v0.23.0", "tensorParallelSize": 8}},
 ... )
@@ -183,7 +183,7 @@ From the CLI, `--engine` selects the managed engine image and the two flags are 
 
 ```bash
 hf endpoints deploy gpt-oss-120b-vllm --repo openai/gpt-oss-120b --framework custom \
-  --accelerator gpu --instance-size x8 --instance-type nvidia-h200 --region us-east-1 --vendor aws \
+  --accelerator gpu --instance-size x8 --instance-type nvidia-h200 --region us-west-2 --vendor aws \
   --engine vllm --custom-image vllm/vllm-openai:v0.23.0 --tensor-parallel-size 8
 ```
 

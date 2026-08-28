@@ -2358,7 +2358,7 @@ To deploy your own Docker image instead of a Hugging Face managed one, pass `--f
 >>> hf endpoints deploy nex-n2-pro \
       --repo nex-agi/Nex-N2-Pro \
       --framework custom \
-      --accelerator gpu --vendor aws --region us-east-1 \
+      --accelerator gpu --vendor aws --region us-west-2 \
       --instance-type nvidia-h200 --instance-size x8 \
       --custom-image nexagi/sglang:v0.5.12 \
       --health-route /health --port 30000 \
@@ -2382,7 +2382,7 @@ To deploy your own Docker image instead of a Hugging Face managed one, pass `--f
 >>> hf endpoints deploy gpt-oss-120b-vllm \
       --repo openai/gpt-oss-120b \
       --framework custom \
-      --accelerator gpu --vendor aws --region us-east-1 \
+      --accelerator gpu --vendor aws --region us-west-2 \
       --instance-type nvidia-h200 --instance-size x8 \
       --engine vllm --custom-image vllm/vllm-openai:v0.23.0 \
       --tensor-parallel-size 8
