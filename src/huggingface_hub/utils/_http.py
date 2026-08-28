@@ -26,7 +26,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from shlex import quote
 from typing import Any, TypeVar
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import httpx
 
@@ -691,14 +691,18 @@ def http_stream_backoff(
     )
 
 
-def _httpx_follow_relative_redirects_with_backoff(
+_MAX_REDIRECTS = 20  # same bound as httpx's default max_redirects
+
+
+def _httpx_follow_hub_redirects_with_backoff(
     method: HTTP_METHOD_T, url: str, *, retry_on_errors: bool = False, **httpx_kwargs
 ) -> httpx.Response:
-    """Perform an HTTP request with backoff and follow relative redirects only.
+    """Perform an HTTP request with backoff, following redirects that stay on the Hub.
 
     Used to fetch HEAD /resolve on repo or bucket files.
 
-    This is useful to follow a redirection to a renamed repository without following redirection to a CDN.
+    Redirects to the same host or another Hub host are followed. Redirects to any other host (CDN, storage
+    bucket) are not: the file metadata is on the redirect response itself and the auth header must not leave the Hub.
 
     A backoff mechanism retries the HTTP call on errors (429, 5xx, timeout, network errors).
 
@@ -718,7 +722,7 @@ def _httpx_follow_relative_redirects_with_backoff(
         {} if retry_on_errors else {"retry_on_exceptions": (), "retry_on_status_codes": ()}
     )
 
-    while True:
+    for _ in range(_MAX_REDIRECTS):
         response = http_backoff(
             method=method,
             url=url,
@@ -728,18 +732,24 @@ def _httpx_follow_relative_redirects_with_backoff(
         )
         hf_raise_for_status(response)
 
-        # Check if response is a relative redirect
-        if 300 <= response.status_code <= 399:
-            parsed_target = urlparse(response.headers["Location"])
-            if parsed_target.netloc == "":
-                # Relative redirect -> update URL and retry
-                url = urlparse(url)._replace(path=parsed_target.path).geturl()
-                continue
+        if not response.has_redirect_location:
+            return response
 
-        # Break if no relative redirect
-        break
+        target = urljoin(url, response.headers["Location"])
+        if not _is_same_or_hub_host(url, target):
+            # Redirect to a CDN or storage host (signed URL): the file metadata is carried by this very response,
+            # and the authorization header must not be forwarded off the Hub => stop here.
+            return response
 
-    return response
+        url = target
+
+    raise httpx.TooManyRedirects(f"Exceeded {_MAX_REDIRECTS} redirects while resolving '{url}'.")
+
+
+def _is_same_or_hub_host(url: str, target: str) -> bool:
+    """Whether `target` is served by the same host as `url`, or by a known Hub host."""
+    target_host = (urlparse(target).hostname or "").lower()
+    return target_host == (urlparse(url).hostname or "").lower() or target_host in constants.HF_URL_HOSTS
 
 
 def fix_hf_endpoint_in_url(url: str, endpoint: str | None) -> str:

@@ -19,7 +19,7 @@ import multiprocessing.pool
 import shutil
 import time
 from collections.abc import Callable, Iterable
-from fnmatch import fnmatch
+from enum import Enum
 from pathlib import Path
 from queue import Empty, Queue
 from typing import Annotated, Any, TypeVar
@@ -444,20 +444,6 @@ def jobs_logs(
     if follow:
         job_ref = f"{namespace}/{job_id}" if namespace else job_id
         out.hint(f"Stream ended. Run `hf jobs inspect {job_ref}` to check the final status (e.g. COMPLETED or ERROR).")
-
-
-def _matches_filters(job_properties: dict[str, str], filters: list[tuple[str, str, str]]) -> bool:
-    """Check if scheduled job matches all specified filters."""
-    for key, op_str, pattern in filters:
-        value = job_properties.get(key)
-        if value is None:
-            if op_str == "!=":
-                continue
-            return False
-        match = fnmatch(value.lower(), pattern.lower())
-        if (op_str == "=" and not match) or (op_str == "!=" and match):
-            return False
-    return True
 
 
 def _clear_line(n: int) -> None:
@@ -1000,6 +986,16 @@ def jobs_uv_run(
     _stream_logs_and_check_status(api, job)
 
 
+class ScheduledJobStatusFilter(str, Enum):
+    """Possible values for `hf jobs scheduled ls --status`.
+
+    Scheduled Jobs are not "running": they are either active (i.e. they will trigger new runs) or suspended.
+    """
+
+    ACTIVE = "active"
+    SUSPENDED = "suspended"
+
+
 scheduled_app = typer_factory(help="Create and manage scheduled Jobs on the Hub.")
 jobs_cli.add_group(scheduled_app, name="scheduled")
 
@@ -1060,16 +1056,54 @@ def scheduled_run(
     out.hint(f"Use `hf jobs scheduled inspect {scheduled_job.owner.name}/{scheduled_job.id}` to view its details.")
 
 
-@scheduled_app.command("list | ls | ps", examples=["hf jobs scheduled ls"])
+@scheduled_app.command(
+    "list | ls | ps",
+    examples=[
+        "hf jobs scheduled ls",
+        "hf jobs scheduled ls -a",
+        "hf jobs scheduled ls --status suspended",
+        "hf jobs scheduled ls --name daily-script",
+        "hf jobs scheduled ls --label env=prod --label team=ml",
+    ],
+)
 def scheduled_ps(
     all: Annotated[
         bool,
         Option(
             "-a",
             "--all",
-            help="Show all scheduled Jobs (default hides suspended)",
+            help="Show all scheduled Jobs (default hides suspended). Cannot be combined with --status.",
         ),
     ] = False,
+    status: Annotated[
+        list[str] | None,
+        Option(
+            "--status",
+            click_type=SoftChoice(ScheduledJobStatusFilter),
+            help=(
+                "Only show scheduled Jobs with the given status. Comma-separated or repeated, e.g."
+                " `--status suspended`."
+            ),
+        ),
+    ] = None,
+    label: Annotated[
+        list[str] | None,
+        Option(
+            "-l",
+            "--label",
+            help=(
+                "Only show scheduled Jobs with the given `key=value` label. Repeat to require several labels, e.g."
+                " `--label env=prod --label team=ml`."
+            ),
+        ),
+    ] = None,
+    name: Annotated[
+        str | None,
+        Option(
+            "--name",
+            help="Only show scheduled Jobs with the given name (shortcut for `--label name=NAME`).",
+        ),
+    ] = None,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
     filter: Annotated[
@@ -1077,45 +1111,67 @@ def scheduled_ps(
         Option(
             "-f",
             "--filter",
-            help="Filter output based on conditions provided (format: key=value)",
+            help="(Deprecated) Use `--status` and `--label` instead.",
         ),
     ] = None,
 ) -> None:
-    """List scheduled Jobs"""
-    api = get_hf_api(token=token)
-    scheduled_jobs = api.list_scheduled_jobs(namespace=namespace)
-    filters: list[tuple[str, str, str]] = []
-    for f in filter or []:
-        if "=" in f:
-            key, value = f.split("=", 1)
-            # Negate predicate in case of key!=value
-            if key.endswith("!"):
-                op = "!="
-                key = key[:-1]
-            else:
-                op = "="
-            filters.append((key.lower(), op, value.lower()))
-        else:
-            out.warning(f"Ignoring invalid filter format '{f}'. Use key=value format.")
+    """List scheduled Jobs.
 
-    # Filter scheduled jobs (operating on ScheduledJobInfo objects to preserve existing filter behavior)
+    Use `--status` to filter by status (`active` or `suspended`) and `--label` to filter by `key=value` labels.
+    A scheduled Job must match every filter to be listed.
+    """
+    api = get_hf_api(token=token)
+
+    if filter:
+        out.warning(
+            f"Ignoring filter '{filter}'."
+            " `-f`/`--filter` is deprecated and will be removed in a future release. Use `--status`/`--label`."
+        )
+
+    if all and status:
+        raise CLIError("`-a`/`--all` cannot be combined with `--status`.")
+
+    # Status filtering (default to active scheduled Jobs, unless `--all` or `--status` is provided).
+    raw_statuses: list[str] = []
+    for value in status or []:
+        raw_statuses.extend(part.strip().lower() for part in value.split(",") if part.strip())
+
+    unknown_statuses = [s for s in raw_statuses if s not in tuple(ScheduledJobStatusFilter)]
+    if unknown_statuses:
+        raise CLIError(
+            f"Invalid status filter(s) {unknown_statuses}: expected one of"
+            f" {[s.value for s in ScheduledJobStatusFilter]}."
+        )
+
+    if raw_statuses:
+        show_active = ScheduledJobStatusFilter.ACTIVE in raw_statuses
+        show_suspended = ScheduledJobStatusFilter.SUSPENDED in raw_statuses
+    else:
+        show_active = True
+        show_suspended = all
+
+    # Labels filtering
+    labels: dict[str, str] = {}
+    for raw_label in label or []:
+        if "=" not in raw_label:
+            raise CLIError(f"Invalid label filter '{raw_label}': must be in the form 'key=value'")
+        key, value = raw_label.split("=", 1)
+        labels[key] = value
+
+    # `--name` is a shortcut for the `name` label.
+    if name is not None:
+        if "name" in labels:
+            raise CLIError("Cannot filter by both `--name` and `--label name=...`.")
+        labels["name"] = name
+
+    scheduled_jobs = api.list_scheduled_jobs(namespace=namespace, labels=labels or None)
+
     filtered_jobs = []
     for scheduled_job in scheduled_jobs:
         suspend = scheduled_job.suspend or False
-        if not all and suspend:
+        if suspend and not show_suspended:
             continue
-        image_or_space = scheduled_job.job_spec.docker_image or "N/A"
-        cmd = scheduled_job.job_spec.command or []
-        command_str = " ".join(cmd) if cmd else "N/A"
-        job_name = (scheduled_job.job_spec.labels or {}).get("name") or "N/A"
-        props = {
-            "id": scheduled_job.id,
-            "name": job_name,
-            "image": image_or_space,
-            "suspend": str(suspend),
-            "command": command_str,
-        }
-        if not _matches_filters(props, filters):
+        if not suspend and not show_active:
             continue
         filtered_jobs.append(scheduled_job)
 
@@ -1142,9 +1198,14 @@ def scheduled_ps(
         headers=["id", "name", "schedule", "image/space", "command", "last_run", "next_run", "suspend"],
         id_key="id",
     )
-    if not items and filters:
-        filters_msg = ", ".join(f"{k}{o}{v}" for k, o, v in filters)
-        out.text(f"No scheduled jobs matched filters: {filters_msg}")
+    if not items:
+        if raw_statuses or labels:
+            filters_msg = ", ".join(
+                [*(f"status={s}" for s in raw_statuses), *(f"label={k}={v}" for k, v in labels.items())]
+            )
+            out.text(f"No scheduled jobs matched filters: {filters_msg}")
+        elif not all:
+            out.hint("No active scheduled jobs. Use `-a`/`--all` to include suspended ones.")
     if items:
         first_item_id = items[0]["id"]
         out.hint(f"Use `hf jobs scheduled inspect {first_item_id}` to view details about a scheduled job.")

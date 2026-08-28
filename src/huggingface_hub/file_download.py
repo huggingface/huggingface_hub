@@ -10,7 +10,7 @@ import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, BinaryIO, Literal, NoReturn, overload
-from urllib.parse import quote, urlparse
+from urllib.parse import quote
 
 import httpx
 from tqdm.auto import tqdm as base_tqdm
@@ -50,7 +50,8 @@ from .utils._http import (
     _DEFAULT_RETRY_ON_EXCEPTIONS,
     _DEFAULT_RETRY_ON_STATUS_CODES,
     _adjust_range_header,
-    _httpx_follow_relative_redirects_with_backoff,
+    _httpx_follow_hub_redirects_with_backoff,
+    _is_same_or_hub_host,
     http_stream_backoff,
 )
 from .utils._runtime import is_xet_available
@@ -1626,7 +1627,7 @@ def get_hf_file_metadata(
     hf_headers["Accept-Encoding"] = "identity"  # prevent any compression => we want to know the real size of the file
 
     # Retrieve metadata
-    response = _httpx_follow_relative_redirects_with_backoff(
+    response = _httpx_follow_hub_redirects_with_backoff(
         method="HEAD", url=url, headers=hf_headers, timeout=timeout, retry_on_errors=retry_on_errors
     )
     hf_raise_for_status(response)
@@ -1748,9 +1749,10 @@ def _get_metadata_or_catch_error(
             commit_hash = metadata.commit_hash
             if commit_hash is None:
                 raise FileMetadataError(
-                    "Distant resource does not seem to be on huggingface.co. It is possible that a configuration issue"
-                    " prevents you from downloading resources from https://huggingface.co. Please check your firewall"
-                    " and proxy settings and make sure your SSL certificates are updated."
+                    f"Response from {url} is missing the '{constants.HUGGINGFACE_HEADER_X_REPO_COMMIT}' header, so it"
+                    " does not seem to be served by a Hugging Face Hub endpoint. If HF_ENDPOINT is set, check that it"
+                    " points to a Hub-compatible endpoint. Otherwise, check your firewall and proxy settings and make"
+                    " sure your SSL certificates are updated."
                 )
 
             # Etag must exist
@@ -1772,12 +1774,12 @@ def _get_metadata_or_catch_error(
             # and ensure we download the exact atomic version even if it changed
             # between the HEAD and the GET (unlikely, but hey).
             #
-            # If url domain is different => we are downloading from a CDN => url is signed => don't send auth
-            # If url domain is the same => redirect due to repo rename AND downloading a regular file => keep auth
+            # If the final location is on a Hub host (same host, or e.g. huggingface.co reached through an
+            # HF_ENDPOINT mirror redirect) => keep auth. Otherwise it's a signed CDN url => don't send auth.
             if xet_file_data is None and url != metadata.location:
                 url_to_download = metadata.location
-                if urlparse(url).netloc != urlparse(metadata.location).netloc:
-                    # Remove authorization header when downloading a LFS blob
+                if not _is_same_or_hub_host(url, metadata.location):
+                    # Remove authorization header when downloading a LFS blob from a CDN
                     headers.pop("authorization", None)
         except httpx.ProxyError:
             # Actually raise on proxy error
@@ -1911,6 +1913,11 @@ def _raise_on_head_call_error(head_call_error: Exception, force_download: bool, 
         # Repo not found or gated => let's raise the actual error
         # Unauthorized => likely a token issue => let's raise the actual error
         raise head_call_error
+    elif isinstance(head_call_error, FileMetadataError):
+        # The call succeeded but the response lacked the metadata we need => a configuration issue, not connectivity.
+        raise LocalEntryNotFoundError(
+            f"{head_call_error} We also cannot find the requested files in the local cache."
+        ) from head_call_error
     else:
         # Otherwise: most likely a connection issue or Hub downtime => let's warn the user
         raise LocalEntryNotFoundError(
