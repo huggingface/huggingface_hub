@@ -13,11 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import warnings
+from unittest.mock import MagicMock
 
 import pytest
 
 from huggingface_hub import HfApi
-from huggingface_hub._buckets import BucketFile, BucketInfo
+from huggingface_hub._buckets import BucketFile, BucketInfo, SyncOperation, SyncPlan, _execute_plan
 from huggingface_hub._jobs_api import _derive_job_volume_name
 from huggingface_hub.errors import BucketNotFoundError, EntryNotFoundError, HfHubHTTPError
 
@@ -242,6 +243,16 @@ def test_move_bucket_rename(api: HfApi, bucket_write: str):
 
     # Clean up - delete the renamed bucket
     api.delete_bucket(new_bucket_id)
+
+
+def test_update_bucket_settings(api: HfApi, bucket_write: str):
+    assert api.bucket_info(bucket_write).private is False
+
+    api.update_bucket_settings(bucket_write, private=True)
+    assert api.bucket_info(bucket_write).private is True
+
+    api.update_bucket_settings(bucket_write, private=False)
+    assert api.bucket_info(bucket_write).private is False
 
 
 def test_list_bucket_tree_on_public_bucket(api: HfApi, bucket_read: str):
@@ -605,3 +616,21 @@ def test_sync_job_volume_empty_dir_uploads_placeholder(api: HfApi, tmp_path):
         if isinstance(entry, BucketFile)
     }
     assert files == {f"{volume.path}/.keep"}
+
+
+def test_execute_plan_rejects_path_traversal(tmp_path):
+    # A crafted plan must not touch files outside the destination via a traversing op path.
+    dest = tmp_path / "dest"
+    dest.mkdir()
+    outside = tmp_path / "outside.txt"
+    outside.write_text("keep me")
+    api = MagicMock()
+    plan = SyncPlan(
+        source="hf://buckets/user/bucket",
+        dest=str(dest),
+        timestamp="2026-01-01T00:00:00+00:00",
+        operations=[SyncOperation(action="delete", path="../outside.txt", size=7)],
+    )
+    with pytest.raises(ValueError, match="Invalid filename"):
+        _execute_plan(plan, api)
+    assert outside.exists()  # not deleted

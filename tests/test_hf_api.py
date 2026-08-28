@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import copy
 import datetime
 import os
 import re
@@ -35,6 +36,10 @@ from huggingface_hub._commit_api import (
     CommitOperationCopy,
     CommitOperationDelete,
     _fetch_upload_modes,
+)
+from huggingface_hub._inference_endpoints import (
+    _build_endpoint_image_payload,
+    _set_parallelism_in_image,
 )
 from huggingface_hub.community import DiscussionComment, DiscussionWithDetails
 from huggingface_hub.errors import (
@@ -67,7 +72,6 @@ from huggingface_hub.hf_api import (
     User,
     WebhookInfo,
     WebhookWatchedItem,
-    _build_endpoint_image_payload,
     repo_type_and_id_from_hf_id,
 )
 from huggingface_hub.repocard_data import DatasetCardData, ModelCardData
@@ -1428,10 +1432,10 @@ class TestHfApiListRepoTree:
         assert model_ckpt.last_commit is not None
         assert model_ckpt.last_commit["oid"] == "bda967fdb79a50844e4a02cccae3217a8ecc86cd"
         # `security` is computed asynchronously by the backend and may be absent from the response.
-        # Only assert its structure when present to avoid flakiness.
+        # The scan verdict itself (`safe`) is decided server-side and can flip over time, so we only
+        # check the structure when present to avoid flakiness.
         if model_ckpt.security is not None:
-            assert model_ckpt.security["safe"]
-            assert isinstance(model_ckpt.security["av_scan"], dict)  # all details in here
+            assert "safe" in model_ckpt.security
 
         # check last_commit is present for a folder
         feature_extractor = next(tree_obj for tree_obj in tree if tree_obj.path == "feature_extractor")
@@ -4526,9 +4530,10 @@ class TestExpandPropertyType:
             assert e.response.status_code == 400
             message = e.response.json()["error"]
 
-        assert message.startswith('"expand" must be one of ')
+        # Server returns e.g. '✖ Invalid option: expected one of "author"|"cardData"|...\n  → at expand[0]'
+        assert "expected one of " in message
         defined_args = set(get_args(property_type))
-        expected_args = set(message.replace('"expand" must be one of ', "").strip("[]").split(", "))
+        expected_args = set(re.findall(r'"([^"]+)"', message.split("expected one of ", 1)[1]))
         expected_args.discard("gitalyUid")  # internal one, do not document
         expected_args.discard("xetEnabled")  # all repos are xetEnabled now, so we don't document it anymore
 
@@ -4889,6 +4894,90 @@ def test_update_inference_endpoint_custom_image_payload(mocker):
 
     payload = mock_session.put.call_args[1]["json"]
     assert payload["model"]["image"] == {"sGLang": {"url": "lmsysorg/sglang:v0.5.2"}}
+
+
+@pytest.mark.parametrize(
+    "image, sizes, expected",
+    [
+        # The sizes go inside the engine config, next to the fields already there.
+        (
+            {"vLLM": {"url": "vllm/vllm-openai:v0.23.0", "port": 8000}},
+            {"tensor_parallel_size": 4, "data_parallel_size": 2},
+            {
+                "vLLM": {
+                    "url": "vllm/vllm-openai:v0.23.0",
+                    "port": 8000,
+                    "tensorParallelSize": 4,
+                    "dataParallelSize": 2,
+                }
+            },
+        ),
+        # An already-set size is overwritten rather than duplicated.
+        (
+            {"sGLang": {"url": "lmsysorg/sglang:v0.5.2", "tensorParallelSize": 1}},
+            {"tensor_parallel_size": 8},
+            {"sGLang": {"url": "lmsysorg/sglang:v0.5.2", "tensorParallelSize": 8}},
+        ),
+    ],
+    ids=["tensor_and_data", "overwrites_existing"],
+)
+def test_set_parallelism_in_image(image: dict, sizes: dict, expected: dict):
+    original = copy.deepcopy(image)
+    assert _set_parallelism_in_image(image, **sizes) == expected
+    assert image == original
+
+
+def test_set_parallelism_in_image_warns_for_image_without_the_field():
+    """The API drops a field a variant doesn't declare instead of rejecting it, so the no-op must be visible."""
+    with pytest.warns(UserWarning, match="not a known setting of the 'tgi' image"):
+        image = _set_parallelism_in_image({"tgi": {"url": "ghcr.io/x/tgi:3.3.1"}}, tensor_parallel_size=8)
+    assert image == {"tgi": {"url": "ghcr.io/x/tgi:3.3.1", "tensorParallelSize": 8}}
+
+
+def test_set_parallelism_in_image_rejects_empty_image():
+    with pytest.raises(ValueError, match="image payload is empty"):
+        _set_parallelism_in_image({}, tensor_parallel_size=8)
+
+
+def test_update_inference_endpoint_parallelism_fetches_current_image(mocker):
+    """`url` is required inside the variant, so the sizes are not a valid payload on their own: the image
+    currently configured on the endpoint is fetched and updated in place."""
+    mock_session = mocker.patch("huggingface_hub.hf_api.get_session").return_value
+    mock_response = Mock()
+    mock_response.raise_for_status.return_value = None
+    mock_response.json.return_value = {
+        "name": "vllm-endpoint",
+        "model": {"repository": "openai/gpt-oss-120b", "framework": "custom", "revision": None, "task": None},
+        "status": {
+            "state": "pending",
+            "createdAt": "2025-03-07T15:30:13.949Z",
+            "updatedAt": "2025-03-07T15:30:13.949Z",
+        },
+        "healthRoute": "/health",
+        "type": "authenticated",
+    }
+    mock_session.put.return_value = mock_response
+
+    api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
+    current_image = {"vLLM": {"url": "vllm/vllm-openai:v0.23.0", "port": 8000, "healthRoute": "/health"}}
+    mocker.patch.object(api, "get_inference_endpoint", return_value=Mock(raw={"model": {"image": current_image}}))
+    api.update_inference_endpoint(name="vllm-endpoint", namespace="Wauplin", tensor_parallel_size=8)
+
+    payload = mock_session.put.call_args[1]["json"]
+    # `port` and `healthRoute` survive: dropping them would silently reconfigure the endpoint.
+    assert payload["model"]["image"] == {
+        "vLLM": {"url": "vllm/vllm-openai:v0.23.0", "port": 8000, "healthRoute": "/health", "tensorParallelSize": 8}
+    }
+
+
+def test_update_inference_endpoint_parallelism_refuses_to_round_trip_credentials(mocker):
+    """The API returns registry credentials redacted (`{"username": "", "password": null}`), so echoing the
+    fetched image back would overwrite them."""
+    api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
+    current_image = {"custom": {"url": "my-registry/private:v1", "credentials": {"username": "", "password": None}}}
+    mocker.patch.object(api, "get_inference_endpoint", return_value=Mock(raw={"model": {"image": current_image}}))
+    with pytest.raises(ValueError, match="registry credentials"):
+        api.update_inference_endpoint(name="e", namespace="Wauplin", tensor_parallel_size=8)
 
 
 class TestHfApiVerifyChecksums:

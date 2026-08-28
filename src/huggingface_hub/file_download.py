@@ -514,8 +514,9 @@ def xet_get(
         - Using authentication to ensure secure access
         - Providing progress updates during download
 
-        Authentication works transparently: the download group accepts a ``token_refresh_url``
-        that is used to refresh the short-lived xet access token as needed.
+        Authentication works transparently: the download group is seeded with a short-lived xet
+        access token (fetched once per repo revision and cached across files) and accepts a
+        ``token_refresh_url`` that is used to refresh it as needed.
 
         The download process works like this:
         1. Download tasks run in parallel:
@@ -546,10 +547,14 @@ def xet_get(
     if len(displayed_filename) > 40:
         displayed_filename = f"{displayed_filename[:40]}(…)"
 
-    from .utils._xet import abort_xet_session, get_xet_session, xet_headers_without_auth
+    from .utils._xet import abort_xet_session, get_xet_session, refresh_xet_connection_info, xet_headers_without_auth
     from .utils._xet_progress_reporting import XetDownloadProgressReporter
 
     xet_headers = xet_headers_without_auth(headers)
+
+    # Fetched once per repo revision and cached; otherwise each download group would request its own
+    # token, i.e. one Hub API call per file (rate-limited on large snapshot downloads, see #4722).
+    connection_info = refresh_xet_connection_info(file_data=xet_file_data, headers=headers)
 
     session = get_xet_session()
 
@@ -564,6 +569,9 @@ def xet_get(
     ) as progress:
         try:
             with session.new_file_download_group(
+                endpoint=connection_info.endpoint,
+                token=connection_info.access_token,
+                token_expiry_unix_secs=connection_info.expiration_unix_epoch,
                 token_refresh_url=xet_file_data.refresh_route,
                 token_refresh_headers=headers,
                 custom_headers=xet_headers,
@@ -1635,7 +1643,8 @@ def get_hf_file_metadata(
         # Do not use directly `url` as we might have followed relative redirects.
         location=response.headers.get("Location") or str(response.request.url),  # type: ignore
         size=_int_or_none(
-            response.headers.get(constants.HUGGINGFACE_HEADER_X_LINKED_SIZE) or response.headers.get("Content-Length")
+            response.headers.get(constants.HUGGINGFACE_HEADER_X_LINKED_SIZE)
+            or (None if response.is_redirect else response.headers.get("Content-Length"))
         ),
         xet_file_data=parse_xet_file_data_from_response(response, endpoint=endpoint),  # type: ignore
     )
