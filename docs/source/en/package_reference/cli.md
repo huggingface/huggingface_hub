@@ -2541,7 +2541,7 @@ $ hf jobs scheduled [OPTIONS] COMMAND [ARGS]...
 * `delete`: Delete a scheduled Job.
 * `inspect`: Display detailed information on one or...
 * `labels`: Update labels on a scheduled Job.
-* `list`: List scheduled Jobs [alias: ls, ps]
+* `list`: List scheduled Jobs. [alias: ls, ps]
 * `resume`: Resume (unpause) a scheduled Job.
 * `run`: Schedule a Job.
 * `suspend`: Suspend (pause) a scheduled Job.
