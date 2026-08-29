@@ -92,7 +92,7 @@ jobs:
               uv pip install --upgrade torch
               ;;
 
-            "Python 3.9, torch_1.11")
+            "Python 3.10, torch_1.11")
               uv pip install "huggingface_hub[torch] @ ."
               uv pip install torch~=1.11
               ;;
