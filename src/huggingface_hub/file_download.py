@@ -1632,6 +1632,26 @@ def get_hf_file_metadata(
     )
     hf_raise_for_status(response)
 
+    size = _int_or_none(response.headers.get(constants.HUGGINGFACE_HEADER_X_LINKED_SIZE))
+    if size is None and not response.is_redirect:
+        size = _get_file_length_from_http_response(response)
+
+    # Some proxies strip Content-Length from HEAD responses. A ranged GET lets us recover the total size without
+    # downloading the complete file.
+    if size is None:
+        range_headers = {**hf_headers, "Range": "bytes=0-0"}
+        try:
+            range_response = _httpx_follow_hub_redirects_with_backoff(
+                method="GET", url=url, headers=range_headers, timeout=timeout, retry_on_errors=retry_on_errors
+            )
+            hf_raise_for_status(range_response)
+        except HfHubHTTPError:
+            logger.debug("Failed to retrieve file size with a ranged GET.", exc_info=True)
+        else:
+            size = _int_or_none(range_response.headers.get(constants.HUGGINGFACE_HEADER_X_LINKED_SIZE))
+            if size is None:
+                size = _get_file_length_from_http_response(range_response)
+
     # Return
     return HfFileMetadata(
         commit_hash=response.headers.get(constants.HUGGINGFACE_HEADER_X_REPO_COMMIT),
@@ -1642,10 +1662,7 @@ def get_hf_file_metadata(
         # Either from response headers (if redirected) or defaults to request url
         # Do not use directly `url` as we might have followed relative redirects.
         location=response.headers.get("Location") or str(response.request.url),  # type: ignore
-        size=_int_or_none(
-            response.headers.get(constants.HUGGINGFACE_HEADER_X_LINKED_SIZE)
-            or (None if response.is_redirect else response.headers.get("Content-Length"))
-        ),
+        size=size,
         xet_file_data=parse_xet_file_data_from_response(response, endpoint=endpoint),  # type: ignore
     )
 

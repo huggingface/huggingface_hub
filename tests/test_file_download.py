@@ -70,6 +70,37 @@ DATASET_REVISION_ID_ONE_SPECIFIC_COMMIT = "e25d55a1c4933f987c46cc75d8ffadd67f257
 DATASET_SAMPLE_PY_FILE = "custom_squad.py"
 
 
+class TestGetHfFileMetadata:
+    def test_get_hf_file_metadata_falls_back_to_range_request_when_size_is_missing(self) -> None:
+        url = "https://huggingface.co/user/repo/resolve/main/config.json"
+        head_response = httpx.Response(
+            200,
+            headers={
+                constants.HUGGINGFACE_HEADER_X_REPO_COMMIT: "a" * 40,
+                "ETag": '"etag"',
+            },
+            request=httpx.Request("HEAD", url),
+        )
+        range_response = httpx.Response(
+            206,
+            headers={"Content-Range": "bytes 0-0/1234"},
+            content=b"{",
+            request=httpx.Request("GET", url),
+        )
+
+        with patch(
+            "huggingface_hub.file_download._httpx_follow_hub_redirects_with_backoff",
+            side_effect=[head_response, range_response],
+        ) as request_mock:
+            metadata = get_hf_file_metadata(url)
+
+        assert metadata.commit_hash == "a" * 40
+        assert metadata.etag == "etag"
+        assert metadata.size == 1234
+        assert [call.kwargs["method"] for call in request_mock.call_args_list] == ["HEAD", "GET"]
+        assert request_mock.call_args_list[1].kwargs["headers"]["Range"] == "bytes=0-0"
+
+
 class TestDiskUsageWarning:
     @pytest.fixture(scope="class", autouse=True)
     def setup(self, request):
