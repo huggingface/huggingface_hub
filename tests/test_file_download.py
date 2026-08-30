@@ -756,7 +756,9 @@ class TestHfHubDownloadToLocalDir:
 
     def test_metadata_ok_and_etag_match(self):
         # 1 HEAD call + return early
-        self.file_path.write_text("something")
+        # Local file must be consistent with the recorded etag: same content => same size as the remote
+        # file, otherwise the size-consistency check (see #4768) rightly forces a re-download.
+        self.file_path.write_text("content")
         write_download_metadata(self.local_dir, self.file_name, self.commit_hash_1, etag=self.file_etag)
 
         with self.with_patch_download() as mock:

@@ -40,7 +40,11 @@ def test_tree_with_redacted_xet_hash_is_not_cached(tmp_path: Path):
         patch("huggingface_hub._snapshot_download.HfApi.list_repo_tree", return_value=[repo_file]),
         patch("huggingface_hub._snapshot_download.hf_thread_map"),
     ):
-        snapshot_download("user/repo", cache_dir=tmp_path)
+        # `hf_thread_map` is stubbed out, so no file is actually materialized: the post-download
+        # completeness check then (correctly) reports the snapshot as incomplete. What this test cares
+        # about is only that the redacted xet hash kept the tree listing from being cached.
+        with pytest.raises(IncompleteSnapshotError):
+            snapshot_download("user/repo", cache_dir=tmp_path)
 
     storage_folder = tmp_path / repo_folder_name(repo_id="user/repo", repo_type="model")
     assert read_tree_cache(str(storage_folder), COMMIT_HASH) is None

@@ -535,6 +535,17 @@ def snapshot_download(
         assert all(isinstance(r, DryRunFileInfo) for r in results)
         return results  # type: ignore
 
+    # Safety net for the invariant "a successful snapshot has every requested file present and complete".
+    # `hf_hub_download` already validates (and repairs) each file it returns, so this should never fire in
+    # practice; it is one `stat` per requested file (expected sizes are already in memory from the tree
+    # listing) and turns any residual gap into an explicit error instead of a silently unusable snapshot.
+    _raise_if_snapshot_incomplete(
+        base_dir=str(local_dir) if local_dir is not None else snapshot_folder,
+        expected_sizes={path: tree_entries[path].size for path in filtered_repo_files},
+        repo_id=repo_id,
+        commit_hash=commit_hash,
+    )
+
     if local_dir is not None:
         return str(os.path.realpath(local_dir))
     return snapshot_folder
@@ -554,7 +565,9 @@ def _raise_if_incomplete_snapshot(
     """Raise [`IncompleteSnapshotError`] if the cached tree listing shows `base_dir` misses requested files.
 
     If the tree listing is not cached we cannot tell, so we do nothing and the caller keeps returning the
-    folder as-is. Otherwise every expected file (after pattern filtering) must exist under `base_dir`.
+    folder as-is. Otherwise every expected file (after pattern filtering) must exist under `base_dir` at
+    the size recorded in the tree listing (a truncated file counts as incomplete; a legitimate empty file
+    does not).
     """
     tree_entries = read_tree_cache(tree_cache_folder, commit_hash)
     if tree_entries is None:
@@ -562,7 +575,7 @@ def _raise_if_incomplete_snapshot(
     expected = filter_repo_objects(
         items=tree_entries.keys(), allow_patterns=allow_patterns, ignore_patterns=ignore_patterns
     )
-    missing = [path for path in expected if not _local_file_exists(base_dir, path)]
+    missing = [path for path in expected if not _local_file_is_complete(base_dir, path, tree_entries[path].size)]
     if not missing:
         return
 
@@ -575,8 +588,8 @@ def _raise_if_incomplete_snapshot(
         reason = "Outgoing traffic is disabled ('local_files_only=True')."
     raise IncompleteSnapshotError(
         f"The cached snapshot for '{repo_id}' (revision '{revision}', commit {commit_hash}) is incomplete: "
-        f"{len(missing)} file(s) are missing ({sample}). {reason} Re-run the download with network access "
-        "to complete the snapshot.",
+        f"{len(missing)} file(s) are missing or incomplete ({sample}). {reason} Re-run the download with "
+        "network access to complete the snapshot.",
         snapshot_path=base_dir,
     ) from api_call_error
 
@@ -680,13 +693,55 @@ def get_cached_repo_tree(
     ]
 
 
-def _local_file_exists(base_dir: str, path: str) -> bool:
-    """Check whether a repo file (path relative to `base_dir`, '/'-separated) exists on disk.
+def _local_file_full_path(base_dir: str, path: str) -> str:
+    """Resolve a repo file (path relative to `base_dir`, '/'-separated) to an on-disk path.
 
-    On Windows, paths longer than 255 characters must be prefixed with `\\\\?\\`, otherwise `os.path.isfile` reports an
+    On Windows, paths longer than 255 characters must be prefixed with `\\\\?\\`, otherwise `os.path` reports an
     existing file as missing.
     """
     full_path = os.path.join(base_dir, *path.split("/"))
     if os.name == "nt" and len(os.path.abspath(full_path)) > 255 and not full_path.startswith("\\\\?\\"):
         full_path = "\\\\?\\" + os.path.abspath(full_path)
-    return os.path.isfile(full_path)
+    return full_path
+
+
+def _local_file_is_complete(base_dir: str, path: str, expected_size: int | None) -> bool:
+    """Whether a repo file exists under `base_dir` at its expected size.
+
+    `expected_size is None` means the size is unknown, so only existence is required. An `expected_size`
+    of `0` is valid and is checked like any other size (a legitimate empty file passes).
+    """
+    try:
+        actual_size = os.path.getsize(_local_file_full_path(base_dir, path))
+    except OSError:
+        return False  # missing file or broken symlink
+    return expected_size is None or actual_size == expected_size
+
+
+def _raise_if_snapshot_incomplete(
+    *, base_dir: str, expected_sizes: dict[str, int], repo_id: str, commit_hash: str
+) -> None:
+    """Raise [`IncompleteSnapshotError`] if any just-downloaded file is missing or the wrong size."""
+    broken = [
+        f"{path} ({_describe_local_file(base_dir, path)} vs {expected_size} bytes expected)"
+        for path, expected_size in expected_sizes.items()
+        if not _local_file_is_complete(base_dir, path, expected_size)
+    ]
+    if not broken:
+        return
+    sample = ", ".join(broken[:3])
+    if len(broken) > 3:
+        sample += f", ... ({len(broken) - 3} more)"
+    raise IncompleteSnapshotError(
+        f"The snapshot for '{repo_id}' (commit {commit_hash}) is incomplete after download: {len(broken)} "
+        f"file(s) are missing or the wrong size ({sample}). This can happen if a partial file from an "
+        "interrupted download is cached; re-run with `force_download=True` to repair it.",
+        snapshot_path=base_dir,
+    )
+
+
+def _describe_local_file(base_dir: str, path: str) -> str:
+    try:
+        return f"{os.path.getsize(_local_file_full_path(base_dir, path))} bytes"
+    except OSError:
+        return "missing"

@@ -1046,6 +1046,38 @@ def hf_hub_download(
         )
 
 
+def _cached_file_size_mismatch(path: str, expected_size: int | None) -> bool:
+    """Return whether the file at `path` exists but its size contradicts a known `expected_size`.
+
+    Used to detect a partial/corrupt cache entry (e.g. a blob left truncated by a download interrupted
+    with an older `huggingface_hub`) before trusting it as a completed download.
+
+    Returns `False` when `expected_size` is `None` (size unknown, nothing to check - preserve existing
+    behavior), when `path` does not exist, or when the size matches. An `expected_size` of `0` is a
+    valid expected size and is checked like any other.
+    """
+    if expected_size is None:
+        return False
+    try:
+        return os.path.getsize(path) != expected_size
+    except OSError:
+        # Missing file or broken symlink: not a size mismatch, handled by the normal "not cached" flow.
+        return False
+
+
+def _expected_size_from_tree_cache(tree_cache_folder: str, commit_hash: str, filename: str) -> int | None:
+    """Return the expected size of `filename` from the on-disk tree listing, or `None` if unknown.
+
+    The tree listing is populated by [`snapshot_download`]; when present it lets the commit-hash
+    shortcut validate a cached file's size without any network call.
+    """
+    entries = read_tree_cache(tree_cache_folder, commit_hash)
+    if entries is None:
+        return None
+    entry = entries.get(filename)
+    return entry.size if entry is not None else None
+
+
 def _hf_hub_download_to_cache_dir(
     *,
     # Destination
@@ -1080,7 +1112,13 @@ def _hf_hub_download_to_cache_dir(
     # if user provides a commit_hash and they already have the file on disk, shortcut everything.
     if REGEX_COMMIT_HASH.match(revision):
         pointer_path = _get_pointer_path(storage_folder, revision, relative_filename)
-        if os.path.exists(pointer_path):
+        # A commit hash is immutable, so an existing cached file can normally be returned without any
+        # network call. Guard against a partial/corrupt cached file when its expected size is already
+        # known locally from the on-disk tree listing (populated by `snapshot_download`); an unknown
+        # size keeps the fast path unchanged.
+        if os.path.exists(pointer_path) and not _cached_file_size_mismatch(
+            pointer_path, _expected_size_from_tree_cache(storage_folder, revision, filename)
+        ):
             if dry_run:
                 return DryRunFileInfo(
                     commit_hash=revision,
@@ -1182,20 +1220,35 @@ def _hf_hub_download_to_cache_dir(
     blob_path = os.path.join(storage_folder, "blobs", etag)
     pointer_path = _get_pointer_path(storage_folder, commit_hash, relative_filename)
 
+    # A cached blob/pointer whose size does not match the size the Hub reports for this commit is a
+    # partial/corrupt entry (e.g. left behind by a download interrupted with an older `huggingface_hub`,
+    # or a failed Xet reconstruction). Treat it exactly like `force_download` for this file: don't
+    # return it as-is, and let the download path below overwrite it. `expected_size` is authoritative
+    # here and a size of `0` is valid (checked in `_cached_file_size_mismatch`).
+    cached_entry_is_corrupt = not force_download and (
+        _cached_file_size_mismatch(pointer_path, expected_size) or _cached_file_size_mismatch(blob_path, expected_size)
+    )
+    if cached_entry_is_corrupt:
+        logger.warning(
+            f"Found a corrupted cache entry for {filename} ({repo_id}) at commit {commit_hash}: its size does not"
+            f" match the expected {expected_size} bytes. Re-downloading it."
+        )
+    must_download = force_download or cached_entry_is_corrupt
+
     if dry_run:
-        is_cached = os.path.exists(pointer_path) or os.path.exists(blob_path)
+        is_cached = (os.path.exists(pointer_path) or os.path.exists(blob_path)) and not cached_entry_is_corrupt
         return DryRunFileInfo(
             commit_hash=commit_hash,
             file_size=expected_size,
             filename=filename,
             is_cached=is_cached,
             local_path=pointer_path,
-            will_download=force_download or not is_cached,
+            will_download=must_download or not is_cached,
         )
 
     # Pointer already exists -> update the ref best-effort, then return without
     # attempting to write to the cache (which may be mounted read-only).
-    if not force_download and os.path.exists(pointer_path):
+    if not must_download and os.path.exists(pointer_path):
         try:
             _cache_commit_hash_for_specific_revision(storage_folder, revision, commit_hash)
         except OSError:
@@ -1239,13 +1292,13 @@ def _hf_hub_download_to_cache_dir(
     Path(lock_path).parent.mkdir(parents=True, exist_ok=True)
 
     # Blob exists but pointer must be (safely) created -> take the lock
-    if not force_download and os.path.exists(blob_path):
+    if not must_download and os.path.exists(blob_path):
         with WeakFileLock(lock_path):
             if not os.path.exists(pointer_path):
                 _create_symlink(blob_path, pointer_path, new_blob=False)
             return pointer_path
 
-    # Local file doesn't exist or etag isn't a match => retrieve file from remote (or cache)
+    # Local file doesn't exist, etag isn't a match, or the cached entry was corrupt => retrieve file from remote (or cache)
 
     with WeakFileLock(lock_path):
         _download_to_tmp_and_move(
@@ -1255,12 +1308,12 @@ def _hf_hub_download_to_cache_dir(
             headers=headers,
             expected_size=expected_size,
             filename=filename,
-            force_download=force_download,
+            force_download=must_download,
             etag=etag,
             xet_file_data=xet_file_data,
             tqdm_class=tqdm_class,
         )
-        if not os.path.exists(pointer_path):
+        if must_download or not os.path.exists(pointer_path):
             _create_symlink(blob_path, pointer_path, new_blob=True)
 
     return pointer_path
@@ -1298,13 +1351,19 @@ def _hf_hub_download_to_local_dir(
     local_dir = Path(local_dir)
     paths = get_local_download_paths(local_dir=local_dir, filename=filename)
     local_metadata = read_download_metadata(local_dir=local_dir, filename=filename)
+    tree_cache_folder = tree_cache_folder_for_local_dir(str(local_dir))
 
     # Local file exists + metadata exists + commit_hash matches => return file
+    # (unless its size contradicts the size recorded in the on-disk tree listing, i.e. it is a
+    # partial/corrupt file from an interrupted download - then fall through and re-download it).
     if (
         REGEX_COMMIT_HASH.match(revision)
         and paths.file_path.is_file()
         and local_metadata is not None
         and local_metadata.commit_hash == revision
+        and not _cached_file_size_mismatch(
+            str(paths.file_path), _expected_size_from_tree_cache(tree_cache_folder, revision, filename)
+        )
     ):
         local_file = str(paths.file_path)
         if dry_run:
@@ -1322,7 +1381,6 @@ def _hf_hub_download_to_local_dir(
     # Local file doesn't exist or commit_hash doesn't match => we need the etag
     # - Xet file => might be cached in /tree listing
     # - otherwise => HEAD /resolve call
-    tree_cache_folder = tree_cache_folder_for_local_dir(str(local_dir))
     (url_to_download, etag, commit_hash, expected_size, xet_file_data, head_call_error) = _get_metadata_or_catch_error(
         repo_id=repo_id,
         filename=filename,
@@ -1386,8 +1444,14 @@ def _hf_hub_download_to_local_dir(
     assert url_to_download is not None, "file location must have been retrieved from server"
     assert expected_size is not None, "expected_size must have been retrieved from server"
 
-    # Local file exists => check if it's up-to-date
-    if not force_download and paths.file_path.is_file():
+    # Local file exists and is complete => check if it's up-to-date
+    # (a size that contradicts the Hub's Content-Length means a partial/corrupt file from an
+    # interrupted download - fall through and re-download it even if the recorded etag still matches)
+    if (
+        not force_download
+        and paths.file_path.is_file()
+        and not _cached_file_size_mismatch(str(paths.file_path), expected_size)
+    ):
         # etag matches => update metadata and return file
         if local_metadata is not None and local_metadata.etag == etag:
             write_download_metadata(local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag)
@@ -1433,7 +1497,8 @@ def _hf_hub_download_to_local_dir(
             revision=commit_hash,
             repo_type=repo_type,
         )
-        if isinstance(cached_path, str):
+        # Only reuse the cache blob if it is complete; a truncated one must not be copied over.
+        if isinstance(cached_path, str) and not _cached_file_size_mismatch(cached_path, expected_size):
             with WeakFileLock(paths.lock_path):
                 paths.file_path.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(cached_path, paths.file_path)
@@ -1995,6 +2060,21 @@ def _download_to_tmp_and_move(
                     headers=headers,
                     expected_size=expected_size,
                     tqdm_class=tqdm_class,
+                )
+
+        # Promotion boundary: this temporary file is about to become the content-addressed `blobs/<etag>`
+        # entry, which every later download trusts without re-checking. Enforce the completion invariant
+        # for *both* backends here (`http_get` also checks internally; `xet_get`/`hf_xet` does not always):
+        # a partial/empty download - dropped connection, expired Xet token, interrupted reconstruction -
+        # must fail loudly instead of poisoning the cache. `expected_size` is authoritative; `0` is valid;
+        # an unknown size preserves existing behavior. See https://github.com/huggingface/huggingface_hub/issues/4768.
+        if expected_size is not None:
+            actual_size = tmp_path.stat().st_size if tmp_path.is_file() else 0
+            if actual_size != expected_size:
+                raise OSError(
+                    f"Consistency check failed: file should be of size {expected_size} but has size {actual_size}"
+                    f" ({filename}).\nThis is usually due to a network issue or an interrupted download. Please retry"
+                    " with `force_download=True`."
                 )
 
         logger.debug(f"Download complete. Moving file to {destination_path}")

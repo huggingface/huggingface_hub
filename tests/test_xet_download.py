@@ -26,6 +26,16 @@ from .testing_constants import (
 pytestmark = pytest.mark.xet
 
 
+def _fake_xet_get(*, incomplete_path, expected_size=None, **kwargs):
+    """Stand-in for `xet_get` that writes exactly `expected_size` bytes (a correct reconstruction)."""
+    Path(incomplete_path).write_bytes(b"\0" * (expected_size or 0))
+
+
+def _fake_http_get(url, temp_file, *, expected_size=None, **kwargs):
+    """Stand-in for `http_get` that writes exactly `expected_size` bytes (a correct download)."""
+    temp_file.write(b"\0" * (expected_size or 0))
+
+
 @pytest.mark.production
 class TestXetFileDownload:
     @contextmanager
@@ -47,7 +57,7 @@ class TestXetFileDownload:
     def test_xet_get_called_when_xet_metadata_present(self, tmp_path):
         """Test that xet_get is called when xet metadata is present."""
         with self._patch_xet_file_metadata(with_xet_data=True) as mock_file_metadata:
-            with patch("huggingface_hub.file_download.xet_get") as mock_xet_get:
+            with patch("huggingface_hub.file_download.xet_get", side_effect=_fake_xet_get) as mock_xet_get:
                 with patch("huggingface_hub.file_download._create_symlink"):
                     hf_hub_download(
                         DUMMY_XET_MODEL_ID,
@@ -65,7 +75,7 @@ class TestXetFileDownload:
     def test_backward_compatibility_no_xet_metadata(self, tmp_path):
         """Test backward compatibility when response has no xet metadata."""
         with self._patch_xet_file_metadata(with_xet_data=False):
-            with patch("huggingface_hub.file_download.http_get") as mock_http_get:
+            with patch("huggingface_hub.file_download.http_get", side_effect=_fake_http_get) as mock_http_get:
                 with patch("huggingface_hub.file_download._create_symlink"):
                     hf_hub_download(
                         DUMMY_XET_MODEL_ID,
@@ -173,7 +183,7 @@ class TestXetFileDownload:
         )
 
         # Force download should re-download even if in cache
-        with patch("huggingface_hub.file_download.xet_get") as mock_xet_get:
+        with patch("huggingface_hub.file_download.xet_get", side_effect=_fake_xet_get) as mock_xet_get:
             path2 = hf_hub_download(
                 DUMMY_XET_MODEL_ID,
                 filename=DUMMY_XET_FILE,
@@ -195,6 +205,7 @@ class TestXetFileDownload:
                 xet_get=DEFAULT,
                 _create_symlink=DEFAULT,
             ) as mocks:
+                mocks["http_get"].side_effect = _fake_http_get
                 hf_hub_download(
                     DUMMY_XET_MODEL_ID,
                     filename=DUMMY_XET_FILE,
@@ -216,6 +227,7 @@ class TestXetFileDownload:
                 xet_get=DEFAULT,
                 _create_symlink=DEFAULT,
             ) as mocks:
+                mocks["xet_get"].side_effect = _fake_xet_get
                 hf_hub_download(
                     DUMMY_XET_MODEL_ID,
                     filename=DUMMY_XET_FILE,
@@ -238,6 +250,13 @@ class TestXetFileDownload:
         mock_group = MagicMock()
         mock_session = MagicMock()
         mock_session.new_file_download_group.return_value = mock_group
+
+        # `_patch_xet_file_metadata` advertises a 1024-byte file; make the fake reconstruction actually
+        # write that many bytes so the post-reconstruction consistency check in `xet_get` passes.
+        def _write_expected_bytes(xet_file_info, path, *args, **kwargs):
+            Path(path).write_bytes(b"\0" * 1024)
+
+        mock_group.__enter__.return_value.start_download_file.side_effect = _write_expected_bytes
 
         mock_connection_info = XetConnectionInfo(
             access_token="mock_token", expiration_unix_epoch=9999999999, endpoint="https://cas.example"
