@@ -178,8 +178,6 @@ def _check_supported_task(model: str, task: str) -> None:
     tags = model_info.tags or []
     if task in ("text-generation", "conversational"):
         if pipeline_tag == "text-generation":
-            # The chat-completion API no longer requires the "conversational" tag. The raw
-            # text-generation API is kept for hf-inference only (other providers are chat-completion only).
             return
 
     if pipeline_tag == "text2text-generation":
