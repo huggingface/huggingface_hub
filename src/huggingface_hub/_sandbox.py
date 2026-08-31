@@ -55,8 +55,9 @@ MODE_POOL = "pool"
 # host jobs only. Pool config (capacity, idle timeout) lives in the host's env vars, read via
 # inspect_job — labels are kept for filtering/grouping only.
 POOL_LABEL = "hf-sandbox-pool"
-# Per-job public nonce the sandbox token is derived from (see _derive_sandbox_token), so
-# `Sandbox.connect(id)` can recompute the token from any machine with no local state.
+# Per-job public nonce the server-management token is derived from (see
+# _derive_sandbox_token), so clients can reconnect from any machine with no
+# local state. Pool hosts mint a separate capability for each shared sandbox.
 NONCE_LABEL = "hf-sandbox-nonce"
 
 DEFAULT_IMAGE = "python:3.12"
@@ -92,13 +93,13 @@ exec "$d"
 
 
 def _derive_sandbox_token(hf_token: str, nonce: str) -> str:
-    """Derive the per-sandbox auth token from the user's HF token and the sandbox nonce.
+    """Derive the dedicated or pool-management token from an HF token and nonce.
 
     Stateless: any machine holding the same HF token can recompute it from the
     nonce stored in the job's labels, so `Sandbox.connect(job_id)` needs no local state.
     Only the derived token is passed to the sandbox server as a job secret; the HF token
-    itself is not. Note this is not a hardened boundary: an untrusted image can own the
-    sandbox port, so don't treat it as a guarantee that credentials stay out of the sandbox.
+    itself is not. On pool hosts this token is restricted to host management, while
+    each shared sandbox gets a random capability for its own routes.
     """
     return hmac.new(hf_token.encode(), f"hf-sandbox:{nonce}".encode(), hashlib.sha256).hexdigest()
 
@@ -330,6 +331,15 @@ def _raise_for_status(response: httpx.Response) -> None:
     raise SandboxError(f"Sandbox API error ({response.status_code}): {message}", status_code=response.status_code)
 
 
+def _scoped_token(data: dict[str, Any]) -> str:
+    token = data.get("token")
+    if not isinstance(token, str) or not token:
+        raise SandboxError(
+            "The sandbox host does not support scoped sandbox tokens; recycle it with an updated sbx-server."
+        )
+    return token
+
+
 class _SandboxServer:
     """HTTP transport to one `sbx-server` instance — a dedicated job or a shared host.
 
@@ -375,7 +385,10 @@ class _SandboxServer:
                 "X-Sandbox-Token": sandbox_token,
             },
             limits=httpx.Limits(max_connections=max_connections, max_keepalive_connections=max_connections),
-            follow_redirects=True,
+            # The sandbox API never redirects. Following a response supplied by
+            # an untrusted in-sandbox app could forward its authentication header
+            # to another origin.
+            follow_redirects=False,
         )
 
     @classmethod
@@ -489,6 +502,7 @@ class Sandbox:
         id: str,
         server: _SandboxServer,
         local_id: str | None,
+        sandbox_token: str | None = None,
         owns_sandbox: bool,
         owns_server: bool,
     ) -> None:
@@ -496,6 +510,13 @@ class Sandbox:
         self._server = server
         # None in dedicated mode; the host-local sandbox id in shared mode.
         self._local_id = local_id
+        if local_id is None:
+            # A dedicated server has one credential for its one sandbox.
+            self._sandbox_token = server._sandbox_token
+        elif sandbox_token is None:
+            raise SandboxError("A shared sandbox requires a sandbox-scoped token.")
+        else:
+            self._sandbox_token = sandbox_token
         # Path prefix for all in-server operations: dedicated routes live under
         # /v1/*, shared ones under /v1/sandboxes/<local_id>/*.
         self._base_path = "/v1" if local_id is None else f"/v1/sandboxes/{local_id}"
@@ -622,13 +643,19 @@ class Sandbox:
             host_job_id, local_id = sandbox_id.split(SHARED_ID_SEP, 1)
             server = _connect_host(api, host_job_id, namespace=namespace)
             try:
-                existing = {item["id"] for item in server.request("GET", "/v1/sandboxes").json()}
-                if local_id not in existing:
-                    raise SandboxError(f"Sandbox {sandbox_id} no longer exists on host {host_job_id}.")
+                data = server.request("GET", f"/v1/sandboxes/{local_id}/token").json()
+                sandbox_token = _scoped_token(data)
             except Exception:
                 server.close()  # don't leak the HTTP client when the host is gone/unreachable
                 raise
-            return cls(id=sandbox_id, server=server, local_id=local_id, owns_sandbox=False, owns_server=True)
+            return cls(
+                id=sandbox_id,
+                server=server,
+                local_id=local_id,
+                sandbox_token=sandbox_token,
+                owns_sandbox=False,
+                owns_server=True,
+            )
 
         job = api.inspect_job(job_id=sandbox_id, namespace=namespace)
         labels = job.labels or {}
@@ -668,7 +695,7 @@ class Sandbox:
             if self._local_id is None:
                 self._server.cancel_job()
             else:
-                self._server.request("DELETE", f"/v1/sandboxes/{self._local_id}")
+                self._request("DELETE", "")
         except Exception as e:
             # Don't mark as killed: a later kill() call should retry so nothing leaks.
             logger.warning(f"Failed to kill sandbox {self.id}: {e}")
@@ -899,7 +926,7 @@ class Sandbox:
         """Auth headers to send with [`proxy_url_for`] requests (HF token + sandbox token)."""
         return {
             "Authorization": f"Bearer {self._server._auth_token}",
-            "X-Sandbox-Token": self._server._sandbox_token,
+            "X-Sandbox-Token": self._sandbox_token,
         }
 
     def __repr__(self) -> str:
@@ -908,10 +935,16 @@ class Sandbox:
     # ------------------------------------------------------------------ internals
 
     def _request(self, method: str, resource: str, **kwargs) -> httpx.Response:
+        headers = dict(kwargs.pop("headers", None) or {})
+        headers["X-Sandbox-Token"] = self._sandbox_token
+        kwargs["headers"] = headers
         return self._server.request(method, self._base_path + resource, **kwargs)
 
     @contextmanager
     def _stream(self, method: str, resource: str, **kwargs) -> Iterator[httpx.Response]:
+        headers = dict(kwargs.pop("headers", None) or {})
+        headers["X-Sandbox-Token"] = self._sandbox_token
+        kwargs["headers"] = headers
         with self._server.stream(method, self._base_path + resource, **kwargs) as response:
             yield response
 
@@ -1568,10 +1601,12 @@ class SandboxPool:
                 host.live = host.capacity  # the host is full; stop reserving it
             return None
         item = sandboxes[0]
+        sandbox_token = _scoped_token(item)
         sandbox = Sandbox(
             id=f"{host.job_id}{SHARED_ID_SEP}{item['id']}",
             server=host,
             local_id=item["id"],
+            sandbox_token=sandbox_token,
             owns_sandbox=True,
             owns_server=False,
         )

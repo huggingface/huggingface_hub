@@ -134,6 +134,8 @@ Start a server in the sandbox (in the background), then reach it from the outsid
 ...     ws_url = sbx.proxy_url_for(8000, "/ws", scheme="wss://")
 ```
 
+The proxy headers are credentials. Do not configure the HTTP client to carry them across redirects to another origin; the example above uses `httpx`'s default of not following redirects. A pooled token is scoped to that one sandbox, but should still be handled as a secret.
+
 How the inner server must listen depends on the sandbox kind:
 
 - **Dedicated** ([`Sandbox.create`]): bind a normal TCP port on `127.0.0.1:<port>`.
