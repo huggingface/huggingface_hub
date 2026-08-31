@@ -180,6 +180,10 @@ class DeepInfraTextToImageTask(TaskProviderHelper):
         parameters = filter_none(parameters)
         if "width" in parameters and "height" in parameters:
             parameters["size"] = f"{parameters.pop('width')}x{parameters.pop('height')}"
+        # DeepInfra's OpenAI-compatible images endpoint ignores diffusion-specific fields;
+        # drop them so they are not silently swallowed by the provider.
+        for unsupported in ("num_inference_steps", "guidance_scale", "negative_prompt", "scheduler", "seed"):
+            parameters.pop(unsupported, None)
         # `prompt`/`model` are applied after the caller parameters so neither can be overridden.
         return {
             **parameters,
