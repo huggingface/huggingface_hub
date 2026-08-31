@@ -456,7 +456,15 @@ class TestDeepInfraProvider:
         helper = DeepInfraTextToImageTask()
         payload = helper._prepare_payload_as_dict(
             "an astronaut riding a horse",
-            {"width": 1024, "height": 768, "num_inference_steps": None},
+            {
+                "width": 1024,
+                "height": 768,
+                "num_inference_steps": 20,
+                "guidance_scale": 7.5,
+                "negative_prompt": "blurry",
+                "scheduler": "DDIM",
+                "seed": 42,
+            },
             InferenceProviderMapping(
                 provider="deepinfra",
                 hf_model_id="stabilityai/sdxl-turbo",
@@ -465,6 +473,8 @@ class TestDeepInfraProvider:
                 status="live",
             ),
         )
+        # DeepInfra's OpenAI-compatible endpoint only supports size/response_format/prompt/model;
+        # diffusion-specific fields are dropped.
         assert payload == {
             "size": "1024x768",
             "response_format": "b64_json",
