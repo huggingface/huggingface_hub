@@ -76,6 +76,8 @@ class _FakeServer(BaseHTTPRequestHandler):
     """Minimal stand-in for sbx-server speaking the same protocol (both modes)."""
 
     sandboxes: set = set()
+    sandbox_tokens: dict[str, str] = {}
+    received_tokens: list[tuple[str, str | None]] = []
     capacity = None  # None == unlimited; set per-subclass to test the full handshake
     seq = 0  # monotonic id source (survives deletes)
     last_exec: dict | None = None  # body of the most recent /exec call (for assertions)
@@ -84,6 +86,20 @@ class _FakeServer(BaseHTTPRequestHandler):
 
     def log_message(self, *args) -> None:
         pass
+
+    def _assert_auth(self) -> None:
+        path = self.path.split("?", 1)[0]
+        segments = path.strip("/").split("/")
+        token = self.headers.get("X-Sandbox-Token")
+        type(self).received_tokens.append((path, token))
+        if segments[:2] == ["v1", "sandboxes"] and len(segments) >= 3:
+            if len(segments) == 4 and segments[3] == "token":
+                expected = "secret"  # host-management endpoint
+            else:
+                expected = type(self).sandbox_tokens[segments[2]]
+        else:
+            expected = "secret"
+        assert token == expected
 
     def _ndjson(self, events) -> None:
         self.send_response(200)
@@ -114,7 +130,7 @@ class _FakeServer(BaseHTTPRequestHandler):
         )
 
     def do_POST(self) -> None:
-        assert self.headers["X-Sandbox-Token"] == "secret"
+        self._assert_auth()
         body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
         cls = type(self)
         # exec (dedicated /v1/exec or shared /v1/sandboxes/<id>/exec)
@@ -144,20 +160,24 @@ class _FakeServer(BaseHTTPRequestHandler):
                 sid = f"sbx{cls.seq}"
                 cls.seq += 1
                 cls.sandboxes.add(sid)
-                created.append({"id": sid})
+                token = f"token-{sid}"
+                cls.sandbox_tokens[sid] = token
+                created.append({"id": sid, "token": token})
             self._json({"sandboxes": created, "rejected": rejected})
 
     def do_DELETE(self) -> None:
-        assert self.headers["X-Sandbox-Token"] == "secret"
+        self._assert_auth()
         last = self.path.rsplit("/", 1)[-1]
         if "/processes/" in self.path:  # kill a background process
             type(self).processes = [p for p in type(self).processes if str(p["pid"]) != last]
             self._json({"pid": last, "killed": True})
             return
         type(self).sandboxes.discard(last)
+        type(self).sandbox_tokens.pop(last, None)
         self._json({"id": last, "deleted": True})
 
     def do_GET(self) -> None:
+        self._assert_auth()
         cls = type(self)
         if self.path.startswith("/v1/files/stat") or "/files/stat" in self.path:
             self._json({"name": "x", "path": "/x", "type": "file", "size": 5})
@@ -170,11 +190,16 @@ class _FakeServer(BaseHTTPRequestHandler):
             self._json(cls.processes)
         elif self.path == "/v1/sandboxes":
             self._json([{"id": sid} for sid in sorted(cls.sandboxes)])
+        elif self.path.startswith("/v1/sandboxes/") and self.path.endswith("/token"):
+            sid = self.path.split("/")[3]
+            self._json({"id": sid, "token": cls.sandbox_tokens[sid]})
 
 
 @pytest.fixture()
 def fake_server():
     _FakeServer.sandboxes = set()
+    _FakeServer.sandbox_tokens = {}
+    _FakeServer.received_tokens = []
     _FakeServer.seq = 0
     _FakeServer.capacity = None
     _FakeServer.last_exec = None
@@ -192,6 +217,8 @@ def _spawn_fake(capacity=None):
 
     class _Fake(_FakeServer):
         sandboxes: set = set()
+        sandbox_tokens: dict[str, str] = {}
+        received_tokens: list[tuple[str, str | None]] = []
         seq = 0
         processes: list = []
         proc_seq = 0
@@ -285,6 +312,14 @@ class TestSandboxClient:
         assert sandbox.proxy_url_for(8000, "/ws", scheme="wss://") == f"wss://{host}/v1/proxy/8000/ws"
         assert sandbox.proxy_headers["X-Sandbox-Token"] == "secret"
 
+    def test_sandbox_transport_does_not_follow_redirects(self, fake_server: str) -> None:
+        sandbox = _make_sandbox(fake_server)
+        assert sandbox._server._client.follow_redirects is False
+
+    def test_shared_sandbox_requires_scoped_token(self) -> None:
+        with pytest.raises(SandboxError, match="does not support scoped sandbox tokens"):
+            sandbox_mod._scoped_token({})
+
     def test_kill_is_idempotent(self, fake_server: str) -> None:
         sandbox = _make_sandbox(fake_server)
         sandbox.kill()
@@ -324,7 +359,15 @@ class TestSharedSandbox:
     def _make_shared(self, base_url: str) -> Sandbox:
         server = _make_server(base_url, capacity=10)
         _FakeServer.sandboxes.add("local1")
-        return Sandbox(id="job123.local1", server=server, local_id="local1", owns_sandbox=True, owns_server=False)
+        _FakeServer.sandbox_tokens["local1"] = "token-local1"
+        return Sandbox(
+            id="job123.local1",
+            server=server,
+            local_id="local1",
+            sandbox_token="token-local1",
+            owns_sandbox=True,
+            owns_server=False,
+        )
 
     def test_base_path_is_scoped(self, fake_server: str) -> None:
         sandbox = self._make_shared(fake_server)
@@ -332,12 +375,30 @@ class TestSharedSandbox:
         assert sandbox.host_id == "job123"
         # exec is routed under the per-sandbox prefix and still parsed correctly.
         assert sandbox.run("echo").stdout == "out1"
+        assert _FakeServer.received_tokens[-1] == ("/v1/sandboxes/local1/exec", "token-local1")
+        assert sandbox.proxy_headers["X-Sandbox-Token"] == "token-local1"
 
     def test_kill_deletes_sandbox_not_job(self, fake_server: str) -> None:
         sandbox = self._make_shared(fake_server)
         sandbox.kill()
         sandbox._server._api.cancel_job.assert_not_called()  # host keeps running
         assert "local1" not in _FakeServer.sandboxes
+
+    def test_connect_recovers_scoped_token(self, fake_server: str, monkeypatch) -> None:
+        _FakeServer.sandboxes.add("local1")
+        _FakeServer.sandbox_tokens["local1"] = "token-local1"
+        monkeypatch.setattr(
+            sandbox_mod,
+            "_connect_host",
+            lambda api, jid, namespace=None: _make_server(fake_server, job_id=jid),
+        )
+
+        sandbox = Sandbox.connect("job123.local1", token="hf_test")
+
+        assert sandbox.proxy_headers["X-Sandbox-Token"] == "token-local1"
+        assert _FakeServer.received_tokens[-1] == ("/v1/sandboxes/local1/token", "secret")
+        assert sandbox.run("echo").stdout == "out1"
+        assert _FakeServer.received_tokens[-1] == ("/v1/sandboxes/local1/exec", "token-local1")
 
 
 class TestSandboxPool:
@@ -357,6 +418,7 @@ class TestSandboxPool:
         assert pool.num_sandboxes == 6
         # Each sandbox id is "<host_job_id>.<local_id>".
         assert all("." in b.id for b in boxes)
+        assert len({b.proxy_headers["X-Sandbox-Token"] for b in boxes}) == 6
 
     def test_create_returns_one_sandbox(self, fake_server: str, monkeypatch) -> None:
         pool = self._pool(fake_server, monkeypatch)

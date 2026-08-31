@@ -40,8 +40,9 @@ class CachedHost:
     """A single host Job of a pool, as last seen by some process.
 
     `base_url` + `nonce` are everything needed to rebuild the in-job server transport
-    (`_SandboxServer`) without an `inspect_job` round-trip: the per-sandbox auth token is
-    re-derived from the user's HF token and `nonce` (see `_derive_sandbox_token`).
+    (`_SandboxServer`) without an `inspect_job` round-trip: the host-management token is
+    re-derived from the user's HF token and `nonce` (see `_derive_sandbox_token`). Shared
+    sandbox capabilities are returned by the host when each sandbox is created or reconnected.
     """
 
     job_id: str
