@@ -2196,6 +2196,10 @@ Manage scheduled jobs using
 
 `hf sandbox` spins up isolated cloud machines built on Jobs: create one, run commands with live-streamed output, and copy files in and out. Any Docker image with `/bin/sh` works. See the [Sandboxes guide](./sandbox) for the Python API, and the [conceptual guide](../concepts/sandbox) for how it works under the hood.
 
+> [!NOTE]
+> Sandboxes are experimental, and their API and behavior may change without notice. Shared sandboxes are intended for
+> workloads within the same trust boundary; use a dedicated sandbox for workloads that do not trust each other.
+
 ```bash
 # Create a sandbox (waits until it is ready, prints its id)
 >>> hf sandbox create
