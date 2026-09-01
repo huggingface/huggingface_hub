@@ -97,6 +97,14 @@ jobs:
               uv pip install torch~=1.11
               ;;
 
+            "with hf_xet")
+              ;;
+
+            *)
+              echo "Unknown test_name: ${{ matrix.test_name }}" >&2
+              exit 1
+              ;;
+
           esac
 
           # Xet policy (see `xet_mode` fixture in tests/conftest.py):
@@ -149,6 +157,11 @@ jobs:
               echo $PYTEST
               eval $PYTEST
             ;;
+
+            *)
+              echo "Unknown test_name: ${{ matrix.test_name }}" >&2
+              exit 1
+              ;;
 
           esac
 
