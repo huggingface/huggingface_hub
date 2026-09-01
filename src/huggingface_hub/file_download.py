@@ -10,7 +10,7 @@ import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, BinaryIO, Literal, NoReturn, overload
-from urllib.parse import quote, urlparse
+from urllib.parse import quote
 
 import httpx
 from tqdm.auto import tqdm as base_tqdm
@@ -23,6 +23,7 @@ from ._local_folder import (
     read_download_metadata,
     write_download_metadata,
 )
+from ._revision import ResolvedRevision
 from ._shared_blobs import (
     has_shared_blob,
     publish_blob_to_shared_store,
@@ -55,11 +56,12 @@ from .utils._http import (
     _DEFAULT_RETRY_ON_EXCEPTIONS,
     _DEFAULT_RETRY_ON_STATUS_CODES,
     _adjust_range_header,
-    _httpx_follow_relative_redirects_with_backoff,
+    _httpx_follow_hub_redirects_with_backoff,
+    _is_same_or_hub_host,
     http_stream_backoff,
 )
 from .utils._runtime import is_xet_available
-from .utils._xet import XetTokenType, xet_connection_info_refresh_url
+from .utils._xet import XetTokenType, is_valid_xet_hash, xet_connection_info_refresh_url
 from .utils.sha import sha_fileobj
 from .utils.tqdm import _get_progress_bar_context
 
@@ -518,8 +520,9 @@ def xet_get(
         - Using authentication to ensure secure access
         - Providing progress updates during download
 
-        Authentication works transparently: the download group accepts a ``token_refresh_url``
-        that is used to refresh the short-lived xet access token as needed.
+        Authentication works transparently: the download group is seeded with a short-lived xet
+        access token (fetched once per repo revision and cached across files) and accepts a
+        ``token_refresh_url`` that is used to refresh it as needed.
 
         The download process works like this:
         1. Download tasks run in parallel:
@@ -550,10 +553,14 @@ def xet_get(
     if len(displayed_filename) > 40:
         displayed_filename = f"{displayed_filename[:40]}(…)"
 
-    from .utils._xet import abort_xet_session, get_xet_session, xet_headers_without_auth
+    from .utils._xet import abort_xet_session, get_xet_session, refresh_xet_connection_info, xet_headers_without_auth
     from .utils._xet_progress_reporting import XetDownloadProgressReporter
 
     xet_headers = xet_headers_without_auth(headers)
+
+    # Fetched once per repo revision and cached; otherwise each download group would request its own
+    # token, i.e. one Hub API call per file (rate-limited on large snapshot downloads, see #4722).
+    connection_info = refresh_xet_connection_info(file_data=xet_file_data, headers=headers)
 
     session = get_xet_session()
 
@@ -568,6 +575,9 @@ def xet_get(
     ) as progress:
         try:
             with session.new_file_download_group(
+                endpoint=connection_info.endpoint,
+                token=connection_info.access_token,
+                token_expiry_unix_secs=connection_info.expiration_unix_epoch,
                 token_refresh_url=xet_file_data.refresh_route,
                 token_refresh_headers=headers,
                 custom_headers=xet_headers,
@@ -966,6 +976,10 @@ def hf_hub_download(
 
     if revision is None:
         revision = constants.DEFAULT_REVISION
+    elif isinstance(revision, ResolvedRevision):
+        # Revision has already been resolved to a commit hash (see [`HfApi.resolve_revision`]) => use it directly.
+        # This pins the download to an immutable commit and lets us skip network calls when it's already cached.
+        revision = revision.resolved
 
     if cache_dir is None:
         cache_dir = constants.HF_HUB_CACHE
@@ -1665,7 +1679,7 @@ def get_hf_file_metadata(
     hf_headers["Accept-Encoding"] = "identity"  # prevent any compression => we want to know the real size of the file
 
     # Retrieve metadata
-    response = _httpx_follow_relative_redirects_with_backoff(
+    response = _httpx_follow_hub_redirects_with_backoff(
         method="HEAD", url=url, headers=hf_headers, timeout=timeout, retry_on_errors=retry_on_errors
     )
     hf_raise_for_status(response)
@@ -1681,7 +1695,8 @@ def get_hf_file_metadata(
         # Do not use directly `url` as we might have followed relative redirects.
         location=response.headers.get("Location") or str(response.request.url),  # type: ignore
         size=_int_or_none(
-            response.headers.get(constants.HUGGINGFACE_HEADER_X_LINKED_SIZE) or response.headers.get("Content-Length")
+            response.headers.get(constants.HUGGINGFACE_HEADER_X_LINKED_SIZE)
+            or (None if response.is_redirect else response.headers.get("Content-Length"))
         ),
         xet_file_data=parse_xet_file_data_from_response(response, endpoint=endpoint),  # type: ignore
     )
@@ -1786,9 +1801,10 @@ def _get_metadata_or_catch_error(
             commit_hash = metadata.commit_hash
             if commit_hash is None:
                 raise FileMetadataError(
-                    "Distant resource does not seem to be on huggingface.co. It is possible that a configuration issue"
-                    " prevents you from downloading resources from https://huggingface.co. Please check your firewall"
-                    " and proxy settings and make sure your SSL certificates are updated."
+                    f"Response from {url} is missing the '{constants.HUGGINGFACE_HEADER_X_REPO_COMMIT}' header, so it"
+                    " does not seem to be served by a Hugging Face Hub endpoint. If HF_ENDPOINT is set, check that it"
+                    " points to a Hub-compatible endpoint. Otherwise, check your firewall and proxy settings and make"
+                    " sure your SSL certificates are updated."
                 )
 
             # Etag must exist
@@ -1810,12 +1826,12 @@ def _get_metadata_or_catch_error(
             # and ensure we download the exact atomic version even if it changed
             # between the HEAD and the GET (unlikely, but hey).
             #
-            # If url domain is different => we are downloading from a CDN => url is signed => don't send auth
-            # If url domain is the same => redirect due to repo rename AND downloading a regular file => keep auth
+            # If the final location is on a Hub host (same host, or e.g. huggingface.co reached through an
+            # HF_ENDPOINT mirror redirect) => keep auth. Otherwise it's a signed CDN url => don't send auth.
             if xet_file_data is None and url != metadata.location:
                 url_to_download = metadata.location
-                if urlparse(url).netloc != urlparse(metadata.location).netloc:
-                    # Remove authorization header when downloading a LFS blob
+                if not _is_same_or_hub_host(url, metadata.location):
+                    # Remove authorization header when downloading a LFS blob from a CDN
                     headers.pop("authorization", None)
         except httpx.ProxyError:
             # Actually raise on proxy error
@@ -1846,7 +1862,35 @@ def _get_metadata_or_catch_error(
     if not (local_files_only or etag is not None or head_error_call is not None):
         raise RuntimeError("etag is empty due to uncovered problems")
 
+    if head_error_call is not None:
+        _detach_tracebacks(head_error_call)
+
     return (url_to_download, etag, commit_hash, expected_size, xet_file_data, head_error_call)  # type: ignore
+
+
+def _detach_tracebacks(error: BaseException) -> None:
+    """Detach the tracebacks of an exception and of its whole `__cause__`/`__context__` chain.
+
+    Returning an exception instead of raising it means keeping its traceback alive. A traceback references the frames
+    it was raised from, and each frame references its caller (up to the user code calling `hf_hub_download`) and its
+    own local variables - including the returned exception itself. This creates a reference cycle that only the cyclic
+    garbage collector can break, so callers falling back to a cached file (i.e. discarding the error) keep their own
+    stack - and everything it references - alive until the next `gc.collect()`.
+
+    Only the frames are dropped: exception types, messages and the cause/context chain are preserved, so re-raising a
+    detached error still reports what went wrong.
+
+    See https://github.com/vllm-project/vllm/pull/50341 for a real-world report of this retention.
+    """
+    seen: set[int] = set()
+    pending = [error]
+    while pending:
+        current = pending.pop()
+        if id(current) in seen:  # defensive: exception chains can be cyclic
+            continue
+        seen.add(id(current))
+        current.__traceback__ = None
+        pending.extend(exc for exc in (current.__cause__, current.__context__) if exc is not None)
 
 
 def _xet_file_metadata_from_tree_cache(
@@ -1871,7 +1915,13 @@ def _xet_file_metadata_from_tree_cache(
     if tree_entries is None:
         return None
     entry = tree_entries.get(filename)
-    if entry is None or entry.xet_hash is None or entry.lfs_sha256 is None or entry.lfs_size is None:
+    if (
+        entry is None
+        or entry.xet_hash is None
+        or not is_valid_xet_hash(entry.xet_hash)
+        or entry.lfs_sha256 is None
+        or entry.lfs_size is None
+    ):
         return None
 
     xet_file_data = XetFileData(
@@ -1915,6 +1965,11 @@ def _raise_on_head_call_error(head_call_error: Exception, force_download: bool, 
         # Repo not found or gated => let's raise the actual error
         # Unauthorized => likely a token issue => let's raise the actual error
         raise head_call_error
+    elif isinstance(head_call_error, FileMetadataError):
+        # The call succeeded but the response lacked the metadata we need => a configuration issue, not connectivity.
+        raise LocalEntryNotFoundError(
+            f"{head_call_error} We also cannot find the requested files in the local cache."
+        ) from head_call_error
     else:
         # Otherwise: most likely a connection issue or Hub downtime => let's warn the user
         raise LocalEntryNotFoundError(

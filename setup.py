@@ -12,7 +12,7 @@ def get_version() -> str:
 
 
 # hf-xet version used in both install_requires and extras["hf_xet"]
-HF_XET_VERSION = "hf-xet>=1.5.1,<2.0.0"
+HF_XET_VERSION = "hf-xet>=1.5.2,<2.0.0"
 
 install_requires = [
     "click>=8.4.2,<9.0.0",  # 8.4.0/8.4.1 shipped a broken fish completion script
@@ -47,7 +47,7 @@ extras["fastai"] = [
 
 extras["hf_xet"] = [HF_XET_VERSION]
 
-extras["mcp"] = ["mcp>=1.8.0"]
+extras["mcp"] = ["mcp>=1.8.0, <2.0.0"]
 
 extras["testing"] = (
     extras["oauth"]

@@ -213,6 +213,10 @@ user as possible.
 
 [[autodoc]] huggingface_hub.errors.RevisionNotFoundError
 
+#### RevisionResolutionError
+
+[[autodoc]] huggingface_hub.errors.RevisionResolutionError
+
 #### BadRequestError
 
 [[autodoc]] huggingface_hub.errors.BadRequestError

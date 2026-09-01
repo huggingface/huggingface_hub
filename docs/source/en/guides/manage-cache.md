@@ -184,12 +184,12 @@ excluded from backups.
 
 In order to have an efficient cache-system, `huggingface-hub` uses symlinks. However,
 symlinks are not supported on all machines. This is a known limitation especially on
-Windows. When this is the case, `huggingface_hub` do not use the `blobs/` directory but
+Windows. When this is the case, `huggingface_hub` does not use the `blobs/` directory but
 directly stores the files in the `snapshots/` directory instead. This workaround allows
 users to download and cache files from the Hub exactly the same way. Tools to inspect
 and delete the cache (see below) are also supported. However, the cache-system is less
 efficient as a single file might be downloaded several times if multiple revisions of
-the same repo is downloaded.
+the same repo are downloaded.
 
 If you want to benefit from the symlink-based cache-system on a Windows machine, you
 either need to [activate Developer Mode](https://docs.microsoft.com/en-us/windows/apps/get-started/enable-your-device-for-development)
@@ -252,6 +252,50 @@ pre-existing `blobs` directories, or any per-file sharing failure silently fall 
 to regular repo-local storage. Set
 [`HF_HUB_DISABLE_SHARED_BLOBS=1`](../package_reference/environment_variables#hfhubdisablesharedblobs)
 to opt out entirely.
+
+## Pin a revision (advanced)
+
+> [!TIP]
+> If you are integrating the Hub in an ML library, a single [`snapshot_download`] call is still the recommended approach: it resolves the revision once, downloads everything in parallel and caches the file listing. What follows is only useful for complex libraries that download and load many components separately (config, weights, tokenizer, processor, adapters, ...) and cannot use a single call.
+
+When a library downloads several files one by one, each call has to resolve `revision="main"` into a commit hash again. This costs one HTTP call per file and, worse, two calls made a few seconds apart can land on two different commits if the repo is updated in between.
+
+[`HfApi.resolve_revision`] resolves the revision once and returns a [`ResolvedRevision`]:
+
+```py
+>>> from huggingface_hub import resolve_revision
+>>> revision = resolve_revision("openai-community/gpt2")
+>>> revision
+ResolvedRevision(initial=None, resolved='607a30d783dfa663caf39e06633721c8d4cfcd7e')
+```
+
+[`ResolvedRevision`] is a `str` subclass, so it can be passed to any `huggingface_hub` method taking a `revision` argument. Its string value is what the user initially requested (`"main"` here, hence readable error messages), while `.resolved` holds the commit hash:
+
+```py
+>>> revision == "main"
+True
+>>> revision.resolved
+'607a30d783dfa663caf39e06633721c8d4cfcd7e'
+```
+
+Download helpers ([`hf_hub_download`], [`snapshot_download`], [`get_cached_repo_tree`]) detect a [`ResolvedRevision`] and use the commit hash directly. Every file is guaranteed to come from the same commit, and once the files are cached no HTTP call is needed at all:
+
+```py
+>>> from huggingface_hub import hf_hub_download
+>>> config = hf_hub_download("openai-community/gpt2", "config.json", revision=revision)
+>>> weights = hf_hub_download("openai-community/gpt2", "model.safetensors", revision=revision)
+```
+
+The `revision` -> `commit hash` mapping is also written to the `refs/` folder of the cache (see [Refs](#refs)). This means that if the Hub cannot be reached later on (offline mode, connection error, timeout, Hub downtime), [`HfApi.resolve_revision`] transparently falls back to the cached value. If nothing is cached either, a [`~errors.RevisionResolutionError`] is raised.
+
+A commit hash only means something for the repo it was resolved against, and download helpers use it as is. So a [`ResolvedRevision`] must only be passed to the repo it was resolved for. If a library also downloads from another repo (a base model, an adapter, a component living in its own repo, ...), it needs a revision resolved for that repo. Just pass the [`ResolvedRevision`] back to [`HfApi.resolve_revision`]: it remembers which repo it belongs to and resolves the revision initially requested (`"main"` here) again for the new repo.
+
+```py
+>>> other_revision = resolve_revision("openai-community/gpt2-medium", revision=revision)  # resolves "main" again
+>>> other_revision.resolved
+'6dcaa7a952f72f9298047fd5137cd6e4f05f41da'
+>>> config = hf_hub_download("openai-community/gpt2-medium", "config.json", revision=other_revision)
+```
 
 ## Chunk-based caching (Xet)
 

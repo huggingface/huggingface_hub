@@ -520,6 +520,61 @@ def move(
     out.result("Bucket moved", from_id=parsed_from.id, to_id=parsed_to.id)
 
 
+@buckets_cli.command(
+    name="settings",
+    examples=[
+        "hf buckets settings user/my-bucket --private",
+        "hf buckets settings user/my-bucket --public",
+        "hf buckets settings hf://buckets/user/my-bucket --private",
+    ],
+)
+def settings(
+    bucket_id: Annotated[
+        str,
+        Argument(
+            help="Bucket ID: namespace/bucket_name or hf://buckets/namespace/bucket_name",
+        ),
+    ],
+    private: Annotated[
+        bool,
+        Option(
+            "--private",
+            help="Make the bucket private.",
+        ),
+    ] = False,
+    public: Annotated[
+        bool,
+        Option(
+            "--public",
+            help="Make the bucket public.",
+        ),
+    ] = False,
+    token: TokenOpt = None,
+) -> None:
+    """Update bucket settings (visibility)."""
+    if private == public:
+        raise click.BadParameter("Specify exactly one of --private or --public.")
+
+    if bucket_id.startswith(BUCKET_PREFIX):
+        parsed = _parse_bucket_uri(bucket_id)
+        if parsed.path_in_repo:
+            raise click.BadParameter(
+                f"Cannot specify a prefix for bucket settings: {bucket_id}."
+                f" Use namespace/bucket_name or {BUCKET_PREFIX}namespace/bucket_name."
+            )
+        bucket_id = parsed.id
+    elif "/" not in bucket_id:
+        raise click.BadParameter(
+            f"Invalid bucket ID: {bucket_id}."
+            f" Must be in format namespace/bucket_name or {BUCKET_PREFIX}namespace/bucket_name."
+        )
+
+    api = get_hf_api(token=token)
+    api.update_bucket_settings(bucket_id, private=private)
+    out.result("Bucket settings updated", bucket_id=bucket_id, private=private)
+    out.hint(f"Run `hf buckets info {bucket_id}` to view bucket details.")
+
+
 # =============================================================================
 # Sync command
 # =============================================================================

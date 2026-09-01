@@ -1,0 +1,173 @@
+# Enforces the "open an issue first" policy from CONTRIBUTING.md for community contributions:
+# a PR from anyone without write access on this repo is closed unless it links an issue that a
+# maintainer already replied to. This includes contributors who already had a PR merged, since
+# the policy is about scoping work upfront, not about being new.
+#
+# Uses `pull_request_target` because `GITHUB_TOKEN` is read-only for PRs opened from forks.
+# The PR branch is never checked out, so no untrusted code runs here.
+#
+# A single PR can also be evaluated manually with `workflow_dispatch`, with `dry_run` checked
+# to only log the decision without commenting or closing.
+
+name: Close unscoped community PRs
+
+on:
+  pull_request_target:
+    types: [opened, reopened]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "PR number to evaluate"
+        required: true
+        type: string
+      dry_run:
+        description: "Log the decision without commenting or closing"
+        required: false
+        type: boolean
+        default: true
+
+permissions: {}
+
+# Deliberately not `cancel-in-progress`: commenting and closing are two calls, and a cancellation
+# in between would leave "I am closing this" on an open PR. Serializing also keeps the
+# already-commented check below reliable when two events land on the same PR.
+concurrency:
+  group: close-unscoped-community-pr-${{ github.event.pull_request.number || inputs.pr_number }}
+  cancel-in-progress: false
+
+jobs:
+  check-scoped-issue:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      issues: read
+    steps:
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          MAINTAINERS: Wauplin,hanouticelina
+          PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
+          DRY_RUN: ${{ inputs.dry_run || false }}
+        with:
+          script: |
+            const MARKER = "<!-- close-unscoped-community-pr -->";
+            const MAX_REFERENCES = 20;
+
+            const maintainers = process.env.MAINTAINERS.split(",").map((login) => login.trim());
+            const logins = new Set(maintainers.map((login) => login.toLowerCase()));
+            const isMaintainer = (user) => user != null && logins.has(user.login.toLowerCase());
+            const dryRun = process.env.DRY_RUN === "true";
+
+            const { data: pr } = await github.rest.pulls.get({
+              ...context.repo,
+              pull_number: Number(process.env.PR_NUMBER),
+            });
+
+            const skip = (reason) => core.info(`Skipping PR #${pr.number}: ${reason}`);
+
+            if (pr.state !== "open") return skip("already closed");
+            // Load-bearing: `dependabot[bot]` and our own app bots report `CONTRIBUTOR`, which the
+            // check below does not exempt.
+            if (pr.user.type === "Bot" || pr.user.login.endsWith("[bot]")) return skip("opened by a bot");
+            // Anyone with write access here is out of scope, whatever their name. Every other
+            // decision below asks for one of `MAINTAINERS` specifically: an org member commenting
+            // is not the same as one of us taking the change on.
+            if (["OWNER", "MEMBER", "COLLABORATOR"].includes(pr.author_association)) {
+              return skip(`author is ${pr.author_association}, so they have write access here`);
+            }
+            if (isMaintainer(pr.user)) return skip("opened by a maintainer");
+
+            // Only the author or someone with triage/write access can reopen a PR, so anyone other
+            // than the author reopening it is a deliberate override. Don't undo it.
+            const sender = context.payload.sender;
+            if (context.payload.action === "reopened" && sender.login.toLowerCase() !== pr.user.login.toLowerCase()) {
+              return skip(`reopened by @${sender.login}`);
+            }
+
+            // A maintainer already engaged with the PR itself, so let the human decision stand.
+            const [prComments, prReviews] = await Promise.all([
+              github.paginate(github.rest.issues.listComments, { ...context.repo, issue_number: pr.number, per_page: 100 }),
+              github.paginate(github.rest.pulls.listReviews, { ...context.repo, pull_number: pr.number, per_page: 100 }),
+            ]);
+            const engaged = [...prComments, ...prReviews].find((event) => isMaintainer(event.user));
+            if (engaged) return skip(`@${engaged.user.login} already commented on or reviewed it`);
+
+            // The author can reopen their own PR, so we may land on the same one twice.
+            const alreadyNotified = prComments.some((comment) => comment.body?.includes(MARKER));
+
+            // Any `#123` or issue URL in the title or body counts as a reference. Over-matching is
+            // intentional: a false reference leaves the PR open, a missed one closes it.
+            const text = `${pr.title}\n\n${pr.body || ""}`;
+            const referenced = new Set();
+            for (const [, number] of text.matchAll(/#(\d+)/g)) {
+              referenced.add(Number(number));
+            }
+            const issueUrl = /https:\/\/github\.com\/([\w.-]+)\/([\w.-]+)\/issues\/(\d+)/gi;
+            for (const [, owner, repo, number] of text.matchAll(issueUrl)) {
+              if (owner.toLowerCase() === context.repo.owner.toLowerCase() && repo.toLowerCase() === context.repo.repo.toLowerCase()) {
+                referenced.add(Number(number));
+              }
+            }
+            // Each reference costs an API round-trip, so cap them: a body stuffed with `#N` should
+            // not be able to burn the token's hourly budget.
+            const candidates = [...referenced].sort((a, b) => a - b);
+            core.info(`Referenced numbers: ${candidates.join(", ") || "none"}`);
+            if (candidates.length > MAX_REFERENCES) {
+              core.info(`Only checking the first ${MAX_REFERENCES} of ${candidates.length} references`);
+            }
+
+            let scoped = null;
+            for (const number of candidates.slice(0, MAX_REFERENCES)) {
+              let issue;
+              try {
+                ({ data: issue } = await github.rest.issues.get({ ...context.repo, issue_number: number }));
+              } catch (error) {
+                if (error.status === 404 || error.status === 410) continue;
+                throw error;
+              }
+              if (issue.pull_request) continue; // a PR, not an issue
+              // Only a maintainer reply counts. Them opening the issue is not agreement that
+              // someone else should implement it: CONTRIBUTING.md says we pick those up ourselves.
+              const comments = await github.paginate(github.rest.issues.listComments, {
+                ...context.repo,
+                issue_number: number,
+                per_page: 100,
+              });
+              const reply = comments.find((comment) => isMaintainer(comment.user));
+              if (reply) {
+                scoped = { number, login: reply.user.login };
+                break;
+              }
+            }
+
+            if (scoped) {
+              core.info(`Keeping PR #${pr.number} open: @${scoped.login} replied to it in #${scoped.number}`);
+              return;
+            }
+
+            const body = [
+              `Hi @${pr.user.login}, thanks for taking the time to open this PR!`,
+              "",
+              "As explained in our [contributing guide](https://github.com/huggingface/huggingface_hub/blob/main/CONTRIBUTING.md#found-a-bug-or-want-a-new-feature-open-an-issue-first), we ask that changes be discussed in an issue before any code is written. We prefer to implement most code changes ourselves, so that we can keep the codebase consistent and avoid long review cycles that end up being frustrating for everyone.",
+              "",
+              "This PR does not link an issue that a maintainer has replied to, so I am closing it for now. This is automated and it is not a judgment on your work.",
+              "",
+              "If you would like to take this further:",
+              "1. Open an issue describing what is wrong or missing, why it matters, and how you would expect it to work.",
+              `2. Wait for a maintainer (${maintainers.map((login) => `@${login}`).join(" or ")}) to reply and agree on the approach.`,
+              "3. Link that issue in this PR's description, then reopen the PR.",
+              "",
+              "Documentation improvements and typo fixes are always welcome without an issue. If that is what this PR does, say so here and a maintainer will reopen it.",
+            ].join("\n");
+
+            if (dryRun) {
+              core.info(`[dry run] Would close PR #${pr.number}${alreadyNotified ? " (already commented)" : " with comment"}:\n${body}`);
+              return;
+            }
+
+            if (alreadyNotified) {
+              core.info("Already commented on this PR once, closing without repeating it");
+            } else {
+              await github.rest.issues.createComment({ ...context.repo, issue_number: pr.number, body: `${body}\n\n${MARKER}` });
+            }
+            await github.rest.pulls.update({ ...context.repo, pull_number: pr.number, state: "closed" });
+            core.notice(`Closed PR #${pr.number}: no linked issue with a maintainer reply`);

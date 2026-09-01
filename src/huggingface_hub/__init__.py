@@ -46,7 +46,7 @@ import sys
 from typing import TYPE_CHECKING
 
 
-__version__ = "1.26.0.dev0"
+__version__ = "1.30.0.dev0"
 
 # Alphabetical order of definitions is ensured in tests
 # WARNING: any comment added in this dictionary definition will be lost when
@@ -72,6 +72,7 @@ _SUBMOD_ATTRS = {
     "_inference_endpoints": [
         "InferenceEndpoint",
         "InferenceEndpointError",
+        "InferenceEndpointHardware",
         "InferenceEndpointStatus",
         "InferenceEndpointTimeoutError",
         "InferenceEndpointType",
@@ -101,6 +102,9 @@ _SUBMOD_ATTRS = {
         "OAuthUserInfo",
         "attach_huggingface_oauth",
         "parse_huggingface_oauth",
+    ],
+    "_revision": [
+        "ResolvedRevision",
     ],
     "_sandbox": [
         "Sandbox",
@@ -292,6 +296,7 @@ _SUBMOD_ATTRS = {
         "list_datasets",
         "list_inference_catalog",
         "list_inference_endpoints",
+        "list_inference_endpoints_hardware",
         "list_jobs",
         "list_jobs_hardware",
         "list_lfs_files",
@@ -333,6 +338,7 @@ _SUBMOD_ATTRS = {
         "repo_type_and_id_from_hf_id",
         "request_space_hardware",
         "request_space_storage",
+        "resolve_revision",
         "restart_space",
         "resume_inference_endpoint",
         "resume_scheduled_job",
@@ -351,6 +357,7 @@ _SUBMOD_ATTRS = {
         "sync_job_volume",
         "trigger_scheduled_job",
         "unlike",
+        "update_bucket_settings",
         "update_collection_item",
         "update_collection_metadata",
         "update_collection_resource_group",
@@ -781,6 +788,7 @@ __all__ = [
     "InferenceClient",
     "InferenceEndpoint",
     "InferenceEndpointError",
+    "InferenceEndpointHardware",
     "InferenceEndpointStatus",
     "InferenceEndpointTimeoutError",
     "InferenceEndpointType",
@@ -823,6 +831,7 @@ __all__ = [
     "RepoFolder",
     "RepoStorageInfo",
     "RepoUrl",
+    "ResolvedRevision",
     "Sandbox",
     "SandboxCommandResult",
     "SandboxPool",
@@ -1042,6 +1051,7 @@ __all__ = [
     "list_datasets",
     "list_inference_catalog",
     "list_inference_endpoints",
+    "list_inference_endpoints_hardware",
     "list_jobs",
     "list_jobs_hardware",
     "list_lfs_files",
@@ -1098,6 +1108,7 @@ __all__ = [
     "repo_type_and_id_from_hf_id",
     "request_space_hardware",
     "request_space_storage",
+    "resolve_revision",
     "restart_space",
     "resume_inference_endpoint",
     "resume_scheduled_job",
@@ -1126,6 +1137,7 @@ __all__ = [
     "try_to_load_from_cache",
     "typer_factory",
     "unlike",
+    "update_bucket_settings",
     "update_collection_item",
     "update_collection_metadata",
     "update_collection_resource_group",
@@ -1264,6 +1276,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from ._inference_endpoints import (
         InferenceEndpoint,  # noqa: F401
         InferenceEndpointError,  # noqa: F401
+        InferenceEndpointHardware,  # noqa: F401
         InferenceEndpointStatus,  # noqa: F401
         InferenceEndpointTimeoutError,  # noqa: F401
         InferenceEndpointType,  # noqa: F401
@@ -1294,6 +1307,7 @@ if TYPE_CHECKING:  # pragma: no cover
         attach_huggingface_oauth,  # noqa: F401
         parse_huggingface_oauth,  # noqa: F401
     )
+    from ._revision import ResolvedRevision  # noqa: F401
     from ._sandbox import (
         Sandbox,  # noqa: F401
         SandboxCommandResult,  # noqa: F401
@@ -1482,6 +1496,7 @@ if TYPE_CHECKING:  # pragma: no cover
         list_datasets,  # noqa: F401
         list_inference_catalog,  # noqa: F401
         list_inference_endpoints,  # noqa: F401
+        list_inference_endpoints_hardware,  # noqa: F401
         list_jobs,  # noqa: F401
         list_jobs_hardware,  # noqa: F401
         list_lfs_files,  # noqa: F401
@@ -1523,6 +1538,7 @@ if TYPE_CHECKING:  # pragma: no cover
         repo_type_and_id_from_hf_id,  # noqa: F401
         request_space_hardware,  # noqa: F401
         request_space_storage,  # noqa: F401
+        resolve_revision,  # noqa: F401
         restart_space,  # noqa: F401
         resume_inference_endpoint,  # noqa: F401
         resume_scheduled_job,  # noqa: F401
@@ -1541,6 +1557,7 @@ if TYPE_CHECKING:  # pragma: no cover
         sync_job_volume,  # noqa: F401
         trigger_scheduled_job,  # noqa: F401
         unlike,  # noqa: F401
+        update_bucket_settings,  # noqa: F401
         update_collection_item,  # noqa: F401
         update_collection_metadata,  # noqa: F401
         update_collection_resource_group,  # noqa: F401

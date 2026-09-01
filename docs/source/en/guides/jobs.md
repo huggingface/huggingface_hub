@@ -660,6 +660,9 @@ Manage scheduled jobs using [`list_scheduled_jobs`], [`inspect_scheduled_job`], 
 >>> from huggingface_hub import list_scheduled_jobs
 >>> list_scheduled_jobs()
 
+# Only list scheduled jobs with the given labels
+>>> list_scheduled_jobs(labels={"env": "prod"})
+
 # Inspect the status of a job
 >>> from huggingface_hub import inspect_scheduled_job
 >>> inspect_scheduled_job(scheduled_job_id)

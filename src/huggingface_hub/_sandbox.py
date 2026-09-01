@@ -96,7 +96,9 @@ def _derive_sandbox_token(hf_token: str, nonce: str) -> str:
 
     Stateless: any machine holding the same HF token can recompute it from the
     nonce stored in the job's labels, so `Sandbox.connect(job_id)` needs no local state.
-    The HF token itself is never sent to the sandbox.
+    Only the derived token is passed to the sandbox server as a job secret; the HF token
+    itself is not. Note this is not a hardened boundary: an untrusted image can own the
+    sandbox port, so don't treat it as a guarantee that credentials stay out of the sandbox.
     """
     return hmac.new(hf_token.encode(), f"hf-sandbox:{nonce}".encode(), hashlib.sha256).hexdigest()
 
@@ -470,6 +472,9 @@ class _KillMethod:
 
 class Sandbox:
     """An isolated cloud machine running on Hugging Face Jobs.
+
+    > [!NOTE]
+    > The Sandbox API is experimental. Its API and behavior may change without notice.
 
     Create a dedicated one with [`Sandbox.create`] (one job per sandbox), or get many cheap shared ones from a [`SandboxPool`].
     Reattach to a running sandbox from anywhere with [`Sandbox.connect`]. Use as a context manager to terminate it on exit:
@@ -916,6 +921,10 @@ class Sandbox:
 
 class SandboxPool:
     """A fleet of shared "host" jobs, each packing many landlock-isolated sandboxes.
+
+    > [!NOTE]
+    > The Sandbox API is experimental. Its API and behavior may change without notice. Shared sandboxes are intended
+    > for workloads within the same trust boundary; use [`Sandbox.create`] for workloads that do not trust each other.
 
     One host is one billed HF Job (a VM); it runs the sandbox server and multiplexes
     up to `sandboxes_per_host` lightweight sandboxes, isolated from each other by

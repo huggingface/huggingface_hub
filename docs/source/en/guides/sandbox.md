@@ -3,6 +3,12 @@ rendered properly in your Markdown viewer.
 -->
 # Sandboxes
 
+> [!NOTE]
+> Sandboxes are an **experimental** feature. The API, defaults, and behavior may change without notice. Shared
+> sandboxes are intended for workloads within the same trust boundary; their isolation does not guarantee protection
+> from every cross-sandbox attack. Use dedicated sandboxes for workloads that do not trust each other, and avoid making
+> long-lived or broadly scoped credentials available to sandbox workloads.
+
 A sandbox is an isolated cloud machine you can spin up in seconds, run commands in with live-streamed output, and move files in and out of — all from Python or the CLI. Sandboxes are built on top of [Jobs](./jobs): under the hood, a sandbox is just a Job running a tiny server that exposes command execution and file transfer over HTTP.
 
 They are a good fit whenever you need to run code somewhere other than your own machine:
@@ -148,7 +154,7 @@ A sandbox outlives the process that created it — you can create it now and rec
 
 - `idle_timeout` (default 10 minutes) is the real keeper: it shuts the sandbox down once no API call is made and no process is running, so abandoned sandboxes stop billing. Set it at create time (`Sandbox.create(idle_timeout="30m")`) or pass `None` to disable.
 - The job also has a fixed 24h maximum lifetime as a hard backstop (not configurable).
-- Your HF token is never sent into the sandbox unless you opt in with `forward_hf_token=True`.
+- `forward_hf_token=True` explicitly exposes your HF token to the code running in the sandbox (as `HF_TOKEN`). Even with `forward_hf_token=False`, don't treat the sandbox as a hard boundary for your credentials — see the warning at the top of this page.
 
 ## Many sandboxes at once: SandboxPool
 
@@ -216,8 +222,11 @@ To reattach from another machine with no local state, reconnect by pool id with 
 
 A `connect()`'d pool does not own the shared hosts (other clients may be using them), so — like [`Sandbox.connect`] — leaving its `with` block (or calling `close()`) only releases the local HTTP clients and leaves the hosts running. Terminate a pool's hosts explicitly with `pool delete` / `hf sandbox pool delete <id>`.
 
-> [!WARNING]
-> Sandboxes within a host are isolated from each other by distinct uids plus a per-sandbox Landlock ruleset — they cannot read, signal, or write each other's files, and each is confined to its own private home. This is the right boundary for *one user's own* parallel workloads. For mutually-hostile untrusted code, or for GPU, use [`Sandbox.create`] (a separate VM per sandbox). The trade-offs are detailed in the [conceptual guide](../concepts/sandbox#isolation-in-a-pool-uid--landlock).
+> [!NOTE]
+> Sandboxes within a host are separated by distinct uids and per-sandbox Landlock rulesets. Shared sandboxes are
+> intended for *one user's own* parallel workloads, and isolation from every cross-sandbox attack is not guaranteed.
+> For mutually untrusted code, or for GPU, use [`Sandbox.create`] (a separate VM per sandbox). The trade-offs are
+> detailed in the [conceptual guide](../concepts/sandbox#isolation-in-a-pool-uid--landlock).
 
 ## From the CLI
 

@@ -45,6 +45,14 @@ class TestHfFileSystemBucketRO(_HfFileSystemBucketChecks, _HfFileSystemBaseROTes
     def _new_hffs(self):
         self.hffs = HfFileSystem(endpoint=ENDPOINT_STAGING, token=TOKEN, skip_instance_cache=True)
 
+    def test_prefix_collision(self):
+        colliding_path = f"{self.hf_path}/dat"
+
+        assert not self.hffs.exists(f"{colliding_path}/new.txt")
+        assert self.hffs.glob(f"{colliding_path}/*") == []
+        with pytest.raises(FileNotFoundError):
+            self.hffs.ls(colliding_path)
+
 
 class TestHfFileSystemBucketRW(_HfFileSystemBucketChecks, _HfFileSystemBaseRWTests):
     __test__ = True
