@@ -30,7 +30,7 @@ from huggingface_hub.cli.jobs import _get_jobs_stats_rows, _parse_and_sync_job_v
 from huggingface_hub.cli.skills import build_skill_md
 from huggingface_hub.cli.upload import _resolve_upload_paths, upload
 from huggingface_hub.errors import CLIError, DeviceCodeError, HfUriError, RevisionNotFoundError
-from huggingface_hub.hf_api import ModelInfo
+from huggingface_hub.hf_api import ModelInfo, RepoStorageInfo
 from huggingface_hub.utils import (
     CachedFileInfo,
     CachedRepoInfo,
@@ -1887,6 +1887,37 @@ class TestRepoListCommand:
         api.delete_repo(model_id)
         api.delete_repo(dataset_id, repo_type="dataset")
         api.delete_repo(space_id, repo_type="space")
+
+    def test_repo_list_with_null_or_missing_storage(self, runner: CliRunner) -> None:
+        mock_api = Mock()
+        mock_api.list_user_repos.return_value = [
+            RepoStorageInfo(
+                id="user/repo-null-storage",
+                type="model",
+                updatedAt="2026-01-01T00:00:00Z",
+                visibility="public",
+                storage=None,
+            ),
+            RepoStorageInfo(
+                id="user/repo-missing-storage",
+                type="dataset",
+                updatedAt="2026-01-01T00:00:00Z",
+                visibility="private",
+            ),
+        ]
+
+        with patch("huggingface_hub.cli.repos.get_hf_api", return_value=mock_api):
+            result = runner.invoke(app, ["repos", "ls", "--format", "json"])
+
+        assert result.exit_code == 0
+        output = json.loads(result.stdout)
+        assert len(output) == 2
+        assert output[0]["id"] == "user/repo-null-storage"
+        assert output[0]["storage"] == "0 B"
+        assert output[0]["%_of_total"] == "0.0%"
+        assert output[1]["id"] == "user/repo-missing-storage"
+        assert output[1]["storage"] == "0 B"
+        assert output[1]["%_of_total"] == "0.0%"
 
 
 class TestRepoDeleteCommand:

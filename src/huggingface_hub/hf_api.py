@@ -1700,7 +1700,7 @@ class RepoStorageInfo:
         self.type = kwargs["type"]
         self.updated_at = parse_datetime(kwargs["updatedAt"])
         self.visibility = kwargs["visibility"]
-        self.storage = kwargs["storage"]
+        self.storage = kwargs.get("storage") or 0
         self.storage_percent = kwargs.get("storagePercent") or 0
 
 
