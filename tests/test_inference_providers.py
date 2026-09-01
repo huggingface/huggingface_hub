@@ -1134,7 +1134,7 @@ class TestHFInferenceProvider:
     @pytest.mark.parametrize(
         "pipeline_tag,tags,task,should_raise",
         [
-            # text-generation + no conversational tag -> only text-generation allowed
+            # text-generation -> both tasks allowed, regardless of tags
             (
                 "text-generation",
                 [],
@@ -1145,9 +1145,8 @@ class TestHFInferenceProvider:
                 "text-generation",
                 [],
                 "conversational",
-                True,
+                False,
             ),
-            # text-generation + conversational tag -> both tasks allowed
             (
                 "text-generation",
                 ["conversational"],
@@ -1160,7 +1159,7 @@ class TestHFInferenceProvider:
                 "conversational",
                 False,
             ),
-            # image-text-to-text + conversational tag -> only conversational allowed
+            # image-text-to-text -> only conversational allowed, regardless of tags
             (
                 "image-text-to-text",
                 ["conversational"],
@@ -1177,7 +1176,7 @@ class TestHFInferenceProvider:
                 "image-text-to-text",
                 [],
                 "conversational",
-                True,
+                False,
             ),
             # text2text-generation only allowed for text-generation task
             (
