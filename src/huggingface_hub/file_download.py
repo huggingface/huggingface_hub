@@ -1258,7 +1258,7 @@ def _hf_hub_download_to_cache_dir(
     # user-editable so a shared inode would propagate edits across repos. See the
     # `_shared_blobs` module for details.
     xet_hash = xet_file_data.file_hash if xet_file_data is not None else None
-    if xet_hash is not None and not (shared_blobs_enabled(cache_dir) and are_symlinks_supported(cache_dir)):
+    if xet_hash is not None and not (shared_blobs_enabled() and are_symlinks_supported(cache_dir)):
         xet_hash = None
 
     with WeakFileLock(lock_path):

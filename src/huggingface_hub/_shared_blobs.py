@@ -23,7 +23,6 @@ filesystem before use, and any missing or unreadable manifest makes garbage coll
 leak the shared blob rather than risk deleting referenced content.
 """
 
-import logging
 import os
 import re
 import shutil
@@ -36,9 +35,10 @@ from typing import Generator
 from filelock import FileLock, SoftFileLock
 
 from . import constants
+from .utils import logging
 
 
-logger = logging.getLogger(__name__)
+logger = logging.get_logger(__name__)
 
 _XET_HASH_REGEX = re.compile(r"[0-9a-f]{64}")
 _REPO_DIR_REGEX = re.compile(r"(?:models|datasets|spaces)--.+")
@@ -350,8 +350,8 @@ def _make_temporary_symlink(blob_path: Path, store_path: Path) -> Path:
     return tmp_link
 
 
-def shared_blobs_enabled(cache_dir: str | Path) -> bool:
-    """Return whether the shared blob store may be used for a cache directory."""
+def shared_blobs_enabled() -> bool:
+    """Return whether the shared blob store may be used."""
     return not constants.HF_HUB_DISABLE_SHARED_BLOBS and not constants.HF_HUB_DISABLE_XET
 
 
@@ -397,8 +397,7 @@ def try_link_from_shared_store(
 def has_shared_blob(*, xet_hash: str, cache_dir: str | Path, expected_size: int | None) -> bool:
     """Return whether a usable store entry exists, without touching the cache."""
     if (
-        constants.HF_HUB_DISABLE_SHARED_BLOBS
-        or constants.HF_HUB_DISABLE_XET
+        not shared_blobs_enabled()
         or _XET_HASH_REGEX.fullmatch(xet_hash) is None
         or not is_shared_blobs_dir(shared_blobs_dir(cache_dir))
     ):
