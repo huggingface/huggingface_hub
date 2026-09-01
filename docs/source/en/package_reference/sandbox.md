@@ -4,6 +4,10 @@ rendered properly in your Markdown viewer.
 
 # Sandboxes
 
+> [!NOTE]
+> The Sandbox API is experimental. Its API and behavior may change without notice. Shared sandboxes are intended for
+> workloads within the same trust boundary; use dedicated sandboxes for workloads that do not trust each other.
+
 Check out the [Sandboxes guide](../guides/sandbox) to learn how to use them.
 
 ## Sandbox

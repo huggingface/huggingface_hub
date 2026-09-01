@@ -473,6 +473,9 @@ class _KillMethod:
 class Sandbox:
     """An isolated cloud machine running on Hugging Face Jobs.
 
+    > [!NOTE]
+    > The Sandbox API is experimental. Its API and behavior may change without notice.
+
     Create a dedicated one with [`Sandbox.create`] (one job per sandbox), or get many cheap shared ones from a [`SandboxPool`].
     Reattach to a running sandbox from anywhere with [`Sandbox.connect`]. Use as a context manager to terminate it on exit:
 
@@ -918,6 +921,10 @@ class Sandbox:
 
 class SandboxPool:
     """A fleet of shared "host" jobs, each packing many landlock-isolated sandboxes.
+
+    > [!NOTE]
+    > The Sandbox API is experimental. Its API and behavior may change without notice. Shared sandboxes are intended
+    > for workloads within the same trust boundary; use [`Sandbox.create`] for workloads that do not trust each other.
 
     One host is one billed HF Job (a VM); it runs the sandbox server and multiplexes
     up to `sandboxes_per_host` lightweight sandboxes, isolated from each other by
