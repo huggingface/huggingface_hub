@@ -41,8 +41,8 @@ from .utils.insecure_hashlib import md5
 class HfFileSystemResolvedPath:
     """Top level Data structure containing information about a resolved Hugging Face file system path."""
 
-    root: str
-    path: str
+    root (`str`):
+    path (`str`):
 
     def unresolve(self) -> str:
         return f"{self.root}/{self.path}".rstrip("/")
@@ -52,10 +52,10 @@ class HfFileSystemResolvedPath:
 class HfFileSystemResolvedRepositoryPath(HfFileSystemResolvedPath):
     """Data structure containing information about a resolved path in a repository."""
 
-    repo_type: str
-    repo_id: str
-    revision: str
-    path_in_repo: str
+    repo_type (`str`):
+    repo_id (`str`):
+    revision (`str`):
+    path_in_repo (`str`):
     root: str = field(init=False)
     path: str = field(init=False)
     # The part placed after '@' in the initial path. It can be a quoted or unquoted refs revision.
@@ -77,7 +77,7 @@ class HfFileSystemResolvedRepositoryPath(HfFileSystemResolvedPath):
 class HfFileSystemResolvedBucketPath(HfFileSystemResolvedPath):
     """Data structure containing information about a resolved path in a bucket."""
 
-    bucket_id: str
+    bucket_id (`str`):
     root: str = field(init=False)
 
     def __post_init__(self):
@@ -449,23 +449,22 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         The resultant instance must function correctly in a context ``with``
         block.
 
-        Parameters
-        ----------
-        path: str
-            Target file
-        mode: str like 'rb', 'w', 'a'
-            See builtin ``open()``.
-            There is an extra mode 'mb' (mutate bytes in-place) allows insert(), delete(), edit() and append().
-            It is available thanks to Xet which stores files by chunks.
-        block_size: int
-            Some indication of buffering - this is a value in bytes
-        cache_options : dict, optional
-            Extra arguments to pass through to the cache.
-        compression: string or None
-            If given, open file using compression codec. Can either be a compression
-            name (a key in ``fsspec.compression.compr``) or "infer" to guess the
-            compression from the filename suffix.
-        encoding, errors, newline: passed on to TextIOWrapper for text mode
+        Args:
+            path (`str`):
+                Target file
+            mode: str like 'rb', 'w', 'a'
+                See builtin ``open()``.
+                There is an extra mode 'mb' (mutate bytes in-place) allows insert(), delete(), edit() and append().
+                It is available thanks to Xet which stores files by chunks.
+            block_size (`int`):
+                Some indication of buffering - this is a value in bytes
+            cache_options : dict, optional
+                Extra arguments to pass through to the cache.
+            compression: string or None
+                If given, open file using compression codec. Can either be a compression
+                name (a key in ``fsspec.compression.compr``) or "infer" to guess the
+                compression from the filename suffix.
+            encoding, errors, newline: passed on to TextIOWrapper for text mode
         """
         mutate_mode = "m" if "m" in mode else ("a" if "a" in mode else None)
         if mutate_mode:
@@ -1716,12 +1715,11 @@ class HfFileSystemMutateFile(fsspec.spec.AbstractBufferedFile):
     def seek(self, loc, whence=0):
         """Set current file location
 
-        Parameters
-        ----------
-        loc: int
-            byte location
-        whence: {0, 1, 2}
-            from start of file, current location or end of file, resp.
+        Args:
+            loc (`int`):
+                byte location
+            whence (`int`, one of 0, 1 or 2):
+                from start of file, current location or end of file, resp.
         """
         loc = int(loc)
         if whence == 0:
@@ -1749,10 +1747,9 @@ class HfFileSystemMutateFile(fsspec.spec.AbstractBufferedFile):
         equal to blocksize (and there is also a minimum 10 second
         interval between sends to avoid doing too many requests).
 
-        Parameters
-        ----------
-        data: bytes
-            Set of bytes to be written.
+        Args:
+            data (`bytes`):
+                Set of bytes to be written.
         """
         return self.edit((self.loc, self.loc + len(data)), data)
 
@@ -1764,13 +1761,12 @@ class HfFileSystemMutateFile(fsspec.spec.AbstractBufferedFile):
         equal to blocksize (and there is also a minimum 10 second
         interval between sends to avoid doing too many requests).
 
-        Parameters
-        ----------
-        byte_range: tuple[int, int]
-            (start, end) where to edit the file.
-        data: bytes
-            Set of bytes to be placed in the specified range.
-            Size can be different than the range.
+        Args:
+            byte_range (`tuple[int, int]`):
+                (start, end) where to edit the file.
+            data (`bytes`):
+                Set of bytes to be placed in the specified range.
+                Size can be different than the range.
         """
         if self.closed:
             raise ValueError("I/O operation on closed file.")
@@ -1852,12 +1848,11 @@ class HfFileSystemMutateFile(fsspec.spec.AbstractBufferedFile):
         equal to blocksize (and there is also a minimum 10 second
         interval between sends to avoid doing too many requests).
 
-        Parameters
-        ----------
-        loc: int
-            Where to insert the data.
-        data: bytes
-            Set of bytes to be inserted.
+        Args:
+            loc (`int`):
+                Where to insert the data.
+            data (`bytes`):
+                Set of bytes to be inserted.
         """
         return self.edit((loc, loc), data)
 
@@ -1869,10 +1864,9 @@ class HfFileSystemMutateFile(fsspec.spec.AbstractBufferedFile):
         equal to blocksize (and there is also a minimum 10 second
         interval between sends to avoid doing too many requests).
 
-        Parameters
-        ----------
-        data: bytes
-            Set of bytes to be appended at the end of the file.
+        Args:
+            data (`bytes`):
+                Set of bytes to be appended at the end of the file.
         """
         return self.insert(self.size, data)
 
@@ -1884,12 +1878,11 @@ class HfFileSystemMutateFile(fsspec.spec.AbstractBufferedFile):
         equal to blocksize (and there is also a minimum 10 second
         interval between sends to avoid doing too many requests).
 
-        Parameters
-        ----------
-        loc: int
-            Where to insert the data.
-        length: int
-            Number of bytes to delete.
+        Args:
+            loc (`int`):
+                Where to insert the data.
+            length (`int`):
+                Number of bytes to delete.
         """
         return self.edit((loc, loc + length), b"")
 
@@ -1901,10 +1894,9 @@ class HfFileSystemMutateFile(fsspec.spec.AbstractBufferedFile):
         equal to blocksize (and there is also a minimum 10 second
         interval between sends to avoid doing too many requests).
 
-        Parameters
-        ----------
-        size: int | None
-            Resize the file to the given size in bytes.
+        Args:
+            size (`int`, *optional*):
+                Resize the file to the given size in bytes.
         """
         if size is None:
             size = self.loc
@@ -1923,18 +1915,17 @@ class HfFileSystemMutateFile(fsspec.spec.AbstractBufferedFile):
         - AND the last update was more than 10 seconds ago
         - AND the last update has finished
 
-        Parameters
-        ----------
-        force: bool
-            Send the buffer even if it is smaller than
-            blocks are allowed to be and even if last block
-            was sent less than 10 seconds ago.
+        Args:
+            force (`bool`):
+                Send the buffer even if it is smaller than
+                blocks are allowed to be and even if last block
+                was sent less than 10 seconds ago.
 
-            If the last update wasn't finished, it waits for
-            it to finish before flushing.
+                If the last update wasn't finished, it waits for
+                it to finish before flushing.
 
-        defer: bool
-            Send the buffer in the background, non-blocking.
+            defer (`bool`):
+                Send the buffer in the background, non-blocking.
         """
 
         if self.closed:
@@ -1966,10 +1957,9 @@ class MutableTextIOWrapper(io.TextIOWrapper):
         Buffer only sent on flush() or if buffer is greater than
         or equal to blocksize.
 
-        Parameters
-        ----------
-        data: bytes
-            Set of bytes to be written.
+        Args:
+            data (`str`):
+                String to be written.
         """
         return self.buffer.write(data.encode(self.encoding, errors=self.errors or "strict"))
 
@@ -1980,13 +1970,12 @@ class MutableTextIOWrapper(io.TextIOWrapper):
         Buffer only sent on flush() or if buffer is greater than
         or equal to blocksize.
 
-        Parameters
-        ----------
-        byte_range: tuple[int, int]
-            (start, end) where to edit the file.
-        data: bytes
-            Set of bytes to be placed in the specified range.
-            Size can be different than the range.
+        Args:
+            byte_range (`tuple[int, int]`):
+                (start, end) where to edit the file.
+            data (`str`):
+                String to be placed in the specified range.
+                Size can be different than the range.
         """
         return self.buffer.edit(byte_range, data.encode(self.encoding, errors=self.errors or "strict"))
 
@@ -1997,12 +1986,11 @@ class MutableTextIOWrapper(io.TextIOWrapper):
         Buffer only sent on flush() or if buffer is greater than
         or equal to blocksize.
 
-        Parameters
-        ----------
-        loc: int
-            Where to insert the data.
-        data: bytes
-            Set of bytes to be inserted.
+        Args:
+            loc (`int`):
+                Where to insert the data.
+            data (`str`):
+                String to be inserted.
         """
         return self.buffer.insert(loc, data.encode(self.encoding, errors=self.errors or "strict"))
 
@@ -2013,10 +2001,9 @@ class MutableTextIOWrapper(io.TextIOWrapper):
         Buffer only sent on flush() or if buffer is greater than
         or equal to blocksize.
 
-        Parameters
-        ----------
-        data: bytes
-            Set of bytes to be appended at the end of the file.
+        Args:
+            data (`str`):
+                String to be appended at the end of the file.
         """
         return self.buffer.append(data.encode(self.encoding, errors=self.errors or "strict"))
 
@@ -2027,12 +2014,11 @@ class MutableTextIOWrapper(io.TextIOWrapper):
         Buffer only sent on flush() or if buffer is greater than
         or equal to blocksize.
 
-        Parameters
-        ----------
-        loc: int
-            Where to insert the data.
-        length: int
-            Number of bytes to delete.
+        Args:
+            loc (`int`):
+                Where to insert the data.
+            length (`int`):
+                Number of bytes to delete.
         """
         return self.buffer.delete(loc, length)
 
@@ -2043,10 +2029,9 @@ class MutableTextIOWrapper(io.TextIOWrapper):
         Buffer only sent on flush() or if buffer is greater than
         or equal to blocksize.
 
-        Parameters
-        ----------
-        size: int | None
-            Resize the file to the given size in bytes.
+        Args:
+            size (`int`, *optional*):
+                Resize the file to the given size in bytes.
         """
         return self.buffer.truncate(size)
 
@@ -2059,13 +2044,12 @@ class MutableTextIOWrapper(io.TextIOWrapper):
         - AND the last update was more than 10 seconds ago
         - AND the last update has finished
 
-        Parameters
-        ----------
-        force: bool
-            Send the buffer even if it is smaller than
-            blocks are allowed to be.
-        defer: bool
-            Send the buffer in the background, non-blocking.
+        Args:
+            force (`bool`):
+                Send the buffer even if it is smaller than
+                blocks are allowed to be.
+            defer (`bool`):
+                Send the buffer in the background, non-blocking.
         """
         return self.buffer.flush(force=force, defer=defer)
 
