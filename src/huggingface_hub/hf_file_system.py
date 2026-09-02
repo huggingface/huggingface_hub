@@ -442,7 +442,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         cache_options=None,
         compression=None,
         **kwargs,
-    ) -> fsspec.spec.AbstractBufferedFile | "HfFileSystemEditFile" | io.TextIOWrapper | "EditTextIOWrapper":
+    ) -> Union[fsspec.spec.AbstractBufferedFile, "HfFileSystemEditFile", io.TextIOWrapper, "EditTextIOWrapper"]:
         """
         Return a file-like object from the filesystem
 
