@@ -86,6 +86,26 @@ def _is_directory(path: Path) -> bool:
         return False
 
 
+def _is_usable_store_entry(store_path: Path, expected_size: int) -> bool:
+    """Return whether `store_path` is a regular, readable payload of the expected size."""
+    try:
+        store_stat = store_path.lstat()
+    except OSError:
+        return False
+    if not stat.S_ISREG(store_stat.st_mode):
+        return False
+    if store_stat.st_size != expected_size:
+        logger.warning(
+            f"Shared blob '{store_path}' has an unexpected size ({store_stat.st_size} instead of {expected_size}). "
+            "Not using it."
+        )
+        return False
+    if not os.access(store_path, os.R_OK):
+        logger.warning(f"Shared blob '{store_path}' is not readable. Not using it.")
+        return False
+    return True
+
+
 def is_shared_blobs_dir(path: str | Path) -> bool:
     """Return whether `path` is an owned, supported shared blob store."""
     store_dir = Path(path)
@@ -355,9 +375,7 @@ def shared_blobs_enabled() -> bool:
     return not constants.HF_HUB_DISABLE_SHARED_BLOBS and not constants.HF_HUB_DISABLE_XET
 
 
-def try_link_from_shared_store(
-    *, blob_path: str, xet_hash: str, cache_dir: str | Path, expected_size: int | None
-) -> bool:
+def try_link_from_shared_store(*, blob_path: str, xet_hash: str, cache_dir: str | Path, expected_size: int) -> bool:
     """Materialize `blobs/<etag>` as a symlink to an existing store entry, if any.
 
     The reference manifest is flushed before the symlink becomes visible. Failures are
@@ -373,11 +391,7 @@ def try_link_from_shared_store(
     tmp_link: Path | None = None
     try:
         with _shared_blob_lock(store_path):
-            if not _is_regular_file(store_path):
-                return False
-            store_stat = store_path.lstat()
-            if expected_size is not None and store_stat.st_size != expected_size:
-                logger.warning(f"Shared blob '{store_path}' has an unexpected size. Ignoring it.")
+            if not _is_usable_store_entry(store_path, expected_size):
                 return False
 
             tmp_link = _make_temporary_symlink(Path(blob_path), store_path)
@@ -394,7 +408,7 @@ def try_link_from_shared_store(
     return True
 
 
-def has_shared_blob(*, xet_hash: str, cache_dir: str | Path, expected_size: int | None) -> bool:
+def has_shared_blob(*, xet_hash: str, cache_dir: str | Path, expected_size: int) -> bool:
     """Return whether a usable store entry exists, without touching the cache."""
     if (
         not shared_blobs_enabled()
@@ -402,13 +416,7 @@ def has_shared_blob(*, xet_hash: str, cache_dir: str | Path, expected_size: int 
         or not is_shared_blobs_dir(shared_blobs_dir(cache_dir))
     ):
         return False
-    store_path = shared_blob_path(cache_dir, xet_hash)
-    if not _is_regular_file(store_path):
-        return False
-    try:
-        return expected_size is None or store_path.lstat().st_size == expected_size
-    except OSError:
-        return False
+    return _is_usable_store_entry(shared_blob_path(cache_dir, xet_hash), expected_size)
 
 
 def publish_blob_to_shared_store(
@@ -416,7 +424,7 @@ def publish_blob_to_shared_store(
     blob_path: str,
     xet_hash: str,
     cache_dir: str | Path,
-    expected_size: int | None,
+    expected_size: int,
     replace_existing: bool = False,
 ) -> bool:
     """Move a fresh Xet download into the store and replace its repo blob with a symlink.
@@ -439,11 +447,7 @@ def publish_blob_to_shared_store(
     try:
         with _shared_blob_lock(store_path):
             tmp_link = _make_temporary_symlink(blob_path_obj, store_path)
-            store_is_usable = (
-                not replace_existing
-                and _is_regular_file(store_path)
-                and (expected_size is None or store_path.lstat().st_size == expected_size)
-            )
+            store_is_usable = not replace_existing and _is_usable_store_entry(store_path, expected_size)
             _append_manifest_reference(manifest_path, relative_blob_path)
             if not store_is_usable:
                 _prepare_shared_blob_permissions(blob_path_obj, prefix_dir, cache_dir)

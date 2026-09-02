@@ -381,7 +381,9 @@ class HFCacheInfo:
 
     Args:
         size_on_disk (`int`):
-            Sum of all valid repo sizes in the cache-system.
+            Physical size of the cache-system in bytes. A blob shared across repos is
+            counted once, and store-only shared blobs no longer referenced by any repo are
+            included. Can be smaller than the sum of the per-repo sizes.
         repos (`frozenset[CachedRepoInfo]`):
             Set of [`~CachedRepoInfo`] describing all valid cached repos found on the
             cache-system while scanning.
@@ -396,8 +398,9 @@ class HFCacheInfo:
             Cache directory that was scanned.
 
     > [!WARNING]
-    > Here `size_on_disk` is equal to the sum of all repo sizes (only blobs). However if
-    > some cached repos are corrupted, their sizes are not taken into account.
+    > `size_on_disk` only accounts for blobs, and corrupted repos are skipped. It is a
+    > physical size: unlike `CachedRepoInfo.size_on_disk`, which attributes a shared blob
+    > to every repo referencing it, a shared blob is counted here only once.
     """
 
     size_on_disk: int
@@ -409,8 +412,7 @@ class HFCacheInfo:
     @property
     def size_on_disk_str(self) -> str:
         """
-        (property) Sum of all valid repo sizes in the cache-system as a human-readable
-        string.
+        (property) Physical size of the cache-system as a human-readable string.
 
         Example: "42.2K".
         """
