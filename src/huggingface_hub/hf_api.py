@@ -14958,7 +14958,7 @@ class HfApi:
             token=token,
         )
 
-    def mutate_bucket_file(
+    def edit_bucket_file(
         self,
         *,
         bucket_id: str,
@@ -14968,15 +14968,15 @@ class HfApi:
         delete: list[tuple[int, int]] | None = None,
         token: bool | str | None = None,
     ) -> None:
-        """Mutate an existing file in a bucket in-place, only re-uploading the parts the caller actually rewrites.
+        """Edit an existing file in a bucket in-place, only re-uploading the parts the caller actually rewrites.
 
-        See [`HfFileSystemMutateFile`] to use this feature with a file-like API.
+        See [`HfFileSystemEditFile`] to use this feature with a file-like API.
 
         Args:
             bucket_id (`str`):
                 The ID of the bucket (e.g. `"username/my-bucket"`).
             remote_path (`str`):
-                the file to mutate.
+                The file to edit.
             edit (`list[tuple[tuple[int, int], bytes]]`, *optional*):
                 List edits to apply, in the form `((start, end), data)`.
                 Ranges [`start`, `end`) are replaced with `data`, which can
@@ -15007,7 +15007,7 @@ class HfApi:
             _progress = None
 
         file_metadata = self.get_bucket_file_metadata(bucket_id=bucket_id, remote_path=remote_path, token=token)
-        self._mutate_bucket_file(
+        self._edit_bucket_file(
             bucket_id=bucket_id,
             remote_path=remote_path,
             edit=edit,
@@ -15018,7 +15018,7 @@ class HfApi:
             _file_size=file_metadata.size,
         )
 
-    def _mutate_bucket_file(
+    def _edit_bucket_file(
         self,
         *,
         bucket_id: str,

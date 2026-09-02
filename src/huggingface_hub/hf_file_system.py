@@ -393,18 +393,18 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
     def open(
         self,
         path,
-        mode: Literal["ab", "mb"],
+        mode: Literal["ab", "eb"],
         block_size=None,
         cache_options=None,
         compression=None,
         **kwargs,
-    ) -> "HfFileSystemMutateFile": ...
+    ) -> "HfFileSystemEditFile": ...
 
     @overload
     def open(
         self,
         path,
-        mode: Literal["a", "m", "at", "mt"],
+        mode: Literal["a", "e", "at", "mt"],
         block_size=None,
         cache_options=None,
         compression=None,
@@ -442,7 +442,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         cache_options=None,
         compression=None,
         **kwargs,
-    ) -> fsspec.spec.AbstractBufferedFile | "HfFileSystemMutateFile" | io.TextIOWrapper | "MutableTextIOWrapper":
+    ) -> fsspec.spec.AbstractBufferedFile | "HfFileSystemEditFile" | io.TextIOWrapper | "MutableTextIOWrapper":
         """
         Return a file-like object from the filesystem
 
@@ -454,7 +454,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
                 Target file
             mode: str like 'rb', 'w', 'a'
                 See builtin ``open()``.
-                There is an extra mode 'mb' (mutate bytes in-place) allows insert(), delete(), edit() and append().
+                There is an extra mode 'mb' (edit bytes in-place) allows insert(), delete(), edit() and append().
                 It is available thanks to Xet which stores files by chunks.
             block_size (`int`):
                 Some indication of buffering - this is a value in bytes
@@ -466,10 +466,10 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
                 compression from the filename suffix.
             encoding, errors, newline: passed on to TextIOWrapper for text mode
         """
-        mutate_mode = "m" if "m" in mode else ("a" if "a" in mode else None)
-        if mutate_mode:
+        edit_mode = "e" if "e" in mode else ("a" if "a" in mode else None)
+        if edit_mode:
             if compression is not None:
-                raise NotImplementedError(f"Mode '{mutate_mode}' with compression is not implemented")
+                raise NotImplementedError(f"Mode '{edit_mode}' with compression is not implemented")
             if "b" not in mode:
                 mode = mode.replace("t", "") + "b"
                 text_kwargs = {k: kwargs.pop(k) for k in ["encoding", "errors", "newline"] if k in kwargs}
@@ -498,12 +498,12 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         block_size: int | None = None,
         revision: str | None = None,
         **kwargs,
-    ) -> Union["HfFileSystemFile", "HfFileSystemStreamFile", "HfFileSystemMutateFile"]:
+    ) -> Union["HfFileSystemFile", "HfFileSystemStreamFile", "HfFileSystemEditFile"]:
         block_size = block_size if block_size is not None else self.block_size
         if block_size is not None:
             kwargs["block_size"] = block_size
-        if "a" in mode or "m" in mode:
-            return HfFileSystemMutateFile(self, path, mode=mode, **kwargs)
+        if "a" in mode or "e" in mode:
+            return HfFileSystemEditFile(self, path, mode=mode, **kwargs)
         if block_size == 0:
             return HfFileSystemStreamFile(self, path, mode=mode, revision=revision, **kwargs)
         else:
@@ -1497,11 +1497,11 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
         self._stream_iterator = self.response.iter_bytes()
 
 
-class HfFileSystemMutateFile(fsspec.spec.AbstractBufferedFile):
+class HfFileSystemEditFile(fsspec.spec.AbstractBufferedFile):
     """Mutate a file in a bucket in-place, only re-uploading the parts
     the caller actually rewrites.
 
-    Supported mutate operations: append, edit, insert, delete, truncate.
+    Supported edit operations: append(), edit(), insert(), delete(), truncate().
 
     It uses a buffer that is only sent on flush(force=True) or if buffer
     is greater than or equal to block_size (and there is also a minimum
@@ -1519,24 +1519,24 @@ class HfFileSystemMutateFile(fsspec.spec.AbstractBufferedFile):
             f.write(log)
     ```
 
-    - Edit a file header using the mutate mode "m":
+    - Edit a file header using the edit mode "e":
 
     ```py
     from huggingface_hub import hffs
 
     header_length = 16
     new_header = b"MY_NEW_HEADER_00"
-    with hffs.open("buckets/username/my-bucket/data.bin", "mb") as f:
+    with hffs.open("buckets/username/my-bucket/data.bin", "eb") as f:
         f.edit((0, header_length), new_header)
     ```
 
-    - Remove a certain line using the mutate mode "m":
+    - Remove a certain line using the edit mode "e":
 
     ```py
     from huggingface_hub import hffs
 
     line_idx_to_remove = 42
-    with hffs.open("buckets/username/my-bucket/doc.txt", "m") as f:
+    with hffs.open("buckets/username/my-bucket/doc.txt", "e") as f:
         for i, line in enumerate(f):
             if i == line_idx_to_remove:
                 line_loc = f.loc - len(line)
@@ -1564,7 +1564,7 @@ class HfFileSystemMutateFile(fsspec.spec.AbstractBufferedFile):
     ):
         from fsspec.core import caches
 
-        if mode not in {"mb", "ab"}:
+        if mode not in {"eb", "ab"}:
             raise NotImplementedError("File mode not supported")
         resolved_path = fs.resolve_path(path)
         if not isinstance(resolved_path, HfFileSystemResolvedBucketPath):
@@ -1592,7 +1592,7 @@ class HfFileSystemMutateFile(fsspec.spec.AbstractBufferedFile):
         self.loc = self.size if "a" in mode else 0
         self.kwargs = kwargs
 
-        # specific to HfFileSystemMutateFile
+        # specific to HfFileSystemEditFile
         self.file_hash = file_hash if file_hash is not None else self.details["xet_hash"]
         self.ranges: list[range | bytearray] = [range(0, self.size)]
         self.buffer_size = 0
@@ -1663,7 +1663,7 @@ class HfFileSystemMutateFile(fsspec.spec.AbstractBufferedFile):
         if original_offset < original_size:
             delete.append((original_offset, original_size - original_offset))
         if insert or delete:
-            self.file_hash = self.fs._api._mutate_bucket_file(
+            self.file_hash = self.fs._api._edit_bucket_file(
                 bucket_id=self.resolved_path.bucket_id,
                 remote_path=self.resolved_path.path,
                 insert=insert or None,
@@ -1944,7 +1944,7 @@ class HfFileSystemMutateFile(fsspec.spec.AbstractBufferedFile):
 
 
 class MutableTextIOWrapper(io.TextIOWrapper):
-    buffer: HfFileSystemMutateFile
+    buffer: HfFileSystemEditFile
 
     @property
     def loc(self) -> int:

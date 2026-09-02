@@ -45,7 +45,7 @@ In addition to the [`HfApi`], the `huggingface_hub` library provides [`HfFileSys
 ...     f.write("Another fantastic review,good")
 
 >>> # Edit a remote file (uses Xet to only send the new data without downloading the file - only for buckets)
->>> with hffs.open("buckets/my-username/my-bucket/validation.csv", "m") as f:
+>>> with hffs.open("buckets/my-username/my-bucket/validation.csv", "e") as f:
 ...     f.edit((f.size - 4, f.size), "bad")
 ```
 
@@ -53,7 +53,7 @@ The optional `revision` argument can be passed to run an operation from a specif
 
 Unlike Python's built-in `open`, `fsspec`'s `open` defaults to binary mode, `"rb"`. This means you must explicitly set mode as `"r"` for reading and `"w"` for writing in text mode.
 
-Appending to a file (modes `"a"` and `"ab"`) is supported and very efficient thanks to Xet. Similarly, editing a file in place (mutate modes `"m"` and `"mb"` - not available in Python built-in `open`) is supported and allows efficient operations `edit`, `append`, `insert`, `delete` and `truncate` via [`HfFileSystemMutateFile`].
+Appending to a file (modes `"a"` and `"ab"`) is supported and very efficient thanks to Xet. Similarly, editing a file in place (edit modes `"e"` and `"eb"` - not available in Python built-in `open`) is supported and allows efficient operations `edit`, `append`, `insert`, `delete` and `truncate` via [`HfFileSystemEditFile`].
 
 ## Integrations
 
