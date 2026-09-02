@@ -45,6 +45,7 @@ from huggingface_hub.inference._providers.hf_inference import (
     HFInferenceFeatureExtractionTask,
     HFInferenceTask,
 )
+from huggingface_hub.inference._providers.iteracompute import IteraComputeConversationalTask
 from huggingface_hub.inference._providers.novita import NovitaConversationalTask, NovitaTextGenerationTask
 from huggingface_hub.inference._providers.nscale import NscaleConversationalTask, NscaleTextToImageTask
 from huggingface_hub.inference._providers.openai import OpenAIConversationalTask
@@ -910,6 +911,15 @@ class TestGroqProvider:
         """Test route preparation for Groq conversational task."""
         helper = GroqConversationalTask()
         assert helper._prepare_route("username/repo_name", "hf_token") == "/openai/v1/chat/completions"
+
+
+class TestIteraComputeProvider:
+    def test_prepare_url(self):
+        helper = IteraComputeConversationalTask()
+        assert (
+            helper._prepare_url("iteracompute_token", "username/repo_name")
+            == "https://api.iteracompute.com/hf/v1/chat/completions"
+        )
 
 
 class TestHFInferenceProvider:
