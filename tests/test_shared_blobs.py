@@ -277,6 +277,23 @@ class TestLinkAndPublish:
         assert store_entry.read_bytes() == b"truncated"
         assert not blob_b.exists()
 
+    def test_unreadable_store_entry_is_not_used_and_gets_replaced(self, tmp_path: Path) -> None:
+        _publish(tmp_path)
+        store_entry = shared_blob_path(tmp_path, XET_HASH)
+        store_entry.chmod(0o000)
+        blob_b = tmp_path / "models--org--repoB" / "blobs" / "etag"
+        blob_b.parent.mkdir(parents=True)
+
+        assert not try_link_from_shared_store(
+            blob_path=str(blob_b), xet_hash=XET_HASH, cache_dir=tmp_path, expected_size=len(CONTENT)
+        )
+        assert not blob_b.exists()
+
+        blob_b = _publish(tmp_path, repo_folder="models--org--repoB")
+        assert blob_b.is_symlink()
+        assert blob_b.read_bytes() == CONTENT
+        assert os.access(store_entry, os.R_OK)
+
     def test_force_publication_atomically_replaces_canonical_file(self, tmp_path: Path) -> None:
         blob_a = _publish(tmp_path)
         store_entry = shared_blob_path(tmp_path, XET_HASH)
