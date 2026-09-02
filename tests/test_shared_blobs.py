@@ -21,6 +21,7 @@ from huggingface_hub._shared_blobs import (
     shared_blobs_dir,
     sweep_shared_blob,
     try_link_from_shared_store,
+    unreferenced_shared_blobs,
 )
 from huggingface_hub.file_download import _chmod_and_move, hf_hub_download
 from huggingface_hub.utils import scan_cache_dir
@@ -353,6 +354,16 @@ class TestManifestGc:
         assert sweep_shared_blob(store_entry, cache_dir=tmp_path) == len(CONTENT)
         assert not store_entry.exists()
         assert not shared_blob_manifest_path(tmp_path, XET_HASH).exists()
+
+    def test_unreferenced_shared_blobs_lists_orphans_only(self, tmp_path: Path) -> None:
+        _publish(tmp_path)
+        _publish(tmp_path, repo_folder="models--org--repoB", xet_hash=OTHER_XET_HASH)
+        shutil.rmtree(tmp_path / "models--org--repoB")
+
+        assert unreferenced_shared_blobs(tmp_path) == {shared_blob_path(tmp_path, OTHER_XET_HASH): len(CONTENT)}
+
+        shared_blob_manifest_path(tmp_path, OTHER_XET_HASH).unlink()
+        assert unreferenced_shared_blobs(tmp_path) == {}
 
     def test_missing_manifest_leaks_instead_of_deleting(self, tmp_path: Path) -> None:
         blob = _publish(tmp_path)

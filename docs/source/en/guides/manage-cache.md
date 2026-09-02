@@ -216,8 +216,10 @@ directory is never adopted or cleaned by `huggingface_hub`.
 
 Each shared file has a `<xet_hash>.refs` manifest containing the relative paths of repo
 blobs that reference it. A reference is flushed to the manifest before its symlink is
-made visible. `hf cache rm` and `hf cache prune` use this manifest to inspect only
-shared blobs affected by the current deletion, rather than scanning the full cache.
+made visible. `hf cache rm` uses this manifest to inspect only shared blobs affected by
+the current deletion, rather than scanning the full cache. `hf cache prune` also removes
+shared blobs that no cached repo references anymore, for example after a repo folder was
+deleted manually or with an older client.
 The manifest is only a hint: every line is checked against the actual symlink, stale
 lines are removed, and missing, malformed, or unreadable metadata causes the payload
 to be kept. Cache cleanup therefore prefers leaking reclaimable data over breaking a
@@ -699,9 +701,9 @@ Dry run: no files were deleted.
 When working outside the default cache location, pair the command with
 `--cache-dir PATH`.
 
-To clean up cache garbage in bulk, run `hf cache prune`. It automatically deletes both
-revisions that are no longer referenced by a branch or tag and any leftover `.incomplete`
-files from interrupted downloads:
+To clean up cache garbage in bulk, run `hf cache prune`. It automatically deletes
+revisions that are no longer referenced by a branch or tag, leftover `.incomplete` files
+from interrupted downloads, and shared blobs that no cached repo references anymore:
 
 ```text
 ➜ hf cache prune

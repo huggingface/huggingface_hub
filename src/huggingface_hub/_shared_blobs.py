@@ -536,6 +536,22 @@ def shared_store_blob_paths(cache_dir: str | Path) -> set[Path]:
     return paths
 
 
+def unreferenced_shared_blobs(cache_dir: str | Path) -> dict[Path, int]:
+    """Return store payloads without any valid manifest reference, with their sizes.
+
+    Payloads with a missing or unreadable manifest are not listed, consistent with `sweep_shared_blob`.
+    """
+    unreferenced: dict[Path, int] = {}
+    for store_path in shared_store_blob_paths(cache_dir):
+        references = _read_valid_manifest_references(store_path, cache_dir)
+        if references is not None and not references:
+            try:
+                unreferenced[store_path] = store_path.lstat().st_size
+            except OSError:
+                pass
+    return unreferenced
+
+
 def _rewrite_manifest(manifest_path: Path, references: set[Path], cache_dir: str | Path) -> None:
     tmp_path = manifest_path.with_name(f"{manifest_path.name}.{uuid.uuid4().hex[:8]}.tmp")
     cache_dir = Path(os.path.abspath(cache_dir))

@@ -296,6 +296,7 @@ class TestCacheCommand:
 
         hf_cache_info.incomplete_files = frozenset()
         hf_cache_info.incomplete_size_on_disk = 0
+        hf_cache_info.cache_dir = None
 
         with (
             patch("huggingface_hub.cli.cache.scan_cache_dir", return_value=hf_cache_info),
