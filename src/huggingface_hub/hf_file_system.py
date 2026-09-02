@@ -409,7 +409,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         cache_options=None,
         compression=None,
         **kwargs,
-    ) -> "MutableTextIOWrapper": ...
+    ) -> "EditTextIOWrapper": ...
 
     @overload
     def open(
@@ -442,7 +442,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         cache_options=None,
         compression=None,
         **kwargs,
-    ) -> fsspec.spec.AbstractBufferedFile | "HfFileSystemEditFile" | io.TextIOWrapper | "MutableTextIOWrapper":
+    ) -> fsspec.spec.AbstractBufferedFile | "HfFileSystemEditFile" | io.TextIOWrapper | "EditTextIOWrapper":
         """
         Return a file-like object from the filesystem
 
@@ -481,7 +481,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
                     compression=compression,
                     **kwargs,
                 )
-                return MutableTextIOWrapper(buffer, **text_kwargs, write_through=True)
+                return EditTextIOWrapper(buffer, **text_kwargs, write_through=True)
         return super().open(
             path,
             mode=mode,
@@ -1530,19 +1530,16 @@ class HfFileSystemEditFile(fsspec.spec.AbstractBufferedFile):
         f.edit((0, header_length), new_header)
     ```
 
-    - Remove a certain line using the edit mode "e":
+    - Remove a line using the edit mode "e":
 
     ```py
     from huggingface_hub import hffs
 
-    line_idx_to_remove = 42
     with hffs.open("buckets/username/my-bucket/doc.txt", "e") as f:
-        for i, line in enumerate(f):
-            if i == line_idx_to_remove:
-                line_loc = f.loc - len(line)
-                line_length = len(line)
-                f.delete(line_loc, line_length)
+        for line in f:
+            if line == "this is a bad line\n":
                 break
+        f.delete(loc=f.loc - len(line), length=len(line))
     ```
     """
 
@@ -1943,7 +1940,7 @@ class HfFileSystemEditFile(fsspec.spec.AbstractBufferedFile):
             return False
 
 
-class MutableTextIOWrapper(io.TextIOWrapper):
+class EditTextIOWrapper(io.TextIOWrapper):
     buffer: HfFileSystemEditFile
 
     @property
