@@ -41,8 +41,8 @@ from .utils.insecure_hashlib import md5
 class HfFileSystemResolvedPath:
     """Top level Data structure containing information about a resolved Hugging Face file system path."""
 
-    root (`str`):
-    path (`str`):
+    root: str
+    path: str
 
     def unresolve(self) -> str:
         return f"{self.root}/{self.path}".rstrip("/")
@@ -52,10 +52,10 @@ class HfFileSystemResolvedPath:
 class HfFileSystemResolvedRepositoryPath(HfFileSystemResolvedPath):
     """Data structure containing information about a resolved path in a repository."""
 
-    repo_type (`str`):
-    repo_id (`str`):
-    revision (`str`):
-    path_in_repo (`str`):
+    repo_type: str
+    repo_id: str
+    revision: str
+    path_in_repo: str
     root: str = field(init=False)
     path: str = field(init=False)
     # The part placed after '@' in the initial path. It can be a quoted or unquoted refs revision.
@@ -77,7 +77,7 @@ class HfFileSystemResolvedRepositoryPath(HfFileSystemResolvedPath):
 class HfFileSystemResolvedBucketPath(HfFileSystemResolvedPath):
     """Data structure containing information about a resolved path in a bucket."""
 
-    bucket_id (`str`):
+    bucket_id: str
     root: str = field(init=False)
 
     def __post_init__(self):
