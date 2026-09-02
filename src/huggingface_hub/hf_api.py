@@ -14635,6 +14635,7 @@ class HfApi:
                         "xetHash": op.xet_hash,
                         "sourceRepoType": op.source_repo_type,
                         "sourceRepoId": op.source_repo_id,
+                        "mtime": op.mtime,
                     }
                 else:
                     payload = {

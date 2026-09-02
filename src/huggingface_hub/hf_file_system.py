@@ -920,7 +920,34 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         if isinstance(resolved_path1, HfFileSystemResolvedBucketPath) or isinstance(
             resolved_path2, HfFileSystemResolvedBucketPath
         ):
-            raise NotImplementedError("Copy from/to buckets is not available yet")
+            if not isinstance(resolved_path1, HfFileSystemResolvedBucketPath) or not isinstance(
+                resolved_path2, HfFileSystemResolvedBucketPath
+            ):
+                raise NotImplementedError("Copy between repos and buckets is not available yet")
+            if resolved_path1.bucket_id != resolved_path2.bucket_id:
+                raise NotImplementedError("Copy between different buckets is not available yet")
+            from huggingface_hub._buckets import _BucketCopyFile
+
+            # Use _BucketCopyFile to update the file reference.
+            # We copy from the same bucket (self-referential) to update the file hash.
+            file_metadata = self._api.get_bucket_file_metadata(
+                bucket_id=resolved_path1.bucket_id, remote_path=resolved_path1.path, token=self.token
+            )
+            self._api._batch_bucket_files(
+                bucket_id=resolved_path2.bucket_id,
+                copy=[
+                    _BucketCopyFile(
+                        destination=resolved_path2.path,
+                        xet_hash=file_metadata.xet_file_data.file_hash,
+                        source_repo_type="bucket",
+                        source_repo_id=resolved_path2.bucket_id,
+                    )
+                ],
+                token=self.token,
+            )
+            self.invalidate_cache(path=resolved_path1.unresolve())
+            self.invalidate_cache(path=resolved_path2.unresolve())
+            return
 
         same_repo = (
             resolved_path1.repo_type == resolved_path2.repo_type and resolved_path1.repo_id == resolved_path2.repo_id

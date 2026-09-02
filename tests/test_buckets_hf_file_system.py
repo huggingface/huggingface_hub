@@ -82,7 +82,3 @@ class TestHfFileSystemBucketRW(_HfFileSystemBucketChecks, _HfFileSystemBaseRWTes
         self.text_file = self.hf_path + "/" + self.text_file_path
         yield
         self.api.delete_bucket(self.bucket_id)
-
-    @pytest.mark.skip("Not implemented yet")
-    def test_copy_file(self):
-        pass
