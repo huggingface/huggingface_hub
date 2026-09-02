@@ -12,8 +12,8 @@
 name: Close unscoped community PRs
 
 on:
-  pull_request_target:
-    types: [opened, reopened]
+  # pull_request_target: # disabling auto-close for now. Noise is still there and we don't want to discourage contributions
+  #   types: [opened, reopened]
   workflow_dispatch:
     inputs:
       pr_number:
