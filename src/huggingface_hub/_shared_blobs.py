@@ -291,11 +291,12 @@ def _shared_blob_target(
 
 
 def shared_blob_target(blob_path: str | Path, cache_dir: str | Path) -> Path | None:
-    """Return the canonical store target if `blob_path` is a valid shared symlink."""
+    """Return the canonical store target if `blob_path` is a valid shared symlink.
+
+    Callers check `is_shared_blobs_dir` once before resolving many blobs.
+    """
     target = _shared_blob_target(blob_path, cache_dir)
-    if target is None or not is_shared_blobs_dir(shared_blobs_dir(cache_dir)) or not _is_regular_file(target):
-        return None
-    return target
+    return target if target is not None and _is_regular_file(target) else None
 
 
 def _manifest_path_for_store_path(store_path: Path) -> Path:

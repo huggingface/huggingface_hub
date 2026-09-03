@@ -313,7 +313,9 @@ class DeleteCacheStrategy:
         # those manifests are checked after deletion, keeping GC proportional to this
         # strategy instead of to the entire cache.
         shared_store_paths: set[Path] = set()
-        if self.cache_dir is not None:
+        if self.cache_dir is not None and _shared_blobs.is_shared_blobs_dir(
+            _shared_blobs.shared_blobs_dir(self.cache_dir)
+        ):
             blob_paths = set(self.blobs)
             for repo_path in self.repos:
                 blobs_dir = repo_path / "blobs"
@@ -746,12 +748,13 @@ def scan_cache_dir(cache_dir: str | Path | None = None) -> HFCacheInfo:
     # `CachedRepoInfo.size_on_disk` remains the logical size attributed to each repo.
     # The cache-wide total counts each shared canonical payload once and includes
     # store-only entries left by manual or old-client repo deletion.
+    store_marked = _shared_blobs.is_shared_blobs_dir(_shared_blobs.shared_blobs_dir(cache_dir))
     repo_blob_paths = {
         file.blob_path
         for repo in repos
         for revision in repo.revisions
         for file in revision.files
-        if _shared_blobs.shared_blob_target(file.blob_path, cache_dir) is None
+        if not store_marked or _shared_blobs.shared_blob_target(file.blob_path, cache_dir) is None
     }
     physical_blob_paths = repo_blob_paths | _shared_blobs.shared_store_blob_paths(cache_dir)
     physical_size = 0
@@ -950,20 +953,20 @@ def _expected_freed_size(blobs_to_unlink: dict[Path, int], cache_dir: Path | Non
     their canonical payload once only when every currently valid manifest reference is
     included in the deletion plan.
     """
+    if cache_dir is None or not _shared_blobs.is_shared_blobs_dir(_shared_blobs.shared_blobs_dir(cache_dir)):
+        return sum(blobs_to_unlink.values())
     expected_freed_size = 0
     shared_store_paths: set[Path] = set()
-    blob_paths_to_delete = set(blobs_to_unlink)
     for blob_path, size_on_disk in blobs_to_unlink.items():
-        store_path = _shared_blobs.shared_blob_target(blob_path, cache_dir) if cache_dir is not None else None
-        if store_path is None:
+        if store_path := _shared_blobs.shared_blob_target(blob_path, cache_dir):
+            shared_store_paths.add(store_path)
+        else:
             expected_freed_size += size_on_disk
-            continue
-        shared_store_paths.add(store_path)
-    if cache_dir is not None:
-        for store_path in shared_store_paths:
-            expected_freed_size += _shared_blobs.expected_shared_blob_freed_size(
-                store_path, blob_paths_to_delete=blob_paths_to_delete, cache_dir=cache_dir
-            )
+    blob_paths_to_delete = set(blobs_to_unlink)
+    for store_path in shared_store_paths:
+        expected_freed_size += _shared_blobs.expected_shared_blob_freed_size(
+            store_path, blob_paths_to_delete=blob_paths_to_delete, cache_dir=cache_dir
+        )
     return expected_freed_size
 
 
