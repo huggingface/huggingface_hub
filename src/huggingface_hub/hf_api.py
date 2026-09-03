@@ -2369,10 +2369,20 @@ class HfApi:
         return output
 
     def _inner_whoami(self, token: str) -> dict:
-        r = get_session().get(
-            f"{self.endpoint}/api/whoami-v2",
-            headers=self._build_hf_headers(token=token),
-        )
+        try:
+            r = get_session().get(
+                f"{self.endpoint}/api/whoami-v2",
+                headers=self._build_hf_headers(token=token),
+            )
+        except (httpx.ConnectError, httpx.TimeoutException, httpx.NetworkError) as err:
+            # Keep full traceback when debugging; otherwise surface a short actionable message.
+            # See https://github.com/huggingface/huggingface_hub/issues/4796
+            if constants.HF_DEBUG:
+                raise
+            raise OSError(
+                f"Couldn't reach {self.endpoint} (network/DNS). "
+                "Check your connection and retry. Set HF_DEBUG=1 for the full traceback."
+            ) from err
         try:
             hf_raise_for_status(r)
         except HfHubHTTPError as e:
