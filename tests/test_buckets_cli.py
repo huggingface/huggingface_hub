@@ -302,6 +302,40 @@ def test_rm_recursive(api: HfApi, bucket_write: str):
     assert _remote_files(api, bucket_write) == {"keep.txt"}
 
 
+def test_rm_recursive_path_boundary(api: HfApi, bucket_write: str):
+    """'hf buckets rm prefix --recursive' does not remove lexical siblings of the prefix."""
+    api.batch_bucket_files(
+        bucket_write,
+        add=[
+            (b"a", "logs/a.log"),
+            (b"b", "logs/b.log"),
+            (b"json", "logs.json"),
+            (b"backup", "logs_backup/a.log"),
+            (b"x", "logsx/c.log"),
+        ],
+    )
+
+    result = cli(f"hf buckets rm {bucket_write}/logs --recursive --yes")
+    assert result.exit_code == 0
+    assert "2 file(s)" in result.output
+
+    assert _remote_files(api, bucket_write) == {"logs.json", "logs_backup/a.log", "logsx/c.log"}
+
+
+def test_rm_recursive_trailing_slash(api: HfApi, bucket_write: str):
+    """'hf buckets rm prefix/ --recursive' behaves like the slash-less form."""
+    api.batch_bucket_files(
+        bucket_write,
+        add=[(b"a", "logs/a.log"), (b"json", "logs.json")],
+    )
+
+    result = cli(f"hf buckets rm {bucket_write}/logs/ --recursive --yes")
+    assert result.exit_code == 0
+    assert "1 file(s)" in result.output
+
+    assert _remote_files(api, bucket_write) == {"logs.json"}
+
+
 def test_rm_recursive_dry_run(api: HfApi, bucket_write: str):
     """'hf buckets rm prefix/ --recursive --dry-run' previews without deleting."""
     api.batch_bucket_files(
