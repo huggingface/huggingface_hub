@@ -13,6 +13,8 @@
 # limitations under the License
 
 # ruff: noqa: F401
+import httpx  # for forward compatibility - will be httpx2 in huggingface_hub v2.x
+
 from huggingface_hub.errors import (
     BadRequestError,
     BucketNotFoundError,
