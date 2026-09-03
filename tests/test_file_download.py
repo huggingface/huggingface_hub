@@ -70,6 +70,39 @@ DATASET_REVISION_ID_ONE_SPECIFIC_COMMIT = "e25d55a1c4933f987c46cc75d8ffadd67f257
 DATASET_SAMPLE_PY_FILE = "custom_squad.py"
 
 
+@pytest.mark.parametrize("use_local_dir", [False, True])
+def test_download_without_head_content_length(tmp_path: Path, use_local_dir: bool) -> None:
+    content = b"content"
+
+    def _mock_head(*, url: str, **kwargs) -> httpx.Response:
+        return httpx.Response(
+            200,
+            headers={constants.HUGGINGFACE_HEADER_X_REPO_COMMIT: "a" * 40, "ETag": '"etag"'},
+            request=httpx.Request("HEAD", url),
+        )
+
+    @contextmanager
+    def _mock_get(*args, **kwargs):
+        yield httpx.Response(
+            200,
+            headers={"Content-Length": str(len(content))},
+            content=content,
+            request=httpx.Request("GET", "https://huggingface.co/user/repo/resolve/main/file.txt"),
+        )
+
+    download_kwargs = {"cache_dir": tmp_path / "cache"}
+    if use_local_dir:
+        download_kwargs["local_dir"] = tmp_path / "local"
+
+    with (
+        patch("huggingface_hub.file_download._httpx_follow_hub_redirects_with_backoff", side_effect=_mock_head),
+        patch("huggingface_hub.file_download.http_stream_backoff", side_effect=_mock_get),
+    ):
+        path = hf_hub_download("user/repo", "file.txt", **download_kwargs)
+
+    assert Path(path).read_bytes() == content
+
+
 class TestDiskUsageWarning:
     @pytest.fixture(scope="class", autouse=True)
     def setup(self, request):
@@ -1049,6 +1082,12 @@ class TestHfHubDownloadRelativePaths:
 
 
 class TestHttpGet:
+    def test_http_get_validates_content_length_when_expected_size_is_missing(self):
+        with pytest.raises(OSError, match="file should be of size 100 but has size 50"):
+            self._http_get_with_mocked_responses(
+                [self._mock_response(headers={"Content-Length": "100"}, iter_bytes=iter([b"A" * 50]))]
+            )
+
     def test_http_get_with_ssl_and_timeout_error(self, caplog):
         def _iter_content_1() -> Iterable[bytes]:
             yield b"0" * 10
