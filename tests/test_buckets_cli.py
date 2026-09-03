@@ -685,6 +685,21 @@ def test_list_files_with_prefix(tree_bucket: str):
     )
 
 
+def test_list_files_with_prefix_path_boundary(api: HfApi, bucket_write: str):
+    """A prefix is scoped to path components: lexical siblings are not listed."""
+    api.batch_bucket_files(
+        bucket_write,
+        add=[
+            (b"a", "logs/a.log"),
+            (b"json", "logs.json"),
+            (b"backup", "logs_backup/a.log"),
+            (b"x", "logsx/c.log"),
+        ],
+    )
+
+    _check_list_output(f"hf buckets list {bucket_write}/logs -R --quiet", ["logs/a.log"])
+
+
 def test_list_files_with_hf_prefix(tree_bucket: str):
     """hf://buckets/ format works the same as short format."""
     _check_list_output(
