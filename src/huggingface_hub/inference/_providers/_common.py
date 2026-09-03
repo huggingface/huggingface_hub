@@ -29,6 +29,7 @@ HARDCODED_MODEL_INFERENCE_MAPPING: dict[str, dict[str, InferenceProviderMapping]
     "fireworks-ai": {},
     "groq": {},
     "hf-inference": {},
+    "neuronpool": {},
     "nscale": {},
     "ovhcloud": {},
     "replicate": {},
