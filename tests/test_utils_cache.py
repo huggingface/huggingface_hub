@@ -498,7 +498,6 @@ class TestDeleteRevisionsDryRun:
         # Define repo
         repo_A = Mock()
         repo_A.repo_path = Path("repo_A")
-        repo_A.size_on_disk = 4444
         repo_A.revisions = {repo_A_rev_main, repo_A_rev_detached, repo_A_rev_pr_1}
 
         # Define cache

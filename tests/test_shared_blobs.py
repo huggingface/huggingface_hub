@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 import pytest
 
-from huggingface_hub import constants
+from huggingface_hub import _shared_blobs, constants
 from huggingface_hub._shared_blobs import (
     _relative_blob_path,
     is_shared_blobs_dir,
@@ -236,8 +236,6 @@ class TestLinkAndPublish:
         blob = _write_blob(tmp_path / "models--org--repoA" / "blobs" / "etag")
         events: list[str] = []
 
-        from huggingface_hub import _shared_blobs
-
         original_append = _shared_blobs._append_manifest_reference
         original_replace = _shared_blobs.os.replace
 
@@ -312,8 +310,6 @@ class TestLinkAndPublish:
 
     def test_failed_publish_raises_when_regular_repo_blob_cannot_be_restored(self, tmp_path: Path) -> None:
         blob = _write_blob(tmp_path / "models--org--repoA" / "blobs" / "etag")
-
-        from huggingface_hub import _shared_blobs
 
         original_replace = _shared_blobs.os.replace
 
@@ -410,8 +406,6 @@ class TestManifestGc:
         blob_b.parent.mkdir(parents=True)
         manifest_flushed = threading.Event()
         finish_link = threading.Event()
-
-        from huggingface_hub import _shared_blobs
 
         original_append = _shared_blobs._append_manifest_reference
 
