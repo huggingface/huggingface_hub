@@ -1899,9 +1899,8 @@ Running this will show the following output!
 This code ran with the following GPU: NVIDIA A10G
 ```
 
-Place Jobs options before the image. If your command uses options that Jobs also recognises,
-such as `--help` or `--timeout`, add `--` between the image and command. Otherwise, Jobs can
-consume those options instead of forwarding them:
+Put Jobs options before the image for consistency. Use `--` between the image and command to
+prevent Jobs from consuming command options such as `--help` or `--timeout`.
 
 ```bash
 >>> hf jobs run --flavor cpu-basic python:3.12 -- python --help
