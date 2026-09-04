@@ -204,9 +204,6 @@ class TestRepocardMetadata:
         assert data == {"license": "mit", "datasets": ["foo", "bar"]}
 
     def test_metadata_load_non_ascii(self):
-        # `metadata_save` writes UTF-8, so `metadata_load` must decode UTF-8 on every platform.
-        # With the locale default (cp1252 on Windows) "é" comes back as "Ã©" and "Á"
-        # raises UnicodeDecodeError.
         metadata = {"license": "mit", "pretty_name": "Café Á 北京"}
         metadata_save(self.filepath, metadata)
         assert metadata_load(self.filepath) == metadata
@@ -626,8 +623,6 @@ class TestRepoCard:
 
     @require_jinja
     def test_repo_card_from_custom_template_path_non_ascii(self, tmp_path):
-        # The template file is UTF-8; with the locale default (cp1252 on Windows) accented
-        # characters are mangled and "Á" raises UnicodeDecodeError.
         template_path = tmp_path / "template.md"
         template_path.write_text(DUMMY_NON_ASCII_MODEL_CARD_TEMPLATE, encoding="utf-8")
         card = RepoCard.from_template(card_data=CardData(license="mit"), template_path=template_path)
