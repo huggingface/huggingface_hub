@@ -14708,6 +14708,7 @@ class HfApi:
                         "xetHash": op.xet_hash,
                         "sourceRepoType": op.source_repo_type,
                         "sourceRepoId": op.source_repo_id,
+                        "mtime": op.mtime,
                     }
                 else:
                     payload = {
@@ -14774,7 +14775,7 @@ class HfApi:
         if xet_file_data is None:
             raise ValueError(f"Could not parse xet file data for '{remote_path}' in bucket '{bucket_id}'.")
 
-        size = response.headers.get("Content-Length")
+        size = response.headers.get("X-Linked-Size")
         if size is None:
             raise ValueError(f"Could not get size for '{remote_path}' in bucket '{bucket_id}'.")
 
@@ -15030,6 +15031,180 @@ class HfApi:
             quiet=quiet,
             token=token,
         )
+
+    def edit_bucket_file(
+        self,
+        *,
+        bucket_id: str,
+        remote_path: str,
+        edit: list[tuple[tuple[int, int], bytes]] | None = None,
+        insert: list[tuple[int, bytes]] | None = None,
+        delete: list[tuple[int, int]] | None = None,
+        token: bool | str | None = None,
+    ) -> None:
+        """Edit an existing file in a bucket in-place, only re-uploading the parts the caller actually rewrites.
+
+        See [`HfFileSystemEditFile`] to use this feature with a file-like API.
+
+        Args:
+            bucket_id (`str`):
+                The ID of the bucket (e.g. `"username/my-bucket"`).
+            remote_path (`str`):
+                The file to edit.
+            edit (`list[tuple[tuple[int, int], bytes]]`, *optional*):
+                List edits to apply, in the form `((start, end), data)`.
+                Ranges [`start`, `end`] are replaced with `data`, which can
+                be of any size (not necessarily the size of the replaced range).
+            insert (`list[tuple[int, bytes]]`, *optional*):
+                List of inserts to apply, in the form `(loc, data)`.
+                The content of `data` is inserted at location `loc`, and shifts
+                the rest of the file.
+            delete (`list[tuple[int, bytes]]`, *optional*):
+                List of deletes to apply, in the form `(loc, length)`.
+                The range [`loc`, `loc + length`) is deleted.
+        """
+        if edit:
+            edit = [
+                ((start, end), data) for (start, end), data in edit if start < end or (start == end and len(data) > 0)
+            ]
+        if insert:
+            insert = [(loc, data) for loc, data in insert if len(data) > 0]
+        if delete:
+            delete = [(loc, length) for loc, length in delete if length > 0]
+        if not (edit or insert or delete):
+            return
+        from .utils._xet_progress_reporting import XetUploadProgressReporter
+
+        if not are_progress_bars_disabled():
+            _progress = XetUploadProgressReporter(total_files=1)
+        else:
+            _progress = None
+
+        file_metadata = self.get_bucket_file_metadata(bucket_id=bucket_id, remote_path=remote_path, token=token)
+        self._edit_bucket_file(
+            bucket_id=bucket_id,
+            remote_path=remote_path,
+            edit=edit,
+            insert=insert,
+            delete=delete,
+            _progress=_progress,
+            _file_hash=file_metadata.xet_file_data.file_hash,
+            _file_size=file_metadata.size,
+        )
+
+    def _edit_bucket_file(
+        self,
+        *,
+        bucket_id: str,
+        remote_path: str,
+        edit: list[tuple[tuple[int, int], bytes]] | None = None,
+        insert: list[tuple[int, bytes]] | None = None,
+        delete: list[tuple[int, int]] | None = None,
+        token: bool | str | None = None,
+        _progress: XetUploadProgressReporter | None = None,
+        _file_hash: str | None = None,
+        _file_size: int | None = None,
+    ) -> str:
+        """
+        Internal method: process a single batch of bucket file mutate operations (upload to XET + call /batch).
+        Returns the new file's xet hash.
+        """
+        from .utils._xet import (
+            XetTokenType,
+            abort_xet_session,
+            get_xet_session,
+            xet_connection_info_refresh_url,
+            xet_headers_without_auth,
+        )
+        from .utils._xet_progress_reporting import XetUploadProgressReporter
+
+        owns_progress = _progress is None
+        if _progress is not None:
+            progress = _progress
+            progress.reset_for_next_commit()
+            progress_callback = progress.update_progress
+        elif not are_progress_bars_disabled():
+            progress = XetUploadProgressReporter(total_files=1)
+            progress_callback = progress.update_progress
+        else:
+            progress, progress_callback = None, None
+
+        if _file_hash is None or _file_size is None:
+            file_metadata = self.get_bucket_file_metadata(bucket_id=bucket_id, remote_path=remote_path, token=token)
+            file_hash = file_metadata.xet_file_data.file_hash
+            file_size = file_metadata.size
+        else:
+            file_hash = _file_hash
+            file_size = _file_size
+
+        headers = self._build_hf_headers(token=token)
+        refresh_url = xet_connection_info_refresh_url(
+            token_type=XetTokenType.WRITE,
+            repo_id=bucket_id,
+            repo_type="bucket",
+            endpoint=self.endpoint,
+        )
+        xet_headers = xet_headers_without_auth(headers)
+
+        try:
+            commit = get_xet_session().new_range_upload(
+                file_hash,
+                file_size,
+                token_refresh_url=refresh_url,
+                token_refresh_headers=headers,
+                custom_headers=xet_headers,
+                progress_callback=progress_callback,
+            )
+            logger.debug(
+                f"About to commit to a file on the hub: {len(edit or [])} edit(s), {len(insert or [])} insert(s) and"
+                f" {len(delete or [])} deletion(s)."
+            )
+            try:
+                if edit:
+                    for (start, end), data in edit:
+                        commit.edit(start, end).write(data)
+                if insert:
+                    for loc, data in insert:
+                        commit.insert(loc, len(data)).write(data)
+                if delete:
+                    for loc, length in delete:
+                        commit.delete(loc, loc + length)
+                report = commit.commit()
+            except KeyboardInterrupt:
+                commit.abort()
+                raise
+            finally:
+                # Clean up the commit resources
+                try:
+                    commit.close()
+                except Exception:
+                    pass
+        except KeyboardInterrupt:
+            abort_xet_session()
+            raise
+        finally:
+            if owns_progress and progress is not None:
+                progress.close()
+
+        # Update the Hub file reference with the new hash and size
+        if report is not None and report.file_info is not None:
+            from huggingface_hub._buckets import _BucketCopyFile
+
+            # Use _BucketCopyFile to update the file reference.
+            # We copy from the same bucket (self-referential) to update the file hash.
+            self._batch_bucket_files(
+                bucket_id=bucket_id,
+                copy=[
+                    _BucketCopyFile(
+                        destination=remote_path,
+                        xet_hash=report.file_info.hash,
+                        source_repo_type="bucket",
+                        source_repo_id=bucket_id,
+                    )
+                ],
+                token=token,
+            )
+        return report.file_info.hash
 
 
 def _parse_revision_from_pr_url(pr_url: str) -> str:
