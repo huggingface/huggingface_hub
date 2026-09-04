@@ -856,8 +856,7 @@ def _scan_cached_repo(repo_path: Path) -> CachedRepoInfo:
             # Keep the first symlink hop: a repo blob may itself point into the shared store, and
             # deletion must unlink the repo reference, not the shared payload.
             if file_path.is_symlink():
-                first_hop = Path(os.path.abspath(file_path.parent / os.readlink(file_path)))
-                blob_path = first_hop if first_hop.parent == repo_path / "blobs" else file_path.resolve()
+                blob_path = Path(os.path.abspath(file_path.parent / os.readlink(file_path)))
             else:
                 blob_path = file_path
             if not blob_path.exists():

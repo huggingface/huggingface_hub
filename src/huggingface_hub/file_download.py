@@ -1189,13 +1189,14 @@ def _hf_hub_download_to_cache_dir(
     pointer_path = _get_pointer_path(storage_folder, commit_hash, relative_filename)
 
     if dry_run:
-        # A usable shared store entry counts as cached: the real call would symlink it without
-        # downloading. `has_shared_blob` never writes to the cache, so a dry run stays read-only.
+        # A usable shared store entry counts as cached: the real call would symlink it without downloading.
+        # Symlink support is not probed here (probing writes to the cache), so the preview may be optimistic.
         is_cached = (
             os.path.exists(pointer_path)
             or os.path.exists(blob_path)
             or (
                 xet_file_data is not None
+                and not constants.HF_HUB_DISABLE_SYMLINKS
                 and has_shared_blob(xet_hash=xet_file_data.file_hash, cache_dir=cache_dir, expected_size=expected_size)
             )
         )
