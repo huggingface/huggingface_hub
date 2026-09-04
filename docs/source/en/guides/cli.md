@@ -2145,7 +2145,8 @@ Run UV scripts (Python scripts with inline dependencies) on HF infrastructure. U
 
 UV scripts are Python scripts that include their dependencies directly in the file using a special comment syntax. This makes them perfect for self-contained tasks that don't require complex project setups. Learn more about UV scripts in the [UV documentation](https://docs.astral.sh/uv/guides/scripts/).
 
-Use `--` to pass conflicting options through to your script:
+Use `--` to pass conflicting options through to your script. Here, `--help` reaches `train.py`
+rather than showing Jobs help:
 
 ```bash
 >>> hf jobs uv run --flavor t4-small train.py -- --help
