@@ -7,6 +7,7 @@ import stat
 import time
 import uuid
 import warnings
+from contextlib import ExitStack
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, BinaryIO, Literal, NoReturn, overload
@@ -374,14 +375,37 @@ def http_get(
             " Install `hf_xet` with `pip install hf_xet` for xet-powered downloads."
         )
 
-    with http_stream_backoff(
-        method="GET",
-        url=url,
-        headers=headers,
-        timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT,
-        retry_on_exceptions=(),
-        retry_on_status_codes=(408, 429),
-    ) as response:
+    # Catch transient failures raised while entering the stream. A regular `with` statement raises these before the
+    # body-level retry handler below can resume the download.
+    with ExitStack() as stack:
+        try:
+            response = stack.enter_context(
+                http_stream_backoff(
+                    method="GET",
+                    url=url,
+                    headers=headers,
+                    timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT,
+                    retry_on_exceptions=(),
+                    retry_on_status_codes=(408, 429),
+                )
+            )
+        except (httpx.ConnectError, httpx.TimeoutException, httpx.RemoteProtocolError) as e:
+            if _nb_retries <= 0:
+                logger.warning("Error while downloading from %s: %s\nMax retries exceeded.", url, str(e))
+                raise
+            logger.warning("Error while downloading from %s: %s\nTrying to resume download...", url, str(e))
+            time.sleep(1)
+            return http_get(
+                url=url,
+                temp_file=temp_file,
+                resume_size=resume_size,
+                headers=initial_headers,
+                expected_size=expected_size,
+                tqdm_class=tqdm_class,
+                _nb_retries=_nb_retries - 1,
+                _tqdm_bar=_tqdm_bar,
+            )
+
         hf_raise_for_status(response)
 
         # If we requested a Range but got 200 back, the server ignored our Range header
