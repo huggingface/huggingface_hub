@@ -1899,7 +1899,13 @@ Running this will show the following output!
 This code ran with the following GPU: NVIDIA A10G
 ```
 
-A `--` can be used to separate the command from jobs options for clarity, e.g., `hf jobs run --flavor a10g-small -- python -c '...'`
+Place Jobs options before the image. If your command uses options that Jobs also recognises,
+such as `--help` or `--timeout`, add `--` between the image and command. Otherwise, Jobs can
+consume those options instead of forwarding them:
+
+```bash
+>>> hf jobs run --flavor cpu-basic python:3.12 -- python --help
+```
 
 That's it! You're now running code on Hugging Face's infrastructure.
 
@@ -2123,7 +2129,7 @@ Run UV scripts (Python scripts with inline dependencies) on HF infrastructure. U
 >>> hf jobs uv run --repo my-uv-scripts my_script.py
 
 # Run with GPU
->>> hf jobs uv run --flavor gpu-t4-small ml_training.py
+>>> hf jobs uv run --flavor t4-small ml_training.py
 
 # Pass arguments to script
 >>> hf jobs uv run process.py input.csv output.parquet
@@ -2140,7 +2146,11 @@ Run UV scripts (Python scripts with inline dependencies) on HF infrastructure. U
 
 UV scripts are Python scripts that include their dependencies directly in the file using a special comment syntax. This makes them perfect for self-contained tasks that don't require complex project setups. Learn more about UV scripts in the [UV documentation](https://docs.astral.sh/uv/guides/scripts/).
 
-A `--` can be used to separate the command from jobs/uv options for clarity, e.g., `hf jobs uv run --flavor gpu-t4-small --with torch -- python -c '...'`
+Put Jobs options before the script. Use `--` to forward script options that Jobs also recognises:
+
+```bash
+>>> hf jobs uv run --flavor t4-small train.py -- --help
+```
 
 ### hf jobs scheduled
 
