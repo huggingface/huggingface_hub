@@ -34,8 +34,8 @@ from typing import Generator
 
 from filelock import FileLock, SoftFileLock
 
-from . import constants
-from .utils import logging
+from .. import constants
+from . import logging
 
 
 logger = logging.get_logger(__name__)

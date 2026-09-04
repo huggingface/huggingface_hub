@@ -24,12 +24,6 @@ from ._local_folder import (
     write_download_metadata,
 )
 from ._revision import ResolvedRevision
-from ._shared_blobs import (
-    has_shared_blob,
-    publish_blob_to_shared_store,
-    shared_blobs_enabled,
-    try_link_from_shared_store,
-)
 from ._tree_cache import read_tree_cache, tree_cache_folder_for_local_dir
 from .errors import (
     FileMetadataError,
@@ -61,6 +55,12 @@ from .utils._http import (
     http_stream_backoff,
 )
 from .utils._runtime import is_xet_available
+from .utils._shared_blobs import (
+    has_shared_blob,
+    publish_blob_to_shared_store,
+    shared_blobs_enabled,
+    try_link_from_shared_store,
+)
 from .utils._xet import XetTokenType, is_valid_xet_hash, xet_connection_info_refresh_url
 from .utils.sha import sha_fileobj
 from .utils.tqdm import _get_progress_bar_context

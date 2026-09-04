@@ -22,9 +22,8 @@ from typing import Literal
 
 from huggingface_hub.errors import CacheNotFound, CorruptedCacheException
 
-from .. import _shared_blobs
 from ..constants import HF_HUB_CACHE
-from . import logging
+from . import _shared_blobs, logging
 from ._parsing import format_timesince
 from ._terminal import tabulate
 

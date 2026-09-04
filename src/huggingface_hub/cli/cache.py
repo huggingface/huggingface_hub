@@ -25,7 +25,6 @@ import click
 
 from huggingface_hub.errors import CLIError
 
-from .. import _shared_blobs
 from ..utils import (
     ANSI,
     CachedRepoInfo,
@@ -33,6 +32,7 @@ from ..utils import (
     CacheNotFound,
     HFCacheInfo,
     _format_size,
+    _shared_blobs,
     parse_hf_uri,
     scan_cache_dir,
 )

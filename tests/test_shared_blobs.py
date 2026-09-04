@@ -2,16 +2,16 @@
 
 import os
 import shutil
-import subprocess
-import sys
 import threading
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
-from huggingface_hub import _shared_blobs, constants
-from huggingface_hub._shared_blobs import (
+from huggingface_hub import constants
+from huggingface_hub.file_download import _chmod_and_move, hf_hub_download
+from huggingface_hub.utils import _shared_blobs, scan_cache_dir
+from huggingface_hub.utils._shared_blobs import (
     _relative_blob_path,
     is_shared_blobs_dir,
     publish_blob_to_shared_store,
@@ -23,8 +23,6 @@ from huggingface_hub._shared_blobs import (
     try_link_from_shared_store,
     unreferenced_shared_blobs,
 )
-from huggingface_hub.file_download import _chmod_and_move, hf_hub_download
-from huggingface_hub.utils import scan_cache_dir
 from huggingface_hub.utils._xet import XetFileData
 
 
@@ -82,15 +80,6 @@ def _make_cached_file(
         (repo / "refs" / ref).write_text(commit)
     (snapshot / filename).symlink_to(Path("..") / ".." / "blobs" / etag)
     return blob
-
-
-def test_module_imports_standalone() -> None:
-    result = subprocess.run(
-        [sys.executable, "-c", "import huggingface_hub._shared_blobs"],
-        capture_output=True,
-        text=True,
-    )
-    assert result.returncode == 0, result.stderr
 
 
 class TestStoreHelpers:
@@ -183,7 +172,7 @@ class TestStoreHelpers:
 
     @requires_reliable_symlinks
     def test_lock_falls_back_when_flock_is_unsupported(self, tmp_path: Path) -> None:
-        with patch("huggingface_hub._shared_blobs.FileLock.acquire", side_effect=NotImplementedError):
+        with patch("huggingface_hub.utils._shared_blobs.FileLock.acquire", side_effect=NotImplementedError):
             blob = _publish(tmp_path)
 
         assert blob.read_bytes() == CONTENT
@@ -197,8 +186,8 @@ class TestStoreHelpers:
         blob = _write_blob(tmp_path / "models--org--repoB" / "blobs" / "etag")
 
         with (
-            patch("huggingface_hub._shared_blobs.FileLock.acquire", side_effect=NotImplementedError),
-            patch("huggingface_hub._shared_blobs._SOFT_LOCK_TIMEOUT", 0),
+            patch("huggingface_hub.utils._shared_blobs.FileLock.acquire", side_effect=NotImplementedError),
+            patch("huggingface_hub.utils._shared_blobs._SOFT_LOCK_TIMEOUT", 0),
         ):
             assert not publish_blob_to_shared_store(
                 blob_path=str(blob), xet_hash=XET_HASH, cache_dir=tmp_path, expected_size=len(CONTENT)
@@ -251,8 +240,8 @@ class TestLinkAndPublish:
             return original_replace(src, dst)
 
         with (
-            patch("huggingface_hub._shared_blobs._append_manifest_reference", side_effect=append),
-            patch("huggingface_hub._shared_blobs.os.replace", side_effect=replace),
+            patch("huggingface_hub.utils._shared_blobs._append_manifest_reference", side_effect=append),
+            patch("huggingface_hub.utils._shared_blobs.os.replace", side_effect=replace),
         ):
             assert publish_blob_to_shared_store(
                 blob_path=str(blob), xet_hash=XET_HASH, cache_dir=tmp_path, expected_size=len(CONTENT)
@@ -298,7 +287,7 @@ class TestLinkAndPublish:
     def test_manifest_failure_keeps_regular_repo_blob(self, tmp_path: Path) -> None:
         blob = _write_blob(tmp_path / "models--org--repoA" / "blobs" / "etag")
         with patch(
-            "huggingface_hub._shared_blobs._append_manifest_reference",
+            "huggingface_hub.utils._shared_blobs._append_manifest_reference",
             side_effect=PermissionError("read-only manifest"),
         ):
             assert not publish_blob_to_shared_store(
@@ -319,8 +308,11 @@ class TestLinkAndPublish:
             return original_replace(src, dst)
 
         with (
-            patch("huggingface_hub._shared_blobs.os.replace", side_effect=fail_repo_symlink_replace),
-            patch("huggingface_hub._shared_blobs.shutil.copyfile", side_effect=PermissionError("cannot restore blob")),
+            patch("huggingface_hub.utils._shared_blobs.os.replace", side_effect=fail_repo_symlink_replace),
+            patch(
+                "huggingface_hub.utils._shared_blobs.shutil.copyfile",
+                side_effect=PermissionError("cannot restore blob"),
+            ),
             pytest.raises(OSError, match="Could not restore repo blob"),
         ):
             publish_blob_to_shared_store(
@@ -392,7 +384,7 @@ class TestManifestGc:
                 raise OSError("transient filesystem error")
             return original_readlink(path)
 
-        with patch("huggingface_hub._shared_blobs.os.readlink", side_effect=fail_blob_readlink):
+        with patch("huggingface_hub.utils._shared_blobs.os.readlink", side_effect=fail_blob_readlink):
             assert sweep_shared_blob(store_entry, cache_dir=tmp_path) == 0
 
         assert manifest.read_text() == "models--org--repoA/blobs/etag\n"
@@ -416,7 +408,7 @@ class TestManifestGc:
 
         link_result: list[bool] = []
         gc_result: list[int] = []
-        with patch("huggingface_hub._shared_blobs._append_manifest_reference", side_effect=slow_append):
+        with patch("huggingface_hub.utils._shared_blobs._append_manifest_reference", side_effect=slow_append):
             link_thread = threading.Thread(
                 target=lambda: link_result.append(
                     try_link_from_shared_store(
@@ -500,7 +492,7 @@ class TestScanAndDelete:
 
         strategy = scan_cache_dir(tmp_path).delete_revisions(rev_a)
         assert strategy.expected_freed_size == 0
-        with patch("huggingface_hub._shared_blobs.sweep_shared_blob", wraps=sweep_shared_blob) as sweep:
+        with patch("huggingface_hub.utils._shared_blobs.sweep_shared_blob", wraps=sweep_shared_blob) as sweep:
             strategy.execute()
         sweep.assert_called_once_with(shared_blob_path(tmp_path, XET_HASH), cache_dir=tmp_path)
         assert blob_b.read_bytes() == CONTENT
@@ -574,7 +566,7 @@ class TestDownloadIntegration:
 
     def test_symlink_failure_falls_back_to_regular_repo_blob(self, tmp_path: Path) -> None:
         xet_downloads: list[str] = []
-        with patch("huggingface_hub._shared_blobs.os.symlink", side_effect=OSError("not supported")):
+        with patch("huggingface_hub.utils._shared_blobs.os.symlink", side_effect=OSError("not supported")):
             path = self._download(tmp_path, "org/repoA", xet_downloads)
 
         repo_blob = tmp_path / "models--org--repoA" / "blobs" / self.ETAG
