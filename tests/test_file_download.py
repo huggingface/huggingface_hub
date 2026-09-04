@@ -1389,7 +1389,6 @@ class TestCreateSymlink:
         mock_are_symlinks_supported = mocker.patch("huggingface_hub.file_download.are_symlinks_supported")
         with SoftTemporaryDirectory() as tmpdir:
             src = os.path.join(tmpdir, "source")
-            other = os.path.join(tmpdir, "other")
             dst = os.path.join(tmpdir, "destination")
 
             # Normal case: symlink does not exist
@@ -1397,24 +1396,73 @@ class TestCreateSymlink:
             _create_symlink(src, dst)
             assert os.path.realpath(dst) == os.path.realpath(src)
 
-            # Symlink already exists when it tries to create it (most probably from a
-            # concurrent access) but do not raise exception
-            def _are_symlinks_supported(cache_dir: str) -> bool:
-                os.symlink(src, dst)
-                return True
-
-            mock_are_symlinks_supported.side_effect = _are_symlinks_supported
+            # Symlink already exists — atomic replacement overwrites it safely
+            mock_are_symlinks_supported.return_value = True
             _create_symlink(src, dst)
+            assert os.path.realpath(dst) == os.path.realpath(src)
 
-            # Symlink already exists but pointing to a different source file. This should
-            # never happen in the context of HF cache system -> raise exception
-            def _are_symlinks_supported(cache_dir: str) -> bool:
-                os.symlink(other, dst)
-                return True
+    @pytest.mark.skipif(os.name == "nt", reason="No symlinks on Windows")
+    def test_create_symlink_atomic_no_race(self) -> None:
+        """Regression test: _create_symlink must be atomic under concurrent access.
 
-            mock_are_symlinks_supported.side_effect = _are_symlinks_supported
-            with pytest.raises(FileExistsError):
-                _create_symlink(src, dst)
+        Previous implementation did os.remove(dst) then os.symlink(src, dst), leaving a
+        window where os.path.isfile(dst) returned False. Under DDP (multi-GPU training),
+        this caused 'does not appear to have a file named ...' errors.
+        See https://github.com/vllm-project/llm-compressor/issues/2984
+        """
+        import threading
+
+        with SoftTemporaryDirectory() as tmpdir:
+            blob_dir = os.path.join(tmpdir, "blobs")
+            snap_dir = os.path.join(tmpdir, "snapshots")
+            os.makedirs(blob_dir)
+            os.makedirs(snap_dir)
+
+            n_files = 20
+            shard_names = [f"shard-{i:04d}" for i in range(n_files)]
+            for name in shard_names:
+                blob = os.path.join(blob_dir, name)
+                with open(blob, "w") as f:
+                    f.write(name)
+                os.symlink(blob, os.path.join(snap_dir, name))
+
+            missing_count = 0
+            stop = threading.Event()
+
+            def writer():
+                while not stop.is_set():
+                    for name in shard_names:
+                        if stop.is_set():
+                            break
+                        _create_symlink(
+                            os.path.join(blob_dir, name),
+                            os.path.join(snap_dir, name),
+                        )
+
+            def reader():
+                nonlocal missing_count
+                while not stop.is_set():
+                    for name in shard_names:
+                        if stop.is_set():
+                            break
+                        if not os.path.isfile(os.path.join(snap_dir, name)):
+                            missing_count += 1
+
+            threads = [threading.Thread(target=writer) for _ in range(2)]
+            threads += [threading.Thread(target=reader) for _ in range(2)]
+            for t in threads:
+                t.start()
+            import time
+
+            time.sleep(1.0)
+            stop.set()
+            for t in threads:
+                t.join()
+
+            assert missing_count == 0, (
+                f"Race condition in _create_symlink: os.path.isfile() returned False "
+                f"{missing_count} times during concurrent symlink recreation"
+            )
 
     def test_create_symlink_relative_src(self) -> None:
         """Regression test for #1388.
