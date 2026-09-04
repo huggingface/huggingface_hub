@@ -451,17 +451,17 @@ def publish_blob_to_shared_store(
                 _prepare_shared_blob_permissions(blob_path_obj, prefix_dir, cache_dir)
                 os.replace(blob_path_obj, store_path)
                 blob_moved = True
-
-            os.replace(tmp_link, blob_path_obj)
+            try:
+                os.replace(tmp_link, blob_path_obj)
+            except OSError:
+                if blob_moved:
+                    shutil.copyfile(store_path, blob_path_obj)  # restore under the lock, before GC can run
+                    blob_moved = False
+                raise
     except OSError as e:
         logger.debug(f"Could not publish '{blob_path}' to shared blob store: {e}")
-        if blob_moved and not os.path.lexists(blob_path_obj):
-            try:
-                shutil.copyfile(store_path, blob_path_obj)
-            except OSError as restore_error:
-                raise OSError(
-                    f"Could not restore repo blob '{blob_path}' after shared-store failure"
-                ) from restore_error
+        if blob_moved:
+            raise OSError(f"Could not restore repo blob '{blob_path}' after shared-store failure") from e
         return False
     finally:
         if tmp_link is not None:
