@@ -1,0 +1,47 @@
+name: restore-official-provider-tests
+on:
+  push:
+    paths:
+      - ".github/workflows/restore-official-provider-tests.yml"
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: neuronpool-provider-v2
+      - name: Restore official tests and add NeuronPool cases
+        run: |
+          set -euo pipefail
+          git checkout f0a5c6d08298760b2a030c4c5df608369632b7e1 -- tests/test_inference_providers.py
+          python3 << 'PY'
+          from pathlib import Path
+          import hashlib
+          p = Path("tests/test_inference_providers.py")
+          text = p.read_text()
+          assert len(text.encode()) == 106236, len(text.encode())
+          assert hashlib.sha256(text.encode()).hexdigest() == "505f1abfc196fc2fa7f840cba28654477ded3e43ce04f566078d892cb1669e26"
+          old_import = "from huggingface_hub.inference._providers.hf_inference import (\n    HFInferenceBinaryInputTask,\n    HFInferenceConversational,\n    HFInferenceFeatureExtractionTask,\n    HFInferenceTask,\n)\nfrom huggingface_hub.inference._providers.novita"
+          new_import = "from huggingface_hub.inference._providers.hf_inference import (\n    HFInferenceBinaryInputTask,\n    HFInferenceConversational,\n    HFInferenceFeatureExtractionTask,\n    HFInferenceTask,\n)\nfrom huggingface_hub.inference._providers.neuronpool import NeuronpoolConversationalTask\nfrom huggingface_hub.inference._providers.novita"
+          assert old_import in text
+          text = text.replace(old_import, new_import, 1)
+          needle = '''        assert payload == {"input": "Example text to embed", "model": "provider-id", "truncate": True}\n\n\nclass TestPublicAIProvider:'''
+          insert = '''        assert payload == {"input": "Example text to embed", "model": "provider-id", "truncate": True}\n\n\n\nclass TestNeuronpoolProvider:\n    def test_properties(self):\n        helper = NeuronpoolConversationalTask()\n        assert helper.provider == "neuronpool"\n        assert helper.base_url == "https://api.neuronpool.dev"\n        assert helper.task == "conversational"\n\n    def test_prepare_route(self):\n        helper = NeuronpoolConversationalTask()\n        assert helper._prepare_route("gpt-oss-20b", "sk-neuronpool-test") == "/v1/chat/completions"\n\n    def test_prepare_url_provider_key(self):\n        helper = NeuronpoolConversationalTask()\n        assert (\n            helper._prepare_url("sk-neuronpool-test", "gpt-oss-20b")\n            == "https://api.neuronpool.dev/v1/chat/completions"\n        )\n\n    def test_prepare_url_hf_token(self):\n        helper = NeuronpoolConversationalTask()\n        assert (\n            helper._prepare_url("hf_test_token", "gpt-oss-20b")\n            == "https://router.huggingface.co/neuronpool/v1/chat/completions"\n        )\n\n    def test_prepare_request(self):\n        helper = NeuronpoolConversationalTask()\n        mapping = InferenceProviderMapping(\n            provider="neuronpool",\n            hf_model_id="openai/gpt-oss-20b",\n            providerId="gpt-oss-20b",\n            task="conversational",\n            status="live",\n        )\n        with patch.object(helper, "_prepare_mapping_info", return_value=mapping):\n            request = helper.prepare_request(\n                inputs=[{"role": "user", "content": "Say hello."}],\n                parameters={"model": "openai/gpt-oss-20b", "temperature": 0, "max_tokens": 16},\n                headers={},\n                model="openai/gpt-oss-20b",\n                api_key="sk-neuronpool-test",\n            )\n\n        assert request.url == "https://api.neuronpool.dev/v1/chat/completions"\n        assert request.task == "conversational"\n        assert request.model == "gpt-oss-20b"\n        assert request.data is None\n        assert request.json == {\n            "model": "gpt-oss-20b",\n            "messages": [{"role": "user", "content": "Say hello."}],\n            "temperature": 0,\n            "max_tokens": 16,\n        }\n        assert request.headers["authorization"] == "Bearer sk-neuronpool-test"\n\n\nclass TestPublicAIProvider:'''
+          assert needle in text
+          text = text.replace(needle, insert, 1)
+          data = text.encode()
+          assert len(data) == 108531, len(data)
+          assert hashlib.sha256(data).hexdigest() == "fade201b18c327da16e598224a55fb9ba757f1ea776840a821f6829eaf8b208b"
+          assert data.endswith(b"\n")
+          assert b"class TestNeuronpoolProvider" in data
+          p.write_bytes(data)
+          print("patched ok", len(data))
+          PY
+          git config user.name "Danny Mota"
+          git config user.email "danny.a.mota@gmail.com"
+          git add tests/test_inference_providers.py
+          git commit -m "test(inference): add NeuronPool cases to official provider tests"
+          git push origin neuronpool-provider-v2
