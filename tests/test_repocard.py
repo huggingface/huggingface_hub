@@ -181,6 +181,14 @@ Custom template passed as a string.
 {{ repo_url | default("[More Information Needed]", true) }}
 """
 
+DUMMY_NON_ASCII_MODEL_CARD_TEMPLATE = """
+---
+{{ card_data }}
+---
+
+Modèle Á 北京
+"""
+
 
 require_jinja = pytest.mark.skipif(not is_jinja_available(), reason="test requires Jinja2.")
 
@@ -194,6 +202,14 @@ class TestRepocardMetadata:
         self.filepath.write_text(DUMMY_MODELCARD)
         data = metadata_load(self.filepath)
         assert data == {"license": "mit", "datasets": ["foo", "bar"]}
+
+    def test_metadata_load_non_ascii(self):
+        # `metadata_save` writes UTF-8, so `metadata_load` must decode UTF-8 on every platform.
+        # With the locale default (cp1252 on Windows) "é" comes back as "Ã©" and "Á"
+        # raises UnicodeDecodeError.
+        metadata = {"license": "mit", "pretty_name": "Café Á 北京"}
+        metadata_save(self.filepath, metadata)
+        assert metadata_load(self.filepath) == metadata
 
     def test_metadata_save(self):
         self.filepath.write_text(DUMMY_MODELCARD)
@@ -607,6 +623,15 @@ class TestRepoCard:
             some_data="asdf",
         )
         assert card.text.endswith("asdf"), "Custom template didn't set jinja variable correctly"
+
+    @require_jinja
+    def test_repo_card_from_custom_template_path_non_ascii(self, tmp_path):
+        # The template file is UTF-8; with the locale default (cp1252 on Windows) accented
+        # characters are mangled and "Á" raises UnicodeDecodeError.
+        template_path = tmp_path / "template.md"
+        template_path.write_text(DUMMY_NON_ASCII_MODEL_CARD_TEMPLATE, encoding="utf-8")
+        card = RepoCard.from_template(card_data=CardData(license="mit"), template_path=template_path)
+        assert card.text.strip() == "Modèle Á 北京"
 
     @require_jinja
     def test_repo_card_from_custom_template_string(self):

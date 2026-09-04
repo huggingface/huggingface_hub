@@ -325,9 +325,9 @@ class RepoCard:
         kwargs.update(template_kwargs)  # Template_kwargs have priority
 
         if template_path is not None:
-            template_str = Path(template_path).read_text()
+            template_str = Path(template_path).read_text(encoding="utf-8")
         if template_str is None:
-            template_str = Path(cls.default_template_path).read_text()
+            template_str = Path(cls.default_template_path).read_text(encoding="utf-8")
         template = jinja2.Template(template_str)
         content = template.render(card_data=card_data.to_yaml(), **kwargs)
         return cls(content)
@@ -513,7 +513,7 @@ def _detect_line_ending(content: str) -> Literal["\r", "\n", "\r\n", None]:  # n
 
 
 def metadata_load(local_path: str | Path) -> dict | None:
-    content = Path(local_path).read_text()
+    content = Path(local_path).read_text(encoding="utf-8")
     match = REGEX_YAML_BLOCK.search(content)
     if match:
         yaml_block = match.group(2)
