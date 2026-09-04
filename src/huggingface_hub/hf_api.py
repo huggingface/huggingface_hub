@@ -14980,7 +14980,7 @@ class HfApi:
                 The file to edit.
             edit (`list[tuple[tuple[int, int], bytes]]`, *optional*):
                 List edits to apply, in the form `((start, end), data)`.
-                Ranges [`start`, `end`) are replaced with `data`, which can
+                Ranges [`start`, `end`] are replaced with `data`, which can
                 be of any size (not necessarily the size of the replaced range).
             insert (`list[tuple[int, bytes]]`, *optional*):
                 List of inserts to apply, in the form `(loc, data)`.

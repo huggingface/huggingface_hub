@@ -1664,7 +1664,7 @@ class HfFileSystemEditFile(fsspec.spec.AbstractBufferedFile):
                 time.sleep(0.1)
         if defer:
             self.task = _get_deferred_executor().submit(
-                partial(self._upload_ranges_inner, self.ranges, self.original_size)
+                partial(self._upload_ranges_inner, list(self.ranges), self.original_size)
             )
         else:
             self._upload_ranges_inner(self.ranges, self.original_size)
@@ -1771,6 +1771,8 @@ class HfFileSystemEditFile(fsspec.spec.AbstractBufferedFile):
         equal to blocksize (and there is also a minimum 10 second
         interval between sends to avoid doing too many requests).
 
+        Write `data` at the current location.
+
         Args:
             data (`bytes`):
                 Set of bytes to be written.
@@ -1784,6 +1786,9 @@ class HfFileSystemEditFile(fsspec.spec.AbstractBufferedFile):
         Buffer only sent on flush() or if buffer is greater than or
         equal to blocksize (and there is also a minimum 10 second
         interval between sends to avoid doing too many requests).
+
+        Replace the range [`start`, `end`] with `data`, which can
+        be of any size (not necessarily the size of the replaced range).
 
         Args:
             byte_range (`tuple[int, int]`):
@@ -1816,7 +1821,13 @@ class HfFileSystemEditFile(fsspec.spec.AbstractBufferedFile):
 
         def fast_slice(range_: range | bytearray, start=None, end=None):
             """slice a range and avoid slicing a bytearray when possible (this would cause a copy)"""
-            if start is not None and start > 0:
+            if start is not None and start < 0:
+                start += len(range_)
+            if end is not None and end < 0:
+                end += len(range_)
+            if start is not None and start > 0 and end is not None and end < len(range_):
+                return range_[start:end]
+            elif start is not None and start > 0:
                 return range_[start:]
             elif end is not None and end < len(range_):
                 return range_[:end]
@@ -1825,31 +1836,32 @@ class HfFileSystemEditFile(fsspec.spec.AbstractBufferedFile):
 
         # note: this could be optimized with an offset index
         for range_ in self.ranges:
-            if offset <= start <= offset + len(range_) <= end:
+            length = len(range_)
+            if offset <= start <= offset + length <= end:
                 if offset < start:
                     add_range(fast_slice(range_, end=start - offset))
                 if data and not done:
                     add_range(data)
                     done = True
-            elif start <= offset <= offset + len(range_) <= end:
+            elif start <= offset <= offset + length <= end:
                 pass
-            elif start <= offset <= end <= offset + len(range_):
+            elif start <= offset <= end <= offset + length:
                 if data and not done:
                     add_range(data)
                     done = True
-                if end < offset + len(range_):
-                    add_range(fast_slice(range_, start=end - offset - len(range_)))
-            elif offset <= start <= end <= offset + len(range_):
+                if end < offset + length:
+                    add_range(fast_slice(range_, start=end - offset - length))
+            elif offset <= start <= end <= offset + length:
                 if offset < start:
                     add_range(fast_slice(range_, end=start - offset))
                 if data and not done:
                     add_range(data)
                     done = True
-                if end < offset + len(range_):
-                    add_range(fast_slice(range_, start=end - offset - len(range_)))
+                if end < offset + length:
+                    add_range(fast_slice(range_, start=end - offset - length))
             else:
                 add_range(range_)
-            offset += len(range_)
+            offset += length
         self.ranges = new_ranges
 
         self.loc = start + len(data)
@@ -1872,6 +1884,9 @@ class HfFileSystemEditFile(fsspec.spec.AbstractBufferedFile):
         equal to blocksize (and there is also a minimum 10 second
         interval between sends to avoid doing too many requests).
 
+        Insert the content of `data` at location `loc`, and shift
+        the rest of the file.
+
         Args:
             loc (`int`):
                 Where to insert the data.
@@ -1888,6 +1903,8 @@ class HfFileSystemEditFile(fsspec.spec.AbstractBufferedFile):
         equal to blocksize (and there is also a minimum 10 second
         interval between sends to avoid doing too many requests).
 
+        Append `data` at the end of the file.
+
         Args:
             data (`bytes`):
                 Set of bytes to be appended at the end of the file.
@@ -1901,6 +1918,8 @@ class HfFileSystemEditFile(fsspec.spec.AbstractBufferedFile):
         Buffer only sent on flush() or if buffer is greater than or
         equal to blocksize (and there is also a minimum 10 second
         interval between sends to avoid doing too many requests).
+
+        Delete the range [`loc`, `loc + length`).
 
         Args:
             loc (`int`):
@@ -1981,6 +2000,8 @@ class EditTextIOWrapper(io.TextIOWrapper):
         Buffer only sent on flush() or if buffer is greater than
         or equal to blocksize.
 
+        Write `data` at the current location.
+
         Args:
             data (`str`):
                 String to be written.
@@ -1993,6 +2014,9 @@ class EditTextIOWrapper(io.TextIOWrapper):
 
         Buffer only sent on flush() or if buffer is greater than
         or equal to blocksize.
+
+        Replace the range [`start`, `end`] with `data`, which can
+        be of any size (not necessarily the size of the replaced range).
 
         Args:
             byte_range (`tuple[int, int]`):
@@ -2010,6 +2034,9 @@ class EditTextIOWrapper(io.TextIOWrapper):
         Buffer only sent on flush() or if buffer is greater than
         or equal to blocksize.
 
+        Insert the content of `data` at location `loc`, and shift
+        the rest of the file.
+
         Args:
             loc (`int`):
                 Where to insert the data.
@@ -2025,6 +2052,8 @@ class EditTextIOWrapper(io.TextIOWrapper):
         Buffer only sent on flush() or if buffer is greater than
         or equal to blocksize.
 
+        Append `data` at the end of the file.
+
         Args:
             data (`str`):
                 String to be appended at the end of the file.
@@ -2037,6 +2066,8 @@ class EditTextIOWrapper(io.TextIOWrapper):
 
         Buffer only sent on flush() or if buffer is greater than
         or equal to blocksize.
+
+        Delete the range [`loc`, `loc + length`).
 
         Args:
             loc (`int`):

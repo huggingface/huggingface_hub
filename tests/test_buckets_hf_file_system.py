@@ -82,3 +82,23 @@ class TestHfFileSystemBucketRW(_HfFileSystemBucketChecks, _HfFileSystemBaseRWTes
         self.text_file = self.hf_path + "/" + self.text_file_path
         yield
         self.api.delete_bucket(self.bucket_id)
+
+    def test_append_file(self):
+        with self.hffs.open(self.text_file, "a") as f:
+            f.write(" appended text")
+
+        with self.hffs.open(self.text_file, "r") as f:
+            assert f.read() == "dummy text data appended text"
+
+    def test_edit_file(self):
+        with self.hffs.open(self.text_file, "e") as f:
+            f.insert(0, "this is ")
+            f.edit((8, 13), "a fantastic")
+            f.delete(24, 5)
+            f.append("!")
+            import warnings
+
+            warnings.warn(str(f.buffer.ranges))
+
+        with self.hffs.open(self.text_file, "r") as f:
+            assert f.read() == "this is a fantastic text!"
