@@ -184,8 +184,7 @@ def _ensure_prefix_dir(cache_dir: str | Path, xet_hash: str) -> Path | None:
 def _shared_blob_mode(cache_dir: str | Path) -> int:
     """Return a read-only mode accessible to users who can traverse the cache root."""
     if os.name == "nt":
-        # Windows access is governed by ACLs; 0444 would set the read-only attribute
-        # and prevent later atomic replacement or garbage collection.
+        # Windows uses ACLs; 0444 would set the read-only attribute and block replacement and GC.
         return 0o666
     try:
         cache_mode = stat.S_IMODE(Path(cache_dir).stat().st_mode)
@@ -221,8 +220,7 @@ def _prepare_shared_blob_permissions(blob_path: Path, prefix_dir: Path, cache_di
     try:
         os.chown(blob_path, -1, target_gid)
     except OSError:
-        # Without other-read, publishing with the wrong group would create a shared
-        # entry that other cache users cannot read. Fall back to repo-local storage.
+        # Without other-read, a wrong group makes the entry unreadable to other users: fall back to repo-local.
         if blob_mode & stat.S_IRGRP and not blob_mode & stat.S_IROTH:
             raise
 
@@ -329,8 +327,7 @@ def _shared_blob_lock(store_path: Path) -> Generator[None, None, None]:
     try:
         lock.acquire()
     except NotImplementedError:
-        # A SoftFileLock uses file existence as the lock, so it cannot reuse the
-        # persistent, cross-user-writable flock file prepared above.
+        # SoftFileLock uses file existence as the lock, so it cannot reuse the flock file above.
         lock = SoftFileLock(f"{lock_path}.soft", mode=0o666)
         lock.acquire(timeout=_SOFT_LOCK_TIMEOUT)
     try:

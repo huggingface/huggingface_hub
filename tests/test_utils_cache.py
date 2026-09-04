@@ -558,8 +558,7 @@ class TestDeleteRevisionsDryRun:
             self.cache_info, "repo_A_rev_detached", "repo_A_rev_pr_1", "repo_A_rev_main"
         )
         expected = DeleteCacheStrategy(
-            # Sum of the unique blob sizes (freed size is computed per blob, taking
-            # symlinks to the shared blob store into account).
+            # Sum of the unique blob sizes: the freed size is computed per blob.
             expected_freed_size=11111,
             blobs=set(),
             refs=set(),

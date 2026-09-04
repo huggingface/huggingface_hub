@@ -1189,11 +1189,8 @@ def _hf_hub_download_to_cache_dir(
     pointer_path = _get_pointer_path(storage_folder, commit_hash, relative_filename)
 
     if dry_run:
-        # A valid shared blob store entry counts as cached: the real call symlinks it
-        # into the repo without any transfer. `has_shared_blob` is read-only (no
-        # eviction, no repo link) and skips the symlink filesystem probe so a dry run
-        # never writes to the cache. On a filesystem without symlink support the preview
-        # is optimistic and the real call downloads instead.
+        # A usable shared store entry counts as cached: the real call would symlink it without
+        # downloading. `has_shared_blob` never writes to the cache, so a dry run stays read-only.
         is_cached = (
             os.path.exists(pointer_path)
             or os.path.exists(blob_path)
@@ -1265,12 +1262,8 @@ def _hf_hub_download_to_cache_dir(
 
     # Local file doesn't exist or etag isn't a match => retrieve file from remote (or cache)
 
-    # Shared blob store: identical Xet files across repos are stored on disk only once
-    # and symlinked into each repo's `blobs/`. `xet_hash` is left set only when the
-    # store can be used for this download. The symlink-based layout is required: in the
-    # degraded no-symlink mode there is no per-repo blob to link, and snapshot files are
-    # user-editable so a shared inode would propagate edits across repos. See the
-    # `_shared_blobs` module for details.
+    # Cross-repo dedup needs the symlink layout: `xet_hash` stays set only when the shared store
+    # can be used for this download (see `utils/_shared_blobs.py`).
     xet_hash = xet_file_data.file_hash if xet_file_data is not None else None
     if xet_hash is not None and not (shared_blobs_enabled() and are_symlinks_supported(cache_dir)):
         xet_hash = None
@@ -1300,8 +1293,7 @@ def _hf_hub_download_to_cache_dir(
                 tqdm_class=tqdm_class,
             )
             if xet_hash is not None and will_download and is_xet_available():
-                # Only content successfully downloaded through the Xet path is
-                # published to the store (never the plain HTTP fallback).
+                # Only Xet-verified downloads are published, never the plain HTTP fallback.
                 blob_is_shared = publish_blob_to_shared_store(
                     blob_path=blob_path,
                     xet_hash=xet_hash,
@@ -1310,9 +1302,7 @@ def _hf_hub_download_to_cache_dir(
                     replace_existing=force_download,
                 )
         if not os.path.exists(pointer_path):
-            # A shared repo blob is itself a symlink. If snapshot symlink creation
-            # unexpectedly fails, copy through it instead of moving it away and
-            # breaking the repo cache layout.
+            # A shared blob is a symlink: if the snapshot symlink fails, copy through it instead of moving it away.
             _create_symlink(blob_path, pointer_path, new_blob=not blob_is_shared)
 
     return pointer_path
@@ -2100,10 +2090,8 @@ def _chmod_and_move(src: Path, dst: Path) -> None:
             pass
 
     if os.path.lexists(dst):
-        # Replace the directory entry so a force download never writes through a
-        # repo-local symlink into the shared store. Some mounted filesystems reject
-        # replace-over-existing. Stage the new file and move the old directory entry
-        # aside before falling back, so either one can be restored if publication fails.
+        # Replace the entry so a force download never writes through a shared symlink. Some mounts
+        # reject replace-over-existing: stage the new file and keep the old entry restorable.
         try:
             os.replace(src, dst)
         except OSError:

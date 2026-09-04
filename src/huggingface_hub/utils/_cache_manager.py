@@ -308,9 +308,7 @@ class DeleteCacheStrategy:
         > This method is irreversible. If executed, cached files are erased and must be
         > downloaded again.
         """
-        # Record the shared targets before deleting their repo-local symlinks. Only
-        # those manifests are checked after deletion, keeping GC proportional to this
-        # strategy instead of to the entire cache.
+        # Record shared targets before their repo symlinks are deleted; only those manifests are swept below.
         shared_store_paths: set[Path] = set()
         if self.cache_dir is not None and _shared_blobs.is_shared_blobs_dir(
             _shared_blobs.shared_blobs_dir(self.cache_dir)
@@ -346,8 +344,7 @@ class DeleteCacheStrategy:
         for path in self.blobs:
             _try_delete_path(path, path_type="blob")
 
-        # Remove only shared entries affected by this deletion. Manifest entries are
-        # validated against the filesystem; failures conservatively leak data.
+        # Manifest entries are validated against the filesystem; failures leak data rather than delete it.
         if self.cache_dir is not None:
             for store_path in shared_store_paths:
                 _shared_blobs.sweep_shared_blob(store_path, cache_dir=self.cache_dir)
@@ -744,9 +741,8 @@ def scan_cache_dir(cache_dir: str | Path | None = None) -> HFCacheInfo:
         except CorruptedCacheException as e:
             warnings.append(e)
 
-    # `CachedRepoInfo.size_on_disk` remains the logical size attributed to each repo.
-    # The cache-wide total counts each shared canonical payload once and includes
-    # store-only entries left by manual or old-client repo deletion.
+    # Per-repo sizes stay logical. The cache-wide total counts each shared payload once, including
+    # store-only payloads no repo references anymore.
     store_marked = _shared_blobs.is_shared_blobs_dir(_shared_blobs.shared_blobs_dir(cache_dir))
     repo_blob_paths = {
         file.blob_path
@@ -857,10 +853,8 @@ def _scan_cached_repo(repo_path: Path) -> CachedRepoInfo:
             if file_path.is_dir():
                 continue
 
-            # Resolve only the snapshot's first symlink. A repo-local blob can itself
-            # be a symlink to the cache-wide store; keeping that first-hop path is what
-            # lets current cache deletion unlink the repo reference rather than the
-            # canonical shared payload.
+            # Keep the first symlink hop: a repo blob may itself point into the shared store, and
+            # deletion must unlink the repo reference, not the shared payload.
             if file_path.is_symlink():
                 first_hop = Path(os.path.abspath(file_path.parent / os.readlink(file_path)))
                 blob_path = first_hop if first_hop.parent == repo_path / "blobs" else file_path.resolve()
