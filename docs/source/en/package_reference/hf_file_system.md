@@ -16,4 +16,4 @@ The `HfFileSystem` class provides a pythonic file interface to the Hugging Face 
 
 In addition to regular file-like objects obtained using open modes "w", "wb", "r" or "rb" to read and overwrite files, `HfFileSystem` also offers open modes "a" and "ab" to append to an existing file and "e" and "eb" to edit an existing file in-place.
 
-[[autodoc]] HfFileSystemEditFile
+[[autodoc]] huggingface_hub.hf_file_system.HfFileSystemEditFile
