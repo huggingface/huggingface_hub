@@ -13,7 +13,7 @@ from datetime import datetime
 from functools import partial
 from itertools import chain
 from pathlib import Path, PurePosixPath
-from typing import Any, Literal, NoReturn, Union, overload, override
+from typing import Any, Literal, NoReturn, Union, overload
 from urllib.parse import quote, unquote
 
 import fsspec
@@ -433,7 +433,6 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         **kwargs,
     ) -> fsspec.spec.AbstractBufferedFile: ...
 
-    @override
     def open(  # ty: ignore[invalid-method-override]
         self,
         path,
