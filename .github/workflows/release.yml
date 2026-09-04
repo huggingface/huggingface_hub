@@ -20,6 +20,9 @@
 # (huggingface-hub-bot) for PR creation in the post-release job. If a publish job fails, re-run it from the
 # Actions UI rather than reintroducing a tag-triggered fallback (which would bypass the `pypi` environment gate).
 #
+# The HF CLI skill sync lives in the sync-hf-cli-skill job below and nowhere else. A second, tag-triggered workflow
+# used to do the same thing, which meant every release opened two PRs on huggingface/skills. Do not reintroduce it.
+#
 # PyPI publishing uses Trusted Publishing (OIDC), no PyPI token is stored. The Trusted Publisher must be
 # configured on PyPI for both `huggingface-hub` and `hf` to accept this workflow, and the `pypi` GitHub
 # Environment (with required reviewers) must exist in the repo settings.
@@ -1034,7 +1037,7 @@ jobs:
               '{channel: $channel, text: $text, thread_ts: $thread_ts, unfurl_links: false}')" > /dev/null
 
   # ============================================================
-  # 7. SYNC HF CLI SKILL — update skill docs in skills repo
+  # 7. SYNC HF CLI SKILL — update skill docs in the skills repo
   # ============================================================
   sync-hf-cli-skill:
     permissions:
@@ -1057,8 +1060,11 @@ jobs:
         run: pip install -e .
 
       - name: Generate skill docs
+        env:
+          HF_HOME: /tmp/hf-home
         run: |
           mkdir -p /tmp/hf-cli-skill
+          mkdir -p "$HF_HOME" && touch "$HF_HOME/.check_for_update_done"
           hf skills preview > /tmp/hf-cli-skill/SKILL.md
 
       - name: Create GitHub App token
@@ -1076,14 +1082,30 @@ jobs:
           token: ${{ steps.app_token.outputs.token }}
           path: skills-repo
 
+      - name: Set up uv
+        uses: astral-sh/setup-uv@ae62891fec2bb8e7d6c99fc78c9fec3a63790f8d  # v10.0.0
+
       - name: Copy generated files
         run: cp /tmp/hf-cli-skill/SKILL.md skills-repo/skills/hf-cli/
 
-      - name: Check for changes
+      - name: Check for HF CLI skill changes
         id: check_changes
         working-directory: skills-repo
+        # git diff returns zero if there is no diff
         run: |
-          git diff --quiet && echo "changed=false" >> $GITHUB_OUTPUT || echo "changed=true" >> $GITHUB_OUTPUT
+          if git diff --quiet -- skills/hf-cli/SKILL.md; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No hf-cli skill changes; skipping PR"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Bump plugin version and regenerate skills repo artifacts
+        if: steps.check_changes.outputs.changed == 'true'
+        working-directory: skills-repo
+        run: |
+          uv run scripts/plugin_versions.py bump patch
+          ./scripts/publish.sh
 
       - name: Create Pull Request
         if: steps.check_changes.outputs.changed == 'true'
@@ -1096,13 +1118,11 @@ jobs:
           title: "Sync HF CLI Skill (${{ needs.prepare.outputs.tag }})"
           reviewers: hanouticelina
           body: |
-            Auto-generated from [huggingface_hub@${{ github.sha }}](https://github.com/huggingface/huggingface_hub/commit/${{ github.sha }})
-
-            Triggered by changes to `src/huggingface_hub/cli/`
+            Auto-generated from [huggingface_hub@${{ needs.prepare.outputs.tag }}](https://github.com/huggingface/huggingface_hub/tree/${{ needs.prepare.outputs.tag }})
 
             ---
             This PR was created automatically by the [release](https://github.com/huggingface/huggingface_hub/blob/main/.github/workflows/release.yml) workflow.
-          commit-message: "Sync HF CLI skill from huggingface_hub@${{ github.sha }}"
+          commit-message: "Sync HF CLI skill from huggingface_hub@${{ needs.prepare.outputs.tag }}"
           labels: |
             automated
             cli-sync
