@@ -12,6 +12,7 @@ from huggingface_hub._sandbox import (
     MODE_POOL,
     NONCE_LABEL,
     POOL_LABEL,
+    RESERVED_SANDBOX_LABELS,
     SANDBOX_LABEL,
     Sandbox,
     SandboxPool,
@@ -315,6 +316,85 @@ class TestSandboxClient:
             pass
         sandbox._server._api.cancel_job.assert_not_called()
         assert sandbox._server._client.is_closed
+
+    def test_create_propagates_custom_labels(self, monkeypatch, fake_server: str) -> None:
+        run_job_mock = MagicMock()
+        fake_job = MagicMock()
+        fake_job.id = "job-custom-labels"
+        fake_job.owner.name = "user"
+        run_job_mock.return_value = fake_job
+
+        monkeypatch.setattr(sandbox_mod.HfApi, "run_job", run_job_mock)
+        fake_server_obj = _make_server(fake_server, job_id="job-custom-labels")
+        monkeypatch.setattr(sandbox_mod._SandboxServer, "from_job", lambda **kw: fake_server_obj)
+        monkeypatch.setattr(fake_server_obj, "wait_ready", lambda timeout: None)
+
+        sandbox = Sandbox.create(
+            image="python:3.12",
+            labels={"controller-run": "run-42", "team": "data-infra"},
+            token="hf_test",
+        )
+        assert sandbox.id == "job-custom-labels"
+
+        run_job_mock.assert_called_once()
+        passed_labels = run_job_mock.call_args.kwargs["labels"]
+        assert passed_labels["controller-run"] == "run-42"
+        assert passed_labels["team"] == "data-infra"
+        assert passed_labels[SANDBOX_LABEL] == "1"
+        assert passed_labels[MODE_LABEL] == sandbox_mod.MODE_DEDICATED
+        assert NONCE_LABEL in passed_labels
+        assert len(passed_labels[NONCE_LABEL]) == 32
+
+    def test_create_without_labels_preserves_default_labels(self, monkeypatch, fake_server: str) -> None:
+        run_job_mock = MagicMock()
+        fake_job = MagicMock()
+        fake_job.id = "job-default-labels"
+        fake_job.owner.name = "user"
+        run_job_mock.return_value = fake_job
+
+        monkeypatch.setattr(sandbox_mod.HfApi, "run_job", run_job_mock)
+        fake_server_obj = _make_server(fake_server, job_id="job-default-labels")
+        monkeypatch.setattr(sandbox_mod._SandboxServer, "from_job", lambda **kw: fake_server_obj)
+        monkeypatch.setattr(fake_server_obj, "wait_ready", lambda timeout: None)
+
+        sandbox = Sandbox.create(image="python:3.12", token="hf_test")
+        assert sandbox.id == "job-default-labels"
+
+        run_job_mock.assert_called_once()
+        passed_labels = run_job_mock.call_args.kwargs["labels"]
+        assert passed_labels[SANDBOX_LABEL] == "1"
+        assert passed_labels[MODE_LABEL] == sandbox_mod.MODE_DEDICATED
+        assert NONCE_LABEL in passed_labels
+        assert set(passed_labels.keys()) == {SANDBOX_LABEL, MODE_LABEL, NONCE_LABEL}
+
+    @pytest.mark.parametrize("reserved_key", sorted(RESERVED_SANDBOX_LABELS))
+    def test_create_rejects_reserved_label_keys(self, monkeypatch, reserved_key: str) -> None:
+        run_job_mock = MagicMock()
+        monkeypatch.setattr(sandbox_mod.HfApi, "run_job", run_job_mock)
+
+        with pytest.raises(ValueError, match=f"Label '{reserved_key}' is reserved"):
+            Sandbox.create(image="python:3.12", labels={reserved_key: "forbidden"}, token="hf_test")
+
+        run_job_mock.assert_not_called()
+
+    @pytest.mark.parametrize(
+        "invalid_labels",
+        [
+            "not-a-dict",
+            ["key", "val"],
+            {123: "val"},
+            {"key": 123},
+            {"key": None},
+        ],
+    )
+    def test_create_validates_label_types(self, monkeypatch, invalid_labels) -> None:
+        run_job_mock = MagicMock()
+        monkeypatch.setattr(sandbox_mod.HfApi, "run_job", run_job_mock)
+
+        with pytest.raises(ValueError, match="`labels`"):
+            Sandbox.create(image="python:3.12", labels=invalid_labels, token="hf_test")
+
+        run_job_mock.assert_not_called()
 
 
 class TestSharedSandbox:
