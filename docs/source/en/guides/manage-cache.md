@@ -205,53 +205,45 @@ by setting the `HF_HUB_DISABLE_SYMLINKS_WARNING` environment variable to true.
 
 ### Shared blobs across repos
 
-Blobs are deduplicated within a repo and, by default, Xet files are also deduplicated
-across repos. A successfully downloaded Xet file is moved into a content-addressed
-store at `<CACHE_DIR>/blobs/<prefix>/<xet_hash>`. Each repo keeps its established
-`blobs/<etag>` entry, but that entry is a relative symlink to the shared file. If
-another repo requests the same Xet hash, it creates another symlink instead of
-downloading the file: no bytes are transferred and no additional payload space is
-used. A version marker identifies the top-level store; an existing unmarked `blobs`
-directory is never adopted or cleaned by `huggingface_hub`.
+By default, Xet files are also deduplicated across repos. A Xet file downloaded through
+`hf_xet` is stored once at `<CACHE_DIR>/blobs/<prefix>/<xet_hash>`, and the repo's
+`blobs/<etag>` entry is a relative symlink to it. When another repo needs the same file,
+it gets a symlink instead of a download: no bytes are transferred and no extra space is
+used. The snapshot layout does not change. A marker file identifies the store, so a
+`blobs` directory that was not created by `huggingface_hub` is never touched.
 
-Each shared file has a `<xet_hash>.refs` manifest containing the relative paths of repo
-blobs that reference it. A reference is flushed to the manifest before its symlink is
-made visible. `hf cache rm` uses this manifest to inspect only shared blobs affected by
-the current deletion, rather than scanning the full cache. `hf cache prune` also removes
-shared blobs that no cached repo references anymore, for example after a repo folder was
-deleted manually or with an older client.
-The manifest is only a hint: every line is checked against the actual symlink, stale
-lines are removed, and missing, malformed, or unreadable metadata causes the payload
-to be kept. Cache cleanup therefore prefers leaking reclaimable data over breaking a
-valid cache entry.
+Each shared file has a `<xet_hash>.refs` manifest listing the repo blobs that use it.
+`hf cache rm` reads it to check only the shared files affected by a deletion, and
+`hf cache prune` removes shared files that no cached repo uses anymore, for example after
+a repo folder was deleted by hand or with an older client. The manifest is only a hint:
+every entry is checked against the filesystem, and a file with missing or unreadable
+metadata is kept. Cleanup prefers leaving reclaimable data behind over breaking a valid
+cache entry.
 
-Per-repository size fields remain logical sizes, so the same shared payload is
-attributed to every repo that references it. The cache-wide `size_on_disk` total counts
-each canonical shared payload once and also includes store-only payloads.
+Per-repo sizes stay logical, so a shared file is counted for every repo that uses it.
+The cache-wide `size_on_disk` is physical: each shared file is counted once, including
+files no repo uses anymore.
 
-Using symlinks instead of hardlinks is important on multi-user clusters. Reading a
-symlink does not require permission to create a hardlink to a file owned by another
-UID, and repository entries do not share an inode whose ownership or mode can conflict
-across users. Shared payloads are made read-only and readable by the user classes that
-can traverse the cache root. Manifests and per-blob locks are writable metadata. A
-cluster administrator should configure the cache root with the intended shared group
-and setgid bit; default ACLs can supplement that policy. Anyone who can write the
-shared cache remains inside its trust boundary and private repositories must not be
-placed in a cache exposed to untrusted users.
+On multi-user clusters, symlinks work across users, unlike hardlinks, which require
+permission to link another user's file. On POSIX systems, shared files are made read-only
+and readable by every user who can traverse the cache root; manifests and locks stay
+writable. Set the intended group and the setgid bit on the cache root. Anyone who can
+write to a shared cache can affect all of its users, so do not put private repos in a
+cache exposed to untrusted users.
 
-The per-repo layout remains readable by older versions of `huggingface_hub`,
-`huggingface.js`, `hf-hub`, `llama.cpp`, and other clients that follow symlinks.
-Their normal downloads also continue to use the established repo folders. However,
-old cache deletion tools resolve the full symlink chain and may delete the canonical
-shared payload, breaking other repo symlinks. Use an up-to-date `huggingface_hub` for
-`hf cache rm`, `hf cache prune`, and programmatic cache deletion after the shared store
-has been populated. Older scanners can also report the reserved top-level `blobs`
-directory as an unknown cache entry.
+Older clients (`huggingface_hub`, `huggingface.js`, `hf-hub`, `llama.cpp`, and anything
+that follows symlinks) keep reading and downloading normally, in the same repo folders.
+Two limitations:
 
-The store requires the symlink-based cache layout and is disabled when
-`HF_HUB_DISABLE_XET=1`. Unsupported filesystems, permission errors, unmarked
-pre-existing `blobs` directories, or any per-file sharing failure silently fall back
-to regular repo-local storage. Set
+- Their cache deletion tools may delete a shared file still used by other repos. Affected
+  files are re-downloaded on next use. Use an up-to-date `huggingface_hub` for
+  `hf cache rm`, `hf cache prune`, and programmatic deletion.
+- Their cache scanners may report the top-level `blobs` directory as an unknown entry.
+
+The store requires the symlink-based cache layout and is disabled by
+`HF_HUB_DISABLE_XET=1`. Any failure to share a file, such as an unsupported filesystem,
+a permission error, or a pre-existing unmarked `blobs` directory, silently falls back to
+regular repo-local storage. Set
 [`HF_HUB_DISABLE_SHARED_BLOBS=1`](../package_reference/environment_variables#hfhubdisablesharedblobs)
 to opt out entirely.
 
