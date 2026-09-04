@@ -55,6 +55,12 @@ from .utils._http import (
     http_stream_backoff,
 )
 from .utils._runtime import is_xet_available
+from .utils._shared_blobs import (
+    has_shared_blob,
+    publish_blob_to_shared_store,
+    shared_blobs_enabled,
+    try_link_from_shared_store,
+)
 from .utils._xet import XetTokenType, is_valid_xet_hash, xet_connection_info_refresh_url
 from .utils.sha import sha_fileobj
 from .utils.tqdm import _get_progress_bar_context
@@ -1183,7 +1189,17 @@ def _hf_hub_download_to_cache_dir(
     pointer_path = _get_pointer_path(storage_folder, commit_hash, relative_filename)
 
     if dry_run:
-        is_cached = os.path.exists(pointer_path) or os.path.exists(blob_path)
+        # A usable shared store entry counts as cached: the real call would symlink it without downloading.
+        # Symlink support is not probed here (probing writes to the cache), so the preview may be optimistic.
+        is_cached = (
+            os.path.exists(pointer_path)
+            or os.path.exists(blob_path)
+            or (
+                xet_file_data is not None
+                and not constants.HF_HUB_DISABLE_SYMLINKS
+                and has_shared_blob(xet_hash=xet_file_data.file_hash, cache_dir=cache_dir, expected_size=expected_size)
+            )
+        )
         return DryRunFileInfo(
             commit_hash=commit_hash,
             file_size=expected_size,
@@ -1247,21 +1263,48 @@ def _hf_hub_download_to_cache_dir(
 
     # Local file doesn't exist or etag isn't a match => retrieve file from remote (or cache)
 
+    # Cross-repo dedup needs the symlink layout: `xet_hash` stays set only when the shared store
+    # can be used for this download (see `utils/_shared_blobs.py`).
+    xet_hash = xet_file_data.file_hash if xet_file_data is not None else None
+    if xet_hash is not None and not (shared_blobs_enabled() and are_symlinks_supported(cache_dir)):
+        xet_hash = None
+
     with WeakFileLock(lock_path):
-        _download_to_tmp_and_move(
-            incomplete_path=Path(blob_path + ".incomplete"),
-            destination_path=Path(blob_path),
-            url_to_download=url_to_download,
-            headers=headers,
-            expected_size=expected_size,
-            filename=filename,
-            force_download=force_download,
-            etag=etag,
-            xet_file_data=xet_file_data,
-            tqdm_class=tqdm_class,
+        blob_reused_from_store = (
+            xet_hash is not None
+            and not force_download
+            and not os.path.exists(blob_path)
+            and try_link_from_shared_store(
+                blob_path=blob_path, xet_hash=xet_hash, cache_dir=cache_dir, expected_size=expected_size
+            )
         )
+        blob_is_shared = blob_reused_from_store
+        if not blob_reused_from_store:
+            will_download = force_download or not os.path.exists(blob_path)
+            _download_to_tmp_and_move(
+                incomplete_path=Path(blob_path + ".incomplete"),
+                destination_path=Path(blob_path),
+                url_to_download=url_to_download,
+                headers=headers,
+                expected_size=expected_size,
+                filename=filename,
+                force_download=force_download,
+                etag=etag,
+                xet_file_data=xet_file_data,
+                tqdm_class=tqdm_class,
+            )
+            if xet_hash is not None and will_download and is_xet_available():
+                # Only Xet-verified downloads are published, never the plain HTTP fallback.
+                blob_is_shared = publish_blob_to_shared_store(
+                    blob_path=blob_path,
+                    xet_hash=xet_hash,
+                    cache_dir=cache_dir,
+                    expected_size=expected_size,
+                    replace_existing=force_download,
+                )
         if not os.path.exists(pointer_path):
-            _create_symlink(blob_path, pointer_path, new_blob=True)
+            # A shared blob is a symlink: if the snapshot symlink fails, copy through it instead of moving it away.
+            _create_symlink(blob_path, pointer_path, new_blob=not blob_is_shared)
 
     return pointer_path
 
@@ -2047,7 +2090,43 @@ def _chmod_and_move(src: Path, dst: Path) -> None:
             # See https://github.com/huggingface/huggingface_hub/issues/2359
             pass
 
-    shutil.move(str(src), str(dst), copy_function=_copy_no_matter_what)
+    if os.path.lexists(dst):
+        # Replace the entry so a force download never writes through a shared symlink. Some mounts
+        # reject replace-over-existing: stage the new file and keep the old entry restorable.
+        try:
+            os.replace(src, dst)
+        except OSError:
+            staged_dst = dst.with_name(f".{dst.name}.{uuid.uuid4().hex[:8]}.new")
+            backup_dst = dst.with_name(f".{dst.name}.{uuid.uuid4().hex[:8]}.old")
+            backup_holds_previous_entry = False
+            try:
+                shutil.move(str(src), str(staged_dst), copy_function=_copy_no_matter_what)
+                os.rename(dst, backup_dst)
+                backup_holds_previous_entry = True
+                try:
+                    shutil.move(str(staged_dst), str(dst), copy_function=_copy_no_matter_what)
+                except OSError as move_error:
+                    try:
+                        if os.path.lexists(dst):
+                            os.unlink(dst)
+                        os.rename(backup_dst, dst)
+                        backup_holds_previous_entry = False
+                    except OSError as restore_error:
+                        raise OSError(
+                            f"Could not restore previous destination '{dst}' from '{backup_dst}'"
+                        ) from restore_error
+                    raise move_error
+                try:
+                    backup_dst.unlink()
+                    backup_holds_previous_entry = False
+                except OSError as cleanup_error:
+                    logger.warning(f"Could not remove previous destination backup '{backup_dst}': {cleanup_error}")
+            finally:
+                staged_dst.unlink(missing_ok=True)
+                if not backup_holds_previous_entry:
+                    backup_dst.unlink(missing_ok=True)
+    else:
+        shutil.move(str(src), str(dst), copy_function=_copy_no_matter_what)
 
 
 def _copy_no_matter_what(src: str, dst: str) -> None:

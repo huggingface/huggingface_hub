@@ -200,6 +200,16 @@ Set to disable using `hf-xet`, even if it is available in your Python environmen
 > Now that the Hugging Face Hub is fully powered by the Xet storage backend, all file transfers go through the `hf-xet` binary package. It provides efficient transfers using a chunk-based deduplication strategy and integrates seamlessly with `huggingface_hub`.
 > This means `hf_transfer` can't be used anymore. If you are interested in higher performance, check out the [`HF_XET_HIGH_PERFORMANCE` section](#hf_xet_high_performance)
 
+### HF_HUB_DISABLE_SHARED_BLOBS
+
+Set to `1` to disable the cache-wide shared blob store. By default, successfully
+downloaded Xet files are stored in `<CACHE_DIR>/blobs/<prefix>/<xet_hash>` and symlinked
+into repo caches, so identical files are stored on disk only once across repos and can
+be reused without re-fetching. The optimization requires Xet
+(`HF_HUB_DISABLE_XET` must not be set) and the symlink-based cache layout; it falls back
+silently to regular repo-local storage otherwise. See the
+[caching guide](../guides/manage-cache#shared-blobs-across-repos) for details.
+
 ### HF_XET_HIGH_PERFORMANCE
 
 Set `hf-xet` to operate with increased settings to maximize network and disk resources on the machine. Enabling high performance mode will try to saturate the network bandwidth of this machine and utilize all CPU cores for parallel upload/download activity.
