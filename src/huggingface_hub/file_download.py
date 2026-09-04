@@ -640,11 +640,6 @@ def _create_symlink(src: str, dst: str, new_blob: bool = False) -> None:
     In case symlinks are not supported, a warning message is displayed to the user once when loading `huggingface_hub`.
     The warning message can be disabled with the `DISABLE_SYMLINKS_WARNING` environment variable.
     """
-    try:
-        os.remove(dst)
-    except OSError:
-        pass
-
     abs_src = os.path.abspath(os.path.expanduser(src))
     abs_dst = os.path.abspath(os.path.expanduser(dst))
     abs_dst_folder = os.path.dirname(abs_dst)
@@ -676,26 +671,37 @@ def _create_symlink(src: str, dst: str, new_blob: bool = False) -> None:
         else:
             raise
 
-    # Symlinks are supported => let's create a symlink.
+    # Symlinks are supported => let's create a symlink using atomic replacement.
+    # Previous implementation did os.remove(dst) then os.symlink(src, dst), leaving a window
+    # where the symlink doesn't exist. Under concurrent access (e.g. DDP multi-GPU training),
+    # another process calling os.path.isfile(dst) during that window gets False, causing
+    # "does not appear to have a file named ..." errors. See:
+    # https://github.com/vllm-project/llm-compressor/issues/2984
     if _support_symlinks:
         src_rel_or_abs = relative_src or abs_src
         logger.debug(f"Creating pointer from {src_rel_or_abs} to {abs_dst}")
         try:
-            os.symlink(src_rel_or_abs, abs_dst)
+            # Atomic symlink replacement: create a temp symlink then os.replace() it onto dst.
+            # os.replace() is atomic on POSIX, so concurrent readers always see a valid symlink.
+            tmp = abs_dst + ".tmp." + uuid.uuid4().hex[:8]
+            os.symlink(src_rel_or_abs, tmp)
+            os.replace(tmp, abs_dst)
             return
-        except FileExistsError:
-            if os.path.islink(abs_dst) and os.path.realpath(abs_dst) == os.path.realpath(abs_src):
-                # `abs_dst` already exists and is a symlink to the `abs_src` blob. It is most likely that the file has
-                # been cached twice concurrently (exactly between `os.remove` and `os.symlink`). Do nothing.
-                return
-            else:
-                # Very unlikely to happen. Means a file `dst` has been created exactly between `os.remove` and
-                # `os.symlink` and is not a symlink to the `abs_src` blob file. Raise exception.
-                raise
+        except FileNotFoundError:
+            # dst directory doesn't exist yet — create and retry
+            os.makedirs(abs_dst_folder, exist_ok=True)
+            tmp = abs_dst + ".tmp." + uuid.uuid4().hex[:8]
+            os.symlink(src_rel_or_abs, tmp)
+            os.replace(tmp, abs_dst)
+            return
         except PermissionError:
             # Permission error means src and dst are not in the same volume (e.g. download to local dir) and symlink
             # is supported on both volumes but not between them. Let's just make a hard copy in that case.
-            pass
+            # Clean up temp symlink if it was created.
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
 
     # Symlinks are not supported => let's move or copy the file.
     if new_blob:
