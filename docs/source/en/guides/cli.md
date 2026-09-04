@@ -1899,8 +1899,8 @@ Running this will show the following output!
 This code ran with the following GPU: NVIDIA A10G
 ```
 
-Put Jobs options before the image for consistency. Use `--` between the image and command to
-prevent Jobs from consuming command options such as `--help` or `--timeout`.
+Use `--` to separate Jobs options from arguments passed to your command or script.
+Jobs does not interpret options after `--`.
 
 ```bash
 >>> hf jobs run --flavor cpu-basic python:3.12 -- python --help
@@ -2145,7 +2145,7 @@ Run UV scripts (Python scripts with inline dependencies) on HF infrastructure. U
 
 UV scripts are Python scripts that include their dependencies directly in the file using a special comment syntax. This makes them perfect for self-contained tasks that don't require complex project setups. Learn more about UV scripts in the [UV documentation](https://docs.astral.sh/uv/guides/scripts/).
 
-Put Jobs options before the script. Use `--` to forward script options that Jobs also recognises:
+Use `--` to pass conflicting options through to your script:
 
 ```bash
 >>> hf jobs uv run --flavor t4-small train.py -- --help
