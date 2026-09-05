@@ -8,6 +8,7 @@ from huggingface_hub.utils import logging
 
 from ._common import AutoRouterConversationalTask, TaskProviderHelper, _fetch_inference_provider_mapping
 from .baseten import BasetenConversationalTask
+from .berget import BergetConversationalTask
 from .cerebras import CerebrasConversationalTask
 from .cohere import CohereConversationalTask
 from .deepinfra import (
@@ -71,6 +72,7 @@ logger = logging.get_logger(__name__)
 
 PROVIDER_T = Literal[
     "baseten",
+    "berget",
     "cerebras",
     "cohere",
     "deepinfra",
@@ -98,6 +100,9 @@ CONVERSATIONAL_AUTO_ROUTER = AutoRouterConversationalTask()
 PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
     "baseten": {
         "conversational": BasetenConversationalTask(),
+    },
+    "berget": {
+        "conversational": BergetConversationalTask(),
     },
     "cerebras": {
         "conversational": CerebrasConversationalTask(),
