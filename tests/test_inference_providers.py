@@ -1355,6 +1355,20 @@ class TestBergetProvider:
         helper = BergetConversationalTask()
         assert helper._prepare_url("berget_token", "username/repo_name") == "https://api.berget.ai/v1/chat/completions"
 
+    def test_prepare_api_key(self):
+        helper = BergetConversationalTask()
+        assert helper._prepare_api_key("berget_token") == "berget_token"
+
+    def test_prepare_api_key_requires_key(self):
+        helper = BergetConversationalTask()
+        with pytest.raises(ValueError, match="You must provide an api_key"):
+            helper._prepare_api_key(None)
+
+    def test_prepare_api_key_rejects_hf_token(self):
+        helper = BergetConversationalTask()
+        with pytest.raises(ValueError, match="not available through Hugging Face routing"):
+            helper._prepare_api_key("hf_token")
+
 
 class TestNscaleProvider:
     def test_prepare_route_text_to_image(self):
