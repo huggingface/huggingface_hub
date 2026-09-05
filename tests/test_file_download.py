@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import hashlib
 import io
 import os
 import shutil
@@ -851,6 +852,54 @@ class TestHfHubDownloadToLocalDir:
         mock.assert_called()
         for call in mock.call_args_list:
             assert call.kwargs["token"] is False
+
+
+class TestFileDownloadDryRunCachedLocal:
+    @pytest.mark.parametrize("existing_content", [None, b"outdated"])
+    def test_dry_run_does_not_copy_cached_file(self, tmp_path, mocker, existing_content):
+        repo_id = "test/cached-model"
+        revision = "a" * 40
+        filename = "weights.bin"
+        content = b"cached weights"
+        cache_dir = tmp_path / "cache"
+        cached_file = cache_dir / "models--test--cached-model" / "snapshots" / revision / filename
+        cached_file.parent.mkdir(parents=True)
+        cached_file.write_bytes(content)
+        local_dir = tmp_path / "local"
+        target = local_dir / filename
+        if existing_content is not None:
+            local_dir.mkdir()
+            target.write_bytes(existing_content)
+        mocker.patch(
+            "huggingface_hub.file_download._get_metadata_or_catch_error",
+            return_value=(
+                "https://huggingface.co/test/cached-model/resolve/main/weights.bin",
+                hashlib.sha256(content).hexdigest(),
+                revision,
+                len(content),
+                None,
+                None,
+            ),
+        )
+
+        info = hf_hub_download(
+            repo_id, filename, revision=revision, cache_dir=cache_dir, local_dir=local_dir, dry_run=True
+        )
+
+        assert info.is_cached
+        assert not info.will_download
+        assert info.file_size == len(content)
+        assert info.local_path == str(target)
+        if existing_content is None:
+            assert not target.exists()
+        else:
+            assert target.read_bytes() == existing_content
+        assert not (local_dir / ".cache" / "huggingface" / "download" / f"{filename}.metadata").exists()
+
+        # An actual download must still copy the cached file into the destination.
+        result = hf_hub_download(repo_id, filename, revision=revision, cache_dir=cache_dir, local_dir=local_dir)
+        assert result == str(target)
+        assert target.read_bytes() == content
 
 
 @pytest.mark.production
