@@ -32,6 +32,7 @@ from huggingface_hub.file_download import (
     HfFileMetadata,
     _check_disk_space,
     _create_symlink,
+    _get_metadata_or_catch_error,
     _get_pointer_path,
     _normalize_etag,
     get_hf_file_metadata,
@@ -1476,6 +1477,72 @@ class TestNormalizeEtag:
         return _normalize_etag(
             response.headers.get(constants.HUGGINGFACE_HEADER_X_LINKED_ETAG) or response.headers.get("ETag")
         )
+
+
+class TestPinDownloadUrlToResolvedCommit:
+    """Direct Hub files must GET the commit the metadata HEAD resolved, not `/resolve/main/`. See #4815."""
+
+    _COMMIT = "0123456789abcdef0123456789abcdef01234567"
+
+    def _metadata(self, location: str) -> HfFileMetadata:
+        return HfFileMetadata(
+            commit_hash=self._COMMIT,
+            etag="etag123",
+            location=location,
+            size=12,
+            xet_file_data=None,
+        )
+
+    def _call(self, metadata: HfFileMetadata, revision: str = "main", headers: dict[str, str] | None = None):
+        with patch("huggingface_hub.file_download.get_hf_file_metadata", return_value=metadata):
+            return _get_metadata_or_catch_error(
+                repo_id="org/model",
+                filename="config.json",
+                repo_type="model",
+                revision=revision,
+                endpoint=None,
+                etag_timeout=10,
+                headers={} if headers is None else headers,
+                token=False,
+                local_files_only=False,
+            )
+
+    def test_mutable_revision_without_redirect_is_pinned_to_commit(self):
+        revision_url = hf_hub_url("org/model", "config.json", revision="main")
+        pinned_url = hf_hub_url("org/model", "config.json", revision=self._COMMIT)
+        url_to_download, etag, commit_hash, size, xet_file_data, error = self._call(self._metadata(revision_url))
+        assert error is None
+        assert commit_hash == self._COMMIT
+        assert etag == "etag123"
+        assert size == 12
+        assert xet_file_data is None
+        assert url_to_download == pinned_url
+        assert url_to_download != revision_url
+
+    def test_cdn_redirect_location_is_kept(self):
+        cdn_url = "https://cdn.hf.co/signed/config.json?token=abc"
+        headers = {"authorization": "Bearer tok"}
+        url_to_download, _, _, _, _, error = self._call(self._metadata(cdn_url), headers=headers)
+        assert error is None
+        assert url_to_download == cdn_url
+        assert "authorization" not in headers
+
+    def test_hub_to_hub_redirect_is_pinned_to_commit(self):
+        redirected = "https://huggingface.co/new-org/renamed/resolve/main/config.json"
+        pinned_url = hf_hub_url("org/model", "config.json", revision=self._COMMIT)
+        url_to_download, _, commit_hash, _, _, error = self._call(self._metadata(redirected))
+        assert error is None
+        assert commit_hash == self._COMMIT
+        assert url_to_download == pinned_url
+
+    def test_already_pinned_revision_keeps_commit_url(self):
+        pinned_url = hf_hub_url("org/model", "config.json", revision=self._COMMIT)
+        url_to_download, _, commit_hash, _, _, error = self._call(
+            self._metadata(pinned_url), revision=self._COMMIT
+        )
+        assert error is None
+        assert commit_hash == self._COMMIT
+        assert url_to_download == pinned_url
 
 
 @pytest.mark.production
