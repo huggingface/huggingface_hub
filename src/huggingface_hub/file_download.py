@@ -180,8 +180,9 @@ class DryRunFileInfo:
     Args:
         commit_hash (`str`):
             The commit_hash related to the file.
-        file_size (`int`):
-            Size of the file. In case of an LFS file, contains the size of the actual LFS file, not the pointer.
+        file_size (`int`, *optional*):
+            Size of the file, if known. In case of an LFS file, contains the size of the actual LFS file, not the
+            pointer.
         filename (`str`):
             Name of the file in the repo.
         is_cached (`bool`):
@@ -192,7 +193,7 @@ class DryRunFileInfo:
     """
 
     commit_hash: str
-    file_size: int
+    file_size: int | None
     filename: str
     local_path: str
     is_cached: bool
@@ -399,7 +400,9 @@ def http_get(
             resume_size = 0
 
         total: int | None = _get_file_length_from_http_response(response)
-        if total is None:
+        if expected_size is None:
+            expected_size = total
+        elif total is None:
             # Hub serves compressible text files (e.g. vocab.json) with `Content-Encoding: gzip` and
             # `Transfer-Encoding: chunked`, so the response carries no `Content-Length`. Fall back to the caller's
             # `expected_size` (always known from the metadata HEAD on the hf_hub path) so the progress bar, and any
@@ -1174,11 +1177,10 @@ def _hf_hub_download_to_cache_dir(
         if head_call_error is not None:
             _raise_on_head_call_error(head_call_error, force_download, local_files_only)
 
-    # From now on, etag, commit_hash, url and size are not None.
+    # From now on, etag, commit_hash and url are not None.
     assert etag is not None, "etag must have been retrieved from server"
     assert commit_hash is not None, "commit_hash must have been retrieved from server"
     assert url_to_download is not None, "file location must have been retrieved from server"
-    assert expected_size is not None, "expected_size must have been retrieved from server"
     blob_path = os.path.join(storage_folder, "blobs", etag)
     pointer_path = _get_pointer_path(storage_folder, commit_hash, relative_filename)
 
@@ -1380,11 +1382,10 @@ def _hf_hub_download_to_local_dir(
         if head_call_error is not None:
             _raise_on_head_call_error(head_call_error, force_download, local_files_only)
 
-    # From now on, etag, commit_hash, url and size are not None.
+    # From now on, etag, commit_hash and url are not None.
     assert etag is not None, "etag must have been retrieved from server"
     assert commit_hash is not None, "commit_hash must have been retrieved from server"
     assert url_to_download is not None, "file location must have been retrieved from server"
-    assert expected_size is not None, "expected_size must have been retrieved from server"
 
     # Local file exists => check if it's up-to-date
     if not force_download and paths.file_path.is_file():
@@ -1671,7 +1672,7 @@ def _get_metadata_or_catch_error(
     |
     # Or the metadata is returned as
     # `(url_to_download, etag, commit_hash, expected_size, xet_file_data, None)`
-    tuple[str, str, str, int, XetFileData | None, None]
+    tuple[str, str, str, int | None, XetFileData | None, None]
 ):
     """Get metadata for a file on the Hub, safely handling network issues.
 
@@ -1763,12 +1764,11 @@ def _get_metadata_or_catch_error(
                     "Distant resource does not have an ETag, we won't be able to reliably ensure reproducibility."
                 )
 
-            # Size must exist
+            # Xet downloads require a known size, but regular HTTP downloads can recover it from the GET response.
             expected_size = metadata.size
-            if expected_size is None:
-                raise FileMetadataError("Distant resource does not have a Content-Length.")
-
             xet_file_data = metadata.xet_file_data
+            if expected_size is None and xet_file_data is not None:
+                raise FileMetadataError("Distant resource does not have a Content-Length.")
 
             # In case of a redirect, save an extra redirect on the request.get call,
             # and ensure we download the exact atomic version even if it changed
