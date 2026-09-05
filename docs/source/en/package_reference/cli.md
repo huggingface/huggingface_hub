@@ -3228,6 +3228,7 @@ $ hf papers [OPTIONS] COMMAND [ARGS]...
 * `list`: List daily papers on the Hub. [alias: ls]
 * `read`: Read a paper as markdown.
 * `search`: Search papers on the Hub.
+* `submit`: Submit a paper to the Daily Papers feed on...
 
 ### `hf papers info`
 
@@ -3341,6 +3342,40 @@ Examples
   $ hf papers search "vision language"
   $ hf papers search "attention mechanism" --limit 10
   $ hf papers search "diffusion" --format json
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf papers submit`
+
+Submit a paper to the Daily Papers feed on the Hub.
+
+**Usage**:
+
+```console
+$ hf papers submit [OPTIONS] PAPER_ID
+```
+
+**Arguments**:
+
+* `PAPER_ID`: The arXiv paper ID (e.g. '2502.08025').  [required]
+
+**Options**:
+
+* `--comment TEXT`: An optional comment to add to the paper's discussion.
+* `--media-url TEXT`: Media URL to attach. Repeat to attach several.
+* `--project-page TEXT`: An optional project page URL for the paper.
+* `--github-repo TEXT`: An optional GitHub repository URL for the paper.
+* `--organization-id TEXT`: An optional organization ID to associate the submission with.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf papers submit 2601.15621
+  $ hf papers submit 2601.15621 --comment "Excited to share our work!"
+  $ hf papers submit 2601.15621 --github-repo https://github.com/my-paper-code
 
 Learn more
   Use `hf <command> --help` for more information about a command.
