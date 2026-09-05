@@ -59,6 +59,8 @@ POOL_LABEL = "hf-sandbox-pool"
 # `Sandbox.connect(id)` can recompute the token from any machine with no local state.
 NONCE_LABEL = "hf-sandbox-nonce"
 
+RESERVED_SANDBOX_LABELS = frozenset({SANDBOX_LABEL, MODE_LABEL, POOL_LABEL, NONCE_LABEL})
+
 DEFAULT_IMAGE = "python:3.12"
 
 DEFAULT_IDLE_TIMEOUT = 10 * 60  # 10 minutes
@@ -527,6 +529,7 @@ class Sandbox:
         volumes: List[Volume] | None = None,
         namespace: str | None = None,
         forward_hf_token: bool = False,
+        labels: dict[str, str] | None = None,
         start_timeout: float = 120.0,
         token: str | None = None,
     ) -> "Sandbox":
@@ -557,6 +560,10 @@ class Sandbox:
                 User or org namespace to run under (defaults to current user).
             forward_hf_token (`bool`, *optional*, defaults to `False`):
                 If True, your HF token is injected as `HF_TOKEN` (opt-in).
+            labels (`dict[str, str]`, *optional*):
+                Custom correlation labels to attach to the underlying HF Job. Reserved
+                keys (`hf-sandbox`, `hf-sandbox-mode`, `hf-sandbox-pool`, `hf-sandbox-nonce`)
+                cannot be overridden.
             start_timeout (`float`, *optional*, defaults to `120.0`):
                 Max seconds to wait for the sandbox to become ready.
             token (`str`, *optional*):
@@ -566,6 +573,19 @@ class Sandbox:
         `wget`/`curl` if available, otherwise read off an always-mounted server bucket (which
         adds ~2-3s to cold start, so shipping `wget`/`curl` keeps it fast).
         """
+        if labels is not None:
+            if not isinstance(labels, dict):
+                raise ValueError(f"`labels` must be a dict[str, str], got {type(labels).__name__}")
+            for k, v in labels.items():
+                if not isinstance(k, str) or not isinstance(v, str):
+                    raise ValueError(
+                        f"`labels` keys and values must be strings, got key={k!r} ({type(k).__name__}) and value={v!r} ({type(v).__name__})"
+                    )
+                if k in RESERVED_SANDBOX_LABELS:
+                    raise ValueError(
+                        f"Label '{k}' is reserved by huggingface_hub Sandbox ({', '.join(sorted(RESERVED_SANDBOX_LABELS))}) and cannot be overridden."
+                    )
+
         api = HfApi(token=token)
         hf_token = _effective_token(api)
         nonce = token_hex(16)
@@ -582,6 +602,9 @@ class Sandbox:
             sandbox_token=sandbox_token,
         )
 
+        job_labels = dict(labels) if labels else {}
+        job_labels.update({SANDBOX_LABEL: "1", MODE_LABEL: MODE_DEDICATED, NONCE_LABEL: nonce})
+
         job = api.run_job(
             image=image,
             command=command,
@@ -589,7 +612,7 @@ class Sandbox:
             secrets=job_secrets,
             flavor=flavor,
             timeout=SANDBOX_MAX_LIFETIME,
-            labels={SANDBOX_LABEL: "1", MODE_LABEL: MODE_DEDICATED, NONCE_LABEL: nonce},
+            labels=job_labels,
             volumes=job_volumes or None,
             expose=[SANDBOX_SERVER_PORT],
             namespace=namespace,
