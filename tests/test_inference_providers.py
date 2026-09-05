@@ -57,6 +57,7 @@ from huggingface_hub.inference._providers.replicate import (
     ReplicateTextToSpeechTask,
 )
 from huggingface_hub.inference._providers.scaleway import ScalewayConversationalTask, ScalewayFeatureExtractionTask
+from huggingface_hub.inference._providers.textclf import TextCLFConversationalTask, TextCLFTextGenerationTask
 from huggingface_hub.inference._providers.together import (
     TogetherConversationalTask,
     TogetherFeatureExtractionTask,
@@ -1668,7 +1669,17 @@ class TestReplicateProvider:
             },
             "version": "123456",
         }
+        
+class TestTextCLFProvider:
+    def test_prepare_url_text_generation(self):
+        helper = TextCLFTextGenerationTask()
+        url = helper._prepare_url("textclf_token", "username/repo_name")
+        assert url == "https://api.textclf.com/v1/chat/completions"
 
+    def test_prepare_url_conversational(self):
+        helper = TextCLFConversationalTask()
+        url = helper._prepare_url("textclf_token", "username/repo_name")
+        assert url == "https://api.textclf.com/v1/chat/completions"
 
 class TestTogetherProvider:
     def test_conversational_json_schema_flattens_envelope(self):
