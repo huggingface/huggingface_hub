@@ -693,7 +693,7 @@ def _github_repo_exists(*, owner: str, repo_name: str) -> bool:
 def _get_executable_name(short_name: str) -> str:
     name = f"hf-{short_name}"
     if os.name == "nt":
-        name += ".exe"
+        name += ".ps1"
     return name
 
 
