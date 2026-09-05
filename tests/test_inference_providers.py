@@ -17,6 +17,7 @@ from huggingface_hub.inference._providers._common import (
     filter_none,
     recursive_merge,
 )
+from huggingface_hub.inference._providers.berget import BergetConversationalTask
 from huggingface_hub.inference._providers.cohere import CohereConversationalTask
 from huggingface_hub.inference._providers.deepinfra import (
     DeepInfraAutomaticSpeechRecognitionTask,
@@ -1347,6 +1348,26 @@ class TestPublicAIProvider:
             helper._prepare_url("publicai_token", "username/repo_name")
             == "https://api.publicai.co/v1/chat/completions"
         )
+
+
+class TestBergetProvider:
+    def test_prepare_url(self):
+        helper = BergetConversationalTask()
+        assert helper._prepare_url("berget_token", "username/repo_name") == "https://api.berget.ai/v1/chat/completions"
+
+    def test_prepare_api_key(self):
+        helper = BergetConversationalTask()
+        assert helper._prepare_api_key("berget_token") == "berget_token"
+
+    def test_prepare_api_key_requires_key(self):
+        helper = BergetConversationalTask()
+        with pytest.raises(ValueError, match="You must provide an api_key"):
+            helper._prepare_api_key(None)
+
+    def test_prepare_api_key_rejects_hf_token(self):
+        helper = BergetConversationalTask()
+        with pytest.raises(ValueError, match="not available through Hugging Face routing"):
+            helper._prepare_api_key("hf_token")
 
 
 class TestNscaleProvider:

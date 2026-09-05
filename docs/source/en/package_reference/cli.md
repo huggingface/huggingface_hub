@@ -3178,7 +3178,7 @@ $ hf models list [OPTIONS] [REPO_ID]
 * `--gated / --no-gated`: Filter by gated status. '--gated' for gated only, '--no-gated' for non-gated only.
 * `--apps TEXT`: Filter by app(s) that can run the model, e.g. 'ollama' or 'vllm'.
 * `--num-parameters TEXT`: Filter by parameter count, e.g. 'min:6B,max:128B'.
-* `--inference-provider [baseten|cerebras|cohere|deepinfra|fal-ai|featherless-ai|fireworks-ai|groq|hf-inference|novita|nscale|openai|ovhcloud|publicai|replicate|scaleway|together|wavespeed|zai-org]`: Filter by inference provider(s) serving the model, e.g. 'fireworks-ai'.
+* `--inference-provider [baseten|berget|cerebras|cohere|deepinfra|fal-ai|featherless-ai|fireworks-ai|groq|hf-inference|novita|nscale|openai|ovhcloud|publicai|replicate|scaleway|together|wavespeed|zai-org]`: Filter by inference provider(s) serving the model, e.g. 'fireworks-ai'.
 * `--warm`: Only list models currently served by at least one inference provider.
 * `--sort [created_at|downloads|last_modified|likes|trending_score]`: Sort results.
 * `--limit INTEGER`: Limit the number of results.  [default: 30]
