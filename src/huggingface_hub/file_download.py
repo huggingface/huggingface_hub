@@ -1781,11 +1781,16 @@ def _get_metadata_or_catch_error(
                 if not _is_same_or_hub_host(url, metadata.location):
                     # Remove authorization header when downloading a LFS blob from a CDN
                     headers.pop("authorization", None)
-            elif xet_file_data is None and commit_hash is not None and not REGEX_COMMIT_HASH.match(revision):
-                # Direct Hub response (no CDN Location). The HEAD resolved `revision` (e.g. `main`)
-                # to `commit_hash`, but `url` still points at `/resolve/<revision>/`. Pin the GET
-                # to that commit so a push between HEAD and GET cannot store new bytes under the
-                # old snapshot folder / etag blob. See #4815.
+            if (
+                xet_file_data is None
+                and commit_hash is not None
+                and not REGEX_COMMIT_HASH.match(revision)
+                and _is_same_or_hub_host(url, url_to_download)
+            ):
+                # Pin the GET to the commit the HEAD resolved. Applies to a direct Hub
+                # response and to a Hub-to-Hub redirect (repo rename / HF_ENDPOINT), both
+                # of which still have `/resolve/<revision>/` in the URL. A signed CDN
+                # Location is a different host, so it is left alone. See #4815.
                 url_to_download = hf_hub_url(
                     repo_id, filename, repo_type=repo_type, revision=commit_hash, endpoint=endpoint
                 )

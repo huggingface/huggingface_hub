@@ -1527,6 +1527,14 @@ class TestPinDownloadUrlToResolvedCommit:
         assert url_to_download == cdn_url
         assert "authorization" not in headers
 
+    def test_hub_to_hub_redirect_is_pinned_to_commit(self):
+        redirected = "https://huggingface.co/new-org/renamed/resolve/main/config.json"
+        pinned_url = hf_hub_url("org/model", "config.json", revision=self._COMMIT)
+        url_to_download, _, commit_hash, _, _, error = self._call(self._metadata(redirected))
+        assert error is None
+        assert commit_hash == self._COMMIT
+        assert url_to_download == pinned_url
+
     def test_already_pinned_revision_keeps_commit_url(self):
         pinned_url = hf_hub_url("org/model", "config.json", revision=self._COMMIT)
         url_to_download, _, commit_hash, _, _, error = self._call(
