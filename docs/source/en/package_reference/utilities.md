@@ -122,11 +122,9 @@ You can also enable or disable progress bars for specific groups. This allows yo
 
 ## Configuring the HTTP Backend
 
-<Tip>
+> [!TIP]
+> In `huggingface_hub` v0.x, HTTP requests were handled with `requests`, and configuration was done via `configure_http_backend`. Since we now use `httpx`, configuration works differently: you must provide a factory function that takes no arguments and returns an `httpx.Client`. You can review the [default implementation here](https://github.com/huggingface/huggingface_hub/blob/main/src/huggingface_hub/utils/_http.py) to see which parameters are used by default.
 
-In `huggingface_hub` v0.x, HTTP requests were handled with `requests`, and configuration was done via `configure_http_backend`. Since we now use `httpx`, configuration works differently: you must provide a factory function that takes no arguments and returns an `httpx.Client`. You can review the [default implementation here](https://github.com/huggingface/huggingface_hub/blob/main/src/huggingface_hub/utils/_http.py) to see which parameters are used by default.
-
-</Tip>
 
 
 In some setups, you may need to control how HTTP requests are made, for example when working behind a proxy. The `huggingface_hub` library allows you to configure this globally with [`set_client_factory`]. After configuration, all requests to the Hub will use your custom settings. Since `huggingface_hub` relies on `httpx.Client` under the hood, you can check the [`httpx` documentation](https://www.python-httpx.org/advanced/clients/) for details on available parameters.
@@ -149,11 +147,27 @@ For async code, use [`set_async_client_factory`] to configure an `httpx.AsyncCli
 
 [[autodoc]] get_async_session
 
-<Tip>
+> [!TIP]
+> Unlike the synchronous client, the lifecycle of the async client is not managed automatically. Use an async context manager to handle it properly.
 
-Unlike the synchronous client, the lifecycle of the async client is not managed automatically. Use an async context manager to handle it properly.
+### The `httpx` module
 
-</Tip>
+`huggingface_hub` re-exports the HTTP library it uses under the hood as `huggingface_hub.utils.httpx`:
+
+```py
+from huggingface_hub.utils import httpx
+
+try:
+    ...
+except httpx.HTTPError:
+    ...
+```
+
+This is mostly useful for third-party libraries built on top of `huggingface_hub`. `huggingface_hub` v1.x is built on [`httpx`](https://www.python-httpx.org/), while v2.x will be built on [`httpx2`](https://httpx2.pydantic.dev/) (its successor, distributed as a separate package). Importing the module from `huggingface_hub.utils` instead of importing `httpx` directly means you always get the version that `huggingface_hub` actually uses, and your library stays compatible with both major versions. See [this issue](https://github.com/huggingface/huggingface_hub/issues/4802) for more details about the migration plan.
+
+> [!WARNING]
+> Only use this if you need `httpx` types or exceptions (e.g. to catch errors). To make requests to the Hub, use [`get_session`] as described above.
+
 
 ## Handle HTTP errors
 
