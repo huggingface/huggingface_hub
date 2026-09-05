@@ -1781,6 +1781,14 @@ def _get_metadata_or_catch_error(
                 if not _is_same_or_hub_host(url, metadata.location):
                     # Remove authorization header when downloading a LFS blob from a CDN
                     headers.pop("authorization", None)
+            elif xet_file_data is None and commit_hash is not None and not REGEX_COMMIT_HASH.match(revision):
+                # Direct Hub response (no CDN Location). The HEAD resolved `revision` (e.g. `main`)
+                # to `commit_hash`, but `url` still points at `/resolve/<revision>/`. Pin the GET
+                # to that commit so a push between HEAD and GET cannot store new bytes under the
+                # old snapshot folder / etag blob. See #4815.
+                url_to_download = hf_hub_url(
+                    repo_id, filename, repo_type=repo_type, revision=commit_hash, endpoint=endpoint
+                )
         except httpx.ProxyError:
             # Actually raise on proxy error
             raise
