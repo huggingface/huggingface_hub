@@ -21,7 +21,7 @@ import struct
 import time
 import warnings
 from collections import defaultdict
-from collections.abc import Callable, Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
@@ -502,6 +502,528 @@ class SafeTensorsInfo(dict):
 
     def __post_init__(self):  # hack to make SafeTensorsInfo backward compatible
         self.update(asdict(self))
+
+
+T_EntityInfo = TypeVar("T_EntityInfo", bound="EntityInfo")
+_SENTINEL = object()
+
+
+@dataclass(eq=False)
+class EntityInfo(dict):
+    """
+    Base data structure containing information about a user or an organization on the Hub.
+
+    Inherits from `dict` for backward compatibility.
+
+    Attributes:
+        type (`str`):
+            Entity type (e.g. `"user"` or `"org"`).
+        id (`str`):
+            Entity ID.
+        name (`str`):
+            Username or organization name on the Hub.
+        fullname (`str`):
+            Full name of the user or organization.
+        email (`str`, *optional*):
+            Email address associated with the entity, if available.
+        can_pay (`bool`, *optional*):
+            Whether the entity has payment capabilities configured.
+        avatar_url (`str`):
+            URL of the entity's avatar image.
+    """
+
+    type: str = "user"
+    id: str = ""
+    name: str = ""
+    fullname: str = ""
+    email: str | None = None
+    can_pay: bool | None = None
+    avatar_url: str = ""
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__()
+        data: dict[str, Any] = {}
+        if len(args) == 1:
+            if isinstance(args[0], (dict, Mapping)):
+                data.update(args[0])
+            elif hasattr(args[0], "items"):
+                data.update(dict(args[0]))
+            else:
+                try:
+                    data.update(dict(args[0]))
+                except (TypeError, ValueError):
+                    data["type"] = args[0]
+        elif args:
+            field_names = ("type", "id", "name", "fullname", "email", "can_pay", "avatar_url")
+            data.update(dict(zip(field_names, args)))
+        data.update(kwargs)
+
+        self.type = str(data.get("type", "user"))
+        self.id = str(data.get("id", ""))
+        self.name = str(data.get("name", ""))
+        self.fullname = str(data.get("fullname", ""))
+        self.email = data.get("email")
+
+        if "can_pay" in data:
+            self.can_pay = data["can_pay"]
+        elif "canPay" in data:
+            self.can_pay = data["canPay"]
+        else:
+            self.can_pay = None
+
+        if "avatar_url" in data:
+            self.avatar_url = str(data["avatar_url"])
+        elif "avatarUrl" in data:
+            self.avatar_url = str(data["avatarUrl"])
+        else:
+            self.avatar_url = ""
+
+        # Store all original raw_data in dict for full backward compatibility
+        super().update(data)
+
+        # Ensure canonical snake_case and camelCase keys are both present in dict
+        self["type"] = self.type
+        self["id"] = self.id
+        self["name"] = self.name
+        self["fullname"] = self.fullname
+        self["email"] = self.email
+        self["can_pay"] = self.can_pay
+        self["canPay"] = self.can_pay
+        self["avatar_url"] = self.avatar_url
+        self["avatarUrl"] = self.avatar_url
+
+    def copy(self: T_EntityInfo) -> T_EntityInfo:
+        """Return a shallow copy of the object preserving its type."""
+        import copy
+
+        return copy.copy(self)
+
+    def update(self, *args: Any, **kwargs: Any) -> None:
+        """Update dict entries and synchronize corresponding dataclass attributes."""
+        for k, v in dict(*args, **kwargs).items():
+            self[k] = v
+
+    def setdefault(self, key: Any, default: Any = None) -> Any:
+        """Insert key with a value of default if key is not in the dictionary, synchronizing attributes."""
+        if key in self:
+            return self[key]
+        self[key] = default
+        return default
+
+    @overload
+    def pop(self, key: Any, /) -> Any: ...
+
+    @overload
+    def pop(self, key: Any, default: Any, /) -> Any: ...
+
+    def pop(self, key: Any, /, default: Any = _SENTINEL) -> Any:
+        """Remove specified key and synchronize corresponding dataclass attributes."""
+        if key in self:
+            val = self[key]
+            del self[key]
+            return val
+        if default is not _SENTINEL:
+            return default
+        raise KeyError(key)
+
+    def popitem(self) -> tuple[str, Any]:
+        """Remove and return a (key, value) pair, synchronizing attributes."""
+        if not self:
+            raise KeyError("popitem(): dictionary is empty")
+        key = next(reversed(self))
+        val = self.pop(key)
+        return key, val
+
+    def clear(self) -> None:
+        """Remove all items from dict and reset attributes to defaults."""
+        super().clear()
+        object.__setattr__(self, "type", "")
+        object.__setattr__(self, "id", "")
+        object.__setattr__(self, "name", "")
+        object.__setattr__(self, "fullname", "")
+        object.__setattr__(self, "email", None)
+        object.__setattr__(self, "can_pay", None)
+        object.__setattr__(self, "avatar_url", "")
+
+    def __delitem__(self, key: str) -> None:
+        if key not in self:
+            raise KeyError(key)
+        dict.pop(self, key, None)
+        if key in ("avatarUrl", "avatar_url"):
+            self.avatar_url = ""
+            dict.pop(self, "avatarUrl", None)
+            dict.pop(self, "avatar_url", None)
+        elif key in ("canPay", "can_pay"):
+            self.can_pay = None
+            dict.pop(self, "canPay", None)
+            dict.pop(self, "can_pay", None)
+        elif key == "name":
+            self.name = ""
+        elif key == "fullname":
+            self.fullname = ""
+        elif key == "email":
+            self.email = None
+        elif key == "id":
+            self.id = ""
+        elif key == "type":
+            self.type = ""
+
+    def __delattr__(self, name: str) -> None:
+        if name in ("avatar_url", "avatarUrl"):
+            if "avatar_url" in self or "avatarUrl" in self:
+                del self["avatar_url"]
+            else:
+                self.avatar_url = ""
+        elif name in ("can_pay", "canPay"):
+            if "can_pay" in self or "canPay" in self:
+                del self["can_pay"]
+            else:
+                self.can_pay = None
+        elif name in self:
+            del self[name]
+        else:
+            try:
+                super().__delattr__(name)
+            except AttributeError:
+                pass
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        dict.__setitem__(self, key, value)
+        if key in ("avatarUrl", "avatar_url"):
+            self.avatar_url = value
+            dict.__setitem__(self, "avatarUrl", value)
+            dict.__setitem__(self, "avatar_url", value)
+        elif key in ("canPay", "can_pay"):
+            self.can_pay = value
+            dict.__setitem__(self, "canPay", value)
+            dict.__setitem__(self, "can_pay", value)
+        elif key == "name":
+            self.name = value
+        elif key == "fullname":
+            self.fullname = value
+        elif key == "email":
+            self.email = value
+        elif key == "id":
+            self.id = value
+        elif key == "type":
+            self.type = value
+
+    def __setattr__(self, key: str, value: Any) -> None:
+        super().__setattr__(key, value)
+        if key == "avatar_url":
+            dict.__setitem__(self, "avatar_url", value)
+            dict.__setitem__(self, "avatarUrl", value)
+        elif key == "can_pay":
+            dict.__setitem__(self, "can_pay", value)
+            dict.__setitem__(self, "canPay", value)
+        elif key in ("name", "fullname", "email", "id", "type"):
+            dict.__setitem__(self, key, value)
+
+    def __eq__(self, other: Any) -> bool:
+        if isinstance(other, EntityInfo) and type(self) is not type(other):
+            return False
+        if isinstance(other, dict):
+            return dict.__eq__(self, other)
+        return False
+
+    @property
+    def avatarUrl(self) -> str:
+        return self.avatar_url
+
+    @avatarUrl.setter
+    def avatarUrl(self, value: str) -> None:
+        self.avatar_url = value
+
+    @avatarUrl.deleter
+    def avatarUrl(self) -> None:
+        del self["avatarUrl"]
+
+    @property
+    def canPay(self) -> bool | None:
+        return self.can_pay
+
+    @canPay.setter
+    def canPay(self, value: bool | None) -> None:
+        self.can_pay = value
+
+    @canPay.deleter
+    def canPay(self) -> None:
+        del self["canPay"]
+
+
+@dataclass(eq=False)
+class UserOrgInfo(EntityInfo):
+    """
+    Data structure containing information about an organization on the Hub.
+
+    Inherits from [`EntityInfo`] and `dict` for backward compatibility.
+
+    Attributes:
+        role_in_org (`str`, *optional*):
+            User's role in the organization (e.g. `"admin"`, `"write"`, `"read"`), if applicable.
+        is_enterprise (`bool`):
+            Whether the organization is an enterprise organization.
+    """
+
+    type: str = "org"
+    role_in_org: str | None = None
+    is_enterprise: bool = False
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        data: dict[str, Any] = {}
+        if len(args) == 1:
+            if isinstance(args[0], (dict, Mapping)):
+                data.update(args[0])
+            elif hasattr(args[0], "items"):
+                data.update(dict(args[0]))
+            else:
+                try:
+                    data.update(dict(args[0]))
+                except (TypeError, ValueError):
+                    data["type"] = args[0]
+        elif args:
+            field_names = (
+                "type",
+                "id",
+                "name",
+                "fullname",
+                "email",
+                "can_pay",
+                "avatar_url",
+                "role_in_org",
+                "is_enterprise",
+            )
+            data.update(dict(zip(field_names, args)))
+        data.update(kwargs)
+
+        if "type" not in data:
+            data["type"] = "org"
+
+        super().__init__(data)
+
+        if "role_in_org" in data:
+            self.role_in_org = data["role_in_org"]
+        elif "roleInOrg" in data:
+            self.role_in_org = data["roleInOrg"]
+        else:
+            self.role_in_org = None
+
+        if "is_enterprise" in data:
+            self.is_enterprise = bool(data["is_enterprise"])
+        elif "isEnterprise" in data:
+            self.is_enterprise = bool(data["isEnterprise"])
+        elif str(data.get("plan", "")).lower() == "enterprise":
+            self.is_enterprise = True
+        else:
+            self.is_enterprise = False
+
+        self["role_in_org"] = self.role_in_org
+        self["roleInOrg"] = self.role_in_org
+        self["is_enterprise"] = self.is_enterprise
+        self["isEnterprise"] = self.is_enterprise
+
+    def clear(self) -> None:
+        super().clear()
+        object.__setattr__(self, "type", "org")
+        object.__setattr__(self, "role_in_org", None)
+        object.__setattr__(self, "is_enterprise", False)
+
+    def __delitem__(self, key: str) -> None:
+        super().__delitem__(key)
+        if key in ("roleInOrg", "role_in_org"):
+            self.role_in_org = None
+            dict.pop(self, "roleInOrg", None)
+            dict.pop(self, "role_in_org", None)
+        elif key in ("isEnterprise", "is_enterprise"):
+            self.is_enterprise = False
+            dict.pop(self, "isEnterprise", None)
+            dict.pop(self, "is_enterprise", None)
+
+    def __delattr__(self, name: str) -> None:
+        if name in ("role_in_org", "roleInOrg"):
+            if "role_in_org" in self or "roleInOrg" in self:
+                del self["role_in_org"]
+            else:
+                self.role_in_org = None
+        elif name in ("is_enterprise", "isEnterprise"):
+            if "is_enterprise" in self or "isEnterprise" in self:
+                del self["is_enterprise"]
+            else:
+                self.is_enterprise = False
+        else:
+            super().__delattr__(name)
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        super().__setitem__(key, value)
+        if key in ("roleInOrg", "role_in_org"):
+            self.role_in_org = value
+            dict.__setitem__(self, "roleInOrg", value)
+            dict.__setitem__(self, "role_in_org", value)
+        elif key in ("isEnterprise", "is_enterprise"):
+            self.is_enterprise = bool(value)
+            dict.__setitem__(self, "isEnterprise", self.is_enterprise)
+            dict.__setitem__(self, "is_enterprise", self.is_enterprise)
+
+    def __setattr__(self, key: str, value: Any) -> None:
+        super().__setattr__(key, value)
+        if key == "role_in_org":
+            dict.__setitem__(self, "role_in_org", value)
+            dict.__setitem__(self, "roleInOrg", value)
+        elif key == "is_enterprise":
+            dict.__setitem__(self, "is_enterprise", bool(value))
+            dict.__setitem__(self, "isEnterprise", bool(value))
+
+    @property
+    def roleInOrg(self) -> str | None:
+        return self.role_in_org
+
+    @roleInOrg.setter
+    def roleInOrg(self, value: str | None) -> None:
+        self.role_in_org = value
+
+    @roleInOrg.deleter
+    def roleInOrg(self) -> None:
+        del self["roleInOrg"]
+
+    @property
+    def isEnterprise(self) -> bool:
+        return self.is_enterprise
+
+    @isEnterprise.setter
+    def isEnterprise(self, value: bool) -> None:
+        self.is_enterprise = value
+
+    @isEnterprise.deleter
+    def isEnterprise(self) -> None:
+        del self["isEnterprise"]
+
+
+@dataclass(eq=False)
+class UserInfo(EntityInfo):
+    """
+    Data structure containing information about the currently authenticated user on the Hub.
+
+    Inherits from [`EntityInfo`] and `dict` for backward compatibility.
+
+    Attributes:
+        is_pro (`bool`, *optional*):
+            Whether the user has a Pro subscription.
+        orgs (`list[UserOrgInfo]`):
+            List of organizations the user belongs to.
+    """
+
+    type: str = "user"
+    is_pro: bool | None = None
+    orgs: list[UserOrgInfo] = field(default_factory=list)
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        data: dict[str, Any] = {}
+        if len(args) == 1:
+            if isinstance(args[0], (dict, Mapping)):
+                data.update(args[0])
+            elif hasattr(args[0], "items"):
+                data.update(dict(args[0]))
+            else:
+                try:
+                    data.update(dict(args[0]))
+                except (TypeError, ValueError):
+                    data["type"] = args[0]
+        elif args:
+            field_names = ("type", "id", "name", "fullname", "email", "can_pay", "avatar_url", "is_pro", "orgs")
+            data.update(dict(zip(field_names, args)))
+        data.update(kwargs)
+
+        if "type" not in data:
+            data["type"] = "user"
+
+        super().__init__(data)
+
+        if "is_pro" in data:
+            self.is_pro = data["is_pro"]
+        elif "isPro" in data:
+            self.is_pro = data["isPro"]
+        else:
+            self.is_pro = None
+
+        raw_orgs = data.get("orgs")
+        if raw_orgs is None:
+            self.orgs = []
+        else:
+            self.orgs = [org if isinstance(org, UserOrgInfo) else UserOrgInfo(org) for org in raw_orgs]
+
+        self["is_pro"] = self.is_pro
+        self["isPro"] = self.is_pro
+        self["orgs"] = self.orgs
+
+    def clear(self) -> None:
+        super().clear()
+        object.__setattr__(self, "is_pro", None)
+        object.__setattr__(self, "orgs", [])
+
+    def __delitem__(self, key: str) -> None:
+        super().__delitem__(key)
+        if key in ("isPro", "is_pro"):
+            self.is_pro = None
+            dict.pop(self, "isPro", None)
+            dict.pop(self, "is_pro", None)
+        elif key == "orgs":
+            self.orgs = []
+            dict.pop(self, "orgs", None)
+
+    def __delattr__(self, name: str) -> None:
+        if name in ("is_pro", "isPro"):
+            if "is_pro" in self or "isPro" in self:
+                del self["is_pro"]
+            else:
+                self.is_pro = None
+        elif name == "orgs":
+            if "orgs" in self:
+                del self["orgs"]
+            else:
+                self.orgs = []
+        else:
+            super().__delattr__(name)
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        super().__setitem__(key, value)
+        if key in ("isPro", "is_pro"):
+            self.is_pro = value
+            dict.__setitem__(self, "isPro", value)
+            dict.__setitem__(self, "is_pro", value)
+        elif key == "orgs":
+            converted = (
+                [org if isinstance(org, UserOrgInfo) else UserOrgInfo(org) for org in value]
+                if value is not None
+                else []
+            )
+            self.orgs = converted
+            dict.__setitem__(self, "orgs", self.orgs)
+
+    def __setattr__(self, key: str, value: Any) -> None:
+        if key == "orgs":
+            value = (
+                [org if isinstance(org, UserOrgInfo) else UserOrgInfo(org) for org in value]
+                if value is not None
+                else []
+            )
+        super().__setattr__(key, value)
+        if key == "is_pro":
+            dict.__setitem__(self, "is_pro", value)
+            dict.__setitem__(self, "isPro", value)
+        elif key == "orgs":
+            dict.__setitem__(self, "orgs", value)
+
+    @property
+    def isPro(self) -> bool | None:
+        return self.is_pro
+
+    @isPro.setter
+    def isPro(self, value: bool | None) -> None:
+        self.is_pro = value
+
+    @isPro.deleter
+    def isPro(self) -> None:
+        del self["isPro"]
 
 
 @dataclass
@@ -2284,7 +2806,7 @@ class HfApi:
         self._thread_pool: ThreadPoolExecutor | None = None
 
         # /whoami-v2 is the only endpoint for which we may want to cache results
-        self._whoami_cache: dict[str, dict] = {}
+        self._whoami_cache: dict[str, UserInfo | UserOrgInfo] = {}
 
     def run_as_future(self, fn: Callable[..., R], *args, **kwargs) -> Future[R]:
         """
@@ -2327,7 +2849,7 @@ class HfApi:
         return self._thread_pool.submit(fn, *args, **kwargs)
 
     @validate_hf_hub_args
-    def whoami(self, token: bool | str | None = None, *, cache: bool = False) -> dict:
+    def whoami(self, token: bool | str | None = None, *, cache: bool = False) -> UserInfo | UserOrgInfo:
         """
         Call HF API to know "whoami".
 
@@ -2344,6 +2866,10 @@ class HfApi:
                 Whether to cache the result of the `whoami` call for subsequent calls.
                 If an error occurs during the first call, it won't be cached.
                 Defaults to `False`.
+
+        Returns:
+            [`UserInfo`] or [`UserOrgInfo`]:
+                Information about the user or organization corresponding to the token.
         """
         # Get the effective token using the helper function get_token
         token = self.token if token is None else token
@@ -2368,7 +2894,7 @@ class HfApi:
             self._whoami_cache[token] = output
         return output
 
-    def _inner_whoami(self, token: str) -> dict:
+    def _inner_whoami(self, token: str) -> UserInfo | UserOrgInfo:
         r = get_session().get(
             f"{self.endpoint}/api/whoami-v2",
             headers=self._build_hf_headers(token=token),
@@ -2398,7 +2924,10 @@ class HfApi:
                 )
                 raise HfHubHTTPError(error_message, response=e.response) from e
             raise
-        return r.json()
+        data = r.json()
+        if data.get("type") == "org":
+            return UserOrgInfo(**data)
+        return UserInfo(**data)
 
     def get_model_tags(self) -> dict:
         """

@@ -13,6 +13,7 @@
 # limitations under the License.
 import copy
 import datetime
+import json
 import os
 import re
 import subprocess
@@ -57,6 +58,7 @@ from huggingface_hub.hf_api import (
     CommitInfo,
     DatasetInfo,
     DatasetLeaderboardEntry,
+    EntityInfo,
     ExpandDatasetProperty_T,
     ExpandModelProperty_T,
     ExpandSpaceProperty_T,
@@ -70,6 +72,8 @@ from huggingface_hub.hf_api import (
     SpaceRuntime,
     SpaceSearchResult,
     User,
+    UserInfo,
+    UserOrgInfo,
     WebhookInfo,
     WebhookWatchedItem,
     repo_type_and_id_from_hf_id,
@@ -167,6 +171,36 @@ class TestHfApiEndpoints:
         valid_org = [org for org in info["orgs"] if org["name"] == "valid_org_hub"][0]
         assert valid_org["fullname"] == "Dummy Hub Org"
 
+        # Assert UserInfo typed object behavior
+        assert isinstance(info, UserInfo)
+        assert isinstance(info, EntityInfo)
+        assert isinstance(info, dict)
+        assert info.name == USER
+        assert info.fullname == FULL_NAME
+        assert info.type == "user"
+        assert isinstance(info.avatar_url, str)
+        assert info.avatar_url == info["avatarUrl"]
+        assert info.avatarUrl == info.avatar_url
+        assert info.can_pay == info["canPay"]
+        assert info.canPay == info.can_pay
+        assert info.is_pro == info["isPro"]
+        assert info.isPro == info.is_pro
+        assert info.orgs == info["orgs"]
+
+        # Assert UserOrgInfo typed object behavior
+        assert isinstance(valid_org, UserOrgInfo)
+        assert isinstance(valid_org, EntityInfo)
+        assert isinstance(valid_org, dict)
+        assert valid_org.name == "valid_org_hub"
+        assert valid_org.fullname == "Dummy Hub Org"
+        assert valid_org.type == "org"
+        assert valid_org.avatar_url == valid_org["avatarUrl"]
+        assert valid_org.avatarUrl == valid_org.avatar_url
+        assert valid_org.role_in_org == valid_org["roleInOrg"]
+        assert valid_org.roleInOrg == valid_org.role_in_org
+        assert isinstance(valid_org.is_enterprise, bool)
+        assert valid_org.is_enterprise == valid_org["isEnterprise"]
+
     def test_whoami_with_implicit_token_from_login(self, api: HfApi, mocker) -> None:
         """Test using `whoami` after a `hf auth login`."""
         mocker.patch("huggingface_hub.hf_api.get_token", return_value=TOKEN)
@@ -222,6 +256,358 @@ class TestHfApiEndpoints:
 
         with pytest.raises(ValueError):
             HfApi(token=False).whoami()
+
+    def test_whoami_typed_object_user(self) -> None:
+        """Test UserInfo object with attribute access, dict key access, org conversion, and serialization."""
+        raw_data = {
+            "type": "user",
+            "id": "u123",
+            "name": "test-user",
+            "fullname": "Test User",
+            "email": "test@example.com",
+            "canPay": True,
+            "isPro": False,
+            "avatarUrl": "https://example.com/avatar.png",
+            "billingMode": "postpaid",
+            "orgs": [
+                {
+                    "type": "org",
+                    "id": "o123",
+                    "name": "test-org",
+                    "fullname": "Test Org",
+                    "avatarUrl": "https://example.com/org.png",
+                    "roleInOrg": "admin",
+                    "plan": "enterprise",
+                }
+            ],
+            "auth": {"type": "access_token"},
+        }
+        user = UserInfo(**raw_data)
+
+        # Class inheritance & isinstance dict check
+        assert isinstance(user, UserInfo)
+        assert isinstance(user, EntityInfo)
+        assert isinstance(user, dict)
+
+        # Snake_case attribute access
+        assert user.type == "user"
+        assert user.id == "u123"
+        assert user.name == "test-user"
+        assert user.fullname == "Test User"
+        assert user.email == "test@example.com"
+        assert user.can_pay is True
+        assert user.is_pro is False
+        assert user.avatar_url == "https://example.com/avatar.png"
+        assert len(user.orgs) == 1
+
+        # CamelCase attribute property access
+        assert user.canPay is True
+        assert user.isPro is False
+        assert user.avatarUrl == "https://example.com/avatar.png"
+
+        # Dict key indexing (both camelCase and snake_case)
+        assert user["name"] == "test-user"
+        assert user["fullname"] == "Test User"
+        assert user["avatarUrl"] == "https://example.com/avatar.png"
+        assert user["avatar_url"] == "https://example.com/avatar.png"
+        assert user["canPay"] is True
+        assert user["can_pay"] is True
+        assert user["isPro"] is False
+        assert user["is_pro"] is False
+        assert user["billingMode"] == "postpaid"
+        assert user["auth"] == {"type": "access_token"}
+
+        # Org list conversion to UserOrgInfo
+        org = user.orgs[0]
+        assert isinstance(org, UserOrgInfo)
+        assert isinstance(org, EntityInfo)
+        assert isinstance(org, dict)
+        assert org.type == "org"
+        assert org.name == "test-org"
+        assert org.fullname == "Test Org"
+        assert org.avatar_url == "https://example.com/org.png"
+        assert org.avatarUrl == "https://example.com/org.png"
+        assert org.role_in_org == "admin"
+        assert org.roleInOrg == "admin"
+        assert org.is_enterprise is True
+        assert org.isEnterprise is True
+        assert org["roleInOrg"] == "admin"
+        assert org["role_in_org"] == "admin"
+        assert org["avatarUrl"] == "https://example.com/org.png"
+        assert org["avatar_url"] == "https://example.com/org.png"
+        assert user["orgs"][0]["name"] == "test-org"
+        assert user["orgs"][0].name == "test-org"
+
+        # JSON serialization
+        serialized = json.dumps(user)
+        deserialized = json.loads(serialized)
+        assert deserialized["name"] == "test-user"
+        assert deserialized["avatarUrl"] == "https://example.com/avatar.png"
+        assert deserialized["orgs"][0]["name"] == "test-org"
+        assert deserialized["orgs"][0]["roleInOrg"] == "admin"
+
+        # Dataclass asdict
+        dc_dict = fields(user)
+        assert [f.name for f in dc_dict] == [
+            "type",
+            "id",
+            "name",
+            "fullname",
+            "email",
+            "can_pay",
+            "avatar_url",
+            "is_pro",
+            "orgs",
+        ]
+
+        # Mutation synchronization
+        user.name = "renamed-user"
+        assert user["name"] == "renamed-user"
+        user["name"] = "dict-renamed-user"
+        assert user.name == "dict-renamed-user"
+
+        user.avatar_url = "https://example.com/new_avatar.png"
+        assert user["avatarUrl"] == "https://example.com/new_avatar.png"
+        assert user["avatar_url"] == "https://example.com/new_avatar.png"
+        user["avatarUrl"] = "https://example.com/newer_avatar.png"
+        assert user.avatar_url == "https://example.com/newer_avatar.png"
+        assert user["avatar_url"] == "https://example.com/newer_avatar.png"
+
+    def test_whoami_typed_object_org_token(self, api: HfApi) -> None:
+        """Test whoami returning UserOrgInfo when authenticated with an org token."""
+        org_payload = {
+            "type": "org",
+            "id": "org_uuid_1",
+            "name": "cool-org",
+            "fullname": "Cool Org Inc.",
+            "avatarUrl": "https://example.com/logo.png",
+            "canPay": True,
+            "plan": "enterprise",
+        }
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = org_payload
+
+        with patch("huggingface_hub.hf_api.get_session") as mock_get_session:
+            mock_client = Mock()
+            mock_client.get.return_value = mock_response
+            mock_get_session.return_value = mock_client
+
+            result = api.whoami(token="hf_mock_org_token")
+
+        assert isinstance(result, UserOrgInfo)
+        assert isinstance(result, EntityInfo)
+        assert isinstance(result, dict)
+        assert not isinstance(result, UserInfo)
+
+        assert result.type == "org"
+        assert result.id == "org_uuid_1"
+        assert result.name == "cool-org"
+        assert result.fullname == "Cool Org Inc."
+        assert result.avatar_url == "https://example.com/logo.png"
+        assert result.avatarUrl == "https://example.com/logo.png"
+        assert result.can_pay is True
+        assert result.is_enterprise is True
+        assert result.role_in_org is None
+
+        assert result["type"] == "org"
+        assert result["name"] == "cool-org"
+        assert result["avatarUrl"] == "https://example.com/logo.png"
+        assert result["isEnterprise"] is True
+
+        # JSON serialization
+        json_output = json.dumps(result)
+        assert "cool-org" in json_output
+
+    def test_whoami_dict_backward_compatibility(self) -> None:
+        """Test backward compatibility of dict methods, copy, and mutation synchronization."""
+        data = {
+            "type": "user",
+            "id": "u456",
+            "name": "compat-user",
+            "fullname": "Compat User",
+            "avatarUrl": "https://example.com/avatar.png",
+            "isPro": True,
+            "canPay": False,
+            "orgs": [],
+        }
+        # Test positional dict initialization (standard dict pattern: UserInfo(data))
+        user_from_dict = UserInfo(data)
+        assert user_from_dict.name == "compat-user"
+        assert user_from_dict.avatar_url == "https://example.com/avatar.png"
+        assert user_from_dict.is_pro is True
+        assert user_from_dict["name"] == "compat-user"
+        assert user_from_dict["avatarUrl"] == "https://example.com/avatar.png"
+
+        org_from_dict = UserOrgInfo({"name": "dict-org", "plan": "enterprise"})
+        assert org_from_dict.name == "dict-org"
+        assert org_from_dict.is_enterprise is True
+        assert org_from_dict["isEnterprise"] is True
+
+        user = UserInfo(**data)
+
+        # Test dict constructor
+        plain_dict = dict(user)
+        assert isinstance(plain_dict, dict)
+        assert plain_dict["name"] == "compat-user"
+        assert plain_dict["avatarUrl"] == "https://example.com/avatar.png"
+        assert plain_dict["isPro"] is True
+
+        # Test user.copy() method returns typed UserInfo instance
+        user_shallow_copy = user.copy()
+        assert isinstance(user_shallow_copy, UserInfo)
+        assert user_shallow_copy.name == user.name
+        assert user_shallow_copy.avatar_url == user.avatar_url
+        assert user_shallow_copy["avatarUrl"] == user["avatarUrl"]
+
+        # Test copy.copy and copy.deepcopy
+        user_copy = copy.copy(user)
+        assert isinstance(user_copy, UserInfo)
+        assert user_copy.name == user.name
+        assert user_copy["avatarUrl"] == user["avatarUrl"]
+
+        user_deepcopy = copy.deepcopy(user)
+        assert isinstance(user_deepcopy, UserInfo)
+        assert user_deepcopy.name == user.name
+
+        # Membership and get
+        assert "avatarUrl" in user
+        assert "avatar_url" in user
+        assert "isPro" in user
+        assert "is_pro" in user
+        assert user.get("avatarUrl") == "https://example.com/avatar.png"
+        assert user.get("avatar_url") == "https://example.com/avatar.png"
+        assert user.get("isPro") is True
+        assert user.get("is_pro") is True
+        assert user.get("non_existent", "default") == "default"
+
+        # Test update() synchronization for both snake_case and camelCase
+        user.update({"name": "updated-user", "avatarUrl": "https://example.com/updated.png"})
+        assert user.name == "updated-user"
+        assert user["name"] == "updated-user"
+        assert user.avatar_url == "https://example.com/updated.png"
+        assert user.avatarUrl == "https://example.com/updated.png"
+        assert user["avatarUrl"] == "https://example.com/updated.png"
+        assert user["avatar_url"] == "https://example.com/updated.png"
+
+        # Test pop() synchronization
+        popped_avatar = user.pop("avatarUrl")
+        assert popped_avatar == "https://example.com/updated.png"
+        assert "avatarUrl" not in user
+        assert "avatar_url" not in user
+        assert user.avatar_url == ""
+
+        # Test pop() with default
+        assert user.pop("non_existent", "default_val") == "default_val"
+
+        # Test delitem synchronization
+        assert user.can_pay is False
+        del user["can_pay"]
+        assert "can_pay" not in user
+        assert "canPay" not in user
+        assert user.can_pay is None
+
+        # Test attribute assignment for orgs wrapping dict into UserOrgInfo
+        user.orgs = [{"name": "assigned-org", "roleInOrg": "write"}]
+        assert len(user.orgs) == 1
+        assert isinstance(user.orgs[0], UserOrgInfo)
+        assert user.orgs[0].name == "assigned-org"
+        assert user.orgs[0].role_in_org == "write"
+        assert user["orgs"][0]["name"] == "assigned-org"
+
+        # Test setdefault() synchronization
+        user.setdefault("avatarUrl", "https://example.com/setdefault.png")
+        assert user.avatar_url == "https://example.com/setdefault.png"
+        assert user["avatarUrl"] == "https://example.com/setdefault.png"
+        assert user["avatar_url"] == "https://example.com/setdefault.png"
+
+        # Test popitem() synchronization
+        popped_k, popped_v = user.popitem()
+        assert popped_k not in user
+        if popped_k in ("avatarUrl", "avatar_url"):
+            assert user.avatar_url == ""
+
+        # Test property deleters
+        user.isPro = True
+        assert user.is_pro is True
+        del user.isPro
+        assert "isPro" not in user
+        assert "is_pro" not in user
+        assert user.is_pro is None
+
+        user.canPay = True
+        assert user.can_pay is True
+        del user.canPay
+        assert "canPay" not in user
+        assert "can_pay" not in user
+        assert user.can_pay is None
+
+        user.avatarUrl = "https://example.com/del.png"
+        assert user.avatar_url == "https://example.com/del.png"
+        del user.avatarUrl
+        assert "avatarUrl" not in user
+        assert "avatar_url" not in user
+        assert user.avatar_url == ""
+
+        # Test delattr synchronization
+        user.is_pro = True
+        del user.is_pro
+        assert "is_pro" not in user
+        assert "isPro" not in user
+        assert user.is_pro is None
+
+        # Test UserOrgInfo property deleters and delattr
+        test_org = UserOrgInfo(name="del-org", roleInOrg="write", isEnterprise=True)
+        assert test_org.roleInOrg == "write"
+        del test_org.roleInOrg
+        assert test_org.role_in_org is None
+        assert "roleInOrg" not in test_org
+
+        assert test_org.isEnterprise is True
+        del test_org.isEnterprise
+        assert test_org.is_enterprise is False
+        assert "isEnterprise" not in test_org
+
+        # Test initialization from iterable of key-value tuples
+        tuple_user = UserInfo(
+            [("name", "tuple-user"), ("avatarUrl", "https://example.com/tuple.png"), ("isPro", True)]
+        )
+        assert tuple_user.name == "tuple-user"
+        assert tuple_user.avatar_url == "https://example.com/tuple.png"
+        assert tuple_user.is_pro is True
+        assert tuple_user["name"] == "tuple-user"
+
+        tuple_org = UserOrgInfo([("name", "tuple-org"), ("roleInOrg", "read"), ("plan", "ENTERPRISE")])
+        assert tuple_org.name == "tuple-org"
+        assert tuple_org.role_in_org == "read"
+        assert tuple_org.is_enterprise is True
+
+        # Test user.orgs = None normalization to []
+        tuple_user.orgs = None
+        assert tuple_user.orgs == []
+        assert tuple_user["orgs"] == []
+
+        # Test equality with extra dictionary fields and cross-type distinction
+        u1 = UserInfo(name="alice", extra_scope="read")
+        u2 = UserInfo(name="alice", extra_scope="read")
+        u3 = UserInfo(name="alice", extra_scope="write")
+        o1 = UserOrgInfo(name="alice")
+        assert u1 == u2
+        assert u1 != u3
+        assert u1 != o1
+
+        # Test clear()
+        user.clear()
+        assert len(user) == 0
+        assert user.name == ""
+        assert user.avatar_url == ""
+        assert user.orgs == []
+
+        test_org.clear()
+        assert len(test_org) == 0
+        assert test_org.type == "org"
+        assert test_org.role_in_org is None
+        assert test_org.is_enterprise is False
 
     def test_delete_repo_error_message(self, api: HfApi):
         # test for #751

@@ -14,7 +14,7 @@ import httpx
 import pytest
 from click.testing import CliRunner
 
-from huggingface_hub import HfApi, InferenceEndpointHardware, constants
+from huggingface_hub import HfApi, InferenceEndpointHardware, UserInfo, constants
 from huggingface_hub._dataset_viewer import DatasetParquetEntry
 from huggingface_hub._jobs_api import JobInfo, JobOwner, _create_job_spec, _derive_job_volume_name
 from huggingface_hub._space_api import Volume
@@ -2039,6 +2039,28 @@ class TestAuthWhoamiCommand:
             result = runner.invoke(app, ["auth", "whoami", "--format", "json"])
         assert result.exit_code == 1
         assert "Not logged in" in result.output
+
+    def test_whoami_with_user_info_object(self, runner: CliRunner) -> None:
+        user_info = UserInfo(**self.MOCK_WHOAMI)
+        with (
+            patch("huggingface_hub.cli.auth.get_token", return_value="fake-token"),
+            patch("huggingface_hub.cli.auth.whoami", return_value=user_info),
+        ):
+            result = runner.invoke(app, ["auth", "whoami"])
+        assert result.exit_code == 0
+        assert "testuser" in result.stdout
+        assert "org1" in result.stdout
+        assert "org2" in result.stdout
+
+        with (
+            patch("huggingface_hub.cli.auth.get_token", return_value="fake-token"),
+            patch("huggingface_hub.cli.auth.whoami", return_value=user_info),
+        ):
+            result = runner.invoke(app, ["auth", "whoami", "--format", "json"])
+        assert result.exit_code == 0
+        parsed = json.loads(result.stdout)
+        assert parsed["user"] == "testuser"
+        assert parsed["orgs"] == "org1,org2"
 
 
 class TestAuthTokenCommand:

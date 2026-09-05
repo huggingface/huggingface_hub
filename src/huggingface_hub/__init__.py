@@ -193,6 +193,7 @@ _SUBMOD_ATTRS = {
         "CommitOperationDelete",
         "DatasetInfo",
         "DatasetLeaderboardEntry",
+        "EntityInfo",
         "GitCommitInfo",
         "GitRefInfo",
         "GitRefs",
@@ -208,7 +209,9 @@ _SUBMOD_ATTRS = {
         "SpaceSearchResult",
         "SpaceTemplate",
         "User",
+        "UserInfo",
         "UserLikes",
+        "UserOrgInfo",
         "WebhookInfo",
         "WebhookWatchedItem",
         "accept_access_request",
@@ -734,6 +737,7 @@ __all__ = [
     "DocumentQuestionAnsweringOutputElement",
     "DocumentQuestionAnsweringParameters",
     "DryRunFileInfo",
+    "EntityInfo",
     "EvalResult",
     "EvalResultEntry",
     "FLAX_WEIGHTS_NAME",
@@ -908,7 +912,9 @@ __all__ = [
     "TranslationTruncationStrategy",
     "TypeEnum",
     "User",
+    "UserInfo",
     "UserLikes",
+    "UserOrgInfo",
     "VideoClassificationInput",
     "VideoClassificationOutputElement",
     "VideoClassificationOutputTransform",
@@ -1393,6 +1399,7 @@ if TYPE_CHECKING:  # pragma: no cover
         CommitOperationDelete,  # noqa: F401
         DatasetInfo,  # noqa: F401
         DatasetLeaderboardEntry,  # noqa: F401
+        EntityInfo,  # noqa: F401
         GitCommitInfo,  # noqa: F401
         GitRefInfo,  # noqa: F401
         GitRefs,  # noqa: F401
@@ -1408,7 +1415,9 @@ if TYPE_CHECKING:  # pragma: no cover
         SpaceSearchResult,  # noqa: F401
         SpaceTemplate,  # noqa: F401
         User,  # noqa: F401
+        UserInfo,  # noqa: F401
         UserLikes,  # noqa: F401
+        UserOrgInfo,  # noqa: F401
         WebhookInfo,  # noqa: F401
         WebhookWatchedItem,  # noqa: F401
         accept_access_request,  # noqa: F401

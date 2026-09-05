@@ -57,6 +57,10 @@ models = hf_api.list_models()
 
 [[autodoc]] huggingface_hub.hf_api.DatasetLeaderboardEntry
 
+### EntityInfo
+
+[[autodoc]] huggingface_hub.hf_api.EntityInfo
+
 ### EvalResultEntry
 
 [[autodoc]] huggingface_hub.hf_api.EvalResultEntry
@@ -145,9 +149,17 @@ models = hf_api.list_models()
 
 [[autodoc]] huggingface_hub.hf_api.User
 
+### UserInfo
+
+[[autodoc]] huggingface_hub.hf_api.UserInfo
+
 ### UserLikes
 
 [[autodoc]] huggingface_hub.hf_api.UserLikes
+
+### UserOrgInfo
+
+[[autodoc]] huggingface_hub.hf_api.UserOrgInfo
 
 ### WebhookInfo
 
