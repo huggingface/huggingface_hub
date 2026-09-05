@@ -11,6 +11,7 @@ from huggingface_hub.inference._common import (
     RequestParameters,
     _b64_encode,
     _bytes_to_dict,
+    _bytes_to_list,
     _open_as_mime_bytes,
 )
 from huggingface_hub.inference._providers._common import TaskProviderHelper, filter_none
@@ -226,3 +227,13 @@ class HFInferenceFeatureExtractionTask(HFInferenceTask):
         if isinstance(response, bytes):
             return _bytes_to_dict(response)
         return response
+
+
+class HFInferenceSentenceSimilarityTask(HFInferenceTask):
+    def __init__(self):
+        super().__init__("sentence-similarity")
+
+    def get_response(self, response: bytes | dict, request_params: RequestParameters | None = None) -> Any:
+        # Preserve the historical client behavior: HF Inference returns the similarity scores
+        # directly, so we only decode the raw payload to a list.
+        return _bytes_to_list(response) if isinstance(response, bytes) else response
