@@ -53,10 +53,10 @@ def update() -> None:
     entry_point = sys.argv[0].replace("\\", "/").rsplit("/", 1)[-1].lower() if sys.argv else ""
     running_hf_launcher = entry_point in {"hf", "hf.exe"}
     if sys.platform == "win32" and running_hf_launcher and installation_method() == "pip":
-        command = subprocess.list2cmdline([sys.executable, "-m", "pip", "install", "-U", "huggingface_hub"])
+        command = subprocess.list2cmdline([sys.executable, "-m", "huggingface_hub.cli.hf", "update"])
         out.warning("Cannot safely update a pip-installed `hf` CLI while the `hf` launcher is running on Windows.")
         out.hint(f"After this command exits, run: {command}")
-        return
+        raise click.exceptions.Exit(code=1)
 
     # The standalone installer installs the `hf-cli` skill by default. If it's not installed at this
     # point, the user opted out (or removed it): tell the installer to leave it alone instead of
