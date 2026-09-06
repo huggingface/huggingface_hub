@@ -24,9 +24,7 @@ from huggingface_hub.cli import system
 
 @pytest.mark.parametrize("argv0", [r"C:\venv\Scripts\hf.exe", r"C:\venv\Scripts\hf"])
 def test_windows_pip_hf_launcher_update_is_deferred_until_hf_exits(argv0: str) -> None:
-    expected_command = subprocess.list2cmdline(
-        [sys.executable, "-m", "huggingface_hub.cli.hf", "update"]
-    )
+    expected_command = subprocess.list2cmdline([sys.executable, "-m", "huggingface_hub.cli.hf", "update"])
 
     with (
         patch("huggingface_hub.cli.system.sys.platform", "win32"),
