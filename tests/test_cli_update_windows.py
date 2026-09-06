@@ -16,15 +16,18 @@ import subprocess
 import sys
 from unittest.mock import patch
 
+import pytest
+
 from huggingface_hub.cli import system
 
 
-def test_windows_pip_hf_exe_update_is_deferred_until_hf_exits() -> None:
+@pytest.mark.parametrize("argv0", [r"C:\\venv\\Scripts\\hf.exe", r"C:\\venv\\Scripts\\hf"])
+def test_windows_pip_hf_launcher_update_is_deferred_until_hf_exits(argv0: str) -> None:
     expected_command = subprocess.list2cmdline([sys.executable, "-m", "pip", "install", "-U", "huggingface_hub"])
 
     with (
         patch("huggingface_hub.cli.system.sys.platform", "win32"),
-        patch("huggingface_hub.cli.system.sys.argv", [r"C:\\venv\\Scripts\\hf.exe", "update"]),
+        patch("huggingface_hub.cli.system.sys.argv", [argv0, "update"]),
         patch("huggingface_hub.cli.system.installation_method", return_value="pip"),
         patch("huggingface_hub.cli.system._fetch_latest_pypi_version", return_value="999.0.0"),
         patch("huggingface_hub.cli.system.run_update") as mock_run_update,
@@ -35,7 +38,7 @@ def test_windows_pip_hf_exe_update_is_deferred_until_hf_exits() -> None:
 
     mock_run_update.assert_not_called()
     mock_warning.assert_called_once_with(
-        "Cannot safely update a pip-installed `hf` CLI while `hf.exe` is running on Windows."
+        "Cannot safely update a pip-installed `hf` CLI while the `hf` launcher is running on Windows."
     )
     mock_hint.assert_called_once_with(f"After this command exits, run: {expected_command}")
 
