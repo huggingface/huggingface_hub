@@ -46,6 +46,14 @@ def update() -> None:
         out.text(f"hf is up to date ({__version__})")
         return
 
+    # A pip-installed `hf.exe` cannot replace itself while it is running on Windows. Letting pip
+    # attempt the upgrade can fail after uninstalling the current package, leaving the CLI broken.
+    if sys.platform == "win32" and installation_method() == "pip":
+        command = subprocess.list2cmdline([sys.executable, "-m", "pip", "install", "-U", "huggingface_hub"])
+        out.warning("Cannot safely update a pip-installed `hf` CLI while `hf.exe` is running on Windows.")
+        out.hint(f"After this command exits, run: {command}")
+        return
+
     # The standalone installer installs the `hf-cli` skill by default. If it's not installed at this
     # point, the user opted out (or removed it): tell the installer to leave it alone instead of
     # silently undoing that choice.
