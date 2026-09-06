@@ -46,13 +46,15 @@ def update() -> None:
         out.text(f"hf is up to date ({__version__})")
         return
 
-    # A pip-installed `hf.exe` cannot replace itself while it is running on Windows. Letting pip
+    # A pip-installed `hf` launcher cannot replace itself while it is running on Windows. Letting pip
     # attempt the upgrade can fail after uninstalling the current package, leaving the CLI broken.
+    # Console-script launchers may expose argv[0] as either `hf` or `hf.exe`, depending on the wrapper.
     # `python -m huggingface_hub.cli.hf update` does not hold the launcher open and remains safe.
-    running_hf_exe = bool(sys.argv) and sys.argv[0].lower().endswith("hf.exe")
-    if sys.platform == "win32" and running_hf_exe and installation_method() == "pip":
+    entry_point = sys.argv[0].replace("\\", "/").rsplit("/", 1)[-1].lower() if sys.argv else ""
+    running_hf_launcher = entry_point in {"hf", "hf.exe"}
+    if sys.platform == "win32" and running_hf_launcher and installation_method() == "pip":
         command = subprocess.list2cmdline([sys.executable, "-m", "pip", "install", "-U", "huggingface_hub"])
-        out.warning("Cannot safely update a pip-installed `hf` CLI while `hf.exe` is running on Windows.")
+        out.warning("Cannot safely update a pip-installed `hf` CLI while the `hf` launcher is running on Windows.")
         out.hint(f"After this command exits, run: {command}")
         return
 
