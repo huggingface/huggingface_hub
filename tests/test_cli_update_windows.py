@@ -19,11 +19,12 @@ from unittest.mock import patch
 from huggingface_hub.cli import system
 
 
-def test_windows_pip_update_is_deferred_until_hf_exits() -> None:
+def test_windows_pip_hf_exe_update_is_deferred_until_hf_exits() -> None:
     expected_command = subprocess.list2cmdline([sys.executable, "-m", "pip", "install", "-U", "huggingface_hub"])
 
     with (
         patch("huggingface_hub.cli.system.sys.platform", "win32"),
+        patch("huggingface_hub.cli.system.sys.argv", [r"C:\\venv\\Scripts\\hf.exe", "update"]),
         patch("huggingface_hub.cli.system.installation_method", return_value="pip"),
         patch("huggingface_hub.cli.system._fetch_latest_pypi_version", return_value="999.0.0"),
         patch("huggingface_hub.cli.system.run_update") as mock_run_update,
@@ -37,6 +38,20 @@ def test_windows_pip_update_is_deferred_until_hf_exits() -> None:
         "Cannot safely update a pip-installed `hf` CLI while `hf.exe` is running on Windows."
     )
     mock_hint.assert_called_once_with(f"After this command exits, run: {expected_command}")
+
+
+def test_windows_pip_module_update_still_runs_in_process() -> None:
+    with (
+        patch("huggingface_hub.cli.system.sys.platform", "win32"),
+        patch("huggingface_hub.cli.system.sys.argv", ["huggingface_hub.cli.hf", "update"]),
+        patch("huggingface_hub.cli.system.installation_method", return_value="pip"),
+        patch("huggingface_hub.cli.system._fetch_latest_pypi_version", return_value="999.0.0"),
+        patch("huggingface_hub.cli.system._installed_hf_cli_dirs", return_value=[]),
+        patch("huggingface_hub.cli.system.run_update", return_value=0) as mock_run_update,
+    ):
+        system.update()
+
+    mock_run_update.assert_called_once_with(exclude_skill=True)
 
 
 def test_non_windows_pip_update_still_runs_in_process() -> None:
