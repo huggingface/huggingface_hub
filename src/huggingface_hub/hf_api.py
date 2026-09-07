@@ -556,8 +556,19 @@ class CommitInfo(str):
     pr_revision: str | None = field(init=False)
     pr_num: int | None = field(init=False)
 
-    def __new__(cls, *args, commit_url: str, **kwargs):
+    def __new__(cls, commit_url: str, *args, **kwargs):
         return str.__new__(cls, commit_url)
+
+    def __reduce__(self):
+        # without this, pickle/copy rebuild the instance from its string value only, losing the attributes
+        return self.__class__, (
+            self.commit_url,
+            self.commit_message,
+            self.commit_description,
+            self.oid,
+            self._endpoint,
+            self.pr_url,
+        )
 
     def __post_init__(self):
         """Populate pr-related fields after initialization.
