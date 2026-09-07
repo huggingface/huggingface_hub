@@ -1849,7 +1849,7 @@ class HfFileSystemEditFile(fsspec.spec.AbstractBufferedFile):
                     add_range(data)
                     done = True
                 if end < offset + length:
-                    add_range(fast_slice(range_, start=end - offset - length))
+                    add_range(fast_slice(range_, start=end - offset))
             elif offset <= start <= end <= offset + length:
                 if offset < start:
                     add_range(fast_slice(range_, end=start - offset))
@@ -1857,7 +1857,7 @@ class HfFileSystemEditFile(fsspec.spec.AbstractBufferedFile):
                     add_range(data)
                     done = True
                 if end < offset + length:
-                    add_range(fast_slice(range_, start=end - offset - length))
+                    add_range(fast_slice(range_, start=end - offset))
             else:
                 add_range(range_)
             offset += length
