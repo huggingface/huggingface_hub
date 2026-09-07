@@ -917,7 +917,7 @@ jobs_cli.add_group(uv_app, name="uv")
     examples=[
         "hf jobs uv run --name my-script my_script.py",
         "hf jobs uv run --detach my_script.py",
-        "hf jobs uv run ml_training.py --flavor a10g-small",
+        "hf jobs uv run --flavor a10g-small ml_training.py",
         "hf jobs uv run --with transformers train.py",
         "hf jobs uv run -v hf://org/my-model:/data -v hf://buckets/org/b:/mnt script.py",
     ],
