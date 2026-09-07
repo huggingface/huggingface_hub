@@ -91,3 +91,20 @@ def test_environ():
     """
     environ = {"A": "one", "B": "two", "D": "four", "EMPTY": ""}
     assert load_dotenv(data, environ=environ) == {"A": "1", "B": "two", "C": "3", "EMPTY": ""}
+
+
+def test_single_quoted_values_are_literal():
+    # Single-quoted values are kept verbatim: escape sequences such as "\n" and "\t"
+    # are NOT expanded (unlike double-quoted values).
+    data = r"""
+    NEWLINE='line1\nline2'
+    TAB='a\tb'
+    ESCAPED_QUOTE='a\"b'
+    """
+    assert load_dotenv(data) == {
+        "NEWLINE": r"line1\nline2",
+        "TAB": r"a\tb",
+        "ESCAPED_QUOTE": r'a\"b',
+    }
+    assert load_dotenv(r'DQ="line1\nline2"') == {"DQ": "line1\nline2"}
+
