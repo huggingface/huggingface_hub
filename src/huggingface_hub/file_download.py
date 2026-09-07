@@ -1767,7 +1767,7 @@ def _get_metadata_or_catch_error(
             # Xet downloads require a known size, but regular HTTP downloads can recover it from the GET response.
             expected_size = metadata.size
             xet_file_data = metadata.xet_file_data
-            if expected_size is None and xet_file_data is not None:
+            if expected_size is None and xet_file_data is not None and is_xet_available():
                 raise FileMetadataError("Distant resource does not have a Content-Length.")
 
             # In case of a redirect, save an extra redirect on the request.get call,

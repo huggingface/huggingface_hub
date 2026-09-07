@@ -26,7 +26,7 @@ import pytest
 
 from huggingface_hub import HfApi, constants
 from huggingface_hub._local_folder import write_download_metadata
-from huggingface_hub.errors import EntryNotFoundError, GatedRepoError, LocalEntryNotFoundError
+from huggingface_hub.errors import EntryNotFoundError, FileMetadataError, GatedRepoError, LocalEntryNotFoundError
 from huggingface_hub.file_download import (
     _CACHED_NO_EXIST,
     HfFileMetadata,
@@ -71,13 +71,18 @@ DATASET_SAMPLE_PY_FILE = "custom_squad.py"
 
 
 @pytest.mark.parametrize("use_local_dir", [False, True])
-def test_download_without_head_content_length(tmp_path: Path, use_local_dir: bool) -> None:
+@pytest.mark.parametrize("xet_mode", ["no_metadata", "disabled", "not_installed", "enabled"])
+def test_download_without_head_content_length(tmp_path: Path, use_local_dir: bool, xet_mode: str) -> None:
     content = b"content"
 
     def _mock_head(*, url: str, **kwargs) -> httpx.Response:
+        headers = {constants.HUGGINGFACE_HEADER_X_REPO_COMMIT: "a" * 40, "ETag": '"etag"'}
+        if xet_mode != "no_metadata":
+            headers[constants.HUGGINGFACE_HEADER_X_XET_HASH] = "b" * 64
+            headers[constants.HUGGINGFACE_HEADER_X_XET_REFRESH_ROUTE] = "https://huggingface.co/xet-refresh"
         return httpx.Response(
             200,
-            headers={constants.HUGGINGFACE_HEADER_X_REPO_COMMIT: "a" * 40, "ETag": '"etag"'},
+            headers=headers,
             request=httpx.Request("HEAD", url),
         )
 
@@ -96,8 +101,16 @@ def test_download_without_head_content_length(tmp_path: Path, use_local_dir: boo
 
     with (
         patch("huggingface_hub.file_download._httpx_follow_hub_redirects_with_backoff", side_effect=_mock_head),
-        patch("huggingface_hub.file_download.http_stream_backoff", side_effect=_mock_get),
+        patch("huggingface_hub.file_download.http_stream_backoff", side_effect=_mock_get) as mock_get,
+        patch("huggingface_hub.constants.HF_HUB_DISABLE_XET", xet_mode == "disabled"),
+        patch("huggingface_hub.utils._runtime.is_package_available", return_value=xet_mode != "not_installed"),
     ):
+        if xet_mode == "enabled":
+            with pytest.raises(LocalEntryNotFoundError) as exc:
+                hf_hub_download("user/repo", "file.txt", **download_kwargs)
+            assert isinstance(exc.value.__cause__, FileMetadataError)
+            mock_get.assert_not_called()
+            return
         path = hf_hub_download("user/repo", "file.txt", **download_kwargs)
 
     assert Path(path).read_bytes() == content
