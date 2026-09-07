@@ -112,7 +112,9 @@ jobs:
         working-directory: ./src # For code coverage to work
         run: |
           source ../.venv/bin/activate
-          PYTEST="python -m pytest --cov=./huggingface_hub --cov-report=xml:../coverage.xml --vcr-record=none --reruns 8 --reruns-delay 2 --only-rerun '(OSError|FileNotFoundError|Timeout|HTTPError.*409|HTTPError.*502|HTTPError.*504|not less than or equal to 0.01)'"
+          # Kill stuck workers (including upload threads) and report the stalled test. The legacy
+          # large-folder uploader retries indefinitely, even when CI Hub LFS permissions are broken.
+          PYTEST="python -m pytest --timeout=600 --timeout-method=thread --cov=./huggingface_hub --cov-report=xml:../coverage.xml --vcr-record=none --reruns 8 --reruns-delay 2 --only-rerun '(OSError|FileNotFoundError|Timeout|HTTPError.*409|HTTPError.*502|HTTPError.*504|not less than or equal to 0.01)'"
 
           case "${{ matrix.test_name }}" in
 
@@ -208,6 +210,8 @@ jobs:
           $PYTEST_ARGS = @(
             "-m", "pytest",
             "-n", "4",
+            # Match Linux: terminate stuck workers and report the stalled test after 10 minutes.
+            "--timeout=600", "--timeout-method=thread",
             "--cov=./huggingface_hub",
             "--cov-report=xml:../coverage.xml",
             "--vcr-record=none",

@@ -824,12 +824,6 @@ class TestHfHubDownloadToLocalDir:
 
         assert Path(path) == self.file_path
 
-    def test_file_exists_and_overwrites(self):
-        # 1 HEAD call + 1 download
-        self.file_path.write_text("another content")
-        self.api.hf_hub_download(self.repo_id, filename=self.file_name, local_dir=self.local_dir)
-        assert self.file_path.read_text() == "content"
-
     def test_passing_token_false_is_respected(self, mocker):
         """Regression test for #2385.
 
@@ -851,6 +845,37 @@ class TestHfHubDownloadToLocalDir:
         mock.assert_called()
         for call in mock.call_args_list:
             assert call.kwargs["token"] is False
+
+
+@pytest.mark.parametrize("head_timeout", [False, True])
+def test_local_file_overwrite_or_offline_fallback(tmp_path, mocker, head_timeout):
+    # A live HEAD timeout legitimately preserves the local file. Control the HTTP responses
+    # so testing the overwrite does not depend on CI Hub availability.
+    file_path = tmp_path / "file.txt"
+    file_path.write_text("another content")
+    methods = []
+
+    def handle_request(request):
+        methods.append(request.method)
+        if request.method == "HEAD" and head_timeout:
+            raise httpx.ReadTimeout("The read operation timed out", request=request)
+        return httpx.Response(
+            200,
+            headers={
+                "X-Repo-Commit": "a" * 40,
+                "ETag": "b" * 40,
+                "Content-Length": "7",
+            },
+            content=b"content" if request.method == "GET" else b"",
+        )
+
+    with httpx.Client(transport=httpx.MockTransport(handle_request)) as client:
+        mocker.patch("huggingface_hub.utils._http.get_session", return_value=client)
+        path = hf_hub_download("dummy/repo", "file.txt", local_dir=tmp_path, token=False)
+
+    assert Path(path) == file_path
+    assert file_path.read_text() == ("another content" if head_timeout else "content")
+    assert methods == (["HEAD"] if head_timeout else ["HEAD", "GET"])
 
 
 @pytest.mark.production
