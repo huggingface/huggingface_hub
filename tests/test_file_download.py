@@ -1101,6 +1101,79 @@ class TestHttpGet:
         # Note: The range headers are now handled internally by http_get's retry mechanism
         # The test verifies that the download completed successfully after retries
 
+    def test_http_get_retries_timeout_while_opening_resume_stream(self, caplog):
+        tracker, tqdm_class = self._make_aggregated_tqdm()
+
+        def _partial_then_timeout() -> Iterable[bytes]:
+            yield b"A" * 30
+            raise httpx.ReadTimeout("body timeout")
+
+        attempts = iter(
+            [
+                self._mock_response(headers={"Content-Length": "100"}, iter_bytes=_partial_then_timeout()),
+                httpx.ReadTimeout("response headers timeout"),
+                self._mock_response(
+                    status_code=206,
+                    headers={"Content-Length": "70", "Content-Range": "bytes 30-99/100"},
+                    iter_bytes=iter([b"B" * 70]),
+                ),
+            ]
+        )
+        request_headers = []
+
+        @contextmanager
+        def _mock_stream(*args, **kwargs):
+            request_headers.append(kwargs["headers"])
+            attempt = next(attempts)
+            if isinstance(attempt, Exception):
+                raise attempt
+            yield attempt
+
+        with (
+            patch("huggingface_hub.file_download.http_stream_backoff", side_effect=_mock_stream),
+            patch("huggingface_hub.file_download.time.sleep"),
+        ):
+            temp_file = io.BytesIO()
+            http_get("fake_url", temp_file=temp_file, expected_size=100, tqdm_class=tqdm_class)
+
+        assert temp_file.getvalue() == b"A" * 30 + b"B" * 70
+        assert request_headers == [{}, {"Range": "bytes=30-"}, {"Range": "bytes=30-"}]
+        assert tracker.instances == 1
+        assert tracker.n == 100
+        assert len([record for record in caplog.records if record.levelname == "WARNING"]) == 2
+
+    @pytest.mark.parametrize("nb_retries", [0, 2])
+    @pytest.mark.parametrize("failure_stage", ["headers", "body", "mixed"])
+    def test_http_get_transient_errors_respect_retry_budget(self, nb_retries, failure_stage, caplog):
+        requests = []
+        responses = []
+
+        class FailingStream(httpx.SyncByteStream):
+            def __iter__(self):
+                raise httpx.ReadTimeout("body timeout")
+                yield  # Make this a generator without yielding any bytes.
+
+        def handle_request(request):
+            requests.append(request)
+            if failure_stage == "headers" or (failure_stage == "mixed" and len(requests) % 2 == 0):
+                raise httpx.ReadTimeout("response headers timeout")
+            response = httpx.Response(200, stream=FailingStream())
+            responses.append(response)
+            return response
+
+        with (
+            httpx.Client(transport=httpx.MockTransport(handle_request)) as client,
+            patch("huggingface_hub.utils._http.get_session", return_value=client),
+            patch("huggingface_hub.file_download.time.sleep") as mock_sleep,
+            pytest.raises(httpx.ReadTimeout),
+        ):
+            http_get("https://example.com/file", temp_file=io.BytesIO(), _nb_retries=nb_retries)
+
+        assert len(requests) == nb_retries + 1
+        assert mock_sleep.call_count == nb_retries
+        assert all(response.is_closed for response in responses)
+        assert "Max retries exceeded" in caplog.text
+
     @pytest.mark.parametrize(
         "initial_range,expected_ranges",
         [
