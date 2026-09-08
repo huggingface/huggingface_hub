@@ -1932,14 +1932,25 @@ You can pass environment variables to your job using
 ```
 
 ```bash
-# Pass secrets - they will be encrypted server side
->>> hf jobs run -s MY_SECRET=psswrd python:3.12 python -c 'import os; print(os.environ["MY_SECRET"])'
+# Pass secrets by name - the value is read from your environment, never from the command line
+>>> hf jobs run -s MY_SECRET python:3.12 python -c 'import os; print(os.environ["MY_SECRET"])'
 ```
 
 ```bash
 # Pass secrets from a local .env.secrets file - they will be encrypted server side
 >>> hf jobs run --secrets-file .env.secrets python:3.12 python -c 'import os; print(os.environ["MY_SECRET"])'
 ```
+
+```bash
+# Or pipe them in, so the values touch neither the command line nor the disk
+>>> printf 'MY_SECRET=psswrd\n' | hf jobs run --secrets-file - python:3.12 python -c 'import os; print(os.environ["MY_SECRET"])'
+```
+
+Secrets are encrypted server side in all three forms. `-s MY_SECRET=psswrd` also works, but the value then
+ends up in your shell history and in the process listing (`/proc/<pid>/cmdline` on Linux), so the CLI prints
+a warning to stderr when you use it; keep that form for values that are not really sensitive. The same
+applies to `--token <value>`: prefer `hf auth login` or the `HF_TOKEN` environment variable. An env or
+secrets file should be readable by you only (`chmod 600`) — the CLI warns if it is not.
 
 > [!TIP]
 > Use `--secrets HF_TOKEN` to pass your local Hugging Face token implicitly.
@@ -2227,7 +2238,33 @@ hi
 >>> hf sandbox kill 687f911eaea852de79c4a50a
 ```
 
-Use `--flavor` to pick hardware (e.g. `a10g-small`), `--idle-timeout` to bound the sandbox lifetime, and `-e` / `--secrets` for environment variables. To fan out many cheap CPU sandboxes, warm a pool with `hf sandbox pool create` and spawn into it with `hf sandbox create --pool <id>` (see the [Sandboxes guide](./sandbox#from-the-cli)).
+Use `--flavor` to pick hardware (e.g. `a10g-small`) and `--idle-timeout` to bound the sandbox lifetime. To fan out many cheap CPU sandboxes, warm a pool with `hf sandbox pool create` and spawn into it with `hf sandbox create --pool <id>` (see the [Sandboxes guide](./sandbox#from-the-cli)).
+
+### Pass environment variables and secrets to a sandbox
+
+There are two separate channels, with different storage properties:
+
+| channel     | flags                                | dedicated sandbox          | pooled sandbox (`--pool`)                                         |
+| ----------- | ------------------------------------ | -------------------------- | ----------------------------------------------------------------- |
+| environment | `-e` / `--env`, `--env-file`         | stored in the job metadata | delivered to the host at creation, not stored in the job metadata |
+| secrets     | `-s` / `--secrets`, `--secrets-file` | encrypted server side      | **not available** — use `--env`                                   |
+
+```bash
+# Plain environment variables
+>>> hf sandbox create -e LOG_LEVEL=debug --env-file .env
+
+# Secrets, read from your environment by name (nothing sensitive on the command line)
+>>> hf sandbox create -s OPENAI_API_KEY -s HF_TOKEN
+
+# Secrets from a file, or piped in on stdin
+>>> hf sandbox create --secrets-file .env.secrets
+>>> printf 'OPENAI_API_KEY=sk-...\n' | hf sandbox create --secrets-file -
+```
+
+`-s KEY=value` works too, but the value lands in your shell history and in the process listing, so the CLI
+warns about it (silence the warning with `-q`). Pooled sandboxes reject `--secrets` outright: a pool has no
+encrypted-secrets channel, and `hf sandbox create --pool <id> -s KEY=value` errors out with a pointer to
+`--env`.
 
 ## hf webhooks
 

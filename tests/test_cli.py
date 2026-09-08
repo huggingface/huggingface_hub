@@ -12,7 +12,7 @@ from unittest.mock import Mock, patch
 import click
 import httpx
 import pytest
-from click.testing import CliRunner
+from click.testing import CliRunner, Result
 
 from huggingface_hub import HfApi, InferenceEndpointHardware, constants
 from huggingface_hub._dataset_viewer import DatasetParquetEntry
@@ -4671,6 +4671,101 @@ class TestWebhooksCommand:
             result = runner.invoke(app, ["webhooks", "delete", "wh-abc123"], input="n\n")
         assert result.exit_code != 0
         api_cls.return_value.delete_webhook.assert_not_called()
+
+
+class TestSecretHygiene:
+    """Test the warnings that steer secret material out of argv (shared options in `_cli_utils.py`)."""
+
+    ARGV_WARNING = "shell history"
+
+    @staticmethod
+    def _create_sandbox(runner: CliRunner, *args: str, **kwargs) -> tuple[Result, Mock]:
+        """Run `hf sandbox create` with the network mocked out; return the result and the `Sandbox` mock."""
+        with (
+            patch("huggingface_hub.cli.sandbox.Sandbox") as sandbox_cls,
+            patch("huggingface_hub.cli.sandbox.SandboxPool"),
+            patch("huggingface_hub.cli._cli_utils._get_extended_environ", return_value={"MY_SECRET": "from-env"}),
+        ):
+            sandbox_cls.create.return_value = Mock(id="sbx", image="python:3.12")
+            result = runner.invoke(app, ["sandbox", "create", *args], **kwargs)
+        return result, sandbox_cls
+
+    def test_warns_on_inline_secret_value(self, runner: CliRunner) -> None:
+        result, _ = self._create_sandbox(runner, "-s", "MY_SECRET=psswrd")
+        assert result.exit_code == 0, result.output
+        assert self.ARGV_WARNING in result.stderr
+
+    def test_warns_once_for_several_inline_secret_values(self, runner: CliRunner) -> None:
+        result, _ = self._create_sandbox(runner, "-s", "A=1", "-s", "B=2", "-s", "C=3")
+        assert result.exit_code == 0, result.output
+        assert result.stderr.count(self.ARGV_WARNING) == 1
+
+    def test_no_warning_for_bare_secret_name(self, runner: CliRunner) -> None:
+        """The recommended form resolves the value from the environment, so nothing lands in argv."""
+        result, sandbox_cls = self._create_sandbox(runner, "-s", "MY_SECRET")
+        assert result.exit_code == 0, result.output
+        assert self.ARGV_WARNING not in result.stderr
+        assert sandbox_cls.create.call_args.kwargs["secrets"] == {"MY_SECRET": "from-env"}
+
+    def test_no_warning_for_secrets_file(self, runner: CliRunner, tmp_path: Path) -> None:
+        secrets_file = tmp_path / "secrets.env"
+        secrets_file.write_text("MY_SECRET=psswrd\n")
+        secrets_file.chmod(0o600)
+        result, _ = self._create_sandbox(runner, "--secrets-file", str(secrets_file))
+        assert result.exit_code == 0, result.output
+        assert self.ARGV_WARNING not in result.stderr
+
+    def test_no_warning_without_secret_flags(self, runner: CliRunner) -> None:
+        result, _ = self._create_sandbox(runner, "-e", "LOG_LEVEL=debug")
+        assert result.exit_code == 0, result.output
+        assert self.ARGV_WARNING not in result.stderr
+
+    def test_quiet_suppresses_the_warning(self, runner: CliRunner) -> None:
+        result, _ = self._create_sandbox(runner, "-q", "-s", "MY_SECRET=psswrd")
+        assert result.exit_code == 0, result.output
+        assert result.stderr == ""
+
+    def test_warns_on_inline_token(self, runner: CliRunner) -> None:
+        result, _ = self._create_sandbox(runner, "--token", "hf_abcdef")
+        assert result.exit_code == 0, result.output
+        assert self.ARGV_WARNING in result.stderr
+
+    def test_no_token_warning_for_auth_login(self, runner: CliRunner) -> None:
+        """`hf auth login --token` is the flow the warning points at, so it must stay silent."""
+        with patch("huggingface_hub.cli.auth.login") as login_mock:
+            result = runner.invoke(app, ["auth", "login", "--token", "hf_abcdef"])
+        assert result.exit_code == 0, result.output
+        assert self.ARGV_WARNING not in result.stderr
+        login_mock.assert_called_once()
+
+    def test_secrets_file_from_stdin(self, runner: CliRunner) -> None:
+        result, sandbox_cls = self._create_sandbox(runner, "--secrets-file", "-", input="MY_SECRET=piped\n")
+        assert result.exit_code == 0, result.output
+        assert sandbox_cls.create.call_args.kwargs["secrets"] == {"MY_SECRET": "piped"}
+
+    @pytest.mark.skipif(os.name != "posix", reason="File modes are POSIX-specific.")
+    def test_warns_on_group_readable_secrets_file(self, runner: CliRunner, tmp_path: Path) -> None:
+        secrets_file = tmp_path / "secrets.env"
+        secrets_file.write_text("MY_SECRET=psswrd\n")
+        secrets_file.chmod(0o644)
+        result, _ = self._create_sandbox(runner, "--secrets-file", str(secrets_file))
+        assert result.exit_code == 0, result.output
+        assert "readable by other users (mode 644)" in result.stderr
+
+    @pytest.mark.skipif(os.name != "posix", reason="File modes are POSIX-specific.")
+    def test_warns_on_group_readable_env_file(self, runner: CliRunner, tmp_path: Path) -> None:
+        env_file = tmp_path / "vars.env"
+        env_file.write_text("LOG_LEVEL=debug\n")
+        env_file.chmod(0o640)
+        result, _ = self._create_sandbox(runner, "--env-file", str(env_file))
+        assert result.exit_code == 0, result.output
+        assert "readable by other users (mode 640)" in result.stderr
+
+    def test_pool_rejects_secrets_with_a_reason(self, runner: CliRunner) -> None:
+        result, _ = self._create_sandbox(runner, "--pool", "pool-ab12cd34ef56", "-s", "MY_SECRET")
+        assert isinstance(result.exception, CLIError)
+        assert "no encrypted-secrets channel" in str(result.exception)
+        assert "--env" in str(result.exception)
 
 
 class TestGlobalFormattingFlags:
