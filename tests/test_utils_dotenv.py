@@ -126,3 +126,36 @@ def test_hash_in_unquoted_value_is_kept():
         "LEADING": "#notacomment",
         "COMMENTED": "value",
     }
+
+
+def test_empty_value_with_inline_comment():
+    # Whitespace right after "=" also separates an inline comment: the value is empty, not the
+    # comment text. Otherwise a comment would leak into env vars/secrets (e.g. `hf jobs --env-file`).
+    data = """
+    EMPTY= # comment
+    EMPTY_MULTI_SPACE=   # comment
+    EMPTY_NO_COMMENT=
+    LEADING=#notacomment
+    """
+    assert load_dotenv(data) == {
+        "EMPTY": "",
+        "EMPTY_MULTI_SPACE": "",
+        "EMPTY_NO_COMMENT": "",
+        "LEADING": "#notacomment",
+    }
+
+
+def test_comment_attached_to_closing_quote():
+    # After a closing quote, a "#" starts a comment even without preceding whitespace.
+    data = """
+    DQ="value"# comment
+    SQ='value'#comment
+    SPACED="value" # comment
+    HASH_INSIDE="a#b"
+    """
+    assert load_dotenv(data) == {
+        "DQ": "value",
+        "SQ": "value",
+        "SPACED": "value",
+        "HASH_INSIDE": "a#b",
+    }
