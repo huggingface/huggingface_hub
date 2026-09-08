@@ -15,6 +15,7 @@
 import hashlib
 import hmac
 import json
+import os
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -29,6 +30,8 @@ import httpx
 
 from . import constants
 from ._sandbox_cache import (
+    HOST_TRUST_TTL,
+    CacheContext,
     CachedHost,
     delete_pool_cache,
     read_pool_cache,
@@ -192,6 +195,32 @@ class FileEntry:
     mode: str = ""
 
 
+@contextmanager
+def _open_download_target(local_path: Path) -> Iterator[BinaryIO]:
+    """Yield a writer whose bytes only appear at `local_path` once the download completes.
+
+    Writing straight to the destination has three problems: an interrupted transfer leaves a
+    truncated file at the final name; `open(path, "wb")` follows a symlink sitting there, so
+    the sandbox's output can be redirected into any file this process can write; and a
+    predictable temp name is a race another local process can win.
+
+    So the bytes go to a temp file in the destination directory, created `O_EXCL` (nobody
+    else's file) and `O_NOFOLLOW` (not a symlink) with mode `0600` and an unguessable name,
+    then `os.replace`d into place. `rename` does not follow symlinks either, so a symlinked
+    destination is *replaced* rather than written through, and a failure leaves nothing behind.
+    """
+    tmp = local_path.parent / f".{local_path.name}.{token_hex(8)}.part"
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_BINARY", 0)
+    fd = os.open(tmp, flags, 0o600)
+    try:
+        with os.fdopen(fd, "wb") as f:
+            yield f
+        os.replace(tmp, local_path)
+    except BaseException:
+        tmp.unlink(missing_ok=True)
+        raise
+
+
 class SandboxFiles:
     """Filesystem operations inside a sandbox, available as [`Sandbox.files`].
 
@@ -243,24 +272,32 @@ class SandboxFiles:
         self._sandbox._request("PUT", "/files/write", params=params, content=data)
 
     def upload(self, local_path: str | Path, path: str, mode: str | None = None) -> None:
-        """Upload a local file to the sandbox."""
-        size = Path(local_path).stat().st_size
-        if size > self.PARALLEL_THRESHOLD:
-            self._write_ranges(path, Path(local_path).read_bytes(), mode)
-            return
+        """Upload a local file to the sandbox.
+
+        The file is opened once and both sized (`fstat`) and read through that same
+        descriptor, so what is uploaded is the file that was measured -- rather than
+        whatever the path resolves to a moment later.
+        """
         with open(local_path, "rb") as f:
-            self.write(path, f, mode=mode)
+            if os.fstat(f.fileno()).st_size > self.PARALLEL_THRESHOLD:
+                self._write_ranges(path, f.read(), mode)
+            else:
+                self.write(path, f, mode=mode)
 
     def download(self, path: str, local_path: str | Path) -> None:
-        """Download a file from the sandbox."""
+        """Download a file from the sandbox.
+
+        The bytes land in a private temp file next to the destination and are renamed
+        over it at the end, so an interrupted download leaves no truncated file and a
+        symlink sitting at `local_path` is replaced rather than followed.
+        """
         size = self.stat(path).size
-        if size > self.PARALLEL_THRESHOLD:
-            with open(local_path, "wb") as f:
+        with _open_download_target(Path(local_path)) as f:
+            if size > self.PARALLEL_THRESHOLD:
                 for part in self._read_ranges(path, size):
                     f.write(part)
-            return
-        with self._sandbox._stream("GET", "/files/read", params={"path": path}) as response:
-            with open(local_path, "wb") as f:
+                return
+            with self._sandbox._stream("GET", "/files/read", params={"path": path}) as response:
                 for chunk in response.iter_bytes(chunk_size=1024 * 1024):
                     f.write(chunk)
 
@@ -428,7 +465,11 @@ class _SandboxServer:
             headers={"X-Sandbox-Token": sandbox_token},
             auth=_SandboxAuth(api),
             limits=httpx.Limits(max_connections=max_connections, max_keepalive_connections=max_connections),
-            follow_redirects=True,
+            # Every request on this client carries the HF bearer and a sandbox token, and there
+            # is no redirect in this protocol -- the Jobs proxy serves the in-job server
+            # directly. Following one would hand both credentials to a destination that the
+            # response, rather than the client, chose.
+            follow_redirects=False,
         )
 
     @classmethod
@@ -1168,6 +1209,9 @@ class SandboxPool:
         self.name = name if name is not None else f"pool-{token_hex(6)}"
         self._idle_timeout = idle_timeout
         self._namespace = namespace
+        # Security context the local cache is keyed by: entries written by another endpoint,
+        # credential or namespace are a miss, not a hit (see `CacheContext`).
+        self._cache_context = _cache_context(self._api, namespace)
         self._start_timeout = start_timeout
         self._adopt_hosts = adopt_hosts
         # Resolved lazily and only when `adopt_hosts="own"` needs it: whoami() is
@@ -1236,10 +1280,14 @@ class SandboxPool:
             token (`str`, *optional*):
                 HF token override.
         """
+        api = HfApi(token=token)
         # Fast path: rebuild the pool from the local best-effort cache, with no HTTP at all.
-        # The cached hosts are seeded (and verified) lazily on the next create(); if they are
+        # Only an entry written by this endpoint, credential and namespace is a hit (see
+        # `CacheContext`), so `namespace=` is honoured rather than being overridden by whatever
+        # the file says -- a `connect(namespace="org-B")` can no longer be served org-A's hosts.
+        # The cached hosts are seeded (and validated) lazily on the next create(); if they are
         # all stale, create() falls back to label discovery exactly like a cold connect would.
-        cache = read_pool_cache(pool_id)
+        cache = read_pool_cache(pool_id, _cache_context(api, namespace))
         if cache is not None:
             return cls(
                 image=cache.image,
@@ -1248,14 +1296,13 @@ class SandboxPool:
                 max_hosts=cache.max_hosts,
                 name=pool_id,
                 idle_timeout=cache.idle_timeout,
-                namespace=cache.namespace if namespace is None else namespace,
+                namespace=namespace,
                 adopt_hosts=adopt_hosts,
                 token=token,
                 _connect_mode=True,  # attach to existing hosts; never boot during construction
             )
 
         # Cold path: find a running host via labels and rebuild the config from its job spec.
-        api = HfApi(token=token)
         job = _find_pool_host_job(api, pool_id, namespace=namespace, policy=adopt_hosts)
         env = _host_env(api, job, namespace=namespace)
         idle_raw = env.get("SBX_IDLE_TIMEOUT")
@@ -1358,7 +1405,7 @@ class SandboxPool:
                     if self._require_live_host and discovered and not self._hosts:
                         # connect()'d to a pool whose hosts are all gone (stale cache + nothing
                         # found via labels): don't resurrect it under the same id, just report it.
-                        delete_pool_cache(self.name)
+                        delete_pool_cache(self.name, self._cache_context)
                         raise SandboxError(
                             f"No running host found for pool '{self.name}'. The pool has stopped "
                             "(all its hosts were killed or idle-timed-out); create a new one."
@@ -1452,7 +1499,8 @@ class SandboxPool:
             finally:
                 host.close()
         if self._owns_hosts:
-            delete_pool_cache(self.name)  # the pool's hosts are gone; don't leave a stale entry
+            # The pool's hosts are gone; don't leave a stale entry.
+            delete_pool_cache(self.name, self._cache_context)
 
     def __enter__(self) -> "SandboxPool":
         return self
@@ -1824,34 +1872,89 @@ class SandboxPool:
     def _seed_hosts_from_cache(self) -> None:
         """Adopt the pool's cached hosts without any HTTP (rebuilt from cached URL + nonce).
 
-        Best-effort and unverified: each adopted host is confirmed on the first successful
-        request (and dropped on the first failure, see `_create_one`). Hosts the cache
-        believes are full are skipped — label discovery re-checks them with fresh counts if
-        the seeded ones don't satisfy the request, so a stale-full entry never blocks a create.
+        The first thing that happens to a seeded host is an authenticated `POST`, so what the
+        file says about *where* it lives is not taken on trust: the URL must be one only this
+        job can have (`_cached_host_rejection`), and an entry older than `HOST_TRUST_TTL` is
+        re-checked against the Jobs API first (`_confirm_cached_host`). A fresh entry — the
+        `pool create` → `create --pool` case the cache exists for — is used as is.
+
+        Liveness stays best-effort: a seeded host is confirmed by its first successful request
+        and dropped on the first failure (see `_create_one`). Hosts the cache believes are
+        full are skipped — label discovery re-checks them with fresh counts if the seeded ones
+        don't satisfy the request, so a stale-full entry never blocks a create.
         """
-        cache = read_pool_cache(self.name)
+        cache = read_pool_cache(self.name, self._cache_context)
         if cache is None:
             return
         hf_token = _effective_token(self._api)
+        now = time.time()
+        for ch in cache.hosts:
+            with self._lock:
+                known = {host.job_id for host in self._hosts}
+            if ch.job_id in known or ch.live >= ch.capacity:
+                continue
+            reason = _cached_host_rejection(ch)
+            if reason is not None:
+                logger.debug(f"Dropping cached host {ch.job_id} of pool '{self.name}': it {reason}.")
+                with self._lock:
+                    self._dead_host_ids.add(ch.job_id)  # an entry we can never use is litter
+                continue
+            if now - ch.updated_at > HOST_TRUST_TTL and not self._confirm_cached_host(ch):
+                continue
+            server = _SandboxServer(
+                job_id=ch.job_id,
+                owner=ch.owner,
+                image=self.image,
+                base_url=ch.base_url,
+                nonce=ch.nonce,
+                sandbox_token=_derive_sandbox_token(hf_token, ch.nonce),
+                api=self._api,
+                max_connections=min(self.sandboxes_per_host + 8, 256),
+                capacity=ch.capacity,
+            )
+            server.live = ch.live
+            server.verified = False
+            with self._lock:
+                if any(host.job_id == ch.job_id for host in self._hosts):
+                    server.close()  # seeded concurrently by another thread
+                else:
+                    self._hosts.append(server)
+
+    def _confirm_cached_host(self, ch: CachedHost) -> bool:
+        """Confirm an aged-out cache entry against the Jobs API before crediting it.
+
+        Freshness is what the no-HTTP path rests on: the entry was written by this same
+        principal minutes ago, so the job it names is almost certainly still the host it
+        described. Past `HOST_TRUST_TTL` that argument weakens, and the entry becomes a hint
+        that has to be checked — the job must still be running, still be labelled for *this*
+        pool with the nonce the entry derives its token from, still pass the pool's adoption
+        policy, and still expose exactly the cached URL. One round-trip, and only for entries
+        the fast path would no longer be honest about.
+
+        A definitive "no" prunes the entry; a transient failure only skips it this time.
+        """
+        try:
+            job = self._api.inspect_job(job_id=ch.job_id, namespace=ch.owner)
+            labels = job.labels or {}
+            if job.status.stage != "RUNNING":
+                reason = f"its job is not running (status: {job.status.stage})"
+            elif labels.get(MODE_LABEL) != MODE_POOL or labels.get(POOL_LABEL) != self.name:
+                reason = f"its job is not labelled as a host of pool '{self.name}'"
+            elif labels.get(NONCE_LABEL) != ch.nonce:
+                reason = "its job carries a different nonce"
+            elif not self._adoptable(job):
+                reason = "its job is not one this pool may adopt"
+            elif (exposed := _find_server_url(job)) != ch.base_url:
+                reason = f"its job exposes {exposed!r}, not the cached URL"
+            else:
+                return True
+        except Exception as e:
+            logger.debug(f"Could not confirm cached host {ch.job_id} of pool '{self.name}': {e}")
+            return False
+        logger.debug(f"Dropping stale cached host {ch.job_id} of pool '{self.name}': {reason}.")
         with self._lock:
-            known = {host.job_id for host in self._hosts}
-            for ch in cache.hosts:
-                if ch.job_id in known or ch.live >= ch.capacity:
-                    continue
-                server = _SandboxServer(
-                    job_id=ch.job_id,
-                    owner=ch.owner,
-                    image=self.image,
-                    base_url=ch.base_url,
-                    nonce=ch.nonce,
-                    sandbox_token=_derive_sandbox_token(hf_token, ch.nonce),
-                    api=self._api,
-                    max_connections=min(self.sandboxes_per_host + 8, 256),
-                    capacity=ch.capacity,
-                )
-                server.live = ch.live
-                server.verified = False
-                self._hosts.append(server)
+            self._dead_host_ids.add(ch.job_id)
+        return False
 
     def _save_cache(self) -> None:
         """Persist the pool config + current hosts (with their live counts) for next time."""
@@ -1871,12 +1974,12 @@ class SandboxPool:
             dead = set(self._dead_host_ids)
         save_pool_cache(
             self.name,
+            context=self._cache_context,
             image=self.image,
             flavor=self.flavor,
             sandboxes_per_host=self.sandboxes_per_host,
             max_hosts=self.max_hosts,
             idle_timeout=_duration_to_secs(self._idle_timeout) if self._idle_timeout is not None else None,
-            namespace=self._namespace,
             hosts=hosts,
             dead_host_ids=dead,
         )
@@ -1894,23 +1997,48 @@ def _normalize_image(image: str | None) -> str | None:
     return image
 
 
-def _server_url_rejection(job: JobInfo) -> str | None:
-    """Why this Job's exposed URL is not one we should send credentials to.
+def _server_host_rejection(url: str, *, job_id: str) -> str | None:
+    """Why `url` is not a URL we should send a sandbox job's credentials to.
 
-    The hostname must be derived from *this* job's id, so a Job cannot name an
-    arbitrary destination for the credentials that are about to follow. The
-    domain is not hard-coded, so staging endpoints keep working.
+    The hostname must be derived from the job id we already hold, so nothing but the
+    client's own knowledge of which job it is talking to can decide where the credentials
+    go. The domain is not hard-coded, so staging endpoints keep working.
     """
+    parsed = urlparse(url)
+    if parsed.scheme != "https":
+        return f"uses scheme {parsed.scheme!r}, not https"
+    # `urlparse` lowercases the hostname, so compare case-insensitively.
+    if not (parsed.hostname or "").startswith(f"{job_id}--{SANDBOX_SERVER_PORT}.".lower()):
+        return f"is not job {job_id}'s port-{SANDBOX_SERVER_PORT} URL"
+    return None
+
+
+def _server_url_rejection(job: JobInfo) -> str | None:
+    """Why this Job's exposed URL is not one we should send credentials to."""
     urls = list(job.status.expose_urls or []) if job.status is not None else []
     if len(urls) != 1:
         return f"exposes {len(urls)} URL(s), expected exactly one for port {SANDBOX_SERVER_PORT}"
-    parsed = urlparse(urls[0])
-    if parsed.scheme != "https":
-        return f"exposes the server over {parsed.scheme!r}, not https"
-    # `urlparse` lowercases the hostname, so compare case-insensitively.
-    if not (parsed.hostname or "").startswith(f"{job.id}--{SANDBOX_SERVER_PORT}.".lower()):
-        return f"exposes {urls[0]!r}, which is not this job's port-{SANDBOX_SERVER_PORT} URL"
-    return None
+    reason = _server_host_rejection(urls[0], job_id=job.id)
+    return f"exposes {urls[0]!r}, which {reason}" if reason is not None else None
+
+
+def _cached_host_rejection(host: CachedHost) -> str | None:
+    """Why a cached host entry must not be rebuilt into a credentialed transport.
+
+    Same reasoning as `_server_url_rejection`, for a URL that comes off the local disk
+    instead of the Jobs API. Without this, the cache file gets to choose where the HF bearer
+    and the derived host token are sent -- `http://127.0.0.1:1234` included -- and it gets to
+    choose it *before* any API call could have contradicted it. Deriving the expected
+    hostname from the entry's own `job_id` leaves it able to name only a job this client can
+    independently identify, which is the same bar a discovered host has to clear.
+    """
+    reason = _server_host_rejection(host.base_url, job_id=host.job_id)
+    return f"names {host.base_url!r}, which {reason}" if reason is not None else None
+
+
+def _cache_context(api: HfApi, namespace: str | None) -> CacheContext:
+    """The local pool cache's security context for this endpoint/credential/namespace."""
+    return CacheContext.for_credential(endpoint=api.endpoint, token=_effective_token(api), namespace=namespace)
 
 
 def _host_rejection(

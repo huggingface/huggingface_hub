@@ -1,5 +1,8 @@
 import json
+import os
+import stat
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from unittest.mock import MagicMock
 
@@ -13,12 +16,24 @@ from huggingface_hub._sandbox import (
     NONCE_LABEL,
     POOL_LABEL,
     SANDBOX_LABEL,
+    SANDBOX_SERVER_PORT,
     Sandbox,
     SandboxPool,
     _SandboxServer,
 )
-from huggingface_hub._sandbox_cache import CachedHost, read_pool_cache, save_pool_cache
+from huggingface_hub._sandbox_cache import (
+    HOST_TRUST_TTL,
+    CacheContext,
+    CachedHost,
+    read_pool_cache,
+    save_pool_cache,
+)
 from huggingface_hub.errors import SandboxCommandError, SandboxError
+
+
+# A job nonce shaped like the real thing (minted by `token_hex(16)`): the public label the
+# sandbox token derives from, and a value the pool cache checks the shape of on read.
+NONCE = "1e" * 16
 
 
 def _fake_list_jobs(jobs):
@@ -59,7 +74,7 @@ def _make_server(base_url: str, job_id: str = "job123", capacity: int = 0) -> _S
         owner="user",
         image="python:3.12",
         base_url=base_url,
-        nonce="nonce",
+        nonce=NONCE,
         sandbox_token="secret",
         api=api,
         capacity=capacity,
@@ -81,9 +96,17 @@ class _FakeServer(BaseHTTPRequestHandler):
     last_exec: dict | None = None  # body of the most recent /exec call (for assertions)
     processes: list = []  # background processes started via /processes
     proc_seq = 0  # monotonic process id source
+    # Every request that reached this server, as (method, path). A server that must never be
+    # contacted at all (a URL only a cache file named, a redirect target) is asserted on this.
+    requests: list = []
+    writes: list = []  # (path, body) of every /files/write received
+    redirect_to = ""  # where the /v1/redirect route points (set per-subclass)
 
     def log_message(self, *args) -> None:
         pass
+
+    def _record(self) -> None:
+        type(self).requests.append((self.command, self.path))
 
     def _ndjson(self, events) -> None:
         self.send_response(200)
@@ -128,6 +151,7 @@ class _FakeServer(BaseHTTPRequestHandler):
         )
 
     def do_POST(self) -> None:
+        self._record()
         self._expect_token()
         body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
         cls = type(self)
@@ -161,7 +185,15 @@ class _FakeServer(BaseHTTPRequestHandler):
                 created.append({"id": sid, "token": f"tok-{sid}"})
             self._json({"sandboxes": created, "rejected": rejected})
 
+    def do_PUT(self) -> None:
+        self._record()
+        self._expect_token()
+        body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
+        type(self).writes.append((self.path, body))
+        self._json({"written": len(body)})
+
     def do_DELETE(self) -> None:
+        self._record()
         self._expect_token()
         last = self.path.rsplit("/", 1)[-1]
         if "/processes/" in self.path:  # kill a background process
@@ -172,9 +204,15 @@ class _FakeServer(BaseHTTPRequestHandler):
         self._json({"id": last, "deleted": True})
 
     def do_GET(self) -> None:
+        self._record()
         self._expect_token()
         cls = type(self)
-        if self.path.startswith("/v1/files/stat") or "/files/stat" in self.path:
+        if self.path == "/v1/redirect":  # a redirect the client must not follow
+            self.send_response(302)
+            self.send_header("Location", cls.redirect_to)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+        elif self.path.startswith("/v1/files/stat") or "/files/stat" in self.path:
             self._json({"name": "x", "path": "/x", "type": "file", "size": 5})
         elif self.path.startswith("/v1/files/read") or "/files/read" in self.path:
             self.send_response(200)
@@ -198,6 +236,9 @@ def fake_server():
     _FakeServer.last_exec = None
     _FakeServer.processes = []
     _FakeServer.proc_seq = 0
+    _FakeServer.requests = []
+    _FakeServer.writes = []
+    _FakeServer.redirect_to = ""
     server = ThreadingHTTPServer(("127.0.0.1", 0), _FakeServer)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -213,6 +254,8 @@ def _spawn_fake(capacity=None):
         seq = 0
         processes: list = []
         proc_seq = 0
+        requests: list = []
+        writes: list = []
 
     _Fake.capacity = capacity
     server = ThreadingHTTPServer(("127.0.0.1", 0), _Fake)
@@ -512,7 +555,7 @@ def _pool_host_job(
     job.command = ["/bin/sh", "-c", sandbox_mod._BOOTSTRAP_DOWNLOAD]
     job.status.stage = "RUNNING"
     job.status.expose_urls = [f"https://{job_id}--{sandbox_mod.SANDBOX_SERVER_PORT}.hf.jobs"]
-    job.labels = {SANDBOX_LABEL: "1", MODE_LABEL: MODE_POOL, POOL_LABEL: pool_name, NONCE_LABEL: "nonce"}
+    job.labels = {SANDBOX_LABEL: "1", MODE_LABEL: MODE_POOL, POOL_LABEL: pool_name, NONCE_LABEL: NONCE}
     job.environment = {"SBX_CAPACITY": str(capacity)} if env is None else env
     return job
 
@@ -759,7 +802,39 @@ class TestPoolConnect:
             SandboxPool.connect("pool-dead", token="hf_test")
 
 
-def _save_cache(pool_id: str, hosts, **overrides) -> None:
+def _ctx(namespace: str | None = None, *, token: str = "hf_test", endpoint: str | None = None) -> CacheContext:
+    """The cache context a pool with this endpoint / credential / namespace reads and writes under."""
+    return sandbox_mod._cache_context(sandbox_mod.HfApi(token=token, endpoint=endpoint), namespace)
+
+
+def _cached_host(
+    job_id: str = "h1",
+    *,
+    capacity: int = 4,
+    live: int = 0,
+    url: str | None = None,
+    nonce: str = NONCE,
+    owner: str = "user",
+    age: float = 0.0,
+) -> CachedHost:
+    """A cache entry as a real run would have written it, `age` seconds ago.
+
+    The default URL is the one the entry's own job would expose, because that is the only
+    kind the client will rebuild a transport from -- a fixture naming anything else would be
+    testing a code path that no longer exists.
+    """
+    return CachedHost(
+        job_id=job_id,
+        owner=owner,
+        base_url=url if url is not None else f"https://{job_id}--{SANDBOX_SERVER_PORT}.hf.jobs",
+        nonce=nonce,
+        capacity=capacity,
+        live=live,
+        updated_at=time.time() - age,
+    )
+
+
+def _save_cache(pool_id: str, hosts, *, context: CacheContext | None = None, **overrides) -> None:
     """Write a pool cache with sane defaults, overriding config fields as needed."""
     config = {
         "image": "python:3.12",
@@ -767,88 +842,130 @@ def _save_cache(pool_id: str, hosts, **overrides) -> None:
         "sandboxes_per_host": 4,
         "max_hosts": None,
         "idle_timeout": 600,
-        "namespace": None,
         **overrides,
     }
-    save_pool_cache(pool_id, hosts=hosts, **config)
+    save_pool_cache(pool_id, context=context if context is not None else _ctx(), hosts=hosts, **config)
+
+
+@pytest.fixture()
+def loopback_cache_hosts(monkeypatch):
+    """Let a cached host point at a local fake server.
+
+    A cached URL is only admitted if it is the HTTPS jobs-proxy URL of the entry's own job,
+    which a loopback test server can never be (that check is exercised directly in
+    `TestCachedHostAdmission`). The tests using this fixture are about what the cache does
+    once a host *is* seeded, so they opt out of that one check and nothing else.
+    """
+    monkeypatch.setattr(sandbox_mod, "_cached_host_rejection", lambda host: None)
 
 
 class TestPoolCacheFile:
-    """Unit tests for the on-disk cache layout (`$HF_HOME/sandbox/pools/<id>.json`)."""
+    """Unit tests for the on-disk cache layout (`$HF_HOME/sandbox/pools/<context>/<id>.json`)."""
 
     def test_round_trip(self) -> None:
-        _save_cache("p", [CachedHost("h1", "user", "http://h1", "n1", 4, 1)], namespace="ns")
-        cache = read_pool_cache("p")
+        _save_cache("p", [_cached_host("h1", live=1)], context=_ctx("ns"))
+        cache = read_pool_cache("p", _ctx("ns"))
         assert cache is not None
         assert (cache.image, cache.sandboxes_per_host, cache.namespace) == ("python:3.12", 4, "ns")
         assert cache.hosts[0].job_id == "h1" and cache.hosts[0].live == 1
 
     def test_missing_returns_none(self) -> None:
-        assert read_pool_cache("does-not-exist") is None
+        assert read_pool_cache("does-not-exist", _ctx()) is None
 
     def test_path_rejects_traversal(self) -> None:
         for bad in ("../evil", "a/b", "..", "x\x00y"):
             with pytest.raises(ValueError):
-                cache_mod.pool_cache_path(bad)
-        # read/save stay best-effort (no raise) even for an invalid id.
-        assert read_pool_cache("../evil") is None
-        _save_cache("../evil", [CachedHost("h1", "user", "u", "n", 4, 0)])  # no raise
+                cache_mod.pool_cache_path(bad, _ctx())
+        # read/save/delete stay best-effort (no raise) even for an invalid id.
+        assert read_pool_cache("../evil", _ctx()) is None
+        _save_cache("../evil", [_cached_host()])  # no raise
+        cache_mod.delete_pool_cache("../evil")  # no raise
 
     def test_corrupt_returns_none(self) -> None:
-        path = cache_mod.pool_cache_path("bad")
+        path = cache_mod.pool_cache_path("bad", _ctx())
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("{ not valid json")
-        assert read_pool_cache("bad") is None  # tolerated as a cache miss
+        assert read_pool_cache("bad", _ctx()) is None  # tolerated as a cache miss
 
     def test_version_mismatch_returns_none(self, monkeypatch) -> None:
-        _save_cache("p", [CachedHost("h1", "user", "http://h1", "n1", 4, 0)])
+        _save_cache("p", [_cached_host()])
         monkeypatch.setattr(cache_mod, "_CACHE_VERSION", 999)
-        assert read_pool_cache("p") is None
+        assert read_pool_cache("p", _ctx()) is None
 
     def test_merge_upserts_and_prunes(self) -> None:
-        _save_cache(
-            "p", [CachedHost("h1", "user", "http://h1", "n1", 4, 0), CachedHost("h2", "user", "u2", "n2", 4, 0)]
-        )
+        _save_cache("p", [_cached_host("h1"), _cached_host("h2")])
         # A second writer updates h2's live count and reports h1 as dead.
-        _save_cache("p", [CachedHost("h2", "user", "u2", "n2", 4, 3)], dead_host_ids={"h1"})
-        cache = read_pool_cache("p")
+        _save_cache("p", [_cached_host("h2", live=3)], dead_host_ids={"h1"})
+        cache = read_pool_cache("p", _ctx())
         assert cache is not None
         assert {h.job_id for h in cache.hosts} == {"h2"}  # h1 pruned, h2 kept
         assert cache.hosts[0].live == 3  # updated value won
 
     def test_delete(self) -> None:
-        _save_cache("p", [CachedHost("h1", "user", "http://h1", "n1", 4, 0)])
+        _save_cache("p", [_cached_host()])
+        cache_mod.delete_pool_cache("p", _ctx())
+        assert read_pool_cache("p", _ctx()) is None
+
+    def test_delete_without_a_context_clears_every_context(self) -> None:
+        # `hf sandbox pool delete` knows the pool id, not which credential cached it. Over-
+        # deleting a disposable cache is the safe direction, under-deleting leaves a stale entry.
+        _save_cache("p", [_cached_host()], context=_ctx("org-a"))
+        _save_cache("p", [_cached_host()], context=_ctx("org-b"))
         cache_mod.delete_pool_cache("p")
-        assert read_pool_cache("p") is None
+        assert read_pool_cache("p", _ctx("org-a")) is None
+        assert read_pool_cache("p", _ctx("org-b")) is None
+
+    @pytest.mark.skipif(os.name == "nt", reason="POSIX file modes")
+    def test_the_cache_is_private_to_this_user(self) -> None:
+        # It holds reusable host URLs and the public nonces the host tokens derive from.
+        _save_cache("p", [_cached_host()])
+        path = cache_mod.pool_cache_path("p", _ctx())
+        assert stat.S_IMODE(path.stat().st_mode) == 0o600
+        assert stat.S_IMODE(path.parent.stat().st_mode) == 0o700  # the context dir
+        assert stat.S_IMODE(path.parent.parent.stat().st_mode) == 0o700  # sandbox/pools
+        # No temp file left behind (and none with a name another process could have guessed).
+        assert sorted(p.name for p in path.parent.iterdir()) == ["p.json", "p.json.lock"]
+
+    @pytest.mark.skipif(os.name == "nt", reason="POSIX file modes")
+    def test_a_lax_pre_existing_directory_is_tightened(self) -> None:
+        directory = cache_mod._pools_dir()
+        directory.mkdir(parents=True, exist_ok=True)
+        directory.chmod(0o777)  # e.g. written by an older version, under a lax umask
+        _save_cache("p", [_cached_host()])
+        assert stat.S_IMODE(directory.stat().st_mode) == 0o700
 
 
 class TestPoolCacheIntegration:
     """`SandboxPool.connect` + `create` use the cache to skip list_jobs/inspect_job when warm."""
 
-    def test_warm_cache_packs_without_listing_jobs(self, fake_server: str, monkeypatch) -> None:
+    def test_warm_cache_packs_without_listing_jobs(self, fake_server: str, monkeypatch, loopback_cache_hosts) -> None:
         # An earlier run left a warm host in the cache; a fresh pool must reach it with no HTTP
         # other than the create POST itself.
-        _save_cache("pool-cached", [CachedHost("host-cached", "user", fake_server, "nonce", 4, 0)])
+        _save_cache("pool-cached", [_cached_host("host-cached", url=fake_server)])
         monkeypatch.setattr(sandbox_mod, "_derive_sandbox_token", lambda *a: "secret")
 
         pool = SandboxPool.connect("pool-cached", token="hf_test")
         pool._api.list_jobs = MagicMock(side_effect=AssertionError("must not list jobs"))
+        pool._api.inspect_job = MagicMock(side_effect=AssertionError("must not inspect the host job"))
         monkeypatch.setattr(pool, "_boot_host", lambda: pytest.fail("must not boot a host"))
 
         box = pool.create()
         assert isinstance(box, Sandbox) and box.host_id == "host-cached"
         pool._api.list_jobs.assert_not_called()
-        cache = read_pool_cache("pool-cached")
+        pool._api.inspect_job.assert_not_called()  # a fresh entry costs no extra round-trip
+        assert _FakeServer.requests == [("POST", "/v1/sandboxes")]  # ...and exactly one request
+        cache = read_pool_cache("pool-cached", _ctx())
         assert cache is not None and cache.hosts[0].live == 1  # live count persisted back
 
-    def test_stale_host_falls_back_to_discovery_and_prunes(self, fake_server: str, monkeypatch) -> None:
+    def test_stale_host_falls_back_to_discovery_and_prunes(
+        self, fake_server: str, monkeypatch, loopback_cache_hosts
+    ) -> None:
         # The cached host is dead (refused connection); discovery finds a live one via labels.
-        _save_cache("pool-stale", [CachedHost("dead", "user", "http://127.0.0.1:1", "n", 4, 0)])
+        _save_cache("pool-stale", [_cached_host("dead", url="http://127.0.0.1:1")])
         monkeypatch.setattr(sandbox_mod, "_derive_sandbox_token", lambda *a: "secret")
         pool = SandboxPool.connect("pool-stale", token="hf_test")
 
         live_job = _pool_host_job("live", pool_name="pool-stale")
-        live_job.labels = {SANDBOX_LABEL: "1", MODE_LABEL: MODE_POOL, POOL_LABEL: "pool-stale", NONCE_LABEL: "n"}
         pool._api.list_jobs = MagicMock(return_value=[live_job])
         monkeypatch.setattr(
             sandbox_mod, "_connect_host", lambda api, jid, namespace=None: _make_server(fake_server, job_id=jid)
@@ -856,13 +973,13 @@ class TestPoolCacheIntegration:
 
         box = pool.create()
         assert box.host_id == "live"
-        cache = read_pool_cache("pool-stale")
+        cache = read_pool_cache("pool-stale", _ctx())
         assert cache is not None and [h.job_id for h in cache.hosts] == ["live"]  # dead host pruned
 
-    def test_stale_cache_does_not_resurrect_dead_pool(self, monkeypatch) -> None:
+    def test_stale_cache_does_not_resurrect_dead_pool(self, monkeypatch, loopback_cache_hosts) -> None:
         # connect() trusted a stale cache, but every host is gone and labels find nothing:
         # create() must refuse to boot a fresh host under the same id, and clear the cache.
-        _save_cache("pool-ghost", [CachedHost("dead", "user", "http://127.0.0.1:1", "n", 4, 0)])
+        _save_cache("pool-ghost", [_cached_host("dead", url="http://127.0.0.1:1")])
         monkeypatch.setattr(sandbox_mod, "_derive_sandbox_token", lambda *a: "secret")
         pool = SandboxPool.connect("pool-ghost", token="hf_test")
         pool._api.list_jobs = MagicMock(return_value=[])
@@ -870,4 +987,261 @@ class TestPoolCacheIntegration:
 
         with pytest.raises(SandboxError, match="No running host found"):
             pool.create()
-        assert read_pool_cache("pool-ghost") is None  # cleared
+        assert read_pool_cache("pool-ghost", _ctx()) is None  # cleared
+
+
+class TestPoolCacheBinding:
+    """The cache is a credential delivery instruction, not just data: the fast path rebuilds a
+    host transport from a file and sends it the HF bearer plus the derived host token. So an
+    entry is only ever readable by the endpoint, credential and namespace that wrote it, and
+    only if it still says what it said when it was written."""
+
+    def test_another_credential_gets_a_miss(self) -> None:
+        _save_cache("p", [_cached_host()], context=_ctx(token="hf_someone_else"))
+        assert read_pool_cache("p", _ctx()) is None
+
+    def test_another_namespace_gets_a_miss(self) -> None:
+        _save_cache("p", [_cached_host()], context=_ctx("org-a"))
+        assert read_pool_cache("p", _ctx("org-b")) is None
+        assert read_pool_cache("p", _ctx()) is None  # nor does "no namespace" match one
+        assert read_pool_cache("p", _ctx("org-a")) is not None
+
+    def test_another_endpoint_gets_a_miss(self) -> None:
+        _save_cache("p", [_cached_host()], context=_ctx(endpoint="https://hub.staging.example"))
+        assert read_pool_cache("p", _ctx()) is None
+
+    def test_an_entry_moved_into_our_directory_is_still_a_miss(self) -> None:
+        # The context is in the payload as well as the path, so copying a file (from a
+        # colleague's $HF_HOME, say) into the right-looking directory does not make it ours.
+        _save_cache("p", [_cached_host()], context=_ctx("org-a"))
+        source = cache_mod.pool_cache_path("p", _ctx("org-a"))
+        target = cache_mod.pool_cache_path("p", _ctx())
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(source.read_text())
+        assert read_pool_cache("p", _ctx()) is None
+
+    def test_a_renamed_entry_is_a_miss(self) -> None:
+        _save_cache("mine", [_cached_host()])
+        source = cache_mod.pool_cache_path("mine", _ctx())
+        source.rename(source.parent / "other.json")
+        assert read_pool_cache("other", _ctx()) is None
+
+    def test_a_mistyped_entry_is_a_miss_not_a_type_error(self) -> None:
+        # `dataclass` does not enforce types, so a well-shaped file with a stringly-typed
+        # capacity used to parse fine and only fail later, on `capacity - live`, as an
+        # uncaught TypeError in the middle of create().
+        _save_cache("p", [_cached_host()])
+        path = cache_mod.pool_cache_path("p", _ctx())
+        data = json.loads(path.read_text())
+        data["hosts"][0]["capacity"] = "50"
+        path.write_text(json.dumps(data))
+        assert read_pool_cache("p", _ctx()) is None
+
+    def test_implausible_values_are_a_miss(self) -> None:
+        for field, value in (
+            ("capacity", True),  # `bool` is an `int`, but not a count
+            ("live", -1),
+            ("nonce", "not-hex"),
+            ("nonce", NONCE[:8]),
+            ("job_id", "../../evil"),
+            ("owner", "user/../.."),
+            ("base_url", 1234),
+            ("updated_at", "yesterday"),
+        ):
+            _save_cache("p", [_cached_host()])
+            path = cache_mod.pool_cache_path("p", _ctx())
+            data = json.loads(path.read_text())
+            data["hosts"][0][field] = value
+            path.write_text(json.dumps(data))
+            assert read_pool_cache("p", _ctx()) is None, f"{field}={value!r} should be a miss"
+
+        for field, value in (("sandboxes_per_host", 0), ("sandboxes_per_host", "4"), ("max_hosts", -2), ("image", 7)):
+            _save_cache("p", [_cached_host()])
+            path = cache_mod.pool_cache_path("p", _ctx())
+            data = json.loads(path.read_text())
+            data[field] = value
+            path.write_text(json.dumps(data))
+            assert read_pool_cache("p", _ctx()) is None, f"{field}={value!r} should be a miss"
+
+    def test_a_mistyped_entry_does_not_break_a_connect(self, monkeypatch) -> None:
+        # The whole point: the failure mode is the documented cache miss (here, the cold path
+        # finding no host) rather than a TypeError surfacing from inside create().
+        _save_cache("p", [_cached_host()])
+        path = cache_mod.pool_cache_path("p", _ctx())
+        data = json.loads(path.read_text())
+        data["hosts"][0]["capacity"] = "50"
+        path.write_text(json.dumps(data))
+        monkeypatch.setattr(sandbox_mod.HfApi, "list_jobs", _fake_list_jobs([]))
+        with pytest.raises(SandboxError, match="No running host found"):
+            SandboxPool.connect("p", token="hf_test")
+
+
+class TestCachedHostAdmission:
+    """Where a cached host says it lives decides where the HF bearer and the host token go,
+    before any API call could contradict it. So the URL has to be one that only the job the
+    entry names could have: HTTPS, on that job's own proxy hostname."""
+
+    def test_a_loopback_url_is_refused(self) -> None:
+        assert sandbox_mod._cached_host_rejection(_cached_host("h1", url="http://127.0.0.1:1234")) is not None
+
+    def test_plain_http_is_refused(self) -> None:
+        reason = sandbox_mod._cached_host_rejection(
+            _cached_host("h1", url=f"http://h1--{SANDBOX_SERVER_PORT}.hf.jobs")
+        )
+        assert "https" in (reason or "")
+
+    def test_another_jobs_url_is_refused(self) -> None:
+        entry = _cached_host("h1", url=f"https://h2--{SANDBOX_SERVER_PORT}.hf.jobs")
+        assert sandbox_mod._cached_host_rejection(entry) is not None
+
+    def test_another_port_is_refused(self) -> None:
+        assert sandbox_mod._cached_host_rejection(_cached_host("h1", url="https://h1--8080.hf.jobs")) is not None
+
+    def test_the_jobs_url_of_the_entrys_own_job_is_accepted(self) -> None:
+        assert sandbox_mod._cached_host_rejection(_cached_host("h1")) is None
+        # The domain is not hard-coded, so staging endpoints keep working.
+        entry = _cached_host("h1", url=f"https://h1--{SANDBOX_SERVER_PORT}.staging.hf.jobs/")
+        assert sandbox_mod._cached_host_rejection(entry) is None
+
+    def test_a_cache_naming_a_local_server_makes_no_request_to_it(self, monkeypatch) -> None:
+        # The reproducer: a cache entry pointing at 127.0.0.1 used to receive the full bearer
+        # and sandbox token on the first create. The fake records every request it gets.
+        url, listener = _spawn_fake()
+        _save_cache("pool-local", [_cached_host("hostA", url=url)])
+        monkeypatch.setattr(sandbox_mod.HfApi, "list_jobs", _fake_list_jobs([]))
+
+        pool = SandboxPool.connect("pool-local", token="hf_test")  # config from the cache, no HTTP
+        with pytest.raises(SandboxError, match="No running host found"):
+            pool.create()  # the host is never seeded, so discovery finds nothing
+        assert listener.requests == []
+
+    def test_a_cross_namespace_connect_does_not_reach_the_other_namespaces_hosts(self, monkeypatch) -> None:
+        # `connect(pool, namespace="org-b")` used to be served org-a's cached hosts, because
+        # the cache was keyed by pool id alone and its namespace was read as configuration.
+        url, listener = _spawn_fake()
+        _save_cache("pool-x", [_cached_host("hostA", url=url)], context=_ctx("org-a"))
+        monkeypatch.setattr(sandbox_mod.HfApi, "list_jobs", _fake_list_jobs([]))
+
+        with pytest.raises(SandboxError, match="No running host found"):
+            SandboxPool.connect("pool-x", namespace="org-b", token="hf_test")
+        assert listener.requests == []
+
+    def test_a_connect_without_a_namespace_does_not_inherit_the_cached_one(self, monkeypatch) -> None:
+        # It used to: `namespace=cache.namespace if namespace is None else namespace`.
+        url, listener = _spawn_fake()
+        _save_cache("pool-x", [_cached_host("hostA", url=url)], context=_ctx("org-a"))
+        monkeypatch.setattr(sandbox_mod.HfApi, "list_jobs", _fake_list_jobs([]))
+
+        with pytest.raises(SandboxError, match="No running host found"):
+            SandboxPool.connect("pool-x", token="hf_test")
+        assert listener.requests == []
+
+    def test_an_inadmissible_url_is_pruned_from_the_cache(self, monkeypatch) -> None:
+        _save_cache("pool-local", [_cached_host("hostA", url="http://127.0.0.1:1234")])
+        monkeypatch.setattr(sandbox_mod.HfApi, "list_jobs", _fake_list_jobs([]))
+        pool = SandboxPool.connect("pool-local", token="hf_test")
+        pool._seed_hosts_from_cache()
+        assert pool._hosts == []
+        pool._save_cache()
+        cache = read_pool_cache("pool-local", _ctx())
+        assert cache is not None and cache.hosts == []
+
+
+class TestCachedHostFreshness:
+    """A cached host is credited without a round-trip only while the entry is fresh -- written
+    by this same principal minutes ago, which is the `pool create` -> `create --pool` case the
+    cache exists for. Past that, it is a hint to be checked against the Jobs API."""
+
+    def _pool(self, name: str = "p1") -> SandboxPool:
+        # `_connect_mode` skips the constructor warm-up, so seeding runs in isolation.
+        return SandboxPool(image="python:3.12", flavor="cpu-basic", name=name, token="hf_test", _connect_mode=True)
+
+    def test_a_fresh_entry_is_seeded_with_no_round_trip(self, monkeypatch) -> None:
+        _save_cache("p1", [_cached_host("hostA")])
+        monkeypatch.setattr(
+            sandbox_mod.HfApi, "inspect_job", MagicMock(side_effect=AssertionError("must not inspect"))
+        )
+        pool = self._pool()
+        pool._seed_hosts_from_cache()
+        assert [host.job_id for host in pool._hosts] == ["hostA"]
+
+    def test_an_aged_entry_is_confirmed_against_the_jobs_api_first(self, monkeypatch) -> None:
+        _save_cache("p1", [_cached_host("hostA", age=HOST_TRUST_TTL + 60)])
+        inspect = MagicMock(return_value=_pool_host_job("hostA", pool_name="p1"))
+        monkeypatch.setattr(sandbox_mod.HfApi, "inspect_job", inspect)
+        pool = self._pool()
+        pool._seed_hosts_from_cache()
+        assert [host.job_id for host in pool._hosts] == ["hostA"]
+        inspect.assert_called_once()
+
+    def test_an_aged_entry_the_job_no_longer_backs_is_dropped(self, monkeypatch) -> None:
+        cases = {
+            "not running": lambda job: setattr(job.status, "stage", "CANCELED"),
+            "another pool": lambda job: job.labels.update({POOL_LABEL: "someone-elses-pool"}),
+            "another nonce": lambda job: job.labels.update({NONCE_LABEL: "ab" * 16}),
+            "another principal": lambda job: setattr(job.initiator, "id", "principal-attacker"),
+            "another url": lambda job: setattr(job.status, "expose_urls", ["https://elsewhere--49983.hf.jobs"]),
+        }
+        for label, mutate in cases.items():
+            job = _pool_host_job("hostA", pool_name="p1")
+            mutate(job)
+            monkeypatch.setattr(sandbox_mod.HfApi, "inspect_job", MagicMock(return_value=job))
+            _save_cache("p1", [_cached_host("hostA", age=HOST_TRUST_TTL + 60)])
+            pool = self._pool()
+            pool._seed_hosts_from_cache()
+            assert pool._hosts == [], label
+            assert pool._dead_host_ids == {"hostA"}, label  # and pruned on the next save
+
+    def test_an_unreachable_jobs_api_only_skips_the_entry(self, monkeypatch) -> None:
+        # A transient failure must not prune the entry: the host may well be fine.
+        _save_cache("p1", [_cached_host("hostA", age=HOST_TRUST_TTL + 60)])
+        monkeypatch.setattr(sandbox_mod.HfApi, "inspect_job", MagicMock(side_effect=OSError("network is down")))
+        pool = self._pool()
+        pool._seed_hosts_from_cache()
+        assert pool._hosts == []
+        assert pool._dead_host_ids == set()
+
+
+class TestTransportHardening:
+    """The client's own end of the protocol: no redirect-following on a credentialed client,
+    and no local file left mangled by a transfer."""
+
+    def test_a_redirect_is_not_followed(self, fake_server: str) -> None:
+        # Both credentials ride on every request, and httpx re-sends `Authorization` on a
+        # same-scheme redirect, so a 302 must be surfaced rather than chased.
+        elsewhere, listener = _spawn_fake()
+        _FakeServer.redirect_to = elsewhere + "/v1/sandboxes"
+        server = _make_server(fake_server)
+        response = server.request("GET", "/v1/redirect")
+        assert response.status_code == 302
+        assert listener.requests == []
+
+    def test_download_replaces_a_symlink_instead_of_writing_through_it(self, fake_server: str, tmp_path) -> None:
+        sentinel = tmp_path / "precious"
+        sentinel.write_text("do not touch")
+        destination = tmp_path / "download.txt"
+        destination.symlink_to(sentinel)
+
+        _make_sandbox(fake_server).files.download("/x", destination)
+        assert sentinel.read_text() == "do not touch"
+        assert not destination.is_symlink()
+        assert destination.read_bytes() == b"hello"
+
+    def test_a_failed_download_leaves_nothing_behind(self, fake_server: str, tmp_path, monkeypatch) -> None:
+        sandbox = _make_sandbox(fake_server)
+        monkeypatch.setattr(sandbox, "_stream", MagicMock(side_effect=SandboxError("connection lost")))
+        destination = tmp_path / "downloads" / "download.txt"
+        destination.parent.mkdir()
+        with pytest.raises(SandboxError):
+            sandbox.files.download("/x", destination)
+        assert list(destination.parent.iterdir()) == []  # no truncated file, no leftover temp file
+
+    def test_upload_reads_the_file_it_measured(self, fake_server: str, tmp_path) -> None:
+        # One descriptor is opened, `fstat`ed and streamed, instead of stat-then-reopen. A
+        # symlinked source still works: `hf_hub_download` returns one.
+        source = tmp_path / "data.bin"
+        source.write_bytes(b"x" * 1024)
+        link = tmp_path / "link.bin"
+        link.symlink_to(source)
+        _make_sandbox(fake_server).files.upload(link, "/dest")
+        assert sum(len(body) for _, body in _FakeServer.writes) == 1024
