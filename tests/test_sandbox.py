@@ -101,6 +101,20 @@ class _FakeServer(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _expect_token(self) -> None:
+        """Mirror the real server's credential scoping.
+
+        Management routes (`/v1/sandboxes`, token recovery) take the host token;
+        every per-sandbox route takes that sandbox's own capability token. Keeping
+        the fake as strict as the server is the point: a lax fake is how a client
+        bug like addressing a process by pid survives a green test suite.
+        """
+        provided = self.headers["X-Sandbox-Token"]
+        parts = self.path.split("?")[0].strip("/").split("/")
+        scoped = len(parts) >= 3 and parts[:2] == ["v1", "sandboxes"] and parts[3:4] != ["token"]
+        expected = f"tok-{parts[2]}" if scoped else "secret"
+        assert provided == expected, f"{self.path}: expected {expected!r}, got {provided!r}"
+
     def _exec(self, body) -> None:
         type(self).last_exec = body
         self._ndjson(
@@ -114,7 +128,7 @@ class _FakeServer(BaseHTTPRequestHandler):
         )
 
     def do_POST(self) -> None:
-        assert self.headers["X-Sandbox-Token"] == "secret"
+        self._expect_token()
         body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
         cls = type(self)
         # exec (dedicated /v1/exec or shared /v1/sandboxes/<id>/exec)
@@ -144,11 +158,11 @@ class _FakeServer(BaseHTTPRequestHandler):
                 sid = f"sbx{cls.seq}"
                 cls.seq += 1
                 cls.sandboxes.add(sid)
-                created.append({"id": sid})
+                created.append({"id": sid, "token": f"tok-{sid}"})
             self._json({"sandboxes": created, "rejected": rejected})
 
     def do_DELETE(self) -> None:
-        assert self.headers["X-Sandbox-Token"] == "secret"
+        self._expect_token()
         last = self.path.rsplit("/", 1)[-1]
         if "/processes/" in self.path:  # kill a background process
             type(self).processes = [p for p in type(self).processes if str(p["pid"]) != last]
@@ -158,6 +172,7 @@ class _FakeServer(BaseHTTPRequestHandler):
         self._json({"id": last, "deleted": True})
 
     def do_GET(self) -> None:
+        self._expect_token()
         cls = type(self)
         if self.path.startswith("/v1/files/stat") or "/files/stat" in self.path:
             self._json({"name": "x", "path": "/x", "type": "file", "size": 5})
@@ -170,6 +185,9 @@ class _FakeServer(BaseHTTPRequestHandler):
             self._json(cls.processes)
         elif self.path == "/v1/sandboxes":
             self._json([{"id": sid} for sid in sorted(cls.sandboxes)])
+        elif self.path.startswith("/v1/sandboxes/") and self.path.endswith("/token"):
+            sid = self.path.split("/")[3]
+            self._json({"id": sid, "token": f"tok-{sid}"})
 
 
 @pytest.fixture()
@@ -324,7 +342,15 @@ class TestSharedSandbox:
     def _make_shared(self, base_url: str) -> Sandbox:
         server = _make_server(base_url, capacity=10)
         _FakeServer.sandboxes.add("local1")
-        return Sandbox(id="job123.local1", server=server, local_id="local1", owns_sandbox=True, owns_server=False)
+        return Sandbox(
+            id="job123.local1",
+            server=server,
+            local_id="local1",
+            owns_sandbox=True,
+            owns_server=False,
+            # What `SandboxPool.create()` would have received in the create response.
+            sandbox_token="tok-local1",
+        )
 
     def test_base_path_is_scoped(self, fake_server: str) -> None:
         sandbox = self._make_shared(fake_server)
@@ -338,6 +364,33 @@ class TestSharedSandbox:
         sandbox.kill()
         sandbox._server._api.cancel_job.assert_not_called()  # host keeps running
         assert "local1" not in _FakeServer.sandboxes
+
+    def test_per_sandbox_operations_present_the_sandbox_token(self, fake_server: str) -> None:
+        # The fake asserts the scoping itself (host token on management routes, the
+        # sandbox's own token on scoped ones), so any operation reaching the server
+        # is evidence the narrow credential was sent.
+        sandbox = self._make_shared(fake_server)
+        assert sandbox.run("echo").stdout == "out1"
+        assert sandbox.files.read_text("f") == "hello"
+        assert sandbox.processes() == []
+
+    def test_proxy_headers_carry_the_sandbox_token_not_the_host_one(self, fake_server: str) -> None:
+        # These headers are handed to browsers and WebSocket clients, so they must
+        # not confer authority over the pool or over sibling sandboxes.
+        sandbox = self._make_shared(fake_server)
+        assert sandbox.proxy_headers["X-Sandbox-Token"] == "tok-local1"
+        assert sandbox.proxy_headers["X-Sandbox-Token"] != sandbox._server._sandbox_token
+
+    def test_falls_back_to_the_host_token_on_an_older_server(self, fake_server: str) -> None:
+        # A host running a server that predates per-sandbox tokens returns no token
+        # in the create response; those sandboxes keep working with the host one.
+        server = _make_server(fake_server, capacity=10)
+        _FakeServer.sandboxes.add("local1")
+        sandbox = Sandbox(
+            id="job123.local1", server=server, local_id="local1", owns_sandbox=True, owns_server=False
+        )
+        assert sandbox._sandbox_token is None
+        assert sandbox.proxy_headers["X-Sandbox-Token"] == "secret"
 
 
 class TestSandboxPool:
