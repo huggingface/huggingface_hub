@@ -372,6 +372,27 @@ Connect from a terminal with `hf jobs ssh <job_id>` (or directly with `ssh <job_
 
 Only users with write access to the Job's namespace are allowed in (the Job creator, or members of the owner organization), authenticated by an SSH public key registered at https://huggingface.co/settings/keys.
 
+## Network groups
+
+Pass `network_group="<name>"` to [`run_job`] (or [`run_uv_job`]) to place Jobs of the same owner together and let them reach each other directly, on every port. Inside each member, `HF_NETWORK_GROUP_HOSTNAME` resolves to every Job in the group. A Job can also claim aliases with `network_aliases=[...]`: `${HF_NETWORK_GROUP_PREFIX}<alias>` then resolves to the members claiming that alias. Several Jobs may claim the same alias.
+
+```python
+>>> from huggingface_hub import run_job
+>>> server = run_job(
+...     image="python:3.12",
+...     command=["python", "-m", "http.server", "8000"],
+...     network_group="train",
+...     network_aliases=["master"],
+... )
+>>> client = run_job(
+...     image="python:3.12",
+...     command=["sh", "-c", 'curl --retry 10 --retry-connrefused "http://${HF_NETWORK_GROUP_PREFIX}master:8000/"'],
+...     network_group="train",
+... )
+```
+
+Group names and aliases are lowercase alphanumerics and dashes, 46 characters max. Members appear in DNS before they are ready, so connect with retries. Because members share one cluster, a Job is rejected if its hardware flavor is not available where the group already runs; once no member is pending or running anymore, the next one can land anywhere. Multi-node training frameworks can use an alias as the rendezvous host, e.g. `torchrun --master_addr "${HF_NETWORK_GROUP_PREFIX}master"`.
+
 ## Configure Job Timeout
 
 Jobs have a default timeout (30 minutes), after which they will automatically stop. This is important to know when running long-running tasks like model training.
