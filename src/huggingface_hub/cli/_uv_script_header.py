@@ -11,29 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Read the optional `[tool.hf-jobs]` table from a UV script's PEP 723 header.
+"""Read launch defaults from a UV script's optional `[tool.hf-jobs]` PEP 723 table.
 
-Some scripts only run correctly with a specific runtime (a given image, a GPU flavor, a system
-interpreter, ...). This lets a script carry that launch configuration with it, so that
-`hf jobs uv run script.py` just works instead of silently running with the wrong runtime:
-
-```python
-# /// script
-# requires-python = ">=3.11"
-# dependencies = ["vllm", "datasets"]
-#
-# [tool.hf-jobs]
-# image   = "vllm/vllm-openai:latest"
-# flavor  = "l4x1"
-# python  = "/usr/bin/python3"
-# env     = { PYTHONPATH = "/usr/local/lib/python3.12/dist-packages" }
-# secrets = ["HF_TOKEN"]
-# ///
-```
-
-`[tool.*]` tables are sanctioned by PEP 723 (it is how `uv` reads `[tool.uv]`) and tools ignore the
-tables they don't own, so the block is invisible to a plain `uv run`. Header values are *defaults*:
-an explicit CLI flag always wins. See `huggingface_hub/cli/jobs.py` for the merge rules.
+See the CLI guide for the header format and `cli/jobs.py` for the merge rules.
 """
 
 import re
