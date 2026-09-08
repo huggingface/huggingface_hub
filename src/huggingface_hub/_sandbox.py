@@ -70,6 +70,11 @@ SANDBOX_MAX_LIFETIME = "24h"
 
 DEFAULT_SANDBOXES_PER_HOST = 50
 
+# How long `close()` waits for in-flight creates before giving up on them. A
+# wedged create must not hang process exit, but returning immediately would let
+# a host it is still booting escape teardown.
+_CLOSE_DRAIN_TIMEOUT = 30.0
+
 # Ceiling on the output `run()` will accumulate for its result. Without one, a
 # runaway command (a loop printing to stdout, say) is an unbounded allocation in
 # the caller's process -- and it happened even when a callback was already
@@ -539,6 +544,12 @@ class _SandboxServer:
         # False only for hosts rebuilt from the (best-effort) pool cache: their job may
         # be gone, so the first failed request drops them instead of failing the create.
         self.verified = True
+        # Whether *this* process started this host job, and may therefore cancel
+        # it. Ownership belongs to the host, not to the pool handle: a handle used
+        # to cancel hosts it had merely discovered via labels, which may have been
+        # started by another process -- or another member of the namespace -- and
+        # may be serving their sandboxes.
+        self.owned = False
         # httpx.Client is thread-safe, so a single client serves both sequential requests
         # and the concurrent workers used for parallel file transfers / many sandboxes.
         self._client = httpx.Client(
@@ -1343,7 +1354,14 @@ class SandboxPool:
         # Whether close()/`__exit__` cancels the host jobs. True for a pool we created; False
         # for a connect()'d handle, which only releases its HTTP clients on exit — the shared
         # hosts (possibly serving other clients) are left running, like Sandbox.connect().
+        # Kept as the default for hosts this handle boots (a connect()'d handle
+        # boots nothing during construction), but teardown is decided per host.
         self._owns_hosts = not _connect_mode
+        # In-flight create/boot operations. `close()` waits for these to drain, so
+        # a host booted by a create() that was already past its closed check
+        # cannot land in a list nobody will ever tear down.
+        self._in_flight = 0
+        self._drained = threading.Condition(self._lock)
         # Job ids of cached hosts we found dead this session; pruned from the cache on save.
         self._dead_host_ids: set[str] = set()
 
@@ -1481,8 +1499,25 @@ class SandboxPool:
                 delivered to the host server at creation (never stored in the host job), so
                 it doesn't appear in any job's metadata.
         """
-        if self._closed:
-            raise SandboxError("This SandboxPool is closed.")
+        with self._lock:
+            if self._closed:
+                raise SandboxError("This SandboxPool is closed.")
+            # Registered under the lock together with the closed check, so
+            # `close()` cannot snapshot the host list between the two.
+            self._in_flight += 1
+        try:
+            return self._create_locked(env, idle_timeout, forward_hf_token)
+        finally:
+            with self._lock:
+                self._in_flight -= 1
+                self._drained.notify_all()
+
+    def _create_locked(
+        self,
+        env: dict[str, Any] | None,
+        idle_timeout: int | float | str | None,
+        forward_hf_token: bool,
+    ) -> "Sandbox":
         sandbox_env = dict(env or {})
         if forward_hf_token:
             sandbox_env["HF_TOKEN"] = _effective_token(self._api)
@@ -1582,36 +1617,71 @@ class SandboxPool:
         `with` block must not tear them down. Terminate a connected pool's hosts explicitly
         with `hf sandbox pool delete <id>`.
 
-        > [!WARNING]
-        > Two rough edges here. Ownership is decided per *handle*, not per host: a pool we
-        > created also cancels hosts it merely discovered via labels, which may have been
-        > started by another process — or another member of the namespace — and may be
-        > serving their sandboxes. And a host job that cannot be cancelled is only logged as
-        > a warning while its cache entry is removed, so this can return successfully while
-        > a host keeps running and billing. Check `hf jobs ps --label hf-sandbox=1` if
-        > teardown matters to you.
+        Only hosts *this handle started* are cancelled. A host discovered via labels may
+        be serving another process' sandboxes, so it is released rather than terminated.
+
+        Raises [`SandboxError`] if a host job could not be cancelled, naming the jobs that
+        are still running — they keep billing, and their cache entries are kept so they stay
+        discoverable. When `close()` is reached through `__exit__` with an exception already
+        in flight, the failure is logged instead, so it cannot mask the original error.
         """
         with self._lock:
+            self._closed = True
+            # Wait for in-flight creates so a host booted by one that was already
+            # past its closed check lands in `self._hosts` before the snapshot,
+            # rather than being orphaned. Bounded, because a wedged create must
+            # not hang process exit.
+            if self._in_flight and not self._drained.wait_for(
+                lambda: self._in_flight == 0, timeout=_CLOSE_DRAIN_TIMEOUT
+            ):
+                logger.warning(
+                    f"Pool '{self.name}': {self._in_flight} operation(s) still in flight after "
+                    f"{_CLOSE_DRAIN_TIMEOUT}s; any host they boot will keep running."
+                )
             hosts = self._hosts
             self._hosts = []
-            self._closed = True
+
+        survivors: List[_SandboxServer] = []
+        failures: List[str] = []
         for host in hosts:
             try:
-                if self._owns_hosts:
+                # Only what this handle started. A discovered host may be serving
+                # someone else's sandboxes, and cancelling it kills them.
+                if host.owned:
                     host.cancel_job()
             except Exception as e:
+                # Keep it in the cache: that record is the user's only handle on a
+                # job that is still running and still billing.
+                survivors.append(host)
+                failures.append(f"{host.job_id} ({e})")
                 logger.warning(f"Failed to cancel sandbox host {host.job_id}: {e}")
             finally:
                 host.close()
-        if self._owns_hosts:
+
+        if survivors:
+            # Rewrite rather than delete, so the survivors stay discoverable.
+            self._save_cache(hosts=survivors)
+        elif self._owns_hosts:
             # The pool's hosts are gone; don't leave a stale entry.
             delete_pool_cache(self.name, self._cache_context)
+        if failures:
+            raise SandboxError(
+                f"Pool '{self.name}' could not terminate host job(s): {'; '.join(failures)}. "
+                "They are still running and billing; cancel them with `hf jobs cancel <id>`."
+            )
 
     def __enter__(self) -> "SandboxPool":
         return self
 
     def __exit__(self, *exc_info) -> None:
-        self.close()
+        try:
+            self.close()
+        except SandboxError:
+            # Never let a teardown failure mask the exception that is already
+            # propagating out of the `with` block.
+            if exc_info[0] is None:
+                raise
+            logger.warning(f"Pool '{self.name}' teardown failed while handling another error.", exc_info=True)
 
     # ------------------------------------------------------------------ internals
 
@@ -1822,16 +1892,45 @@ class SandboxPool:
                 else:
                     self._hosts.append(server)
 
+    def _live_host_count(self) -> int:
+        """How many hosts are running for this pool, not just the ones we track.
+
+        `max_hosts` is documented as a cost ceiling, but it was compared against
+        `len(self._hosts)` -- an in-process count. Two processes using the same
+        pool each counted only their own hosts, so the number of billed host jobs
+        could quietly exceed the cap by a factor of however many processes were
+        involved.
+
+        Counting via labels narrows that considerably. It does not close it: two
+        processes can still list simultaneously and both decide there is room. A
+        hard cap has to be enforced where the jobs are created, not by the
+        clients racing to count them.
+        """
+        tracked = {host.job_id for host in self._hosts}
+        try:
+            for job in self._api.list_jobs(
+                status="RUNNING",
+                labels={MODE_LABEL: MODE_POOL, POOL_LABEL: self.name},
+                namespace=self._namespace,
+            ):
+                tracked.add(job.id)
+        except Exception as e:
+            # Fall back to the in-process count rather than refusing to boot.
+            logger.debug(f"Could not count live hosts for pool '{self.name}': {e}")
+        return len(tracked)
+
     def _provision_hosts(self, num_new: int) -> List[_SandboxServer]:
         """Boot `num_new` host jobs in parallel, respecting `max_hosts`."""
-        with self._lock:
-            current = len(self._hosts)
-        if self.max_hosts is not None and current + num_new > self.max_hosts:
-            allowed = self.max_hosts - current
-            raise SandboxError(
-                f"Pool needs {num_new} more host(s) but max_hosts={self.max_hosts} "
-                f"allows only {max(0, allowed)} more. Raise max_hosts or kill some sandboxes."
-            )
+        if self.max_hosts is not None:
+            with self._lock:
+                current = self._live_host_count()
+            if current + num_new > self.max_hosts:
+                allowed = self.max_hosts - current
+                raise SandboxError(
+                    f"Pool needs {num_new} more host(s) but max_hosts={self.max_hosts} "
+                    f"allows only {max(0, allowed)} more ({current} already running for this pool). "
+                    "Raise max_hosts or kill some sandboxes."
+                )
         # Boot in parallel, but collect every result before re-raising: if one boot fails,
         # the others may have already started billable host jobs, so cancel those instead of
         # leaking them (executor.map would surface the first error and drop the rest).
@@ -1917,6 +2016,8 @@ class SandboxPool:
             if server is not None:
                 server.close()
             raise
+        # We started this job, so this handle is the one that should end it.
+        server.owned = self._owns_hosts
         return server
 
     def _create_one(self, host: "_SandboxServer", env: dict[str, Any], idle_secs: int | None) -> "Sandbox | None":
@@ -2061,10 +2162,16 @@ class SandboxPool:
             self._dead_host_ids.add(ch.job_id)
         return False
 
-    def _save_cache(self) -> None:
-        """Persist the pool config + current hosts (with their live counts) for next time."""
+    def _save_cache(self, hosts: "List[_SandboxServer] | None" = None) -> None:
+        """Persist the pool config + hosts (with their live counts) for next time.
+
+        `hosts` overrides the tracked list, for the one case where they differ:
+        `close()` persisting the hosts it could *not* cancel, since that record is
+        the caller's only handle on a job that is still billing.
+        """
         with self._lock:
-            hosts = [
+            source = self._hosts if hosts is None else hosts
+            entries = [
                 CachedHost(
                     job_id=host.job_id,
                     owner=host.owner,
@@ -2074,7 +2181,7 @@ class SandboxPool:
                     live=host.live,
                     updated_at=time.time(),
                 )
-                for host in self._hosts
+                for host in source
             ]
             dead = set(self._dead_host_ids)
         save_pool_cache(
@@ -2085,7 +2192,7 @@ class SandboxPool:
             sandboxes_per_host=self.sandboxes_per_host,
             max_hosts=self.max_hosts,
             idle_timeout=_duration_to_secs(self._idle_timeout) if self._idle_timeout is not None else None,
-            hosts=hosts,
+            hosts=entries,
             dead_host_ids=dead,
         )
 

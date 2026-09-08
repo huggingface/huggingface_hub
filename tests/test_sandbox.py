@@ -81,6 +81,17 @@ def _make_server(base_url: str, job_id: str = "job123", capacity: int = 0) -> _S
     )
 
 
+def _booted_server(base_url: str, job_id: str = "job123", capacity: int = 0) -> _SandboxServer:
+    """A server as `_boot_host` would return one: this process started the job.
+
+    Stubs for `_boot_host` must set this, or `close()` treats the host as one
+    someone else started and correctly refuses to cancel it.
+    """
+    server = _make_server(base_url, job_id=job_id, capacity=capacity)
+    server.owned = True
+    return server
+
+
 def _make_sandbox(base_url: str) -> Sandbox:
     """A dedicated sandbox (one job) wired to a local server."""
     server = _make_server(base_url)
@@ -500,7 +511,7 @@ class TestSandboxPool:
         # fake boot + empty discovery must already be in place. No warm hosts to discover here;
         # discovery is covered separately. Every host boot returns a server at the fake server.
         monkeypatch.setattr(sandbox_mod.HfApi, "list_jobs", lambda self, **kw: [])
-        monkeypatch.setattr(SandboxPool, "_boot_host", lambda self: _make_server(fake_server, capacity=per_host))
+        monkeypatch.setattr(SandboxPool, "_boot_host", lambda self: _booted_server(fake_server, capacity=per_host))
         return SandboxPool(image="python:3.12", sandboxes_per_host=per_host, token="hf_test")
 
     def test_packs_into_hosts_and_tracks_slots(self, fake_server: str, monkeypatch) -> None:
@@ -535,7 +546,7 @@ class TestSandboxPool:
     def test_warm_up_preprovisions_hosts(self, fake_server: str, monkeypatch) -> None:
         # warm_up=3 boots 3 hosts in the constructor; the rest stay warm for later.
         monkeypatch.setattr(sandbox_mod.HfApi, "list_jobs", lambda self, **kw: [])
-        monkeypatch.setattr(SandboxPool, "_boot_host", lambda self: _make_server(fake_server, capacity=4))
+        monkeypatch.setattr(SandboxPool, "_boot_host", lambda self: _booted_server(fake_server, capacity=4))
         pool = SandboxPool(image="python:3.12", sandboxes_per_host=4, warm_up=3, token="hf_test")
         assert pool.num_hosts == 3  # pre-provisioned by the constructor, before any create()
         pool.create()
@@ -544,7 +555,7 @@ class TestSandboxPool:
 
     def test_max_hosts_enforced(self, fake_server: str, monkeypatch) -> None:
         monkeypatch.setattr(sandbox_mod.HfApi, "list_jobs", lambda self, **kw: [])
-        monkeypatch.setattr(SandboxPool, "_boot_host", lambda self: _make_server(fake_server, capacity=2))
+        monkeypatch.setattr(SandboxPool, "_boot_host", lambda self: _booted_server(fake_server, capacity=2))
         pool = SandboxPool(sandboxes_per_host=2, max_hosts=1, token="hf_test")
         pool.create()
         pool.create()  # fills the single allowed host (capacity 2)
@@ -620,6 +631,103 @@ def _pool_host_job(
     return job
 
 
+class TestPoolLifecycle:
+    """Who owns a host, and whether teardown tells the truth. Both used to be
+    decided per pool *handle*, which meant a `with` block could cancel a host it
+    had merely discovered -- killing another process' (or another person's)
+    sandboxes -- and a failed cancellation was logged and then reported as
+    success while the job kept billing."""
+
+    def _pool(self, fake_server: str, monkeypatch, jobs=(), **kwargs) -> SandboxPool:
+        monkeypatch.setattr(sandbox_mod.HfApi, "list_jobs", _fake_list_jobs(list(jobs)))
+        monkeypatch.setattr(
+            sandbox_mod.SandboxPool, "_boot_host", lambda self: _booted_server(fake_server, capacity=4)
+        )
+        monkeypatch.setattr(
+            sandbox_mod, "_connect_host", lambda api, jid, namespace=None: _make_server(fake_server, job_id=jid)
+        )
+        return SandboxPool(image="python:3.12", flavor="cpu-basic", name="p1", token="hf_test", **kwargs)
+
+    def test_a_host_we_booted_is_cancelled(self, fake_server: str, monkeypatch) -> None:
+        pool = self._pool(fake_server, monkeypatch)
+        host = pool._hosts[0]
+        pool.close()
+        host._api.cancel_job.assert_called_once()
+
+    def test_a_discovered_host_is_released_not_cancelled(self, fake_server: str, monkeypatch) -> None:
+        # It may be serving another process' sandboxes. Releasing the local HTTP
+        # client is this handle's business; terminating the job is not.
+        discovered = _pool_host_job("theirs")
+        pool = self._pool(fake_server, monkeypatch, jobs=[discovered])
+        adopted = next(host for host in pool._hosts if host.job_id == "theirs")
+
+        pool.close()
+        adopted._api.cancel_job.assert_not_called()
+        assert adopted._client.is_closed
+
+    def test_a_failed_cancellation_raises_and_keeps_the_host_discoverable(self, fake_server: str, monkeypatch) -> None:
+        pool = self._pool(fake_server, monkeypatch)
+        host = pool._hosts[0]
+        host._api.cancel_job.side_effect = RuntimeError("backend said no")
+
+        with pytest.raises(SandboxError, match="still running and billing"):
+            pool.close()
+        # The cache entry is the caller's only handle on a job that is still
+        # billing, so it must survive -- deleting it was the old behaviour.
+        cache = read_pool_cache("p1", pool._cache_context)
+        assert cache is not None and [entry.job_id for entry in cache.hosts] == [host.job_id]
+
+    def test_a_teardown_failure_does_not_mask_the_original_exception(self, fake_server: str, monkeypatch) -> None:
+        pool = self._pool(fake_server, monkeypatch)
+        pool._hosts[0]._api.cancel_job.side_effect = RuntimeError("backend said no")
+
+        with pytest.raises(ValueError, match="the real problem"):
+            with pool:
+                raise ValueError("the real problem")
+
+    def test_close_waits_for_an_in_flight_create(self, fake_server: str, monkeypatch) -> None:
+        # A create() already past its closed check must not leave a host behind:
+        # close() waits for it, so whatever it booted is torn down.
+        pool = self._pool(fake_server, monkeypatch)
+        released = threading.Event()
+        booted: list = []
+
+        def slow_boot(self) -> _SandboxServer:
+            released.wait(5)
+            server = _booted_server(fake_server, job_id="slow", capacity=4)
+            booted.append(server)
+            return server
+
+        monkeypatch.setattr(sandbox_mod.SandboxPool, "_boot_host", slow_boot)
+        # Fill the warm host so the next create() has to boot.
+        for host in pool._hosts:
+            host.live = host.capacity
+
+        creating = threading.Thread(target=lambda: pool.create())
+        creating.start()
+        time.sleep(0.2)  # let create() get past the closed check and into the boot
+        closing = threading.Thread(target=lambda: pool.close())
+        closing.start()
+        time.sleep(0.2)
+        released.set()
+        creating.join(10)
+        closing.join(10)
+
+        assert booted, "the slow boot never happened, so this proves nothing"
+        booted[0]._api.cancel_job.assert_called_once()
+
+    def test_max_hosts_counts_every_host_running_for_the_pool(self, fake_server: str, monkeypatch) -> None:
+        # `max_hosts` is a cost ceiling, and it was compared against an
+        # in-process count -- so another process' hosts did not count towards it.
+        theirs = _pool_host_job("theirs")
+        pool = self._pool(fake_server, monkeypatch, jobs=[theirs], max_hosts=1)
+        # The discovered host already fills the cap, so booting another must refuse.
+        for host in pool._hosts:
+            host.live = host.capacity
+        with pytest.raises(SandboxError, match="max_hosts"):
+            pool.create()
+
+
 class TestHostDiscovery:
     """`create()` should attach to a warm host found via job labels (e.g. left by
     another process) before booting a new one."""
@@ -632,7 +740,7 @@ class TestHostDiscovery:
         # matching running host found via labels (a freshly booted host is only the fallback).
         monkeypatch.setattr(sandbox_mod.HfApi, "list_jobs", _fake_list_jobs(jobs))
         # A new host boot would fail (no real Jobs); discovery must avoid it here.
-        monkeypatch.setattr(SandboxPool, "_boot_host", lambda self: _make_server(fake_server, capacity=4))
+        monkeypatch.setattr(SandboxPool, "_boot_host", lambda self: _booted_server(fake_server, capacity=4))
         # `_connect_host` (module-level) returns a server wired to the fake server.
         monkeypatch.setattr(
             sandbox_mod, "_connect_host", lambda api, jid, namespace=None: _make_server(fake_server, job_id=jid)
@@ -787,7 +895,7 @@ class TestHostAdmission:
         impostor.initiator.id = "principal-attacker"
         monkeypatch.setattr(sandbox_mod.HfApi, "list_jobs", _fake_list_jobs([impostor]))
         monkeypatch.setattr(
-            sandbox_mod.SandboxPool, "_boot_host", lambda self: _make_server(fake_server, job_id="mine", capacity=4)
+            sandbox_mod.SandboxPool, "_boot_host", lambda self: _booted_server(fake_server, job_id="mine", capacity=4)
         )
         monkeypatch.setattr(
             sandbox_mod, "_connect_host", lambda api, jid, namespace=None: _make_server(fake_server, job_id=jid)
