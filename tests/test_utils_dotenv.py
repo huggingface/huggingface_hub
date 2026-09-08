@@ -107,3 +107,22 @@ def test_single_quoted_values_are_literal():
         "ESCAPED_QUOTE": r"a\"b",
     }
     assert load_dotenv(r'DQ="line1\nline2"') == {"DQ": "line1\nline2"}
+
+
+def test_hash_in_unquoted_value_is_kept():
+    # A "#" only starts an inline comment when preceded by whitespace. A "#" that is part of an
+    # unquoted value (e.g. in a password, token or URL fragment) must be preserved, not truncated.
+    data = """
+    PASSWORD=p@ss#word
+    TOKEN=abc#123
+    URL=http://example.com/x#frag
+    LEADING=#notacomment
+    COMMENTED=value  # actual comment
+    """
+    assert load_dotenv(data) == {
+        "PASSWORD": "p@ss#word",
+        "TOKEN": "abc#123",
+        "URL": "http://example.com/x#frag",
+        "LEADING": "#notacomment",
+        "COMMENTED": "value",
+    }

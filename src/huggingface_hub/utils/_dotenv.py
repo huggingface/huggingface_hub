@@ -34,10 +34,10 @@ def load_dotenv(dotenv_str: str, environ: dict[str, str] | None = None) -> dict[
             (?:
                 '(?:\\'|[^'])*'           # single-quoted value
                 | \"(?:\\\"|[^\"])*\"     # double-quoted value
-                | [^#\n\r]+?              # unquoted value
+                | [^\n\r]*?               # unquoted value (may contain '#')
             )
         )?
-        [^\S\n]*(?:\#.*)?$                # optional inline comment
+        (?:[^\S\n]+\#[^\n\r]*)?$          # optional inline comment (must be preceded by whitespace)
     """,
         re.VERBOSE,
     )
