@@ -15,7 +15,6 @@ import pytest
 
 from huggingface_hub import HfApi, constants, hf_file_system
 from huggingface_hub.errors import BucketNotFoundError, RepositoryNotFoundError, RevisionNotFoundError
-from huggingface_hub.hf_api import RepoFile, RepoFolder
 from huggingface_hub.hf_file_system import (
     HfFileSystem,
     HfFileSystemFile,
