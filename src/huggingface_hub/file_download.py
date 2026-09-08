@@ -1434,10 +1434,6 @@ def _hf_hub_download_to_local_dir(
             repo_type=repo_type,
         )
         if isinstance(cached_path, str):
-            with WeakFileLock(paths.lock_path):
-                paths.file_path.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copyfile(cached_path, paths.file_path)
-            write_download_metadata(local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag)
             if dry_run:
                 return DryRunFileInfo(
                     commit_hash=commit_hash,
@@ -1447,6 +1443,10 @@ def _hf_hub_download_to_local_dir(
                     local_path=str(paths.file_path),
                     will_download=False,
                 )
+            with WeakFileLock(paths.lock_path):
+                paths.file_path.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(cached_path, paths.file_path)
+            write_download_metadata(local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag)
             return str(paths.file_path)
 
     if dry_run:
