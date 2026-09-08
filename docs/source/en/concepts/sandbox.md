@@ -249,7 +249,6 @@ This section is deliberately exhaustive rather than reassuring: if you are decid
 ### Lifecycle and operational gaps
 
 - **A detached descendant can outlive `kill()`.** `SandboxProcess.kill()` signals the command's process group; a descendant that calls `setsid()` leaves it. Deleting the sandbox (pool) or the job (dedicated) does terminate everything. Use `timeout=` if you need a hard bound.
-- **`SandboxProcess.kill()` does not currently stop the process** — the client sends the OS pid where the server expects its own opaque process id, and the server answers `200` either way. Until this is fixed, stop background work by deleting the sandbox.
 - **A long foreground command can trip the idle watchdog.** `idle_timeout` counts API requests, and a running foreground command is not counted as activity, so a command that runs longer than `idle_timeout` without other API traffic can have its sandbox shut down under it. Raise `idle_timeout` (or pass `None`) for long single commands.
 - **`max_hosts` is best-effort, not a hard cap.** It is now checked against every host running for the pool (found via labels), not just the ones the current process tracks — but two processes can still count simultaneously and both decide there is room. A hard cap has to be enforced where Jobs are created, not by clients racing to count them. Per-host `sandboxes_per_host` *is* enforced server-side.
 - **The server binary is not pinned or verified.** Each job downloads `sbx-server` from a mutable public bucket path and executes it as root without checking a digest or signature.

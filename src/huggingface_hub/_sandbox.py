@@ -167,31 +167,44 @@ class SandboxProcess:
     """A background process started in a sandbox with [`Sandbox.run`]`(..., background=True)`.
 
     List a sandbox's processes with [`Sandbox.processes`] and stop one with [`SandboxProcess.kill`].
-    Completed processes stay in the listing until the sandbox is deleted, so `running` and
-    `exit_code` tell whether a process is still alive or already exited (as of when it was listed).
+    Recently completed processes stay in the listing (the server keeps a bounded number of
+    them), so `running` and `exit_code` tell whether a process is still alive or already
+    exited (as of when it was listed).
     """
 
+    # Server-assigned handle, and the only identifier that addresses this process.
+    # `pid` is the OS pid: useful for correlating with `ps` inside the sandbox, but
+    # the OS may reuse it, so it is observational only. `None` for a process on a
+    # host running a server that predates opaque ids.
+    id: str | None
     pid: int
     cmd: str | List[str]
     # Back-reference to the sandbox, used by `kill()`. Excluded from repr/eq so a process
-    # stays a plain data object (and two with the same pid compare equal).
+    # stays a plain data object.
     _sandbox: "Sandbox" = field(repr=False, compare=False)
     tag: str | None = None
     started_at_ms: int | None = None
     running: bool = True
     exit_code: int | None = None
 
-    def kill(self) -> None:
-        """Terminate the background process (idempotent server-side).
+    def kill(self) -> bool:
+        """Terminate the background process. Idempotent.
 
-        > [!WARNING]
-        > This currently does not stop the process: it addresses it by OS pid, while the
-        > server expects the opaque process id it assigned, and answers `200` either way.
-        > Until that is fixed, stop background work by deleting the sandbox. Note also that a
-        > descendant which detaches with `setsid()` leaves the signalled process group and
-        > outlives this call.
+        Returns whether this call is what stopped it: `False` means it had already
+        exited or been terminated, which is not an error.
+
+        Note that a descendant which detaches with `setsid()` leaves the signalled
+        process group and outlives this call. Delete the sandbox to be certain
+        everything it started is gone.
         """
-        self._sandbox._request("DELETE", f"/processes/{self.pid}")
+        if self.id is None:
+            raise SandboxError(
+                "This process cannot be stopped individually: its sandbox runs a sandbox server "
+                "that predates opaque process ids, so the server never issued one. Recycle the "
+                "pool's hosts, or delete the sandbox to stop everything it started."
+            )
+        response = self._sandbox._request("DELETE", f"/processes/{self.id}")
+        return bool(response.json().get("killed", False))
 
 
 @dataclass
@@ -1031,7 +1044,15 @@ class Sandbox:
             payload["cwd"] = cwd
         if background:
             data = self._request("POST", "/processes", json=payload).json()
-            return SandboxProcess(pid=data["pid"], cmd=cmd, tag=data.get("tag"), _sandbox=self)
+            return SandboxProcess(
+                # Absent on a server that predates opaque ids; `kill()` then says so
+                # rather than sending a pid the server will reject.
+                id=data.get("id"),
+                pid=data["pid"],
+                cmd=cmd,
+                tag=data.get("tag"),
+                _sandbox=self,
+            )
         if timeout is not None:
             payload["timeout"] = timeout
         if stdin is not None:
@@ -1087,12 +1108,14 @@ class Sandbox:
         """List the background processes of this sandbox.
 
         Returns the processes started with [`Sandbox.run`]`(..., background=True)`; stop one
-        with [`SandboxProcess.kill`]. Completed processes stay listed (with `running=False` and
-        their `exit_code`) until the sandbox is deleted.
+        with [`SandboxProcess.kill`]. Recently completed processes stay listed (with
+        `running=False` and their `exit_code`); the server keeps a bounded number of them, so a
+        sandbox that has run thousands of short commands will not list them all.
         """
         data = self._request("GET", "/processes").json()
         return [
             SandboxProcess(
+                id=p.get("id"),
                 pid=p["pid"],
                 cmd=p["cmd"],
                 tag=p.get("tag"),

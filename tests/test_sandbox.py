@@ -127,9 +127,9 @@ class _FakeServer(BaseHTTPRequestHandler):
             self.wfile.write((json.dumps(event) + "\n").encode())
             self.wfile.flush()
 
-    def _json(self, obj) -> None:
+    def _json(self, obj, status: int = 200) -> None:
         body = json.dumps(obj).encode()
-        self.send_response(200)
+        self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
@@ -172,6 +172,7 @@ class _FakeServer(BaseHTTPRequestHandler):
         elif self.path.endswith("/processes"):  # spawn a background process
             type(self).last_exec = body
             proc = {
+                "id": f"p-{cls.proc_seq}",
                 "pid": 9000 + cls.proc_seq,
                 "tag": body.get("tag"),
                 "cmd": body["cmd"],
@@ -181,7 +182,7 @@ class _FakeServer(BaseHTTPRequestHandler):
             }
             cls.proc_seq += 1
             cls.processes.append(proc)
-            self._json({"pid": proc["pid"], "tag": proc["tag"]})
+            self._json({"id": proc["id"], "pid": proc["pid"], "tag": proc["tag"]})
         elif self.path == "/v1/sandboxes":  # batch-create sandboxes (server-authoritative capacity)
             count = int(body.get("count", 1))
             created = []
@@ -208,8 +209,15 @@ class _FakeServer(BaseHTTPRequestHandler):
         self._expect_token()
         last = self.path.rsplit("/", 1)[-1]
         if "/processes/" in self.path:  # kill a background process
-            type(self).processes = [p for p in type(self).processes if str(p["pid"]) != last]
-            self._json({"pid": last, "killed": True})
+            # Deletion is by opaque id only, and a pid is a 400 -- exactly like the
+            # real server. The fake used to delete by pid, which is what let the
+            # client's `kill()` send a pid and still pass every test.
+            if not (last.startswith("p-") and last[2:].isdigit()):
+                self._json({"error": f"{last!r} is not a process id"}, status=400)
+                return
+            before = len(type(self).processes)
+            type(self).processes = [p for p in type(self).processes if p["id"] != last]
+            self._json({"id": last, "killed": len(type(self).processes) != before})
             return
         type(self).sandboxes.discard(last)
         self._json({"id": last, "deleted": True})
@@ -447,6 +455,55 @@ class TestResourceBounds:
             assert [entry.name for entry in sandbox.files.list("/dir")] == ["a", "b"]
         finally:
             _FakeServer.list_pages = None
+
+
+class TestBackgroundProcesses:
+    """`kill()` has to address a process the way the server identifies it. It used
+    to send the OS pid, which matches nothing server-side, and the server answered
+    200 anyway -- so a process the user asked to stop kept running, kept the
+    sandbox non-idle, and kept the job billing."""
+
+    def test_kill_uses_the_server_assigned_id(self, fake_server: str) -> None:
+        sandbox = _make_sandbox(fake_server)
+        process = sandbox.run("sleep 60", background=True)
+
+        assert process.id == "p-0"
+        assert process.pid == 9000  # still exposed, for correlating with `ps`
+        # The fake rejects a pid with a 400, exactly like the real server, so this
+        # passing is evidence the opaque id was sent.
+        assert process.kill() is True
+        assert sandbox.processes() == []
+
+    def test_kill_is_idempotent_and_says_whether_it_did_anything(self, fake_server: str) -> None:
+        sandbox = _make_sandbox(fake_server)
+        process = sandbox.run("sleep 60", background=True)
+
+        assert process.kill() is True
+        assert process.kill() is False  # already gone: not an error
+
+    def test_listed_processes_carry_their_id(self, fake_server: str) -> None:
+        sandbox = _make_sandbox(fake_server)
+        sandbox.run("sleep 60", background=True)
+        listed = sandbox.processes()
+
+        assert [p.id for p in listed] == ["p-0"]
+        assert listed[0].kill() is True
+
+    def test_sending_a_pid_is_refused_by_the_server(self, fake_server: str) -> None:
+        # Guards the fake as much as the client: if this ever passes, the fake has
+        # gone lax again and the original bug could return unnoticed.
+        sandbox = _make_sandbox(fake_server)
+        process = sandbox.run("sleep 60", background=True)
+        with pytest.raises(SandboxError):
+            sandbox._request("DELETE", f"/processes/{process.pid}")
+
+    def test_a_process_without_an_id_refuses_to_be_killed(self, fake_server: str) -> None:
+        # A host running a server that predates opaque ids issues no id. Better a
+        # clear error than a pid the server will reject.
+        sandbox = _make_sandbox(fake_server)
+        process = sandbox_mod.SandboxProcess(id=None, pid=9001, cmd="sleep 60", _sandbox=sandbox)
+        with pytest.raises(SandboxError, match="predates opaque process ids"):
+            process.kill()
 
 
 class TestSharedSandbox:
