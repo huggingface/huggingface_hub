@@ -92,13 +92,21 @@ exec "$d"
 
 
 def _derive_sandbox_token(hf_token: str, nonce: str) -> str:
-    """Derive the per-sandbox auth token from the user's HF token and the sandbox nonce.
+    """Derive the sandbox auth token from the user's HF token and the job's nonce.
 
     Stateless: any machine holding the same HF token can recompute it from the
     nonce stored in the job's labels, so `Sandbox.connect(job_id)` needs no local state.
     Only the derived token is passed to the sandbox server as a job secret; the HF token
-    itself is not. Note this is not a hardened boundary: an untrusted image can own the
-    sandbox port, so don't treat it as a guarantee that credentials stay out of the sandbox.
+    itself is not.
+
+    Scope: one nonce is minted per *job*, not per sandbox. For a dedicated sandbox those are
+    the same thing, but in a pool every sandbox on a host shares that host's token, which
+    also gates the host's management routes -- so a leak there is host-wide.
+
+    This is not a hardened boundary in either direction. An untrusted image can own the
+    sandbox port, so don't treat it as a guarantee that credentials stay out of the sandbox;
+    and the token is derived for whichever job carries the matching nonce label, so don't
+    treat holding it as proof of which job you are talking to.
     """
     return hmac.new(hf_token.encode(), f"hf-sandbox:{nonce}".encode(), hashlib.sha256).hexdigest()
 
@@ -150,7 +158,15 @@ class SandboxProcess:
     exit_code: int | None = None
 
     def kill(self) -> None:
-        """Terminate the background process (idempotent server-side)."""
+        """Terminate the background process (idempotent server-side).
+
+        > [!WARNING]
+        > This currently does not stop the process: it addresses it by OS pid, while the
+        > server expects the opaque process id it assigned, and answers `200` either way.
+        > Until that is fixed, stop background work by deleting the sandbox. Note also that a
+        > descendant which detaches with `setsid()` leaves the signalled process group and
+        > outlives this call.
+        """
         self._sandbox._request("DELETE", f"/processes/{self.pid}")
 
 
@@ -172,6 +188,12 @@ class SandboxFiles:
     In shared (pool) mode, paths are rooted at the sandbox's private home — the
     only place its code can write — so a leading `/` is taken relative to that
     home. In dedicated mode, paths are absolute on the container filesystem.
+
+    The rooting is lexical (`..` components are normalized away), so no path you pass can
+    name a location outside the home. It is not a symlink-proof boundary: these operations
+    run with the host server's privileges and currently follow symlinks, so a symlink that
+    the sandbox's own code placed in its home can point one of them outside. See the
+    "Known limitations" section of the sandbox conceptual guide.
     """
 
     # Above this size, transfers are split into ranged requests over parallel
@@ -546,7 +568,11 @@ class Sandbox:
                 Hardware flavor, e.g. `"cpu-basic"`, `"a10g-small"`. See `hf jobs hardware`.
             idle_timeout (`int` or `float` or `str`, *optional*, defaults to `600`):
                 Auto-shutdown after this much inactivity (no API calls, no running
-                processes). Defaults to 10 minutes; pass `None` to disable.
+                processes). Defaults to 10 minutes; pass `None` to disable. Note that a
+                *foreground* command is not currently counted as activity, so a single
+                `run()` that takes longer than this without other API traffic can have its
+                sandbox shut down under it — raise the timeout (or pass `None`) for long
+                single commands.
             env (`dict[str, Any]`, *optional*):
                 Environment variables available in the sandbox.
             secrets (`dict[str, Any]`, *optional*):
@@ -922,9 +948,14 @@ class Sandbox:
 class SandboxPool:
     """A fleet of shared "host" jobs, each packing many landlock-isolated sandboxes.
 
-    > [!NOTE]
-    > The Sandbox API is experimental. Its API and behavior may change without notice. Shared sandboxes are intended
-    > for workloads within the same trust boundary; use [`Sandbox.create`] for workloads that do not trust each other.
+    > [!WARNING]
+    > The Sandbox API is experimental. Its API and behavior may change without notice.
+    >
+    > **Pooled sandboxes are for workloads inside one trust boundary.** A pooled sandbox is a uid plus a Landlock
+    > ruleset inside a shared VM — not a VM of its own — and every sandbox on a host shares that host's auth token
+    > and its privileged control plane. Use a pool to fan out *your own* code cheaply. For mutually distrusting
+    > workloads, use [`Sandbox.create`], which gives each one its own VM. The specific gaps are listed under
+    > "Known limitations" in the sandbox conceptual guide.
 
     One host is one billed HF Job (a VM); it runs the sandbox server and multiplexes
     up to `sandboxes_per_host` lightweight sandboxes, isolated from each other by
@@ -995,7 +1026,10 @@ class SandboxPool:
                 Defaults to 1 (a single host).
             max_hosts (`int`, *optional*):
                 Optional cap on the number of host jobs (a cost ceiling). When
-                reached and all hosts are full, `create()` raises.
+                reached and all hosts are full, `create()` raises. The cap is enforced
+                per-process against the hosts this handle knows about, so two processes
+                using the same pool concurrently can exceed it. (Per-host density,
+                `sandboxes_per_host`, *is* enforced by the host itself.)
             name (`str`, *optional*):
                 Pool name, used as the `hf-sandbox-pool` job label so the pool is
                 discoverable (e.g. `hf sandbox pool ls`, `connect()`). `create()` reuses
@@ -1270,6 +1304,15 @@ class SandboxPool:
         shared hosts may be serving other clients, so — like [`Sandbox.connect`] — leaving a
         `with` block must not tear them down. Terminate a connected pool's hosts explicitly
         with `hf sandbox pool delete <id>`.
+
+        > [!WARNING]
+        > Two rough edges here. Ownership is decided per *handle*, not per host: a pool we
+        > created also cancels hosts it merely discovered via labels, which may have been
+        > started by another process — or another member of the namespace — and may be
+        > serving their sandboxes. And a host job that cannot be cancelled is only logged as
+        > a warning while its cache entry is removed, so this can return successfully while
+        > a host keeps running and billing. Check `hf jobs ps --label hf-sandbox=1` if
+        > teardown matters to you.
         """
         with self._lock:
             hosts = self._hosts
@@ -1411,11 +1454,17 @@ class SandboxPool:
         return False
 
     def _discover_hosts(self) -> None:
-        """Attach to running host jobs that match this pool (image/flavor/name).
+        """Attach to running host jobs carrying this pool's labels.
 
         Lets `create()` reuse a host warmed by an earlier call or another process
         instead of booting a new one. Hosts are found via job labels; each adopted
         host's free capacity is read from the server, so packing stays accurate.
+
+        Matching is on labels only — `hf-sandbox-mode=pool` plus `hf-sandbox-pool=<name>` in
+        the target namespace. Job labels are set by whoever creates the job, so in a
+        namespace whose members do not all trust each other, any of them can publish a job
+        this will adopt. Adopted hosts are also not owned by this handle even though
+        `close()` currently cancels them; see `close()`.
         """
         known = {host.job_id for host in self._hosts}
         matches = [
