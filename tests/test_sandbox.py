@@ -219,6 +219,18 @@ class _FakeServer(BaseHTTPRequestHandler):
             self.send_header("Content-Length", "5")
             self.end_headers()
             self.wfile.write(b"hello")
+        elif "/files/list" in self.path:
+            # Paginated, like the real server: `list_pages` lets a test hand out a
+            # cursor and check the client follows it.
+            pages = getattr(cls, "list_pages", None)
+            if pages:
+                after = ""
+                if "after=" in self.path:
+                    after = self.path.split("after=")[1].split("&")[0]
+                page = pages[0] if not after else next((p for p in pages if p.get("_after") == after), pages[-1])
+                self._json({"entries": page["entries"], "next": page.get("next")})
+            else:
+                self._json({"entries": [], "next": None})
         elif self.path.endswith("/processes"):  # list background processes
             self._json(cls.processes)
         elif self.path == "/v1/sandboxes":
@@ -376,6 +388,54 @@ class TestSandboxClient:
             pass
         sandbox._server._api.cancel_job.assert_not_called()
         assert sandbox._server._client.is_closed
+
+
+class TestResourceBounds:
+    """Client-side memory bounds. Each of these was unbounded: the caller's
+    process grew with whatever the sandbox produced, whether or not it was
+    already consuming it."""
+
+    def test_output_is_not_accumulated_when_the_caller_opts_out(self, fake_server: str) -> None:
+        sandbox = _make_sandbox(fake_server)
+        chunks: list = []
+        result = sandbox.run("echo", on_stdout=chunks.append, capture_output=False)
+
+        # The callback still sees everything; the result deliberately holds nothing.
+        assert chunks == ["out1"]
+        assert result.stdout == ""
+        assert result.stderr == ""
+        assert result.exit_code == 0
+
+    def test_output_is_accumulated_by_default(self, fake_server: str) -> None:
+        sandbox = _make_sandbox(fake_server)
+        assert sandbox.run("echo").stdout == "out1"
+
+    def test_runaway_output_raises_instead_of_growing_without_bound(self, fake_server: str, monkeypatch) -> None:
+        # Lowered so the test need not actually produce 64 MB.
+        monkeypatch.setattr(sandbox_mod, "MAX_CAPTURED_OUTPUT_CHARS", 2)
+        sandbox = _make_sandbox(fake_server)
+        with pytest.raises(SandboxError, match="capture_output=False"):
+            sandbox.run("echo")
+        # ...and the escape hatch the error names actually works.
+        assert sandbox.run("echo", capture_output=False).stdout == ""
+
+    def test_read_refuses_a_file_too_large_to_hold_in_memory(self, fake_server: str, monkeypatch) -> None:
+        monkeypatch.setattr(sandbox_mod.SandboxFiles, "MAX_READ_BYTES", 1)
+        sandbox = _make_sandbox(fake_server)
+        with pytest.raises(SandboxError, match="files.download"):
+            sandbox.files.read("big.bin")
+
+    def test_list_follows_the_servers_pagination(self, fake_server: str) -> None:
+        # The server pages; a caller should still see one list.
+        sandbox = _make_sandbox(fake_server)
+        _FakeServer.list_pages = [
+            {"entries": [{"name": "a", "path": "/a", "type": "file", "size": 1}], "next": "a"},
+            {"_after": "a", "entries": [{"name": "b", "path": "/b", "type": "file", "size": 1}]},
+        ]
+        try:
+            assert [entry.name for entry in sandbox.files.list("/dir")] == ["a", "b"]
+        finally:
+            _FakeServer.list_pages = None
 
 
 class TestSharedSandbox:

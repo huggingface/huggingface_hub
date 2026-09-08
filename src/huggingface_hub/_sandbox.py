@@ -70,6 +70,12 @@ SANDBOX_MAX_LIFETIME = "24h"
 
 DEFAULT_SANDBOXES_PER_HOST = 50
 
+# Ceiling on the output `run()` will accumulate for its result. Without one, a
+# runaway command (a loop printing to stdout, say) is an unbounded allocation in
+# the caller's process -- and it happened even when a callback was already
+# consuming the output. Raising beats being OOM-killed with no explanation.
+MAX_CAPTURED_OUTPUT_CHARS = 64 * 1024 * 1024
+
 # Which pool hosts `create()` may adopt from job labels. Labels are set by whoever
 # creates a Job, so "any job carrying our pool's labels" is not an identity claim --
 # see the `adopt_hosts` argument of [`SandboxPool`].
@@ -241,15 +247,36 @@ class SandboxFiles:
     PARALLEL_THRESHOLD = 2 * 1024 * 1024
     PARALLEL_CHUNK_SIZE = 1 * 1024 * 1024
     PARALLEL_MAX_WORKERS = 16
+    # Ceiling on what `read`/`read_text` will materialize in memory. A parallel
+    # read used to collect every chunk into a list and *then* join it, so a 2 GB
+    # file peaked at roughly twice its size before the caller saw a byte. Reading
+    # a file into memory is inherently bounded by the file; this makes the bound
+    # explicit and points at the streaming alternative instead of dying in an
+    # allocator.
+    MAX_READ_BYTES = 512 * 1024 * 1024
 
     def __init__(self, sandbox: "Sandbox") -> None:
         self._sandbox = sandbox
 
     def read(self, path: str) -> bytes:
-        """Read a file from the sandbox and return its content as bytes."""
+        """Read a file from the sandbox and return its content as bytes.
+
+        Raises [`SandboxError`] above `MAX_READ_BYTES`; use [`download`] for
+        anything that large, which streams to disk instead of buffering.
+        """
         size = self.stat(path).size
+        if size > self.MAX_READ_BYTES:
+            raise SandboxError(
+                f"{path} is {size} bytes, over the {self.MAX_READ_BYTES}-byte limit for reading into "
+                "memory. Use `files.download(path, local_path)`, which streams to disk."
+            )
         if size > self.PARALLEL_THRESHOLD:
-            return b"".join(self._read_ranges(path, size))
+            # Write each range into one preallocated buffer as it arrives, rather
+            # than collecting every chunk and joining: the join doubled peak memory.
+            buffer = bytearray(size)
+            for offset, part in self._read_ranges(path, size):
+                buffer[offset : offset + len(part)] = part
+            return bytes(buffer)
         response = self._sandbox._request("GET", "/files/read", params={"path": path})
         return response.content
 
@@ -279,8 +306,12 @@ class SandboxFiles:
         whatever the path resolves to a moment later.
         """
         with open(local_path, "rb") as f:
-            if os.fstat(f.fileno()).st_size > self.PARALLEL_THRESHOLD:
-                self._write_ranges(path, f.read(), mode)
+            size = os.fstat(f.fileno()).st_size
+            if size > self.PARALLEL_THRESHOLD:
+                # Each worker reads its own range straight off the descriptor, so
+                # a large upload no longer means holding the whole file in memory
+                # (`f.read()` on a 10 GB file was 10 GB of resident bytes).
+                self._write_ranges_from_file(path, f, size, mode)
             else:
                 self.write(path, f, mode=mode)
 
@@ -294,7 +325,10 @@ class SandboxFiles:
         size = self.stat(path).size
         with _open_download_target(Path(local_path)) as f:
             if size > self.PARALLEL_THRESHOLD:
-                for part in self._read_ranges(path, size):
+                # Seek-and-write per range as it completes, so peak memory is a
+                # few chunks rather than the whole file.
+                for offset, part in self._read_ranges(path, size):
+                    f.seek(offset)
                     f.write(part)
                 return
             with self._sandbox._stream("GET", "/files/read", params={"path": path}) as response:
@@ -315,30 +349,76 @@ class SandboxFiles:
         with ThreadPoolExecutor(workers) as executor:
             return list(executor.map(fn, items))
 
-    def _read_ranges(self, path: str, size: int) -> List[bytes]:
-        def fetch(rng: tuple[int, int]) -> bytes:
+    def _read_ranges(self, path: str, size: int) -> Iterator[tuple[int, bytes]]:
+        """Fetch every range in parallel, yielding `(offset, bytes)` as they land.
+
+        Yielding rather than returning a list is the point: the caller places each
+        chunk and drops it, so peak memory is a few chunks instead of the whole
+        file plus a copy.
+        """
+
+        def fetch(rng: tuple[int, int]) -> tuple[int, bytes]:
             offset, length = rng
             response = self._sandbox._request(
                 "GET", "/files/read", params={"path": path, "offset": offset, "length": length}
             )
-            return response.content
+            return offset, response.content
 
-        return self._parallel(self._ranges(size), fetch)
+        ranges = self._ranges(size)
+        workers = min(self.PARALLEL_MAX_WORKERS, len(ranges))
+        with ThreadPoolExecutor(workers) as executor:
+            yield from executor.map(fetch, ranges)
 
     def _write_ranges(self, path: str, data: bytes, mode: str | None) -> None:
         def push(rng: tuple[int, int]) -> None:
             offset, length = rng
-            params: dict[str, Any] = {"path": path, "offset": offset}
-            if mode is not None:
-                params["mode"] = mode
-            self._sandbox._request("PUT", "/files/write", params=params, content=data[offset : offset + length])
+            self._put_range(path, offset, data[offset : offset + length], mode, total=len(data))
 
         self._parallel(self._ranges(len(data)), push)
 
+    def _write_ranges_from_file(self, path: str, source: BinaryIO, size: int, mode: str | None) -> None:
+        """Upload `source` in parallel ranges, reading each range on demand.
+
+        `pread` rather than `seek`+`read`, because the workers share one
+        descriptor and a seeking read would race with its siblings.
+        """
+        fileno = source.fileno()
+
+        def push(rng: tuple[int, int]) -> None:
+            offset, length = rng
+            self._put_range(path, offset, os.pread(fileno, length, offset), mode, total=size)
+
+        self._parallel(self._ranges(size), push)
+
+    def _put_range(self, path: str, offset: int, chunk: bytes, mode: str | None, *, total: int) -> None:
+        params: dict[str, Any] = {"path": path, "offset": offset}
+        if mode is not None:
+            params["mode"] = mode
+        # Tell the server the intended final size. A ranged write does not
+        # truncate, so overwriting a larger file with a smaller one used to leave
+        # the old bytes past the new end.
+        if offset + len(chunk) >= total:
+            params["truncate_to"] = total
+        self._sandbox._request("PUT", "/files/write", params=params, content=chunk)
+
     def list(self, path: str) -> List[FileEntry]:
-        """List a directory in the sandbox."""
-        response = self._sandbox._request("GET", "/files/list", params={"path": path})
-        return [FileEntry(**entry) for entry in response.json()["entries"]]
+        """List a directory in the sandbox.
+
+        The server paginates, so this follows the cursor and returns everything --
+        a caller sees one list regardless of how the directory is chunked on the
+        wire.
+        """
+        entries: List[FileEntry] = []
+        after: str | None = None
+        while True:
+            params: dict[str, Any] = {"path": path}
+            if after is not None:
+                params["after"] = after
+            payload = self._sandbox._request("GET", "/files/list", params=params).json()
+            entries.extend(FileEntry(**entry) for entry in payload["entries"])
+            after = payload.get("next")
+            if not after:
+                return entries
 
     def stat(self, path: str) -> FileEntry:
         """Get metadata of a file or directory in the sandbox."""
@@ -860,6 +940,7 @@ class Sandbox:
         on_stdout: Callable[[str], None] | None = ...,
         on_stderr: Callable[[str], None] | None = ...,
         check: bool = ...,
+        capture_output: bool = ...,
         background: Literal[False] = ...,
     ) -> SandboxCommandResult: ...
 
@@ -886,6 +967,7 @@ class Sandbox:
         on_stdout: Callable[[str], None] | None = None,
         on_stderr: Callable[[str], None] | None = None,
         check: bool = True,
+        capture_output: bool = True,
         background: bool = False,
     ) -> SandboxCommandResult | SandboxProcess:
         """Run a command in the sandbox and wait for it, streaming output live.
@@ -919,6 +1001,11 @@ class Sandbox:
                 Callback invoked with stderr chunks as they arrive.
             check (`bool`, *optional*, defaults to `True`):
                 If True, raise [`SandboxCommandError`] on non-zero exit.
+            capture_output (`bool`, *optional*, defaults to `True`):
+                If True, accumulate stdout/stderr into the returned result. Pass `False`
+                when you only want `on_stdout`/`on_stderr`: output is then handed to the
+                callbacks and dropped, so a command producing gigabytes does not have to fit
+                in memory. `result.stdout`/`result.stderr` are empty in that case.
             background (`bool`, *optional*, defaults to `False`):
                 If True, start the command detached and return a [`SandboxProcess`] right
                 away instead of waiting for it and returning a [`SandboxCommandResult`].
@@ -939,17 +1026,35 @@ class Sandbox:
         if stdin is not None:
             payload["stdin"] = stdin
 
+        # Output was accumulated unconditionally, even when a callback was
+        # consuming it -- so a streaming consumer still paid full memory for the
+        # command's entire output. `capture_output=False` opts out.
         stdout_parts: list[str] = []
         stderr_parts: list[str] = []
+        captured = 0
         result: SandboxCommandResult | None = None
+
+        def keep(parts: list[str], data: str) -> None:
+            nonlocal captured
+            if not capture_output:
+                return
+            if captured + len(data) > MAX_CAPTURED_OUTPUT_CHARS:
+                raise SandboxError(
+                    f"command produced more than {MAX_CAPTURED_OUTPUT_CHARS} characters of output. "
+                    "Pass `capture_output=False` with `on_stdout`/`on_stderr` to stream it instead, "
+                    "or redirect it to a file in the sandbox and download that."
+                )
+            captured += len(data)
+            parts.append(data)
+
         with self._stream("POST", "/exec", json=payload) as response:
             for event in _iter_events(response):
                 if event["event"] == "stdout":
-                    stdout_parts.append(event["data"])
+                    keep(stdout_parts, event["data"])
                     if on_stdout is not None:
                         on_stdout(event["data"])
                 elif event["event"] == "stderr":
-                    stderr_parts.append(event["data"])
+                    keep(stderr_parts, event["data"])
                     if on_stderr is not None:
                         on_stderr(event["data"])
                 elif event["event"] == "exit":
