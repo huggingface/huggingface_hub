@@ -190,30 +190,34 @@ A pool is deliberately not a local config file. A pool is its set of running hos
 
 Having no authoritative local state is great for correctness but costs latency. A cold `hf sandbox create --pool <id>` (a fresh CLI process) would otherwise have to rediscover everything over the network before it can create a sandbox: `list_jobs` to scan the namespace → `inspect_job` each host to rebuild its URL and nonce → `GET /v1/sandboxes` to see how full each is → finally `POST` to create. Several round-trips of pure overhead, on every call.
 
-A best-effort cache at `$HF_HOME/sandbox/pools/<pool-id>.json` removes that. After any create/warm, a process records the pool config plus, per host, its proxy URL, auth nonce, and last-seen free slots. The next process rebuilds the host transport straight from the file (no HTTP) and goes directly to the `POST`.
+A best-effort cache at `$HF_HOME/sandbox/pools/<context>/<pool-id>.json` removes that. After any create/warm, a process records the pool config plus, per host, its proxy URL, auth nonce, and last-seen free slots. The next process rebuilds the host transport straight from the file (no HTTP) and goes directly to the `POST`.
+
+`<context>` is a digest of the endpoint, the credential and the namespace the entry was written for — the credential as a fingerprint; your token itself is never written to the cache. Both the directory name and the file carry it, and a read that doesn't match on all three is a plain cache miss, so another user of the machine, another endpoint, or a `connect(pool, namespace="other-org")` gets the cold path instead of hosts that were cached for something else. Files are created `0600`, directories `0700`.
 
 ```mermaid
 flowchart TD
-    start["hf sandbox create --pool ID"] --> rc{"cache hit?<br/>$HF_HOME/sandbox/pools/ID.json"}
-    rc -- "yes (warm)" --> seed["rebuild host transport<br/>from cached URL + nonce<br/>(no HTTP)"]
+    start["hf sandbox create --pool ID"] --> rc{"cache hit?<br/>pools/&lt;context&gt;/ID.json<br/>(endpoint + credential + namespace)"}
+    rc -- "yes, written &lt;15 min ago" --> seed["rebuild host transport<br/>from cached URL + nonce<br/>(no HTTP)"]
+    rc -- "yes, older" --> check["inspect_job: still a running host<br/>of this pool, on that URL?"]
+    check -- "yes" --> seed
+    check -- "no" --> slow
     seed --> post["POST /v1/sandboxes"]
     post -- "ok" --> done["sandbox ready<br/>(~1 round-trip)"]
     post -- "host gone / full" --> slow
-    rc -- "no / corrupt / stale" --> slow["fallback: list_jobs +<br/>inspect_job + GET (the cold path)"]
+    rc -- "no / corrupt / another context" --> slow["fallback: list_jobs +<br/>inspect_job + GET (the cold path)"]
     slow --> post2["POST /v1/sandboxes"] --> done2["sandbox ready<br/>+ refresh cache"]
 ```
 
 What the cache is and isn't trusted for:
 
 - **Not authoritative on capacity.** The in-job server stays authoritative, so a stale `live` count only ever costs a wasted request, never a mis-packed host.
+- **Not trusted for where a host lives.** A cached URL is only used if it is the HTTPS jobs-proxy URL of the job that same entry names, so a cache file cannot choose the destination your HF bearer and sandbox token are sent to; an entry naming anything else is dropped from the file. Past 15 minutes an entry is no longer credited on its own either: `inspect_job` has to confirm the job is still running, still labelled for this pool, and still on that URL before the transport is built.
+- **Not trusted for its shape.** Types and ranges are checked on read, so a hand-edited, truncated or stringly-typed file is a cache miss rather than an error part-way through `create()`.
 - **Self-healing.** A cached host that is gone is dropped on the first failed request and pruned from the file; the create transparently falls back to label discovery.
 - **Concurrency-safe.** Writes merge under a file lock (keyed by `job_id`) and commit atomically, so parallel `create` processes don't clobber each other and readers never see a half-written file.
 - **Disposable.** Delete it and you get a cache miss: the cold path runs and everything still works. It is never shared across machines.
 
-It *is*, however, trusted for one thing that matters: **the URL a host is reached at.** The fast path rebuilds the transport from the cached `base_url` and nonce and then makes an authenticated request to it, so the first thing that happens to a cached entry is that your HF bearer and sandbox token are sent to whatever URL it names. The file is not authenticated, so it is exactly as trustworthy as `$HF_HOME`:
-
-- Treat `$HF_HOME` as sensitive. Do not share it between users, restore it from an untrusted source, or place it on a world-writable path.
-- The cache is currently keyed by pool id alone, so it is not bound to the endpoint, the credential, or the namespace it was written for. Passing an explicit `namespace=` to `SandboxPool.connect()` that differs from the one the cache was written for will still use the cached hosts. Delete `$HF_HOME/sandbox/pools/<pool-id>.json` if you need to be sure a `connect()` re-discovers from labels.
+Two things to keep in mind. Treat `$HF_HOME` as sensitive: an entry is still a reusable host URL plus the public nonce its token derives from, and while a file written under a different credential is ignored, one written under *yours* is credited for the 15-minute window above. And because the namespace is part of the key, a pool cached under an explicit `namespace=` is only found again when the same `namespace=` is passed — `hf sandbox create --pool <id>` wants the same `--namespace` the pool was created with, or it takes the cold path and looks in your own namespace.
 
 ## Known limitations
 
