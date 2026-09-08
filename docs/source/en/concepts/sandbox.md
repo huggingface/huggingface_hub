@@ -68,14 +68,22 @@ The token is delivered to the server via a Job secret. The client re-derives it 
 
 ### Token scope
 
-One nonce is minted per **Job**, not per sandbox. That distinction matters in pool mode:
+One nonce is minted per **Job**, so the derived token is a *job* credential. In dedicated mode the job is the sandbox, so the two coincide. In pool mode the job is the host, and a host holds many sandboxes — so a pooled sandbox gets a second, narrower credential of its own:
 
-| mode | how many tokens | what a leaked token gives access to |
+| credential | derived how | authorizes |
 | --- | --- | --- |
-| dedicated (`Sandbox.create`) | one per job, and the job *is* the sandbox | that sandbox |
-| pool (`SandboxPool`) | one per **host job**, shared by every sandbox packed on it | **every sandbox on that host**, current and future, plus the host's management routes (create/list/delete sandboxes) |
+| **dedicated sandbox token** | `HMAC(hf_token, nonce)` from the job's label | that sandbox (which is the whole job) |
+| **pool host token** | `HMAC(hf_token, nonce)` from the host job's label | pool management: create, list and delete sandboxes on that host, and recover their tokens |
+| **pooled sandbox token** | random 256 bits, minted by the host server per sandbox | that one sandbox — not a sibling, not the pool |
 
-So in a pool, a token leak is a host-wide event, not a per-sandbox one. Members of your namespace hold a different HF token and cannot derive yours — but see [Known limitations](#known-limitations) for how a token can be *delivered* to the wrong place.
+The client uses the narrow one automatically: `pool.create()` receives it in the create response, `Sandbox.connect("<host>.<id>")` recovers it with the host token, and [`proxy_headers`] hands out the sandbox's token rather than the host's — those headers usually end up in a browser or WebSocket client, so they should confer access to one sandbox and nothing more.
+
+What this means for a leak: a **pooled sandbox token** compromises that sandbox. A **host token** compromises the host — every sandbox on it, current and future, plus its management routes — so treat it as the pool's admin credential. Members of your namespace hold a different HF token and cannot derive yours, but see [Known limitations](#known-limitations) for how a token can be *delivered* to the wrong place.
+
+> [!NOTE]
+> During the rollout the host server still accepts the host token on per-sandbox routes, so
+> clients that predate per-sandbox tokens keep working. That is a management credential
+> reaching the sandboxes it created; a sandbox credential can never reach a sibling.
 
 ## Dedicated sandboxes (`Sandbox.create`)
 
@@ -229,7 +237,6 @@ This section is deliberately exhaustive rather than reassuring: if you are decid
 
   Both require a legitimate caller to invoke the endpoint (the sandbox has no token of its own), so they are confused-deputy problems rather than direct escapes — but they do break confidentiality and integrity between pooled sandboxes.
 - **Host discovery trusts Job labels.** Hosts are found by filtering Jobs on labels, which any Job creator in the namespace can set, and the nonce that derives the token is a public label. Nothing binds a Job to its creator, image, or pool. In a namespace whose members do not all trust each other, prefer `Sandbox.create`, or use a namespace you control for pools.
-- **One token per host.** See [Token scope](#token-scope).
 - **Landlock can degrade silently.** If Landlock is unavailable, or its ruleset cannot be built, the server currently falls back to uid-only isolation and creates the sandbox anyway — without telling the client. Under uid-only isolation, `/tmp`, `/dev/shm`, TCP bind and cross-home filesystem access are *not* denied. The server also accepts Landlock ABI 1, while the ✅ list above needs ABI 4 (TCP bind) and ABI 6 (abstract sockets); production kernels provide ABI 6, but a lower one would silently drop those two guarantees.
 - **Residual shared channels**, none of which Landlock or uid isolation closes: unrestricted outbound TCP; loopback access to the control server; **UDP bind is allowed** (Landlock has no UDP coverage); a sibling's `/proc/<pid>/cmdline` and `status` are readable (`environ` is not — that is the part that would leak credentials, and it is denied); `/proc` and `/sys` are readable and `/dev` is broadly readable and writable; kernel IPC and all machine resources are shared.
 - **No CPU, disk, FD or total-memory quotas.** Only per-process `RLIMIT_NPROC` and `RLIMIT_AS` are set; cgroup delegation is not available on Jobs. One sandbox can starve its neighbours. The `max_procs`/`max_mem_mb` values are caller-supplied and not clamped server-side.

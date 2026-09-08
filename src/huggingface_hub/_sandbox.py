@@ -100,8 +100,10 @@ def _derive_sandbox_token(hf_token: str, nonce: str) -> str:
     itself is not.
 
     Scope: one nonce is minted per *job*, not per sandbox. For a dedicated sandbox those are
-    the same thing, but in a pool every sandbox on a host shares that host's token, which
-    also gates the host's management routes -- so a leak there is host-wide.
+    the same thing. In a pool this derives the *host* credential, which manages the pool and
+    can recover per-sandbox tokens -- a leak there is host-wide. Each pooled sandbox also has
+    its own random capability token, minted by the host server, which is what per-sandbox
+    operations and `proxy_headers` use.
 
     This is not a hardened boundary in either direction. An untrusted image can own the
     sandbox port, so don't treat it as a guarantee that credentials stay out of the sandbox;
@@ -428,22 +430,52 @@ class _SandboxServer:
     def image(self) -> str | None:
         return self._image
 
-    def request(self, method: str, path: str, **kwargs) -> httpx.Response:
+    def _with_token(self, kwargs: dict, sandbox_token: str | None) -> dict:
+        """Override `X-Sandbox-Token` for one request.
+
+        The client-level header carries the *host* credential, which manages the
+        pool. A pooled sandbox's own operations should present that sandbox's
+        capability token instead, so nothing wider than the sandbox is offered on
+        a per-sandbox call.
+        """
+        if sandbox_token is not None:
+            kwargs["headers"] = {**kwargs.get("headers", {}), "X-Sandbox-Token": sandbox_token}
+        return kwargs
+
+    def request(self, method: str, path: str, *, sandbox_token: str | None = None, **kwargs) -> httpx.Response:
         """Request to the in-job server. Raises SandboxError on API errors."""
         timeout = kwargs.pop("timeout", httpx.Timeout(60.0, connect=10.0))
+        kwargs = self._with_token(kwargs, sandbox_token)
         response = self._client.request(method, self.base_url + path, timeout=timeout, **kwargs)
         if response.status_code >= 400:
             _raise_for_status(response)
         return response
 
     @contextmanager
-    def stream(self, method: str, path: str, **kwargs) -> Iterator[httpx.Response]:
+    def stream(
+        self, method: str, path: str, *, sandbox_token: str | None = None, **kwargs
+    ) -> Iterator[httpx.Response]:
         """Streaming request to the in-job server. Raises SandboxError on API errors."""
         timeout = kwargs.pop("timeout", httpx.Timeout(70.0, connect=10.0))  # server pings every 15s
+        kwargs = self._with_token(kwargs, sandbox_token)
         with self._client.stream(method, self.base_url + path, timeout=timeout, **kwargs) as response:
             if response.status_code >= 400:
                 _raise_for_status(response)
             yield response
+
+    def sandbox_token(self, local_id: str) -> str | None:
+        """Recover a pooled sandbox's capability token, using the host credential.
+
+        Keeps reconnection stateless: `Sandbox.connect` can reattach to a sandbox
+        it never created. Returns `None` when the host runs a server that predates
+        per-sandbox tokens, in which case the caller falls back to the host token.
+        """
+        try:
+            return self.request("GET", f"/v1/sandboxes/{local_id}/token").json()["token"]
+        except SandboxError as e:
+            if e.status_code == 404:
+                return None  # older sbx-server: no such route
+            raise
 
     def close(self) -> None:
         self._client.close()
@@ -516,9 +548,17 @@ class Sandbox:
         local_id: str | None,
         owns_sandbox: bool,
         owns_server: bool,
+        sandbox_token: str | None = None,
     ) -> None:
         self.id = id
         self._server = server
+        # Capability token for this sandbox alone (pool mode). Sent instead of the
+        # host credential on every per-sandbox call, so a pooled sandbox's
+        # operations -- and the headers handed to a port-proxy client -- confer no
+        # authority over its siblings or over the pool. None in dedicated mode
+        # (where the job is the sandbox, so the job token is already scoped to it)
+        # and on hosts running a server that predates per-sandbox tokens.
+        self._sandbox_token = sandbox_token
         # None in dedicated mode; the host-local sandbox id in shared mode.
         self._local_id = local_id
         # Path prefix for all in-server operations: dedicated routes live under
@@ -654,10 +694,20 @@ class Sandbox:
                 existing = {item["id"] for item in server.request("GET", "/v1/sandboxes").json()}
                 if local_id not in existing:
                     raise SandboxError(f"Sandbox {sandbox_id} no longer exists on host {host_job_id}.")
+                # Recover the sandbox's capability token with the host credential, so
+                # this handle operates with the narrow one from here on.
+                sandbox_token = server.sandbox_token(local_id)
             except Exception:
                 server.close()  # don't leak the HTTP client when the host is gone/unreachable
                 raise
-            return cls(id=sandbox_id, server=server, local_id=local_id, owns_sandbox=False, owns_server=True)
+            return cls(
+                id=sandbox_id,
+                server=server,
+                local_id=local_id,
+                owns_sandbox=False,
+                owns_server=True,
+                sandbox_token=sandbox_token,
+            )
 
         job = api.inspect_job(job_id=sandbox_id, namespace=namespace)
         labels = job.labels or {}
@@ -697,7 +747,7 @@ class Sandbox:
             if self._local_id is None:
                 self._server.cancel_job()
             else:
-                self._server.request("DELETE", f"/v1/sandboxes/{self._local_id}")
+                self._server.request("DELETE", f"/v1/sandboxes/{self._local_id}", sandbox_token=self._sandbox_token)
         except Exception as e:
             # Don't mark as killed: a later kill() call should retry so nothing leaks.
             logger.warning(f"Failed to kill sandbox {self.id}: {e}")
@@ -925,10 +975,15 @@ class Sandbox:
 
     @property
     def proxy_headers(self) -> dict[str, str]:
-        """Auth headers to send with [`proxy_url_for`] requests (HF token + sandbox token)."""
+        """Auth headers to send with [`proxy_url_for`] requests (HF token + sandbox token).
+
+        For a pooled sandbox this is the sandbox's own capability token, not the
+        pool host's: these headers typically end up in a browser or WebSocket
+        client, so they should confer access to this sandbox and nothing else.
+        """
         return {
             "Authorization": f"Bearer {self._server._auth_token}",
-            "X-Sandbox-Token": self._server._sandbox_token,
+            "X-Sandbox-Token": self._sandbox_token or self._server._sandbox_token,
         }
 
     def __repr__(self) -> str:
@@ -937,11 +992,13 @@ class Sandbox:
     # ------------------------------------------------------------------ internals
 
     def _request(self, method: str, resource: str, **kwargs) -> httpx.Response:
-        return self._server.request(method, self._base_path + resource, **kwargs)
+        return self._server.request(method, self._base_path + resource, sandbox_token=self._sandbox_token, **kwargs)
 
     @contextmanager
     def _stream(self, method: str, resource: str, **kwargs) -> Iterator[httpx.Response]:
-        with self._server.stream(method, self._base_path + resource, **kwargs) as response:
+        with self._server.stream(
+            method, self._base_path + resource, sandbox_token=self._sandbox_token, **kwargs
+        ) as response:
             yield response
 
 
@@ -1630,6 +1687,9 @@ class SandboxPool:
             local_id=item["id"],
             owns_sandbox=True,
             owns_server=False,
+            # Absent on hosts running a server that predates per-sandbox tokens;
+            # those keep using the host credential.
+            sandbox_token=item.get("token"),
         )
         sandbox._on_kill = self._on_sandbox_killed
         return sandbox
