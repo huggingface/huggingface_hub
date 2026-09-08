@@ -104,7 +104,6 @@ def test_single_quoted_values_are_literal():
     assert load_dotenv(data) == {
         "NEWLINE": r"line1\nline2",
         "TAB": r"a\tb",
-        "ESCAPED_QUOTE": r'a\"b',
+        "ESCAPED_QUOTE": r"a\"b",
     }
     assert load_dotenv(r'DQ="line1\nline2"') == {"DQ": "line1\nline2"}
-
