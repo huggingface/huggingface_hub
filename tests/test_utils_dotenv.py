@@ -159,3 +159,15 @@ def test_comment_attached_to_closing_quote():
         "SPACED": "value",
         "HASH_INSIDE": "a#b",
     }
+
+
+def test_bare_key_with_inline_comment():
+    # A bare key (no "=") is resolved from the environment. A trailing comment must not prevent the
+    # line from matching, otherwise the key is silently dropped by `--env-file` / `--secrets-file`.
+    data = """
+    BARE # comment
+    BARE_NO_SPACE#comment
+    BARE_PLAIN
+    """
+    environ = {"BARE": "1", "BARE_NO_SPACE": "2", "BARE_PLAIN": "3"}
+    assert load_dotenv(data, environ=environ) == {"BARE": "1", "BARE_NO_SPACE": "2", "BARE_PLAIN": "3"}

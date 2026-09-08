@@ -29,8 +29,8 @@ def load_dotenv(dotenv_str: str, environ: dict[str, str] | None = None) -> dict[
         ^\s*
         (?:export[^\S\n]+)?               # optional export
         ([A-Za-z_][A-Za-z0-9_]*)          # key
-        [^\S\n]*
         (?:
+            [^\S\n]*
             (=)                           # equal sign
             (?:
                 [^\S\n]*
@@ -46,7 +46,9 @@ def load_dotenv(dotenv_str: str, environ: dict[str, str] | None = None) -> dict[
                 )
                 (?:[^\S\n]+\#[^\n\r]*)?   # inline comment (must be preceded by whitespace)
             )
-        )?$
+            |
+            [^\n\r]*                      # bare key (no '='): trailing text/comment is ignored
+        )$
     """,
         re.VERBOSE,
     )
