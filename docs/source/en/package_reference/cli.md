@@ -1623,6 +1623,7 @@ $ hf download [OPTIONS] REPO_ID [FILENAMES]...
 * `--dry-run / --no-dry-run`: If True, perform a dry run without actually downloading the file.  [default: no-dry-run]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--max-workers INTEGER`: Maximum number of workers to use for downloading files. Default is 8.  [default: 8]
+* `--stdout`: Stream downloaded file contents directly to standard output (single file only).
 * `--help`: Show this message and exit.
 
 Examples
@@ -1632,6 +1633,7 @@ Examples
   $ hf download meta-llama/Llama-3.2-1B-Instruct --local-dir ./models/llama
   $ hf download HuggingFaceM4/FineVision art/ --repo-type dataset
   $ hf download hf://datasets/HuggingFaceH4/ultrachat_200k
+  $ hf download meta-llama/Llama-3.2-1B-Instruct config.json --stdout
 
 Learn more
   Use `hf <command> --help` for more information about a command.

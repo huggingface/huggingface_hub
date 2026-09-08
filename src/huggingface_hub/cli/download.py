@@ -13,14 +13,24 @@
 # limitations under the License.
 """Contains command to download files from the Hub with the CLI."""
 
+import os
+import sys
 import warnings
 from typing import Annotated
 
 from huggingface_hub import constants
+from huggingface_hub._local_folder import _validate_relative_filename
 from huggingface_hub._snapshot_download import snapshot_download
 from huggingface_hub.errors import CLIError
-from huggingface_hub.file_download import DryRunFileInfo, hf_hub_download
-from huggingface_hub.utils import _format_size, parse_hf_uri
+from huggingface_hub.file_download import DryRunFileInfo, hf_hub_download, hf_hub_url, try_to_load_from_cache
+from huggingface_hub.utils import (
+    _format_size,
+    build_hf_headers,
+    disable_progress_bars,
+    hf_raise_for_status,
+    http_stream_backoff,
+    parse_hf_uri,
+)
 
 from ._cli_utils import RepoIdArg, RepoType, RepoTypeOptionalOpt, RevisionOpt, TokenOpt
 from ._framework import Argument, Option
@@ -34,7 +44,28 @@ DOWNLOAD_EXAMPLES = [
     "hf download meta-llama/Llama-3.2-1B-Instruct --local-dir ./models/llama",
     "hf download HuggingFaceM4/FineVision art/ --repo-type dataset",
     "hf download hf://datasets/HuggingFaceH4/ultrachat_200k",
+    "hf download meta-llama/Llama-3.2-1B-Instruct config.json --stdout",
 ]
+
+
+def _write_stdout_bytes(chunk: bytes) -> None:
+    if sys.stdout is None:
+        return
+    buffer = getattr(sys.stdout, "buffer", None)
+    if buffer is not None:
+        buffer.write(chunk)
+    else:
+        sys.stdout.write(chunk.decode("utf-8", errors="replace"))
+
+
+def _flush_stdout() -> None:
+    if sys.stdout is None:
+        return
+    buffer = getattr(sys.stdout, "buffer", None)
+    if buffer is not None:
+        buffer.flush()
+    else:
+        sys.stdout.flush()
 
 
 def download(
@@ -90,6 +121,13 @@ def download(
             help="Maximum number of workers to use for downloading files. Default is 8.",
         ),
     ] = 8,
+    stdout: Annotated[
+        bool,
+        Option(
+            "--stdout",
+            help="Stream downloaded file contents directly to standard output (single file only).",
+        ),
+    ] = False,
 ) -> None:
     """Download files from the Hub."""
     if local_dir is not None and cache_dir is not None:
@@ -129,14 +167,82 @@ def download(
     else:
         repo_type_str = (repo_type or RepoType.model).value
 
-    def run_download() -> str | DryRunFileInfo | list[DryRunFileInfo]:
-        filenames_list = filenames if filenames is not None else []
+    filenames_list = filenames if filenames is not None else []
 
-        # Separate subfolder patterns (ending with '/') from regular filenames
-        # Subfolders like "art/" are converted to include patterns like "art/**"
-        subfolders = [f for f in filenames_list if f.endswith("/")]
-        subfolder_patterns = [f"{f.rstrip('/')}/**" for f in subfolders]
-        regular_filenames = [f for f in filenames_list if not f.endswith("/")]
+    # Separate subfolder patterns (ending with '/') from regular filenames
+    # Subfolders like "art/" are converted to include patterns like "art/**"
+    subfolders = [f for f in filenames_list if f.endswith("/")]
+    subfolder_patterns = [f"{f.rstrip('/')}/**" for f in subfolders]
+    regular_filenames = [f for f in filenames_list if not f.endswith("/")]
+
+    if stdout:
+        if local_dir is not None:
+            raise CLIError("Cannot use both `--stdout` and `--local-dir` at the same time.")
+        if dry_run:
+            raise CLIError("Cannot use both `--stdout` and `--dry-run` at the same time.")
+        if include is not None and len(include) > 0:
+            raise CLIError("Cannot use both `--stdout` and `--include` at the same time.")
+        if exclude is not None and len(exclude) > 0:
+            raise CLIError("Cannot use both `--stdout` and `--exclude` at the same time.")
+        if (
+            len(regular_filenames) != 1
+            or len(subfolders) > 0
+            or any("*" in f or "?" in f or "[" in f or "]" in f or not f.strip() for f in regular_filenames)
+        ):
+            raise CLIError("`--stdout` can only be used when downloading a single file.")
+
+        filename = regular_filenames[0]
+        try:
+            _validate_relative_filename(filename)
+        except ValueError as err:
+            raise CLIError(str(err)) from err
+
+        chunk_size = 64 * 1024  # 64KB
+        try:
+            with disable_progress_bars():
+                if not force_download:
+                    cached_path = try_to_load_from_cache(
+                        repo_id=repo_id,
+                        filename=filename,
+                        cache_dir=cache_dir,
+                        revision=revision,
+                        repo_type=repo_type_str,
+                    )
+                    if isinstance(cached_path, str) and os.path.isfile(cached_path):
+                        with open(cached_path, "rb") as f:
+                            while chunk := f.read(chunk_size):
+                                _write_stdout_bytes(chunk)
+                        _flush_stdout()
+                        return
+
+                url = hf_hub_url(
+                    repo_id=repo_id,
+                    filename=filename,
+                    repo_type=repo_type_str,
+                    revision=revision,
+                )
+                headers = build_hf_headers(token=token, library_name="huggingface-cli")
+                with http_stream_backoff(
+                    "GET",
+                    url,
+                    headers=headers,
+                    timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT,
+                ) as response:
+                    hf_raise_for_status(response)
+                    for chunk in response.iter_bytes(chunk_size=chunk_size):
+                        _write_stdout_bytes(chunk)
+                _flush_stdout()
+                return
+        except (BrokenPipeError, KeyboardInterrupt):
+            try:
+                devnull = os.open(os.devnull, os.O_WRONLY)
+                os.dup2(devnull, sys.stdout.fileno())
+                os.close(devnull)
+            except Exception:
+                pass
+            sys.exit(0)
+
+    def run_download() -> str | DryRunFileInfo | list[DryRunFileInfo]:
 
         # Error if subfolder patterns are combined with --include/--exclude
         # Guide user to use --include instead of subfolder argument

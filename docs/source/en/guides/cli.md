@@ -429,6 +429,20 @@ By default, the `hf download` command will be verbose. It will print details suc
 /home/wauplin/.cache/huggingface/hub/models--gpt2/snapshots/11c5a3d5811f50298f278a704980280950aedb10
 ```
 
+### Stream to stdout
+
+If you want to stream the contents of a single file directly to standard output for Unix piping (e.g. to `jq`, `tar`, or `sha256sum`), use the `--stdout` option:
+
+```bash
+>>> hf download gpt2 config.json --stdout | jq .vocab_size
+50257
+```
+
+When `--stdout` is passed, all informational outputs, progress bars, and completion messages are suppressed so that standard output contains only the file content. If the file is already available in the local cache, chunks are streamed directly from disk; otherwise, they are streamed over HTTP without writing to disk. Broken pipe signals (such as piping to `head`) are handled gracefully.
+
+> [!NOTE]
+> `--stdout` can only be used when downloading a single file, and cannot be combined with `--local-dir`, `--dry-run`, `--include`, or `--exclude`.
+
 ### Download timeout
 
 On machines with slow connections, you might encounter timeout issues like this one:
