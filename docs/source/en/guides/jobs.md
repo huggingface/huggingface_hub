@@ -374,7 +374,7 @@ Only users with write access to the Job's namespace are allowed in (the Job crea
 
 ## Network groups
 
-Pass `network_group="<name>"` to [`run_job`] (or [`run_uv_job`]) to place Jobs of the same owner together and let them reach each other directly, on every port. Inside each member, `HF_NETWORK_GROUP_HOSTNAME` resolves to every Job in the group. A Job can also claim aliases with `network_aliases=[...]`: `${HF_NETWORK_GROUP_PREFIX}<alias>` then resolves to the members claiming that alias. Several Jobs may claim the same alias.
+Pass `network_group="<name>"` to [`run_job`] (or [`run_uv_job`]) to let Jobs of the same owner reach each other on every port. Inside each member, `HF_NETWORK_GROUP_HOSTNAME` resolves to every Job in the group, and `${HF_NETWORK_GROUP_PREFIX}<alias>` to the members that claimed an alias with `network_aliases=[...]`:
 
 ```python
 >>> from huggingface_hub import run_job
@@ -391,7 +391,7 @@ Pass `network_group="<name>"` to [`run_job`] (or [`run_uv_job`]) to place Jobs o
 ... )
 ```
 
-Group names and aliases are lowercase alphanumerics and dashes, 46 characters max. Members appear in DNS before they are ready, so connect with retries. Because members share one cluster, a Job is rejected if its hardware flavor is not available where the group already runs; once no member is pending or running anymore, the next one can land anywhere. Multi-node training frameworks can use an alias as the rendezvous host, e.g. `torchrun --master_addr "${HF_NETWORK_GROUP_PREFIX}master"`.
+Members are resolvable before they are ready, so connect with retries.
 
 ## Configure Job Timeout
 

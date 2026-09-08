@@ -2118,17 +2118,17 @@ Only users with write access to the Job's namespace are allowed in (the Job crea
 
 ### Network groups
 
-Pass `--network-group <name>` to `hf jobs run` (or `hf jobs uv run`) to place Jobs of the same owner together and let them reach each other directly, on every port. Inside each member, `$HF_NETWORK_GROUP_HOSTNAME` resolves to every Job in the group. Claim aliases with `--network-alias <alias>` (repeatable): `${HF_NETWORK_GROUP_PREFIX}<alias>` then resolves to the members claiming that alias.
+Pass `--network-group <name>` to `hf jobs run` (or `hf jobs uv run`) to let Jobs of the same owner reach each other on every port. Inside each member, `$HF_NETWORK_GROUP_HOSTNAME` resolves to every Job in the group, and `${HF_NETWORK_GROUP_PREFIX}<alias>` to the members that claimed an alias with `--network-alias <alias>`:
 
 ```bash
 # Start a server, reachable by the other members of the group as "master"
 >>> hf jobs run --detach --network-group train --network-alias master python:3.12 python -m http.server 8000
 
-# Start a client in the same group. The env var is expanded inside the job.
+# Start a client in the same group
 >>> hf jobs run --detach --network-group train python:3.12 sh -c 'curl --retry 10 --retry-connrefused "http://${HF_NETWORK_GROUP_PREFIX}master:8000/"'
 ```
 
-Group names and aliases are lowercase alphanumerics and dashes, 46 characters max. Members appear in DNS before they are ready, so connect with retries. Because members share one cluster, a Job is rejected if its hardware flavor is not available where the group already runs.
+Members are resolvable before they are ready, so connect with retries.
 
 ### UV Scripts (Experimental)
 
