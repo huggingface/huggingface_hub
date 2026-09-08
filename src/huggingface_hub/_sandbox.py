@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from secrets import token_hex
 from typing import Any, BinaryIO, Callable, Iterator, List, Literal, overload
+from urllib.parse import urlparse
 
 import httpx
 
@@ -65,6 +66,13 @@ DEFAULT_IDLE_TIMEOUT = 10 * 60  # 10 minutes
 SANDBOX_MAX_LIFETIME = "24h"
 
 DEFAULT_SANDBOXES_PER_HOST = 50
+
+# Which pool hosts `create()` may adopt from job labels. Labels are set by whoever
+# creates a Job, so "any job carrying our pool's labels" is not an identity claim --
+# see the `adopt_hosts` argument of [`SandboxPool`].
+ADOPT_OWN = "own"
+ADOPT_NAMESPACE = "namespace"
+ADOPT_NEVER = "never"
 
 SHARED_ID_SEP = "."
 
@@ -354,6 +362,29 @@ def _raise_for_status(response: httpx.Response) -> None:
     raise SandboxError(f"Sandbox API error ({response.status_code}): {message}", status_code=response.status_code)
 
 
+class _SandboxAuth(httpx.Auth):
+    """Attach the *current* HF bearer to every request.
+
+    The bearer used to be captured once when the transport was built. A sandbox
+    host lives up to 24h, so an OIDC/OAuth credential can expire or rotate inside
+    that window, after which every request to the Jobs proxy failed even though
+    the handle was still perfectly good. Reading it per request fixes that.
+
+    The `X-Sandbox-Token` is deliberately *not* re-derived: the server holds the
+    value derived from the bearer that created the job, so re-deriving from a
+    rotated bearer would produce a token the server has never seen. The two
+    credentials answer different gates -- the proxy wants a live bearer, the
+    server wants the original capability -- and only the first needs refreshing.
+    """
+
+    def __init__(self, api: HfApi) -> None:
+        self._api = api
+
+    def auth_flow(self, request):
+        request.headers["Authorization"] = f"Bearer {_effective_token(self._api)}"
+        yield request
+
+
 class _SandboxServer:
     """HTTP transport to one `sbx-server` instance — a dedicated job or a shared host.
 
@@ -394,10 +425,8 @@ class _SandboxServer:
         # httpx.Client is thread-safe, so a single client serves both sequential requests
         # and the concurrent workers used for parallel file transfers / many sandboxes.
         self._client = httpx.Client(
-            headers={
-                "Authorization": f"Bearer {self._auth_token}",
-                "X-Sandbox-Token": sandbox_token,
-            },
+            headers={"X-Sandbox-Token": sandbox_token},
+            auth=_SandboxAuth(api),
             limits=httpx.Limits(max_connections=max_connections, max_keepalive_connections=max_connections),
             follow_redirects=True,
         )
@@ -977,12 +1006,16 @@ class Sandbox:
     def proxy_headers(self) -> dict[str, str]:
         """Auth headers to send with [`proxy_url_for`] requests (HF token + sandbox token).
 
+        Read these at the moment you use them: the HF token is resolved on access,
+        so a long-lived handle hands out a current bearer rather than one captured
+        when the sandbox was created.
+
         For a pooled sandbox this is the sandbox's own capability token, not the
         pool host's: these headers typically end up in a browser or WebSocket
         client, so they should confer access to this sandbox and nothing else.
         """
         return {
-            "Authorization": f"Bearer {self._server._auth_token}",
+            "Authorization": f"Bearer {_effective_token(self._server._api)}",
             "X-Sandbox-Token": self._sandbox_token or self._server._sandbox_token,
         }
 
@@ -1059,6 +1092,7 @@ class SandboxPool:
         idle_timeout: int | float | str | None = DEFAULT_IDLE_TIMEOUT,
         namespace: str | None = None,
         start_timeout: float = 120.0,
+        adopt_hosts: str = ADOPT_OWN,
         token: str | None = None,
         _connect_mode: bool = False,
     ) -> None:
@@ -1101,9 +1135,26 @@ class SandboxPool:
                 User or org namespace to run hosts under.
             start_timeout (`float`, *optional*, defaults to `120.0`):
                 Max seconds to wait for a host to become ready.
+            adopt_hosts (`str`, *optional*, defaults to `"own"`):
+                Which already-running hosts `create()` may pack onto. Hosts are found by
+                filtering Jobs on labels, and labels are set by whoever creates the Job — so a
+                label match is a claim, not proof. This decides how much more than the claim is
+                required:
+
+                - `"own"` (default): only Jobs this principal started, per the Jobs API's
+                  `initiator`. Safe in a shared namespace.
+                - `"namespace"`: any Job in the namespace carrying the pool's labels, provided
+                  its image, flavor, command and exposed URL all match. Restores cross-user
+                  host sharing; only use it in a namespace whose members you trust, since any
+                  of them can publish a Job your client will then send a token to.
+                - `"never"`: no adoption at all — this handle only uses hosts it booted itself.
             token (`str`, *optional*):
                 HF token override.
         """
+        if adopt_hosts not in (ADOPT_OWN, ADOPT_NAMESPACE, ADOPT_NEVER):
+            raise ValueError(
+                f"adopt_hosts must be one of {ADOPT_OWN!r}, {ADOPT_NAMESPACE!r}, {ADOPT_NEVER!r}; got {adopt_hosts!r}."
+            )
         if sandboxes_per_host < 1:
             raise ValueError("sandboxes_per_host must be >= 1.")
         if warm_up < 1:
@@ -1118,6 +1169,11 @@ class SandboxPool:
         self._idle_timeout = idle_timeout
         self._namespace = namespace
         self._start_timeout = start_timeout
+        self._adopt_hosts = adopt_hosts
+        # Resolved lazily and only when `adopt_hosts="own"` needs it: whoami() is
+        # heavily rate-limited, and a pool that never discovers never needs it.
+        self._principal: str | None = None
+        self._principal_resolved = False
         self._hosts: List[_SandboxServer] = []
         self._lock = threading.Lock()
         # Held across the whole one-time warm-up so concurrent first create() calls block until
@@ -1151,7 +1207,14 @@ class SandboxPool:
     # ------------------------------------------------------------------ public API
 
     @classmethod
-    def connect(cls, pool_id: str, *, namespace: str | None = None, token: str | None = None) -> "SandboxPool":
+    def connect(
+        cls,
+        pool_id: str,
+        *,
+        namespace: str | None = None,
+        adopt_hosts: str = ADOPT_OWN,
+        token: str | None = None,
+    ) -> "SandboxPool":
         """Reattach to a running pool by id, from any machine — no local state needed.
 
         Finds a running host labelled with `pool_id` and rebuilds the pool's config
@@ -1167,6 +1230,9 @@ class SandboxPool:
                 The id returned when the pool was first created.
             namespace (`str`, *optional*):
                 Namespace to search for the pool's hosts (defaults to yours).
+            adopt_hosts (`str`, *optional*, defaults to `"own"`):
+                Which hosts may be attached to. See [`SandboxPool`]. Reattaching to a pool whose
+                hosts another member of the namespace started needs `"namespace"`.
             token (`str`, *optional*):
                 HF token override.
         """
@@ -1183,13 +1249,14 @@ class SandboxPool:
                 name=pool_id,
                 idle_timeout=cache.idle_timeout,
                 namespace=cache.namespace if namespace is None else namespace,
+                adopt_hosts=adopt_hosts,
                 token=token,
                 _connect_mode=True,  # attach to existing hosts; never boot during construction
             )
 
         # Cold path: find a running host via labels and rebuild the config from its job spec.
         api = HfApi(token=token)
-        job = _find_pool_host_job(api, pool_id, namespace=namespace)
+        job = _find_pool_host_job(api, pool_id, namespace=namespace, policy=adopt_hosts)
         env = _host_env(api, job, namespace=namespace)
         idle_raw = env.get("SBX_IDLE_TIMEOUT")
         max_hosts_raw = env.get("SBX_MAX_HOSTS")
@@ -1201,6 +1268,7 @@ class SandboxPool:
             name=pool_id,
             idle_timeout=int(idle_raw) if idle_raw is not None else None,
             namespace=namespace,
+            adopt_hosts=adopt_hosts,
             token=token,
             _connect_mode=True,  # attach to existing hosts; never boot during construction
         )
@@ -1435,6 +1503,48 @@ class SandboxPool:
         if self._hosts:
             self._save_cache()
 
+    def _principal_id(self) -> str | None:
+        """Id of the principal this pool authenticates as, for the `"own"` policy."""
+        if not self._principal_resolved:
+            self._principal_resolved = True
+            try:
+                self._principal = self._api.whoami(cache=True).get("id")
+            except Exception as e:
+                # Leave it None: `_adoptable` then refuses rather than guessing.
+                logger.warning(f"Could not resolve the current user to validate pool hosts: {e}")
+        return self._principal
+
+    def _adoptable(self, job: JobInfo) -> bool:
+        """Whether `job` may be adopted as one of this pool's hosts."""
+        reason = _host_rejection(
+            job,
+            policy=self._adopt_hosts,
+            principal_id=self._principal_id() if self._adopt_hosts == ADOPT_OWN else None,
+            namespace=self._namespace,
+            image=self.image,
+            flavor=self.flavor,
+        )
+        if reason is not None:
+            logger.debug(f"Not adopting job {job.id} as a host for pool '{self.name}': {reason}.")
+            return False
+        return True
+
+    def _adoptable_pending(self, job: JobInfo) -> bool:
+        """Like `_adoptable`, minus the checks a not-yet-running job cannot pass."""
+        reason = _host_rejection(
+            job,
+            policy=self._adopt_hosts,
+            principal_id=self._principal_id() if self._adopt_hosts == ADOPT_OWN else None,
+            namespace=self._namespace,
+            image=self.image,
+            flavor=self.flavor,
+            check_url=False,
+        )
+        if reason is not None:
+            logger.debug(f"Not waiting for job {job.id} as a host for pool '{self.name}': {reason}.")
+            return False
+        return True
+
     def _reserve_one(self) -> "_SandboxServer | None":
         """Reserve one slot on the first host with free capacity (under lock), else None."""
         with self._lock:
@@ -1489,7 +1599,10 @@ class SandboxPool:
                     labels={MODE_LABEL: MODE_POOL, POOL_LABEL: self.name},
                     namespace=self._namespace,
                 )
-                if job.id not in known
+                # A SCHEDULING job has no exposed URL yet, so only the ownership
+                # and spec checks apply here; discovery re-validates it in full
+                # once it is RUNNING.
+                if job.id not in known and self._adoptable_pending(job)
             ),
             None,
         )
@@ -1531,7 +1644,7 @@ class SandboxPool:
                 labels={MODE_LABEL: MODE_POOL, POOL_LABEL: self.name},
                 namespace=self._namespace,
             )
-            if job.id not in known
+            if job.id not in known and self._adoptable(job)
         ]
 
         for job in matches:
@@ -1769,6 +1882,91 @@ class SandboxPool:
         )
 
 
+def _normalize_image(image: str | None) -> str | None:
+    """Compare Docker images leniently: registries and tags get normalized
+    server-side, and a mis-parse here must not stop a pool from working."""
+    if image is None:
+        return None
+    image = image.strip().lower()
+    for prefix in ("docker.io/", "index.docker.io/", "library/"):
+        if image.startswith(prefix):
+            image = image[len(prefix) :]
+    return image
+
+
+def _server_url_rejection(job: JobInfo) -> str | None:
+    """Why this Job's exposed URL is not one we should send credentials to.
+
+    The hostname must be derived from *this* job's id, so a Job cannot name an
+    arbitrary destination for the credentials that are about to follow. The
+    domain is not hard-coded, so staging endpoints keep working.
+    """
+    urls = list(job.status.expose_urls or []) if job.status is not None else []
+    if len(urls) != 1:
+        return f"exposes {len(urls)} URL(s), expected exactly one for port {SANDBOX_SERVER_PORT}"
+    parsed = urlparse(urls[0])
+    if parsed.scheme != "https":
+        return f"exposes the server over {parsed.scheme!r}, not https"
+    # `urlparse` lowercases the hostname, so compare case-insensitively.
+    if not (parsed.hostname or "").startswith(f"{job.id}--{SANDBOX_SERVER_PORT}.".lower()):
+        return f"exposes {urls[0]!r}, which is not this job's port-{SANDBOX_SERVER_PORT} URL"
+    return None
+
+
+def _host_rejection(
+    job: JobInfo,
+    *,
+    policy: str,
+    principal_id: str | None,
+    namespace: str | None,
+    image: str | None,
+    flavor: str | None,
+    check_url: bool = True,
+) -> str | None:
+    """Why this Job must not be adopted as one of our pool hosts, or `None`.
+
+    Hosts are found by filtering Jobs on labels, and labels are set by whoever
+    creates the Job -- so a label match says "this Job claims to be one of our
+    hosts", not "this Job is one of our hosts". Anyone who can create a Job in
+    the namespace can make that claim, copy the public nonce from a real host's
+    labels, and receive the token derived for that host.
+
+    Everything checked here is asserted by the backend rather than by the Job's
+    creator: the initiator, the owner, the image, the flavor, the command, and
+    the exposed URL. `initiator` is the load-bearing one -- there is no
+    client-side way to set it -- and it is what makes `policy="own"` meaningful.
+    """
+    if policy == ADOPT_NEVER:
+        return "host adoption is disabled (adopt_hosts='never')"
+
+    if policy == ADOPT_OWN:
+        initiator = job.initiator
+        if initiator is None or initiator.id is None:
+            return "the Jobs API did not say who started it, so it cannot be confirmed as ours"
+        if principal_id is None:
+            return "could not resolve the current principal to compare against its initiator"
+        if initiator.id != principal_id:
+            return f"started by a different principal ({initiator.name or initiator.id})"
+
+    if namespace is not None and job.owner is not None and job.owner.name != namespace:
+        return f"runs under namespace {job.owner.name!r}, not {namespace!r}"
+
+    job_image = job.docker_image or job.space_id
+    if image is not None and _normalize_image(job_image) != _normalize_image(image):
+        return f"runs image {job_image!r}, not {image!r}"
+
+    if flavor is not None and job.flavor is not None and str(job.flavor) != flavor:
+        return f"runs flavor {str(job.flavor)!r}, not {flavor!r}"
+
+    # A sandbox host runs the bootstrap script and nothing else. A Job running
+    # anything else is not a host, whatever its labels say.
+    if job.command is not None and list(job.command) != _bootstrap_command():
+        return "does not run the sandbox bootstrap command"
+
+    # A SCHEDULING job has no exposed URL yet; the caller re-checks once it runs.
+    return _server_url_rejection(job) if check_url else None
+
+
 def _effective_token(api: HfApi) -> str:
     token = api.token if isinstance(api.token, str) else get_token()
     if not token:
@@ -1810,8 +2008,12 @@ def _bootstrap_job_spec(
     job_volumes.append(
         Volume(type="bucket", source=constants.SANDBOX_SERVER_BUCKET, mount_path=_SERVER_MOUNT_PATH, read_only=True)
     )
-    command = ["/bin/sh", "-c", _BOOTSTRAP_DOWNLOAD]
-    return command, job_env, job_secrets, job_volumes
+    return _bootstrap_command(), job_env, job_secrets, job_volumes
+
+
+def _bootstrap_command() -> list[str]:
+    """The Job command every sandbox host and dedicated sandbox runs."""
+    return ["/bin/sh", "-c", _BOOTSTRAP_DOWNLOAD]
 
 
 def _host_env(api: HfApi, job: JobInfo, *, namespace: str | None) -> dict[str, Any]:
@@ -1823,12 +2025,37 @@ def _host_env(api: HfApi, job: JobInfo, *, namespace: str | None) -> dict[str, A
     return env
 
 
-def _find_pool_host_job(api: HfApi, pool_id: str, *, namespace: str | None = None) -> JobInfo:
-    """Return any running host job belonging to `pool_id` (found via the pool label)."""
+def _find_pool_host_job(api: HfApi, pool_id: str, *, namespace: str | None = None, policy: str = ADOPT_OWN) -> JobInfo:
+    """Return a running host job belonging to `pool_id`, found via the pool label.
+
+    This one feeds `SandboxPool.connect`'s cold path, which rebuilds the pool's
+    whole configuration (image, flavor, density, caps) from the job it returns --
+    so an unvalidated match would let a Job in the namespace choose the image
+    that the pool's *next* hosts boot. Image and flavor are unknown here (they
+    are what we are about to learn), so this checks ownership and shape.
+    """
+    principal = None
+    if policy == ADOPT_OWN:
+        try:
+            principal = api.whoami(cache=True).get("id")
+        except Exception as e:
+            logger.warning(f"Could not resolve the current user to validate pool hosts: {e}")
+    rejected = []
     for job in api.list_jobs(
         status="RUNNING", labels={MODE_LABEL: MODE_POOL, POOL_LABEL: pool_id}, namespace=namespace
     ):
-        return job
+        reason = _host_rejection(
+            job, policy=policy, principal_id=principal, namespace=namespace, image=None, flavor=None
+        )
+        if reason is None:
+            return job
+        rejected.append(f"{job.id} ({reason})")
+    if rejected:
+        raise SandboxError(
+            f"Found host job(s) labelled for pool '{pool_id}' but none usable: {'; '.join(rejected)}. "
+            "Pass adopt_hosts='namespace' to SandboxPool if you intend to share hosts with other "
+            "members of this namespace."
+        )
     raise SandboxError(
         f"No running host found for pool '{pool_id}'. The pool has stopped "
         "(all its hosts were killed or idle-timed-out); create a new one."
@@ -1844,6 +2071,14 @@ def _connect_host(api: HfApi, host_job_id: str, *, namespace: str | None = None)
         raise SandboxError(f"Job {host_job_id} is not a sandbox host.")
     if job.status.stage != "RUNNING":
         raise SandboxError(f"Sandbox host {host_job_id} is not running (status: {job.status.stage}).")
+    # The caller named this job explicitly, so who started it is their call --
+    # but the credentials below must still only reach this job's own URL, over
+    # HTTPS, on a job that actually runs the sandbox bootstrap.
+    reason = _host_rejection(
+        job, policy=ADOPT_NAMESPACE, principal_id=None, namespace=namespace, image=None, flavor=None
+    )
+    if reason is not None:
+        raise SandboxError(f"Job {host_job_id} does not look like a usable sandbox host: {reason}.")
     return _SandboxServer.from_job(
         job=job,
         nonce=nonce,
