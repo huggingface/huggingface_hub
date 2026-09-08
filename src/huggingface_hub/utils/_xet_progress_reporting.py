@@ -114,7 +114,7 @@ class XetDownloadProgressReporter:
             self._owns_transfer_bar = False
         else:
             self.transfer_bar = _create_progress_bar(
-                cls=tqdm,
+                cls=cls,  # ty: ignore[invalid-argument-type]
                 log_level=log_level,
                 name=f"{name}.transfer" if name else None,
                 desc=transfer_desc,

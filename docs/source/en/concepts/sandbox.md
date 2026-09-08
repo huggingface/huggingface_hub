@@ -5,6 +5,9 @@ rendered properly in your Markdown viewer.
 
 This guide explains how [Sandboxes](../guides/sandbox) work internally, and why they are built the way they are and what their limitations are. If you only want to use sandboxes, the [Sandboxes guide](../guides/sandbox) is enough; read on if you want to understand the mechanism, evaluate the trust model, or debug something.
 
+> [!NOTE]
+> The Sandbox API is experimental. Its API and behavior may change without notice.
+
 ## There is no "sandbox service"
 
 The first thing to understand is that there is no dedicated sandbox backend. A sandbox is just an [HF Job](../guides/jobs) (a VM) running a single small static binary `sbx-server` that speaks HTTP. The client talks to that server through the Jobs proxy (the `*.hf.jobs` URL the Job exposes). Everything else — authentication, discovery, packing many sandboxes into one Job — is built out of existing Jobs primitives: labels, environment variables, and secrets.
@@ -61,7 +64,7 @@ Every sandbox job also carries two stable labels for discovery — `hf-sandbox=1
 The token is delivered to the server via a Job secret. The client re-derives it on demand from the public nonce in the label. This has some nice consequences:
 
 - **Stateless reconnection.** [`Sandbox.connect(id)`] works from any machine that holds the same HF token — read the nonce from the label, recompute the token. No local files, no state to copy.
-- **The HF token never enters the sandbox** (unless you opt in with `forward_hf_token=True`), so code running inside cannot exfiltrate your credentials.
+- **The HF token is not passed to the sandbox as an environment variable or job secret** (unless you opt in with `forward_hf_token=True`). This is not a hard guarantee that your credentials stay out of reach: the process listening on the sandbox port is whatever the image starts first, so an untrusted image may be able to observe the requests the client sends — including their `Authorization` header. Treat credentials reachable from a sandbox as potentially exposed to it.
 - **Per-sandbox scope.** Each sandbox has a unique nonce, so a leaked sandbox token compromises that one sandbox only. Other namespace members hold a different HF token and cannot derive it.
 
 ## Dedicated sandboxes (`Sandbox.create`)
@@ -120,9 +123,9 @@ This is the crux of the pool design, so it is worth being precise about what is 
 
 A stock Job runs as root inside a user namespace that maps only uids 0..65535, with a seccomp filter on and without `CAP_SYS_ADMIN` / `CAP_NET_ADMIN` / `CAP_NET_RAW`. That rules out the usual heavyweight isolation tools: no nested namespaces, no new mounts, no cgroup delegation (`unshare`, `mount`, writing to `/sys/fs/cgroup/...` all fail). What the kernel does offer is [**Landlock**](https://docs.kernel.org/userspace-api/landlock.html) (ABI 6), a Linux Security Module that lets any unprivileged process restrict itself and its children — exactly the per-sandbox boundary we need. For each sandbox the server builds a ruleset; the exec child applies `NO_NEW_PRIVS` → `landlock_restrict_self` → rlimits → `setuid/setgid` before running the command.
 
-Combining distinct uids (discretionary access control) with Landlock, and verified live against a hostile sandbox A attacking a victim B, gives:
+Combining distinct uids (discretionary access control) with Landlock is designed and tested to provide:
 
-- ✅ A cannot read any process's `environ` → HF and sandbox tokens never leak between sandboxes.
+- ✅ A cannot read another process's `environ`, preventing direct access to HF and sandbox tokens between sandboxes.
 - ✅ A cannot `SIGKILL` / `ptrace` / read the memory of B's processes, `setuid` into B, or read B's
   `0700` home.
 - ✅ `/tmp` and `/dev/shm` access is denied — each sandbox is Landlock-confined to its own home (its
@@ -132,13 +135,11 @@ Combining distinct uids (discretionary access control) with Landlock, and verifi
 - ✅ Cross-sandbox abstract unix sockets are blocked (`LANDLOCK_SCOPED_ABSTRACT_UNIX_SOCKET`; uid
   isolation alone does *not* block these).
 
-> [!WARNING]
-> **Why this is not a substitute for a VM.** Landlock + uid isolation is fast and unprivileged, but it shares one kernel and one VM. Two gaps remain, acceptable only under a same-user trust model:
->
-> - **Resource DoS.** Without cgroup delegation, CPU / total RAM / disk are not partitioned. `RLIMIT_NPROC` and `RLIMIT_AS` bound per-process usage, but an aggressive sandbox can still starve its neighbours or trip the global OOM killer.
-> - **Process-list metadata.** A sandbox can see other processes via `/proc` (names, cmdlines) — it just cannot read or signal them. Hiding them would need a PID namespace, which `unshare` can't create here.
->
-> In short: confidentiality and integrity between pooled sandboxes are enforced; only availability (DoS) and process-list metadata are shared. That is the right boundary for one user's own parallel workloads. For mutually-hostile untrusted code — or for GPU — use [`Sandbox.create`], which gives each sandbox its own VM.
+> [!NOTE]
+> **Why this is not a substitute for a VM.** Landlock and uid isolation are intended for workloads within the same
+> trust boundary. Because pooled sandboxes share a kernel and VM, protection from every cross-sandbox attack is not
+> guaranteed; resources and some process-list metadata also remain shared. For mutually untrusted code, or for GPU,
+> use [`Sandbox.create`], which gives each sandbox its own VM.
 
 ### The file model in a pool
 
@@ -207,7 +208,7 @@ All numbers are measured against real HF Jobs on `cpu-basic`, with the client on
 | Build on Jobs, no new service                                         | inherits billing, hardware, permissions; works in any image                     |
 | Static Rust binary, downloaded at startup                             | no Python/pip; ~6s cold start vs 30–90s for a pip-based bootstrap               |
 | Hand-rolled HTTP/1.1                                                  | minimal frameworks buffer chunked responses and break live streaming (verified) |
-| Stateless HMAC auth                                                   | reconnect from anywhere; HF token never enters the sandbox                      |
+| Stateless HMAC auth                                                   | reconnect from anywhere; per-sandbox scoped token instead of the HF token       |
 | `run()` raises on non-zero exit (`check=False` opts out)              | best DX for "run code, see the error" loops (E2B-style)                         |
 | `idle_timeout` watchdog instead of client-side cleanup                | persistent sandboxes are a feature; leaked ones still die                       |
 | Pools = uid + Landlock, server-authoritative capacity, no local state | fast same-user fan-out; correct under concurrency; reattachable anywhere        |

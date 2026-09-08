@@ -23,7 +23,7 @@ from huggingface_hub._buckets import BucketFile, BucketFolder
 from huggingface_hub.hf_api import RepoFile, RepoFolder
 
 from ._cli_utils import get_hf_api
-from ._output import OutputFormat, _dataclass_to_dict, out
+from ._output import OutputFormat, _ascii_safe, _dataclass_to_dict, out
 
 
 BucketItem = BucketFile | BucketFolder
@@ -131,7 +131,7 @@ def _render_tree(
     sorted_items = sorted(node.items())
     for i, (name, value) in enumerate(sorted_items):
         is_last = i == len(sorted_items) - 1
-        connector = "└── " if is_last else "├── "
+        connector = _ascii_safe("└── ", "`-- ") if is_last else _ascii_safe("├── ", "|-- ")
 
         is_dir = "__children__" in value
         children = value.get("__children__", {})
@@ -152,7 +152,7 @@ def _render_tree(
             lines.append(f"{indent}{connector}{name}{'/' if is_dir else ''}")
 
         if children:
-            child_indent = indent + ("    " if is_last else "│   ")
+            child_indent = indent + ("    " if is_last else _ascii_safe("│   ", "|   "))
             _render_tree(
                 children,
                 lines,

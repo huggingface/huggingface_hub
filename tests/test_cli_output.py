@@ -13,13 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import io
 import os
 import shutil
 import sys
 
 import pytest
 
-from huggingface_hub.cli._output import Output, OutputFormat, _to_header
+from huggingface_hub.cli._output import Output, OutputFormat, _ascii_safe, _to_header
 from huggingface_hub.errors import ConfirmationError
 
 
@@ -418,3 +419,41 @@ def test_status_only_enabled_for_humans(check, monkeypatch):
 )
 def test_to_header(input, expected):
     assert _to_header(input) == expected
+
+
+@pytest.fixture
+def stdout_encoding(monkeypatch):
+    """Swap `sys.stdout` for a stream with the given encoding, e.g. a legacy Windows code page."""
+
+    def _set(encoding: str) -> io.TextIOWrapper:
+        stream = io.TextIOWrapper(io.BytesIO(), encoding=encoding)
+        monkeypatch.setattr(sys, "stdout", stream)
+        return stream
+
+    _ascii_safe.cache_clear()  # cached per (char, fallback), not per stream
+    yield _set
+    _ascii_safe.cache_clear()
+
+
+@pytest.mark.parametrize(
+    ("encoding", "expected"),
+    [
+        ("utf-8", "✓"),
+        ("cp1252", "[OK]"),  # Windows ANSI code page, used when stdout is not a console
+        ("ascii", "[OK]"),
+    ],
+)
+def test_ascii_safe_falls_back_when_stdout_cannot_encode(stdout_encoding, encoding, expected):
+    stdout_encoding(encoding)
+    assert _ascii_safe("✓", "[OK]") == expected
+
+
+def test_result_uses_ascii_marker_on_legacy_windows_stdout(stdout_encoding):
+    stream = stdout_encoding("cp1252")
+
+    o = Output()
+    o.set_mode(HUMAN)
+    o.result("Logged in", user="Wauplin")
+
+    stream.flush()
+    assert "[OK] Logged in" in stream.buffer.getvalue().decode("cp1252")

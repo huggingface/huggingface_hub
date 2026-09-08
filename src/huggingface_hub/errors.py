@@ -398,6 +398,14 @@ class RevisionNotFoundError(HfHubHTTPError):
     repo_type: str | None = None
 
 
+class RevisionResolutionError(Exception):
+    """
+    Raised by [`HfApi.resolve_revision`] when a revision cannot be resolved to a commit hash: the Hub could not be
+    reached (offline mode, connection error, timeout, Hub downtime, ...) and no matching entry was found in the
+    local cache.
+    """
+
+
 # ENTRY ERRORS
 class EntryNotFoundError(Exception):
     """

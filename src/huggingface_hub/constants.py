@@ -1,6 +1,7 @@
 import os
 import re
 import typing
+from pathlib import Path
 from typing import Literal
 from urllib.parse import urlsplit
 
@@ -72,9 +73,9 @@ if _staging_mode:
     ENDPOINT = _HF_DEFAULT_STAGING_ENDPOINT
     HUGGINGFACE_CO_URL_TEMPLATE = _HF_DEFAULT_STAGING_ENDPOINT + "/{repo_id}/resolve/{revision}/{filename}"
 
-# Hosts whose web URLs can be parsed into a ``hf://`` URI (see ``huggingface_hub/utils/_hf_uris.py``).
-# Includes the public Hub host and its ``hf.co`` short domain, the staging host, and the host of the
-# currently configured ``ENDPOINT`` so that self-hosted / staging endpoints work too.
+# Hosts considered to be Hugging Face Hub endpoints: the public Hub host, its ``hf.co`` short domain, the staging
+# host, and the host of the configured ``ENDPOINT``. Used to parse web URLs into ``hf://`` URIs and to decide which
+# redirects to follow when resolving files. The auth header is forwarded to these hosts: only add trusted ones.
 HF_URL_HOSTS: frozenset[str] = frozenset(
     {"hf.co"}
     | {
@@ -100,17 +101,6 @@ INFERENCE_ENDPOINT = os.environ.get("HF_INFERENCE_ENDPOINT", "https://api-infere
 # See https://huggingface.co/docs/inference-endpoints/index
 INFERENCE_ENDPOINTS_ENDPOINT = "https://api.endpoints.huggingface.cloud/v2"
 INFERENCE_CATALOG_ENDPOINT = "https://endpoints.huggingface.co/api/catalog"
-
-# See https://api.endpoints.huggingface.cloud/#post-/v2/endpoint/-namespace-
-INFERENCE_ENDPOINT_IMAGE_KEYS = [
-    "custom",
-    "huggingface",
-    "huggingfaceNeuron",
-    "llamacpp",
-    "tei",
-    "tgi",
-    "tgiNeuron",
-]
 
 # Proxy for third-party providers
 INFERENCE_PROXY_TEMPLATE = "https://router.huggingface.co/{provider}"
@@ -225,9 +215,20 @@ def is_offline_mode() -> bool:
 # Check is performed once per 24 hours at most.
 CHECK_FOR_UPDATE_DONE_PATH = os.path.join(HF_HOME, ".check_for_update_done")
 
+# File created to mark that the `hf-cli` skill check has been done.
+# Check is performed once per 24 hours at most.
+CHECK_FOR_SKILL_UPDATE_DONE_PATH = os.path.join(HF_HOME, ".check_for_skill_update_done")
+
 # File caching the AI agent harnesses registry fetched from `{ENDPOINT}/api/agent-harnesses`.
 # Refreshed once per 24 hours at most (see `utils/_detect_agent.py`).
 AGENT_HARNESSES_PATH = os.path.join(HF_HOME, ".agent_harnesses.json")
+
+# Skills directories for AI agents: `.agents/skills` is read by most agents, `.claude/skills` by Claude Code.
+# Local = current project, global = user-level (see `hf skills add`).
+AGENTS_SKILLS_LOCAL_PATH = Path(".agents/skills")
+AGENTS_SKILLS_GLOBAL_PATH = Path("~/.agents/skills")
+CLAUDE_SKILLS_LOCAL_PATH = Path(".claude/skills")
+CLAUDE_SKILLS_GLOBAL_PATH = Path("~/.claude/skills")
 
 # Set to skip the CLI update check (PyPI query + "new version available" warning at startup).
 HF_HUB_DISABLE_UPDATE_CHECK = _is_true(os.environ.get("HF_HUB_DISABLE_UPDATE_CHECK"))

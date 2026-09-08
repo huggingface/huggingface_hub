@@ -465,10 +465,12 @@ class HfArgument(click.Argument):
         hidden: bool = False,
         **attrs: Any,
     ) -> None:
-        self.help = help
         self.show_default = show_default
         self.hidden = hidden
         super().__init__(param_decls, **attrs)
+        # Set *after* ``super().__init__``: Click >= 8.5 gives ``Argument`` its own ``help``
+        # parameter and resets ``self.help`` to ``None`` in its constructor.
+        self.help = help
 
     def make_metavar(self, ctx: click.Context) -> str:
         if self.metavar is not None:
@@ -548,6 +550,12 @@ def _format_params(command: click.Command, ctx: click.Context, formatter: click.
 class HfCommand(click.Command):
     """Leaf command that renders arguments and options in separate help sections."""
 
+    def format_arguments(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
+        # Click >= 8.5 added a `format_arguments` step to `format_help` that prints its own
+        # "Positional arguments" section. `_format_params` already lists arguments (Typer-style),
+        # so this override avoids printing them twice. Never called on Click < 8.5.
+        return None
+
     def format_options(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
         _format_params(self, ctx, formatter)
 
@@ -599,6 +607,10 @@ class HfGroup(click.Group):
 
     #: Command class used by ``@group.command()`` unless overridden per call.
     command_class: type[click.Command] = HfCommand
+
+    def format_arguments(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
+        # See `HfCommand.format_arguments`.
+        return None
 
     def format_options(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
         _format_params(self, ctx, formatter)

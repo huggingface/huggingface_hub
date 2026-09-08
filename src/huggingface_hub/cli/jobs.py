@@ -22,7 +22,7 @@ import time
 from collections.abc import Callable, Collection, Generator, Iterable
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from fnmatch import fnmatch
+from enum import Enum
 from pathlib import Path
 from queue import Empty, Queue
 from typing import Annotated, Any, TypeVar
@@ -350,11 +350,12 @@ def _print_job_summary(values: dict[str, Any], *, from_script: Collection[str] =
     Printed on every run, so that what is sent to the Jobs API is always visible - in particular the
     values injected by a script's `[tool.hf-jobs]` table, which are marked as such. Goes to stderr for a
     real run, and to stdout for `--dry-run`, where it is the output of the command.
-
-    Multi-entry values (env, secrets, ...) are pre-formatted by the `_format_*` helpers, one entry per
-    line, since each entry can come from the script or from the command line.
     """
-    rows = [(key, str(value)) for key, value in values.items() if value not in (None, "", [], {}, False)]
+    rows = [
+        (key, _format_job_value(key, value, from_script))
+        for key, value in values.items()
+        if value not in (None, "", [], {}, False)
+    ]
     width = max(len(key) for key, _ in rows)
     lines = ["Job configuration:"]
     for key, value in rows:
@@ -370,42 +371,24 @@ def _print_job_summary(values: dict[str, Any], *, from_script: Collection[str] =
         out.log(summary)
 
 
-# Env values can be arbitrarily long (a JSON blob, a prompt, ...): keep the summary readable.
-_MAX_DISPLAYED_ENV_VALUE = 60
-
-
-def _format_env(env: dict[str, str | None], *, from_script: Collection[str] = ()) -> str:
-    return _format_entries({key: f"{key}={_ellipsis(value or '')}" for key, value in env.items()}, "env", from_script)
-
-
-def _format_secrets(secrets: dict[str, str | None], *, from_script: Collection[str] = ()) -> str:
-    """Format secrets for display: names only, values always redacted.
-
-    A secret with no value is one a script requests and the caller has not set locally, which only
-    happens in `--dry-run` (a real run errors out instead).
-    """
-    return _format_entries(
-        {key: f"{key}={'***' if value is not None else '<not set>'}" for key, value in secrets.items()},
-        "secrets",
-        from_script,
-    )
-
-
-def _format_labels(labels: dict[str, str], *, from_script: Collection[str] = ()) -> str:
-    return _format_entries({key: f"{key}={value}" for key, value in labels.items()}, "labels", from_script)
-
-
-def _format_volumes(volume_specs: list[str], *, from_script: Collection[str] = ()) -> str:
-    return _format_entries({spec: spec for spec in volume_specs}, "volumes", from_script)
-
-
-def _format_entries(entries: dict[str, str], key: str, from_script: Collection[str]) -> str:
-    """Render one entry per line, marking the entries that come from the script's `[tool.hf-jobs]` table."""
+def _format_job_value(key: str, value: Any, from_script: Collection[str]) -> str:
+    """Format config entries, redacting secrets and marking values inherited from the script."""
+    match key:
+        case "env":
+            # Keep long prompts or JSON values readable in the summary.
+            entries = {}
+            for name, item in value.items():
+                text = item or ""
+                entries[name] = f"{name}={text[:59] + '…' if len(text) > 60 else text}"
+        case "secrets":
+            entries = {name: f"{name}={'***' if item is not None else '<not set>'}" for name, item in value.items()}
+        case "labels":
+            entries = {name: f"{name}={item}" for name, item in value.items()}
+        case "volumes":
+            entries = {spec: spec for spec in value}
+        case _:
+            return str(value)
     return "\n".join(text + (_FROM_SCRIPT if f"{key}.{name}" in from_script else "") for name, text in entries.items())
-
-
-def _ellipsis(value: str) -> str:
-    return value if len(value) <= _MAX_DISPLAYED_ENV_VALUE else value[: _MAX_DISPLAYED_ENV_VALUE - 1] + "…"
 
 
 STATS_UPDATE_MIN_INTERVAL = 0.1  # we set a limit here since there is one update per second per job
@@ -446,7 +429,7 @@ NameOpt = Annotated[
     str | None,
     Option(
         "--name",
-        help="Name the Job. Stored as the `name` label. Names do not have to be unique. Defaults to the image or script name plus a short hash of the command.",
+        help="Name the Job. Stored as the `name` label. Names do not have to be unique. Defaults to the image or script name plus a short hash of the resolved launch configuration.",
     ),
 ]
 
@@ -485,7 +468,7 @@ ResourceGroupIdOpt = Annotated[
     str | None,
     Option(
         "--resource-group-id",
-        help="The ID of the resource group to create the Job in. Used to control access to resources within an organization.",
+        help="The ID of the resource group to create the Job in. Used to control access to resources within an organization and for cost attribution/spending-limit features.",
     ),
 ]
 
@@ -675,12 +658,13 @@ def jobs_run(
             "command": shlex.join(command),
             "flavor": flavor or JobHardware.CPU_BASIC.value,
             "timeout": timeout,
-            "env": _format_env(env_map),
-            "secrets": _format_secrets(secrets_map),
-            "volumes": _format_volumes(volume or []),
-            "labels": _format_labels(labels_map),
+            "env": env_map,
+            "secrets": secrets_map,
+            "volumes": volume or [],
+            "labels": labels_map,
             "expose": " ".join(str(port) for port in expose or []),
             "ssh": ssh,
+            "resource_group_id": resource_group_id,
             "namespace": namespace,
         },
         dry_run=dry_run,
@@ -771,20 +755,6 @@ def jobs_logs(
         out.hint(f"Stream ended. Run `hf jobs inspect {job_ref}` to check the final status (e.g. COMPLETED or ERROR).")
 
 
-def _matches_filters(job_properties: dict[str, str], filters: list[tuple[str, str, str]]) -> bool:
-    """Check if scheduled job matches all specified filters."""
-    for key, op_str, pattern in filters:
-        value = job_properties.get(key)
-        if value is None:
-            if op_str == "!=":
-                continue
-            return False
-        match = fnmatch(value.lower(), pattern.lower())
-        if (op_str == "=" and not match) or (op_str == "!=" and match):
-            return False
-    return True
-
-
 def _clear_line(n: int) -> None:
     LINE_UP = "\033[1A"
     LINE_CLEAR = "\x1b[2K"
@@ -805,7 +775,7 @@ def _get_jobs_stats_rows(
             f"{_format_size(metrics['rx_bps'])}bps / {_format_size(metrics['tx_bps'])}bps",
         ]
         if metrics["gpus"] and isinstance(metrics["gpus"], dict):
-            rows = [row] + [[""] * len(row)] * (len(metrics["gpus"]) - 1)
+            rows = [row] + [[""] * len(row) for _ in range(len(metrics["gpus"]) - 1)]
             for row, gpu_id in zip(rows, sorted(metrics["gpus"])):
                 gpu = metrics["gpus"][gpu_id]
                 row += [
@@ -1256,7 +1226,7 @@ jobs_cli.add_group(uv_app, name="uv")
     examples=[
         "hf jobs uv run --name my-script my_script.py",
         "hf jobs uv run --detach my_script.py",
-        "hf jobs uv run ml_training.py --flavor a10g-small",
+        "hf jobs uv run --flavor a10g-small ml_training.py",
         "hf jobs uv run --with transformers train.py",
         "hf jobs uv run -v hf://org/my-model:/data -v hf://buckets/org/b:/mnt script.py",
         "hf jobs uv run --dry-run script.py",
@@ -1315,12 +1285,13 @@ def jobs_uv_run(
                 "flavor": config.flavor or JobHardware.CPU_BASIC.value,
                 "python": config.python,
                 "timeout": config.timeout,
-                "env": _format_env(config.env, from_script=config.from_script),
-                "secrets": _format_secrets(config.secrets, from_script=config.from_script),
-                "volumes": _format_volumes(config.volume_specs, from_script=config.from_script),
-                "labels": _format_labels(config.labels, from_script=config.from_script),
+                "env": config.env,
+                "secrets": config.secrets,
+                "volumes": config.volume_specs,
+                "labels": config.labels,
                 "expose": " ".join(str(port) for port in expose or []),
                 "ssh": ssh,
+                "resource_group_id": resource_group_id,
                 "namespace": config.namespace,
             },
             from_script=config.from_script,
@@ -1363,6 +1334,16 @@ def jobs_uv_run(
         out.hint(f"Use `hf jobs wait {job_ref}` to block until it finishes.")
         return
     _stream_logs_and_check_status(api, job)
+
+
+class ScheduledJobStatusFilter(str, Enum):
+    """Possible values for `hf jobs scheduled ls --status`.
+
+    Scheduled Jobs are not "running": they are either active (i.e. they will trigger new runs) or suspended.
+    """
+
+    ACTIVE = "active"
+    SUSPENDED = "suspended"
 
 
 scheduled_app = typer_factory(help="Create and manage scheduled Jobs on the Hub.")
@@ -1420,15 +1401,18 @@ def scheduled_run(
     _print_job_summary(
         {
             "schedule": schedule,
+            "suspend": suspend,
+            "concurrency": concurrency,
             "image": image,
             "command": shlex.join(command),
             "flavor": flavor or JobHardware.CPU_BASIC.value,
             "timeout": timeout,
-            "env": _format_env(env_map),
-            "secrets": _format_secrets(secrets_map),
-            "volumes": _format_volumes(volume or []),
-            "labels": _format_labels(labels_map),
+            "env": env_map,
+            "secrets": secrets_map,
+            "volumes": volume or [],
+            "labels": labels_map,
             "expose": " ".join(str(port) for port in expose or []),
+            "resource_group_id": resource_group_id,
             "namespace": namespace,
         },
         dry_run=dry_run,
@@ -1461,16 +1445,54 @@ def scheduled_run(
     out.hint(f"Use `hf jobs scheduled inspect {scheduled_job.owner.name}/{scheduled_job.id}` to view its details.")
 
 
-@scheduled_app.command("list | ls | ps", examples=["hf jobs scheduled ls"])
+@scheduled_app.command(
+    "list | ls | ps",
+    examples=[
+        "hf jobs scheduled ls",
+        "hf jobs scheduled ls -a",
+        "hf jobs scheduled ls --status suspended",
+        "hf jobs scheduled ls --name daily-script",
+        "hf jobs scheduled ls --label env=prod --label team=ml",
+    ],
+)
 def scheduled_ps(
     all: Annotated[
         bool,
         Option(
             "-a",
             "--all",
-            help="Show all scheduled Jobs (default hides suspended)",
+            help="Show all scheduled Jobs (default hides suspended). Cannot be combined with --status.",
         ),
     ] = False,
+    status: Annotated[
+        list[str] | None,
+        Option(
+            "--status",
+            click_type=SoftChoice(ScheduledJobStatusFilter),
+            help=(
+                "Only show scheduled Jobs with the given status. Comma-separated or repeated, e.g."
+                " `--status suspended`."
+            ),
+        ),
+    ] = None,
+    label: Annotated[
+        list[str] | None,
+        Option(
+            "-l",
+            "--label",
+            help=(
+                "Only show scheduled Jobs with the given `key=value` label. Repeat to require several labels, e.g."
+                " `--label env=prod --label team=ml`."
+            ),
+        ),
+    ] = None,
+    name: Annotated[
+        str | None,
+        Option(
+            "--name",
+            help="Only show scheduled Jobs with the given name (shortcut for `--label name=NAME`).",
+        ),
+    ] = None,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
     filter: Annotated[
@@ -1478,45 +1500,67 @@ def scheduled_ps(
         Option(
             "-f",
             "--filter",
-            help="Filter output based on conditions provided (format: key=value)",
+            help="(Deprecated) Use `--status` and `--label` instead.",
         ),
     ] = None,
 ) -> None:
-    """List scheduled Jobs"""
-    api = get_hf_api(token=token)
-    scheduled_jobs = api.list_scheduled_jobs(namespace=namespace)
-    filters: list[tuple[str, str, str]] = []
-    for f in filter or []:
-        if "=" in f:
-            key, value = f.split("=", 1)
-            # Negate predicate in case of key!=value
-            if key.endswith("!"):
-                op = "!="
-                key = key[:-1]
-            else:
-                op = "="
-            filters.append((key.lower(), op, value.lower()))
-        else:
-            out.warning(f"Ignoring invalid filter format '{f}'. Use key=value format.")
+    """List scheduled Jobs.
 
-    # Filter scheduled jobs (operating on ScheduledJobInfo objects to preserve existing filter behavior)
+    Use `--status` to filter by status (`active` or `suspended`) and `--label` to filter by `key=value` labels.
+    A scheduled Job must match every filter to be listed.
+    """
+    api = get_hf_api(token=token)
+
+    if filter:
+        out.warning(
+            f"Ignoring filter '{filter}'."
+            " `-f`/`--filter` is deprecated and will be removed in a future release. Use `--status`/`--label`."
+        )
+
+    if all and status:
+        raise CLIError("`-a`/`--all` cannot be combined with `--status`.")
+
+    # Status filtering (default to active scheduled Jobs, unless `--all` or `--status` is provided).
+    raw_statuses: list[str] = []
+    for value in status or []:
+        raw_statuses.extend(part.strip().lower() for part in value.split(",") if part.strip())
+
+    unknown_statuses = [s for s in raw_statuses if s not in tuple(ScheduledJobStatusFilter)]
+    if unknown_statuses:
+        raise CLIError(
+            f"Invalid status filter(s) {unknown_statuses}: expected one of"
+            f" {[s.value for s in ScheduledJobStatusFilter]}."
+        )
+
+    if raw_statuses:
+        show_active = ScheduledJobStatusFilter.ACTIVE in raw_statuses
+        show_suspended = ScheduledJobStatusFilter.SUSPENDED in raw_statuses
+    else:
+        show_active = True
+        show_suspended = all
+
+    # Labels filtering
+    labels: dict[str, str] = {}
+    for raw_label in label or []:
+        if "=" not in raw_label:
+            raise CLIError(f"Invalid label filter '{raw_label}': must be in the form 'key=value'")
+        key, value = raw_label.split("=", 1)
+        labels[key] = value
+
+    # `--name` is a shortcut for the `name` label.
+    if name is not None:
+        if "name" in labels:
+            raise CLIError("Cannot filter by both `--name` and `--label name=...`.")
+        labels["name"] = name
+
+    scheduled_jobs = api.list_scheduled_jobs(namespace=namespace, labels=labels or None)
+
     filtered_jobs = []
     for scheduled_job in scheduled_jobs:
         suspend = scheduled_job.suspend or False
-        if not all and suspend:
+        if suspend and not show_suspended:
             continue
-        image_or_space = scheduled_job.job_spec.docker_image or "N/A"
-        cmd = scheduled_job.job_spec.command or []
-        command_str = " ".join(cmd) if cmd else "N/A"
-        job_name = (scheduled_job.job_spec.labels or {}).get("name") or "N/A"
-        props = {
-            "id": scheduled_job.id,
-            "name": job_name,
-            "image": image_or_space,
-            "suspend": str(suspend),
-            "command": command_str,
-        }
-        if not _matches_filters(props, filters):
+        if not suspend and not show_active:
             continue
         filtered_jobs.append(scheduled_job)
 
@@ -1543,9 +1587,14 @@ def scheduled_ps(
         headers=["id", "name", "schedule", "image/space", "command", "last_run", "next_run", "suspend"],
         id_key="id",
     )
-    if not items and filters:
-        filters_msg = ", ".join(f"{k}{o}{v}" for k, o, v in filters)
-        out.text(f"No scheduled jobs matched filters: {filters_msg}")
+    if not items:
+        if raw_statuses or labels:
+            filters_msg = ", ".join(
+                [*(f"status={s}" for s in raw_statuses), *(f"label={k}={v}" for k, v in labels.items())]
+            )
+            out.text(f"No scheduled jobs matched filters: {filters_msg}")
+        elif not all:
+            out.hint("No active scheduled jobs. Use `-a`/`--all` to include suspended ones.")
     if items:
         first_item_id = items[0]["id"]
         out.hint(f"Use `hf jobs scheduled inspect {first_item_id}` to view details about a scheduled job.")
@@ -1732,6 +1781,8 @@ def scheduled_uv_run(
         _print_job_summary(
             {
                 "schedule": schedule,
+                "suspend": suspend,
+                "concurrency": concurrency,
                 "script": script,
                 "args": shlex.join(config.script_args),
                 "with": " ".join(with_ or []),
@@ -1739,11 +1790,12 @@ def scheduled_uv_run(
                 "flavor": config.flavor or JobHardware.CPU_BASIC.value,
                 "python": config.python,
                 "timeout": config.timeout,
-                "env": _format_env(config.env, from_script=config.from_script),
-                "secrets": _format_secrets(config.secrets, from_script=config.from_script),
-                "volumes": _format_volumes(config.volume_specs, from_script=config.from_script),
-                "labels": _format_labels(config.labels, from_script=config.from_script),
+                "env": config.env,
+                "secrets": config.secrets,
+                "volumes": config.volume_specs,
+                "labels": config.labels,
                 "expose": " ".join(str(port) for port in expose or []),
+                "resource_group_id": resource_group_id,
                 "namespace": config.namespace,
             },
             from_script=config.from_script,

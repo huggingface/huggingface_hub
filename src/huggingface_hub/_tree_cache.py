@@ -38,6 +38,7 @@ import threading
 from dataclasses import dataclass
 
 from .utils import logging
+from .utils._xet import is_valid_xet_hash
 
 
 logger = logging.get_logger(__name__)
@@ -79,6 +80,11 @@ class TreeCacheEntry:
         )
 
 
+def is_valid_tree_entries(entries: dict[str, TreeCacheEntry]) -> bool:
+    """Return whether all Xet hashes in the tree listing are valid."""
+    return all(entry.xet_hash is None or is_valid_xet_hash(entry.xet_hash) for entry in entries.values())
+
+
 def _tree_cache_path(tree_cache_folder: str, commit_hash: str) -> str:
     return os.path.join(tree_cache_folder, "trees", f"{commit_hash}.json")
 
@@ -89,15 +95,17 @@ def tree_cache_folder_for_local_dir(local_dir: str) -> str:
 
 
 def read_tree_cache(tree_cache_folder: str, commit_hash: str) -> dict[str, TreeCacheEntry] | None:
-    """Return the cached tree listing for a commit hash, or `None` if not cached (or unreadable)."""
+    """Return the cached tree listing for a commit hash, or `None` if not cached, invalid, or unreadable."""
     path = _tree_cache_path(tree_cache_folder, commit_hash)
     with _IN_MEMORY_TREE_CACHE_LOCK:
         if path in _IN_MEMORY_TREE_CACHE:
-            return _IN_MEMORY_TREE_CACHE[path]
+            cached_entries = _IN_MEMORY_TREE_CACHE[path]
+            return cached_entries if is_valid_tree_entries(cached_entries) else None
     entries = _read_tree_cache_from_disk(path)
-    if entries is not None:
-        with _IN_MEMORY_TREE_CACHE_LOCK:
-            _IN_MEMORY_TREE_CACHE[path] = entries
+    if entries is None or not is_valid_tree_entries(entries):
+        return None
+    with _IN_MEMORY_TREE_CACHE_LOCK:
+        _IN_MEMORY_TREE_CACHE[path] = entries
     return entries
 
 
@@ -117,7 +125,10 @@ def _read_tree_cache_from_disk(path: str) -> dict[str, TreeCacheEntry] | None:
 
 
 def write_tree_cache(tree_cache_folder: str, commit_hash: str, entries: dict[str, TreeCacheEntry]) -> None:
-    """Write the tree listing of a commit hash to the cache (ignoring any failures)."""
+    """Write a valid tree listing to the cache (ignoring invalid entries and any failures)."""
+    if not is_valid_tree_entries(entries):
+        return
+
     path = _tree_cache_path(tree_cache_folder, commit_hash)
     data = {
         "format_version": TREE_CACHE_FORMAT_VERSION,

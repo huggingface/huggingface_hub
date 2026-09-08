@@ -483,29 +483,29 @@ class SpaceCardData(CardData):
     To get an exhaustive reference of Spaces configuration, please visit https://huggingface.co/docs/hub/spaces-config-reference#spaces-configuration-reference.
 
     Args:
-        title (`str`, *optional*)
+        title (`str`, *optional*):
             Title of the Space.
-        sdk (`str`, *optional*)
+        sdk (`str`, *optional*):
             SDK of the Space (one of `gradio`, `streamlit`, `docker`, or `static`).
-        sdk_version (`str`, *optional*)
+        sdk_version (`str`, *optional*):
             Version of the used SDK (if Gradio/Streamlit sdk).
-        python_version (`str`, *optional*)
+        python_version (`str`, *optional*):
             Python version used in the Space (if Gradio/Streamlit sdk).
-        app_file (`str`, *optional*)
+        app_file (`str`, *optional*):
             Path to your main application file (which contains either gradio or streamlit Python code, or static html code).
             Path is relative to the root of the repository.
-        app_port (`str`, *optional*)
+        app_port (`str`, *optional*):
             Port on which your application is running. Used only if sdk is `docker`.
-        license (`str`, *optional*)
+        license (`str`, *optional*):
             License of this model. Example: apache-2.0 or any license from
             https://huggingface.co/docs/hub/repositories-licenses.
-        duplicated_from (`str`, *optional*)
+        duplicated_from (`str`, *optional*):
             ID of the original Space if this is a duplicated Space.
-        models (list[`str`], *optional*)
+        models (`list[str]`, *optional*):
             List of models related to this Space. Should be a dataset ID found on https://hf.co/models.
-        datasets (`list[str]`, *optional*)
+        datasets (`list[str]`, *optional*):
             List of datasets related to this Space. Should be a dataset ID found on https://hf.co/datasets.
-        tags (`list[str]`, *optional*)
+        tags (`list[str]`, *optional*):
             List of tags to add to your Space that can be used when filtering on the Hub.
         ignore_metadata_errors (`str`):
             If True, errors while parsing the metadata section will be ignored. Some information might be lost during

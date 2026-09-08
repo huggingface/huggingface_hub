@@ -20,6 +20,9 @@
 # (huggingface-hub-bot) for PR creation in the post-release job. If a publish job fails, re-run it from the
 # Actions UI rather than reintroducing a tag-triggered fallback (which would bypass the `pypi` environment gate).
 #
+# The HF CLI skill sync lives in the sync-hf-cli-skill job below and nowhere else. A second, tag-triggered workflow
+# used to do the same thing, which meant every release opened two PRs on huggingface/skills. Do not reintroduce it.
+#
 # PyPI publishing uses Trusted Publishing (OIDC), no PyPI token is stored. The Trusted Publisher must be
 # configured on PyPI for both `huggingface-hub` and `hf` to accept this workflow, and the `pypi` GitHub
 # Environment (with required reviewers) must exist in the repo settings.
@@ -85,7 +88,7 @@ jobs:
           app-id: ${{ secrets.APP_ID_HUGGINGFACE_HUB_BOT }}
           private-key: ${{ secrets.APP_SECRET_PEM_HUGGINGFACE_HUB_BOT }}
 
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           ref: main
           fetch-depth: 0
@@ -301,10 +304,10 @@ jobs:
     needs: prepare
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           ref: ${{ needs.prepare.outputs.tag }}
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
         with:
           python-version: "3.10"
       - name: Install build frontend
@@ -312,7 +315,7 @@ jobs:
       - name: Build package
         run: python -m build
       - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b  # v1.14.0
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # v1.14.2
         with:
           attestations: true
           print-hash: true
@@ -356,10 +359,10 @@ jobs:
     needs: prepare
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           ref: ${{ needs.prepare.outputs.tag }}
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
         with:
           python-version: "3.10"
       - name: Install build frontend
@@ -367,7 +370,7 @@ jobs:
       - name: Build hf CLI package
         run: cd utils/hf && python -m build --wheel
       - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b  # v1.14.0
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # v1.14.2
         with:
           packages-dir: utils/hf/dist
           attestations: true
@@ -411,7 +414,7 @@ jobs:
     needs: prepare
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           ref: ${{ needs.prepare.outputs.tag }}
           fetch-depth: 0
@@ -446,7 +449,7 @@ jobs:
             echo "skip=false" >> $GITHUB_OUTPUT
           fi
 
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
         if: ${{ inputs.release_type == 'minor-prerelease' && steps.check_draft.outputs.skip != 'true' }}
         with:
           python-version: "3.12"
@@ -595,11 +598,11 @@ jobs:
     if: ${{ !cancelled() && needs.prepare.result == 'success' && needs.prepare.outputs.is_prerelease == 'true' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           ref: ${{ needs.prepare.outputs.tag }}
 
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
         with:
           python-version: "3.12"
 
@@ -730,11 +733,11 @@ jobs:
     if: ${{ !cancelled() && needs.prepare.result == 'success' && inputs.release_type == 'minor-release' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           ref: ${{ needs.prepare.outputs.tag }}
 
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
         with:
           python-version: "3.12"
 
@@ -849,7 +852,7 @@ jobs:
           exit 1
 
       - name: Checkout target repo
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           repository: huggingface/${{ matrix.target-repo }}
           path: ${{ matrix.target-repo }}
@@ -966,7 +969,7 @@ jobs:
           app-id: ${{ secrets.APP_ID_HUGGINGFACE_HUB_BOT }}
           private-key: ${{ secrets.APP_SECRET_PEM_HUGGINGFACE_HUB_BOT }}
 
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           ref: main
           token: ${{ steps.app_token.outputs.token }}
@@ -1034,7 +1037,7 @@ jobs:
               '{channel: $channel, text: $text, thread_ts: $thread_ts, unfurl_links: false}')" > /dev/null
 
   # ============================================================
-  # 7. SYNC HF CLI SKILL — update skill docs in skills repo
+  # 7. SYNC HF CLI SKILL — update skill docs in the skills repo
   # ============================================================
   sync-hf-cli-skill:
     permissions:
@@ -1044,12 +1047,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout huggingface_hub
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           ref: ${{ needs.prepare.outputs.tag }}
 
       - name: Set up Python
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
         with:
           python-version: "3.12"
 
@@ -1057,8 +1060,11 @@ jobs:
         run: pip install -e .
 
       - name: Generate skill docs
+        env:
+          HF_HOME: /tmp/hf-home
         run: |
           mkdir -p /tmp/hf-cli-skill
+          mkdir -p "$HF_HOME" && touch "$HF_HOME/.check_for_update_done"
           hf skills preview > /tmp/hf-cli-skill/SKILL.md
 
       - name: Create GitHub App token
@@ -1070,20 +1076,36 @@ jobs:
           repositories: skills
 
       - name: Checkout skills repo
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           repository: huggingface/skills
           token: ${{ steps.app_token.outputs.token }}
           path: skills-repo
 
+      - name: Set up uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d  # v10.0.1
+
       - name: Copy generated files
         run: cp /tmp/hf-cli-skill/SKILL.md skills-repo/skills/hf-cli/
 
-      - name: Check for changes
+      - name: Check for HF CLI skill changes
         id: check_changes
         working-directory: skills-repo
+        # git diff returns zero if there is no diff
         run: |
-          git diff --quiet && echo "changed=false" >> $GITHUB_OUTPUT || echo "changed=true" >> $GITHUB_OUTPUT
+          if git diff --quiet -- skills/hf-cli/SKILL.md; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No hf-cli skill changes; skipping PR"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Bump plugin version and regenerate skills repo artifacts
+        if: steps.check_changes.outputs.changed == 'true'
+        working-directory: skills-repo
+        run: |
+          uv run scripts/plugin_versions.py bump patch
+          ./scripts/publish.sh
 
       - name: Create Pull Request
         if: steps.check_changes.outputs.changed == 'true'
@@ -1096,13 +1118,11 @@ jobs:
           title: "Sync HF CLI Skill (${{ needs.prepare.outputs.tag }})"
           reviewers: hanouticelina
           body: |
-            Auto-generated from [huggingface_hub@${{ github.sha }}](https://github.com/huggingface/huggingface_hub/commit/${{ github.sha }})
-
-            Triggered by changes to `src/huggingface_hub/cli/`
+            Auto-generated from [huggingface_hub@${{ needs.prepare.outputs.tag }}](https://github.com/huggingface/huggingface_hub/tree/${{ needs.prepare.outputs.tag }})
 
             ---
             This PR was created automatically by the [release](https://github.com/huggingface/huggingface_hub/blob/main/.github/workflows/release.yml) workflow.
-          commit-message: "Sync HF CLI skill from huggingface_hub@${{ github.sha }}"
+          commit-message: "Sync HF CLI skill from huggingface_hub@${{ needs.prepare.outputs.tag }}"
           labels: |
             automated
             cli-sync
@@ -1145,7 +1165,7 @@ jobs:
           app-id: ${{ secrets.APP_ID_HUGGINGFACE_HUB_BOT }}
           private-key: ${{ secrets.APP_SECRET_PEM_HUGGINGFACE_HUB_BOT }}
 
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           ref: ${{ needs.prepare.outputs.tag }}
           fetch-depth: 0

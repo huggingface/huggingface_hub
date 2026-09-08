@@ -54,8 +54,10 @@ from ._output import out
 from .jobs import FlavorOpt, NamespaceOpt
 
 
-sandbox_cli = typer_factory(help="Run and manage sandboxes on Hugging Face Jobs.")
-pool_cli = typer_factory(help="Warm pools of host VMs and spawn cheap shared sandboxes from them.")
+sandbox_cli = typer_factory(help="Run and manage experimental sandboxes on Hugging Face Jobs.")
+pool_cli = typer_factory(
+    help="Warm host VM pools and spawn experimental shared sandboxes for workloads within the same trust boundary."
+)
 sandbox_cli.add_group(pool_cli, name="pool")
 process_cli = typer_factory(help="List and stop background processes running in a sandbox.")
 sandbox_cli.add_group(process_cli, name="process")

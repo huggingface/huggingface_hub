@@ -66,7 +66,7 @@ class CommitOperationDelete:
         path_in_repo (`str`):
             Relative filepath in the repo, for example: `"checkpoints/1fec34a/weights.bin"`
             for a file or `"checkpoints/1fec34a/"` for a folder.
-        is_folder (`bool` or `Literal["auto"]`, *optional*)
+        is_folder (`bool` or `Literal["auto"]`, *optional*):
             Whether the Delete Operation applies to a folder or not. If "auto", the path
             type (file or folder) is guessed automatically by looking if path ends with
             a "/" (folder) or not (file). To explicitly set the path type, you can set
@@ -197,9 +197,9 @@ class CommitOperationAdd:
         if isinstance(self.path_or_fileobj, Path):
             self.path_or_fileobj = str(self.path_or_fileobj)
         if isinstance(self.path_or_fileobj, str):
-            path_or_fileobj = os.path.normpath(os.path.expanduser(self.path_or_fileobj))
-            if not os.path.isfile(path_or_fileobj):
-                raise ValueError(f"Provided path: '{path_or_fileobj}' is not a file on the local file system")
+            self.path_or_fileobj = os.path.normpath(os.path.expanduser(self.path_or_fileobj))
+            if not os.path.isfile(self.path_or_fileobj):
+                raise ValueError(f"Provided path: '{self.path_or_fileobj}' is not a file on the local file system")
         elif not isinstance(self.path_or_fileobj, (io.BufferedIOBase, bytes)):
             # ^^ Inspired from: https://stackoverflow.com/questions/44584829/how-to-determine-if-file-is-opened-in-binary-or-text-mode
             raise ValueError(
