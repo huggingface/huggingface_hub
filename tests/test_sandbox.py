@@ -386,9 +386,7 @@ class TestSharedSandbox:
         # in the create response; those sandboxes keep working with the host one.
         server = _make_server(fake_server, capacity=10)
         _FakeServer.sandboxes.add("local1")
-        sandbox = Sandbox(
-            id="job123.local1", server=server, local_id="local1", owns_sandbox=True, owns_server=False
-        )
+        sandbox = Sandbox(id="job123.local1", server=server, local_id="local1", owns_sandbox=True, owns_server=False)
         assert sandbox._sandbox_token is None
         assert sandbox.proxy_headers["X-Sandbox-Token"] == "secret"
 
@@ -474,21 +472,57 @@ class TestSandboxPool:
         assert {b.id.split(".")[0] for b in boxes} == {"h0", "h1"}
 
 
+# Id `whoami()` returns in these tests; a host must be started by this principal
+# to be adopted under the default policy.
+PRINCIPAL_ID = "principal-self"
+
+
+@pytest.fixture(autouse=True)
+def _principal(monkeypatch):
+    """Resolve the calling principal without a network call.
+
+    Host adoption compares a Job's backend-asserted initiator against this, so
+    every test that discovers a host needs it.
+    """
+    monkeypatch.setattr(sandbox_mod.HfApi, "whoami", lambda self, **kwargs: {"id": PRINCIPAL_ID})
+
+
+def _pool_host_job(
+    job_id: str = "host9",
+    *,
+    capacity: int = 4,
+    pool_name: str = "p1",
+    image: str = "python:3.12",
+    env: dict | None = None,
+) -> MagicMock:
+    """A Job as the Jobs API would really describe one of our pool hosts.
+
+    Everything beyond the labels is asserted by the backend and checked by the
+    client before a credential is sent, so a fixture that set only labels would
+    let an adoption bug through unnoticed.
+    """
+    job = MagicMock()
+    job.id = job_id
+    job.owner.name = "user"
+    job.initiator.id = PRINCIPAL_ID
+    job.initiator.name = "user"
+    job.docker_image = image
+    job.space_id = None
+    job.flavor = "cpu-basic"
+    job.command = ["/bin/sh", "-c", sandbox_mod._BOOTSTRAP_DOWNLOAD]
+    job.status.stage = "RUNNING"
+    job.status.expose_urls = [f"https://{job_id}--{sandbox_mod.SANDBOX_SERVER_PORT}.hf.jobs"]
+    job.labels = {SANDBOX_LABEL: "1", MODE_LABEL: MODE_POOL, POOL_LABEL: pool_name, NONCE_LABEL: "nonce"}
+    job.environment = {"SBX_CAPACITY": str(capacity)} if env is None else env
+    return job
+
+
 class TestHostDiscovery:
     """`create()` should attach to a warm host found via job labels (e.g. left by
     another process) before booting a new one."""
 
     def _host_job(self, job_id: str = "host9", capacity: int = 4, pool_name: str = "p1") -> MagicMock:
-        job = MagicMock()
-        job.id = job_id
-        job.owner.name = "user"
-        job.docker_image = "python:3.12"
-        job.space_id = None
-        job.flavor = "cpu-basic"
-        job.status.stage = "RUNNING"
-        job.labels = {SANDBOX_LABEL: "1", MODE_LABEL: MODE_POOL, POOL_LABEL: pool_name, NONCE_LABEL: "nonce"}
-        job.environment = {"SBX_CAPACITY": str(capacity)}  # config lives in env vars, not labels
-        return job
+        return _pool_host_job(job_id, capacity=capacity, pool_name=pool_name)
 
     def _pool(self, fake_server, monkeypatch, jobs, name: str = "p1", **kwargs) -> SandboxPool:
         # Patch discovery + boot before construction: the constructor warms up, adopting any
@@ -549,21 +583,146 @@ class TestHostDiscovery:
         assert [host.job_id for host in pool._hosts] == ["host-sched"]  # adopted, not booted
 
 
+class TestHostAdmission:
+    """A Job carrying our pool's labels is a *claim* to be one of our hosts, not
+    proof: labels are set by whoever creates the Job, and the nonce that derives
+    the host token is a public label. These assert that everything else about the
+    Job -- all of it backend-asserted -- has to line up before a credential is
+    sent to it."""
+
+    def _reject(self, job, **kwargs) -> str | None:
+        defaults = dict(
+            policy=sandbox_mod.ADOPT_OWN,
+            principal_id=PRINCIPAL_ID,
+            namespace=None,
+            image="python:3.12",
+            flavor="cpu-basic",
+        )
+        defaults.update(kwargs)
+        return sandbox_mod._host_rejection(job, **defaults)
+
+    def test_a_genuine_host_is_accepted(self) -> None:
+        assert self._reject(_pool_host_job()) is None
+
+    def test_a_job_started_by_someone_else_is_refused(self) -> None:
+        # The attack: a namespace member creates a Job with our pool's labels and
+        # the real host's nonce, and our client sends it the real host's token.
+        impostor = _pool_host_job("impostor")
+        impostor.initiator.id = "principal-attacker"
+        impostor.initiator.name = "attacker"
+        assert "different principal" in (self._reject(impostor) or "")
+        # `initiator` is the only field here the Jobs API does not let a client
+        # set, which is what makes this check worth anything.
+
+    def test_an_unknown_initiator_is_refused_rather_than_assumed(self) -> None:
+        job = _pool_host_job()
+        job.initiator = None
+        assert self._reject(job) is not None
+        assert self._reject(_pool_host_job(), principal_id=None) is not None
+
+    def test_namespace_policy_accepts_a_sibling_member_but_still_checks_the_spec(self) -> None:
+        other = _pool_host_job("other")
+        other.initiator.id = "principal-colleague"
+        assert self._reject(other, policy=sandbox_mod.ADOPT_NAMESPACE) is None
+        # Opting into sharing does not opt out of the rest.
+        other.docker_image = "evil:latest"
+        assert self._reject(other, policy=sandbox_mod.ADOPT_NAMESPACE) is not None
+
+    def test_never_policy_refuses_everything(self) -> None:
+        assert self._reject(_pool_host_job(), policy=sandbox_mod.ADOPT_NEVER) is not None
+
+    def test_a_mismatched_spec_is_refused(self) -> None:
+        wrong_image = _pool_host_job()
+        wrong_image.docker_image = "attacker/image:latest"
+        assert "image" in (self._reject(wrong_image) or "")
+
+        wrong_flavor = _pool_host_job()
+        wrong_flavor.flavor = "a10g-large"
+        assert "flavor" in (self._reject(wrong_flavor) or "")
+
+        # A Job labelled as a host but running something else is not a host.
+        wrong_command = _pool_host_job()
+        wrong_command.command = ["/bin/sh", "-c", "nc -l -p 49983"]
+        assert "bootstrap" in (self._reject(wrong_command) or "")
+
+        wrong_namespace = _pool_host_job()
+        wrong_namespace.owner.name = "someone-else"
+        assert "namespace" in (self._reject(wrong_namespace, namespace="mine") or "")
+
+    def test_registry_prefixes_do_not_cause_a_spurious_mismatch(self) -> None:
+        # Image names get normalized server-side; a mis-parse here must not stop a
+        # legitimate pool from working.
+        job = _pool_host_job()
+        job.docker_image = "docker.io/library/Python:3.12"
+        assert self._reject(job) is None
+
+    def test_the_exposed_url_must_belong_to_this_job(self) -> None:
+        # Otherwise a Job could simply name where the credentials should go.
+        elsewhere = _pool_host_job("victim")
+        elsewhere.status.expose_urls = ["https://attacker--49983.hf.jobs"]
+        assert self._reject(elsewhere) is not None
+
+        insecure = _pool_host_job("plain")
+        insecure.status.expose_urls = ["http://plain--49983.hf.jobs"]
+        assert "https" in (self._reject(insecure) or "")
+
+        extra = _pool_host_job("extra")
+        extra.status.expose_urls = [
+            "https://extra--49983.hf.jobs",
+            "https://extra--8080.hf.jobs",
+        ]
+        assert self._reject(extra) is not None
+
+        none_exposed = _pool_host_job("bare")
+        none_exposed.status.expose_urls = None
+        assert self._reject(none_exposed) is not None
+
+    def test_discovery_does_not_adopt_an_impostor(self, fake_server: str, monkeypatch) -> None:
+        # End to end through `create()`: the impostor is listed and matches on
+        # labels, and must not be adopted -- the pool boots its own host instead.
+        impostor = _pool_host_job("impostor")
+        impostor.initiator.id = "principal-attacker"
+        monkeypatch.setattr(sandbox_mod.HfApi, "list_jobs", _fake_list_jobs([impostor]))
+        monkeypatch.setattr(
+            sandbox_mod.SandboxPool, "_boot_host", lambda self: _make_server(fake_server, job_id="mine", capacity=4)
+        )
+        monkeypatch.setattr(
+            sandbox_mod, "_connect_host", lambda api, jid, namespace=None: _make_server(fake_server, job_id=jid)
+        )
+        pool = SandboxPool(image="python:3.12", flavor="cpu-basic", name="p1", token="hf_test")
+
+        assert [host.job_id for host in pool._hosts] == ["mine"]
+        assert pool.create().host_id == "mine"
+
+    def test_connect_refuses_a_pool_whose_only_host_is_an_impostor(self, monkeypatch) -> None:
+        impostor = _pool_host_job("impostor", pool_name="pool-x")
+        impostor.initiator.id = "principal-attacker"
+        monkeypatch.setattr(sandbox_mod.HfApi, "list_jobs", _fake_list_jobs([impostor]))
+        with pytest.raises(SandboxError, match="none usable"):
+            SandboxPool.connect("pool-x", token="hf_test")
+        # The error names the opt-in, so a legitimate shared-host user is not stuck.
+        with pytest.raises(SandboxError, match="none usable") as exc_info:
+            SandboxPool.connect("pool-x", token="hf_test")
+        assert "adopt_hosts='namespace'" in str(exc_info.value)
+
+    def test_an_invalid_policy_is_rejected_at_construction(self) -> None:
+        with pytest.raises(ValueError, match="adopt_hosts"):
+            SandboxPool(name="p", adopt_hosts="anything", token="hf_test")
+
+
 class TestPoolConnect:
     """`SandboxPool.connect(pool_id)` rebuilds a pool from a running host's job spec +
     env vars — no local state, no config endpoint — then packs onto that host."""
 
     def test_connect_reads_config_from_host_env(self, monkeypatch) -> None:
         url, _ = _spawn_fake(capacity=7)
-        job = MagicMock()
-        job.id = "hostA"
-        job.owner.name = "user"
-        job.status.stage = "RUNNING"
-        job.docker_image = "alpine:3.20"
-        job.space_id = None
-        job.flavor = "cpu-basic"
+        job = _pool_host_job(
+            "hostA",
+            pool_name="pool-x",
+            image="alpine:3.20",
+            env={"SBX_CAPACITY": "7", "SBX_IDLE_TIMEOUT": "600", "SBX_MAX_HOSTS": "3"},
+        )
         job.labels = {SANDBOX_LABEL: "1", MODE_LABEL: MODE_POOL, POOL_LABEL: "pool-x", NONCE_LABEL: "n"}
-        job.environment = {"SBX_CAPACITY": "7", "SBX_IDLE_TIMEOUT": "600", "SBX_MAX_HOSTS": "3"}
         monkeypatch.setattr(sandbox_mod.HfApi, "list_jobs", _fake_list_jobs([job]))
         monkeypatch.setattr(
             sandbox_mod, "_connect_host", lambda api, jid, namespace=None: _make_server(url, job_id=jid, capacity=7)
@@ -688,12 +847,8 @@ class TestPoolCacheIntegration:
         monkeypatch.setattr(sandbox_mod, "_derive_sandbox_token", lambda *a: "secret")
         pool = SandboxPool.connect("pool-stale", token="hf_test")
 
-        live_job = MagicMock()
-        live_job.id, live_job.flavor = "live", "cpu-basic"
-        live_job.owner.name, live_job.docker_image, live_job.space_id = "user", "python:3.12", None
-        live_job.status.stage = "RUNNING"
+        live_job = _pool_host_job("live", pool_name="pool-stale")
         live_job.labels = {SANDBOX_LABEL: "1", MODE_LABEL: MODE_POOL, POOL_LABEL: "pool-stale", NONCE_LABEL: "n"}
-        live_job.environment = {"SBX_CAPACITY": "4"}
         pool._api.list_jobs = MagicMock(return_value=[live_job])
         monkeypatch.setattr(
             sandbox_mod, "_connect_host", lambda api, jid, namespace=None: _make_server(fake_server, job_id=jid)
