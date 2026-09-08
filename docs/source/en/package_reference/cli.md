@@ -1808,9 +1808,9 @@ $ hf endpoints deploy [OPTIONS] NAME
 * `--container-command TEXT`: Override the container entrypoint, as a quoted string split into tokens (e.g. "python -m sglang.launch_server").
 * `--container-args TEXT`: Arguments appended to the container entrypoint, as a quoted string split into tokens (e.g. "--tp 8 --reasoning-parser qwen3").
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
-* `--env-file TEXT`: Read in a file of environment variables.
-* `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
-* `--secrets-file TEXT`: Read in a file of secret environment variables.
+* `--env-file TEXT`: Read in a file of environment variables. Use `-` to read them from stdin.
+* `-s, --secrets TEXT`: Set secret environment variables. Prefer `--secrets SECRET` to read the value from your environment (e.g. `--secrets HF_TOKEN` to pass your Hugging Face token); `--secrets SECRET=value` puts the value in your shell history.
+* `--secrets-file TEXT`: Read in a file of secret environment variables. Use `-` to read them from stdin.
 * `--type [public|protected|authenticated|private]`: Endpoint access type. Defaults to 'authenticated' (token-gated, publicly reachable).
 * `--help`: Show this message and exit.
 
@@ -2494,12 +2494,12 @@ $ hf jobs run [OPTIONS] IMAGE COMMAND...
 **Options**:
 
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
-* `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
+* `-s, --secrets TEXT`: Set secret environment variables. Prefer `--secrets SECRET` to read the value from your environment (e.g. `--secrets HF_TOKEN` to pass your Hugging Face token); `--secrets SECRET=value` puts the value in your shell history.
 * `--name TEXT`: Name the Job. Stored as the `name` label. Names do not have to be unique. Defaults to the image or script name plus a short hash of the command.
 * `-l, --label TEXT`: Set labels. E.g. --label KEY=VALUE or --label LABEL
 * `-v, --volume TEXT`: Mount one or more volumes. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro|:rw] or LOCAL_DIR:/MOUNT_PATH[:ro|:rw]. TYPE is one of: models, datasets, spaces, buckets. TYPE defaults to models if omitted. models, datasets and spaces are always mounted read-only. buckets are read+write by default. A local directory source is first synced to a bucket and mounted read-only by default. E.g. -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro or -v ./inputs:/inputs
-* `--env-file TEXT`: Read in a file of environment variables.
-* `--secrets-file TEXT`: Read in a file of secret environment variables.
+* `--env-file TEXT`: Read in a file of environment variables. Use `-` to read them from stdin.
+* `--secrets-file TEXT`: Read in a file of secret environment variables. Use `-` to read them from stdin.
 * `--flavor [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|rtx-pro-6000|rtx-pro-6000x2|rtx-pro-6000x4|rtx-pro-6000x8]`: Flavor for the hardware. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.
 * `--timeout TEXT`: Max duration: int with s (seconds, default), m (minutes), h (hours) or d (days).
 * `-d, --detach`: Run the Job in the background and print the Job ID.
@@ -2722,12 +2722,12 @@ $ hf jobs scheduled run [OPTIONS] SCHEDULE IMAGE COMMAND...
 * `--suspend / --no-suspend`: Suspend (pause) the scheduled Job
 * `--concurrency / --no-concurrency`: Allow multiple instances of this Job to run concurrently
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
-* `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
+* `-s, --secrets TEXT`: Set secret environment variables. Prefer `--secrets SECRET` to read the value from your environment (e.g. `--secrets HF_TOKEN` to pass your Hugging Face token); `--secrets SECRET=value` puts the value in your shell history.
 * `--name TEXT`: Name the Job. Stored as the `name` label. Names do not have to be unique. Defaults to the image or script name plus a short hash of the command.
 * `-l, --label TEXT`: Set labels. E.g. --label KEY=VALUE or --label LABEL
 * `-v, --volume TEXT`: Mount one or more volumes. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro|:rw] or LOCAL_DIR:/MOUNT_PATH[:ro|:rw]. TYPE is one of: models, datasets, spaces, buckets. TYPE defaults to models if omitted. models, datasets and spaces are always mounted read-only. buckets are read+write by default. A local directory source is first synced to a bucket and mounted read-only by default. E.g. -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro or -v ./inputs:/inputs
-* `--env-file TEXT`: Read in a file of environment variables.
-* `--secrets-file TEXT`: Read in a file of secret environment variables.
+* `--env-file TEXT`: Read in a file of environment variables. Use `-` to read them from stdin.
+* `--secrets-file TEXT`: Read in a file of secret environment variables. Use `-` to read them from stdin.
 * `--flavor [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|rtx-pro-6000|rtx-pro-6000x2|rtx-pro-6000x4|rtx-pro-6000x8]`: Flavor for the hardware. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.
 * `--timeout TEXT`: Max duration: int with s (seconds, default), m (minutes), h (hours) or d (days).
 * `--expose INTEGER`: Expose a container port through the jobs proxy. Repeat the flag for multiple ports (e.g. `--expose 8000 --expose 8001`). Each exposed port is reachable on the public jobs domain; access requires an HF token with read access to the job's namespace.
@@ -2841,12 +2841,12 @@ $ hf jobs scheduled uv run [OPTIONS] SCHEDULE SCRIPT [SCRIPT_ARGS]...
 * `--image TEXT`: Use a custom Docker image with `uv` installed.
 * `--flavor [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|rtx-pro-6000|rtx-pro-6000x2|rtx-pro-6000x4|rtx-pro-6000x8]`: Flavor for the hardware. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
-* `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
+* `-s, --secrets TEXT`: Set secret environment variables. Prefer `--secrets SECRET` to read the value from your environment (e.g. `--secrets HF_TOKEN` to pass your Hugging Face token); `--secrets SECRET=value` puts the value in your shell history.
 * `--name TEXT`: Name the Job. Stored as the `name` label. Names do not have to be unique. Defaults to the image or script name plus a short hash of the command.
 * `-l, --label TEXT`: Set labels. E.g. --label KEY=VALUE or --label LABEL
 * `-v, --volume TEXT`: Mount one or more volumes. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro|:rw] or LOCAL_DIR:/MOUNT_PATH[:ro|:rw]. TYPE is one of: models, datasets, spaces, buckets. TYPE defaults to models if omitted. models, datasets and spaces are always mounted read-only. buckets are read+write by default. A local directory source is first synced to a bucket and mounted read-only by default. E.g. -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro or -v ./inputs:/inputs
-* `--env-file TEXT`: Read in a file of environment variables.
-* `--secrets-file TEXT`: Read in a file of secret environment variables.
+* `--env-file TEXT`: Read in a file of environment variables. Use `-` to read them from stdin.
+* `--secrets-file TEXT`: Read in a file of secret environment variables. Use `-` to read them from stdin.
 * `--timeout TEXT`: Max duration: int with s (seconds, default), m (minutes), h (hours) or d (days).
 * `--expose INTEGER`: Expose a container port through the jobs proxy. Repeat the flag for multiple ports (e.g. `--expose 8000 --expose 8001`). Each exposed port is reachable on the public jobs domain; access requires an HF token with read access to the job's namespace.
 * `--resource-group-id TEXT`: The ID of the resource group to create the Job in. Used to control access to resources within an organization and for cost attribution/spending-limit features.
@@ -2967,12 +2967,12 @@ $ hf jobs uv run [OPTIONS] SCRIPT [SCRIPT_ARGS]...
 * `--image TEXT`: Use a custom Docker image with `uv` installed.
 * `--flavor [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|rtx-pro-6000|rtx-pro-6000x2|rtx-pro-6000x4|rtx-pro-6000x8]`: Flavor for the hardware. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
-* `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
+* `-s, --secrets TEXT`: Set secret environment variables. Prefer `--secrets SECRET` to read the value from your environment (e.g. `--secrets HF_TOKEN` to pass your Hugging Face token); `--secrets SECRET=value` puts the value in your shell history.
 * `--name TEXT`: Name the Job. Stored as the `name` label. Names do not have to be unique. Defaults to the image or script name plus a short hash of the command.
 * `-l, --label TEXT`: Set labels. E.g. --label KEY=VALUE or --label LABEL
 * `-v, --volume TEXT`: Mount one or more volumes. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro|:rw] or LOCAL_DIR:/MOUNT_PATH[:ro|:rw]. TYPE is one of: models, datasets, spaces, buckets. TYPE defaults to models if omitted. models, datasets and spaces are always mounted read-only. buckets are read+write by default. A local directory source is first synced to a bucket and mounted read-only by default. E.g. -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro or -v ./inputs:/inputs
-* `--env-file TEXT`: Read in a file of environment variables.
-* `--secrets-file TEXT`: Read in a file of secret environment variables.
+* `--env-file TEXT`: Read in a file of environment variables. Use `-` to read them from stdin.
+* `--secrets-file TEXT`: Read in a file of secret environment variables. Use `-` to read them from stdin.
 * `--timeout TEXT`: Max duration: int with s (seconds, default), m (minutes), h (hours) or d (days).
 * `-d, --detach`: Run the Job in the background and print the Job ID.
 * `--expose INTEGER`: Expose a container port through the jobs proxy. Repeat the flag for multiple ports (e.g. `--expose 8000 --expose 8001`). Each exposed port is reachable on the public jobs domain; access requires an HF token with read access to the job's namespace.
@@ -3525,10 +3525,10 @@ $ hf repos create [OPTIONS] REPO_ID
 * `--flavor [cpu-basic|cpu-upgrade|zero-a10g|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8]`: Space hardware flavor (e.g. 'cpu-basic', 't4-medium', 'l4x4'). Only for Spaces.
 * `--storage [small|medium|large]`: (Deprecated, use volumes instead) Space persistent storage tier ('small', 'medium', or 'large'). Only for Spaces.
 * `--sleep-time INTEGER`: Seconds of inactivity before the Space is put to sleep. Use -1 to disable. Only for Spaces.
-* `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
-* `--secrets-file TEXT`: Read in a file of secret environment variables.
+* `-s, --secrets TEXT`: Set secret environment variables. Prefer `--secrets SECRET` to read the value from your environment (e.g. `--secrets HF_TOKEN` to pass your Hugging Face token); `--secrets SECRET=value` puts the value in your shell history.
+* `--secrets-file TEXT`: Read in a file of secret environment variables. Use `-` to read them from stdin.
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
-* `--env-file TEXT`: Read in a file of environment variables.
+* `--env-file TEXT`: Read in a file of environment variables. Use `-` to read them from stdin.
 * `-v, --volume TEXT`: Mount one or more volumes. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. TYPE is one of: models, datasets, spaces, buckets. TYPE defaults to models if omitted. models, datasets and spaces are always mounted read-only. buckets are read+write by default. E.g. -v hf://org/m:/data or -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro
 * `--help`: Show this message and exit.
 
@@ -3636,10 +3636,10 @@ $ hf repos duplicate [OPTIONS] FROM_ID [TO_ID]
 * `--flavor [cpu-basic|cpu-upgrade|zero-a10g|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8]`: Space hardware flavor (e.g. 'cpu-basic', 't4-medium', 'l4x4'). Only for Spaces.
 * `--storage [small|medium|large]`: (Deprecated, use volumes instead) Space persistent storage tier ('small', 'medium', or 'large'). Only for Spaces.
 * `--sleep-time INTEGER`: Seconds of inactivity before the Space is put to sleep. Use -1 to disable. Only for Spaces.
-* `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
-* `--secrets-file TEXT`: Read in a file of secret environment variables.
+* `-s, --secrets TEXT`: Set secret environment variables. Prefer `--secrets SECRET` to read the value from your environment (e.g. `--secrets HF_TOKEN` to pass your Hugging Face token); `--secrets SECRET=value` puts the value in your shell history.
+* `--secrets-file TEXT`: Read in a file of secret environment variables. Use `-` to read them from stdin.
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
-* `--env-file TEXT`: Read in a file of environment variables.
+* `--env-file TEXT`: Read in a file of environment variables. Use `-` to read them from stdin.
 * `-v, --volume TEXT`: Mount one or more volumes. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. TYPE is one of: models, datasets, spaces, buckets. TYPE defaults to models if omitted. models, datasets and spaces are always mounted read-only. buckets are read+write by default. E.g. -v hf://org/m:/data or -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro
 * `--help`: Show this message and exit.
 
@@ -3935,9 +3935,9 @@ $ hf sandbox create [OPTIONS] [IMAGE]
 * `--flavor [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|rtx-pro-6000|rtx-pro-6000x2|rtx-pro-6000x4|rtx-pro-6000x8]`: Flavor for the hardware. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.
 * `--idle-timeout TEXT`: Auto-terminate the sandbox after this much inactivity (e.g. '10m'). Defaults to 10m.
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
-* `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
-* `--env-file TEXT`: Read in a file of environment variables.
-* `--secrets-file TEXT`: Read in a file of secret environment variables.
+* `-s, --secrets TEXT`: Set secret environment variables. Prefer `--secrets SECRET` to read the value from your environment (e.g. `--secrets HF_TOKEN` to pass your Hugging Face token); `--secrets SECRET=value` puts the value in your shell history.
+* `--env-file TEXT`: Read in a file of environment variables. Use `-` to read them from stdin.
+* `--secrets-file TEXT`: Read in a file of secret environment variables. Use `-` to read them from stdin.
 * `-v, --volume TEXT`: Mount one or more volumes. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. TYPE is one of: models, datasets, spaces, buckets. TYPE defaults to models if omitted. models, datasets and spaces are always mounted read-only. buckets are read+write by default. E.g. -v hf://org/m:/data or -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--forward-hf-token`: Inject your HF token as HF_TOKEN in the sandbox.
@@ -3977,7 +3977,7 @@ $ hf sandbox exec [OPTIONS] SANDBOX_ID COMMAND...
 
 * `-w, --workdir TEXT`: Working directory.
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
-* `--env-file TEXT`: Read in a file of environment variables.
+* `--env-file TEXT`: Read in a file of environment variables. Use `-` to read them from stdin.
 * `--timeout FLOAT`: Kill the command after this many seconds.
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
@@ -4229,7 +4229,7 @@ $ hf sandbox spawn [OPTIONS] SANDBOX_ID COMMAND...
 
 * `-w, --workdir TEXT`: Working directory.
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
-* `--env-file TEXT`: Read in a file of environment variables.
+* `--env-file TEXT`: Read in a file of environment variables. Use `-` to read them from stdin.
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
@@ -4780,8 +4780,8 @@ $ hf spaces secrets add [OPTIONS] SPACE_ID
 
 **Options**:
 
-* `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
-* `--secrets-file TEXT`: Read in a file of secret environment variables.
+* `-s, --secrets TEXT`: Set secret environment variables. Prefer `--secrets SECRET` to read the value from your environment (e.g. `--secrets HF_TOKEN` to pass your Hugging Face token); `--secrets SECRET=value` puts the value in your shell history.
+* `--secrets-file TEXT`: Read in a file of secret environment variables. Use `-` to read them from stdin.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -4982,7 +4982,7 @@ $ hf spaces variables add [OPTIONS] SPACE_ID
 **Options**:
 
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
-* `--env-file TEXT`: Read in a file of environment variables.
+* `--env-file TEXT`: Read in a file of environment variables. Use `-` to read them from stdin.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 

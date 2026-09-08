@@ -711,10 +711,55 @@ RepoTypeOptionalOpt = Annotated[
     ),
 ]
 
+# --- Secret hygiene: keep secret material out of argv ---
+#
+# Anything passed as a flag value lands in the shell history file and, on Linux, in
+# `/proc/<pid>/cmdline`, which any process of the same user can read. The CLI already offers
+# argv-free alternatives (`hf auth login`, `HF_TOKEN`, bare `--secrets KEY`, `--secrets-file`);
+# these warnings point at them. They stay warnings on purpose: erroring out would break
+# existing automation.
+
+
+def _warn_secret_hygiene(message: str) -> None:
+    """Emit a secret-hygiene warning on stderr, unless the user asked for quiet output.
+
+    `out.warning` writes in every mode, so quiet (`-q` / `--format quiet`) is the opt-out for
+    scripts that need stderr to stay clean. Global formatting flags are consumed before Click
+    parses the leaf command, so `out` already knows the mode when option callbacks run.
+    """
+    if not out.is_quiet():
+        out.warning(message)
+
+
+def _warn_on_inline_token(token: str | None) -> str | None:
+    """Option callback for `TokenOpt`: warn when a token is passed as a flag value."""
+    ctx = click.get_current_context(silent=True)
+    # `hf auth login --token` is the non-interactive login flow this warning points users *to*,
+    # so it is exempt. Matched on a suffix because the root command name depends on how the CLI
+    # was invoked (`hf`, `huggingface-cli`, a test runner's prog name...).
+    if token is not None and not (ctx is not None and ctx.command_path.endswith("auth login")):
+        _warn_secret_hygiene(
+            "`--token <value>` leaves your token in your shell history and in process listings. Run "
+            "`hf auth login` once, or export `HF_TOKEN`, and drop the flag."
+        )
+    return token
+
+
+def _warn_on_inline_secrets(secrets: list[str] | None) -> list[str] | None:
+    """Option callback for `SecretsOpt`: warn once if any pair carries an inline value."""
+    if secrets and any("=" in secret for secret in secrets):
+        _warn_secret_hygiene(
+            "`--secrets KEY=value` leaves the value in your shell history and in process listings. Prefer "
+            "`--secrets KEY` (value read from your environment), `--secrets-file FILE` or `--secrets-file -`."
+        )
+    return secrets
+
+
 TokenOpt = Annotated[
     str | None,
     Option(
         help="A User Access Token generated from https://huggingface.co/settings/tokens.",
+        callback=_warn_on_inline_token,
     ),
 ]
 
@@ -771,9 +816,11 @@ SecretsOpt = Annotated[
         "-s",
         "--secrets",
         help=(
-            "Set secret environment variables. E.g. --secrets SECRET=value"
-            " or `--secrets HF_TOKEN` to pass your Hugging Face token."
+            "Set secret environment variables. Prefer `--secrets SECRET` to read the value from your"
+            " environment (e.g. `--secrets HF_TOKEN` to pass your Hugging Face token); `--secrets SECRET=value`"
+            " puts the value in your shell history."
         ),
+        callback=_warn_on_inline_secrets,
     ),
 ]
 
@@ -781,14 +828,14 @@ EnvFileOpt = Annotated[
     str | None,
     Option(
         "--env-file",
-        help="Read in a file of environment variables.",
+        help="Read in a file of environment variables. Use `-` to read them from stdin.",
     ),
 ]
 
 SecretsFileOpt = Annotated[
     str | None,
     Option(
-        help="Read in a file of secret environment variables.",
+        help="Read in a file of secret environment variables. Use `-` to read them from stdin.",
     ),
 ]
 
@@ -803,6 +850,23 @@ def _get_extended_environ() -> dict[str, str]:
     return extended_environ
 
 
+def _read_env_file(env_file: str) -> str:
+    """Read an env/secrets file, or stdin when ``env_file`` is ``-``.
+
+    Piping through stdin is the only way to hand the CLI a secret value that touches neither
+    argv nor the disk.
+    """
+    if env_file == "-":
+        return sys.stdin.read()
+    path = Path(env_file)
+    # POSIX only: Windows reports a synthetic 0o666/0o444 mode, so this would always fire there.
+    if os.name == "posix" and (mode := path.stat().st_mode & 0o777) & 0o077:
+        _warn_secret_hygiene(
+            f"'{env_file}' is readable by other users (mode {mode:o}). Run `chmod 600 {env_file}` to restrict it."
+        )
+    return path.read_text()
+
+
 def parse_env_map(
     env: list[str] | None = None,
     env_file: str | None = None,
@@ -815,7 +879,7 @@ def parse_env_map(
     extended_environ = _get_extended_environ()
     env_map: dict[str, str | None] = {}
     if env_file:
-        env_map.update(load_dotenv(Path(env_file).read_text(), environ=extended_environ))
+        env_map.update(load_dotenv(_read_env_file(env_file), environ=extended_environ))
     for env_value in env or []:
         env_map.update(load_dotenv(env_value, environ=extended_environ))
     return env_map

@@ -120,7 +120,11 @@ def sandbox_create(
         if image is not None or flavor is not None or volume:
             raise CLIError("--pool fixes the image/flavor (and volumes aren't supported); drop those options.")
         if secrets or secrets_file:
-            raise CLIError("--pool can't encrypt secrets; pass them with --env/--env-file instead.")
+            raise CLIError(
+                "--pool has no encrypted-secrets channel. Pass the values with --env/--env-file: on a pooled "
+                "sandbox they are delivered to the host at creation and are not stored in the job metadata, "
+                "but they are not encrypted at rest."
+            )
         sbx = SandboxPool.connect(pool, namespace=namespace, token=token).create(
             env=parse_env_map(env, env_file),
             idle_timeout=idle,
