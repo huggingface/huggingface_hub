@@ -5009,6 +5009,8 @@ class TestUpdateSkillOptOut:
         with (
             patch("huggingface_hub.cli.system._fetch_latest_pypi_version", return_value="99.0.0"),
             patch("huggingface_hub.cli.system.subprocess.call", return_value=0),
+            # `hf update` refuses to self-update a pip install on Windows: pretend we're not on Windows.
+            patch("huggingface_hub.cli.system.sys.platform", "linux"),
             patch("huggingface_hub.cli.system.run_update", return_value=0) as mock_run_update,
         ):
             yield mock_run_update

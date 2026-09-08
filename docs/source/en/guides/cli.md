@@ -2215,6 +2215,9 @@ Manage scheduled jobs using
 >>> hf sandbox create
 ✓ Sandbox ready id=687f911eaea852de79c4a50a image=python:3.12 elapsed=6.0s
 
+# Attach labels to the underlying Job
+>>> hf sandbox create --label controller-run=run-42 --label team=data-infra
+
 # Run commands inside it (output is streamed, exit code is propagated)
 >>> hf sandbox exec 687f911eaea852de79c4a50a -- python -c "print('hi')"
 hi
@@ -2227,7 +2230,7 @@ hi
 >>> hf sandbox kill 687f911eaea852de79c4a50a
 ```
 
-Use `--flavor` to pick hardware (e.g. `a10g-small`), `--idle-timeout` to bound the sandbox lifetime, and `-e` / `--secrets` for environment variables. To fan out many cheap CPU sandboxes, warm a pool with `hf sandbox pool create` and spawn into it with `hf sandbox create --pool <id>` (see the [Sandboxes guide](./sandbox#from-the-cli)).
+Use `--flavor` to pick hardware (e.g. `a10g-small`), `--idle-timeout` to bound the sandbox lifetime, `-l` / `--label` to attach labels to its Job, and `-e` / `--secrets` for environment variables. To fan out many cheap CPU sandboxes, warm a pool with `hf sandbox pool create` and spawn into it with `hf sandbox create --pool <id>` (see the [Sandboxes guide](./sandbox#from-the-cli)).
 
 ## hf webhooks
 
