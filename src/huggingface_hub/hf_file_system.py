@@ -1674,22 +1674,24 @@ class HfFileSystemEditFile(fsspec.spec.AbstractBufferedFile):
 
     def _upload_ranges_inner(self, ranges: list[range | bytearray], original_size: int) -> None:
         original_offset = 0
-        insert: list[tuple[int, bytes]] = []
         delete: list[tuple[int, int]] = []
+        edit: list[tuple[tuple[int, int], bytes]] = []  # ((start, end), replacement_data)
         for range_ in ranges:
             if isinstance(range_, range):
                 if range_.start > original_offset:
                     delete.append((original_offset, range_.start - original_offset))
                 original_offset = range_.stop
             else:
-                insert.append((original_offset, bytes(range_)))
+                data = bytes(range_)
+                edit.append(((original_offset, original_offset + len(data)), data))
+                original_offset += len(data)
         if original_offset < original_size:
             delete.append((original_offset, original_size - original_offset))
-        if insert or delete:
+        if edit or delete:
             self.file_hash = self.fs._api._edit_bucket_file(
                 bucket_id=self.resolved_path.bucket_id,
                 remote_path=self.resolved_path.path,
-                insert=insert or None,
+                edit=edit or None,
                 delete=delete or None,
                 _file_hash=self.file_hash,
                 _file_size=self.original_size,

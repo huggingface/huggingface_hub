@@ -15089,7 +15089,7 @@ class HfApi:
             try:
                 if edit:
                     for (start, end), data in edit:
-                        commit.edit(start, end).write(data)
+                        commit.edit((start, end), len(data)).write(data)
                 if insert:
                     for loc, data in insert:
                         commit.insert(loc, len(data)).write(data)
