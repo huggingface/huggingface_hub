@@ -15,6 +15,7 @@ import pytest
 
 from huggingface_hub import HfApi, constants, hf_file_system
 from huggingface_hub.errors import BucketNotFoundError, RepositoryNotFoundError, RevisionNotFoundError
+from huggingface_hub.hf_api import RepoFile, RepoFolder
 from huggingface_hub.hf_file_system import (
     HfFileSystem,
     HfFileSystemFile,
@@ -25,6 +26,64 @@ from huggingface_hub.hf_file_system import (
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN
 from .testing_utils import OfflineSimulationMode, offline, repo_name
+
+
+class TestDownloadPathValidation:
+    def test_recursive_get_rejects_traversal(self, tmp_path):
+        fs = HfFileSystem(token=False, skip_instance_cache=True)
+        filename = "folder/..\\..\\outside.txt"
+        tree = [RepoFolder(path="folder", oid="0" * 40), RepoFile(path=filename, size=7, oid="1" * 40)]
+        with (
+            patch.object(fs, "_repo_and_revision_exist", return_value=(True, None)),
+            patch.object(fs._api, "list_repo_tree", return_value=tree),
+            patch.object(hf_file_system, "http_get") as download,
+            patch("huggingface_hub.hf_file_system.open", create=True) as open_file,
+        ):
+            with pytest.raises(ValueError, match="Invalid filename"):
+                fs.get("user/repo/", str(tmp_path / "download"), recursive=True)
+        open_file.assert_not_called()
+        download.assert_not_called()
+        assert not (tmp_path / "outside.txt").exists()
+
+    @pytest.mark.parametrize("bucket", [False, True])
+    @pytest.mark.parametrize("kwargs", [{}, {"callback": fsspec.callbacks.Callback()}, {"custom_kwarg": 123}])
+    def test_get_file_rejects_before_local_io_or_fallback(self, tmp_path, bucket, kwargs):
+        fs = HfFileSystem(token=False, skip_instance_cache=True)
+        filename = "folder/..\\..\\outside.txt"
+        resolved = (
+            HfFileSystemResolvedBucketPath(bucket_id="user/bucket", path=filename)
+            if bucket
+            else HfFileSystemResolvedRepositoryPath("model", "user/repo", "main", filename)
+        )
+        with (
+            patch.object(fs, "resolve_path", return_value=resolved),
+            patch.object(fs, "isdir") as isdir,
+            patch.object(fsspec.AbstractFileSystem, "get_file") as fallback,
+            patch("huggingface_hub.hf_file_system.os.makedirs") as makedirs,
+            patch("huggingface_hub.hf_file_system.open", create=True) as open_file,
+        ):
+            with pytest.raises(ValueError, match="Invalid filename"):
+                fs.get_file(resolved.unresolve(), str(tmp_path / "download" / "file"), **kwargs)
+        isdir.assert_not_called()
+        fallback.assert_not_called()
+        makedirs.assert_not_called()
+        open_file.assert_not_called()
+
+    def test_get_file_safe_filename(self, tmp_path):
+        fs = HfFileSystem(token=False, skip_instance_cache=True)
+        resolved = HfFileSystemResolvedRepositoryPath("model", "user/repo", "main", "folder/safe.txt")
+        target = tmp_path / "download" / "safe.txt"
+        with (
+            patch.object(fs, "resolve_path", return_value=resolved),
+            patch.object(fs, "isdir", return_value=False),
+            patch.object(fs, "info", return_value={"size": 7}),
+            patch.object(fs, "url", return_value="https://huggingface.co/user/repo/resolve/main/folder/safe.txt"),
+            patch.object(
+                hf_file_system, "http_get", side_effect=lambda **kwargs: kwargs["temp_file"].write(b"content")
+            ),
+        ):
+            fs.get_file(resolved.unresolve(), str(target))
+        assert target.read_bytes() == b"content"
 
 
 class _HfFileSystemBaseTests:
