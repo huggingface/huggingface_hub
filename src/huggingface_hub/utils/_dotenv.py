@@ -55,9 +55,12 @@ def load_dotenv(dotenv_str: str, environ: dict[str, str] | None = None) -> dict[
                 raw_val = match.group(3) or ""
                 val = raw_val.strip()
                 # Remove surrounding quotes if quoted
-                if (val.startswith('"') and val.endswith('"')) or (val.startswith("'") and val.endswith("'")):
-                    escapes = _DOUBLE_QUOTE_ESCAPES if raw_val.startswith('"') else _ESCAPES
-                    val = _unescape(val[1:-1], escapes)
+                if val.startswith('"') and val.endswith('"'):
+                    # Double-quoted values expand escape sequences (\n, \t, \", \\, \$).
+                    val = _unescape(val[1:-1], _DOUBLE_QUOTE_ESCAPES)
+                elif val.startswith("'") and val.endswith("'"):
+                    # Single-quoted values are kept verbatim: no escape expansion.
+                    val = val[1:-1]
             elif environ is not None:
                 # Get it from the current environment
                 val = environ.get(key)
