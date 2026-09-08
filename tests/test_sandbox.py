@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import stat
 import threading
 import time
@@ -112,6 +113,8 @@ class _FakeServer(BaseHTTPRequestHandler):
     requests: list = []
     writes: list = []  # (path, body) of every /files/write received
     redirect_to = ""  # where the /v1/redirect route points (set per-subclass)
+    # Extra /health fields, so a test can stand in for a server of another vintage.
+    health: dict = {"protocol": sandbox_mod.SANDBOX_SERVER_PROTOCOL}
 
     def log_message(self, *args) -> None:
         pass
@@ -224,8 +227,11 @@ class _FakeServer(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:
         self._record()
-        self._expect_token()
         cls = type(self)
+        if self.path == "/health":  # unauthenticated on the real server, so no token check
+            self._json({"status": "ok", "version": "0.6.0", **cls.health})
+            return
+        self._expect_token()
         if self.path == "/v1/redirect":  # a redirect the client must not follow
             self.send_response(302)
             self.send_header("Location", cls.redirect_to)
@@ -270,6 +276,7 @@ def fake_server():
     _FakeServer.requests = []
     _FakeServer.writes = []
     _FakeServer.redirect_to = ""
+    _FakeServer.health = {"protocol": sandbox_mod.SANDBOX_SERVER_PROTOCOL}
     server = ThreadingHTTPServer(("127.0.0.1", 0), _FakeServer)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -504,6 +511,92 @@ class TestBackgroundProcesses:
         process = sandbox_mod.SandboxProcess(id=None, pid=9001, cmd="sleep 60", _sandbox=sandbox)
         with pytest.raises(SandboxError, match="predates opaque process ids"):
             process.kill()
+
+
+class TestServerBinaryPinning:
+    """The server binary is fetched from a public bucket and run as root, as PID 1, holding
+    the sandbox token. These assert the client says which bytes that may be, and that the job
+    refuses anything else rather than executing it and finding out."""
+
+    def _job_env(self) -> dict:
+        api = MagicMock()
+        api.endpoint = "https://huggingface.co"
+        _, job_env, _, _ = sandbox_mod._bootstrap_job_spec(
+            api,
+            "hf_test",
+            env=None,
+            secrets=None,
+            volumes=None,
+            idle_timeout=None,
+            forward_hf_token=False,
+            sandbox_token="secret",
+        )
+        return job_env
+
+    def test_the_pinned_digest_is_a_sha256(self) -> None:
+        assert re.fullmatch(r"[0-9a-f]{64}", sandbox_mod.SANDBOX_SERVER_SHA256)
+
+    def test_the_download_names_the_digest_not_the_mutable_alias(self) -> None:
+        # `/resolve/sbx-server` is overwritten by every publish, so a fetch of it cannot be
+        # verified in advance -- a fetch that names its content can.
+        job_env = self._job_env()
+        assert job_env["SBX_SERVER_URL"].endswith(f"/resolve/sbx-server-{sandbox_mod.SANDBOX_SERVER_SHA256}")
+        assert job_env["SBX_SERVER_SHA256"] == sandbox_mod.SANDBOX_SERVER_SHA256
+
+    def test_the_digest_is_checked_before_the_binary_becomes_executable(self) -> None:
+        script = sandbox_mod._BOOTSTRAP_DOWNLOAD
+        assert script.index("$SBX_SERVER_SHA256") < script.index("chmod +x")
+        assert script.index("exit 1") < script.index("chmod +x")
+        # `sha256sum` is not guaranteed in an arbitrary image, so openssl is the second try.
+        assert "sha256sum" in script
+        assert "openssl dgst -sha256" in script
+        # The bucket-mount fallback is content-addressed too; it used to read the alias.
+        assert 'cp "$SBX_SERVER_MOUNT/sbx-server-$SBX_SERVER_SHA256"' in script
+
+    def test_an_image_with_no_hash_tool_has_to_opt_in_by_name(self) -> None:
+        # Failing closed is the whole point of the pin, so the only way past it is an
+        # explicit env var -- and it can only skip a *missing tool*, never a failed compare.
+        script = sandbox_mod._BOOTSTRAP_DOWNLOAD
+        assert script.count("SBX_ALLOW_UNVERIFIED_SERVER") > 0
+        assert script.index("SBX_ALLOW_UNVERIFIED_SERVER") > script.index("openssl dgst -sha256")
+
+
+class TestProtocolNegotiation:
+    """A pool host keeps the binary it downloaded at boot for up to 24h, so pinning a digest
+    does not stop this client from meeting a server it did not pin. `/health` reports the wire
+    contract; the client refuses the ones it cannot drive, instead of failing later on an
+    unrelated route."""
+
+    def test_a_matching_protocol_is_accepted(self, fake_server: str) -> None:
+        _make_server(fake_server).wait_ready(5.0)
+
+    def test_a_newer_server_may_serve_this_client(self, fake_server: str) -> None:
+        # Permissive in this direction only: a server that still reports a protocol this
+        # client knows is declaring that it kept serving it.
+        _FakeServer.health = {"protocol": sandbox_mod.SANDBOX_SERVER_PROTOCOL + 1}
+        _make_server(fake_server).wait_ready(5.0)
+
+    def test_an_older_server_is_refused_and_the_error_names_the_fix(self, fake_server: str) -> None:
+        _FakeServer.health = {"protocol": sandbox_mod.SANDBOX_SERVER_PROTOCOL - 1}
+        with pytest.raises(SandboxError) as exc_info:
+            _make_server(fake_server).wait_ready(5.0)
+        message = str(exc_info.value)
+        assert f"protocol {sandbox_mod.SANDBOX_SERVER_PROTOCOL - 1}" in message
+        assert "recycle" in message  # the actionable part: the host has to be replaced
+
+    def test_a_server_that_declares_nothing_is_refused(self, fake_server: str) -> None:
+        # Every server published before the field existed. Silence is not compatibility.
+        _FakeServer.health = {}
+        with pytest.raises(SandboxError, match="declares no protocol"):
+            _make_server(fake_server).wait_ready(5.0)
+
+    def test_a_non_integer_protocol_is_refused(self, fake_server: str) -> None:
+        # Anything that is not a number this client can compare is a server it cannot
+        # reason about, so it is refused rather than assumed compatible.
+        for value in ("2", 2.5, True, None, {"major": 2}):
+            _FakeServer.health = {"protocol": value}
+            with pytest.raises(SandboxError, match="protocol"):
+                _make_server(fake_server).wait_ready(5.0)
 
 
 class TestSharedSandbox:

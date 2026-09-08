@@ -65,6 +65,20 @@ NONCE_LABEL = "hf-sandbox-nonce"
 
 DEFAULT_IMAGE = "python:3.12"
 
+# The exact sbx-server build every sandbox job downloads and runs as root, pinned by digest.
+# The bucket object is fetched by its sha256 name and the download is verified before it is
+# made executable (see `_BOOTSTRAP_DOWNLOAD`), so the bytes that run are the bytes that were
+# reviewed for this release -- not whatever the mutable `sbx-server` alias points at today.
+# Both constants move together on every server release; the digest is printed by the server
+# repo's publish workflow.
+SANDBOX_SERVER_VERSION = "0.6.0"
+SANDBOX_SERVER_SHA256 = "501290eacb36a3bd8746b2f2ee20e85190ec3f697b4756c3e51a574384e61db4"
+
+# The sbx-server wire contract this client drives, checked against `/health`'s `protocol` on
+# startup. A pool host keeps the binary it downloaded at boot for up to 24h, so pinning a
+# digest does not stop this client from meeting a server it did not pin -- the check does.
+SANDBOX_SERVER_PROTOCOL = 2
+
 DEFAULT_IDLE_TIMEOUT = 10 * 60  # 10 minutes
 SANDBOX_MAX_LIFETIME = "24h"
 
@@ -101,14 +115,42 @@ _SERVER_MOUNT_PATH = "/.hf-sbx-server"
 
 # Job startup script (needs only /bin/sh). The server bucket is public, so the download is
 # unauthenticated: no HF credential is ever placed in the job environment (see `_derive_sandbox_token`).
+#
+# It fetches a public object and runs it as root, as PID 1, holding the sandbox token -- so it
+# checks the bytes against `SANDBOX_SERVER_SHA256` and refuses to run them if they don't match.
+# The check happens *before* `chmod +x`: an unverified file that is already executable is one
+# slip away from being executed. Neither `sha256sum` nor `openssl` is guaranteed to exist in an
+# arbitrary image, so both are tried; with neither, the default is to refuse rather than to run
+# unverified code, and `SBX_ALLOW_UNVERIFIED_SERVER=1` (passed via `env=`) is the way out for an
+# image that has to. It never bypasses a *failed* check, only a missing tool.
 _BOOTSTRAP_DOWNLOAD = """\
 set -e
 d=/tmp/.sbx-server
 if command -v wget >/dev/null 2>&1; then wget -q -O "$d" "$SBX_SERVER_URL"
 elif command -v curl >/dev/null 2>&1; then curl -fsSL -o "$d" "$SBX_SERVER_URL"
-else cp "$SBX_SERVER_MOUNT/sbx-server" "$d"; fi
+else cp "$SBX_SERVER_MOUNT/sbx-server-$SBX_SERVER_SHA256" "$d"; fi
+if command -v sha256sum >/dev/null 2>&1; then
+  actual=$(sha256sum "$d" | cut -d' ' -f1)
+elif command -v openssl >/dev/null 2>&1; then
+  actual=$(openssl dgst -sha256 -r "$d" | cut -d' ' -f1)
+elif [ "${SBX_ALLOW_UNVERIFIED_SERVER:-}" = 1 ]; then
+  echo "sbx: SBX_ALLOW_UNVERIFIED_SERVER=1: running the sandbox server unverified" >&2
+  actual=$SBX_SERVER_SHA256  # opted out, so there is nothing left to compare against
+else
+  echo "sbx: cannot verify the sandbox server digest: this image has neither sha256sum nor" >&2
+  echo "sbx: openssl, so refusing to run it. To accept an unverified server, pass" >&2
+  echo "sbx: env={'SBX_ALLOW_UNVERIFIED_SERVER': '1'} when creating the sandbox." >&2
+  exit 1
+fi
+if [ "$actual" != "$SBX_SERVER_SHA256" ]; then
+  echo "sbx: sandbox server digest mismatch: got $actual," >&2
+  echo "sbx: expected $SBX_SERVER_SHA256." >&2
+  echo "sbx: refusing to run it. Upgrade huggingface_hub if this client is pinned to a" >&2
+  echo "sbx: digest that is no longer published." >&2
+  exit 1
+fi
 chmod +x "$d"
-unset SBX_SERVER_URL SBX_SERVER_MOUNT
+unset SBX_SERVER_URL SBX_SERVER_MOUNT SBX_SERVER_SHA256 SBX_ALLOW_UNVERIFIED_SERVER
 exec "$d"
 """
 
@@ -497,6 +539,32 @@ def _raise_for_status(response: httpx.Response) -> None:
     raise SandboxError(f"Sandbox API error ({response.status_code}): {message}", status_code=response.status_code)
 
 
+def _check_server_protocol(response: httpx.Response, job_id: str) -> None:
+    """Refuse a server whose wire contract this client cannot drive.
+
+    Permissive in one direction only. A *newer* server is accepted: it declares its own
+    backwards compatibility by keeping the protocol integer it still supports. An *older* one
+    is refused, because the mismatches are things like the per-sandbox capability token, which
+    surfaces as a 403 on an unrelated route several calls later instead of here.
+
+    `version` is no use for this: it moves for a doc fix as readily as for a protocol break.
+    """
+    try:
+        protocol = response.json().get("protocol")
+    except Exception:
+        protocol = None
+    if isinstance(protocol, int) and not isinstance(protocol, bool) and protocol >= SANDBOX_SERVER_PROTOCOL:
+        return
+    # No field at all means a server published before protocols were declared, i.e. 1.
+    reported = protocol if protocol is not None else "1 (declares no protocol)"
+    raise SandboxError(
+        f"Sandbox job {job_id} runs sbx-server protocol {reported}, but this version of "
+        f"huggingface_hub needs protocol {SANDBOX_SERVER_PROTOCOL} or newer. A pool host keeps the "
+        "server binary it downloaded at boot for up to 24h, so recycle this pool's hosts (kill them, "
+        "or let them idle-time-out) to pick up the current server."
+    )
+
+
 class _SandboxAuth(httpx.Auth):
     """Attach the *current* HF bearer to every request.
 
@@ -665,6 +733,7 @@ class _SandboxServer:
             try:
                 response = self._client.get(self.base_url + "/health", timeout=httpx.Timeout(5.0))
                 if response.status_code == 200:
+                    _check_server_protocol(response, self.job_id)
                     return
             except httpx.RequestError:
                 pass
@@ -2352,7 +2421,8 @@ def _bootstrap_job_spec(
 
     Shared by dedicated sandboxes and shared hosts: both fetch and exec the same unified
     `sbx-server` binary at startup (via `/bin/sh`), downloading it with wget/curl, or
-    reading it off the always-mounted server bucket when the image ships neither.
+    reading it off the always-mounted server bucket when the image ships neither. Either
+    way the download is pinned to `SANDBOX_SERVER_SHA256` and verified before it runs.
     """
     # Reserved SBX_* keys go last so user-provided env/secrets can't override them
     # (e.g. clobbering SBX_PORT would break the proxy, SBX_TOKEN would break auth).
@@ -2364,7 +2434,12 @@ def _bootstrap_job_spec(
     if forward_hf_token:
         job_secrets["HF_TOKEN"] = hf_token
 
-    job_env["SBX_SERVER_URL"] = f"{api.endpoint}/buckets/{constants.SANDBOX_SERVER_BUCKET}/resolve/sbx-server"
+    # The digest-named object, not the mutable `sbx-server` alias: a fetch that names the
+    # content it wants cannot be answered with different content, and the bootstrap re-checks
+    # the digest anyway so a rewritten object is caught rather than executed.
+    server_object = f"sbx-server-{SANDBOX_SERVER_SHA256}"
+    job_env["SBX_SERVER_URL"] = f"{api.endpoint}/buckets/{constants.SANDBOX_SERVER_BUCKET}/resolve/{server_object}"
+    job_env["SBX_SERVER_SHA256"] = SANDBOX_SERVER_SHA256
     # Always mount the server bucket as a transparent fallback for images without wget/curl.
     # It's only read (paying the ~2-3s FUSE cost) when the bootstrap script can't download.
     job_env["SBX_SERVER_MOUNT"] = _SERVER_MOUNT_PATH
