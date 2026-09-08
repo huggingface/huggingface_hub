@@ -236,6 +236,9 @@ The `hf sandbox` command mirrors the Python API. A dedicated sandbox:
 >>> hf sandbox create
 ✓ Sandbox ready id=687f911eaea852de79c4a50a image=python:3.12 elapsed=6.0s
 
+# Attach labels to the underlying Job
+>>> hf sandbox create --label controller-run=run-42 --label team=data-infra
+
 >>> hf sandbox exec 687f911eaea852de79c4a50a -- python -c "print('hi')"
 hi
 

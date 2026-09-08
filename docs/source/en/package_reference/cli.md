@@ -3936,6 +3936,7 @@ $ hf sandbox create [OPTIONS] [IMAGE]
 * `--idle-timeout TEXT`: Auto-terminate the sandbox after this much inactivity (e.g. '10m'). Defaults to 10m.
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
 * `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
+* `-l, --label TEXT`: Set labels. E.g. --label KEY=VALUE or --label LABEL
 * `--env-file TEXT`: Read in a file of environment variables.
 * `--secrets-file TEXT`: Read in a file of secret environment variables.
 * `-v, --volume TEXT`: Mount one or more volumes. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. TYPE is one of: models, datasets, spaces, buckets. TYPE defaults to models if omitted. models, datasets and spaces are always mounted read-only. buckets are read+write by default. E.g. -v hf://org/m:/data or -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro
@@ -3948,6 +3949,7 @@ Examples
   $ hf sandbox create
   $ hf sandbox create ubuntu:24.04
   $ hf sandbox create --flavor a10g-small
+  $ hf sandbox create --label controller-run=run-42
   $ hf sandbox create --pool pool-ab12cd34ef56 --env LOG_LEVEL=debug
 
 Learn more

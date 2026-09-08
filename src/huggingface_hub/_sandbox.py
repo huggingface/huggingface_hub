@@ -59,6 +59,8 @@ POOL_LABEL = "hf-sandbox-pool"
 # `Sandbox.connect(id)` can recompute the token from any machine with no local state.
 NONCE_LABEL = "hf-sandbox-nonce"
 
+RESERVED_SANDBOX_LABELS = frozenset({SANDBOX_LABEL, MODE_LABEL, POOL_LABEL, NONCE_LABEL})
+
 DEFAULT_IMAGE = "python:3.12"
 
 DEFAULT_IDLE_TIMEOUT = 10 * 60  # 10 minutes
@@ -527,6 +529,7 @@ class Sandbox:
         volumes: List[Volume] | None = None,
         namespace: str | None = None,
         forward_hf_token: bool = False,
+        labels: dict[str, str] | None = None,
         start_timeout: float = 120.0,
         token: str | None = None,
     ) -> "Sandbox":
@@ -557,6 +560,8 @@ class Sandbox:
                 User or org namespace to run under (defaults to current user).
             forward_hf_token (`bool`, *optional*, defaults to `False`):
                 If True, your HF token is injected as `HF_TOKEN` (opt-in).
+            labels (`dict[str, str]`, *optional*):
+                Labels to attach to the underlying HF Job.
             start_timeout (`float`, *optional*, defaults to `120.0`):
                 Max seconds to wait for the sandbox to become ready.
             token (`str`, *optional*):
@@ -566,6 +571,15 @@ class Sandbox:
         `wget`/`curl` if available, otherwise read off an always-mounted server bucket (which
         adds ~2-3s to cold start, so shipping `wget`/`curl` keeps it fast).
         """
+        if labels is not None:
+            if not isinstance(labels, dict):
+                raise ValueError(f"`labels` must be a dict[str, str], got {type(labels).__name__}")
+            for key, value in labels.items():
+                if not isinstance(key, str) or not isinstance(value, str):
+                    raise ValueError("`labels` keys and values must be strings")
+                if key in RESERVED_SANDBOX_LABELS:
+                    raise ValueError(f"Label '{key}' is reserved by huggingface_hub Sandbox and cannot be overridden.")
+
         api = HfApi(token=token)
         hf_token = _effective_token(api)
         nonce = token_hex(16)
@@ -589,7 +603,7 @@ class Sandbox:
             secrets=job_secrets,
             flavor=flavor,
             timeout=SANDBOX_MAX_LIFETIME,
-            labels={SANDBOX_LABEL: "1", MODE_LABEL: MODE_DEDICATED, NONCE_LABEL: nonce},
+            labels={**(labels or {}), SANDBOX_LABEL: "1", MODE_LABEL: MODE_DEDICATED, NONCE_LABEL: nonce},
             volumes=job_volumes or None,
             expose=[SANDBOX_SERVER_PORT],
             namespace=namespace,
