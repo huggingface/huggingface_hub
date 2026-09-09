@@ -150,11 +150,13 @@ class _UvJobConfig:
     python: str | None = None
     timeout: str | None = None
     namespace: str | None = None
+    network_group: str | None = None
     env: dict[str, str | None] = field(default_factory=dict)
     secrets: dict[str, str | None] = field(default_factory=dict)
     labels: dict[str, str] = field(default_factory=dict)
     volume_specs: list[str] = field(default_factory=list)
     volumes: list[Volume] | None = None
+    network_aliases: list[str] = field(default_factory=list)
 
     from_script: set[str] = field(default_factory=set)
     """Keys whose value comes from the script's `[tool.hf-jobs]` table, for display purposes."""
@@ -179,13 +181,16 @@ def _resolve_uv_job_config(
     label: list[str] | None,
     volume: list[str] | None,
     namespace: str | None,
+    network_group: str | None,
+    network_aliases: list[str] | None,
     dry_run: bool,
 ) -> Generator[_UvJobConfig, None, None]:
     """Merge the CLI flags with the `[tool.hf-jobs]` table the script carries, if any.
 
     An explicit CLI flag always wins over the script; `env`, `labels`, `secrets` and `volumes` are merged
     entry by entry (by key, by name and by mount path respectively), so a script value and a CLI value
-    only ever conflict when they target the same entry.
+    only ever conflict when they target the same entry. `network_aliases` is the exception: the aliases
+    a Job claims form a set, so `--network-alias` replaces the script's list rather than adding to it.
 
     A URL script is downloaded to a temporary file that lives until the `with` block exits: submit the
     Job inside the block.
@@ -208,6 +213,11 @@ def _resolve_uv_job_config(
         python = pick("python", python)
         timeout = pick("timeout", timeout)
         namespace = pick("namespace", namespace)
+        network_group = pick("network_group", network_group)
+
+        if not network_aliases and header.network_aliases:
+            from_script.add("network_aliases")
+            network_aliases = header.network_aliases
 
         env_map = parse_env_map(env, env_file)
         script_env = {key: value for key, value in header.env.items() if key not in env_map}
@@ -237,12 +247,14 @@ def _resolve_uv_job_config(
             python=python,
             timeout=timeout,
             namespace=namespace,
+            network_group=network_group,
             env=env_map,
             secrets=secrets_map,
             labels=labels_map,
             volume_specs=volume_specs,
             # A dry run must not have side effects: local directories are only synced to a bucket for real runs.
             volumes=None if dry_run else _parse_and_sync_job_volumes(volume_specs, api=api, namespace=namespace),
+            network_aliases=network_aliases or [],
             from_script=from_script,
         )
         if "name" not in config.labels:
@@ -258,6 +270,8 @@ def _resolve_uv_job_config(
                     env=config.env,
                     secrets=config.secrets,
                     volume_specs=config.volume_specs,
+                    network_group=config.network_group,
+                    network_aliases=config.network_aliases,
                     extra=[config.image or DEFAULT_UV_IMAGE, config.python or "", *(dependencies or [])],
                 ),
             )
@@ -322,6 +336,8 @@ def _name_hash_parts(
     env: dict[str, str | None],
     secrets: dict[str, str | None],
     volume_specs: list[str],
+    network_group: str | None = None,
+    network_aliases: list[str] | None = None,
     extra: list[str] | None = None,
 ) -> list[str]:
     """The resolved launch values hashed into a Job's default name, on top of its image/script.
@@ -334,10 +350,12 @@ def _name_hash_parts(
         flavor or JobHardware.CPU_BASIC.value,
         timeout or "",
         namespace or "",
+        network_group or "",
         *(extra or []),
         *(f"{key}={value}" for key, value in sorted(env.items())),
         *sorted(secrets),
         *volume_specs,
+        *(network_aliases or []),
     ]
 
 
@@ -488,6 +506,22 @@ SshEnabledOpt = Annotated[
     ),
 ]
 
+NetworkGroupOpt = Annotated[
+    str | None,
+    Option(
+        "--network-group",
+        help="Join a network group. Jobs of the same owner sharing a group are placed together and reach each other on every port. Inside each member, `$HF_NETWORK_GROUP_HOSTNAME` resolves to every member. Lowercase alphanumerics and dashes, 46 characters max.",
+    ),
+]
+
+NetworkAliasOpt = Annotated[
+    list[str] | None,
+    Option(
+        "--network-alias",
+        help="Claim an alias in the network group. Members reach the jobs claiming it at `${HF_NETWORK_GROUP_PREFIX}<alias>`. Repeat the flag for several aliases. Requires `--network-group`.",
+    ),
+]
+
 WithOpt = Annotated[
     list[str] | None,
     Option(
@@ -626,6 +660,8 @@ def jobs_run(
     dry_run: DryRunOpt = False,
     expose: ExposeOpt = None,
     ssh: SshEnabledOpt = False,
+    network_group: NetworkGroupOpt = None,
+    network_alias: NetworkAliasOpt = None,
     resource_group_id: ResourceGroupIdOpt = None,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
@@ -646,6 +682,8 @@ def jobs_run(
                 env=env_map,
                 secrets=secrets_map,
                 volume_specs=volume or [],
+                network_group=network_group,
+                network_aliases=network_alias,
             ),
         ),
     )
@@ -664,6 +702,8 @@ def jobs_run(
             "labels": labels_map,
             "expose": " ".join(str(port) for port in expose or []),
             "ssh": ssh,
+            "network_group": network_group,
+            "network_aliases": " ".join(network_alias or []),
             "resource_group_id": resource_group_id,
             "namespace": namespace,
         },
@@ -682,6 +722,8 @@ def jobs_run(
         timeout=timeout,
         expose=expose,
         ssh=ssh,
+        network_group=network_group,
+        network_aliases=network_alias,
         resource_group_id=resource_group_id,
         namespace=namespace,
     )
@@ -697,6 +739,11 @@ def jobs_run(
         out.hint(f"Exposed ports are reachable at (requires an HF token with read access to the job):\n{urls}")
     if isinstance(job.status.ssh_url, str):
         out.hint(f"Use `hf jobs ssh {job.owner.name}/{job.id}` to open an SSH session into the job.")
+    if network_group:
+        out.hint(
+            f"Joined network group '{network_group}'. Jobs started with `--network-group {network_group}` reach each other "
+            "at `$HF_NETWORK_GROUP_HOSTNAME` (every member) or `${HF_NETWORK_GROUP_PREFIX}<alias>` (members claiming an alias)."
+        )
     if detach:
         job_ref = f"{job.owner.name}/{job.id}"
         out.hint(f"Use `hf jobs logs -f {job_ref}` to stream logs, or `hf jobs inspect {job_ref}` to check status.")
@@ -1249,6 +1296,8 @@ def jobs_uv_run(
     dry_run: DryRunOpt = False,
     expose: ExposeOpt = None,
     ssh: SshEnabledOpt = False,
+    network_group: NetworkGroupOpt = None,
+    network_alias: NetworkAliasOpt = None,
     resource_group_id: ResourceGroupIdOpt = None,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
@@ -1274,6 +1323,8 @@ def jobs_uv_run(
         label=label,
         volume=volume,
         namespace=namespace,
+        network_group=network_group,
+        network_aliases=network_alias,
         dry_run=dry_run,
     ) as config:
         _print_job_summary(
@@ -1291,6 +1342,8 @@ def jobs_uv_run(
                 "labels": config.labels,
                 "expose": " ".join(str(port) for port in expose or []),
                 "ssh": ssh,
+                "network_group": config.network_group,
+                "network_aliases": " ".join(config.network_aliases),
                 "resource_group_id": resource_group_id,
                 "namespace": config.namespace,
             },
@@ -1313,6 +1366,8 @@ def jobs_uv_run(
             timeout=config.timeout,
             expose=expose,
             ssh=ssh,
+            network_group=config.network_group,
+            network_aliases=config.network_aliases or None,
             resource_group_id=resource_group_id,
             namespace=config.namespace,
         )
@@ -1328,6 +1383,11 @@ def jobs_uv_run(
         out.hint(f"Exposed ports are reachable at (requires an HF token with read access to the job):\n{urls}")
     if isinstance(job.status.ssh_url, str):
         out.hint(f"Use `hf jobs ssh {job.owner.name}/{job.id}` to open an SSH session into the job.")
+    if group := config.network_group:
+        out.hint(
+            f"Joined network group '{group}'. Jobs started with `--network-group {group}` reach each other "
+            "at `$HF_NETWORK_GROUP_HOSTNAME` (every member) or `${HF_NETWORK_GROUP_PREFIX}<alias>` (members claiming an alias)."
+        )
     if detach:
         job_ref = f"{job.owner.name}/{job.id}"
         out.hint(f"Use `hf jobs logs -f {job_ref}` to stream logs, or `hf jobs inspect {job_ref}` to check status.")
@@ -1776,8 +1836,16 @@ def scheduled_uv_run(
         label=label,
         volume=volume,
         namespace=namespace,
+        # Scheduled Jobs have no network group: a script asking for one is an error, not a silent drop.
+        network_group=None,
+        network_aliases=None,
         dry_run=dry_run,
     ) as config:
+        if config.network_group or config.network_aliases:
+            raise CLIError(
+                f"Scheduled Jobs do not support network groups: remove 'network_group'/'network_aliases' from the"
+                f" script's [{TABLE_NAME}] table to schedule it."
+            )
         _print_job_summary(
             {
                 "schedule": schedule,

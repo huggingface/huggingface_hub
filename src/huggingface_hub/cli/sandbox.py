@@ -51,7 +51,7 @@ from ._cli_utils import (
 )
 from ._framework import Argument, Option
 from ._output import out
-from .jobs import FlavorOpt, NamespaceOpt
+from .jobs import FlavorOpt, LabelsOpt, NamespaceOpt, _parse_labels_map
 
 
 sandbox_cli = typer_factory(help="Run and manage experimental sandboxes on Hugging Face Jobs.")
@@ -81,6 +81,7 @@ def _connect(sandbox_id: str, *, namespace: str | None, token: str | None) -> It
         "hf sandbox create",
         "hf sandbox create ubuntu:24.04",
         "hf sandbox create --flavor a10g-small",
+        "hf sandbox create --label controller-run=run-42",
         "hf sandbox create --pool pool-ab12cd34ef56 --env LOG_LEVEL=debug",
     ],
 )
@@ -97,6 +98,7 @@ def sandbox_create(
     ] = None,
     env: EnvOpt = None,
     secrets: SecretsOpt = None,
+    label: LabelsOpt = None,
     env_file: EnvFileOpt = None,
     secrets_file: SecretsFileOpt = None,
     volume: VolumesOpt = None,
@@ -121,6 +123,8 @@ def sandbox_create(
             raise CLIError("--pool fixes the image/flavor (and volumes aren't supported); drop those options.")
         if secrets or secrets_file:
             raise CLIError("--pool can't encrypt secrets; pass them with --env/--env-file instead.")
+        if label:
+            raise CLIError("--label is only supported for dedicated sandboxes.")
         sbx = SandboxPool.connect(pool, namespace=namespace, token=token).create(
             env=parse_env_map(env, env_file),
             idle_timeout=idle,
@@ -140,6 +144,7 @@ def sandbox_create(
         volumes=parse_volumes(volume),
         namespace=namespace,
         forward_hf_token=forward_hf_token,
+        labels=_parse_labels_map(label),
         token=token,
     )
     # Release the HTTP client (the sandbox keeps running)

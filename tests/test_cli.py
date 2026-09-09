@@ -3355,6 +3355,8 @@ class TestJobsCommand:
             timeout=None,
             expose=None,
             ssh=False,
+            network_group=None,
+            network_aliases=None,
             resource_group_id=None,
             namespace=None,
         )
@@ -3383,6 +3385,8 @@ class TestJobsCommand:
             timeout=None,
             expose=None,
             ssh=False,
+            network_group=None,
+            network_aliases=None,
             resource_group_id=None,
             namespace=None,
         )
@@ -3442,6 +3446,8 @@ class TestJobsCommand:
             timeout=None,
             expose=None,
             ssh=False,
+            network_group=None,
+            network_aliases=None,
             resource_group_id=None,
             namespace=None,
         )
@@ -3473,6 +3479,8 @@ class TestJobsCommand:
             timeout=None,
             expose=None,
             ssh=False,
+            network_group=None,
+            network_aliases=None,
             resource_group_id=None,
             namespace=None,
         )
@@ -3535,6 +3543,8 @@ class TestJobsCommand:
             timeout=None,
             expose=None,
             ssh=False,
+            network_group=None,
+            network_aliases=None,
             resource_group_id=None,
             namespace=None,
         )
@@ -4032,16 +4042,18 @@ class TestUvScriptHeader:
 # exclude-newer = "2026-01-01T00:00:00Z"
 #
 # [tool.hf-jobs]
-# image     = "vllm/vllm-openai:latest"
-# flavor    = "l4x1"
-# python    = "/usr/bin/python3"
-# timeout   = "2h"
-# name      = "ocr"
-# namespace = "my-org"
-# env       = { PYTHONPATH = "/usr/local/lib/python3.12/dist-packages" }
-# secrets   = ["MY_SECRET"]
-# labels    = { template = "uv-ocr:1" }
-# volumes   = ["hf://datasets/org/pdfs:/input"]
+# image           = "vllm/vllm-openai:latest"
+# flavor          = "l4x1"
+# python          = "/usr/bin/python3"
+# timeout         = "2h"
+# name            = "ocr"
+# namespace       = "my-org"
+# network_group   = "ocr-net"
+# env             = { PYTHONPATH = "/usr/local/lib/python3.12/dist-packages" }
+# secrets         = ["MY_SECRET"]
+# labels          = { template = "uv-ocr:1" }
+# volumes         = ["hf://datasets/org/pdfs:/input"]
+# network_aliases = ["worker"]
 # ///
 print("hello")
 """
@@ -4056,10 +4068,12 @@ print("hello")
             timeout="2h",
             name="ocr",
             namespace="my-org",
+            network_group="ocr-net",
             env={"PYTHONPATH": "/usr/local/lib/python3.12/dist-packages"},
             secrets=["MY_SECRET"],
             labels={"template": "uv-ocr:1"},
             volumes=["hf://datasets/org/pdfs:/input"],
+            network_aliases=["worker"],
         )
 
     @pytest.mark.parametrize(
@@ -4147,6 +4161,29 @@ print("hello")
             ("org/models", "/models"),
             ("org/other", "/input"),
         ]
+
+    def test_network_group_from_script(self, runner: CliRunner, tmp_path: Path) -> None:
+        """A script can join a network group, but a scheduled Job cannot: it must not lose it silently."""
+        script = self._write_script(tmp_path, "# network_group = 'ocr-net'\n# network_aliases = ['worker', 'gpu']")
+        job = Mock(id="my-job-id", url="https://huggingface.co/jobs/user/my-job-id")
+        with (
+            patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
+            patch("huggingface_hub.cli._cli_utils._get_extended_environ", return_value={}),
+        ):
+            api = api_cls.return_value
+            api.run_uv_job.return_value = job
+            result = runner.invoke(app, ["jobs", "uv", "run", "--detach", script])
+        assert result.exit_code == 0
+        assert "ocr-net (from script)" in result.output
+        kwargs = api.run_uv_job.call_args.kwargs
+        assert kwargs["network_group"] == "ocr-net"
+        assert kwargs["network_aliases"] == ["worker", "gpu"]
+
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            result = runner.invoke(app, ["jobs", "scheduled", "uv", "run", "@daily", script])
+        assert result.exit_code == 1
+        assert "do not support network groups" in str(result.exception)
+        api_cls.return_value.create_scheduled_uv_job.assert_not_called()
 
     def test_missing_secret_is_an_error(self, runner: CliRunner, tmp_path: Path) -> None:
         """A secret requested by the script but not set locally must not be submitted as an empty value."""
@@ -4636,6 +4673,42 @@ class TestVolume:
             image="python:3.12", command=["echo"], env=None, secrets=None, flavor=None, timeout=None, expose=expose
         )
         assert spec.get("expose") == expected
+
+    @pytest.mark.parametrize(
+        "network_group, network_aliases, expected",
+        [
+            (None, None, None),
+            ("train", None, {"group": "train"}),
+            ("train", [], {"group": "train"}),
+            ("train", ["master", "worker"], {"group": "train", "aliases": ["master", "worker"]}),
+        ],
+    )
+    def test_serialize_network(
+        self, network_group: str | None, network_aliases: list[str] | None, expected: dict | None
+    ) -> None:
+        spec = _create_job_spec(
+            image="python:3.12",
+            command=["echo"],
+            env=None,
+            secrets=None,
+            flavor=None,
+            timeout=None,
+            network_group=network_group,
+            network_aliases=network_aliases,
+        )
+        assert spec.get("network") == expected
+
+    def test_network_aliases_require_group(self) -> None:
+        with pytest.raises(ValueError, match="network_aliases"):
+            _create_job_spec(
+                image="python:3.12",
+                command=["echo"],
+                env=None,
+                secrets=None,
+                flavor=None,
+                timeout=None,
+                network_aliases=["master"],
+            )
 
 
 class TestWebhooksCommand:
@@ -5195,6 +5268,8 @@ class TestUpdateSkillOptOut:
         with (
             patch("huggingface_hub.cli.system._fetch_latest_pypi_version", return_value="99.0.0"),
             patch("huggingface_hub.cli.system.subprocess.call", return_value=0),
+            # `hf update` refuses to self-update a pip install on Windows: pretend we're not on Windows.
+            patch("huggingface_hub.cli.system.sys.platform", "linux"),
             patch("huggingface_hub.cli.system.run_update", return_value=0) as mock_run_update,
         ):
             yield mock_run_update
@@ -5324,6 +5399,7 @@ class TestExtensionsGitHubAccess:
             ("Contribute to huggingface/hf-demo development by creating an account on GitHub.", None),
         ],
     )
+    @pytest.mark.skipif(os.name == "nt", reason="Shell-script extensions are not supported on Windows.")
     def test_install_uses_head_refs_and_a_single_api_call(
         self, github: _FakeGitHubSession, about: str, expected_description: str | None
     ) -> None:
@@ -5345,6 +5421,7 @@ class TestExtensionsGitHubAccess:
         raw_urls = [url for url in github.urls if url.startswith(raw_prefix)]
         assert raw_urls and all(url.removeprefix(raw_prefix).startswith("HEAD/") for url in raw_urls)
 
+    @pytest.mark.skipif(os.name == "nt", reason="Shell-script extensions are not supported on Windows.")
     def test_install_completes_when_the_api_quota_is_exhausted(self, github: _FakeGitHubSession) -> None:
         # The extension itself comes from the CDN, so only the optional version marker is lost.
         github.responses = {

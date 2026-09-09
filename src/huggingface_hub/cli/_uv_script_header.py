@@ -48,10 +48,12 @@ class UvScriptHeader:
     timeout: str | None = None
     name: str | None = None
     namespace: str | None = None
+    network_group: str | None = None
     env: dict[str, str] = field(default_factory=dict)
     secrets: list[str] = field(default_factory=list)
     labels: dict[str, str] = field(default_factory=dict)
     volumes: list[str] = field(default_factory=list)
+    network_aliases: list[str] = field(default_factory=list)
 
 
 VALID_KEYS = tuple(f.name for f in fields(UvScriptHeader))
@@ -120,10 +122,12 @@ def parse_uv_script_header(text: str) -> UvScriptHeader | None:
         timeout=_as_timeout(table),
         name=_as_str(table, "name"),
         namespace=_as_str(table, "namespace"),
+        network_group=_as_str(table, "network_group"),
         env=_as_str_table(table, "env"),
         secrets=_as_secret_names(table),
         labels=_as_str_table(table, "labels"),
         volumes=_as_str_list(table, "volumes"),
+        network_aliases=_as_str_list(table, "network_aliases"),
     )
 
 
