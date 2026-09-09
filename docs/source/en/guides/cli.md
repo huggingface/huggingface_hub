@@ -2127,6 +2127,20 @@ Pass `--ssh` to `hf jobs run` (or `hf jobs uv run`) to make the Job's container 
 
 Only users with write access to the Job's namespace are allowed in (the Job creator, or members of the owner organization), authenticated by an SSH public key registered at https://huggingface.co/settings/keys.
 
+### Network groups
+
+Pass `--network-group <name>` to `hf jobs run` (or `hf jobs uv run`) to let Jobs of the same owner reach each other on every port. Inside each member, `$HF_NETWORK_GROUP_HOSTNAME` resolves to every Job in the group, and `${HF_NETWORK_GROUP_PREFIX}<alias>` to the members that claimed an alias with `--network-alias <alias>`:
+
+```bash
+# Start a server, reachable by the other members of the group as "master"
+>>> hf jobs run --detach --network-group train --network-alias master python:3.12 python -m http.server 8000
+
+# Start a client in the same group
+>>> hf jobs run --detach --network-group train python:3.12 sh -c 'curl --retry 10 --retry-connrefused "http://${HF_NETWORK_GROUP_PREFIX}master:8000/"'
+```
+
+Members are resolvable before they are ready, so connect with retries.
+
 ### UV Scripts (Experimental)
 
 Run UV scripts (Python scripts with inline dependencies) on HF infrastructure. UV scripts are Python scripts that include their dependencies directly in the file using a special comment syntax.

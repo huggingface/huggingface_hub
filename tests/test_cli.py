@@ -3387,6 +3387,8 @@ class TestJobsCommand:
             timeout=None,
             expose=None,
             ssh=False,
+            network_group=None,
+            network_aliases=None,
             resource_group_id=None,
             namespace=None,
         )
@@ -3415,6 +3417,8 @@ class TestJobsCommand:
             timeout=None,
             expose=None,
             ssh=False,
+            network_group=None,
+            network_aliases=None,
             resource_group_id=None,
             namespace=None,
         )
@@ -3474,6 +3478,8 @@ class TestJobsCommand:
             timeout=None,
             expose=None,
             ssh=False,
+            network_group=None,
+            network_aliases=None,
             resource_group_id=None,
             namespace=None,
         )
@@ -3505,6 +3511,8 @@ class TestJobsCommand:
             timeout=None,
             expose=None,
             ssh=False,
+            network_group=None,
+            network_aliases=None,
             resource_group_id=None,
             namespace=None,
         )
@@ -3534,6 +3542,8 @@ class TestJobsCommand:
             timeout=None,
             expose=None,
             ssh=False,
+            network_group=None,
+            network_aliases=None,
             resource_group_id=None,
             namespace=None,
         )
@@ -3564,6 +3574,8 @@ class TestJobsCommand:
             timeout=None,
             expose=None,
             ssh=False,
+            network_group=None,
+            network_aliases=None,
             resource_group_id=None,
             namespace=None,
         )
@@ -4484,6 +4496,42 @@ class TestVolume:
             image="python:3.12", command=["echo"], env=None, secrets=None, flavor=None, timeout=None, expose=expose
         )
         assert spec.get("expose") == expected
+
+    @pytest.mark.parametrize(
+        "network_group, network_aliases, expected",
+        [
+            (None, None, None),
+            ("train", None, {"group": "train"}),
+            ("train", [], {"group": "train"}),
+            ("train", ["master", "worker"], {"group": "train", "aliases": ["master", "worker"]}),
+        ],
+    )
+    def test_serialize_network(
+        self, network_group: str | None, network_aliases: list[str] | None, expected: dict | None
+    ) -> None:
+        spec = _create_job_spec(
+            image="python:3.12",
+            command=["echo"],
+            env=None,
+            secrets=None,
+            flavor=None,
+            timeout=None,
+            network_group=network_group,
+            network_aliases=network_aliases,
+        )
+        assert spec.get("network") == expected
+
+    def test_network_aliases_require_group(self) -> None:
+        with pytest.raises(ValueError, match="network_aliases"):
+            _create_job_spec(
+                image="python:3.12",
+                command=["echo"],
+                env=None,
+                secrets=None,
+                flavor=None,
+                timeout=None,
+                network_aliases=["master"],
+            )
 
 
 class TestWebhooksCommand:
