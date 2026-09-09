@@ -18,7 +18,13 @@ from .errors import (
     RepositoryNotFoundError,
     RevisionNotFoundError,
 )
-from .file_download import REGEX_COMMIT_HASH, DryRunFileInfo, hf_hub_download, repo_folder_name
+from .file_download import (
+    REGEX_COMMIT_HASH,
+    DryRunFileInfo,
+    _cache_commit_hash_for_specific_revision,
+    hf_hub_download,
+    repo_folder_name,
+)
 from .hf_api import HfApi, RepoFile
 from .utils import OfflineModeIsEnabled, filter_repo_objects, logging, validate_hf_hub_args
 from .utils._xet_progress_reporting import (
@@ -412,14 +418,15 @@ def snapshot_download(
     # if passed revision is not identical to commit_hash
     # then revision has to be a branch name or tag name.
     # In that case store a ref (except if ResolvedRevision, in which case it's already done).
-    if not isinstance(revision, ResolvedRevision) and revision != commit_hash:
-        ref_path = os.path.join(storage_folder, "refs", revision)
+    if not isinstance(revision, ResolvedRevision):
         try:
-            os.makedirs(os.path.dirname(ref_path), exist_ok=True)
-            with open(ref_path, "w") as f:
-                f.write(commit_hash)
+            # Skips the write if the ref is already up to date, and writes atomically otherwise so that
+            # concurrent readers never observe a truncated (empty) ref file.
+            _cache_commit_hash_for_specific_revision(storage_folder, revision, commit_hash)
         except OSError as e:
-            logger.warning(f"Ignored error while writing commit hash to {ref_path}: {e}.")
+            logger.warning(
+                f"Ignored error while writing commit hash to {os.path.join(storage_folder, 'refs', revision)}: {e}."
+            )
 
     results: list[str | DryRunFileInfo] = []
 

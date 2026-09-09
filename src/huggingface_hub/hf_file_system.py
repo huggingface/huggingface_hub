@@ -20,6 +20,7 @@ from fsspec.utils import isfilelike
 
 from . import constants
 from ._commit_api import CommitOperationCopy, CommitOperationDelete
+from ._local_folder import _validate_relative_filename
 from .errors import (
     BucketNotFoundError,
     EntryNotFoundError,
@@ -1094,6 +1095,10 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
 
         """
         revision = kwargs.get("revision")
+        resolve_remote_path = self.resolve_path(rpath, revision=revision)
+        # Recursive downloads map remote filenames to local paths, including on Windows.
+        # Validate before creating directories, opening files, or delegating to fsspec.
+        _validate_relative_filename(resolve_remote_path.path)
         unhandled_kwargs = set(kwargs.keys()) - {"revision"}
         if not isinstance(callback, (NoOpCallback, TqdmCallback)) or len(unhandled_kwargs) > 0:
             # for now, let's not handle custom callbacks
@@ -1118,7 +1123,6 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         initial_pos = outfile.tell()
 
         # Custom implementation of `get_file` to use `http_get`.
-        resolve_remote_path = self.resolve_path(rpath, revision=revision)
         expected_size = self.info(rpath, revision=revision)["size"]
         callback.set_size(expected_size)
         try:
