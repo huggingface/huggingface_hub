@@ -5140,6 +5140,7 @@ class TestExtensionsGitHubAccess:
             ("Contribute to huggingface/hf-demo development by creating an account on GitHub.", None),
         ],
     )
+    @pytest.mark.skipif(os.name == "nt", reason="Shell-script extensions are not supported on Windows.")
     def test_install_uses_head_refs_and_a_single_api_call(
         self, github: _FakeGitHubSession, about: str, expected_description: str | None
     ) -> None:
@@ -5161,6 +5162,7 @@ class TestExtensionsGitHubAccess:
         raw_urls = [url for url in github.urls if url.startswith(raw_prefix)]
         assert raw_urls and all(url.removeprefix(raw_prefix).startswith("HEAD/") for url in raw_urls)
 
+    @pytest.mark.skipif(os.name == "nt", reason="Shell-script extensions are not supported on Windows.")
     def test_install_completes_when_the_api_quota_is_exhausted(self, github: _FakeGitHubSession) -> None:
         # The extension itself comes from the CDN, so only the optional version marker is lost.
         github.responses = {
@@ -5173,6 +5175,15 @@ class TestExtensionsGitHubAccess:
         assert manifest.commit_sha is None
         assert manifest.description == "Demo extension"
         assert Path(manifest.executable_path).is_file()
+
+    def test_install_rejects_shell_script_extension_on_windows(self, github: _FakeGitHubSession) -> None:
+        github.responses = {BINARY_URL: httpx.Response(200, content=b"#!/bin/sh")}
+        with (
+            patch.object(os, "name", "nt"),
+            pytest.raises(CLIError, match="not supported on Windows"),
+        ):
+            extensions._install_extension(owner="huggingface", repo_name="hf-demo", short_name="demo")
+        assert not (extensions.EXTENSIONS_ROOT / "hf-demo").exists()
 
     def test_unreachable_github_is_not_reported_as_a_missing_repo(
         self, github: _FakeGitHubSession, runner: CliRunner
