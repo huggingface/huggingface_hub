@@ -160,10 +160,12 @@ def _parse_hf_uri_target(target: str) -> HfUri:
     if not uri.is_repo:
         raise CLIError("Only repository hf:// URIs are supported by `hf cache rm`.")
     if uri.revision is not None:
-        raise CLIError(
-            "Revisions in hf:// URIs are not supported by `hf cache rm`. Pass a revision hash to delete a revision, "
-            "or drop '@<revision>' to delete a file from all cached revisions."
+        hint = (
+            "Drop '@<revision>' to delete the file from all cached revisions."
+            if uri.path_in_repo
+            else "Pass the revision hash instead, see 'hf cache ls --revisions'."
         )
+        raise CLIError(f"Revisions in hf:// URIs are not supported by `hf cache rm`. {hint}")
     return uri
 
 
