@@ -12130,6 +12130,8 @@ class HfApi:
         volumes: list[Volume] | None = None,
         expose: list[int] | None = None,
         ssh: bool = False,
+        network_group: str | None = None,
+        network_aliases: list[str] | None = None,
         resource_group_id: str | None = None,
         namespace: str | None = None,
         token: bool | str | None = None,
@@ -12182,6 +12184,15 @@ class HfApi:
                 (e.g. `ssh <job_id>@ssh.hf.jobs`, or `hf jobs ssh <job_id>` from the CLI). Connecting requires
                 write access to the job's namespace and an SSH public key registered on the Hub
                 (https://huggingface.co/settings/keys). Defaults to False.
+
+            network_group (`str`, *optional*):
+                Name of a network group to join. Jobs of the same owner sharing a group are placed together and
+                can reach each other on every port. Inside each member, `HF_NETWORK_GROUP_HOSTNAME` resolves to
+                every member of the group. Lowercase alphanumerics and dashes, 46 characters max.
+
+            network_aliases (`list[str]`, *optional*):
+                Aliases this job claims in its network group. Members reach the jobs claiming an alias at
+                `${HF_NETWORK_GROUP_PREFIX}<alias>`. Several jobs may claim the same alias. Requires `network_group`.
 
             resource_group_id (`str`, *optional*):
                 The ID of the resource group to create the Job in. Used to control access to resources within an
@@ -12241,6 +12252,8 @@ class HfApi:
             volumes=volumes,
             expose=expose,
             ssh=ssh,
+            network_group=network_group,
+            network_aliases=network_aliases,
             resource_group_id=resource_group_id,
         )
         response = get_session().post(
@@ -12771,6 +12784,8 @@ class HfApi:
         volumes: list[Volume] | None = None,
         expose: list[int] | None = None,
         ssh: bool = False,
+        network_group: str | None = None,
+        network_aliases: list[str] | None = None,
         resource_group_id: str | None = None,
         namespace: str | None = None,
         token: bool | str | None = None,
@@ -12830,6 +12845,15 @@ class HfApi:
                 (e.g. `ssh <job_id>@ssh.hf.jobs`, or `hf jobs ssh <job_id>` from the CLI). Connecting requires
                 write access to the job's namespace and an SSH public key registered on the Hub
                 (https://huggingface.co/settings/keys). Defaults to False.
+
+            network_group (`str`, *optional*):
+                Name of a network group to join. Jobs of the same owner sharing a group are placed together and
+                can reach each other on every port. Inside each member, `HF_NETWORK_GROUP_HOSTNAME` resolves to
+                every member of the group. Lowercase alphanumerics and dashes, 46 characters max.
+
+            network_aliases (`list[str]`, *optional*):
+                Aliases this job claims in its network group. Members reach the jobs claiming an alias at
+                `${HF_NETWORK_GROUP_PREFIX}<alias>`. Several jobs may claim the same alias. Requires `network_group`.
 
             resource_group_id (`str`, *optional*):
                 The ID of the resource group to create the Job in. Used to control access to resources within an
@@ -12917,6 +12941,8 @@ class HfApi:
             volumes=volumes,
             expose=expose,
             ssh=ssh,
+            network_group=network_group,
+            network_aliases=network_aliases,
             resource_group_id=resource_group_id,
             namespace=namespace,
             token=token,
