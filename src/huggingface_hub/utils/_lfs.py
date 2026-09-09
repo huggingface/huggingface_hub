@@ -106,4 +106,5 @@ class SliceFileObj(AbstractContextManager):
         return self.fileobj.seek(offset, whence) - self.seek_from
 
     def __iter__(self):
-        yield self.read(n=4 * 1024 * 1024)
+        while data := self.read(n=4 * 1024 * 1024):
+            yield data
