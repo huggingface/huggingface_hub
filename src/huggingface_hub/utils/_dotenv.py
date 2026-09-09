@@ -47,7 +47,7 @@ def load_dotenv(dotenv_str: str, environ: dict[str, str] | None = None) -> dict[
                 (?:[^\S\n]+\#[^\n\r]*)?   # inline comment (must be preceded by whitespace)
             )
             |
-            [^\n\r]*                      # bare key (no '='): trailing text/comment is ignored
+            [^\S\n]*(?:\#[^\n\r]*)?       # bare key (no '='), with an optional inline comment
         )$
     """,
         re.VERBOSE,

@@ -171,3 +171,14 @@ def test_bare_key_with_inline_comment():
     """
     environ = {"BARE": "1", "BARE_NO_SPACE": "2", "BARE_PLAIN": "3"}
     assert load_dotenv(data, environ=environ) == {"BARE": "1", "BARE_NO_SPACE": "2", "BARE_PLAIN": "3"}
+
+
+def test_invalid_line_does_not_import_from_environ():
+    # A key followed by arbitrary text is not a valid line: it must be ignored rather than treated
+    # as a bare key, which would pull the host value in and clobber an explicit assignment above.
+    data = """
+    SECRET=explicit_value
+    SECRET is documented above
+    OTHER not an assignment
+    """
+    assert load_dotenv(data, environ={"SECRET": "HOST_ENV", "OTHER": "HOST_ENV"}) == {"SECRET": "explicit_value"}
