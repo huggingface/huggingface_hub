@@ -17,7 +17,7 @@ import re
 import time
 from collections import defaultdict
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Annotated, Any
 
@@ -27,10 +27,12 @@ from huggingface_hub.errors import CLIError
 
 from ..utils import (
     ANSI,
+    CachedFileInfo,
     CachedRepoInfo,
     CachedRevisionInfo,
     CacheNotFound,
     HFCacheInfo,
+    HfUri,
     _format_size,
     parse_hf_uri,
     scan_cache_dir,
@@ -52,6 +54,7 @@ class _DeletionResolution:
     revisions: frozenset[str]
     selected: dict[CachedRepoInfo, frozenset[CachedRevisionInfo]]
     missing: tuple[str, ...]
+    files: dict[CachedFileInfo, str] = field(default_factory=dict)  # selected files, mapped to their display label
 
 
 _FILTER_PATTERN = re.compile(r"^(?P<key>[a-zA-Z_]+)\s*(?P<op>==|!=|>=|<=|>|<|=)\s*(?P<value>.+)$")
@@ -151,16 +154,24 @@ def build_cache_index(
     return repo_lookup, revision_lookup
 
 
+def _parse_hf_uri_target(target: str) -> HfUri:
+    """Parse and validate an hf:// target passed to `hf cache rm`."""
+    uri = parse_hf_uri(target)
+    if not uri.is_repo:
+        raise CLIError("Only repository hf:// URIs are supported by `hf cache rm`.")
+    if uri.revision is not None:
+        raise CLIError(
+            "Revisions in hf:// URIs are not supported by `hf cache rm`. Pass a revision hash to delete a revision, "
+            "or drop '@<revision>' to delete a file from all cached revisions."
+        )
+    return uri
+
+
 def _repo_cache_id_from_target(target: str) -> str:
     """Return the cache id matching a repo target passed to `hf cache rm`."""
     if not target.startswith("hf://"):
         return target
-
-    uri = parse_hf_uri(target)
-    if not uri.is_repo:
-        raise CLIError("Only repository hf:// URIs are supported by `hf cache rm`.")
-    if uri.revision is not None or uri.path_in_repo:
-        raise CLIError("Only repo-level hf:// URIs are supported by `hf cache rm` for now.")
+    uri = _parse_hf_uri_target(target)
     return f"{uri.type}/{uri.id}"
 
 
@@ -331,6 +342,15 @@ def compile_cache_sort(sort_expr: str) -> tuple[Callable[[CacheEntry], tuple[Any
 
 def _resolve_deletion_targets(hf_cache_info: HFCacheInfo, targets: list[str]) -> _DeletionResolution:
     """Resolve the deletion targets into a deletion resolution."""
+    file_uris: dict[str, HfUri] = {}
+    for target in targets:
+        if target.startswith("hf://") and (uri := _parse_hf_uri_target(target)).path_in_repo:
+            file_uris[target] = uri
+    if file_uris:
+        if len(file_uris) != len(set(targets)):
+            raise CLIError("File targets cannot be mixed with repository or revision targets.")
+        return _resolve_file_targets(hf_cache_info, file_uris)
+
     repo_lookup, revision_lookup = build_cache_index(hf_cache_info)
 
     selected: dict[CachedRepoInfo, set[CachedRevisionInfo]] = defaultdict(set)
@@ -368,6 +388,28 @@ def _resolve_deletion_targets(hf_cache_info: HFCacheInfo, targets: list[str]) ->
         selected=frozen_selected,
         missing=tuple(missing),
     )
+
+
+def _resolve_file_targets(hf_cache_info: HFCacheInfo, file_uris: dict[str, HfUri]) -> _DeletionResolution:
+    """Select the cached files matching hf:// file URIs, in every cached revision of their repo."""
+    repo_lookup, _ = build_cache_index(hf_cache_info)
+    files: dict[CachedFileInfo, str] = {}
+    missing: list[str] = []
+    for target, uri in file_uris.items():
+        repo = repo_lookup.get(f"{uri.type}/{uri.id}".lower())
+        if repo is None:
+            missing.append(target)
+            continue
+        matches = {
+            file: f"{repo.cache_id}@{revision.commit_hash}/{uri.path_in_repo}"
+            for revision in repo.revisions
+            for file in revision.files
+            if file.file_path.relative_to(revision.snapshot_path).as_posix() == uri.path_in_repo
+        }
+        if not matches:
+            missing.append(target)
+        files.update(matches)
+    return _DeletionResolution(revisions=frozenset(), selected={}, missing=tuple(missing), files=files)
 
 
 #### Cache CLI commands
@@ -536,6 +578,7 @@ def ls(
     examples=[
         "hf cache rm model/gpt2",
         "hf cache rm hf://models/openai-community/gpt2",
+        "hf cache rm hf://models/openai-community/gpt2/model.safetensors",
         "hf cache rm <revision_hash>",
         "hf cache rm model/gpt2 --dry-run",
         "hf cache rm model/gpt2 --yes",
@@ -545,7 +588,7 @@ def rm(
     targets: Annotated[
         list[str],
         Argument(
-            help="One or more repo IDs (e.g. model/bert-base-uncased), repo-level hf:// URIs, or revision hashes to delete.",
+            help="One or more repo IDs (e.g. model/bert-base-uncased), hf:// URIs (repo or file), or revision hashes to delete.",
         ),
     ],
     cache_dir: Annotated[
@@ -569,7 +612,7 @@ def rm(
         ),
     ] = False,
 ) -> None:
-    """Remove cached repositories or revisions."""
+    """Remove cached repositories, revisions or files."""
     try:
         hf_cache_info = scan_cache_dir(cache_dir)
     except CacheNotFound as exc:
@@ -580,6 +623,28 @@ def rm(
     if resolution.missing:
         details = "\n".join(f"  - {entry}" for entry in resolution.missing)
         out.warning(f"Could not find in cache:\n{details}")
+
+    if resolution.files:
+        strategy = hf_cache_info.delete_files(*resolution.files)
+        out.text(f"About to delete {len(resolution.files)} file(s) totalling {strategy.expected_freed_size_str}.")
+        for label in sorted(resolution.files.values()):
+            out.text(f"  - {label}")
+        if dry_run:
+            out.result(
+                "Dry run: no files were deleted.",
+                dry_run=True,
+                files=len(resolution.files),
+                size=strategy.expected_freed_size_str,
+            )
+            return
+        out.confirm("Proceed with deletion?", yes=yes)
+        strategy.execute()
+        out.result(
+            f"Deleted {len(resolution.files)} file(s); freed {strategy.expected_freed_size_str}.",
+            files_deleted=len(resolution.files),
+            freed=strategy.expected_freed_size_str,
+        )
+        return
 
     if len(resolution.revisions) == 0:
         out.text("Nothing to delete.")

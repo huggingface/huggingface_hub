@@ -49,12 +49,14 @@ def runner() -> CliRunner:
     return CliRunner()
 
 
-def _make_revision(commit_hash: str, *, refs: Optional[set[str]] = None) -> CachedRevisionInfo:
+def _make_revision(
+    commit_hash: str, *, refs: Optional[set[str]] = None, files: frozenset[CachedFileInfo] = frozenset()
+) -> CachedRevisionInfo:
     return CachedRevisionInfo(
         commit_hash=commit_hash,
         snapshot_path=Path(f"/tmp/{commit_hash}"),
         size_on_disk=0,
-        files=frozenset(),
+        files=files,
         refs=frozenset(refs or set()),
         last_modified=0.0,
     )
@@ -221,23 +223,54 @@ class TestCacheCommand:
         hf_cache_info.delete_revisions.assert_called_once_with(revision.commit_hash)
         strategy.execute.assert_called_once_with()
 
+    def test_rm_file_uri_executes_strategy(self, runner: CliRunner) -> None:
+        commit_hash = "c" * 40
+        file = CachedFileInfo(
+            file_name="config.json",
+            file_path=Path(f"/tmp/{commit_hash}/config.json"),
+            blob_path=Path("/tmp/blobs/abc"),
+            size_on_disk=0,
+            blob_last_accessed=0.0,
+            blob_last_modified=0.0,
+        )
+        revision = _make_revision(commit_hash, files=frozenset({file}))
+        repo = _make_repo("user/model", revisions=[revision])
+
+        strategy = Mock()
+        strategy.expected_freed_size_str = "0B"
+
+        hf_cache_info = Mock()
+        hf_cache_info.delete_files.return_value = strategy
+
+        with (
+            patch("huggingface_hub.cli.cache.scan_cache_dir", return_value=hf_cache_info),
+            patch("huggingface_hub.cli.cache.build_cache_index", return_value=({"model/user/model": repo}, {})),
+        ):
+            result = runner.invoke(app, ["cache", "rm", "hf://models/user/model/config.json", "--yes"])
+
+        assert result.exit_code == 0
+        assert f"model/user/model@{commit_hash}/config.json" in result.output
+        hf_cache_info.delete_files.assert_called_once_with(file)
+        strategy.execute.assert_called_once_with()
+
     @pytest.mark.parametrize(
-        "target",
+        "targets, message",
         [
-            "hf://models/openai-community/gpt2@main",
-            "hf://models/openai-community/gpt2/config.json",
+            (["hf://models/openai-community/gpt2@main"], "Revisions in hf:// URIs are not supported"),
+            (["hf://models/openai-community/gpt2@main/config.json"], "Revisions in hf:// URIs are not supported"),
+            (["hf://models/openai-community/gpt2/config.json", "model/openai-community/gpt2"], "cannot be mixed"),
         ],
     )
-    def test_rm_hf_uri_rejects_revisions_and_paths(self, runner: CliRunner, target: str) -> None:
+    def test_rm_hf_uri_rejects_invalid_targets(self, runner: CliRunner, targets: list[str], message: str) -> None:
         with (
             patch("huggingface_hub.cli.cache.scan_cache_dir"),
             patch("huggingface_hub.cli.cache.build_cache_index", return_value=({}, {})),
         ):
-            result = runner.invoke(app, ["cache", "rm", target])
+            result = runner.invoke(app, ["cache", "rm", *targets])
 
         assert result.exit_code == 1
         assert isinstance(result.exception, CLIError)
-        assert "Only repo-level hf:// URIs are supported" in str(result.exception)
+        assert message in str(result.exception)
 
     def test_rm_hf_uri_rejects_buckets(self, runner: CliRunner) -> None:
         with (
