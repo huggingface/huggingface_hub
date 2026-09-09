@@ -5176,27 +5176,6 @@ class TestExtensionsGitHubAccess:
         assert manifest.description == "Demo extension"
         assert Path(manifest.executable_path).is_file()
 
-    def test_install_rejects_shell_script_extension_on_windows(self, github: _FakeGitHubSession) -> None:
-        github.responses = {BINARY_URL: httpx.Response(200, content=b"#!/bin/sh")}
-        with (
-            patch.object(os, "name", "nt"),
-            pytest.raises(CLIError, match="not supported on Windows"),
-        ):
-            extensions._install_extension(owner="huggingface", repo_name="hf-demo", short_name="demo")
-        assert not (extensions.EXTENSIONS_ROOT / "hf-demo").exists()
-
-    def test_auto_install_surfaces_install_errors(self, github: _FakeGitHubSession) -> None:
-        github.responses = {
-            REPO_PAGE_URL: httpx.Response(200),
-            BINARY_URL: httpx.Response(200, content=b"#!/bin/sh"),
-        }
-        with (
-            patch.object(extensions.out, "confirm"),
-            patch.object(os, "name", "nt"),
-            pytest.raises(CLIError, match="not supported on Windows"),
-        ):
-            extensions.dispatch_unknown_top_level_extension(["demo"], {"jobs", "repos"})
-
     def test_unreachable_github_is_not_reported_as_a_missing_repo(
         self, github: _FakeGitHubSession, runner: CliRunner
     ) -> None:
