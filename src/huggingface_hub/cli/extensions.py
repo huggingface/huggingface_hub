@@ -375,11 +375,8 @@ def _auto_install_official_extension(short_name: str) -> Path | None:
         out.confirm(f"'{short_name}' is an official Hugging Face extension ({owner}/{repo_name}). Install it?")
     except ConfirmationError:
         return None
-    try:
-        manifest = _install_extension(owner=owner, repo_name=repo_name, short_name=short_name)
-        return Path(manifest.executable_path).expanduser()
-    except Exception:
-        return None
+    manifest = _install_extension(owner=owner, repo_name=repo_name, short_name=short_name)
+    return Path(manifest.executable_path).expanduser()
 
 
 def _load_installed_extension_for_update(name: str) -> ExtensionManifest:
