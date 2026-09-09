@@ -1630,7 +1630,7 @@ About to delete 1 file(s) totalling 16.5G.
 Dry run: no files were deleted.
 ```
 
-Paths must match exactly: folders and glob patterns are not supported, and file targets cannot be mixed with repositories or revisions in the same call.
+The revision stays usable, and a deleted file is downloaded again the next time it is needed. Paths must match exactly: folders and glob patterns are not supported, and file targets cannot be mixed with repositories or revisions in the same call.
 
 Mix repositories and specific revisions in the same call. Use `--dry-run` to preview the impact, or `--yes` to skip the confirmation prompt—handy in automated scripts:
 

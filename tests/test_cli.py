@@ -50,7 +50,7 @@ def runner() -> CliRunner:
 
 
 def _make_revision(
-    commit_hash: str, *, refs: Optional[set[str]] = None, files: frozenset[CachedFileInfo] = frozenset()
+    commit_hash: str, *, refs: set[str] | None = None, files: frozenset[CachedFileInfo] = frozenset()
 ) -> CachedRevisionInfo:
     return CachedRevisionInfo(
         commit_hash=commit_hash,

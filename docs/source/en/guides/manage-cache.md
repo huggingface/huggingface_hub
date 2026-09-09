@@ -652,7 +652,8 @@ Dry run: no files were deleted.
 
 To remove a single file instead of a whole repository, for example one GGUF quantization,
 pass an `hf://` file URI. The file is removed from every cached revision of the repo, and
-its blob is deleted only if no other cached file still references it. Paths must match
+its blob is deleted only if no other cached file still references it. The revision stays
+usable, and a deleted file is downloaded again the next time it is needed. Paths must match
 exactly: folders and glob patterns are not supported.
 
 ```text
