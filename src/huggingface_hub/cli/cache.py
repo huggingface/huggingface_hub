@@ -342,6 +342,7 @@ def compile_cache_sort(sort_expr: str) -> tuple[Callable[[CacheEntry], tuple[Any
 
 def _resolve_deletion_targets(hf_cache_info: HFCacheInfo, targets: list[str]) -> _DeletionResolution:
     """Resolve the deletion targets into a deletion resolution."""
+    targets = [stripped for target in targets if (stripped := target.strip())]
     file_uris: dict[str, HfUri] = {}
     for target in targets:
         if target.startswith("hf://") and (uri := _parse_hf_uri_target(target)).path_in_repo:
@@ -357,16 +358,13 @@ def _resolve_deletion_targets(hf_cache_info: HFCacheInfo, targets: list[str]) ->
     revisions: set[str] = set()
     missing: list[str] = []
 
-    for raw_target in targets:
-        target = raw_target.strip()
-        if not target:
-            continue
+    for target in targets:
         lowered = target.lower()
 
         if re.fullmatch(r"[0-9a-fA-F]{40}", lowered):
             match = revision_lookup.get(lowered)
             if match is None:
-                missing.append(raw_target)
+                missing.append(target)
                 continue
             repo, revision = match
             selected[repo].add(revision)
@@ -375,7 +373,7 @@ def _resolve_deletion_targets(hf_cache_info: HFCacheInfo, targets: list[str]) ->
 
         matched_repo = repo_lookup.get(_repo_cache_id_from_target(target).lower())
         if matched_repo is None:
-            missing.append(raw_target)
+            missing.append(target)
             continue
 
         for revision in matched_repo.revisions:

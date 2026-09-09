@@ -223,7 +223,8 @@ class TestCacheCommand:
         hf_cache_info.delete_revisions.assert_called_once_with(revision.commit_hash)
         strategy.execute.assert_called_once_with()
 
-    def test_rm_file_uri_executes_strategy(self, runner: CliRunner) -> None:
+    @pytest.mark.parametrize("target", ["hf://models/user/model/config.json", " hf://models/user/model/config.json "])
+    def test_rm_file_uri_executes_strategy(self, runner: CliRunner, target: str) -> None:
         commit_hash = "c" * 40
         file = CachedFileInfo(
             file_name="config.json",
@@ -246,7 +247,7 @@ class TestCacheCommand:
             patch("huggingface_hub.cli.cache.scan_cache_dir", return_value=hf_cache_info),
             patch("huggingface_hub.cli.cache.build_cache_index", return_value=({"model/user/model": repo}, {})),
         ):
-            result = runner.invoke(app, ["cache", "rm", "hf://models/user/model/config.json", "--yes"])
+            result = runner.invoke(app, ["cache", "rm", target, "--yes"])
 
         assert result.exit_code == 0
         assert f"model/user/model@{commit_hash}/config.json" in result.output
