@@ -27,6 +27,7 @@ from huggingface_hub.errors import CLIError
 
 from ..utils import (
     ANSI,
+    CachedFileInfo,
     CachedRepoInfo,
     CachedRevisionInfo,
     CacheNotFound,
@@ -52,6 +53,7 @@ class _DeletionResolution:
     revisions: frozenset[str]
     selected: dict[CachedRepoInfo, frozenset[CachedRevisionInfo]]
     missing: tuple[str, ...]
+    files: frozenset[CachedFileInfo] = frozenset()
 
 
 _FILTER_PATTERN = re.compile(r"^(?P<key>[a-zA-Z_]+)\s*(?P<op>==|!=|>=|<=|>|<|=)\s*(?P<value>.+)$")
@@ -331,6 +333,37 @@ def compile_cache_sort(sort_expr: str) -> tuple[Callable[[CacheEntry], tuple[Any
 
 def _resolve_deletion_targets(hf_cache_info: HFCacheInfo, targets: list[str]) -> _DeletionResolution:
     """Resolve the deletion targets into a deletion resolution."""
+    file_targets = [
+        (target, uri)
+        for target in targets
+        if target.lstrip().startswith("hf://") and (uri := parse_hf_uri(target.lstrip())).path_in_repo
+    ]
+    if file_targets:
+        if len(file_targets) != len([target for target in targets if target.strip()]):
+            raise CLIError("File targets cannot be mixed with repository or revision targets. Run separate commands.")
+        repo_lookup, _ = build_cache_index(hf_cache_info)
+        files: set[CachedFileInfo] = set()
+        missing_files: list[str] = []
+        for target, uri in file_targets:
+            if not uri.is_repo:
+                raise CLIError("Only repository hf:// URIs are supported by `hf cache rm`.")
+            if target.endswith("/"):
+                raise CLIError("File targets must name exact files, not directories.")
+            repo = repo_lookup.get(f"{uri.type}/{uri.id}".lower())
+            matches = {
+                file
+                for revision in (repo.revisions if repo else ())
+                if uri.revision is None or uri.revision == revision.commit_hash or uri.revision in revision.refs
+                for file in revision.files
+                if file.file_path.relative_to(revision.snapshot_path).as_posix() == uri.path_in_repo
+            }
+            if not matches:
+                missing_files.append(target)
+            files.update(matches)
+        return _DeletionResolution(
+            revisions=frozenset(), selected={}, missing=tuple(missing_files), files=frozenset(files)
+        )
+
     repo_lookup, revision_lookup = build_cache_index(hf_cache_info)
 
     selected: dict[CachedRepoInfo, set[CachedRevisionInfo]] = defaultdict(set)
@@ -536,6 +569,7 @@ def ls(
     examples=[
         "hf cache rm model/gpt2",
         "hf cache rm hf://models/openai-community/gpt2",
+        "hf cache rm hf://models/org/model/model-Q4.gguf --dry-run",
         "hf cache rm <revision_hash>",
         "hf cache rm model/gpt2 --dry-run",
         "hf cache rm model/gpt2 --yes",
@@ -545,7 +579,8 @@ def rm(
     targets: Annotated[
         list[str],
         Argument(
-            help="One or more repo IDs (e.g. model/bert-base-uncased), repo-level hf:// URIs, or revision hashes to delete.",
+            help="Repo IDs, hf:// repository URIs, or revision hashes to delete. Alternatively, pass exact hf:// file URIs "
+            "(all cached revisions unless @revision is specified).",
         ),
     ],
     cache_dir: Annotated[
@@ -569,7 +604,7 @@ def rm(
         ),
     ] = False,
 ) -> None:
-    """Remove cached repositories or revisions."""
+    """Remove cached repositories, revisions, or individual files."""
     try:
         hf_cache_info = scan_cache_dir(cache_dir)
     except CacheNotFound as exc:
@@ -580,6 +615,36 @@ def rm(
     if resolution.missing:
         details = "\n".join(f"  - {entry}" for entry in resolution.missing)
         out.warning(f"Could not find in cache:\n{details}")
+
+    if resolution.files:
+        strategy = hf_cache_info.delete_files(*resolution.files)
+        out.text(
+            f"About to delete {len(resolution.files)} cached file(s); "
+            f"expected to free {strategy.expected_freed_size_str}."
+        )
+        # Show the exact snapshot paths, not only basenames: identical filenames
+        # may occur in multiple revisions, and not every selected file frees a blob.
+        for repo in sorted(hf_cache_info.repos, key=lambda repo: repo.cache_id):
+            for revision in sorted(repo.revisions, key=lambda revision: revision.commit_hash):
+                for file in sorted(revision.files & resolution.files, key=lambda file: file.file_path):
+                    path = file.file_path.relative_to(revision.snapshot_path).as_posix()
+                    out.text(f"  - {repo.cache_id}@{revision.commit_hash}/{path}")
+        if dry_run:
+            out.result(
+                "Dry run: no files were deleted.",
+                dry_run=True,
+                files=len(resolution.files),
+                size=strategy.expected_freed_size_str,
+            )
+            return
+        out.confirm("Proceed with deletion?", yes=yes)
+        strategy.execute()
+        out.result(
+            f"Deleted {len(resolution.files)} cached file(s); freed {strategy.expected_freed_size_str}.",
+            files_deleted=len(resolution.files),
+            freed=strategy.expected_freed_size_str,
+        )
+        return
 
     if len(resolution.revisions) == 0:
         out.text("Nothing to delete.")

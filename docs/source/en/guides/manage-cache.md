@@ -622,6 +622,31 @@ Proceed with deletion? [y/N]: y
 Deleted 1 repo(s) and 1 revision(s); freed 1.9G.
 ```
 
+To remove one downloaded file while keeping the rest of a repository, use an exact
+`hf://` file URI:
+
+```bash
+hf cache rm hf://models/org/model/model-Q4.gguf --dry-run
+hf cache rm hf://models/org/model/model-Q4.gguf
+```
+
+This selects the file in **all cached revisions**. Use
+`hf://models/org/model@main/model-Q4.gguf` (or a full commit hash instead of `main`)
+to select only one cached revision. The preview shows every affected snapshot entry
+and the expected freed size, counting each unreferenced blob once. Blobs referenced
+by other cached files are retained. Refs, snapshot directories, and other files are
+preserved, even if the selected snapshot becomes empty.
+
+Only exact, case-sensitive file paths are supported. For a sharded variant, pass each
+shard's URI as a separate argument. File targets cannot be combined with whole-repo
+or revision targets. Avoid downloading into or otherwise modifying the cache during
+deletion. Deleted files can be downloaded again; offline use that requires them will
+no longer work until they are restored.
+
+The same operation is available through [`~HFCacheInfo.delete_files`], using
+[`CachedFileInfo`] objects returned by [`scan_cache_dir`]. The returned
+[`DeleteCacheStrategy`] can be inspected before calling `execute()`.
+
 You can also use `hf cache rm` in combination with `hf cache ls --quiet` to bulk-delete entries identified by a filter:
 
 ```bash

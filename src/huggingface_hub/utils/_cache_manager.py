@@ -258,10 +258,10 @@ class CachedRepoInfo:
 
 @dataclass(frozen=True)
 class DeleteCacheStrategy:
-    """Frozen data structure holding the strategy to delete cached revisions.
+    """Frozen data structure holding the strategy to delete cached revisions or files.
 
     This object is not meant to be instantiated programmatically but to be returned by
-    [`~utils.HFCacheInfo.delete_revisions`]. See documentation for usage example.
+    [`~utils.HFCacheInfo.delete_revisions`] or [`~utils.HFCacheInfo.delete_files`].
 
     Args:
         expected_freed_size (`float`):
@@ -274,6 +274,9 @@ class DeleteCacheStrategy:
             Set of entire repo paths to be deleted.
         snapshots (`frozenset[Path]`):
             Set of snapshots to be deleted (directory of symlinks).
+        files (`frozenset[Path]`):
+            Individual snapshot entries to unlink before deleting unreferenced blobs.
+            Empty by default. Snapshot directories and refs are preserved.
     """
 
     expected_freed_size: int
@@ -281,6 +284,7 @@ class DeleteCacheStrategy:
     refs: frozenset[Path]
     repos: frozenset[Path]
     snapshots: frozenset[Path]
+    files: frozenset[Path] = frozenset()
 
     @property
     def expected_freed_size_str(self) -> str:
@@ -306,6 +310,11 @@ class DeleteCacheStrategy:
         # Deletion order matters. Blobs are deleted in last so that the user can't end
         # up in a state where a `ref`` refers to a missing snapshot or a snapshot
         # symlink refers to a deleted blob.
+
+        # Unlink individual entries first. Do not swallow permission errors here:
+        # deleting their blobs after an unsuccessful unlink would break the cache.
+        for path in self.files:
+            path.unlink(missing_ok=True)
 
         # Delete entire repos
         for path in self.repos:
@@ -389,6 +398,64 @@ class HFCacheInfo:
     def incomplete_size_on_disk(self) -> int:
         """(property) Sum of all incomplete download sizes in bytes."""
         return sum(file.size_on_disk for file in self.incomplete_files)
+
+    def delete_files(self, *files: CachedFileInfo) -> DeleteCacheStrategy:
+        """Prepare deletion of individual files returned by this cache scan.
+
+        Only the selected snapshot entries are removed. Blobs still referenced by
+        other files (including other revisions or repositories) are preserved.
+        Refs and snapshot directories are kept, even if a snapshot becomes empty.
+
+        Args:
+            files (`CachedFileInfo`):
+                Files from this [`HFCacheInfo`]. Unknown files raise `ValueError`
+                before any deletion takes place.
+
+        Example:
+        ```py
+        >>> cache_info = scan_cache_dir()
+        >>> repo = next(repo for repo in cache_info.repos if repo.repo_id == "org/model")
+        >>> files = [file for rev in repo.revisions for file in rev.files if file.file_name == "model-Q4.gguf"]
+        >>> strategy = cache_info.delete_files(*files)
+        >>> print(strategy.expected_freed_size_str)
+        >>> strategy.execute()
+        ```
+
+        As with [`~HFCacheInfo.delete_revisions`], execute the strategy promptly
+        and do not modify or download into the cache between scanning and deletion.
+        Only blobs inside scanned repositories' `blobs` directories are reclaimed;
+        symlinks to external data are unlinked without deleting their targets.
+        """
+        selected = set(files)
+        cached_files = {file for repo in self.repos for rev in repo.revisions for file in rev.files}
+        if unknown := selected - cached_files:
+            raise ValueError(
+                f"File(s) not found in this cache scan: {', '.join(sorted(str(f.file_path) for f in unknown))}"
+            )
+
+        retained_blobs = {file.blob_path for file in cached_files - selected}
+        blob_dirs = {repo.repo_path / "blobs" for repo in self.repos}
+        blobs: set[Path] = set()
+        freed: dict[Path, int] = {}
+        for file in selected:
+            if file.file_path == file.blob_path:
+                # Without symlinks, data lives in the snapshot itself. A user may
+                # also have linked another snapshot entry to that directly stored file.
+                if file.blob_path in retained_blobs:
+                    raise ValueError(f"Cannot delete a file still referenced by another cached file: {file.file_path}")
+                freed[file.file_path] = file.size_on_disk
+            elif file.blob_path not in retained_blobs and file.blob_path.parent in blob_dirs:
+                blobs.add(file.blob_path)
+                freed[file.blob_path] = file.size_on_disk
+
+        return DeleteCacheStrategy(
+            expected_freed_size=sum(freed.values()),
+            blobs=frozenset(blobs),
+            refs=frozenset(),
+            repos=frozenset(),
+            snapshots=frozenset(),
+            files=frozenset(file.file_path for file in selected),
+        )
 
     def delete_revisions(self, *revisions: str) -> DeleteCacheStrategy:
         """Prepare the strategy to delete one or more revisions cached locally.

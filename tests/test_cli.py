@@ -37,6 +37,7 @@ from huggingface_hub.utils import (
     CachedRevisionInfo,
     HFCacheInfo,
     SoftTemporaryDirectory,
+    scan_cache_dir,
 )
 from huggingface_hub.utils._verification import FolderVerification
 
@@ -221,19 +222,12 @@ class TestCacheCommand:
         hf_cache_info.delete_revisions.assert_called_once_with(revision.commit_hash)
         strategy.execute.assert_called_once_with()
 
-    @pytest.mark.parametrize(
-        "target",
-        [
-            "hf://models/openai-community/gpt2@main",
-            "hf://models/openai-community/gpt2/config.json",
-        ],
-    )
-    def test_rm_hf_uri_rejects_revisions_and_paths(self, runner: CliRunner, target: str) -> None:
+    def test_rm_hf_uri_rejects_revision_without_path(self, runner: CliRunner) -> None:
         with (
             patch("huggingface_hub.cli.cache.scan_cache_dir"),
             patch("huggingface_hub.cli.cache.build_cache_index", return_value=({}, {})),
         ):
-            result = runner.invoke(app, ["cache", "rm", target])
+            result = runner.invoke(app, ["cache", "rm", "hf://models/openai-community/gpt2@main"])
 
         assert result.exit_code == 1
         assert isinstance(result.exception, CLIError)
@@ -5205,3 +5199,75 @@ class TestExtensionsGitHubAccess:
         assert "It resets at" not in str(result.exception)
         # Bailed out on the first extension rather than repeating the failure for every one of them.
         assert len(github.api_urls) == 1
+
+
+class TestCacheFileDeletion:
+    @pytest.fixture
+    def file_cache(self, tmp_path):
+        repo = tmp_path / "models--org--model"
+        (repo / "blobs").mkdir(parents=True)
+        (repo / "refs").mkdir()
+        (repo / "refs" / "main").write_text("a" * 40)
+        for name, content in {"Q4.gguf": b"4" * 100, "Q8.gguf": b"8" * 200}.items():
+            (repo / "blobs" / name).write_bytes(content)
+            for commit in ("a" * 40, "b" * 40):
+                path = repo / "snapshots" / commit / "weights" / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                # A real symlink cache where supported; direct files exercise the
+                # Windows layout without requiring symlink privileges.
+                if os.name == "nt":
+                    path.write_bytes(content)
+                else:
+                    path.symlink_to(repo / "blobs" / name)
+        return tmp_path, repo
+
+    @pytest.mark.parametrize("revision", ["", "@main", "@" + "b" * 40])
+    def test_file_preview_confirmation_and_deletion(self, runner, file_cache, revision):
+        cache, repo = file_cache
+        target = f"hf://models/org/model{revision}/weights/Q4.gguf"
+        args = ["cache", "rm", target, target, "--cache-dir", str(cache)]
+        expected_commits = ["a" * 40, "b" * 40] if not revision else ["a" * 40 if revision == "@main" else "b" * 40]
+        result = runner.invoke(app, args + ["--dry-run"])
+        assert result.exit_code == 0, result.output
+        assert f"About to delete {len(expected_commits)} cached file(s)" in result.output
+        for commit in expected_commits:
+            assert f"model/org/model@{commit}/weights/Q4.gguf" in result.output
+        assert "Q8.gguf" not in result.output
+        assert "Dry run: no files were deleted." in result.output
+        expected_freed = len(expected_commits) * 100 if os.name == "nt" else (100 if not revision else 0)
+        assert f"expected to free {expected_freed:.1f}." in result.output
+        result = runner.invoke(app, args, input="n\n")
+        assert result.exit_code != 0
+        assert len(list(repo.glob("snapshots/*/weights/Q4.gguf"))) == 2
+        result = runner.invoke(app, args + ["--yes"])
+        assert result.exit_code == 0, result.output
+        for commit in ("a" * 40, "b" * 40):
+            assert (repo / "snapshots" / commit / "weights" / "Q4.gguf").exists() == (commit not in expected_commits)
+            assert (repo / "snapshots" / commit / "weights" / "Q8.gguf").read_bytes() == b"8" * 200
+        assert (repo / "refs" / "main").read_text() == "a" * 40
+        assert not scan_cache_dir(cache).warnings
+
+    @pytest.mark.parametrize(
+        "targets,invalid",
+        [
+            (["hf://models/org/model/weights"], False),
+            (["hf://models/org/model/weights/*.gguf"], False),
+            (["hf://models/org/model/weights/q4.gguf"], False),
+            (["hf://models/org/model/weights/Q4.gguf "], False),
+            (["hf://models/org/model/weights/Q4.gguf/"], True),
+            (["hf://models/org/model@missing/weights/Q4.gguf"], False),
+            (["hf://models/org/model/../../blobs/Q4.gguf"], False),
+            (["hf://models/org/model/weights/Q4.gguf", "model/org/model"], True),
+            (["hf://models/org/model/weights/Q4.gguf", "a" * 40], True),
+            (["hf://buckets/org/model/weights/Q4.gguf"], True),
+        ],
+    )
+    def test_unmatched_and_invalid_file_targets_never_delete(self, runner, file_cache, targets, invalid):
+        cache, repo = file_cache
+        result = runner.invoke(app, ["cache", "rm", *targets, "--cache-dir", str(cache), "--yes"])
+        assert (result.exit_code != 0) == invalid
+        if not invalid:
+            assert "Could not find in cache:" in result.output
+            assert "Nothing to delete." in result.output
+        assert len(list(repo.glob("snapshots/*/weights/*.gguf"))) == 4
+        assert not scan_cache_dir(cache).warnings

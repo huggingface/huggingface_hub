@@ -1633,6 +1633,27 @@ Dry run: no files were deleted.
 
 When working outside the default cache location, pair the command with `--cache-dir PATH`.
 
+To remove an individual cached file, use an exact file URI. For example, keep your other
+quantization variants while removing `model-Q4.gguf`:
+
+```bash
+hf cache rm hf://models/org/model/model-Q4.gguf --dry-run
+hf cache rm hf://models/org/model/model-Q4.gguf
+```
+
+Without `@revision`, the file is selected in **all cached revisions** of that repository.
+Add a cached ref or full commit hash to limit deletion to one revision:
+
+```bash
+hf cache rm hf://models/org/model@main/model-Q4.gguf --dry-run
+```
+
+The preview lists each selected file with its commit hash. Shared blobs are kept while
+another cached file references them, so removing a file can free zero bytes. File paths
+are case-sensitive and must match exactly: folders and wildcard patterns are not expanded.
+Pass multiple file URIs to remove multiple files or shards. File targets cannot be mixed
+with repository or revision targets in the same command.
+
 ### hf cache prune
 
 `hf cache prune` is a convenience shortcut that reclaims space taken by cache garbage: every detached (unreferenced) revision (keeping only revisions still reachable through a branch or tag) and any leftover `.incomplete` files from interrupted downloads:

@@ -1,8 +1,9 @@
 import logging
 import os
 import time
+from dataclasses import replace
 from pathlib import Path
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -745,3 +746,117 @@ class TestStringFormatters:
         """Test `_format_size` formatter."""
         for size, expected in self.SIZES.items():
             assert _format_size(size) == expected, f"Wrong formatting for {size} == '{expected}'"
+
+
+class TestDeleteFiles:
+    @pytest.fixture
+    def cached_files(self, tmp_path):
+        repo = tmp_path / "models--org--model"
+        snapshot = repo / "snapshots" / ("a" * 40)
+        snapshot.mkdir(parents=True)
+        (repo / "refs").mkdir()
+        (repo / "refs" / "main").write_text("a" * 40)
+        (repo / "blobs").mkdir()
+        (repo / "blobs" / "weights").write_bytes(b"q" * 100)
+        (snapshot / "config.json").write_bytes(b"{}")
+        return repo, snapshot
+
+    @pytest.mark.skipif(os.name == "nt", reason="Requires symlinks; direct-file deletion is tested separately")
+    def test_shared_blobs_and_aliases_survive_until_last_reference(self, tmp_path, cached_files):
+        repo, snapshot = cached_files
+        old = repo / "snapshots" / ("b" * 40)
+        old.mkdir()
+        for path in (snapshot / "Q4.gguf", snapshot / "alias.gguf", old / "Q4.gguf"):
+            path.symlink_to(repo / "blobs" / "weights")
+        info = scan_cache_dir(tmp_path)
+        selected = [f for r in info.repos for rev in r.revisions for f in rev.files if f.file_name == "Q4.gguf"]
+        strategy = info.delete_files(*selected, *selected)
+        assert len(strategy.files) == 2
+        assert strategy.expected_freed_size == 0
+        assert not strategy.blobs
+        assert all(path.exists() for path in strategy.files)  # planning is read-only
+        strategy.execute()
+        assert (snapshot / "alias.gguf").read_bytes() == b"q" * 100
+        assert (snapshot / "config.json").read_bytes() == b"{}"
+        assert (repo / "refs" / "main").read_text() == "a" * 40
+        assert old.is_dir()  # empty snapshots remain valid
+        info = scan_cache_dir(tmp_path)
+        assert not info.warnings
+        alias = next(f for r in info.repos for rev in r.revisions for f in rev.files if f.file_name == "alias.gguf")
+        strategy = info.delete_files(alias)
+        assert strategy.expected_freed_size == 100
+        assert strategy.blobs == {repo / "blobs" / "weights"}
+        strategy.execute()
+        assert not (repo / "blobs" / "weights").exists()
+        assert scan_cache_dir(tmp_path).size_on_disk == 2
+
+    def test_direct_files_and_unknown_targets(self, tmp_path, cached_files):
+        repo, snapshot = cached_files
+        (snapshot / "Q4.gguf").write_bytes(b"q" * 100)
+        info = scan_cache_dir(tmp_path)
+        files = [f for r in info.repos for rev in r.revisions for f in rev.files]
+        selected = next(f for f in files if f.file_name == "Q4.gguf")
+        external = tmp_path.parent / "not-in-cache.gguf"
+        forged = replace(selected, file_path=external, blob_path=external)
+        with pytest.raises(ValueError, match="not found in this cache scan"):
+            info.delete_files(selected, forged)
+        assert selected.file_path.exists()
+        assert info.delete_files().expected_freed_size == 0
+        strategy = info.delete_files(*files)
+        assert strategy.expected_freed_size == 102
+        assert not strategy.blobs  # data is removed by unlinking the snapshot entry
+        strategy.execute()
+        report = scan_cache_dir(tmp_path)
+        assert not report.warnings
+        assert report.size_on_disk == 0
+        assert snapshot.is_dir()
+        assert (repo / "refs" / "main").exists()
+
+    @pytest.mark.skipif(os.name == "nt", reason="Requires symlinks")
+    def test_cross_repo_references_and_external_targets(self, tmp_path, cached_files):
+        repo, snapshot = cached_files
+        other = tmp_path / "models--org--other" / "snapshots" / ("b" * 40)
+        other.mkdir(parents=True)
+        (snapshot / "Q4.gguf").symlink_to(repo / "blobs" / "weights")
+        (other / "shared.gguf").symlink_to(repo / "blobs" / "weights")
+        # Outside the managed blobs directory, even though scan_cache_dir accepts the link.
+        external = repo / "external.gguf"
+        external.write_bytes(b"external")
+        (snapshot / "external.gguf").symlink_to(external)
+        info = scan_cache_dir(tmp_path)
+        files = [
+            f
+            for r in info.repos
+            for rev in r.revisions
+            for f in rev.files
+            if f.file_name in {"Q4.gguf", "external.gguf"}
+        ]
+        strategy = info.delete_files(*files)
+        assert strategy.expected_freed_size == 0
+        strategy.execute()
+        assert (other / "shared.gguf").read_bytes() == b"q" * 100
+        assert external.read_bytes() == b"external"
+        assert not scan_cache_dir(tmp_path).warnings
+
+    @pytest.mark.skipif(os.name == "nt", reason="Requires symlinks")
+    def test_referenced_direct_file_cannot_be_deleted(self, tmp_path, cached_files):
+        _, snapshot = cached_files
+        (snapshot / "alias.json").symlink_to(snapshot / "config.json")
+        info = scan_cache_dir(tmp_path)
+        config = next(f for r in info.repos for rev in r.revisions for f in rev.files if f.file_name == "config.json")
+        with pytest.raises(ValueError, match="still referenced"):
+            info.delete_files(config)
+        assert (snapshot / "alias.json").read_bytes() == b"{}"
+
+    @pytest.mark.skipif(os.name == "nt", reason="Requires symlinks")
+    def test_unlink_failure_does_not_delete_blob(self, tmp_path, cached_files):
+        repo, snapshot = cached_files
+        path = snapshot / "Q4.gguf"
+        path.symlink_to(repo / "blobs" / "weights")
+        info = scan_cache_dir(tmp_path)
+        file = next(f for r in info.repos for rev in r.revisions for f in rev.files if f.file_path == path)
+        strategy = info.delete_files(file)
+        with patch.object(Path, "unlink", side_effect=PermissionError("cannot unlink")):
+            with pytest.raises(PermissionError):
+                strategy.execute()
+        assert path.read_bytes() == b"q" * 100
