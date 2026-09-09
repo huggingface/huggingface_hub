@@ -58,10 +58,13 @@ def _parse_with_unit(value: str, units: dict[str, int]) -> int:
     stripped = value.strip()
     if not stripped:
         raise ValueError("Value cannot be empty.")
-    try:
-        return int(value)
-    except ValueError:
-        pass
+
+    # A bare integer is allowed, but only as non-negative digits, mirroring the
+    # `\d+` used for the unit form below. `int()` would also accept a sign or
+    # PEP 515 underscores, which would let "-5"/"+10"/"1_000" through even though
+    # the unit form "-5M" is already rejected (and sizes/durations can't be negative).
+    if re.fullmatch(r"\d+", stripped):
+        return int(stripped)
 
     match = RE_NUMBER_WITH_UNIT.fullmatch(stripped)
     if not match:
