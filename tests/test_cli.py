@@ -3,8 +3,9 @@ import os
 import sys
 import warnings
 from contextlib import contextmanager
+from dataclasses import replace
 from datetime import datetime, timezone
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from types import SimpleNamespace
 from typing import Generator, Optional
 from unittest.mock import Mock, patch
@@ -21,7 +22,7 @@ from huggingface_hub._space_api import Volume
 from huggingface_hub.cli import _skills, extensions, system
 from huggingface_hub.cli._cli_utils import RepoType, _get_huggingface_hub_update_command, parse_volumes
 from huggingface_hub.cli._output import OutputFormat, out
-from huggingface_hub.cli.cache import CacheDeletionCounts
+from huggingface_hub.cli.cache import CacheDeletionCounts, _resolve_deletion_targets
 from huggingface_hub.cli.download import download
 from huggingface_hub.cli.hf import app
 from huggingface_hub.cli.hf import main as hf_main
@@ -5221,7 +5222,7 @@ class TestCacheFileDeletion:
                     path.symlink_to(repo / "blobs" / name)
         return tmp_path, repo
 
-    @pytest.mark.parametrize("revision", ["", "@main", "@" + "b" * 40])
+    @pytest.mark.parametrize("revision", ["", "@main", "@" + "b" * 40, "@" + "B" * 40])
     def test_file_preview_confirmation_and_deletion(self, runner, file_cache, revision):
         cache, repo = file_cache
         target = f"hf://models/org/model{revision}/weights/Q4.gguf"
@@ -5271,3 +5272,23 @@ class TestCacheFileDeletion:
             assert "Nothing to delete." in result.output
         assert len(list(repo.glob("snapshots/*/weights/*.gguf"))) == 4
         assert not scan_cache_dir(cache).warnings
+
+    def test_windows_ref_separators_preserve_ref_case(self, file_cache):
+        cache, _ = file_cache
+        info = scan_cache_dir(cache)
+        repo = next(iter(info.repos))
+        revisions = frozenset(
+            replace(rev, refs=frozenset({r"refs\pr\1", r"Feature\Branch"})) if rev.commit_hash == "a" * 40 else rev
+            for rev in repo.revisions
+        )
+        info = replace(info, repos=frozenset({replace(repo, revisions=revisions)}))
+        # Exercise Windows path normalization on every test platform.
+        with patch("huggingface_hub.cli.cache.Path", PureWindowsPath, create=True):
+            for ref in ("refs/pr/1", "Feature%2FBranch"):
+                result = _resolve_deletion_targets(info, [f"hf://models/org/model@{ref}/weights/Q4.gguf"])
+                assert not result.missing
+                assert len(result.files) == 1
+                assert next(iter(result.files)).file_path.parts[-3] == "a" * 40
+            result = _resolve_deletion_targets(info, ["hf://models/org/model@feature%2Fbranch/weights/Q4.gguf"])
+            assert not result.files
+            assert result.missing

@@ -19,6 +19,7 @@ from collections import defaultdict
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from enum import Enum
+from pathlib import Path
 from typing import Annotated, Any
 
 import click
@@ -353,7 +354,9 @@ def _resolve_deletion_targets(hf_cache_info: HFCacheInfo, targets: list[str]) ->
             matches = {
                 file
                 for revision in (repo.revisions if repo else ())
-                if uri.revision is None or uri.revision == revision.commit_hash or uri.revision in revision.refs
+                if uri.revision is None
+                or uri.revision.lower() == revision.commit_hash.lower()
+                or uri.revision in {Path(ref).as_posix() for ref in revision.refs}
                 for file in revision.files
                 if file.file_path.relative_to(revision.snapshot_path).as_posix() == uri.path_in_repo
             }
