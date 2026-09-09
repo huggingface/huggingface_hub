@@ -145,7 +145,6 @@ CLI_ERROR_MAPPINGS: dict[type[Exception], Callable[..., str]] = {
     ValueError: lambda error: f"Invalid value. {error}",
     CLIExtensionInstallError: _format_cli_extension_install_error,
     CLIError: _format_cli_error,
-    OSError: lambda error: str(error),  # e.g. permission denied while deleting cache files
 }
 
 

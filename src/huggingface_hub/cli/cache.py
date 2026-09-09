@@ -167,11 +167,8 @@ def _parse_hf_uri_target(target: str) -> HfUri:
     return uri
 
 
-def _repo_cache_id_from_target(target: str) -> str:
-    """Return the cache id matching a repo target passed to `hf cache rm`."""
-    if not target.startswith("hf://"):
-        return target
-    uri = _parse_hf_uri_target(target)
+def _cache_id(uri: HfUri) -> str:
+    """Return the `type/id` cache id of a repo URI."""
     return f"{uri.type}/{uri.id}"
 
 
@@ -343,10 +340,8 @@ def compile_cache_sort(sort_expr: str) -> tuple[Callable[[CacheEntry], tuple[Any
 def _resolve_deletion_targets(hf_cache_info: HFCacheInfo, targets: list[str]) -> _DeletionResolution:
     """Resolve the deletion targets into a deletion resolution."""
     targets = [stripped for target in targets if (stripped := target.strip())]
-    file_uris: dict[str, HfUri] = {}
-    for target in targets:
-        if target.startswith("hf://") and (uri := _parse_hf_uri_target(target)).path_in_repo:
-            file_uris[target] = uri
+    uris = {target: _parse_hf_uri_target(target) for target in targets if target.startswith("hf://")}
+    file_uris = {target: uri for target, uri in uris.items() if uri.path_in_repo}
     if file_uris:
         if len(file_uris) != len(set(targets)):
             raise CLIError("File targets cannot be mixed with repository or revision targets.")
@@ -371,7 +366,8 @@ def _resolve_deletion_targets(hf_cache_info: HFCacheInfo, targets: list[str]) ->
             revisions.add(revision.commit_hash)
             continue
 
-        matched_repo = repo_lookup.get(_repo_cache_id_from_target(target).lower())
+        cache_id = _cache_id(uris[target]) if target in uris else target
+        matched_repo = repo_lookup.get(cache_id.lower())
         if matched_repo is None:
             missing.append(target)
             continue
@@ -394,7 +390,7 @@ def _resolve_file_targets(hf_cache_info: HFCacheInfo, file_uris: dict[str, HfUri
     files: dict[CachedFileInfo, str] = {}
     missing: list[str] = []
     for target, uri in file_uris.items():
-        repo = repo_lookup.get(f"{uri.type}/{uri.id}".lower())
+        repo = repo_lookup.get(_cache_id(uri).lower())
         if repo is None:
             missing.append(target)
             continue
