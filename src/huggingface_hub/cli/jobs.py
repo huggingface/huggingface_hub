@@ -216,22 +216,6 @@ SshEnabledOpt = Annotated[
     ),
 ]
 
-NetworkGroupOpt = Annotated[
-    str | None,
-    Option(
-        "--network-group",
-        help="Join a network group. Jobs of the same owner sharing a group are placed together and reach each other on every port. Inside each member, `$HF_NETWORK_GROUP_HOSTNAME` resolves to every member. Lowercase alphanumerics and dashes, 46 characters max.",
-    ),
-]
-
-NetworkAliasOpt = Annotated[
-    list[str] | None,
-    Option(
-        "--network-alias",
-        help="Claim an alias in the network group. Members reach the jobs claiming it at `${HF_NETWORK_GROUP_PREFIX}<alias>`. Repeat the flag for several aliases. Requires `--network-group`.",
-    ),
-]
-
 WithOpt = Annotated[
     list[str] | None,
     Option(
@@ -369,8 +353,6 @@ def jobs_run(
     detach: DetachOpt = False,
     expose: ExposeOpt = None,
     ssh: SshEnabledOpt = False,
-    network_group: NetworkGroupOpt = None,
-    network_alias: NetworkAliasOpt = None,
     resource_group_id: ResourceGroupIdOpt = None,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
@@ -391,8 +373,6 @@ def jobs_run(
         timeout=timeout,
         expose=expose,
         ssh=ssh,
-        network_group=network_group,
-        network_aliases=network_alias,
         resource_group_id=resource_group_id,
         namespace=namespace,
     )
@@ -408,11 +388,6 @@ def jobs_run(
         out.hint(f"Exposed ports are reachable at (requires an HF token with read access to the job):\n{urls}")
     if isinstance(job.status.ssh_url, str):
         out.hint(f"Use `hf jobs ssh {job.owner.name}/{job.id}` to open an SSH session into the job.")
-    if network_group:
-        out.hint(
-            f"Joined network group '{network_group}'. Jobs started with `--network-group {network_group}` reach each other "
-            "at `$HF_NETWORK_GROUP_HOSTNAME` (every member) or `${HF_NETWORK_GROUP_PREFIX}<alias>` (members claiming an alias)."
-        )
     if detach:
         job_ref = f"{job.owner.name}/{job.id}"
         out.hint(f"Use `hf jobs logs -f {job_ref}` to stream logs, or `hf jobs inspect {job_ref}` to check status.")
@@ -963,8 +938,6 @@ def jobs_uv_run(
     detach: DetachOpt = False,
     expose: ExposeOpt = None,
     ssh: SshEnabledOpt = False,
-    network_group: NetworkGroupOpt = None,
-    network_alias: NetworkAliasOpt = None,
     resource_group_id: ResourceGroupIdOpt = None,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
@@ -990,8 +963,6 @@ def jobs_uv_run(
         timeout=timeout,
         expose=expose,
         ssh=ssh,
-        network_group=network_group,
-        network_aliases=network_alias,
         resource_group_id=resource_group_id,
         namespace=namespace,
     )
@@ -1007,11 +978,6 @@ def jobs_uv_run(
         out.hint(f"Exposed ports are reachable at (requires an HF token with read access to the job):\n{urls}")
     if isinstance(job.status.ssh_url, str):
         out.hint(f"Use `hf jobs ssh {job.owner.name}/{job.id}` to open an SSH session into the job.")
-    if network_group:
-        out.hint(
-            f"Joined network group '{network_group}'. Jobs started with `--network-group {network_group}` reach each other "
-            "at `$HF_NETWORK_GROUP_HOSTNAME` (every member) or `${HF_NETWORK_GROUP_PREFIX}<alias>` (members claiming an alias)."
-        )
     if detach:
         job_ref = f"{job.owner.name}/{job.id}"
         out.hint(f"Use `hf jobs logs -f {job_ref}` to stream logs, or `hf jobs inspect {job_ref}` to check status.")

@@ -581,12 +581,8 @@ def _create_job_spec(
     volumes: list[Volume] | None = None,
     expose: list[int] | None = None,
     ssh: bool = False,
-    network_group: str | None = None,
-    network_aliases: list[str] | None = None,
     resource_group_id: str | None = None,
 ) -> dict[str, Any]:
-    if network_aliases and not network_group:
-        raise ValueError("`network_aliases` requires `network_group`.")
     if name is not None:
         if labels is not None and "name" in labels:
             raise ValueError("`name` and the `name` key in `labels` cannot both be provided.")
@@ -621,12 +617,6 @@ def _create_job_spec(
     # make the job container reachable over SSH
     if ssh:
         job_spec["ssh"] = {"enabled": True}
-    # join a network group, optionally claiming aliases in it
-    if network_group:
-        network: dict[str, Any] = {"group": network_group}
-        if network_aliases:
-            network["aliases"] = network_aliases
-        job_spec["network"] = network
     # resource group is optional
     if resource_group_id:
         job_spec["resourceGroupId"] = resource_group_id
