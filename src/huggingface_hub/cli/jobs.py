@@ -220,7 +220,7 @@ NetworkGroupOpt = Annotated[
     str | None,
     Option(
         "--network-group",
-        help="Join a network group. Jobs of the same owner sharing a group are placed together and reach each other on every port. Inside each member, `$HF_NETWORK_GROUP_HOSTNAME` resolves to every member. Lowercase alphanumerics and dashes, 46 characters max.",
+        help="Join a network group. Jobs in the same namespace and resource group sharing a group are placed together and reach each other on every port. Inside each member, `$HF_NETWORK_GROUP_HOSTNAME` resolves to every member. Lowercase alphanumerics and dashes, 46 characters max.",
     ),
 ]
 
@@ -228,7 +228,7 @@ NetworkAliasOpt = Annotated[
     list[str] | None,
     Option(
         "--network-alias",
-        help="Claim an alias in the network group. Members reach the jobs claiming it at `${HF_NETWORK_GROUP_PREFIX}<alias>`. Repeat the flag for several aliases. Requires `--network-group`.",
+        help="Claim an alias in the network group. Members reach the jobs claiming it at `${HF_NETWORK_GROUP_PREFIX}<alias>`. Repeat the flag for several aliases. Lowercase alphanumerics and dashes, 34 characters max, unique within the job. Requires `--network-group`.",
     ),
 ]
 
@@ -410,8 +410,9 @@ def jobs_run(
         out.hint(f"Use `hf jobs ssh {job.owner.name}/{job.id}` to open an SSH session into the job.")
     if network_group:
         out.hint(
-            f"Joined network group '{network_group}'. Jobs started with `--network-group {network_group}` reach each other "
-            "at `$HF_NETWORK_GROUP_HOSTNAME` (every member) or `${HF_NETWORK_GROUP_PREFIX}<alias>` (members claiming an alias)."
+            f"Joined network group '{network_group}'. Jobs of this namespace and resource group started with "
+            f"`--network-group {network_group}` reach each other at `$HF_NETWORK_GROUP_HOSTNAME` (every member) "
+            "or `${HF_NETWORK_GROUP_PREFIX}<alias>` (members claiming an alias)."
         )
     if detach:
         job_ref = f"{job.owner.name}/{job.id}"
@@ -1009,8 +1010,9 @@ def jobs_uv_run(
         out.hint(f"Use `hf jobs ssh {job.owner.name}/{job.id}` to open an SSH session into the job.")
     if network_group:
         out.hint(
-            f"Joined network group '{network_group}'. Jobs started with `--network-group {network_group}` reach each other "
-            "at `$HF_NETWORK_GROUP_HOSTNAME` (every member) or `${HF_NETWORK_GROUP_PREFIX}<alias>` (members claiming an alias)."
+            f"Joined network group '{network_group}'. Jobs of this namespace and resource group started with "
+            f"`--network-group {network_group}` reach each other at `$HF_NETWORK_GROUP_HOSTNAME` (every member) "
+            "or `${HF_NETWORK_GROUP_PREFIX}<alias>` (members claiming an alias)."
         )
     if detach:
         job_ref = f"{job.owner.name}/{job.id}"
