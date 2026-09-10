@@ -374,7 +374,7 @@ Only users with write access to the Job's namespace are allowed in (the Job crea
 
 ## Network groups
 
-Pass `network_group="<name>"` to [`run_job`] (or [`run_uv_job`]) to let Jobs of the same owner reach each other on every port. Inside each member, `HF_NETWORK_GROUP_HOSTNAME` resolves to every Job in the group, and `${HF_NETWORK_GROUP_PREFIX}<alias>` to the members that claimed an alias with `network_aliases=[...]`:
+Pass `network_group="<name>"` to [`run_job`] (or [`run_uv_job`]) to let Jobs in the same namespace and resource group reach each other on every port. Inside each member, `HF_NETWORK_GROUP_HOSTNAME` resolves to every Job in the group, and `${HF_NETWORK_GROUP_PREFIX}<alias>` to the members that claimed an alias with `network_aliases=[...]`:
 
 ```python
 >>> from huggingface_hub import run_job
@@ -391,7 +391,7 @@ Pass `network_group="<name>"` to [`run_job`] (or [`run_uv_job`]) to let Jobs of 
 ... )
 ```
 
-Members are resolvable before they are ready, so connect with retries.
+Members are resolvable before they are ready, so connect with retries. Group names and aliases are lowercase alphanumerics and dashes, 46 and 34 characters max.
 
 ## Configure Job Timeout
 
