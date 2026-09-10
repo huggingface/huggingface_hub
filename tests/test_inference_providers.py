@@ -45,6 +45,13 @@ from huggingface_hub.inference._providers.hf_inference import (
     HFInferenceFeatureExtractionTask,
     HFInferenceTask,
 )
+from huggingface_hub.inference._providers.lambdaq import (
+    LambdaQConversationalTask,
+    LambdaQFeatureExtractionTask,
+    LambdaQTextGenerationTask,
+    LambdaQTextToImageTask,
+    LambdaQTextToSpeechTask,
+)
 from huggingface_hub.inference._providers.novita import NovitaConversationalTask, NovitaTextGenerationTask
 from huggingface_hub.inference._providers.nscale import NscaleConversationalTask, NscaleTextToImageTask
 from huggingface_hub.inference._providers.openai import OpenAIConversationalTask
@@ -1257,6 +1264,124 @@ class TestHFInferenceProvider:
         assert isinstance(request.data, bytes)
         assert request.headers["authorization"] == "Bearer hf_test_token"
         assert request.headers["content-type"] == "image/jpeg"  # based on filename
+
+
+class TestLambdaQProvider:
+    def _mapping(self, task: str, provider_id: str, hf_model_id: str) -> InferenceProviderMapping:
+        return InferenceProviderMapping(
+            provider="lambdaq",
+            hf_model_id=hf_model_id,
+            providerId=provider_id,
+            task=task,
+            status="live",
+        )
+
+    def test_prepare_route(self):
+        assert LambdaQConversationalTask()._prepare_route("model", "api_key") == "/v1/chat/completions"
+        assert LambdaQTextGenerationTask()._prepare_route("model", "api_key") == "/v1/completions"
+        assert LambdaQFeatureExtractionTask()._prepare_route("model", "api_key") == "/v1/embeddings"
+        assert LambdaQTextToImageTask()._prepare_route("model", "api_key") == "/v1/images/generations"
+        assert LambdaQTextToSpeechTask()._prepare_route("model", "api_key") == "/v1/audio/speech"
+
+    def test_prepare_url(self):
+        helper = LambdaQConversationalTask()
+        assert (
+            helper._prepare_url("hf_token", "deepseek-ai/DeepSeek-V3.2")
+            == "https://router.huggingface.co/lambdaq/v1/chat/completions"
+        )
+        assert (
+            helper._prepare_url("lambdaq_key", "deepseek-ai/DeepSeek-V3.2")
+            == "https://api.lambdaq.org/v1/chat/completions"
+        )
+
+    def test_text_generation_payload(self):
+        # An OpenAI-shaped completions route ignores `max_new_tokens` rather than rejecting it,
+        # so an untranslated one generates to the context limit and is billed for it.
+        payload = LambdaQTextGenerationTask()._prepare_payload_as_dict(
+            "Paris is",
+            {"max_new_tokens": 8, "temperature": 0.0, "top_k": None},
+            self._mapping("text-generation", "deepseek-v3.2", "deepseek-ai/DeepSeek-V3.2"),
+        )
+        assert payload == {
+            "prompt": "Paris is",
+            "max_tokens": 8,
+            "temperature": 0.0,
+            "model": "deepseek-v3.2",
+        }
+
+    def test_text_generation_response(self):
+        response = LambdaQTextGenerationTask().get_response(
+            {"choices": [{"text": " a city of love", "finish_reason": "length"}]}
+        )
+        assert response["generated_text"] == " a city of love"
+        assert response["details"]["finish_reason"] == "length"
+
+    def test_feature_extraction_payload_and_response(self):
+        helper = LambdaQFeatureExtractionTask()
+        payload = helper._prepare_payload_as_dict(
+            ["one", "two"],
+            {},
+            self._mapping("feature-extraction", "embed-1", "vendor/embed-1"),
+        )
+        assert payload == {"input": ["one", "two"], "model": "embed-1"}
+        assert helper.get_response({"data": [{"embedding": [0.1, 0.2]}, {"embedding": [0.3, 0.4]}]}) == [
+            [0.1, 0.2],
+            [0.3, 0.4],
+        ]
+
+    def test_text_to_image_size_conversion(self):
+        # A model handed `width`/`height` does not error: it returns its default resolution.
+        # Images are billed per image, so that is a wasted generation, not a retry.
+        payload = LambdaQTextToImageTask()._prepare_payload_as_dict(
+            "a bee on a sunflower",
+            {"width": 512, "height": 768, "num_inference_steps": 2},
+            self._mapping("text-to-image", "sdxl-turbo", "stabilityai/sdxl-turbo"),
+        )
+        assert payload == {
+            "prompt": "a bee on a sunflower",
+            "size": "512x768",
+            "num_inference_steps": 2,
+            "model": "sdxl-turbo",
+        }
+
+    def test_text_to_image_response(self):
+        helper = LambdaQTextToImageTask()
+        assert (
+            helper.get_response({"data": [{"b64_json": base64.b64encode(b"image_bytes").decode()}]}) == b"image_bytes"
+        )
+        with pytest.raises(ValueError, match="no image returned"):
+            helper.get_response({"data": [{"url": None}]})
+
+    def test_text_to_speech_payload_and_response(self):
+        helper = LambdaQTextToSpeechTask()
+        payload = helper._prepare_payload_as_dict(
+            "hello there",
+            {"voice": "af_bella"},
+            self._mapping("text-to-speech", "kokoro-82m", "hexgrad/Kokoro-82M"),
+        )
+        assert payload == {"input": "hello there", "voice": "af_bella", "model": "kokoro-82m"}
+        assert helper.get_response(b"audio_bytes") == b"audio_bytes"
+        with pytest.raises(ValueError, match="Expected raw audio bytes"):
+            helper.get_response({"not": "bytes"})
+
+    @pytest.mark.parametrize(
+        "helper_cls",
+        [
+            LambdaQTextGenerationTask,
+            LambdaQFeatureExtractionTask,
+            LambdaQTextToImageTask,
+            LambdaQTextToSpeechTask,
+        ],
+    )
+    def test_mapped_model_is_not_overridable(self, helper_cls):
+        # `model` is applied last everywhere for this reason.
+        helper = helper_cls()
+        payload = helper._prepare_payload_as_dict(
+            "input",
+            {"model": "attacker/model"},
+            self._mapping(helper.task, "mapped-id", "vendor/model"),
+        )
+        assert payload["model"] == "mapped-id"
 
 
 class TestNovitaProvider:

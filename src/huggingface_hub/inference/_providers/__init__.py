@@ -34,6 +34,13 @@ from .hf_inference import (
     HFInferenceFeatureExtractionTask,
     HFInferenceTask,
 )
+from .lambdaq import (
+    LambdaQConversationalTask,
+    LambdaQFeatureExtractionTask,
+    LambdaQTextGenerationTask,
+    LambdaQTextToImageTask,
+    LambdaQTextToSpeechTask,
+)
 from .novita import NovitaConversationalTask, NovitaTextGenerationTask, NovitaTextToVideoTask
 from .nscale import NscaleConversationalTask, NscaleTextToImageTask
 from .openai import OpenAIConversationalTask
@@ -79,6 +86,7 @@ PROVIDER_T = Literal[
     "fireworks-ai",
     "groq",
     "hf-inference",
+    "lambdaq",
     "novita",
     "nscale",
     "openai",
@@ -158,6 +166,13 @@ PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
         "translation": HFInferenceTask("translation"),
         "summarization": HFInferenceTask("summarization"),
         "visual-question-answering": HFInferenceBinaryInputTask("visual-question-answering"),
+    },
+    "lambdaq": {
+        "conversational": LambdaQConversationalTask(),
+        "feature-extraction": LambdaQFeatureExtractionTask(),
+        "text-generation": LambdaQTextGenerationTask(),
+        "text-to-image": LambdaQTextToImageTask(),
+        "text-to-speech": LambdaQTextToSpeechTask(),
     },
     "novita": {
         "text-generation": NovitaTextGenerationTask(),
