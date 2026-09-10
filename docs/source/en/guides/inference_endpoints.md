@@ -127,6 +127,24 @@ By default the Inference Endpoint is built from a docker image provided by Huggi
 
 The value to pass as `custom_image` is a dictionary containing a url to the docker container and configuration to run it. For more details about it, checkout the [Swagger documentation](https://api.endpoints.huggingface.cloud/#/v2%3A%3Aendpoint/create_endpoint).
 
+For an image hosted in a private container registry, pass `container_registry_username` and, when required by the registry, `container_registry_password`. The credentials are only supported for a plain custom container:
+
+```python
+>>> endpoint = create_inference_endpoint(
+...     # Other endpoint and hardware arguments omitted for brevity.
+...     custom_image={"url": "private.registry.example/my-image:latest", "port": 8080},
+...     container_registry_username="user",
+...     container_registry_password="password",
+... )
+```
+
+The equivalent CLI options are `--container-registry-username` and `--container-registry-password`:
+
+```bash
+hf endpoints deploy my-endpoint ... --custom-image private.registry.example/my-image:latest \
+  --container-registry-username user --container-registry-password password
+```
+
 `custom_image` also accepts the engine-specific container types supported by the API, by keying the dictionary with the engine name (`vLLM`, `vLLMNeuron`, `sGLang`, `tgi`, `tgiNeuron`, `tei`, `llamacpp`, `hfServe`, ...) instead of leaving it flat. Each engine takes the usual container fields (`url`, `port`, `healthRoute`) plus its own tuning options. Any dict without a top-level `url` is forwarded to the API untouched, so engines added to the API later work without upgrading `huggingface_hub`:
 
 ```python

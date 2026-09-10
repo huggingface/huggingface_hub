@@ -1803,6 +1803,8 @@ $ hf endpoints deploy [OPTIONS] NAME
 * `--engine [custom|hf-serve|llamacpp|sglang|tei|tgi|tgi-neuron|vllm|vllm-neuron]`: Managed engine image to run --custom-image with (e.g. 'vllm'). Defaults to an arbitrary container.
 * `--health-route TEXT`: Health check route exposed by the container (e.g. '/health'). Requires --custom-image.
 * `--port INTEGER`: Port the container listens on (e.g. 30000). Requires --custom-image.
+* `--container-registry-username TEXT`: Username used to authenticate with the registry hosting --custom-image.
+* `--container-registry-password TEXT`: Optional password used to authenticate with the registry hosting --custom-image.
 * `--tensor-parallel-size INTEGER`: Number of accelerators to shard a single model copy across (vLLM and SGLang engines only).
 * `--data-parallel-size INTEGER`: Number of model copies to run, one per accelerator (vLLM engine only).
 * `--container-command TEXT`: Override the container entrypoint, as a quoted string split into tokens (e.g. "python -m sglang.launch_server").
