@@ -2056,7 +2056,7 @@ Add labels to a Job using `-l` or `--label`. Labels are a key=value pairs that a
 
 The my-label key doesn't specify a value so its value defaults to an empty string ("").
 
-Use `--name` to add the `name` label when creating a Job. Names make Jobs easier to find and identify in the UI; they are optional and do not have to be unique. If you don't pass `--name`, a name is derived automatically from the Docker image or the script, plus a short hash of the command so reruns of the same command share a name (e.g. `python:3.12 foo --truc` → `python-3-12-1a2b3c4d`). You can also rename an existing Job:
+Use `--name` to add the `name` label when creating a Job. Names make Jobs easier to find and identify in the UI; they are optional and do not have to be unique. If you don't pass `--name`, a name is derived automatically from the Docker image or the script, plus a short hash of the command and of the resolved runtime settings (flavor, timeout, environment values, ...), so the same configuration always produces the same name (e.g. `python:3.12 foo --truc` → `python-3-12-1a2b3c4d`). Changing a setting changes the name, even when the command stays the same. You can also rename an existing Job:
 
 ```bash
 >>> hf jobs run --name training-v2 python:3.12 python train.py
@@ -2165,6 +2165,73 @@ rather than showing Jobs help:
 ```bash
 >>> hf jobs uv run --flavor t4-small train.py -- --help
 ```
+
+#### Ship the launch config with the script
+
+Some scripts only run correctly on a specific runtime: a given image, a GPU flavor, a system interpreter, etc. A script can carry that configuration with it in an optional `[tool.hf-jobs]` table in its PEP 723 header:
+
+```python
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["vllm", "datasets"]
+#
+# [tool.hf-jobs]
+# name    = "unlimited-ocr"
+# image   = "vllm/vllm-openai:unlimited-ocr"
+# flavor  = "l4x1"
+# python  = "/usr/bin/python3"
+# timeout = "2h"
+# env     = { PYTHONPATH = "/usr/local/lib/python3.12/dist-packages", BATCH_SIZE = "64" }
+# secrets = ["HF_TOKEN"]
+# labels  = { task = "ocr" }
+# volumes = ["hf://datasets/org/pdfs:/input"]
+# ///
+```
+
+`hf jobs uv run ocr.py in_ds out_ds` then launches with the right runtime, instead of silently running on a CPU image with the wrong interpreter. The table is invisible to a plain `uv run`: `[tool.*]` tables are part of PEP 723 and tools ignore the ones they don't own.
+
+Supported keys, all optional: `image`, `flavor`, `python`, `timeout`, `name`, `namespace`, `env`, `secrets`, `labels`, `volumes`, `network_group` and `network_aliases`. They map to the flags of the same name (`name` is stored as the `name` label, `volumes` takes the same `hf://...:/MOUNT_PATH` specs as `-v`, `network_aliases` is a list of `--network-alias` values). An unknown key is an error rather than a silently dropped intent — a typo like `flavour` is exactly the failure this feature exists to prevent.
+
+All values must be strings, including the values of `env` and `labels`: `-e BATCH_SIZE=64` translates to `env = { BATCH_SIZE = "64" }`, not `env = { BATCH_SIZE = 64 }` (TOML reads the latter as an integer and the table is rejected). The one exception is `timeout`, which also accepts an integer number of seconds (`timeout = 7200` is the same as `timeout = "2h"`).
+
+Values from the script are *defaults*: an explicit flag always wins, and `env`, `secrets`, `labels` and `volumes` are merged entry by entry, so `-e` and `-v` can add to what the script declares:
+
+```bash
+# Same script, on bigger hardware, with one extra env var
+>>> hf jobs uv run --flavor a10g-large -e BATCH_SIZE=64 ocr.py in_ds out_ds
+```
+
+`network_aliases` is the exception: the aliases a Job claims form a set, so `--network-alias` replaces the script's list instead of adding to it. Scheduled Jobs have no network group at all, so `hf jobs scheduled uv run` rejects a script that declares `network_group` or `network_aliases`.
+
+`secrets` only lists secret *names*: values always come from the environment of whoever runs the script, never from the script itself (`HF_TOKEN` also resolves from `hf auth login`). A secret that is requested but not set locally is an error, rather than a Job silently receiving an empty value. With `--dry-run` it is shown as `<not set>` instead, so that the configuration of a script whose secrets are not provisioned yet remains visible.
+
+Every run echoes the configuration it submits, marking the values that come from the script. Use `--dry-run` to print it without launching anything:
+
+```bash
+>>> hf jobs uv run --dry-run --flavor a10g-large ocr.py in_ds out_ds
+Warning: The script's [tool.hf-jobs] table requests HF_TOKEN: the value(s) from your local environment would be sent to the Job.
+Job configuration:
+  script   ocr.py
+  args     in_ds out_ds
+  image    vllm/vllm-openai:unlimited-ocr (from script)
+  flavor   a10g-large
+  python   /usr/bin/python3 (from script)
+  timeout  2h (from script)
+  env      PYTHONPATH=/usr/local/lib/python3.12/dist-packages (from script)
+           BATCH_SIZE=64 (from script)
+  secrets  HF_TOKEN=*** (from script)
+  volumes  hf://datasets/org/pdfs:/input (from script)
+  labels   task=ocr (from script)
+           name=unlimited-ocr (from script)
+(dry run) Job not submitted.
+```
+
+> [!TIP]
+> This also works for scripts that live behind a URL: the script is downloaded once when the Job is submitted (to read its header) and shipped to the Job like a local script, instead of being downloaded again by the container. The URL must be reachable from your machine. Like local scripts, URL scripts use the reserved `/data` artifacts mount; use another mount path for your input volumes.
+
+For `hf jobs scheduled uv run`, this pins the script to its content at creation time. Updating the source URL no longer changes future runs: recreate the scheduled Job to pick up a new version.
+
+`--dry-run` is also available on `hf jobs run`, `hf jobs scheduled run` and `hf jobs scheduled uv run`. It skips submission and local volume uploads. Auto-generated names for both Docker and UV Jobs include the resolved launch configuration, so changing runtime settings or environment values changes the name.
 
 ### hf jobs scheduled
 
