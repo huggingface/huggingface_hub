@@ -51,6 +51,12 @@ class TestHttpBackoff:
         yield
         self.patcher.stop()
 
+    @pytest.fixture
+    def mock_sleep(self) -> Generator[Mock, None, None]:
+        """Patch out `time.sleep` so backoff durations are asserted instead of actually waited for."""
+        with patch("huggingface_hub.utils._http.time.sleep") as mock:
+            yield mock
+
     def test_backoff_no_errors(self) -> None:
         """Test normal usage of `http_backoff`."""
         data_mock = Mock()
@@ -135,26 +141,9 @@ class TestHttpBackoff:
         assert self.mock_request.call_count == 4
         assert response is mock_200
 
-    def test_backoff_sleep_time(self) -> None:
-        """Test `http_backoff` sleep time goes exponential until max limit.
-
-        Since timing between 2 requests is sleep duration + some other stuff, this test
-        can be unstable. However, sleep durations between 10ms and 50ms should be enough
-        to make the approximation that measured durations are the "sleep time" waited by
-        `http_backoff`. If this is not the case, just increase `base_wait_time`,
-        `max_wait_time` and `expected_sleep_times` with bigger values.
-        """
-        sleep_times = []
-
-        def _side_effect_timer() -> Generator[ConnectTimeout, None, None]:
-            t0 = time.time()
-            while True:
-                yield ConnectTimeout("Connection timeout")
-                t1 = time.time()
-                sleep_times.append(round(t1 - t0, 1))
-                t0 = t1
-
-        self.mock_request.side_effect = _side_effect_timer()
+    def test_backoff_sleep_time(self, mock_sleep: Mock) -> None:
+        """Test `http_backoff` sleep time goes exponential until max limit."""
+        self.mock_request.side_effect = ConnectTimeout("Connection timeout")
 
         with pytest.raises(ConnectTimeout):
             http_backoff("GET", URL, base_wait_time=0.1, max_wait_time=0.5, max_retries=5)
@@ -162,34 +151,23 @@ class TestHttpBackoff:
         assert self.mock_request.call_count == 6
 
         # Assert sleep times are exponential until plateau
-        expected_sleep_times = [0.1, 0.2, 0.4, 0.5, 0.5]
-        assert sleep_times == expected_sleep_times
+        assert mock_sleep.call_args_list == [call(0.1), call(0.2), call(0.4), call(0.5), call(0.5)]
 
-    def test_backoff_on_429_uses_ratelimit_header(self) -> None:
+    def test_backoff_on_429_uses_ratelimit_header(self, mock_sleep: Mock) -> None:
         """Test that 429 wait time uses full reset time from ratelimit header."""
-        sleep_times = []
-
-        def _side_effect_timer() -> Generator:
-            t0 = time.time()
-            mock_429 = Mock()
-            mock_429.status_code = 429
-            mock_429.headers = {"ratelimit": '"api";r=0;t=1'}  # Server says wait 1s
-            yield mock_429
-            t1 = time.time()
-            sleep_times.append(round(t1 - t0, 1))
-            t0 = t1
-            mock_200 = Mock()
-            mock_200.status_code = 200
-            yield mock_200
-
-        self.mock_request.side_effect = _side_effect_timer()
+        mock_429 = Mock()
+        mock_429.status_code = 429
+        mock_429.headers = {"ratelimit": '"api";r=0;t=1'}  # Server says wait 1s
+        mock_200 = Mock()
+        mock_200.status_code = 200
+        self.mock_request.side_effect = (mock_429, mock_200)
 
         response = http_backoff(
             "GET", URL, base_wait_time=0.1, max_wait_time=0.5, max_retries=3, retry_on_status_codes=429
         )
 
         assert self.mock_request.call_count == 2
-        assert sleep_times == [2.0]
+        assert mock_sleep.call_args_list == [call(2.0)]  # 1s from the header + 1s margin
         assert response.status_code == 200
 
 
