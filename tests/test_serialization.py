@@ -600,6 +600,32 @@ def test_save_torch_state_dict_delete_existing_files(
     assert (tmp_path / "pytorch_model-00003-of-00003.bin").is_file()
 
 
+def test_save_torch_state_dict_does_not_delete_unrelated_files_with_shared_prefix(
+    tmp_path: Path, torch_state_dict: dict[str, "torch.Tensor"]
+) -> None:
+    """Regression test: files that merely start with the shard filename (backups, sidecar
+    files, etc.) must not be swept up by the pre-save cleanup regex.
+
+    Previously the cleanup regex was built with `filename_pattern.format(...)` (so the
+    literal "." in "model{suffix}.safetensors" was an unescaped regex wildcard) and matched
+    with `re.match` (unanchored at the end), so any file merely *starting with*
+    "model.safetensors" was silently deleted.
+    """
+    (tmp_path / "model.safetensors.backup").touch()
+    (tmp_path / "model.safetensors.dvc").touch()
+    (tmp_path / "modelXsafetensors").touch()  # "." in pattern must not act as regex wildcard
+    (tmp_path / "notes.txt").touch()
+
+    save_torch_state_dict(torch_state_dict, tmp_path)
+    assert (tmp_path / "model.safetensors").is_file()  # new file
+
+    # None of the unrelated files should have been touched
+    assert (tmp_path / "model.safetensors.backup").is_file()
+    assert (tmp_path / "model.safetensors.dvc").is_file()
+    assert (tmp_path / "modelXsafetensors").is_file()
+    assert (tmp_path / "notes.txt").is_file()
+
+
 def test_save_torch_state_dict_not_main_process(
     tmp_path: Path,
     torch_state_dict: dict[str, "torch.Tensor"],
