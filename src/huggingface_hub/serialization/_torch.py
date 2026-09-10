@@ -252,11 +252,7 @@ def save_torch_state_dict(
 
     # Only main process should clean up existing files to avoid race conditions in distributed environment
     if is_main_process:
-        # Escape the literal parts of the pattern (e.g. the "." in "model{suffix}.safetensors" is not a
-        # wildcard) and anchor with `fullmatch` so we only ever remove files that are actually shards
-        # (or their index) written by a previous save with this exact pattern. Without this, `re.match`
-        # combined with an unescaped "." would also match unrelated files that merely start with the same
-        # prefix, e.g. "model.safetensors.backup" or "model.safetensors.dvc" sidecar files.
+        # Escape literal parts and use `fullmatch` so that e.g. "model.safetensors.backup" is not deleted.
         prefix, _, suffix = filename_pattern.partition("{suffix}")
         existing_files_regex = re.compile(
             re.escape(prefix) + r"(-\d{5}-of-\d{5})?" + re.escape(suffix) + r"(\.index\.json)?"
