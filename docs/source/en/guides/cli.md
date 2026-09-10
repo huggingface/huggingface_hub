@@ -2168,7 +2168,7 @@ rather than showing Jobs help:
 
 #### Ship the launch config with the script
 
-Some scripts only run correctly on a specific runtime: a given image, a GPU flavor, a system interpreter... A script can carry that configuration with it, in an optional `[tool.hf-jobs]` table of its PEP 723 header:
+Some scripts only run correctly on a specific runtime: a given image, a GPU flavor, a system interpreter, etc. A script can carry that configuration with it in an optional `[tool.hf-jobs]` table in its PEP 723 header:
 
 ```python
 # /// script
