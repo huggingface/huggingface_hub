@@ -117,6 +117,26 @@ class JobOwner:
 
 
 @dataclass
+class JobNetwork:
+    """
+    Network group a Job joined.
+
+    Args:
+        group (`str`):
+            Name of the network group, as passed to `network_group=`.
+        aliases (`list[str]`):
+            Aliases the Job claims in the group, as passed to `network_aliases=`. Empty when none.
+    """
+
+    group: str
+    aliases: list[str]
+
+    def __init__(self, **kwargs) -> None:
+        self.group = kwargs["group"]
+        self.aliases = kwargs.get("aliases") or []
+
+
+@dataclass
 class JobDurations:
     """
     Timing breakdown for a Job, computed server-side.
@@ -211,6 +231,9 @@ class JobInfo:
             SSH endpoint of the Job, e.g. `"ssh://687fb701029421ae5549d998@ssh.hf.jobs"`. Only present when the Job
             was started with `ssh=True`. Connecting requires write access to the Job's namespace and an SSH public
             key registered on the Hub (https://huggingface.co/settings/keys).
+        network (`JobNetwork` or `None`):
+            Network group the Job joined and the aliases it claims, e.g. `JobNetwork(group="train", aliases=["master"])`.
+            `None` when the Job was started without `network_group=`.
 
     Example:
 
@@ -248,6 +271,7 @@ class JobInfo:
     durations: JobDurations | None
     owner: JobOwner
     initiator: JobInitiator | None
+    network: JobNetwork | None
 
     # Inferred fields
     endpoint: str
@@ -286,6 +310,8 @@ class JobInfo:
         self.initiator = (
             JobInitiator(type=initiator["type"], id=initiator["id"], name=initiator.get("name")) if initiator else None
         )
+        network = kwargs.get("network")
+        self.network = JobNetwork(**network) if network else None
 
         # Inferred fields
         self.endpoint = kwargs.get("endpoint", constants.ENDPOINT)

@@ -389,6 +389,8 @@ Pass `network_group="<name>"` to [`run_job`] (or [`run_uv_job`]) to let Jobs in 
 ...     command=["sh", "-c", 'curl --retry 10 --retry-connrefused "http://${HF_NETWORK_GROUP_PREFIX}master:8000/"'],
 ...     network_group="train",
 ... )
+>>> server.network
+JobNetwork(group='train', aliases=['master'])
 ```
 
 Members are resolvable before they are ready, so connect with retries. Group names and aliases are lowercase alphanumerics and dashes, 46 and 34 characters max.
