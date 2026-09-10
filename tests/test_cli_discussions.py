@@ -21,7 +21,6 @@ from click.testing import CliRunner, Result
 
 from huggingface_hub import HfApi
 from huggingface_hub.cli.hf import app
-from huggingface_hub.community import DiscussionComment, deserialize_event
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN
 from .testing_utils import repo_name
