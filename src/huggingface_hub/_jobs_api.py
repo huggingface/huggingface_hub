@@ -549,7 +549,8 @@ def _default_job_name_from_image(image: str, command: list[str]) -> str:
             base = _sanitize_job_name(image[len(prefix) :] or image)
             break
     else:
-        base = _sanitize_job_name(image.rstrip("/").split("/")[-1] or image)  # drop registry host and namespace
+        # Drop registry host, namespace and digest from the readable name only.
+        base = _sanitize_job_name(image.split("@", 1)[0].rstrip("/").split("/")[-1] or image)
     return f"{base}-{_short_invocation_hash([image, *command])}"
 
 
