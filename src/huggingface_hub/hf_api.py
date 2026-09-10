@@ -9572,6 +9572,7 @@ class HfApi:
                 FutureWarning,
             )
 
+        image: dict[str, Any]
         if custom_image is None:
             if container_registry_password is not None and container_registry_username is None:
                 raise ValueError("`container_registry_password` requires `container_registry_username`.")
