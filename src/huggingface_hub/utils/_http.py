@@ -376,7 +376,8 @@ def get_session() -> httpx.Client:
     global _GLOBAL_CLIENT
     if _GLOBAL_CLIENT is None:
         with _CLIENT_LOCK:
-            _GLOBAL_CLIENT = _GLOBAL_CLIENT_FACTORY()
+            if _GLOBAL_CLIENT is None:
+                _GLOBAL_CLIENT = _GLOBAL_CLIENT_FACTORY()
     return _GLOBAL_CLIENT
 
 

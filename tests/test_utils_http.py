@@ -262,6 +262,30 @@ class TestConfigureSession:
             for j in range(N):
                 assert clients[i] is clients[j]
 
+    def test_get_session_concurrent_first_call_creates_single_client(self):
+        N = 16
+        created = []
+        barrier = threading.Barrier(N)
+        clients = [None] * N
+
+        def _factory() -> httpx.Client:
+            created.append(None)
+            return httpx.Client()
+
+        def _get_session_in_thread(index: int) -> None:
+            barrier.wait()
+            clients[index] = get_session()
+
+        set_client_factory(_factory)
+        threads = [threading.Thread(target=_get_session_in_thread, args=(index,)) for index in range(N)]
+        for th in threads:
+            th.start()
+        for th in threads:
+            th.join()
+
+        assert len(created) == 1
+        assert all(client is clients[0] for client in clients)
+
 
 class TestOfflineModeSession:
     def test_offline_mode(self):
