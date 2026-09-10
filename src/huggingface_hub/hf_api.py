@@ -9384,6 +9384,8 @@ class HfApi:
         revision: str | None = None,
         task: str | None = None,
         custom_image: dict | None = None,
+        container_registry_username: str | None = None,
+        container_registry_password: str | None = None,
         container_command: list[str] | None = None,
         container_args: list[str] | None = None,
         env: dict[str, str] | None = None,
@@ -9444,6 +9446,11 @@ class HfApi:
                 `llamacpp`, `hfServe`, ...), which is forwarded as-is, or a flat dict describing a custom
                 container (e.g. `{"url": ..., "port": ...}`), which is sent as `{"custom": ...}` (see examples).
                 Defaults to the Hugging Face managed image.
+            container_registry_username (`str`, *optional*):
+                Username used to authenticate with the registry hosting a custom container image.
+            container_registry_password (`str`, *optional*):
+                Password used to authenticate with the registry hosting a custom container image. Requires
+                `container_registry_username`. Omitted from the API payload when not provided.
             container_command (`list[str]`, *optional*):
                 Override the container entrypoint command (maps to `model.command` in the API payload). Works with
                 both managed engine images (e.g. vLLM, SGLang) and custom images.
@@ -9565,7 +9572,18 @@ class HfApi:
                 FutureWarning,
             )
 
-        image = _build_endpoint_image_payload(custom_image) if custom_image is not None else {"huggingface": {}}
+        if custom_image is None:
+            if container_registry_password is not None and container_registry_username is None:
+                raise ValueError("`container_registry_password` requires `container_registry_username`.")
+            if container_registry_username is not None:
+                raise ValueError("`custom_image` is required when setting container registry credentials.")
+            image = {"huggingface": {}}
+        else:
+            image = _build_endpoint_image_payload(
+                custom_image,
+                container_registry_username=container_registry_username,
+                container_registry_password=container_registry_password,
+            )
 
         payload: dict = {
             "accountId": account_id,

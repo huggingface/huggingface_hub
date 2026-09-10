@@ -2681,6 +2681,10 @@ class TestInferenceEndpointsCommands:
                     "/health",
                     "--port",
                     "30000",
+                    "--container-registry-username",
+                    "user",
+                    "--container-registry-password",
+                    "secret",
                     "--container-args",
                     "--tp 8 --reasoning-parser qwen3",
                     "--env",
@@ -2697,6 +2701,8 @@ class TestInferenceEndpointsCommands:
             "port": 30000,
         }
         assert kwargs["container_args"] == ["--tp", "8", "--reasoning-parser", "qwen3"]
+        assert kwargs["container_registry_username"] == "user"
+        assert kwargs["container_registry_password"] == "secret"
         assert "container_command" not in kwargs
         assert kwargs["env"] == {"MODEL_ID": "/repository"}
         assert kwargs["type"] == "authenticated"
@@ -3028,11 +3034,28 @@ def test_build_custom_image_warns_for_engine_without_the_field(engine: str, size
     "custom_image, extra, match",
     [
         (None, {"engine": "vllm", "tensor_parallel_size": 8}, "--custom-image is required"),
+        (None, {"container_registry_username": "user"}, "--custom-image is required"),
+        (
+            IMAGE_URL,
+            {"container_registry_password": "secret"},
+            "--container-registry-password requires --container-registry-username",
+        ),
+        (
+            IMAGE_URL,
+            {"engine": "vllm", "container_registry_username": "user"},
+            "only be set for a custom container without --engine",
+        ),
         # Without an engine key the API ignores the parallelism fields rather than rejecting them, which would
         # deploy an endpoint quietly running on a single accelerator.
         (IMAGE_URL, {"tensor_parallel_size": 8}, "require --engine"),
     ],
-    ids=["flags_without_image", "sizes_without_engine"],
+    ids=[
+        "flags_without_image",
+        "registry_credentials_without_image",
+        "registry_password_without_username",
+        "registry_credentials_with_engine",
+        "sizes_without_engine",
+    ],
 )
 def test_build_custom_image_rejects(custom_image: str | None, extra: dict, match: str) -> None:
     with pytest.raises(CLIError, match=match):

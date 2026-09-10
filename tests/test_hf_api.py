@@ -4711,16 +4711,37 @@ def test_build_endpoint_image_payload(custom_image: dict, expected_image_payload
 
 
 @pytest.mark.parametrize(
-    "custom_image, expected_image_payload",
+    "custom_image, registry_credentials, expected_image_payload",
     [
-        (None, {"huggingface": {}}),
-        ({"vLLM": {"url": "vllm/vllm-openai:v0.23.0"}}, {"vLLM": {"url": "vllm/vllm-openai:v0.23.0"}}),
+        (None, {}, {"huggingface": {}}),
+        (
+            {"vLLM": {"url": "vllm/vllm-openai:v0.23.0"}},
+            {},
+            {"vLLM": {"url": "vllm/vllm-openai:v0.23.0"}},
+        ),
+        (
+            {"url": "private.registry/image:latest", "port": 8080},
+            {"container_registry_username": "user", "container_registry_password": "secret"},
+            {
+                "custom": {
+                    "url": "private.registry/image:latest",
+                    "port": 8080,
+                    "credentials": {"username": "user", "password": "secret"},
+                }
+            },
+        ),
+        (
+            {"url": "private.registry/image:latest"},
+            {"container_registry_username": "user"},
+            {"custom": {"url": "private.registry/image:latest", "credentials": {"username": "user"}}},
+        ),
     ],
-    ids=["no_custom_image", "custom_image"],
+    ids=["no_custom_image", "custom_image", "registry_credentials", "registry_username_only"],
 )
 def test_create_inference_endpoint_custom_image_payload(
     mocker,
     custom_image: Optional[dict],
+    registry_credentials: dict,
     expected_image_payload: dict,
 ):
     """`custom_image` reaches `model.image`, and defaults to the Hugging Face managed image."""
@@ -4759,10 +4780,48 @@ def test_create_inference_endpoint_custom_image_payload(
         task="text-generation",
         namespace="Wauplin",
         custom_image=custom_image,
+        **registry_credentials,
     )
 
     payload = mock_session.post.call_args[1]["json"]
     assert payload["model"]["image"] == expected_image_payload
+
+
+@pytest.mark.parametrize(
+    "custom_image, registry_credentials, match",
+    [
+        (None, {"container_registry_username": "user"}, "`custom_image` is required"),
+        (
+            {"url": "private.registry/image:latest"},
+            {"container_registry_password": "secret"},
+            "`container_registry_password` requires `container_registry_username`",
+        ),
+        (
+            {"vLLM": {"url": "private.registry/image:latest"}},
+            {"container_registry_username": "user"},
+            "only be set for a custom container",
+        ),
+    ],
+    ids=["credentials_without_image", "password_without_username", "credentials_for_engine"],
+)
+def test_create_inference_endpoint_rejects_invalid_registry_credentials(
+    custom_image: dict | None, registry_credentials: dict, match: str
+):
+    api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
+    with pytest.raises(ValueError, match=match):
+        api.create_inference_endpoint(
+            name="test-endpoint-custom-img",
+            repository="meta-llama/Llama-2-7b-chat-hf",
+            framework="custom",
+            accelerator="gpu",
+            instance_size="medium",
+            instance_type="nvidia-a10g",
+            region="us-east-1",
+            vendor="aws",
+            namespace="Wauplin",
+            custom_image=custom_image,
+            **registry_credentials,
+        )
 
 
 def test_create_inference_endpoint_container_command_and_args_payload(mocker):
