@@ -829,6 +829,8 @@ class Sandbox:
                         timed_out=event.get("timed_out", False),
                         duration_ms=event.get("duration_ms", 0),
                     )
+                    # Exit is terminal: a truncated HTTP tail must not mask the command result.
+                    break
         if result is None:
             raise SandboxError("connection lost while running command")
         if check and (result.exit_code != 0 or result.timed_out):

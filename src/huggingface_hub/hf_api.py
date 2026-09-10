@@ -12187,13 +12187,15 @@ class HfApi:
                 (https://huggingface.co/settings/keys). Defaults to False.
 
             network_group (`str`, *optional*):
-                Name of a network group to join. Jobs of the same owner sharing a group are placed together and
-                can reach each other on every port. Inside each member, `HF_NETWORK_GROUP_HOSTNAME` resolves to
-                every member of the group. Lowercase alphanumerics and dashes, 46 characters max.
+                Name of a network group to join. Jobs in the same namespace and resource group sharing a group are
+                placed together and can reach each other on every port. Inside each member,
+                `HF_NETWORK_GROUP_HOSTNAME` resolves to every member of the group. Lowercase alphanumerics and dashes,
+                46 characters max.
 
             network_aliases (`list[str]`, *optional*):
                 Aliases this job claims in its network group. Members reach the jobs claiming an alias at
-                `${HF_NETWORK_GROUP_PREFIX}<alias>`. Several jobs may claim the same alias. Requires `network_group`.
+                `${HF_NETWORK_GROUP_PREFIX}<alias>`. Several jobs may claim the same alias. Lowercase alphanumerics
+                and dashes, 34 characters max, unique within the job. Requires `network_group`.
 
             resource_group_id (`str`, *optional*):
                 The ID of the resource group to create the Job in. Used to control access to resources within an
@@ -12853,13 +12855,15 @@ class HfApi:
                 (https://huggingface.co/settings/keys). Defaults to False.
 
             network_group (`str`, *optional*):
-                Name of a network group to join. Jobs of the same owner sharing a group are placed together and
-                can reach each other on every port. Inside each member, `HF_NETWORK_GROUP_HOSTNAME` resolves to
-                every member of the group. Lowercase alphanumerics and dashes, 46 characters max.
+                Name of a network group to join. Jobs in the same namespace and resource group sharing a group are
+                placed together and can reach each other on every port. Inside each member,
+                `HF_NETWORK_GROUP_HOSTNAME` resolves to every member of the group. Lowercase alphanumerics and dashes,
+                46 characters max.
 
             network_aliases (`list[str]`, *optional*):
                 Aliases this job claims in its network group. Members reach the jobs claiming an alias at
-                `${HF_NETWORK_GROUP_PREFIX}<alias>`. Several jobs may claim the same alias. Requires `network_group`.
+                `${HF_NETWORK_GROUP_PREFIX}<alias>`. Several jobs may claim the same alias. Lowercase alphanumerics
+                and dashes, 34 characters max, unique within the job. Requires `network_group`.
 
             resource_group_id (`str`, *optional*):
                 The ID of the resource group to create the Job in. Used to control access to resources within an
