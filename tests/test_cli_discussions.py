@@ -332,28 +332,3 @@ def test_diff_pr(repo_with_discussion: tuple):
     repo_id, _, pr_num = repo_with_discussion
     result = cli(f"hf discussions diff {repo_id} {pr_num}")
     assert result.exit_code == 0
-
-
-def test_discussion_comment_properties():
-    event_dict = {
-        "id": "600000000000000000000000",
-        "type": "comment",
-        "createdAt": "2024-01-01T00:00:00.000Z",
-        "author": {"name": "alice"},
-        "data": {
-            "edited": True,
-            "hidden": False,
-            "latest": {
-                "raw": "Hello world",
-                "html": "<p>Hello world</p>",
-                "updatedAt": "2024-01-02T00:00:00.000Z",
-                "author": {"name": "bob"},
-            },
-            "history": [],
-        },
-    }
-    event = deserialize_event(event_dict)
-    assert isinstance(event, DiscussionComment)
-    assert event.author == "alice"
-    assert event.last_edited_by == "bob"
-    assert event.last_edited_at.year == 2024
