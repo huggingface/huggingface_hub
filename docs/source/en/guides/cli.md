@@ -2056,7 +2056,7 @@ Add labels to a Job using `-l` or `--label`. Labels are a key=value pairs that a
 
 The my-label key doesn't specify a value so its value defaults to an empty string ("").
 
-Use `--name` to add the `name` label when creating a Job. Names make Jobs easier to find and identify in the UI; they are optional and do not have to be unique. If you don't pass `--name`, a name is derived automatically from the Docker image or the script, plus a short hash of the command so reruns of the same command share a name (e.g. `python:3.12 foo --truc` → `python-3-12-1a2b3c4d`). You can also rename an existing Job:
+Use `--name` to add the `name` label when creating a Job. Names make Jobs easier to find and identify in the UI; they are optional and do not have to be unique. If you don't pass `--name`, a name is derived automatically from the Docker image or the script, plus a short hash of the command and of the resolved runtime settings (flavor, timeout, environment values, ...), so the same configuration always produces the same name (e.g. `python:3.12 foo --truc` → `python-3-12-1a2b3c4d`). Changing a setting changes the name, even when the command stays the same. You can also rename an existing Job:
 
 ```bash
 >>> hf jobs run --name training-v2 python:3.12 python train.py
@@ -2180,14 +2180,19 @@ Some scripts only run correctly on a specific runtime: a given image, a GPU flav
 # image   = "vllm/vllm-openai:unlimited-ocr"
 # flavor  = "l4x1"
 # python  = "/usr/bin/python3"
-# env     = { PYTHONPATH = "/usr/local/lib/python3.12/dist-packages" }
+# timeout = "2h"
+# env     = { PYTHONPATH = "/usr/local/lib/python3.12/dist-packages", BATCH_SIZE = "64" }
 # secrets = ["HF_TOKEN"]
+# labels  = { task = "ocr" }
+# volumes = ["hf://datasets/org/pdfs:/input"]
 # ///
 ```
 
 `hf jobs uv run ocr.py in_ds out_ds` then launches with the right runtime, instead of silently running on a CPU image with the wrong interpreter. The table is invisible to a plain `uv run`: `[tool.*]` tables are part of PEP 723 and tools ignore the ones they don't own.
 
 Supported keys, all optional: `image`, `flavor`, `python`, `timeout`, `name`, `namespace`, `env`, `secrets`, `labels`, `volumes`, `network_group` and `network_aliases`. They map to the flags of the same name (`name` is stored as the `name` label, `volumes` takes the same `hf://...:/MOUNT_PATH` specs as `-v`, `network_aliases` is a list of `--network-alias` values). An unknown key is an error rather than a silently dropped intent — a typo like `flavour` is exactly the failure this feature exists to prevent.
+
+All values must be strings, including the values of `env` and `labels`: `-e BATCH_SIZE=64` translates to `env = { BATCH_SIZE = "64" }`, not `env = { BATCH_SIZE = 64 }` (TOML reads the latter as an integer and the table is rejected). The one exception is `timeout`, which also accepts an integer number of seconds (`timeout = 7200` is the same as `timeout = "2h"`).
 
 Values from the script are *defaults*: an explicit flag always wins, and `env`, `secrets`, `labels` and `volumes` are merged entry by entry, so `-e` and `-v` can add to what the script declares:
 
@@ -2211,9 +2216,13 @@ Job configuration:
   image    vllm/vllm-openai:unlimited-ocr (from script)
   flavor   a10g-large
   python   /usr/bin/python3 (from script)
+  timeout  2h (from script)
   env      PYTHONPATH=/usr/local/lib/python3.12/dist-packages (from script)
+           BATCH_SIZE=64 (from script)
   secrets  HF_TOKEN=*** (from script)
-  labels   name=unlimited-ocr (from script)
+  volumes  hf://datasets/org/pdfs:/input (from script)
+  labels   task=ocr (from script)
+           name=unlimited-ocr (from script)
 (dry run) Job not submitted.
 ```
 

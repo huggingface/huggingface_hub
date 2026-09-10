@@ -558,7 +558,7 @@ From the CLI, pass `--name` when creating a Job, or name an existing Job through
 ... )
 ```
 
-If you don't pass `--name`, a name is derived automatically from the Docker image or the script, plus a short hash of the command so reruns of the same command share a name (e.g. `python:3.12 foo --truc` → `python-3-12-1a2b3c4d`).
+If you don't pass a name, one is derived automatically from the Docker image or the script, plus a short hash (e.g. `python:3.12 foo --truc` → `python-3-12-1a2b3c4d`). From the CLI, that hash covers the command *and* the resolved runtime settings (flavor, timeout, environment values, ...), so the same configuration always produces the same name, and changing a setting — including one coming from a script's `[tool.hf-jobs]` header — changes it. From the Python API, the hash covers the command only.
 
 ### Update labels
 
