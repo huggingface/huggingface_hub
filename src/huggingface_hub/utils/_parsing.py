@@ -59,7 +59,7 @@ def _parse_with_unit(value: str, units: dict[str, int]) -> int:
     if not stripped:
         raise ValueError("Value cannot be empty.")
     try:
-        return int(value)
+        return int(stripped)
     except ValueError:
         pass
 
