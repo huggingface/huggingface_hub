@@ -326,7 +326,7 @@ def default_async_client_factory() -> httpx.AsyncClient:
 CLIENT_FACTORY_T = Callable[[], httpx.Client]
 ASYNC_CLIENT_FACTORY_T = Callable[[], httpx.AsyncClient]
 
-_CLIENT_LOCK = threading.Lock()
+_CLIENT_LOCK = threading.RLock()
 _GLOBAL_CLIENT_FACTORY: CLIENT_FACTORY_T = default_client_factory
 _GLOBAL_ASYNC_CLIENT_FACTORY: ASYNC_CLIENT_FACTORY_T = default_async_client_factory
 _GLOBAL_CLIENT: httpx.Client | None = None
@@ -374,11 +374,14 @@ def get_session() -> httpx.Client:
     Use [`set_client_factory`] to customize the `httpx.Client`.
     """
     global _GLOBAL_CLIENT
-    if _GLOBAL_CLIENT is None:
+    client = _GLOBAL_CLIENT
+    if client is None:
         with _CLIENT_LOCK:
-            if _GLOBAL_CLIENT is None:
-                _GLOBAL_CLIENT = _GLOBAL_CLIENT_FACTORY()
-    return _GLOBAL_CLIENT
+            client = _GLOBAL_CLIENT
+            if client is None:
+                client = _GLOBAL_CLIENT_FACTORY()
+                _GLOBAL_CLIENT = client
+    return client
 
 
 def get_async_session() -> httpx.AsyncClient:
@@ -403,17 +406,18 @@ def close_session() -> None:
     Can be useful if e.g. an SSL certificate has been updated.
     """
     global _GLOBAL_CLIENT
-    client = _GLOBAL_CLIENT
+    with _CLIENT_LOCK:
+        client = _GLOBAL_CLIENT
 
-    # First, set global client to None
-    _GLOBAL_CLIENT = None
+        # First, set global client to None
+        _GLOBAL_CLIENT = None
 
-    # Then, close the clients
-    if client is not None:
-        try:
-            client.close()
-        except Exception as e:
-            logger.warning(f"Error closing client: {e}")
+        # Then, close the clients
+        if client is not None:
+            try:
+                client.close()
+            except Exception as e:
+                logger.warning(f"Error closing client: {e}")
 
 
 atexit.register(close_session)
