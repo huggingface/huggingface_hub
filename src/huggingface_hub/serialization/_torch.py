@@ -370,7 +370,7 @@ def load_torch_model(
     *,
     strict: bool = False,
     safe: bool = True,
-    weights_only: bool = False,
+    weights_only: bool = True,
     map_location: Union[str, "torch.device"] | None = None,
     mmap: bool = False,
     filename_pattern: str | None = None,
@@ -389,9 +389,10 @@ def load_torch_model(
             If `safe` is True, the safetensors files will be loaded. If `safe` is False, the function
             will first attempt to load safetensors files if they are available, otherwise it will fall back to loading
             pickle files. `filename_pattern` parameter takes precedence over `safe` parameter.
-        weights_only (`bool`, *optional*, defaults to `False`):
-            If True, only loads the model weights without optimizer states and other metadata.
-            Only supported in PyTorch >= 1.13.
+        weights_only (`bool`, *optional*, defaults to `True`):
+            If True, only loads the model weights without optimizer states and other metadata, using torch's
+            restricted unpickler. Set to False to allow arbitrary Python objects in a pickle checkpoint (this
+            executes arbitrary code at load time). Only supported in PyTorch >= 1.13.
         map_location (`str` or `torch.device`, *optional*):
             A `torch.device` object, string or a dict specifying how to remap storage locations. It
             indicates the location where all tensors should be loaded.
@@ -477,7 +478,7 @@ def _load_sharded_checkpoint(
     save_directory: os.PathLike,
     *,
     strict: bool = False,
-    weights_only: bool = False,
+    weights_only: bool = True,
     filename_pattern: str = constants.SAFETENSORS_WEIGHTS_FILE_PATTERN,
 ) -> NamedTuple:
     """
@@ -492,9 +493,10 @@ def _load_sharded_checkpoint(
             A path to a folder containing the sharded checkpoint.
         strict (`bool`, *optional*, defaults to `False`):
             Whether to strictly enforce that the keys in the model state dict match the keys in the sharded checkpoint.
-        weights_only (`bool`, *optional*, defaults to `False`):
-            If True, only loads the model weights without optimizer states and other metadata.
-            Only supported in PyTorch >= 1.13.
+        weights_only (`bool`, *optional*, defaults to `True`):
+            If True, only loads the model weights without optimizer states and other metadata, using torch's
+            restricted unpickler. Set to False to allow arbitrary Python objects in a pickle checkpoint (this
+            executes arbitrary code at load time). Only supported in PyTorch >= 1.13.
         filename_pattern (`str`, *optional*, defaults to `"model{suffix}.safetensors"`):
             The pattern to look for the index file. Pattern must be a string that
             can be formatted with `filename_pattern.format(suffix=...)` and must contain the keyword `suffix`
@@ -574,7 +576,7 @@ def _load_sharded_checkpoint(
 def load_state_dict_from_file(
     checkpoint_file: str | os.PathLike,
     map_location: Union[str, "torch.device"] | None = None,
-    weights_only: bool = False,
+    weights_only: bool = True,
     mmap: bool = False,
     *,
     safe: bool = True,
@@ -588,10 +590,11 @@ def load_state_dict_from_file(
         map_location (`str` or `torch.device`, *optional*):
             A `torch.device` object, string or a dict specifying how to remap storage locations. It
             indicates the location where all tensors should be loaded.
-        weights_only (`bool`, *optional*, defaults to `False`):
-            If True, only loads the model weights without optimizer states and other metadata.
-            Only supported for pickle (`.bin`) checkpoints with PyTorch >= 1.13. Has no effect when
-            loading safetensors files.
+        weights_only (`bool`, *optional*, defaults to `True`):
+            If True, only loads the model weights without optimizer states and other metadata, using torch's
+            restricted unpickler. Set to False to allow arbitrary Python objects in a pickle checkpoint (this
+            executes arbitrary code at load time). Only supported for pickle (`.bin`) checkpoints with
+            PyTorch >= 1.13. Has no effect when loading safetensors files.
         mmap (`bool`, *optional*, defaults to `False`):
             Whether to use memory-mapped file loading. Memory mapping can improve loading performance
             for large models in PyTorch >= 2.1.0 with zipfile-based checkpoints. Has no effect when

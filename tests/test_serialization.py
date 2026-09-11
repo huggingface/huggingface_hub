@@ -708,7 +708,6 @@ def test_load_state_dict_missing_file(safe_serialization):
     with pytest.raises(FileNotFoundError, match="No checkpoint file found"):
         load_state_dict_from_file(
             "nonexistent.safetensors" if safe_serialization else "nonexistent.bin",
-            weights_only=False,
         )
 
 
