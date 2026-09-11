@@ -579,8 +579,10 @@ def _load_sharded_checkpoint(
             safe=safe,
         )
         loaded_keys.update(state_dict.keys())
-        # Update model with parameters from this shard
-        model.load_state_dict(state_dict, strict=strict)
+        # Update model with parameters from this shard. `strict=False` here: a single shard never holds all the
+        # model's keys, so per-shard strict loading would always raise. Strictness is enforced against the real
+        # loaded keys below (and pre-validated above before any shard is read).
+        model.load_state_dict(state_dict, strict=False)
         # Explicitly remove the state dict from memory
         del state_dict
 
@@ -589,6 +591,10 @@ def _load_sharded_checkpoint(
     # attacker-controlled metadata and must not be able to lie about what was loaded into the model.
     if unexpected := loaded_keys - set(index["weight_map"]):
         logger.warning(f"Shard files contain tensors absent from the index: {sorted(unexpected)}")
+    if strict:
+        # Strictness is enforced here, against the keys the shards actually contained. The pre-validation above
+        # compares the model to the index and fails fast; this one is the authoritative check.
+        _validate_keys_for_strict_loading(model, loaded_keys)
     model_keys = set(model.state_dict().keys())
     return _IncompatibleKeys(
         missing_keys=list(model_keys - loaded_keys), unexpected_keys=list(loaded_keys - model_keys)
