@@ -437,6 +437,7 @@ def load_torch_model(
             checkpoint_file=checkpoint_path,
             map_location=map_location,
             weights_only=weights_only,
+            mmap=mmap,
             safe=safe,
         )
         return model.load_state_dict(state_dict, strict=strict)
