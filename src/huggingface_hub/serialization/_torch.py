@@ -388,7 +388,7 @@ def load_torch_model(
         safe (`bool`, *optional*, defaults to `True`):
             If `safe` is True, the safetensors files will be loaded. If `safe` is False, the function
             will first attempt to load safetensors files if they are available, otherwise it will fall back to loading
-            pickle files. `filename_pattern` parameter takes precedence over `safe` parameter.
+            pickle files. A `filename_pattern` that does not describe safetensors files is rejected when `safe=True`.
         weights_only (`bool`, *optional*, defaults to `True`):
             If True, only loads the model weights without optimizer states and other metadata, using torch's
             restricted unpickler. Set to False to allow arbitrary Python objects in a pickle checkpoint (this
@@ -444,6 +444,13 @@ def load_torch_model(
         # Only fallback to pickle format if safetensors index is not found and safe is False.
         if not index_path.is_file() and not safe:
             filename_pattern = constants.PYTORCH_WEIGHTS_FILE_PATTERN
+    elif safe and not _is_safetensors(filename_pattern.format(suffix="")):
+        # A pickle `filename_pattern` combined with `safe=True` is a conflict: loading those shards would execute
+        # arbitrary code at load time. Refuse it instead of silently letting the pattern win over `safe`.
+        raise ValueError(
+            f"`filename_pattern={filename_pattern!r}` does not describe safetensors files but `safe=True`. "
+            "Pass `safe=False` to explicitly allow loading pickled weights (this executes arbitrary code at load time)."
+        )
 
     index_path = checkpoint_path / (filename_pattern.format(suffix="") + ".index.json")
 

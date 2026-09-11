@@ -810,16 +810,9 @@ def test_load_torch_model_with_filename_pattern(tmp_path, torch_state_dict, dumm
             ["model.variant.safetensors.index.json", "pytorch_model.bin.index.json"],
             "model.variant{suffix}.safetensors",
         ),  # both exist and safe=False -> load safetensors
-        # `filename_pattern` takes precedence over `safe` parameter
         (
             "model.variant{suffix}.bin",
             False,
-            ["model.variant.safetensors.index.json", "model.variant.bin.index.json"],
-            "model.variant{suffix}.bin",
-        ),  # custom filename pattern and safe=False -> load custom file index
-        (
-            "model.variant{suffix}.bin",
-            True,
             ["model.variant.safetensors.index.json", "model.variant.bin.index.json"],
             "model.variant{suffix}.bin",
         ),  # custom filename pattern and safe=False -> load custom file index
@@ -852,6 +845,22 @@ def test_load_torch_model_index_selection(
     load_torch_model(model, tmp_path, safe=safe, filename_pattern=filename_pattern)
     mock_load.assert_called_once()
     assert mock_load.call_args.kwargs["filename_pattern"] == expected_filename_pattern
+
+
+@pytest.mark.skipif(not is_torch_available(), reason="Test requires torch")
+def test_load_torch_model_pickle_pattern_with_safe_true(tmp_path, mocker):
+    """A pickle `filename_pattern` combined with `safe=True` is rejected instead of silently loading pickles."""
+    import torch
+
+    class SimpleModel(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.layer_1 = torch.nn.Parameter(torch.tensor([0.0]))
+
+    (tmp_path / "model.variant.bin.index.json").touch()
+
+    with pytest.raises(ValueError, match="does not describe safetensors files but `safe=True`"):
+        load_torch_model(SimpleModel(), tmp_path, safe=True, filename_pattern="model.variant{suffix}.bin")
 
 
 class TestShardedCheckpointValidation:
