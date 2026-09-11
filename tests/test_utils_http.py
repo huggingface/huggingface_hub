@@ -26,6 +26,7 @@ from huggingface_hub.utils._http import (
     _parse_repo_info_from_url,
     _parse_retry_after,
     _warn_on_warning_headers,
+    close_session,
     default_client_factory,
     fix_hf_endpoint_in_url,
     get_async_session,
@@ -285,6 +286,52 @@ class TestConfigureSession:
 
         assert len(created) == 1
         assert all(client is clients[0] for client in clients)
+
+    def test_get_session_and_close_session_concurrent(self):
+        """Racing close_session() and get_session() never causes get_session() to return None."""
+        N_GETTERS = 8
+        N_CLOSERS = 4
+        barrier = threading.Barrier(N_GETTERS + N_CLOSERS)
+        stop_event = threading.Event()
+        errors = []
+
+        def _getter():
+            barrier.wait()
+            while not stop_event.is_set():
+                sess = get_session()
+                if sess is None:
+                    errors.append("get_session returned None")
+                    break
+
+        def _closer():
+            barrier.wait()
+            while not stop_event.is_set():
+                close_session()
+
+        threads = [threading.Thread(target=_getter) for _ in range(N_GETTERS)] + [
+            threading.Thread(target=_closer) for _ in range(N_CLOSERS)
+        ]
+        for th in threads:
+            th.start()
+
+        time.sleep(0.5)
+        stop_event.set()
+        for th in threads:
+            th.join()
+
+        assert not errors
+
+    def test_set_client_factory_reentrancy_no_deadlock(self):
+        """set_client_factory acquires _CLIENT_LOCK and calls close_session() which also acquires _CLIENT_LOCK."""
+
+        def _factory() -> httpx.Client:
+            close_session()
+            return httpx.Client()
+
+        set_client_factory(_factory)
+        sess = get_session()
+        assert sess is not None
+        close_session()
 
 
 class TestOfflineModeSession:
