@@ -2304,6 +2304,12 @@ class TestHfApiPublicProduction:
         assert space.author == "HuggingFaceH4"
         assert isinstance(space.runtime, SpaceRuntime)
 
+    def test_space_runtime_hardware_none(self) -> None:
+        runtime = SpaceRuntime({"stage": "BUILDING", "hardware": None})
+        assert runtime.stage == "BUILDING"
+        assert runtime.hardware is None
+        assert runtime.requested_hardware is None
+
     def test_space_info_expand_author(self, api: HfApi):
         # Only the selected field is returned
         space = api.space_info(repo_id="HuggingFaceH4/zephyr-chat", expand=["author"])
