@@ -464,14 +464,20 @@ def load_torch_model(
             filename_pattern=filename_pattern,
         )
 
-    # Look for single model file
-    model_files = list(checkpoint_path.glob("*.safetensors" if safe else "*.bin"))
+    # Look for single model file.
+    # Safetensors is tried first even when `safe=False`: the docstring promises a *fallback* to pickle files for
+    # that case, not a pickle-first preference. A directory holding only `model.safetensors` used to raise
+    # `ValueError` under `safe=False`.
+    model_files = list(checkpoint_path.glob("*" + SAFETENSORS_EXTENSION))
+    if not model_files and not safe:
+        model_files = list(checkpoint_path.glob("*.bin"))
     if len(model_files) == 1:
         state_dict = load_state_dict_from_file(
             checkpoint_file=model_files[0],
             map_location=map_location,
             weights_only=weights_only,
             mmap=mmap,
+            safe=safe,
         )
         return model.load_state_dict(state_dict, strict=strict)
 
