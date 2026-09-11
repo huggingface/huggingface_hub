@@ -86,6 +86,20 @@ def test_auto_resets_after_explicit():
     assert o.mode == HUMAN
 
 
+def test_explicit_human_reenables_progress_bars():
+    # Global progress-bar state: restore it on teardown so other tests are unaffected.
+    from huggingface_hub.utils import are_progress_bars_disabled, enable_progress_bars
+
+    o = Output()
+    o.set_mode(AGENT)
+    assert are_progress_bars_disabled()
+    try:
+        o.set_mode(HUMAN)
+        assert not are_progress_bars_disabled()
+    finally:
+        enable_progress_bars()
+
+
 # =============================================================================
 # out.result()
 # =============================================================================

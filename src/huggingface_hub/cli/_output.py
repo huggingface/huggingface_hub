@@ -27,7 +27,7 @@ from typing import Any, cast
 import click
 
 from huggingface_hub.errors import ConfirmationError
-from huggingface_hub.utils import ANSI, StatusLine, disable_progress_bars, is_agent, tabulate
+from huggingface_hub.utils import ANSI, StatusLine, disable_progress_bars, enable_progress_bars, is_agent, tabulate
 
 
 class OutputFormat(str, Enum):
@@ -67,6 +67,8 @@ class Output:
         self.mode = mode
         if mode != OutputFormat.human:
             disable_progress_bars()
+        else:
+            enable_progress_bars()
 
     def set_no_truncate(self, no_truncate: bool) -> None:
         """Toggle off cell truncation for human table output."""
