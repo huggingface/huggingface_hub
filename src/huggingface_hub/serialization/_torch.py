@@ -568,6 +568,7 @@ def _load_sharded_checkpoint(
 
     # 4. Load each shard using `load_state_dict`
     # Get unique shard files (multiple parameters can be in same shard)
+    loaded_keys: set[str] = set()
     for shard_file in shard_files:
         # Load shard into memory
         shard_path = os.path.join(save_directory, shard_file)
@@ -577,13 +578,17 @@ def _load_sharded_checkpoint(
             weights_only=weights_only,
             safe=safe,
         )
+        loaded_keys.update(state_dict.keys())
         # Update model with parameters from this shard
         model.load_state_dict(state_dict, strict=strict)
         # Explicitly remove the state dict from memory
         del state_dict
 
-    # 5. Return compatibility info
-    loaded_keys = set(index["weight_map"].keys())
+    # 5. Return compatibility info.
+    # Keys are reported from what the shards actually contained, not from the index file: the index is
+    # attacker-controlled metadata and must not be able to lie about what was loaded into the model.
+    if unexpected := loaded_keys - set(index["weight_map"]):
+        logger.warning(f"Shard files contain tensors absent from the index: {sorted(unexpected)}")
     model_keys = set(model.state_dict().keys())
     return _IncompatibleKeys(
         missing_keys=list(model_keys - loaded_keys), unexpected_keys=list(loaded_keys - model_keys)
