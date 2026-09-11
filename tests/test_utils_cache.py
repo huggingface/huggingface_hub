@@ -581,6 +581,61 @@ class TestDeleteRevisionsDryRun:
         assert records[0].message == "Revision(s) not found - cannot delete them: abcdef123456789"
 
 
+class TestDeleteFilesDryRun:
+    cache_info: Mock  # Mocked HFCacheInfo
+
+    @pytest.fixture(autouse=True)
+    def setup(self) -> None:
+        """Set up fake cache scan report: two revisions sharing one blob."""
+        repo_A_path = Path("repo_A")
+
+        def make_file(revision: str, name: str, blob: str, size: int) -> Mock:
+            file = Mock()
+            file.file_path = repo_A_path / "snapshots" / revision / name
+            file.blob_path = repo_A_path / "blobs" / blob
+            file.size_on_disk = size
+            return file
+
+        self.main_shared = make_file("rev_main", "shared.bin", "shared_hash", 10)
+        self.main_only = make_file("rev_main", "main_only.bin", "main_only_hash", 100)
+        self.main_direct = make_file("rev_main", "direct.bin", "direct.bin", 1000)
+        self.main_direct.blob_path = self.main_direct.file_path  # no symlink: data lives in the snapshot
+        self.detached_shared = make_file("rev_detached", "shared.bin", "shared_hash", 10)
+
+        rev_main = Mock()
+        rev_main.files = {self.main_shared, self.main_only, self.main_direct}
+        rev_detached = Mock()
+        rev_detached.files = {self.detached_shared}
+
+        repo_A = Mock()
+        repo_A.revisions = {rev_main, rev_detached}
+
+        cache_info = Mock()
+        cache_info.repos = [repo_A]
+        self.cache_info = cache_info
+
+    def test_delete_files_keeps_shared_blob(self) -> None:
+        strategy = HFCacheInfo.delete_files(self.cache_info, self.main_shared, self.main_only, self.main_direct)
+        expected = DeleteCacheStrategy(
+            expected_freed_size=1100,
+            blobs={Path("repo_A/blobs/main_only_hash")},  # "shared_hash" still used by the detached revision
+            refs=set(),
+            repos=set(),
+            snapshots=set(),
+            files={
+                Path("repo_A/snapshots/rev_main/shared.bin"),
+                Path("repo_A/snapshots/rev_main/main_only.bin"),
+                Path("repo_A/snapshots/rev_main/direct.bin"),
+            },
+        )
+        assert strategy == expected
+
+    def test_delete_files_in_all_revisions_frees_blob(self) -> None:
+        strategy = HFCacheInfo.delete_files(self.cache_info, self.main_shared, self.detached_shared)
+        assert strategy.expected_freed_size == 10
+        assert strategy.blobs == {Path("repo_A/blobs/shared_hash")}
+
+
 class TestDeleteStrategyExecute:
     def test_execute(self, tmp_path) -> None:
         # Repo folders
@@ -612,15 +667,20 @@ class TestDeleteStrategyExecute:
 
         snapshot_1.mkdir(parents=True)
         snapshot_2.mkdir()
+        file_1 = snapshot_1 / "file_1"
+        file_2 = snapshot_1 / "file_2"
+        file_1.touch()
+        file_2.touch()
 
         # Execute deletion
-        # Delete repo_A + keep only blob_1, main ref and snapshot_1 in repo_B.
+        # Delete repo_A + keep only blob_1, main ref, snapshot_1 and file_1 in repo_B.
         DeleteCacheStrategy(
             expected_freed_size=123456,
             blobs={blob_2, blob_3},
             refs={refs_pr_1_path},
             repos={repo_A_path},
             snapshots={snapshot_2},
+            files={file_2},
         ).execute()
 
         # Repo A deleted
@@ -636,9 +696,11 @@ class TestDeleteStrategyExecute:
         assert refs_main_path.exists()
         assert not refs_pr_1_path.exists()
 
-        # Only `snapshot_1` remains
+        # Only `snapshot_1` remains, without `file_2`
         assert snapshot_1.exists()
         assert not snapshot_2.exists()
+        assert file_1.exists()
+        assert not file_2.exists()
 
 
 class TestTryDeletePath:
