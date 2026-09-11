@@ -2304,6 +2304,12 @@ class TestHfApiPublicProduction:
         assert space.author == "HuggingFaceH4"
         assert isinstance(space.runtime, SpaceRuntime)
 
+    def test_space_runtime_hardware_none(self) -> None:
+        runtime = SpaceRuntime({"stage": "BUILDING", "hardware": None})
+        assert runtime.stage == "BUILDING"
+        assert runtime.hardware is None
+        assert runtime.requested_hardware is None
+
     def test_space_info_expand_author(self, api: HfApi):
         # Only the selected field is returned
         space = api.space_info(repo_id="HuggingFaceH4/zephyr-chat", expand=["author"])
@@ -2681,7 +2687,9 @@ class TestHfApiPrivate:
                 _ = api.dataset_info(repo_id=self.repo_id)
 
     def test_list_private_models(self, api: HfApi):
-        kwargs = {"sort": "created_at", "limit": 100, "author": USER}
+        # Filter on the (unique) repo name rather than paging through the N most recent repos: every CI job shares
+        # `USER`, so the repo drops off a `sort="created_at"` page as soon as other jobs create repos of their own.
+        kwargs = {"search": self.repo_id.split("/")[-1], "author": USER}
         assert all(model.id != self.repo_id for model in api.list_models(token=False, **kwargs))
         assert any(model.id == self.repo_id for model in api.list_models(token=TOKEN, **kwargs))
 
@@ -3380,8 +3388,9 @@ class TestCommitInBackground:
         )
         t1 = time.time()
 
-        # all futures are queued instantly
-        assert t1 - t0 <= 0.01
+        # All futures are queued without waiting for the uploads themselves (which each take seconds). A generous
+        # threshold: a stricter one only measures how busy the CI runner is.
+        assert t1 - t0 <= 1
 
         # wait for the last job to complete
         upload_future_3.result()
