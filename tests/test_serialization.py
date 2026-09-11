@@ -959,6 +959,24 @@ class TestCheckpointLoadingSecurity:
         assert not marker.exists()
 
     @pytest.mark.skipif(not is_torch_available(), reason="Test requires torch")
+    @pytest.mark.parametrize("weights_only", [True, False])
+    def test_old_torch_warns_that_weights_only_is_not_honored(
+        self, tmp_path, torch_state_dict, mocker, caplog, weights_only
+    ):
+        """torch < 1.13 has no restricted unpickler, so `weights_only=True` cannot be honored: warn, don't stay silent."""
+        import torch
+
+        torch.save(torch_state_dict, tmp_path / "model.bin")
+        mocker.patch.object(torch, "__version__", "1.11.0")
+        mock_load = mocker.patch.object(torch, "load", return_value={})
+
+        with caplog.at_level("WARNING"):
+            load_state_dict_from_file(tmp_path / "model.bin", safe=False, weights_only=weights_only)
+
+        assert "weights_only" not in mock_load.call_args.kwargs  # not forwarded on this torch
+        assert "arbitrary code at load time" in caplog.text
+
+    @pytest.mark.skipif(not is_torch_available(), reason="Test requires torch")
     def test_load_torch_model_does_not_execute_pickle(self, tmp_path, dummy_model):
         """Neither an explicit pickle path nor a directory picks up a pickle under `safe=True`."""
         marker = tmp_path / "PWNED"

@@ -398,7 +398,8 @@ def load_torch_model(
         weights_only (`bool`, *optional*, defaults to `True`):
             If True, only loads the model weights without optimizer states and other metadata, using torch's
             restricted unpickler. Set to False to allow arbitrary Python objects in a pickle checkpoint (this
-            executes arbitrary code at load time). Only supported in PyTorch >= 1.13.
+            executes arbitrary code at load time). Has no effect on PyTorch < 1.13, which has no restricted
+            unpickler and always unpickles without restriction.
         map_location (`str` or `torch.device`, *optional*):
             A `torch.device` object, string or a dict specifying how to remap storage locations. It
             indicates the location where all tensors should be loaded.
@@ -522,7 +523,8 @@ def _load_sharded_checkpoint(
         weights_only (`bool`, *optional*, defaults to `True`):
             If True, only loads the model weights without optimizer states and other metadata, using torch's
             restricted unpickler. Set to False to allow arbitrary Python objects in a pickle checkpoint (this
-            executes arbitrary code at load time). Only supported in PyTorch >= 1.13.
+            executes arbitrary code at load time). Has no effect on PyTorch < 1.13, which has no restricted
+            unpickler and always unpickles without restriction.
         safe (`bool`, *optional*, defaults to `True`):
             If True, every shard is loaded with the safetensors loader. If False, shards are loaded as safetensors
             when their name says so and with `torch.load` otherwise.
@@ -644,8 +646,9 @@ def load_state_dict_from_file(
         weights_only (`bool`, *optional*, defaults to `True`):
             If True, only loads the model weights without optimizer states and other metadata, using torch's
             restricted unpickler. Set to False to allow arbitrary Python objects in a pickle checkpoint (this
-            executes arbitrary code at load time). Only supported for pickle (`.bin`) checkpoints with
-            PyTorch >= 1.13. Has no effect when loading safetensors files.
+            executes arbitrary code at load time). Has no effect when loading safetensors files, nor on
+            PyTorch < 1.13 which has no restricted unpickler — those versions always unpickle without restriction
+            and a warning is logged.
         mmap (`bool`, *optional*, defaults to `False`):
             Whether to use memory-mapped file loading. Memory mapping can improve loading performance
             for large models in PyTorch >= 2.1.0 with zipfile-based checkpoints. Has no effect when
@@ -724,15 +727,6 @@ def load_state_dict_from_file(
             "Please install `torch` to load torch tensors. You can install it with `pip install torch`."
         ) from e
 
-    if not weights_only:
-        # Only warn for the truly dangerous combination: with `weights_only=True` torch uses its restricted
-        # unpickler, which cannot execute arbitrary code, so the warning would be both wrong and noisy (it is
-        # emitted once per shard).
-        logger.warning(
-            f"Loading '{checkpoint_path}' with `torch.load(weights_only=False)`. Pickle checkpoints can execute "
-            "arbitrary code at load time; only load files from sources you trust."
-        )
-
     # Add additional kwargs, mmap is only supported in torch >= 2.1.0
     additional_kwargs = {}
     if version.parse(torch.__version__) >= version.parse("2.1.0"):
@@ -741,6 +735,16 @@ def load_state_dict_from_file(
     # weights_only is only supported in torch >= 1.13.0
     if version.parse(torch.__version__) >= version.parse("1.13.0"):
         additional_kwargs["weights_only"] = weights_only
+
+    if not additional_kwargs.get("weights_only", False):
+        # Warn only when the unrestricted unpickler is what actually runs: either the caller asked for it, or torch
+        # is too old to have a restricted one and `weights_only=True` could not be honored. With the restricted
+        # unpickler in play the warning would be both untrue and noisy (it is emitted once per shard).
+        logger.warning(
+            f"Loading '{checkpoint_path}' with `torch.load` and no restricted unpickler (`weights_only=False`, or "
+            "torch < 1.13 which does not support it). Pickle checkpoints can execute arbitrary code at load time; "
+            "only load files from sources you trust."
+        )
 
     return load(
         checkpoint_file,
