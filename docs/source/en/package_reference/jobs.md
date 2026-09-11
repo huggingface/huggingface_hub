@@ -26,6 +26,10 @@ Check the [`HfApi`] documentation page for the reference of methods to manage yo
 
 [[autodoc]] JobOwner
 
+### JobNetwork
+
+[[autodoc]] JobNetwork
+
 
 ### JobStage
 
