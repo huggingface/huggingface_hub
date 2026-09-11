@@ -432,6 +432,7 @@ def load_torch_model(
             checkpoint_file=checkpoint_path,
             map_location=map_location,
             weights_only=weights_only,
+            safe=safe,
         )
         return model.load_state_dict(state_dict, strict=strict)
 
@@ -575,6 +576,8 @@ def load_state_dict_from_file(
     map_location: Union[str, "torch.device"] | None = None,
     weights_only: bool = False,
     mmap: bool = False,
+    *,
+    safe: bool = False,
 ) -> dict[str, "torch.Tensor"] | Any:
     """
     Loads a checkpoint file, handling both safetensors and pickle checkpoint formats.
@@ -593,6 +596,11 @@ def load_state_dict_from_file(
             Whether to use memory-mapped file loading. Memory mapping can improve loading performance
             for large models in PyTorch >= 2.1.0 with zipfile-based checkpoints. Has no effect when
             loading safetensors files, as the `safetensors` library uses memory mapping by default.
+        safe (`bool`, *optional*, defaults to `False`):
+            If True, the checkpoint is always loaded as safetensors, whatever its name. Any other format
+            (e.g. a pickle `.bin` file) raises a `ValueError` instead of being deserialized: pickle checkpoints can
+            execute arbitrary code at load time. If False, the file is loaded as safetensors when its name says so,
+            and with `torch.load` otherwise.
 
     Returns:
         `Union[dict[str, "torch.Tensor"], Any]`: The loaded checkpoint.
@@ -614,12 +622,12 @@ def load_state_dict_from_file(
     ```python
     >>> from huggingface_hub import load_state_dict_from_file
 
-    # Load a PyTorch checkpoint
-    >>> state_dict = load_state_dict_from_file("path/to/model.bin", map_location="cpu")
+    # Load a safetensors checkpoint (safe by default)
+    >>> state_dict = load_state_dict_from_file("path/to/model.safetensors", safe=True)
     >>> model.load_state_dict(state_dict)
 
-    # Load a safetensors checkpoint
-    >>> state_dict = load_state_dict_from_file("path/to/model.safetensors")
+    # Load a pickle checkpoint. `safe=False` is required: pickle files can execute arbitrary code.
+    >>> state_dict = load_state_dict_from_file("path/to/model.bin", safe=False, map_location="cpu")
     >>> model.load_state_dict(state_dict)
     ```
     """
@@ -633,31 +641,19 @@ def load_state_dict_from_file(
         )
 
     # Load safetensors checkpoint
-    if _is_safetensors(checkpoint_path):
+    if safe or _is_safetensors(checkpoint_path):
         try:
-            from safetensors import safe_open
-            from safetensors.torch import load_file
-        except ImportError as e:
-            raise ImportError(
-                "Please install `safetensors` to load safetensors checkpoint. "
-                "You can install it with `pip install safetensors`."
+            return _load_safetensors_file(checkpoint_path, map_location=map_location)
+        except ImportError:
+            raise
+        except OSError:
+            raise  # invalid safetensors metadata: the error message is already actionable
+        except Exception as e:
+            raise ValueError(
+                f"Cannot load '{checkpoint_path}' as safetensors. If this is a pickle checkpoint, pass `safe=False` "
+                "to allow it (this executes arbitrary code at load time)."
             ) from e
 
-        # Check format of the archive
-        with safe_open(checkpoint_file, framework="pt") as f:  # type: ignore[attr-defined]
-            metadata = f.metadata()
-        # see comment: https://github.com/huggingface/transformers/blob/3d213b57fe74302e5902d68ed9478c3ad1aaa713/src/transformers/modeling_utils.py#L3966
-        if metadata is not None and metadata.get("format") not in ["pt", "mlx"]:
-            raise OSError(
-                f"The safetensors archive passed at {checkpoint_file} does not contain the valid metadata. Make sure "
-                "you save your model with the `save_torch_model` method."
-            )
-        device = str(map_location.type) if map_location is not None and hasattr(map_location, "type") else map_location
-        # meta device is not supported with safetensors, falling back to CPU
-        if device == "meta":
-            logger.warning("Meta device is not supported with safetensors. Falling back to CPU device.")
-            device = "cpu"
-        return load_file(checkpoint_file, device=device)  # type: ignore[arg-type]
     # Otherwise, load from pickle
     try:
         import torch
@@ -666,6 +662,7 @@ def load_state_dict_from_file(
         raise ImportError(
             "Please install `torch` to load torch tensors. You can install it with `pip install torch`."
         ) from e
+
     # Add additional kwargs, mmap is only supported in torch >= 2.1.0
     additional_kwargs = {}
     if version.parse(torch.__version__) >= version.parse("2.1.0"):
@@ -680,6 +677,37 @@ def load_state_dict_from_file(
         map_location=map_location,
         **additional_kwargs,
     )
+
+
+def _load_safetensors_file(
+    checkpoint_file: str | os.PathLike,
+    map_location: Union[str, "torch.device"] | None = None,
+) -> dict[str, "torch.Tensor"]:
+    """Load a safetensors checkpoint. Raises `safetensors.SafetensorError` if the file is not a valid safetensors."""
+    try:
+        from safetensors import safe_open
+        from safetensors.torch import load_file
+    except ImportError as e:
+        raise ImportError(
+            "Please install `safetensors` to load safetensors checkpoint. "
+            "You can install it with `pip install safetensors`."
+        ) from e
+
+    # Check format of the archive
+    with safe_open(checkpoint_file, framework="pt") as f:  # type: ignore[attr-defined]
+        metadata = f.metadata()
+    # see comment: https://github.com/huggingface/transformers/blob/3d213b57fe74302e5902d68ed9478c3ad1aaa713/src/transformers/modeling_utils.py#L3966
+    if metadata is not None and metadata.get("format") not in ["pt", "mlx"]:
+        raise OSError(
+            f"The safetensors archive passed at {checkpoint_file} does not contain the valid metadata. Make sure "
+            "you save your model with the `save_torch_model` method."
+        )
+    device = str(map_location.type) if map_location is not None and hasattr(map_location, "type") else map_location
+    # meta device is not supported with safetensors, falling back to CPU
+    if device == "meta":
+        logger.warning("Meta device is not supported with safetensors. Falling back to CPU device.")
+        device = "cpu"
+    return load_file(checkpoint_file, device=device)  # type: ignore[arg-type]
 
 
 # HELPERS
