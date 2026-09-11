@@ -315,6 +315,19 @@ def _validate_path_in_repo(path_in_repo: str) -> str:
         raise ValueError(f"Invalid `path_in_repo` in CommitOperation: '{path_in_repo}'")
     if path_in_repo.startswith("./"):
         path_in_repo = path_in_repo[2:]
+
+    # The checks above only catch a ".." segment at the very start of the path. A
+    # path like "a/../../etc/passwd" doesn't start with "../" but still escapes
+    # the repo root once its ".." segments are resolved, so walk the full path and
+    # track depth relative to the repo root to catch that case too.
+    depth = 0
+    for part in path_in_repo.split("/"):
+        if part in ("", "."):
+            continue
+        depth += -1 if part == ".." else 1
+        if depth < 0:
+            raise ValueError(f"Invalid `path_in_repo` in CommitOperation: '{path_in_repo}'")
+
     for forbidden in FORBIDDEN_FOLDERS:
         if any(part == forbidden for part in path_in_repo.split("/")):
             raise ValueError(
