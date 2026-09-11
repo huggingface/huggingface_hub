@@ -460,6 +460,7 @@ def load_torch_model(
             save_directory=checkpoint_path,
             strict=strict,
             weights_only=weights_only,
+            safe=safe,
             filename_pattern=filename_pattern,
         )
 
@@ -486,6 +487,7 @@ def _load_sharded_checkpoint(
     *,
     strict: bool = False,
     weights_only: bool = True,
+    safe: bool = True,
     filename_pattern: str = constants.SAFETENSORS_WEIGHTS_FILE_PATTERN,
 ) -> NamedTuple:
     """
@@ -504,6 +506,9 @@ def _load_sharded_checkpoint(
             If True, only loads the model weights without optimizer states and other metadata, using torch's
             restricted unpickler. Set to False to allow arbitrary Python objects in a pickle checkpoint (this
             executes arbitrary code at load time). Only supported in PyTorch >= 1.13.
+        safe (`bool`, *optional*, defaults to `True`):
+            If True, every shard is loaded with the safetensors loader. If False, shards are loaded as safetensors
+            when their name says so and with `torch.load` otherwise.
         filename_pattern (`str`, *optional*, defaults to `"model{suffix}.safetensors"`):
             The pattern to look for the index file. Pattern must be a string that
             can be formatted with `filename_pattern.format(suffix=...)` and must contain the keyword `suffix`
@@ -545,7 +550,11 @@ def _load_sharded_checkpoint(
                 f"Invalid shard filename '{shard_file}' in index file '{index_file}'. "
                 "Shard filenames must be relative paths without '..' components."
             )
-        # Reject extension mismatch (e.g. .bin shard in a .safetensors index)
+        # Reject extension mismatch (e.g. .bin shard in a .safetensors index). Note this check is deliberately
+        # case-*sensitive* while `_is_safetensors` (the loader routing hint) is not: a legitimate index produced by
+        # `save_torch_state_dict` is always lowercase, and there is no reason to accept anything else from an index
+        # file. An index entry spelled `.safetensors` stays routed to the safetensors loader even on a
+        # case-insensitive filesystem resolving it to an uppercase file on disk, so it fails instead of executing.
         if not shard_file.endswith(expected_extension):
             raise ValueError(
                 f"Invalid shard filename '{shard_file}' in index file '{index_file}'. "
@@ -566,6 +575,7 @@ def _load_sharded_checkpoint(
             shard_path,
             map_location="cpu",
             weights_only=weights_only,
+            safe=safe,
         )
         # Update model with parameters from this shard
         model.load_state_dict(state_dict, strict=strict)
