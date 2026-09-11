@@ -22,6 +22,7 @@ import pytest
 
 from huggingface_hub.cli._output import Output, OutputFormat, _ascii_safe, _to_header
 from huggingface_hub.errors import ConfirmationError
+from huggingface_hub.utils import are_progress_bars_disabled, enable_progress_bars
 
 
 HUMAN = OutputFormat.human
@@ -84,6 +85,47 @@ def test_auto_resets_after_explicit():
     o.set_mode(QUIET)
     o.set_mode(OutputFormat.auto)
     assert o.mode == HUMAN
+
+
+def test_set_mode_human_reenables_progress_bars():
+    try:
+        o = Output()
+        o.set_mode(OutputFormat.agent)
+        assert are_progress_bars_disabled()
+        o.set_mode(OutputFormat.human)
+        assert not are_progress_bars_disabled()
+    finally:
+        enable_progress_bars()
+
+
+def test_auto_resolves_to_human_in_interactive_terminal_even_if_agent(monkeypatch):
+    monkeypatch.setattr("huggingface_hub.cli._output.is_agent", lambda: True)
+    monkeypatch.setattr(sys.stderr, "isatty", lambda: True)
+    assert Output().mode == HUMAN
+
+
+def test_auto_resolves_to_agent_when_not_interactive(monkeypatch):
+    monkeypatch.setattr("huggingface_hub.cli._output.is_agent", lambda: True)
+    monkeypatch.setattr(sys.stderr, "isatty", lambda: False)
+    assert Output().mode == AGENT
+
+
+def test_explicit_agent_mode_forces_agent_even_if_interactive(monkeypatch):
+    monkeypatch.setattr(sys.stderr, "isatty", lambda: True)
+    o = Output()
+    o.set_mode(OutputFormat.agent)
+    assert o.mode == AGENT
+
+
+def test_explicit_agent_mode_disables_bars_even_in_interactive(monkeypatch):
+    monkeypatch.setattr(sys.stderr, "isatty", lambda: True)
+    try:
+        o = Output()
+        o.set_mode(OutputFormat.agent)
+        assert o.mode == AGENT
+        assert are_progress_bars_disabled()
+    finally:
+        enable_progress_bars()
 
 
 # =============================================================================

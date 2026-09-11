@@ -1,4 +1,5 @@
 import os
+import sys
 from unittest import mock
 
 import pytest
@@ -29,6 +30,20 @@ class TestCLIUtils:
         assert ANSI.red("this is red") == "this is red"
 
         assert ANSI.gray(ANSI.bold("this is bold and grey")) == "this is bold and grey"
+
+    @mock.patch.dict(os.environ, {}, clear=True)
+    def test_ansi_agent_interactive_preserves_color(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Test `ANSI` does not suppress color in interactive terminal even if is_agent() is True."""
+        monkeypatch.setattr("huggingface_hub.utils._terminal.is_agent", lambda: True)
+        monkeypatch.setattr(sys.stderr, "isatty", lambda: True)
+        assert ANSI.bold("this is bold") == "\x1b[1mthis is bold\x1b[0m"
+
+    @mock.patch.dict(os.environ, {}, clear=True)
+    def test_ansi_agent_non_interactive_suppresses_color(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Test `ANSI` suppresses color in non-interactive session when is_agent() is True."""
+        monkeypatch.setattr("huggingface_hub.utils._terminal.is_agent", lambda: True)
+        monkeypatch.setattr(sys.stderr, "isatty", lambda: False)
+        assert ANSI.bold("this is bold") == "this is bold"
 
     def test_tabulate_utility(self) -> None:
         """Test `tabulate` works as expected."""

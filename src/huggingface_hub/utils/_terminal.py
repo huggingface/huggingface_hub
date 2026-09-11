@@ -99,7 +99,7 @@ class ANSI:
 
     @classmethod
     def _format(cls, s: str, code: str) -> str:
-        if os.environ.get("NO_COLOR") or is_agent():
+        if os.environ.get("NO_COLOR") or (is_agent() and not bool(getattr(sys.stderr, "isatty", lambda: False)())):
             # See https://no-color.org/
             return s
         return f"{code}{s}{cls._reset}"
