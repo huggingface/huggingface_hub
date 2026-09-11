@@ -1,12 +1,13 @@
 # tests/test_upload_large_folder.py
 from hashlib import sha256
-from unittest.mock import MagicMock
+from typing import NamedTuple
 
 import pytest
 
 from huggingface_hub._local_folder import LocalUploadFileMetadata, LocalUploadFilePaths
 from huggingface_hub._upload_large_folder import (
     COMMIT_SIZE_SCALE,
+    MAX_CONSECUTIVE_ERRORS,
     MAX_FILES_PER_FOLDER,
     MAX_FILES_PER_REPO,
     LargeUploadStatus,
@@ -45,6 +46,25 @@ def test_update_chunk_transitions(status, start_idx, success, delta_items, durat
     assert status.target_chunk() == COMMIT_SIZE_SCALE[expected_idx]
 
 
+def test_fatal_error_after_max_consecutive_errors(status):
+    exc = RuntimeError("boom")
+    for _ in range(MAX_CONSECUTIVE_ERRORS - 1):
+        status.report_error(exc)
+    assert status.fatal_error is None
+
+    status.report_error(exc)
+    assert status.fatal_error is exc
+
+
+def test_success_resets_consecutive_errors(status):
+    for _ in range(MAX_CONSECUTIVE_ERRORS - 1):
+        status.report_error(RuntimeError("boom"))
+    status.report_success()
+
+    status.report_error(RuntimeError("boom"))
+    assert status.fatal_error is None
+
+
 def test_build_hacky_operation_preserves_lfs_preupload_state(tmp_path):
     file_path = tmp_path / "file.bin"
     content = b"content"
@@ -69,16 +89,28 @@ def test_build_hacky_operation_preserves_lfs_preupload_state(tmp_path):
     assert operation.path_or_fileobj == b""
 
 
+class MockFilePath(NamedTuple):
+    """Minimal `pathlib.Path` stand-in: `_validate_upload_limits` only needs `.stat().st_size`."""
+
+    st_size: int
+
+    def stat(self) -> "MockFilePath":
+        return self
+
+
 class TestValidateUploadLimits:
     """Test the _validate_upload_limits function directly."""
 
     class MockPath:
-        """Mock object to simulate LocalUploadFilePaths."""
+        """Mock object to simulate LocalUploadFilePaths.
+
+        Plain objects on purpose: these tests build up to `MAX_FILES_PER_REPO` instances and a `MagicMock` costs
+        ~660µs to create and configure, i.e. ~85s for the whole class.
+        """
 
         def __init__(self, path_in_repo, size_bytes=1000):
             self.path_in_repo = path_in_repo
-            self.file_path = MagicMock()
-            self.file_path.stat.return_value.st_size = size_bytes
+            self.file_path = MockFilePath(size_bytes)
 
     def test_no_warnings_under_limits(self, mocker):
         """Test that no warnings are issued when under all limits."""
