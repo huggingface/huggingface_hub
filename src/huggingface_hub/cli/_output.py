@@ -66,10 +66,10 @@ class Output:
         if mode == OutputFormat.auto:
             mode = OutputFormat.agent if is_agent() else OutputFormat.human
         self.mode = mode
-        human = mode == OutputFormat.human
-        ANSI.set_enabled(human)
+        is_human = mode == OutputFormat.human
+        ANSI.set_enabled(is_human)
         if constants.HF_HUB_DISABLE_PROGRESS_BARS is None:  # env var has priority
-            if human:
+            if is_human:
                 enable_progress_bars()
             else:
                 disable_progress_bars()
