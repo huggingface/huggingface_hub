@@ -27,6 +27,7 @@ from typing import Any, cast
 import click
 
 from huggingface_hub.errors import ConfirmationError
+from huggingface_hub.repocard_data import CardData
 from huggingface_hub.utils import ANSI, StatusLine, disable_progress_bars, is_agent, tabulate
 
 
@@ -271,7 +272,14 @@ def _serialize_value(v: object) -> object:
 
 def _dataclass_to_dict(info: Any) -> dict[str, Any]:
     """Convert a dataclass to a json-serializable dict."""
-    return {k: _serialize_value(v) for k, v in dataclasses.asdict(info).items() if v is not None}
+    data = dataclasses.asdict(info)
+
+    for field in dataclasses.fields(info):
+        value = getattr(info, field.name)
+        if isinstance(value, CardData):
+            data[field.name] = value.to_dict()
+
+    return {k: _serialize_value(v) for k, v in data.items() if v is not None}
 
 
 _ANSI_RE = re.compile(r"\033\[[0-9;]*m")
