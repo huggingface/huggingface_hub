@@ -389,6 +389,8 @@ def load_torch_model(
             Path to either the checkpoint file or directory containing the checkpoint(s).
         strict (`bool`, *optional*, defaults to `False`):
             Whether to strictly enforce that the keys in the model state dict match the keys in the checkpoint.
+            As with [`torch.nn.Module.load_state_dict`], the check happens once the checkpoint has been loaded, so
+            the model may have been partially updated when the error is raised.
         safe (`bool`, *optional*, defaults to `True`):
             If `safe` is True, the safetensors files will be loaded. If `safe` is False, the function
             will first attempt to load safetensors files if they are available, otherwise it will fall back to loading
@@ -474,7 +476,9 @@ def load_torch_model(
     # that case, not a pickle-first preference. A directory holding only `model.safetensors` used to raise
     # `ValueError` under `safe=False`.
     model_files = list(checkpoint_path.glob("*" + SAFETENSORS_EXTENSION))
-    if not model_files and not safe:
+    if len(model_files) != 1 and not safe:
+        # Fallback only helps if it yields exactly one file, so it must also run when several safetensors files
+        # were found (e.g. `model.safetensors` next to `model.fp16.safetensors` and a single `pytorch_model.bin`).
         model_files = list(checkpoint_path.glob("*.bin"))
     if len(model_files) == 1:
         state_dict = load_state_dict_from_file(
@@ -513,6 +517,8 @@ def _load_sharded_checkpoint(
             A path to a folder containing the sharded checkpoint.
         strict (`bool`, *optional*, defaults to `False`):
             Whether to strictly enforce that the keys in the model state dict match the keys in the sharded checkpoint.
+            As with [`torch.nn.Module.load_state_dict`], the check happens once every shard has been loaded, so the
+            model may have been partially updated when the error is raised.
         weights_only (`bool`, *optional*, defaults to `True`):
             If True, only loads the model weights without optimizer states and other metadata, using torch's
             restricted unpickler. Set to False to allow arbitrary Python objects in a pickle checkpoint (this
@@ -584,12 +590,7 @@ def _load_sharded_checkpoint(
                 f"Expected '{expected_extension}' extension to match the index format."
             )
 
-    # 3. Validate keys if in strict mode
-    # This is done before loading any shards to fail fast
-    if strict:
-        _validate_keys_for_strict_loading(model, index["weight_map"].keys())
-
-    # 4. Load each shard using `load_state_dict`
+    # 3. Load each shard using `load_state_dict`
     # Get unique shard files (multiple parameters can be in same shard)
     loaded_keys: set[str] = set()
     for shard_file in shard_files:
@@ -604,19 +605,18 @@ def _load_sharded_checkpoint(
         loaded_keys.update(state_dict.keys())
         # Update model with parameters from this shard. `strict=False` here: a single shard never holds all the
         # model's keys, so per-shard strict loading would always raise. Strictness is enforced against the real
-        # loaded keys below (and pre-validated above before any shard is read).
+        # loaded keys below.
         model.load_state_dict(state_dict, strict=False)
         # Explicitly remove the state dict from memory
         del state_dict
 
-    # 5. Return compatibility info.
-    # Keys are reported from what the shards actually contained, not from the index file: the index is
-    # attacker-controlled metadata and must not be able to lie about what was loaded into the model.
+    # 4. Validate keys and return compatibility info.
+    # Both are computed from what the shards actually contained, never from the index file: the index is
+    # attacker-controlled metadata and must not be able to lie about what was loaded into the model — neither by
+    # hiding a tensor it did declare, nor by failing `strict=True` over a tensor no shard ever held.
     if unexpected := loaded_keys - set(index["weight_map"]):
         logger.warning(f"Shard files contain tensors absent from the index: {sorted(unexpected)}")
     if strict:
-        # Strictness is enforced here, against the keys the shards actually contained. The pre-validation above
-        # compares the model to the index and fails fast; this one is the authoritative check.
         _validate_keys_for_strict_loading(model, loaded_keys)
     model_keys = set(model.state_dict().keys())
     return _IncompatibleKeys(
@@ -670,7 +670,8 @@ def load_state_dict_from_file(
         [`OSError`](https://docs.python.org/3/library/exceptions.html#OSError)
             If the checkpoint file format is invalid or if git-lfs files are not properly downloaded.
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-            If the checkpoint file path is empty or invalid.
+            If the checkpoint file path is empty or invalid, or if it cannot be deserialized as safetensors while
+            `safe=True` (pass `safe=False` to allow pickle checkpoints).
 
     Example:
     ```python
@@ -723,10 +724,14 @@ def load_state_dict_from_file(
             "Please install `torch` to load torch tensors. You can install it with `pip install torch`."
         ) from e
 
-    logger.warning(
-        f"Loading '{checkpoint_path}' with `torch.load`. Pickle checkpoints can execute arbitrary code at load time; "
-        "only load files from sources you trust."
-    )
+    if not weights_only:
+        # Only warn for the truly dangerous combination: with `weights_only=True` torch uses its restricted
+        # unpickler, which cannot execute arbitrary code, so the warning would be both wrong and noisy (it is
+        # emitted once per shard).
+        logger.warning(
+            f"Loading '{checkpoint_path}' with `torch.load(weights_only=False)`. Pickle checkpoints can execute "
+            "arbitrary code at load time; only load files from sources you trust."
+        )
 
     # Add additional kwargs, mmap is only supported in torch >= 2.1.0
     additional_kwargs = {}

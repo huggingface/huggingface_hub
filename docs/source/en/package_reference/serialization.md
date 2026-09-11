@@ -144,6 +144,26 @@ This is the underlying factory from which each framework-specific helper is deri
 
 The loading helpers support both single-file and sharded checkpoints in either safetensors or pickle format. [`load_torch_model`] takes a `nn.Module` and a checkpoint path (either a single file or a directory) as input and load the weights into the model.
 
+<Tip warning={true}>
+
+Both helpers default to `safe=True`, which means the checkpoint is always deserialized with the safetensors loader — whatever the file is named. Loading a pickle checkpoint requires opting in explicitly, because unpickling executes arbitrary code at load time:
+
+```py
+>>> from huggingface_hub import load_state_dict_from_file, load_torch_model
+
+# Raises: the file is not safetensors
+>>> load_state_dict_from_file("path/to/pytorch_model.bin")
+>>> load_torch_model(model, "path/to/pytorch_model.bin")
+
+# Explicit opt-in
+>>> load_state_dict_from_file("path/to/pytorch_model.bin", safe=False)
+>>> load_torch_model(model, "path/to/pytorch_model.bin", safe=False)
+```
+
+The pickle path additionally defaults to `weights_only=True`, i.e. torch's restricted unpickler. A checkpoint holding non-tensor objects (optimizer states, a whole model, ...) needs `weights_only=False` on top of `safe=False`.
+
+</Tip>
+
 ### load_torch_model
 
 [[autodoc]] huggingface_hub.load_torch_model

@@ -849,7 +849,7 @@ def test_load_torch_model_index_selection(
 
 
 @pytest.mark.skipif(not is_torch_available(), reason="Test requires torch")
-def test_load_torch_model_pickle_pattern_with_safe_true(tmp_path, mocker):
+def test_load_torch_model_pickle_pattern_with_safe_true(tmp_path):
     """A pickle `filename_pattern` combined with `safe=True` is rejected instead of silently loading pickles."""
     import torch
 
@@ -862,6 +862,33 @@ def test_load_torch_model_pickle_pattern_with_safe_true(tmp_path, mocker):
 
     with pytest.raises(ValueError, match="does not describe safetensors files but `safe=True`"):
         load_torch_model(SimpleModel(), tmp_path, safe=True, filename_pattern="model.variant{suffix}.bin")
+
+
+@pytest.mark.skipif(not is_torch_available(), reason="Test requires torch")
+def test_load_torch_model_forwards_mmap_for_single_file(tmp_path, torch_state_dict, dummy_model, mocker):
+    """`mmap` used to be a silent no-op in the single-file branch."""
+    save_torch_state_dict(torch_state_dict, tmp_path)
+    mock_load = mocker.patch("huggingface_hub.serialization._torch.load_state_dict_from_file", return_value={})
+
+    load_torch_model(dummy_model, tmp_path / "model.safetensors", mmap=True)
+
+    assert mock_load.call_args.kwargs["mmap"] is True
+
+
+@pytest.mark.skipif(not is_torch_available(), reason="Test requires torch")
+def test_load_torch_model_safe_false_falls_back_to_pickle_with_several_safetensors(
+    tmp_path, torch_state_dict, dummy_model
+):
+    """The `.bin` fallback must also run when the safetensors glob found several files, not just zero."""
+    import torch
+
+    save_torch_state_dict(torch_state_dict, tmp_path)
+    (tmp_path / "model.fp16.safetensors").write_bytes((tmp_path / "model.safetensors").read_bytes())
+    torch.save(torch_state_dict, tmp_path / "pytorch_model.bin")
+
+    result = load_torch_model(dummy_model, tmp_path, safe=False)
+
+    assert not result.missing_keys
 
 
 class _MarkerPayload:
@@ -980,6 +1007,11 @@ class TestCheckpointLoadingSecurity:
 
         assert dropped_key not in result.missing_keys  # it was loaded from the shard all along
         assert "ghost" not in result.unexpected_keys  # and was never loaded
+
+        # And the index cannot fail `strict=True` over a tensor no shard ever held either.
+        result = load_torch_model(dummy_model, tmp_path, strict=True)
+        assert not result.missing_keys
+        assert not result.unexpected_keys
 
     @pytest.mark.skipif(not is_torch_available(), reason="Test requires torch")
     def test_load_torch_model_safe_false_loads_safetensors(self, tmp_path, torch_state_dict, dummy_model):
