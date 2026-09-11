@@ -686,8 +686,13 @@ def load_state_dict_from_file(
 
 
 def _is_safetensors(filename: Union[str, os.PathLike]) -> bool:
-    """Whether `filename` must be loaded with the safetensors loader."""
-    return str(filename).endswith(SAFETENSORS_EXTENSION)
+    """Whether `filename` must be loaded with the safetensors loader.
+
+    The comparison is case-insensitive on purpose: Windows and macOS resolve filenames case-insensitively, so a file
+    named `model.SAFETENSORS` can be picked up by a case-insensitive glob. This is only a *hint* used when `safe=False`;
+    it is never the security boundary (see `load_state_dict_from_file`).
+    """
+    return str(filename).lower().endswith(SAFETENSORS_EXTENSION)
 
 
 def _validate_keys_for_strict_loading(
