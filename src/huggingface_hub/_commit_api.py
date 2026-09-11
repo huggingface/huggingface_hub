@@ -206,11 +206,12 @@ class CommitOperationAdd:
                 and hasattr(self.path_or_fileobj, "seek")
                 and hasattr(self.path_or_fileobj, "tell")
             )
+            try:
+                mode = getattr(self.path_or_fileobj, "mode", None)
+            except Exception:
+                mode = None
             is_text = isinstance(self.path_or_fileobj, io.TextIOBase) or (
-                hasattr(self.path_or_fileobj, "mode")
-                and isinstance(self.path_or_fileobj.mode, str)
-                and "b" not in self.path_or_fileobj.mode
-                and not isinstance(self.path_or_fileobj, io.RawIOBase)
+                isinstance(mode, str) and "b" not in mode and not isinstance(self.path_or_fileobj, io.RawIOBase)
             )
             if not is_file_like or is_text:
                 raise ValueError(

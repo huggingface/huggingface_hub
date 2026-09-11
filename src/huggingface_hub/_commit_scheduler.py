@@ -326,6 +326,13 @@ class PartialFileIO(BytesIO):
     def writable(self) -> bool:
         return False
 
+    @property
+    def mode(self) -> str:
+        """Return mode of underlying file."""
+        if hasattr(self, "_file") and self._file is not None and hasattr(self._file, "mode"):
+            return self._file.mode
+        return "rb"
+
     def __repr__(self) -> str:
         return f"<PartialFileIO file_path={self._file_path} size_limit={self._size_limit}>"
 
@@ -343,6 +350,8 @@ class PartialFileIO(BytesIO):
             "readable",
             "seekable",
             "writable",
+            "mode",
+            "name",
         ):
             return super().__getattribute__(name)
         raise NotImplementedError(f"PartialFileIO does not support '{name}'.")
