@@ -627,8 +627,9 @@ def model_index_to_eval_results(model_index: list[dict[str, Any]]) -> tuple[str,
             dataset_split = result["dataset"].get("split")
             dataset_revision = result["dataset"].get("revision")
             dataset_args = result["dataset"].get("args")
-            source_name = result.get("source", {}).get("name")
-            source_url = result.get("source", {}).get("url")
+            source = result.get("source") or {}
+            source_name = source.get("name")
+            source_url = source.get("url")
 
             for metric in result["metrics"]:
                 metric_type = metric["type"]
