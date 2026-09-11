@@ -577,7 +577,7 @@ def load_state_dict_from_file(
     weights_only: bool = False,
     mmap: bool = False,
     *,
-    safe: bool = False,
+    safe: bool = True,
 ) -> dict[str, "torch.Tensor"] | Any:
     """
     Loads a checkpoint file, handling both safetensors and pickle checkpoint formats.
@@ -596,7 +596,7 @@ def load_state_dict_from_file(
             Whether to use memory-mapped file loading. Memory mapping can improve loading performance
             for large models in PyTorch >= 2.1.0 with zipfile-based checkpoints. Has no effect when
             loading safetensors files, as the `safetensors` library uses memory mapping by default.
-        safe (`bool`, *optional*, defaults to `False`):
+        safe (`bool`, *optional*, defaults to `True`):
             If True, the checkpoint is always loaded as safetensors, whatever its name. Any other format
             (e.g. a pickle `.bin` file) raises a `ValueError` instead of being deserialized: pickle checkpoints can
             execute arbitrary code at load time. If False, the file is loaded as safetensors when its name says so,
@@ -642,6 +642,10 @@ def load_state_dict_from_file(
 
     # Load safetensors checkpoint
     if safe or _is_safetensors(checkpoint_path):
+        # `safe=True` is a hard guarantee: the safetensors loader is used whatever the file is called. A pickle file
+        # pretending to be safetensors — or any other name the extension check failed to recognize — fails to
+        # deserialize instead of being executed. The filename is only a hint, used in the already-unsafe `safe=False`
+        # branch below.
         try:
             return _load_safetensors_file(checkpoint_path, map_location=map_location)
         except ImportError:
@@ -649,10 +653,12 @@ def load_state_dict_from_file(
         except OSError:
             raise  # invalid safetensors metadata: the error message is already actionable
         except Exception as e:
-            raise ValueError(
-                f"Cannot load '{checkpoint_path}' as safetensors. If this is a pickle checkpoint, pass `safe=False` "
-                "to allow it (this executes arbitrary code at load time)."
-            ) from e
+            if safe:
+                raise ValueError(
+                    f"Cannot load '{checkpoint_path}' as safetensors. If this is a pickle checkpoint, pass "
+                    "`safe=False` to allow it (this executes arbitrary code at load time)."
+                ) from e
+            raise
 
     # Otherwise, load from pickle
     try:
@@ -662,6 +668,11 @@ def load_state_dict_from_file(
         raise ImportError(
             "Please install `torch` to load torch tensors. You can install it with `pip install torch`."
         ) from e
+
+    logger.warning(
+        f"Loading '{checkpoint_path}' with `torch.load`. Pickle checkpoints can execute arbitrary code at load time; "
+        "only load files from sources you trust."
+    )
 
     # Add additional kwargs, mmap is only supported in torch >= 2.1.0
     additional_kwargs = {}

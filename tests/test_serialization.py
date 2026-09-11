@@ -639,11 +639,15 @@ def test_load_state_dict_from_file(tmp_path: Path, torch_state_dict: dict[str, "
 
     # Test PyTorch pickle format
     save_torch_state_dict(torch_state_dict, tmp_path, safe_serialization=False)
-    loaded_dict = load_state_dict_from_file(tmp_path / "pytorch_model.bin")
+    loaded_dict = load_state_dict_from_file(tmp_path / "pytorch_model.bin", safe=False)
     assert isinstance(loaded_dict, dict)
     assert set(loaded_dict.keys()) == set(torch_state_dict.keys())
     for key in torch_state_dict:
         assert torch.equal(loaded_dict[key], torch_state_dict[key])
+
+    # A pickle checkpoint is rejected by default (`safe=True`)
+    with pytest.raises(ValueError, match="Cannot load .* as safetensors"):
+        load_state_dict_from_file(tmp_path / "pytorch_model.bin")
 
 
 @pytest.mark.skipif(not is_torch_available(), reason="Test requires torch")
