@@ -34,6 +34,10 @@ logger = logging.get_logger(__file__)
 
 SAFETENSORS_EXTENSION = ".safetensors"
 
+# A checkpoint index is plain metadata (a tensor name -> shard file mapping). 10 MB is already far beyond
+# anything a real checkpoint produces, so anything bigger is not worth parsing into memory.
+MAX_INDEX_FILE_SIZE = 10 * 1024 * 1024
+
 if TYPE_CHECKING:
     import torch
 
@@ -530,8 +534,20 @@ def _load_sharded_checkpoint(
     # The index file contains mapping of parameter names to shard files
     index_path = filename_pattern.format(suffix="") + ".index.json"
     index_file = os.path.join(save_directory, index_path)
+    # Refuse oversized index files before parsing them: the index is metadata, never a multi-GB payload.
+    if os.path.getsize(index_file) > MAX_INDEX_FILE_SIZE:
+        raise ValueError(
+            f"Invalid index file '{index_file}': larger than {MAX_INDEX_FILE_SIZE} bytes, which is not a valid "
+            "checkpoint index."
+        )
     with open(index_file, encoding="utf-8") as f:
         index = json.load(f)
+    # Validate the structure before touching it: a malformed index would otherwise surface as a raw `KeyError` /
+    # `AttributeError` / `TypeError` traceback from attacker-controlled input.
+    if not isinstance(index, dict) or not isinstance(index.get("weight_map"), dict):
+        raise ValueError(f"Invalid index file '{index_file}': expected a JSON object with a 'weight_map' object.")
+    if not all(isinstance(shard_file, str) for shard_file in index["weight_map"].values()):
+        raise ValueError(f"Invalid index file '{index_file}': all 'weight_map' values must be strings.")
 
     # 2. Validate shard filenames from the index
     # This prevents path traversal attacks and extension confusion attacks
