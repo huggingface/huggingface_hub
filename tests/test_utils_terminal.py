@@ -4,10 +4,36 @@ from unittest import mock
 
 import pytest
 
-from huggingface_hub.utils._terminal import ANSI, tabulate
+from huggingface_hub.utils._terminal import ANSI, StatusLine, is_terminal, tabulate
 
 
 class TestCLIUtils:
+    def test_is_terminal(self) -> None:
+        assert is_terminal(None) is False
+
+        class ClosedStream:
+            def isatty(self) -> bool:
+                raise ValueError("I/O operation on closed file.")
+
+        class BrokenStream:
+            def isatty(self) -> bool:
+                raise OSError("Bad file descriptor")
+
+        class TTYStream:
+            def isatty(self) -> bool:
+                return True
+
+        assert is_terminal(ClosedStream()) is False
+        assert is_terminal(BrokenStream()) is False
+        assert is_terminal(TTYStream()) is True
+
+    def test_status_line_headless_safe(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(sys, "stderr", None)
+        status = StatusLine()
+        assert status._active is False
+        status.update("test")
+        status.done("test")
+
     @mock.patch.dict(os.environ, {}, clear=True)
     def test_ansi_utils(self) -> None:
         """Test `ANSI` works as expected."""

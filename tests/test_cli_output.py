@@ -98,6 +98,17 @@ def test_set_mode_human_reenables_progress_bars():
         enable_progress_bars()
 
 
+def test_set_mode_human_does_not_warn_when_bars_env_disabled(monkeypatch):
+    import warnings
+
+    monkeypatch.setattr("huggingface_hub.cli._output.HF_HUB_DISABLE_PROGRESS_BARS", True)
+    with warnings.catch_warnings(record=True) as recorded:
+        warnings.simplefilter("always")
+        o = Output()
+        o.set_mode(OutputFormat.human)
+        assert len(recorded) == 0
+
+
 def test_auto_resolves_to_human_in_interactive_terminal_even_if_agent(monkeypatch):
     monkeypatch.setattr("huggingface_hub.cli._output.is_agent", lambda: True)
     monkeypatch.setattr(sys.stderr, "isatty", lambda: True)

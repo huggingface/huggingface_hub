@@ -18,6 +18,7 @@ import os
 import shutil
 import sys
 from contextlib import contextmanager
+from typing import Any
 
 from ._detect_agent import is_agent
 
@@ -30,11 +31,22 @@ else:
     import tty
 
 
+def is_terminal(stream: Any) -> bool:
+    """Safely check if a stream is an interactive terminal (TTY).
+
+    Returns False if the stream is None, closed, or lacks a functional isatty method.
+    """
+    try:
+        return stream is not None and bool(stream.isatty())
+    except (ValueError, OSError, AttributeError):
+        return False
+
+
 class StatusLine:
     """Minimal TTY status line for sync progress (stderr, single-line overwrite)."""
 
     def __init__(self, enabled: bool = True):
-        self._active = enabled and sys.stderr.isatty()
+        self._active = enabled and is_terminal(sys.stderr)
 
     def update(self, msg: str) -> None:
         if not self._active:
@@ -99,7 +111,7 @@ class ANSI:
 
     @classmethod
     def _format(cls, s: str, code: str) -> str:
-        if os.environ.get("NO_COLOR") or (is_agent() and not bool(getattr(sys.stderr, "isatty", lambda: False)())):
+        if os.environ.get("NO_COLOR") or (is_agent() and not is_terminal(sys.stderr)):
             # See https://no-color.org/
             return s
         return f"{code}{s}{cls._reset}"

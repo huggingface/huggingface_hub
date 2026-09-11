@@ -26,6 +26,7 @@ from typing import Any, cast
 
 import click
 
+from huggingface_hub.constants import HF_HUB_DISABLE_PROGRESS_BARS
 from huggingface_hub.errors import ConfirmationError
 from huggingface_hub.utils import (
     ANSI,
@@ -33,6 +34,7 @@ from huggingface_hub.utils import (
     disable_progress_bars,
     enable_progress_bars,
     is_agent,
+    is_terminal,
     tabulate,
 )
 
@@ -70,12 +72,11 @@ class Output:
     def set_mode(self, mode: OutputFormat = OutputFormat.auto) -> None:
         """Override the output mode (called once at startup and again per '--format' flag)."""
         if mode == OutputFormat.auto:
-            is_interactive = bool(getattr(sys.stderr, "isatty", lambda: False)())
-            mode = OutputFormat.agent if (is_agent() and not is_interactive) else OutputFormat.human
+            mode = OutputFormat.agent if (is_agent() and not is_terminal(sys.stderr)) else OutputFormat.human
         self.mode = mode
         if mode != OutputFormat.human:
             disable_progress_bars()
-        else:
+        elif not HF_HUB_DISABLE_PROGRESS_BARS:
             enable_progress_bars()
 
     def set_no_truncate(self, no_truncate: bool) -> None:
