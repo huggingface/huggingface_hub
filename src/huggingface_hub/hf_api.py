@@ -14834,10 +14834,13 @@ class HfApi:
             42000
             ```
         """
+        headers = self._build_hf_headers(token=token)
+        headers["Accept-Encoding"] = "identity"  # prevent compression so the size matches the file
+
         response = _httpx_follow_hub_redirects_with_backoff(
             "HEAD",
             f"{self.endpoint}/buckets/{bucket_id}/resolve/{quote(remote_path, safe='')}",
-            headers=self._build_hf_headers(token=token),
+            headers=headers,
             retry_on_errors=True,
         )
 
@@ -14845,7 +14848,9 @@ class HfApi:
         if xet_file_data is None:
             raise ValueError(f"Could not parse xet file data for '{remote_path}' in bucket '{bucket_id}'.")
 
-        size = response.headers.get("Content-Length")
+        size = response.headers.get(constants.HUGGINGFACE_HEADER_X_LINKED_SIZE) or (
+            None if response.is_redirect else response.headers.get("Content-Length")
+        )
         if size is None:
             raise ValueError(f"Could not get size for '{remote_path}' in bucket '{bucket_id}'.")
 

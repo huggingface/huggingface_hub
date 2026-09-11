@@ -256,9 +256,13 @@ def save_torch_state_dict(
 
     # Only main process should clean up existing files to avoid race conditions in distributed environment
     if is_main_process:
-        existing_files_regex = re.compile(filename_pattern.format(suffix=r"(-\d{5}-of-\d{5})?") + r"(\.index\.json)?")
+        # Escape literal parts and use `fullmatch` so that e.g. "model.safetensors.backup" is not deleted.
+        prefix, _, suffix = filename_pattern.partition("{suffix}")
+        existing_files_regex = re.compile(
+            re.escape(prefix) + r"(-\d{5}-of-\d{5})?" + re.escape(suffix) + r"(\.index\.json)?"
+        )
         for filename in os.listdir(save_directory):
-            if existing_files_regex.match(filename):
+            if existing_files_regex.fullmatch(filename):
                 try:
                     logger.debug(f"Removing existing file '{filename}' from folder.")
                     os.remove(os.path.join(save_directory, filename))
