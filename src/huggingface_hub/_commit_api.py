@@ -200,14 +200,24 @@ class CommitOperationAdd:
             self.path_or_fileobj = os.path.normpath(os.path.expanduser(self.path_or_fileobj))
             if not os.path.isfile(self.path_or_fileobj):
                 raise ValueError(f"Provided path: '{self.path_or_fileobj}' is not a file on the local file system")
-        elif not isinstance(self.path_or_fileobj, (io.BufferedIOBase, bytes)):
-            # ^^ Inspired from: https://stackoverflow.com/questions/44584829/how-to-determine-if-file-is-opened-in-binary-or-text-mode
-            raise ValueError(
-                "path_or_fileobj must be either an instance of str, bytes or"
-                " io.BufferedIOBase. If you passed a file-like object, make sure it is"
-                " in binary mode."
+        elif not isinstance(self.path_or_fileobj, bytes):
+            is_file_like = (
+                hasattr(self.path_or_fileobj, "read")
+                and hasattr(self.path_or_fileobj, "seek")
+                and hasattr(self.path_or_fileobj, "tell")
             )
-        if isinstance(self.path_or_fileobj, io.BufferedIOBase):
+            is_text = isinstance(self.path_or_fileobj, io.TextIOBase) or (
+                hasattr(self.path_or_fileobj, "mode")
+                and isinstance(self.path_or_fileobj.mode, str)
+                and "b" not in self.path_or_fileobj.mode
+                and not isinstance(self.path_or_fileobj, io.RawIOBase)
+            )
+            if not is_file_like or is_text:
+                raise ValueError(
+                    "path_or_fileobj must be either an instance of str, bytes or"
+                    " a binary file-like object. If you passed a file-like object, make sure it is"
+                    " in binary mode."
+                )
             try:
                 self.path_or_fileobj.tell()
                 self.path_or_fileobj.seek(0, os.SEEK_CUR)

@@ -302,8 +302,29 @@ class PartialFileIO(BytesIO):
         self._size_limit = min(size_limit, os.fstat(self._file.fileno()).st_size)
 
     def __del__(self) -> None:
-        self._file.close()
-        return super().__del__()
+        if hasattr(self, "_file") and self._file is not None and not self._file.closed:
+            self._file.close()
+
+    def close(self) -> None:
+        """Close the underlying file."""
+        if hasattr(self, "_file") and self._file is not None and not self._file.closed:
+            self._file.close()
+
+    @property
+    def closed(self) -> bool:
+        """Return True if the underlying file is closed."""
+        if hasattr(self, "_file") and self._file is not None:
+            return self._file.closed
+        return True
+
+    def readable(self) -> bool:
+        return True
+
+    def seekable(self) -> bool:
+        return True
+
+    def writable(self) -> bool:
+        return False
 
     def __repr__(self) -> str:
         return f"<PartialFileIO file_path={self._file_path} size_limit={self._size_limit}>"
@@ -312,7 +333,17 @@ class PartialFileIO(BytesIO):
         return self._size_limit
 
     def __getattribute__(self, name: str):
-        if name.startswith("_") or name in ("read", "tell", "seek", "fileno"):  # only 4 public methods supported
+        if name.startswith("_") or name in (
+            "read",
+            "tell",
+            "seek",
+            "fileno",
+            "close",
+            "closed",
+            "readable",
+            "seekable",
+            "writable",
+        ):
             return super().__getattribute__(name)
         raise NotImplementedError(f"PartialFileIO does not support '{name}'.")
 

@@ -250,6 +250,21 @@ class TestPartialFileIO:
         with pytest.raises(NotImplementedError):
             file.write(b"123")
 
+    def test_partial_file_io_close_and_del_safety(self) -> None:
+        file = PartialFileIO(self.file_path, size_limit=5)
+        assert not file.closed
+        assert file.readable()
+        assert file.seekable()
+        assert not file.writable()
+        file.close()
+        assert file.closed
+
+        import gc
+
+        with pytest.raises(FileNotFoundError):
+            PartialFileIO("non_existent_file.txt", 10)
+        gc.collect()
+
     def test_append_to_file_then_read(self) -> None:
         file = PartialFileIO(self.file_path, size_limit=9)
 

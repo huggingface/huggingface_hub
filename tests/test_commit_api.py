@@ -136,3 +136,23 @@ class TestWarnOnOverwritingOperations:
 
     def test_delete_folder_then_add(self) -> None:
         _warn_on_overwriting_operations([self.delete_folder_a, self.add_file_ab, self.add_file_abc])
+
+
+class TestCommitOperationAddBinaryStreams:
+    def test_spooled_temporary_file(self) -> None:
+        import tempfile
+
+        with tempfile.SpooledTemporaryFile(mode="w+b") as f:
+            f.write(b"content")
+            f.seek(0)
+            op = CommitOperationAdd(path_in_repo="file.txt", path_or_fileobj=f)
+            assert op.upload_info.size == 7
+
+    def test_io_file_io(self, tmp_path) -> None:
+        import io
+
+        file_path = tmp_path / "test.bin"
+        file_path.write_bytes(b"content")
+        with io.FileIO(str(file_path), "r") as f:
+            op = CommitOperationAdd(path_in_repo="file.txt", path_or_fileobj=f)
+            assert op.upload_info.size == 7
