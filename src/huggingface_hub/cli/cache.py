@@ -32,6 +32,7 @@ from ..utils import (
     CacheNotFound,
     HFCacheInfo,
     _format_size,
+    _shared_blobs,
     parse_hf_uri,
     scan_cache_dir,
 )
@@ -109,14 +110,18 @@ def summarize_deletions(
     return CacheDeletionCounts(repo_count, partial_revision_count, total_revisions)
 
 
-def _prune_summary(revision_count: int, incomplete_count: int) -> str:
+def _prune_summary(revision_count: int, incomplete_count: int, shared_blob_count: int) -> str:
     """Build the human-readable summary of what `hf cache prune` is about to delete."""
     parts: list[str] = []
     if revision_count:
         parts.append(f"{revision_count} unreferenced revision(s)")
     if incomplete_count:
         parts.append(f"{incomplete_count} incomplete download(s)")
-    return " and ".join(parts)
+    if shared_blob_count:
+        parts.append(f"{shared_blob_count} unreferenced shared blob(s)")
+    if len(parts) > 1:
+        return ", ".join(parts[:-1]) + " and " + parts[-1]
+    return "".join(parts)
 
 
 def print_cache_selected_revisions(selected_by_repo: Mapping[CachedRepoInfo, frozenset[CachedRevisionInfo]]) -> None:
@@ -506,7 +511,11 @@ def ls(
             total_size = sum(rev.size_on_disk for _, rev in entries if rev is not None)
         else:
             revision_count = sum(len(repo.revisions) for repo in unique_repos)
-            total_size = sum(repo.size_on_disk for repo in unique_repos)
+            if filters or limit is not None:
+                total_size = sum(repo.size_on_disk for repo in unique_repos)
+            else:
+                # Per-repo sizes double-count blobs shared across repos: report the physical total.
+                total_size = hf_cache_info.size_on_disk
         out.text(
             ANSI.bold(
                 f"\nFound {repo_count} repo(s) for a total of {revision_count} revision(s)"
@@ -662,16 +671,22 @@ def prune(
         revisions.update(revision.commit_hash for revision in detached)
 
     incomplete_files = hf_cache_info.incomplete_files
+    # Shared blobs left behind when a repo folder is deleted manually or by an older client.
+    unreferenced_blobs = (
+        _shared_blobs.unreferenced_shared_blobs(hf_cache_info.cache_dir) if hf_cache_info.cache_dir is not None else {}
+    )
 
-    if len(revisions) == 0 and not incomplete_files:
-        out.text("No unreferenced revisions or incomplete downloads found. Nothing to prune.")
+    if len(revisions) == 0 and not incomplete_files and not unreferenced_blobs:
+        out.text("No unreferenced revisions, incomplete downloads or shared blobs found. Nothing to prune.")
         return
 
     strategy = hf_cache_info.delete_revisions(*sorted(revisions))
     counts = summarize_deletions(selected)
-    total_freed = strategy.expected_freed_size + hf_cache_info.incomplete_size_on_disk
+    total_freed = (
+        strategy.expected_freed_size + hf_cache_info.incomplete_size_on_disk + sum(unreferenced_blobs.values())
+    )
 
-    summary = _prune_summary(counts.total_revision_count, len(incomplete_files))
+    summary = _prune_summary(counts.total_revision_count, len(incomplete_files), len(unreferenced_blobs))
     out.text(f"About to delete {summary} ({_format_size(total_freed)} total).")
     print_cache_selected_revisions(selected)
 
@@ -681,6 +696,7 @@ def prune(
             dry_run=True,
             revisions=counts.total_revision_count,
             incomplete=len(incomplete_files),  # might be overstated but it's fine
+            shared_blobs=len(unreferenced_blobs),
             size=_format_size(total_freed),
         )
         return
@@ -695,10 +711,14 @@ def prune(
             pass  # already removed (e.g. by a full-repo deletion above)
         except OSError as exc:
             out.warning(f"Could not delete incomplete file {incomplete_file.file_path}: {exc}")
+    if hf_cache_info.cache_dir is not None:
+        for store_path in unreferenced_blobs:
+            _shared_blobs.sweep_shared_blob(store_path, cache_dir=hf_cache_info.cache_dir)
     out.result(
         f"Deleted {summary}; freed {_format_size(total_freed)}.",
         revisions_deleted=counts.total_revision_count,
         incomplete_deleted=len(incomplete_files),
+        shared_blobs_deleted=len(unreferenced_blobs),
         freed=_format_size(total_freed),
     )
 

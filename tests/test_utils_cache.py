@@ -498,12 +498,12 @@ class TestDeleteRevisionsDryRun:
         # Define repo
         repo_A = Mock()
         repo_A.repo_path = Path("repo_A")
-        repo_A.size_on_disk = 4444
         repo_A.revisions = {repo_A_rev_main, repo_A_rev_detached, repo_A_rev_pr_1}
 
         # Define cache
         cache_info = Mock()
         cache_info.repos = [repo_A]
+        cache_info.cache_dir = None
         self.cache_info = cache_info
 
     def test_delete_detached_revision(self) -> None:
@@ -558,7 +558,8 @@ class TestDeleteRevisionsDryRun:
             self.cache_info, "repo_A_rev_detached", "repo_A_rev_pr_1", "repo_A_rev_main"
         )
         expected = DeleteCacheStrategy(
-            expected_freed_size=4444,
+            # Sum of the unique blob sizes: the freed size is computed per blob.
+            expected_freed_size=11111,
             blobs=set(),
             refs=set(),
             repos={Path("repo_A")},  # No remaining revisions: full repo is deleted
