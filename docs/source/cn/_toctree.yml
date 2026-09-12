@@ -1,4 +1,4 @@
-- title: "Starten"
+- title: "开始"
   sections:
     - local: index
       title: 索引
@@ -6,7 +6,7 @@
       title: 快速入门指南
     - local: installation
       title: 安装
-- title: "guides"
+- title: "指南"
   sections:
     - local: guides/repository
       title: 储存库
@@ -20,4 +20,6 @@
       title: 概览
     - local: guides/hf_file_system
       title: Hugging Face 文件系统
+    - local: guides/model-cards
+      title: 创建与分享模型卡片
 
