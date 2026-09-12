@@ -1,4 +1,5 @@
 import json
+import math
 import mimetypes
 import uuid
 from typing import Any
@@ -11,6 +12,14 @@ from ._common import BaseConversationalTask, BaseTextGenerationTask, TaskProvide
 
 _PROVIDER = "deepinfra"
 _BASE_URL = "https://api.deepinfra.com"
+
+
+def _cosine_similarity(a: list[float], b: list[float]) -> float:
+    dot = sum(x * y for x, y in zip(a, b))
+    norm_a = math.sqrt(sum(x * x for x in a))
+    norm_b = math.sqrt(sum(y * y for y in b))
+    denom = norm_a * norm_b
+    return dot / denom if denom else 0.0
 
 
 def _form_field_value(value: Any) -> str:
@@ -164,3 +173,34 @@ class DeepInfraFeatureExtractionTask(TaskProviderHelper):
 
     def get_response(self, response: bytes | dict, request_params: RequestParameters | None = None) -> Any:
         return [item["embedding"] for item in _as_dict(response)["data"]]
+
+
+class DeepInfraSentenceSimilarityTask(TaskProviderHelper):
+    def __init__(self):
+        super().__init__(provider=_PROVIDER, base_url=_BASE_URL, task="sentence-similarity")
+
+    def _prepare_route(self, mapped_model: str, api_key: str) -> str:
+        return "/v1/openai/embeddings"
+
+    def _prepare_payload_as_dict(
+        self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
+    ) -> dict | None:
+        # DeepInfra has no native sentence-similarity endpoint, so we embed the source
+        # sentence (first) and the comparison sentences in a single embeddings request and
+        # derive the similarities from the returned vectors. `input` and `model` are applied
+        # after the caller parameters so neither can be overridden.
+        return {
+            **filter_none(parameters),
+            "input": [inputs["source_sentence"], *inputs["sentences"]],
+            "model": provider_mapping_info.provider_id,
+        }
+
+    def get_response(self, response: bytes | dict, request_params: RequestParameters | None = None) -> Any:
+        data = _as_dict(response).get("data")
+        if not isinstance(data, list) or not data:
+            raise ValueError(f"Unexpected output format from DeepInfra sentence-similarity API: {response!r}")
+        # `index` preserves request order: item 0 is the source sentence, items 1.. are the
+        # comparison sentences.
+        embeddings = [item["embedding"] for item in sorted(data, key=lambda item: item["index"])]
+        source, *rest = embeddings
+        return [_cosine_similarity(source, embedding) for embedding in rest]
