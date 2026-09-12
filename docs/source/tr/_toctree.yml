@@ -1,0 +1,6 @@
+- title: "Başlangıç"
+  sections:
+    - local: index
+      title: Ana sayfa
+    - local: installation
+      title: Kurulum
