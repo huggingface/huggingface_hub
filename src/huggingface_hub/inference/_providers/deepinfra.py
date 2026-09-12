@@ -1,10 +1,12 @@
 import json
 import mimetypes
+import time
 import uuid
 from typing import Any
 
 from huggingface_hub.hf_api import InferenceProviderMapping
 from huggingface_hub.inference._common import MimeBytes, RequestParameters, _as_dict, _open_as_mime_bytes
+from huggingface_hub.utils import get_session, hf_raise_for_status
 
 from ._common import BaseConversationalTask, BaseTextGenerationTask, TaskProviderHelper, filter_none
 
@@ -164,3 +166,47 @@ class DeepInfraFeatureExtractionTask(TaskProviderHelper):
 
     def get_response(self, response: bytes | dict, request_params: RequestParameters | None = None) -> Any:
         return [item["embedding"] for item in _as_dict(response)["data"]]
+
+
+class DeepInfraTextToVideoTask(TaskProviderHelper):
+    def __init__(self):
+        super().__init__(provider=_PROVIDER, base_url=_BASE_URL, task="text-to-video")
+
+    def _prepare_route(self, mapped_model: str, api_key: str) -> str:
+        return "/v1/openai/videos"
+
+    def _prepare_payload_as_dict(
+        self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
+    ) -> dict | None:
+        # DeepInfra video generation is asynchronous: this submits the job and get_response
+        # polls it. `prompt`/`model` are applied after caller parameters so neither can be overridden.
+        return {
+            **filter_none(parameters),
+            "prompt": inputs,
+            "model": provider_mapping_info.provider_id,
+        }
+
+    def get_response(self, response: bytes | dict, request_params: RequestParameters | None = None) -> Any:
+        if request_params is None:
+            raise ValueError("A `request_params` object is required to poll DeepInfra text-to-video jobs.")
+        job = _as_dict(response)
+        job_id = job.get("id")
+        if not job_id:
+            raise ValueError(f"Unexpected response from DeepInfra text-to-video API: {response!r}")
+        session = get_session()
+        status_url = f"{request_params.url.rstrip('/')}/{job_id}"
+        status = job.get("status")
+        while status not in ("succeeded", "failed"):
+            time.sleep(2)
+            poll = session.get(status_url, headers=request_params.headers)
+            hf_raise_for_status(poll)
+            job = poll.json()
+            status = job.get("status")
+        if status == "failed":
+            raise ValueError(f"DeepInfra text-to-video job failed: {job.get('error')}")
+        data = job.get("data")
+        if not (isinstance(data, list) and data and isinstance(data[0], dict) and data[0].get("url")):
+            raise ValueError(f"Unexpected response from DeepInfra text-to-video API: {job!r}")
+        video = session.get(data[0]["url"])
+        hf_raise_for_status(video)
+        return video.content
