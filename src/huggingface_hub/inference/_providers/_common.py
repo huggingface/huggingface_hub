@@ -33,6 +33,7 @@ HARDCODED_MODEL_INFERENCE_MAPPING: dict[str, dict[str, InferenceProviderMapping]
     "ovhcloud": {},
     "replicate": {},
     "scaleway": {},
+    "textclf": {},
     "together": {},
     "wavespeed": {},
     "zai-org": {},
