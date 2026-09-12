@@ -15,6 +15,7 @@ from .deepinfra import (
     DeepInfraConversationalTask,
     DeepInfraFeatureExtractionTask,
     DeepInfraTextGenerationTask,
+    DeepInfraTextToImageTask,
     DeepInfraTextToSpeechTask,
 )
 from .fal_ai import (
@@ -110,6 +111,7 @@ PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
         "conversational": DeepInfraConversationalTask(),
         "feature-extraction": DeepInfraFeatureExtractionTask(),
         "text-generation": DeepInfraTextGenerationTask(),
+        "text-to-image": DeepInfraTextToImageTask(),
         "text-to-speech": DeepInfraTextToSpeechTask(),
     },
     "fal-ai": {
