@@ -13,7 +13,7 @@ from unittest.mock import Mock, patch
 import fsspec
 import pytest
 
-from huggingface_hub import HfApi, constants, hf_file_system
+from huggingface_hub import BucketFile, BucketFolder, BucketInfo, HfApi, constants, hf_file_system
 from huggingface_hub.errors import BucketNotFoundError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.hf_file_system import (
     HfFileSystem,
@@ -803,12 +803,20 @@ def mock_repo_info(fs: HfFileSystem):
     return patch.object(fs._api, "repo_info", _inner)
 
 
-def mock_bucket_info(fs: HfFileSystem):
+def mock_bucket_info(fs: HfFileSystem, updated_at: Optional[datetime.datetime] = None):
     def _inner(bucket_id: str, *_, **kwargs):
         if bucket_id not in ["username/my_bucket"]:
             raise BucketNotFoundError(bucket_id, response=Mock())
+        return BucketInfo(
+            id=bucket_id,
+            private=False,
+            createdAt="2026-01-01T00:00:00.000Z",
+            updatedAt=updated_at.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z" if updated_at else None,
+            size=0,
+            totalFiles=0,
+        )
 
-    return patch.object(fs._api, "bucket_info", _inner)
+    return patch.object(fs._api, "bucket_info", side_effect=_inner)
 
 
 def test_resolve_path_with_non_matching_revisions():
@@ -861,6 +869,75 @@ def test_exists_after_repo_deletion():
     api.delete_repo(repo_id=repo_id, repo_type="model")
     # Verify that the repo no longer exists.
     assert not hffs.exists(repo_id, refresh=True)
+
+
+def test_bucket_info_cache_miss_bucket_unchanged():
+    """A miss under a cached listing is trusted if the bucket hasn't changed since the listing was fetched."""
+    fs = HfFileSystem(skip_instance_cache=True)
+    bucket_id = "username/my_bucket"
+    prefix = f"buckets/{bucket_id}/prefix"
+    tree = [BucketFile(type="file", path="prefix/old.json", size=1, xetHash="abc")]
+    updated_at = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=1)
+
+    with (
+        mock_bucket_info(fs, updated_at=updated_at) as mock_info,
+        patch.object(fs._api, "list_bucket_tree", return_value=tree) as mock_ls,
+    ):
+        assert fs.ls(prefix, detail=False) == [f"{prefix}/old.json"]
+        mock_info.reset_mock()  # called by `resolve_path` on first access
+
+        with pytest.raises(FileNotFoundError):
+            fs.info(f"{prefix}/new.json")
+        assert not fs.exists(f"{prefix}/new.json")
+        assert mock_ls.call_count == 1
+        assert mock_info.call_count == 2  # one `GET /api/buckets/{id}` per miss, no re-listing
+
+        # Cache untouched
+        assert fs.ls(prefix, detail=False) == [f"{prefix}/old.json"]
+        assert mock_ls.call_count == 1
+
+
+@pytest.mark.parametrize("updated_at_known", [True, False])
+def test_bucket_info_cache_miss_bucket_changed(updated_at_known: bool):
+    """Buckets are mutable: a file created after the parent listing was cached must still be found."""
+    fs = HfFileSystem(skip_instance_cache=True)
+    bucket_id = "username/my_bucket"
+    prefix = f"buckets/{bucket_id}/prefix"
+    tree = {"old.json": BucketFile(type="file", path="prefix/old.json", size=1, xetHash="abc")}
+    # Bucket changed within the grace period of the listing (or `updatedAt` not available) => can't trust the cache
+    updated_at = datetime.datetime.now(datetime.timezone.utc) if updated_at_known else None
+
+    def _list_bucket_tree(bucket_id: str, path_in_repo: str, **__):
+        return [BucketFolder(type="directory", path="prefix")] if not path_in_repo else list(tree.values())
+
+    with (
+        mock_bucket_info(fs, updated_at=updated_at) as mock_info,
+        patch.object(fs._api, "list_bucket_tree", side_effect=_list_bucket_tree) as mock_ls,
+    ):
+        assert fs.ls(prefix, detail=False) == [f"{prefix}/old.json"]
+        assert fs.ls(f"buckets/{bucket_id}", detail=False) == [prefix]
+        mock_info.reset_mock()  # called by `resolve_path` on first access
+
+        # Another process adds a file: the cached listing of `prefix` is now stale
+        tree["new.json"] = BucketFile(type="file", path="prefix/new.json", size=2, xetHash="def")
+        assert fs.info(f"{prefix}/new.json")["size"] == 2
+        assert mock_info.call_count == 1
+        assert mock_ls.call_count == 3
+        assert fs.exists(f"{prefix}/new.json")
+        assert fs.isfile(f"{prefix}/new.json")
+
+        # The whole bucket cache was dropped, not only `prefix`
+        assert fs.dircache.keys() == {prefix}
+
+        # Cache is consistent afterwards: no extra server call, no duplicated entries
+        assert sorted(fs.ls(prefix, detail=False)) == [f"{prefix}/new.json", f"{prefix}/old.json"]
+        assert fs.info(f"{prefix}/old.json")["size"] == 1
+        assert mock_info.call_count == 1
+        assert mock_ls.call_count == 3
+
+        # Still missing on the server => FileNotFoundError
+        with pytest.raises(FileNotFoundError):
+            fs.info(f"{prefix}/missing.json")
 
 
 def _get_fs_token_and_dircache(fs):

@@ -1,6 +1,7 @@
 import os
 import tempfile
 import threading
+import time
 from collections import deque
 from collections.abc import Iterable, Iterator
 from contextlib import ExitStack
@@ -32,6 +33,12 @@ from .file_download import hf_hub_url, http_get
 from .hf_api import SPECIAL_REFS_REVISION_REGEX, BucketFile, BucketFolder, HfApi, LastCommitInfo, RepoFile, RepoFolder
 from .utils import HFValidationError, hf_raise_for_status, http_backoff, http_stream_backoff, parse_hf_uri
 from .utils.insecure_hashlib import md5
+
+
+# A bucket listing is only provably complete if it was fetched long enough after the bucket's `updatedAt`: the Hub
+# serves listings from replicas lagging up to 90s behind the primary that stamps `updatedAt`, plus client/server clock
+# skew.
+BUCKET_CACHE_GRACE_SECONDS = 120
 
 
 @dataclass
@@ -232,6 +239,8 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         # Note: special case for buckets: revision is always None
         # Maps parent directory path to path infos
         self.dircache: dict[str, list[dict[str, Any]]] = {}
+        # Maps bucket directory path to the client time at which its listing was requested from the server
+        self._bucket_listed_at: dict[str, float] = {}
 
     @classmethod
     def _tokenize(cls, threading_ident: int, *args, **kwargs) -> str:
@@ -366,12 +375,14 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         """
         if not path:
             self.dircache.clear()
+            self._bucket_listed_at.clear()
             self._repo_and_revision_exists_cache.clear()
         else:
             resolved_path = self.resolve_path(path)
             path = resolved_path.unresolve()
             while path:
                 self.dircache.pop(path, None)
+                self._bucket_listed_at.pop(path, None)
                 path = self._parent(path)
 
             # Only clear repo cache if path is to repo root
@@ -595,6 +606,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
                 )
         else:
             tree: Iterable[RepoFile | RepoFolder | BucketFile | BucketFolder]
+            listed_at = time.time()
             if isinstance(resolved_path, HfFileSystemResolvedBucketPath):
                 tree = self._list_bucket_tree_with_folders(
                     resolved_path.bucket_id,
@@ -649,6 +661,8 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
                     }
                 parent_path = self._parent(cache_path_info["name"])
                 self.dircache.setdefault(parent_path, []).append(cache_path_info)
+                if isinstance(resolved_path, HfFileSystemResolvedBucketPath):
+                    self._bucket_listed_at[parent_path] = listed_at
                 depth = cache_path[len(path) :].count("/")
                 if maxdepth is None or depth <= maxdepth:
                     out.append(cache_path_info)
@@ -929,9 +943,27 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
                 }
         elif isinstance(resolved_path, HfFileSystemResolvedBucketPath):
             parent_path = self._parent(path)
+            parent_cached = parent_path in self.dircache and not refresh
             # Fill the cache with cheap call
             self.ls(parent_path, refresh=refresh)
             out1 = [o for o in self.dircache[parent_path] if o["name"] == path]
+            if not out1 and parent_cached:
+                # Buckets are mutable: a cached listing is not authoritative for a miss (e.g. file created by another
+                # process since). Trust it only if the bucket provably hasn't changed since the listing was fetched.
+                listed_at = self._bucket_listed_at.get(parent_path)
+                updated_at = self._api.bucket_info(resolved_path.bucket_id).updated_at
+                if (
+                    listed_at is not None
+                    and updated_at is not None
+                    and updated_at.timestamp() < listed_at - BUCKET_CACHE_GRACE_SECONDS
+                ):
+                    _raise_file_not_found(path, None)
+                for cached_path in list(self.dircache):
+                    if cached_path == resolved_path.root or cached_path.startswith(resolved_path.root + "/"):
+                        self.dircache.pop(cached_path, None)
+                        self._bucket_listed_at.pop(cached_path, None)
+                self.ls(parent_path)
+                out1 = [o for o in self.dircache[parent_path] if o["name"] == path]
             if not out1:
                 _raise_file_not_found(path, None)
             out = out1[0]
@@ -1170,6 +1202,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
     def _get_instance_state(self):
         return {
             "dircache": deepcopy(self.dircache),
+            "_bucket_listed_at": dict(self._bucket_listed_at),
             "_repo_and_revision_exists_cache": deepcopy(self._repo_and_revision_exists_cache),
             "_bucket_exists_cache": deepcopy(self._bucket_exists_cache),
         }

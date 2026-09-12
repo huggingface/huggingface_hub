@@ -72,6 +72,8 @@ class BucketInfo:
             Is the bucket private.
         created_at (`datetime`):
             Date of creation of the bucket on the Hub.
+        updated_at (`datetime`, *optional*):
+            Date of the last change to the bucket's files on the Hub.
         size (`int`):
             Size of the bucket in bytes.
         total_files (`int`):
@@ -81,6 +83,7 @@ class BucketInfo:
     id: str
     private: bool
     created_at: datetime
+    updated_at: datetime | None
     size: int
     total_files: int
 
@@ -88,6 +91,8 @@ class BucketInfo:
         self.id = kwargs.pop("id")
         self.private = kwargs.pop("private")
         self.created_at = parse_datetime(kwargs.pop("createdAt"))
+        updated_at = kwargs.pop("updatedAt", None)
+        self.updated_at = parse_datetime(updated_at) if updated_at else None
         self.size = kwargs.pop("size")
         self.total_files = kwargs.pop("totalFiles")
         self.__dict__.update(**kwargs)
