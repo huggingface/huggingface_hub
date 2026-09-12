@@ -1307,14 +1307,9 @@ To inspect a specific discussion or PR, pass the repo ID and the discussion numb
 >>> hf discussions info username/my-model 5
 ```
 
-By default, only the discussion metadata (title, status, author, etc.) is shown. Add `--comments` to include the full conversation thread, or `--diff` to display the PR diff:
+The output contains the discussion metadata (title, status, author, etc.) together with the full list of conversation events. To display the diff of a pull request, use `hf discussions diff` instead.
 
-```bash
->>> hf discussions info username/my-model 5 --comments
->>> hf discussions info username/my-model 5 --diff
-```
-
-Use `--format json` for machine-readable output, and `--no-color` to strip ANSI colors when piping to other tools.
+Use `--format json` for machine-readable output, and set `NO_COLOR=1` to strip ANSI colors when piping to other tools.
 
 ### Create a discussion or PR
 
