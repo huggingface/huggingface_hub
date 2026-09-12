@@ -13,7 +13,7 @@ A sandbox is an isolated cloud machine you can spin up in seconds, run commands 
 
 They are a good fit whenever you need to run code somewhere other than your own machine:
 
-- **Running untrusted or AI-generated code** — let an agent execute arbitrary code without giving it access to your filesystem.
+- **Running untrusted or AI-generated code** — let an agent execute arbitrary code without giving it access to your filesystem. Use a *dedicated* sandbox for this: it is a VM of its own.
 - **Reproducible builds and experiments** — run on a clean, well-defined image, on CPU or GPU.
 - **Fanning out work** — launch hundreds of parallel environments (RL rollouts, evaluation, batch tool execution) cheaply.
 
@@ -226,7 +226,9 @@ A `connect()`'d pool does not own the shared hosts (other clients may be using t
 > Sandboxes within a host are separated by distinct uids and per-sandbox Landlock rulesets. Shared sandboxes are
 > intended for *one user's own* parallel workloads, and isolation from every cross-sandbox attack is not guaranteed.
 > For mutually untrusted code, or for GPU, use [`Sandbox.create`] (a separate VM per sandbox). The trade-offs are
-> detailed in the [conceptual guide](../concepts/sandbox#isolation-in-a-pool-uid--landlock).
+> detailed in the conceptual guide: [how the isolation
+> works](../concepts/sandbox#isolation-in-a-pool-uid--landlock) and — more important if you are choosing between the
+> two modes — the full list of [known limitations](../concepts/sandbox#known-limitations).
 
 ## From the CLI
 

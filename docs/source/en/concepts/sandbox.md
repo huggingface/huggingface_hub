@@ -48,16 +48,16 @@ A few decisions worth calling out:
 Two independent layers protect a sandbox:
 
 1. **The proxy gate.** The Jobs proxy only forwards requests carrying an HF token with read access to the job's namespace. A random member of the internet cannot reach the URL.
-2. **The application gate.** `sbx-server` additionally checks a per-sandbox `X-Sandbox-Token` on every request. This is defense in depth: a read-only namespace member who can reach the proxy still cannot execute commands.
+2. **The application gate.** `sbx-server` additionally checks an `X-Sandbox-Token` header on every request except `/health`. This is defense in depth: a read-only namespace member who can reach the proxy still cannot execute commands.
 
-The per-sandbox token is derived, not stored:
+The sandbox token is derived, not stored:
 
 ```text
 nonce  = random 128-bit hex                       # stored in the job label "hf-sandbox-nonce"
 token  = HMAC-SHA256(key=your_hf_token, msg="hf-sandbox:" + nonce)
 ```
 
-This means only the HF token used to spin-up the Job can access the sandbox.
+The nonce is public and the HMAC key is your HF token, so any machine holding that token can recompute the sandbox token — that is exactly what makes reconnection stateless. It also means the token is a *capability* derived from your credential, not an identity check on the caller: the server verifies that the caller knows the token, not who they are.
 
 Every sandbox job also carries two stable labels for discovery — `hf-sandbox=1` (on all of them) and `hf-sandbox-mode=dedicated` or `hf-sandbox-mode=pool` — so you can list or filter them server-side, e.g. `hf jobs ps --label hf-sandbox=1`.
 
@@ -65,11 +65,23 @@ The token is delivered to the server via a Job secret. The client re-derives it 
 
 - **Stateless reconnection.** [`Sandbox.connect(id)`] works from any machine that holds the same HF token — read the nonce from the label, recompute the token. No local files, no state to copy.
 - **The HF token is not passed to the sandbox as an environment variable or job secret** (unless you opt in with `forward_hf_token=True`). This is not a hard guarantee that your credentials stay out of reach: the process listening on the sandbox port is whatever the image starts first, so an untrusted image may be able to observe the requests the client sends — including their `Authorization` header. Treat credentials reachable from a sandbox as potentially exposed to it.
-- **Per-sandbox scope.** Each sandbox has a unique nonce, so a leaked sandbox token compromises that one sandbox only. Other namespace members hold a different HF token and cannot derive it.
+
+### Token scope
+
+One nonce is minted per **Job**, not per sandbox. That distinction matters in pool mode:
+
+| mode | how many tokens | what a leaked token gives access to |
+| --- | --- | --- |
+| dedicated (`Sandbox.create`) | one per job, and the job *is* the sandbox | that sandbox |
+| pool (`SandboxPool`) | one per **host job**, shared by every sandbox packed on it | **every sandbox on that host**, current and future, plus the host's management routes (create/list/delete sandboxes) |
+
+So in a pool, a token leak is a host-wide event, not a per-sandbox one. Members of your namespace hold a different HF token and cannot derive yours — but see [Known limitations](#known-limitations) for how a token can be *delivered* to the wrong place.
 
 ## Dedicated sandboxes (`Sandbox.create`)
 
 The straightforward model: **one Job per sandbox**. A Job is a real VM, so this gives the strongest isolation (VM-level), supports any hardware flavor including GPUs, and is the right choice for mutually-untrusted code. Its API routes live at `/v1/*` and file paths are absolute on the container filesystem. `kill()` simply cancels the Job.
+
+The boundary a dedicated sandbox gives you is between the **Job and everything outside it**. Inside the VM, your code and `sbx-server` both run as root in the same container: `sbx-server` does not sandbox the command it runs for you, it only exposes it over HTTP. So once code you don't trust has executed in a dedicated sandbox, treat that VM — including its control plane — as belonging to that code: it can kill or replace the server, and anything you do in that sandbox afterwards runs at its mercy. Use one dedicated sandbox per untrusted workload and `kill()` it when done, rather than reusing one across trust boundaries.
 
 ```mermaid
 sequenceDiagram
@@ -86,6 +98,14 @@ sequenceDiagram
 The cost is right there in the diagram: every sandbox pays a full ~6s VM cold start and bills a whole machine. For a single sandbox or a GPU workload that is exactly what you want. For 100–1000 short CPU tasks it is wasteful — which is what pools are for.
 
 ## Pools: many sandboxes in one Job (`SandboxPool`)
+
+> [!WARNING]
+> **Pools are for workloads inside one trust boundary.** A pooled sandbox is a uid + a Landlock
+> ruleset inside a shared VM, not a VM of its own, and its host runs a privileged control plane
+> that all of its sandboxes talk to. Use pools to fan out *your own* code cheaply. For mutually
+> distrusting workloads — anything you would not let read your other sandboxes' files — use
+> [`Sandbox.create`], which gives each workload its own VM. See
+> [Known limitations](#known-limitations) for the specific gaps.
 
 A typical RL rollout or tool-execution sandbox needs a few MB of RAM and one core for a few seconds. Paying a 2-vCPU VM and a 6s cold start each — and triggering a 1000-VM scheduling burst — is the wrong trade. So [`SandboxPool`] runs one Job as a host and multiplexes many sandboxes inside it.
 
@@ -135,22 +155,26 @@ Combining distinct uids (discretionary access control) with Landlock is designed
 - ✅ Cross-sandbox abstract unix sockets are blocked (`LANDLOCK_SCOPED_ABSTRACT_UNIX_SOCKET`; uid
   isolation alone does *not* block these).
 
+Read that list precisely: it describes what code running **inside** a sandbox can do *directly*. It says nothing about the privileged control plane. `sbx-server` runs as root, outside every sandbox's Landlock domain, and some of its endpoints act on paths and socket names that the sandbox itself controls — so a sandbox that cannot reach its neighbour directly may still be able to get the server to do it on its behalf. Those are tracked in [Known limitations](#known-limitations).
+
 > [!NOTE]
 > **Why this is not a substitute for a VM.** Landlock and uid isolation are intended for workloads within the same
-> trust boundary. Because pooled sandboxes share a kernel and VM, protection from every cross-sandbox attack is not
-> guaranteed; resources and some process-list metadata also remain shared. For mutually untrusted code, or for GPU,
-> use [`Sandbox.create`], which gives each sandbox its own VM.
+> trust boundary. Because pooled sandboxes share a kernel, a VM and a control plane, protection from every
+> cross-sandbox attack is not guaranteed; resources and some process-list metadata also remain shared. For mutually
+> untrusted code, or for GPU, use [`Sandbox.create`], which gives each sandbox its own VM.
 
 ### The file model in a pool
 
 Because a pooled sandbox's only writable area is its Landlock-confined home (which is also its default working directory), the file API roots every path at that home: `files.write("data/in.txt", ...)` writes to `$HOME/data/in.txt`, a leading `/` is taken relative to the home, and `..` cannot escape it. Files written through the API are `chown`ed to the sandbox's uid so the sandbox's own code can read them. This gives a clean "filesystem rooted at the sandbox" model that matches exactly what code inside the sandbox can touch — and differs from dedicated sandboxes, where paths are absolute on the container filesystem.
+
+The `..` guarantee is lexical: path components are normalized before the operation, so no request can *name* a path outside the home. **Symlinks are a different question** — see [Known limitations](#known-limitations). The file API runs as root, so a symlink placed inside the home by the sandbox's own code can currently point the operation at a target outside it.
 
 ### Pools have no authoritative local state
 
 A pool is deliberately not a local config file. A pool is its set of running host Jobs, all sharing an `hf-sandbox-pool=<id>` label. This keeps pools consistent with the rest of the sandbox API (everything is discoverable from labels and reattachable from any machine), and it means a pool simply stops existing once its last host is gone.
 
 - A host carries the pool's config (image, flavor, `sandboxes_per_host`, idle timeout) in its job env vars — labels are used only for filtering. When a client must boot a duplicate host, it reads that config back from a running host (`inspect_job`), so all hosts in a pool stay consistent without a central record.
-- Env and secrets are per-sandbox, passed at create time — never pool-level. No secret is ever stored on a host or kept on disk locally.
+- Env and secrets are per-sandbox, passed at create time — never pool-level. A pooled sandbox's environment is held in the host server's memory for the sandbox's lifetime (it is re-applied to every command you run); it is never written to disk and never appears in any Job's metadata. There is no encrypted-secrets channel for pooled sandboxes — use `env` and treat those values as "not at rest, but not encrypted either". For values that need the encrypted store, use a dedicated sandbox's `secrets`.
 - Capacity is server-authoritative. A host refuses creates beyond `sandboxes_per_host` (replying `{"rejected": N}`); the client packs the overflow onto another host or boots a duplicate. This keeps packing exact even when several processes create into the same pool concurrently.
 - Idle eviction is two-level. Each sandbox is evicted after its own `idle_timeout` of inactivity (unless it still has a running process); once a host has had no sandboxes for the host idle timeout, it shuts itself down — a billing backstop even if every client disappears.
 
@@ -171,14 +195,62 @@ flowchart TD
     slow --> post2["POST /v1/sandboxes"] --> done2["sandbox ready<br/>+ refresh cache"]
 ```
 
-The cache is safe precisely because it is never trusted as truth:
+What the cache is and isn't trusted for:
 
-- **Never a source of truth.** The in-job server stays authoritative on capacity, so a stale `live` count only ever costs a wasted request, never correctness.
+- **Not authoritative on capacity.** The in-job server stays authoritative, so a stale `live` count only ever costs a wasted request, never a mis-packed host.
 - **Self-healing.** A cached host that is gone is dropped on the first failed request and pruned from the file; the create transparently falls back to label discovery.
 - **Concurrency-safe.** Writes merge under a file lock (keyed by `job_id`) and commit atomically, so parallel `create` processes don't clobber each other and readers never see a half-written file.
-- **Disposable.** Delete it, corrupt it, or run from a machine that has never seen the pool — it is simply a cache miss, the cold path runs, and everything still works. It is never shared across machines.
+- **Disposable.** Delete it and you get a cache miss: the cold path runs and everything still works. It is never shared across machines.
 
-The cache only ever makes things faster, never slower: the worst case is exactly the original label-discovery path.
+It *is*, however, trusted for one thing that matters: **the URL a host is reached at.** The fast path rebuilds the transport from the cached `base_url` and nonce and then makes an authenticated request to it, so the first thing that happens to a cached entry is that your HF bearer and sandbox token are sent to whatever URL it names. The file is not authenticated, so it is exactly as trustworthy as `$HF_HOME`:
+
+- Treat `$HF_HOME` as sensitive. Do not share it between users, restore it from an untrusted source, or place it on a world-writable path.
+- The cache is currently keyed by pool id alone, so it is not bound to the endpoint, the credential, or the namespace it was written for. Passing an explicit `namespace=` to `SandboxPool.connect()` that differs from the one the cache was written for will still use the cached hosts. Delete `$HF_HOME/sandbox/pools/<pool-id>.json` if you need to be sure a `connect()` re-discovers from labels.
+
+## Known limitations
+
+This section is deliberately exhaustive rather than reassuring: if you are deciding whether a sandbox is a strong enough boundary for a given workload, you need the gaps, not the highlights. Nothing here is a substitute for the rule of thumb — **pools for your own code, dedicated sandboxes for code you don't trust.**
+
+### Threat model at a glance
+
+| Actor | Dedicated | Pool |
+| --- | --- | --- |
+| Anonymous internet user | Cannot reach the sandbox: the Jobs proxy requires an HF token with namespace read access. | Same. |
+| Namespace member with read access | Reaches the proxy, but not the API: they cannot derive your sandbox token. Can see the job exists, its labels, and `/health`. | Same, plus they can read the pool's labels and nonce. |
+| Namespace member who can create Jobs | — | Can publish a Job carrying your pool's labels and nonce. Your client may adopt it as a host and send it the token derived for your real host (see "Host discovery" below). |
+| Code running in the sandbox | Runs as root in the VM alongside `sbx-server`; owns the VM. | Confined by uid + Landlock as described above, but shares the kernel, VM and control plane with its neighbours. |
+| Your own client | Holds the HF token and the sandbox token. | Same; in a pool the sandbox token covers the whole host. |
+
+### Isolation gaps in pool mode
+
+- **The control plane is reachable and privileged.** `sbx-server` runs as root outside every sandbox's Landlock domain, and the sandbox can reach it on loopback. Two of its endpoints act on names the sandbox controls:
+  - the **file API** follows symlinks, so a symlink placed in a sandbox's home can direct a root-privileged read, write, `chown` or delete outside that home;
+  - the **port proxy** connects to `$SBX_PROXY_DIR/<port>.sock` without rejecting symlinks or checking the socket's owner, so a sandbox can point it at another sandbox's socket.
+
+  Both require a legitimate caller to invoke the endpoint (the sandbox has no token of its own), so they are confused-deputy problems rather than direct escapes — but they do break confidentiality and integrity between pooled sandboxes.
+- **Host discovery trusts Job labels.** Hosts are found by filtering Jobs on labels, which any Job creator in the namespace can set, and the nonce that derives the token is a public label. Nothing binds a Job to its creator, image, or pool. In a namespace whose members do not all trust each other, prefer `Sandbox.create`, or use a namespace you control for pools.
+- **One token per host.** See [Token scope](#token-scope).
+- **Landlock can degrade silently.** If Landlock is unavailable, or its ruleset cannot be built, the server currently falls back to uid-only isolation and creates the sandbox anyway — without telling the client. Under uid-only isolation, `/tmp`, `/dev/shm`, TCP bind and cross-home filesystem access are *not* denied. The server also accepts Landlock ABI 1, while the ✅ list above needs ABI 4 (TCP bind) and ABI 6 (abstract sockets); production kernels provide ABI 6, but a lower one would silently drop those two guarantees.
+- **Residual shared channels**, none of which Landlock or uid isolation closes: unrestricted outbound TCP; loopback access to the control server; **UDP bind is allowed** (Landlock has no UDP coverage); a sibling's `/proc/<pid>/cmdline` and `status` are readable (`environ` is not — that is the part that would leak credentials, and it is denied); `/proc` and `/sys` are readable and `/dev` is broadly readable and writable; kernel IPC and all machine resources are shared.
+- **No CPU, disk, FD or total-memory quotas.** Only per-process `RLIMIT_NPROC` and `RLIMIT_AS` are set; cgroup delegation is not available on Jobs. One sandbox can starve its neighbours. The `max_procs`/`max_mem_mb` values are caller-supplied and not clamped server-side.
+- **GPU flavors are untested in pool mode.** The client does not prevent one. Use `Sandbox.create` for GPU.
+
+### Lifecycle and operational gaps
+
+- **A detached descendant can outlive `kill()`.** `SandboxProcess.kill()` signals the command's process group; a descendant that calls `setsid()` leaves it. Deleting the sandbox (pool) or the job (dedicated) does terminate everything. Use `timeout=` if you need a hard bound.
+- **`SandboxProcess.kill()` does not currently stop the process** — the client sends the OS pid where the server expects its own opaque process id, and the server answers `200` either way. Until this is fixed, stop background work by deleting the sandbox.
+- **A long foreground command can trip the idle watchdog.** `idle_timeout` counts API requests, and a running foreground command is not counted as activity, so a command that runs longer than `idle_timeout` without other API traffic can have its sandbox shut down under it. Raise `idle_timeout` (or pass `None`) for long single commands.
+- **`max_hosts` is a per-process cap.** Two processes using the same pool each count only their own hosts, so the global number of host Jobs can exceed it. Per-host `sandboxes_per_host` *is* enforced server-side.
+- **`close()` on a pool may cancel hosts it did not create.** A pool handle that discovered a warm host started by another process (or another user in the same namespace) will cancel it on exit, killing that host's sandboxes. Use `SandboxPool.connect()` for handles that must not tear hosts down, and prefer distinct `name=` values for independent pools.
+- **A failed teardown is reported as success.** `close()` logs a warning and returns normally if it cannot cancel a host job, and removes its cache entry — so a host can keep running and billing. Check `hf jobs ps --label hf-sandbox=1` if teardown matters to you.
+- **The server binary is not pinned or verified.** Each job downloads `sbx-server` from a mutable public bucket path and executes it as root without checking a digest or signature.
+- **The server's HTTP front end is minimal.** No connection cap and no read deadlines, so a slow-request flood can exhaust its threads; a request with a malformed `Content-Length` is treated as having no body. Reaching it still requires passing the proxy gate.
+
+### Also worth knowing
+
+- `/health` does not require the sandbox token and reports the server version, uptime and sandbox count to anyone who can pass the proxy gate.
+- Sandbox ids come from `/dev/urandom`, with a timestamp fallback if that read fails — predictable ids in that (very unlikely) case.
+- Pooled uids are allocated monotonically from 20000 and never recycled, so a host that has created ~45,000 sandboxes over its lifetime can no longer create more, even when empty.
 
 ## Performance
 
@@ -208,7 +280,7 @@ All numbers are measured against real HF Jobs on `cpu-basic`, with the client on
 | Build on Jobs, no new service                                         | inherits billing, hardware, permissions; works in any image                     |
 | Static Rust binary, downloaded at startup                             | no Python/pip; ~6s cold start vs 30–90s for a pip-based bootstrap               |
 | Hand-rolled HTTP/1.1                                                  | minimal frameworks buffer chunked responses and break live streaming (verified) |
-| Stateless HMAC auth                                                   | reconnect from anywhere; per-sandbox scoped token instead of the HF token       |
+| Stateless HMAC auth                                                   | reconnect from anywhere; a derived token instead of the HF token itself (scoped per job — see [Token scope](#token-scope)) |
 | `run()` raises on non-zero exit (`check=False` opts out)              | best DX for "run code, see the error" loops (E2B-style)                         |
 | `idle_timeout` watchdog instead of client-side cleanup                | persistent sandboxes are a feature; leaked ones still die                       |
 | Pools = uid + Landlock, server-authoritative capacity, no local state | fast same-user fan-out; correct under concurrency; reattachable anywhere        |
