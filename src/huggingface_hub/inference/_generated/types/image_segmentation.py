@@ -15,13 +15,13 @@ ImageSegmentationSubtask = Literal["instance", "panoptic", "semantic"]
 class ImageSegmentationParameters(BaseInferenceType):
     """Additional inference parameters for Image Segmentation"""
 
-    mask_threshold: float | None = None
+    mask_threshold: Optional[float] = None
     """Threshold to use when turning the predicted masks into binary values."""
-    overlap_mask_area_threshold: float | None = None
+    overlap_mask_area_threshold: Optional[float] = None
     """Mask overlap threshold to eliminate small, disconnected segments."""
     subtask: Optional["ImageSegmentationSubtask"] = None
     """Segmentation task to be performed, depending on model capabilities."""
-    threshold: float | None = None
+    threshold: Optional[float] = None
     """Probability threshold to filter out predicted masks."""
 
 
@@ -33,7 +33,7 @@ class ImageSegmentationInput(BaseInferenceType):
     """The input image data as a base64-encoded string. If no `parameters` are provided, you can
     also provide the image data as a raw bytes payload.
     """
-    parameters: ImageSegmentationParameters | None = None
+    parameters: Optional[ImageSegmentationParameters] = None
     """Additional inference parameters for Image Segmentation"""
 
 
@@ -47,5 +47,5 @@ class ImageSegmentationOutputElement(BaseInferenceType):
     """The label of the predicted segment."""
     mask: str
     """The corresponding mask as a black-and-white image (base64-encoded)."""
-    score: float | None = None
+    score: Optional[float] = None
     """The score or confidence degree the model has."""
