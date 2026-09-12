@@ -227,7 +227,7 @@ class DiscussionComment(DiscussionEvent):
     @property
     def last_edited_by(self) -> str:
         """The username of the user who last edited the comment."""
-        return self._event["data"]["latest"].get("author", {}).get("name", "deleted")
+        return (self._event["data"]["latest"].get("author") or {}).get("name", "deleted")
 
     @property
     def edit_history(self) -> list[dict]:
@@ -331,7 +331,7 @@ def deserialize_event(event: dict) -> DiscussionEvent:
         "id": event_id,
         "type": event_type,
         "created_at": created_at,
-        "author": event.get("author", {}).get("name", "deleted"),
+        "author": (event.get("author") or {}).get("name", "deleted"),
         "_event": event,
     }
 

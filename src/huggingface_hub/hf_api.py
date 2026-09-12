@@ -4340,8 +4340,8 @@ class HfApi:
                 created_at=parse_datetime(item["date"]),
                 title=item["title"],
                 message=item["message"],
-                formatted_title=item.get("formatted", {}).get("title"),
-                formatted_message=item.get("formatted", {}).get("message"),
+                formatted_title=(item.get("formatted") or {}).get("title"),
+                formatted_message=(item.get("formatted") or {}).get("message"),
             )
             for item in paginate(
                 f"{self.endpoint}/api/{repo_type}s/{repo_id}/commits/{revision}",
@@ -7471,7 +7471,7 @@ class HfApi:
                 yield Discussion(
                     title=discussion["title"],
                     num=discussion["num"],
-                    author=discussion.get("author", {}).get("name", "deleted"),
+                    author=(discussion.get("author") or {}).get("name", "deleted"),
                     created_at=parse_datetime(discussion["createdAt"]),
                     status=discussion["status"],
                     repo_id=discussion["repo"]["name"],
@@ -7543,7 +7543,7 @@ class HfApi:
         return DiscussionWithDetails(
             title=discussion_details["title"],
             num=discussion_details["num"],
-            author=discussion_details.get("author", {}).get("name", "deleted"),
+            author=(discussion_details.get("author") or {}).get("name", "deleted"),
             created_at=parse_datetime(discussion_details["createdAt"]),
             status=discussion_details["status"],
             repo_id=discussion_details["repo"]["name"],
