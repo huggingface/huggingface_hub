@@ -41,6 +41,7 @@ from huggingface_hub import (
     InferenceClient,
     InferenceTimeoutError,
     TextGenerationOutputPrefillToken,
+    constants,
 )
 from huggingface_hub.inference._common import ValidationError as TextGenerationValidationError
 from huggingface_hub.inference._common import _get_unsupported_text_generation_kwargs
@@ -437,3 +438,121 @@ async def test_use_async_with_inference_client():
         async with AsyncInferenceClient():
             pass
     mock_close.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_async_get_endpoint_info_hub_model_id():
+    client = AsyncInferenceClient(provider="hf-inference")
+    mock_response = MagicMock(status_code=200)
+    mock_response.json.return_value = {"model_id": "meta-llama/Meta-Llama-3-70B-Instruct"}
+
+    mock_async_client = AsyncMock()
+    mock_async_client.get.return_value = mock_response
+
+    with patch.object(client, "_get_async_client", AsyncMock(return_value=mock_async_client)):
+        info = await client.get_endpoint_info(model="meta-llama/Meta-Llama-3-70B-Instruct")
+
+    assert info == {"model_id": "meta-llama/Meta-Llama-3-70B-Instruct"}
+    requested_url = mock_async_client.get.call_args[0][0]
+    assert (
+        requested_url == "https://router.huggingface.co/hf-inference/models/meta-llama/Meta-Llama-3-70B-Instruct/info"
+    )
+
+
+@pytest.mark.asyncio
+async def test_async_get_endpoint_info_default_client_instance():
+    # Test standard client instantiation where provider defaults to None and model is set on client (#4887)
+    client = AsyncInferenceClient("meta-llama/Meta-Llama-3-70B-Instruct")
+    assert client.provider is None
+    mock_response = MagicMock(status_code=200)
+    mock_response.json.return_value = {"model_id": "meta-llama/Meta-Llama-3-70B-Instruct"}
+
+    mock_async_client = AsyncMock()
+    mock_async_client.get.return_value = mock_response
+
+    with patch.object(client, "_get_async_client", AsyncMock(return_value=mock_async_client)):
+        info = await client.get_endpoint_info()
+
+    assert info == {"model_id": "meta-llama/Meta-Llama-3-70B-Instruct"}
+    requested_url = mock_async_client.get.call_args[0][0]
+    assert (
+        requested_url == "https://router.huggingface.co/hf-inference/models/meta-llama/Meta-Llama-3-70B-Instruct/info"
+    )
+
+
+@pytest.mark.asyncio
+async def test_async_get_endpoint_info_custom_endpoint(monkeypatch):
+    monkeypatch.setattr(constants, "INFERENCE_ENDPOINT", "https://custom-gateway.internal/hf-inference")
+    client = AsyncInferenceClient()
+    mock_response = MagicMock(status_code=200)
+    mock_response.json.return_value = {"model_id": "meta-llama/Meta-Llama-3-70B-Instruct"}
+
+    mock_async_client = AsyncMock()
+    mock_async_client.get.return_value = mock_response
+
+    with patch.object(client, "_get_async_client", AsyncMock(return_value=mock_async_client)):
+        info = await client.get_endpoint_info(model="meta-llama/Meta-Llama-3-70B-Instruct")
+
+    assert info == {"model_id": "meta-llama/Meta-Llama-3-70B-Instruct"}
+    requested_url = mock_async_client.get.call_args[0][0]
+    assert (
+        requested_url
+        == "https://custom-gateway.internal/hf-inference/models/meta-llama/Meta-Llama-3-70B-Instruct/info"
+    )
+
+
+@pytest.mark.asyncio
+async def test_async_get_endpoint_info_direct_url():
+    client = AsyncInferenceClient("https://custom-endpoint.endpoints.huggingface.cloud")
+    mock_response = MagicMock(status_code=200)
+    mock_response.json.return_value = {"status": "ok"}
+
+    mock_async_client = AsyncMock()
+    mock_async_client.get.return_value = mock_response
+
+    with patch.object(client, "_get_async_client", AsyncMock(return_value=mock_async_client)):
+        info = await client.get_endpoint_info()
+
+    assert info == {"status": "ok"}
+    requested_url = mock_async_client.get.call_args[0][0]
+    assert requested_url == "https://custom-endpoint.endpoints.huggingface.cloud/info"
+
+
+@pytest.mark.asyncio
+async def test_async_get_endpoint_info_invalid_provider_or_missing_model():
+    client_provider = AsyncInferenceClient(provider="fal-ai")
+    with pytest.raises(ValueError, match="Getting endpoint info is not supported on 'fal-ai'."):
+        await client_provider.get_endpoint_info(model="some-model")
+
+    client_no_model = AsyncInferenceClient(provider="hf-inference")
+    with pytest.raises(ValueError, match="Model id not provided."):
+        await client_no_model.get_endpoint_info()
+
+
+@pytest.mark.asyncio
+async def test_async_health_check():
+    client = AsyncInferenceClient("https://custom-endpoint.endpoints.huggingface.cloud")
+    mock_response = MagicMock(status_code=200)
+
+    mock_async_client = AsyncMock()
+    mock_async_client.get.return_value = mock_response
+
+    with patch.object(client, "_get_async_client", AsyncMock(return_value=mock_async_client)):
+        assert await client.health_check() is True
+
+    requested_url = mock_async_client.get.call_args[0][0]
+    assert requested_url == "https://custom-endpoint.endpoints.huggingface.cloud/health"
+
+    mock_response.status_code = 503
+    with patch.object(client, "_get_async_client", AsyncMock(return_value=mock_async_client)):
+        assert await client.health_check() is False
+
+    client_hub_model = AsyncInferenceClient(model="meta-llama/Meta-Llama-3-70B-Instruct")
+    with pytest.raises(ValueError, match="Model must be an Inference Endpoint URL."):
+        await client_hub_model.health_check()
+
+    client_invalid_provider = AsyncInferenceClient(
+        "https://custom-endpoint.endpoints.huggingface.cloud", provider="fal-ai"
+    )
+    with pytest.raises(ValueError, match="Health check is not supported on 'fal-ai'."):
+        await client_invalid_provider.health_check()

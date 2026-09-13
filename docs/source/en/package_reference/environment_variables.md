@@ -25,7 +25,7 @@ and their meaning.
 To configure the inference api base url. You might want to set this variable if your organization
 is pointing at an API Gateway rather than directly at the inference api.
 
-Defaults to `"https://api-inference.huggingface.co"`.
+Defaults to `"https://router.huggingface.co/hf-inference"`.
 
 ### HF_HOME
 

@@ -42,6 +42,7 @@ from huggingface_hub import (
     TranslationOutput,
     VisualQuestionAnsweringOutputElement,
     ZeroShotClassificationOutputElement,
+    constants,
     hf_hub_download,
 )
 from huggingface_hub.errors import HfHubHTTPError, ValidationError
@@ -1297,3 +1298,104 @@ def test_as_url_with_pil_image(image_file: str):
     pil_image.save(buffer, format="PNG")
     b64_encoded = base64.b64encode(buffer.getvalue()).decode()
     assert png_url == f"data:image/png;base64,{b64_encoded}"
+
+
+def test_get_endpoint_info_hub_model_id():
+    client = InferenceClient(provider="hf-inference")
+    mock_response = MagicMock(status_code=200)
+    mock_response.json.return_value = {"model_id": "meta-llama/Meta-Llama-3-70B-Instruct"}
+
+    with patch("huggingface_hub.inference._client.get_session") as mock_get_session:
+        mock_get_session.return_value.get.return_value = mock_response
+        info = client.get_endpoint_info(model="meta-llama/Meta-Llama-3-70B-Instruct")
+
+    assert info == {"model_id": "meta-llama/Meta-Llama-3-70B-Instruct"}
+    requested_url = mock_get_session.return_value.get.call_args[0][0]
+    assert (
+        requested_url == "https://router.huggingface.co/hf-inference/models/meta-llama/Meta-Llama-3-70B-Instruct/info"
+    )
+
+
+def test_get_endpoint_info_default_client_instance():
+    # Test standard client instantiation where provider defaults to None and model is set on client (#4887)
+    client = InferenceClient("meta-llama/Meta-Llama-3-70B-Instruct")
+    assert client.provider is None
+    mock_response = MagicMock(status_code=200)
+    mock_response.json.return_value = {"model_id": "meta-llama/Meta-Llama-3-70B-Instruct"}
+
+    with patch("huggingface_hub.inference._client.get_session") as mock_get_session:
+        mock_get_session.return_value.get.return_value = mock_response
+        info = client.get_endpoint_info()
+
+    assert info == {"model_id": "meta-llama/Meta-Llama-3-70B-Instruct"}
+    requested_url = mock_get_session.return_value.get.call_args[0][0]
+    assert (
+        requested_url == "https://router.huggingface.co/hf-inference/models/meta-llama/Meta-Llama-3-70B-Instruct/info"
+    )
+
+
+def test_get_endpoint_info_custom_endpoint(monkeypatch):
+    monkeypatch.setattr(constants, "INFERENCE_ENDPOINT", "https://custom-gateway.internal/hf-inference")
+    client = InferenceClient()
+    mock_response = MagicMock(status_code=200)
+    mock_response.json.return_value = {"model_id": "meta-llama/Meta-Llama-3-70B-Instruct"}
+
+    with patch("huggingface_hub.inference._client.get_session") as mock_get_session:
+        mock_get_session.return_value.get.return_value = mock_response
+        info = client.get_endpoint_info(model="meta-llama/Meta-Llama-3-70B-Instruct")
+
+    assert info == {"model_id": "meta-llama/Meta-Llama-3-70B-Instruct"}
+    requested_url = mock_get_session.return_value.get.call_args[0][0]
+    assert (
+        requested_url
+        == "https://custom-gateway.internal/hf-inference/models/meta-llama/Meta-Llama-3-70B-Instruct/info"
+    )
+
+
+def test_get_endpoint_info_direct_url():
+    client = InferenceClient("https://custom-endpoint.endpoints.huggingface.cloud")
+    mock_response = MagicMock(status_code=200)
+    mock_response.json.return_value = {"status": "ok"}
+
+    with patch("huggingface_hub.inference._client.get_session") as mock_get_session:
+        mock_get_session.return_value.get.return_value = mock_response
+        info = client.get_endpoint_info()
+
+    assert info == {"status": "ok"}
+    requested_url = mock_get_session.return_value.get.call_args[0][0]
+    assert requested_url == "https://custom-endpoint.endpoints.huggingface.cloud/info"
+
+
+def test_get_endpoint_info_invalid_provider_or_missing_model():
+    client_provider = InferenceClient(provider="fal-ai")
+    with pytest.raises(ValueError, match="Getting endpoint info is not supported on 'fal-ai'."):
+        client_provider.get_endpoint_info(model="some-model")
+
+    client_no_model = InferenceClient(provider="hf-inference")
+    with pytest.raises(ValueError, match="Model id not provided."):
+        client_no_model.get_endpoint_info()
+
+
+def test_health_check():
+    client = InferenceClient("https://custom-endpoint.endpoints.huggingface.cloud")
+    mock_response = MagicMock(status_code=200)
+
+    with patch("huggingface_hub.inference._client.get_session") as mock_get_session:
+        mock_get_session.return_value.get.return_value = mock_response
+        assert client.health_check() is True
+
+    requested_url = mock_get_session.return_value.get.call_args[0][0]
+    assert requested_url == "https://custom-endpoint.endpoints.huggingface.cloud/health"
+
+    mock_response.status_code = 503
+    with patch("huggingface_hub.inference._client.get_session") as mock_get_session:
+        mock_get_session.return_value.get.return_value = mock_response
+        assert client.health_check() is False
+
+    client_hub_model = InferenceClient(model="meta-llama/Meta-Llama-3-70B-Instruct")
+    with pytest.raises(ValueError, match="Model must be an Inference Endpoint URL."):
+        client_hub_model.health_check()
+
+    client_invalid_provider = InferenceClient("https://custom-endpoint.endpoints.huggingface.cloud", provider="fal-ai")
+    with pytest.raises(ValueError, match="Health check is not supported on 'fal-ai'."):
+        client_invalid_provider.health_check()

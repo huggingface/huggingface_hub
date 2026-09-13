@@ -96,7 +96,7 @@ HUGGINGFACE_HEADER_X_LINKED_ETAG = "X-Linked-Etag"
 HUGGINGFACE_HEADER_X_LINKED_SIZE = "X-Linked-Size"
 HUGGINGFACE_HEADER_X_BILL_TO = "X-HF-Bill-To"
 
-INFERENCE_ENDPOINT = os.environ.get("HF_INFERENCE_ENDPOINT", "https://api-inference.huggingface.co")
+INFERENCE_ENDPOINT = os.environ.get("HF_INFERENCE_ENDPOINT", "https://router.huggingface.co/hf-inference")
 
 # See https://huggingface.co/docs/inference-endpoints/index
 INFERENCE_ENDPOINTS_ENDPOINT = "https://api.endpoints.huggingface.cloud/v2"

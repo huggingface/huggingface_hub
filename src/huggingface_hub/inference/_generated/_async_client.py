@@ -3374,7 +3374,7 @@ class AsyncInferenceClient:
         }
         ```
         """
-        if self.provider != "hf-inference":
+        if self.provider not in (None, "hf-inference"):
             raise ValueError(f"Getting endpoint info is not supported on '{self.provider}'.")
 
         model = model or self.model
@@ -3412,7 +3412,7 @@ class AsyncInferenceClient:
         True
         ```
         """
-        if self.provider != "hf-inference":
+        if self.provider not in (None, "hf-inference"):
             raise ValueError(f"Health check is not supported on '{self.provider}'.")
 
         model = model or self.model
