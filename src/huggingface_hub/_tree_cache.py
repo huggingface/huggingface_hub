@@ -85,8 +85,25 @@ def is_valid_tree_entries(entries: dict[str, TreeCacheEntry]) -> bool:
     return all(entry.xet_hash is None or is_valid_xet_hash(entry.xet_hash) for entry in entries.values())
 
 
+def _extended_length_path(absolute_path: str) -> str:
+    r"""Return a Windows absolute path in its extended-length form.
+
+    A drive path becomes `\\?\C:\...`; a UNC path `\\server\share\...` becomes `\\?\UNC\server\share\...`
+    (prefixing a UNC path verbatim would produce an invalid `\\?\\\server` path).
+    """
+    if absolute_path.startswith("\\\\"):
+        return "\\\\?\\UNC\\" + absolute_path[2:]
+    return "\\\\?\\" + absolute_path
+
+
 def _tree_cache_path(tree_cache_folder: str, commit_hash: str) -> str:
-    return os.path.join(tree_cache_folder, "trees", f"{commit_hash}.json")
+    path = os.path.join(tree_cache_folder, "trees", f"{commit_hash}.json")
+    # Some Windows versions do not allow for paths longer than 255 characters.
+    # In this case, we must specify it as an extended path by using the "\\?\" prefix.
+    # Both readers and writers go through here, so they agree on the path (and on the in-memory cache key).
+    if os.name == "nt" and len(os.path.abspath(path)) > 255 and not path.startswith("\\\\?\\"):
+        path = _extended_length_path(os.path.abspath(path))
+    return path
 
 
 def tree_cache_folder_for_local_dir(local_dir: str) -> str:

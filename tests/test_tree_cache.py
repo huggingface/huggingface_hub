@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import json
+import os
 from pathlib import Path
 from unittest.mock import patch
 
@@ -22,6 +23,7 @@ from huggingface_hub._tree_cache import (
     _IN_MEMORY_TREE_CACHE,
     TREE_CACHE_FORMAT_VERSION,
     TreeCacheEntry,
+    _tree_cache_path,
     read_tree_cache,
     tree_cache_folder_for_local_dir,
     write_tree_cache,
@@ -120,6 +122,54 @@ class TestTreeCacheReadWrite:
         with patch("huggingface_hub._tree_cache._read_tree_cache_from_disk") as mock_read:
             assert read_tree_cache(str(tmp_path), COMMIT_HASH) == _entries()
             mock_read.assert_not_called()
+
+    @pytest.mark.skipif(os.name != "nt", reason="Windows-specific test.")
+    @pytest.mark.parametrize("tree_cache_path_len", [260, 300])
+    def test_round_trip_in_deep_folder(self, tmp_path: Path, tree_cache_path_len: int):
+        r"""A deep download target must still get a usable tree cache on Windows.
+
+        Without long path support enabled, Windows caps file paths at 255 characters (and directory
+        paths at 247), so for a deep ``local_dir`` (or ``cache_dir``) writing
+        ``<folder>/trees/<commit_hash>.json`` failed. `write_tree_cache` swallows that failure and the
+        next read simply misses, so the cache was silently disabled and every download re-fetched the
+        tree listing. Both boundary cases are covered: 260 (only the JSON file exceeds the limit, the
+        ``trees/`` folder still fits) and 300 (the ``trees/`` folder exceeds it too, so the `makedirs`
+        needs the prefix as well).
+        """
+        # Pad the folder so that `<folder>/trees/<commit_hash>.json` is `tree_cache_path_len` chars long.
+        # Use the extended-length prefix here since a plain mkdir of such a path would itself fail.
+        relative_depth = len(str(Path(".cache") / "huggingface" / "trees" / f"{COMMIT_HASH}.json"))
+        local_dir = tmp_path / ("d" * max(1, tree_cache_path_len - len(str(tmp_path)) - relative_depth - 2))
+        os.makedirs("\\\\?\\" + os.path.abspath(local_dir), exist_ok=True)
+        folder = tree_cache_folder_for_local_dir(str(local_dir))
+        assert len(str(Path(folder) / "trees" / f"{COMMIT_HASH}.json")) >= tree_cache_path_len
+
+        write_tree_cache(folder, COMMIT_HASH, _entries())
+
+        # Drop the in-memory entry seeded by the write, so the read has to go through the disk.
+        _IN_MEMORY_TREE_CACHE.pop(_tree_cache_path(folder, COMMIT_HASH), None)
+        assert read_tree_cache(folder, COMMIT_HASH) == _entries()
+
+    @pytest.mark.skipif(os.name != "nt", reason="Windows-specific test.")
+    def test_extended_length_prefix_for_drive_and_unc_paths(self):
+        r"""Long drive paths get the `\\?\` prefix, long UNC paths the `\\?\UNC\` form, short paths are untouched."""
+        long_drive_folder = "C:\\" + "d" * 300
+        assert _tree_cache_path(long_drive_folder, COMMIT_HASH) == (
+            "\\\\?\\" + long_drive_folder + "\\trees\\" + f"{COMMIT_HASH}.json"
+        )
+
+        # A UNC share must not become `\\?\\\server\share` (invalid); it must become `\\?\UNC\server\share`.
+        long_unc_folder = "\\\\server\\share\\" + "d" * 300
+        assert _tree_cache_path(long_unc_folder, COMMIT_HASH) == (
+            "\\\\?\\UNC\\server\\share\\" + "d" * 300 + "\\trees\\" + f"{COMMIT_HASH}.json"
+        )
+
+        # Already-prefixed and short paths come back as-is: no double prefix, no behavior change.
+        already_prefixed = "\\\\?\\C:\\" + "d" * 300
+        assert _tree_cache_path(already_prefixed, COMMIT_HASH).count("\\\\?\\") == 1
+        assert _tree_cache_path("C:\\models\\mymodel", COMMIT_HASH) == os.path.join(
+            "C:\\models\\mymodel", "trees", f"{COMMIT_HASH}.json"
+        )
 
 
 @pytest.fixture
