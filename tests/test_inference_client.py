@@ -224,6 +224,23 @@ def test_feature_extraction_accepts_list_inputs():
     np.testing.assert_array_equal(embedding, np.array([[1.0, 2.0], [3.0, 4.0]], dtype="float32"))
 
 
+def test_tabular_regression_calls_provider_helper(mocker):
+    mocker.patch(
+        "huggingface_hub.hf_api.HfApi.model_info",
+        return_value=mocker.Mock(pipeline_tag="tabular-regression", tags=[]),
+    )
+    client = InferenceClient(provider="hf-inference")
+    table = {"Height": ["11.52", "12.48"]}
+    with patch.object(InferenceClient, "_inner_post", return_value=b"[110.0, 120.0]") as mock_inner_post:
+        output = client.tabular_regression(table=table, model="scikit-learn/Fish-Weight")
+        assert output == [110.0, 120.0]
+        mock_inner_post.assert_called_once()
+        request_params = mock_inner_post.call_args[0][0]
+        assert request_params.url == "https://router.huggingface.co/hf-inference/models/scikit-learn/Fish-Weight"
+        assert request_params.json == {"parameters": {}, "table": table}
+        assert request_params.task == "tabular-regression"
+
+
 def list_clients(task: str) -> list[pytest.param]:
     """Get list of clients for a specific task, with proper skip handling."""
     clients = []

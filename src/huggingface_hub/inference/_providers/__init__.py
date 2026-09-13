@@ -153,6 +153,7 @@ PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
         "sentence-similarity": HFInferenceTask("sentence-similarity"),
         "table-question-answering": HFInferenceTask("table-question-answering"),
         "tabular-classification": HFInferenceTask("tabular-classification"),
+        "tabular-regression": HFInferenceTask("tabular-regression"),
         "text-to-speech": HFInferenceTask("text-to-speech"),
         "token-classification": HFInferenceTask("token-classification"),
         "translation": HFInferenceTask("translation"),

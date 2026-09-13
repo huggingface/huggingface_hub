@@ -1258,6 +1258,26 @@ class TestHFInferenceProvider:
         assert request.headers["authorization"] == "Bearer hf_test_token"
         assert request.headers["content-type"] == "image/jpeg"  # based on filename
 
+    def test_prepare_request_tabular_regression(self, mocker):
+        helper = get_provider_helper("hf-inference", task="tabular-regression", model="scikit-learn/Fish-Weight")
+        assert isinstance(helper, HFInferenceTask)
+        assert helper.task == "tabular-regression"
+
+        mock_model_info = mocker.Mock(pipeline_tag="tabular-regression", tags=[])
+        mocker.patch("huggingface_hub.hf_api.HfApi.model_info", return_value=mock_model_info)
+
+        request = helper.prepare_request(
+            inputs=None,
+            parameters={},
+            extra_payload={"table": {"Height": ["11.52", "12.48"]}},
+            headers={},
+            model="scikit-learn/Fish-Weight",
+            api_key="hf_test_token",
+        )
+        assert request.url == "https://router.huggingface.co/hf-inference/models/scikit-learn/Fish-Weight"
+        assert request.json == {"parameters": {}, "table": {"Height": ["11.52", "12.48"]}}
+        assert request.task == "tabular-regression"
+
 
 class TestNovitaProvider:
     def test_prepare_url_text_generation(self):
