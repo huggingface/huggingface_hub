@@ -421,8 +421,28 @@ def close_session() -> None:
 
 
 atexit.register(close_session)
+
+
+def _after_fork_in_child() -> None:
+    """Reset the global HTTP client and lock in child process after fork.
+
+    Avoids acquiring _CLIENT_LOCK since it might be held by a thread that existed
+    only in the parent process at the moment of the fork, which would deadlock.
+    Re-initializes _CLIENT_LOCK to a fresh RLock and drops the inherited client.
+    """
+    global _CLIENT_LOCK, _GLOBAL_CLIENT
+    _CLIENT_LOCK = threading.RLock()
+    client = _GLOBAL_CLIENT
+    _GLOBAL_CLIENT = None
+    if client is not None:
+        try:
+            client.close()
+        except Exception as e:
+            logger.warning(f"Error closing client: {e}")
+
+
 if hasattr(os, "register_at_fork"):
-    os.register_at_fork(after_in_child=close_session)
+    os.register_at_fork(after_in_child=_after_fork_in_child)
 
 
 _DEFAULT_RETRY_ON_EXCEPTIONS: tuple[type[Exception], ...] = (

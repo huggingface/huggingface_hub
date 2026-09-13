@@ -333,6 +333,37 @@ class TestConfigureSession:
         assert sess is not None
         close_session()
 
+    def test_after_fork_in_child_does_not_deadlock_on_locked_lock(self):
+        """_after_fork_in_child must recover safely even if _CLIENT_LOCK was held by a dead parent thread."""
+        from huggingface_hub.utils import _http
+
+        # Simulate lock held by another thread that will not release it
+        lock_held = threading.Event()
+        stop_worker = threading.Event()
+
+        def _worker():
+            with _http._CLIENT_LOCK:
+                lock_held.set()
+                stop_worker.wait(timeout=5)
+
+        t = threading.Thread(target=_worker)
+        t.start()
+        try:
+            assert lock_held.wait(timeout=2)
+            # In another thread, _CLIENT_LOCK is locked.
+            # Calling _after_fork_in_child() must reset the lock and drop the client without blocking.
+            _http._GLOBAL_CLIENT = _http._GLOBAL_CLIENT_FACTORY()
+            _http._after_fork_in_child()
+
+            assert _http._GLOBAL_CLIENT is None
+            # Must be able to acquire lock and get a new session without blocking
+            sess = _http.get_session()
+            assert sess is not None
+        finally:
+            stop_worker.set()
+            t.join()
+            _http.close_session()
+
 
 class TestOfflineModeSession:
     def test_offline_mode(self):
