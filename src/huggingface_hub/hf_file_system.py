@@ -35,9 +35,9 @@ from .utils import HFValidationError, hf_raise_for_status, http_backoff, http_st
 from .utils.insecure_hashlib import md5
 
 
-# A bucket listing is only provably complete if it was fetched long enough after the bucket's `updatedAt`: the Hub
-# serves listings from replicas lagging up to 90s behind the primary that stamps `updatedAt`, plus client/server clock
-# skew.
+# Margin before trusting that a cached listing postdates the bucket's `updatedAt`: `updatedAt` is server time while
+# the listing time is client time, and the Hub may serve a listing from a replica lagging slightly behind the primary
+# that stamped `updatedAt`. A heuristic, not a guarantee.
 BUCKET_CACHE_GRACE_SECONDS = 120
 
 
@@ -949,7 +949,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
             out1 = [o for o in self.dircache[parent_path] if o["name"] == path]
             if not out1 and parent_cached:
                 # Buckets are mutable: a cached listing is not authoritative for a miss (e.g. file created by another
-                # process since). Trust it only if the bucket provably hasn't changed since the listing was fetched.
+                # process since). Trust it only if the bucket has not changed since the listing was fetched.
                 listed_at = self._bucket_listed_at.get(parent_path)
                 updated_at = self._api.bucket_info(resolved_path.bucket_id).updated_at
                 if (
