@@ -38,7 +38,7 @@ from .utils.insecure_hashlib import md5
 # Margin before trusting that a cached listing postdates the bucket's `updatedAt`: `updatedAt` is server time while
 # the listing time is client time, and the Hub may serve a listing from a replica lagging slightly behind the primary
 # that stamped `updatedAt`. A heuristic, not a guarantee.
-BUCKET_CACHE_GRACE_SECONDS = 120
+BUCKET_CACHE_GRACE_SECONDS = 30
 
 
 @dataclass
