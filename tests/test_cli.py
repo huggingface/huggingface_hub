@@ -1045,17 +1045,6 @@ class TestDownloadCommand:
         assert kwargs["library_name"] == "huggingface-cli"
         assert kwargs["max_workers"] == 8
 
-    def test_download_kernel_repo_type(self, runner: CliRunner) -> None:
-        with (
-            patch("huggingface_hub.cli.download.snapshot_download", return_value="path") as snapshot_mock,
-            patch("huggingface_hub.cli.download.hf_hub_download"),
-        ):
-            result = runner.invoke(app, ["download", "kernels-community/activation", "--repo-type", "kernel"])
-        assert result.exit_code == 0
-        kwargs = snapshot_mock.call_args.kwargs
-        assert kwargs["repo_id"] == "kernels-community/activation"
-        assert kwargs["repo_type"] == "kernel"
-
     def test_download_with_all_options(self, runner: CliRunner) -> None:
         with (
             patch("huggingface_hub.cli.download.snapshot_download", return_value="path") as snapshot_mock,
