@@ -30,7 +30,7 @@ from ._terminal import tabulate
 
 logger = logging.get_logger(__name__)
 
-REPO_TYPE_T = Literal["model", "dataset", "space"]
+REPO_TYPE_T = Literal["model", "dataset", "space", "kernel"]
 
 # List of OS-created helper files that need to be ignored
 FILES_TO_IGNORE = [".DS_Store", "Thumbs.db", "desktop.ini"]
@@ -178,7 +178,7 @@ class CachedRepoInfo:
     Args:
         repo_id (`str`):
             Repo id of the repo on the Hub. Example: `"google/fleurs"`.
-        repo_type (`Literal["dataset", "model", "space"]`):
+        repo_type (`Literal["dataset", "model", "space", "kernel"]`):
             Type of the cached repo.
         repo_path (`Path`):
             Local path to the cached repo.
@@ -743,9 +743,9 @@ def _scan_cached_repo(repo_path: Path) -> CachedRepoInfo:
     repo_type = repo_type[:-1]  # "models" -> "model"
     repo_id = repo_id.replace("--", "/")  # google/fleurs -> "google/fleurs"
 
-    if repo_type not in {"dataset", "model", "space"}:
+    if repo_type not in {"dataset", "model", "space", "kernel"}:
         raise CorruptedCacheException(
-            f"Repo type must be `dataset`, `model` or `space`, found `{repo_type}` ({repo_path})."
+            f"Repo type must be `dataset`, `model`, `space` or `kernel`, found `{repo_type}` ({repo_path})."
         )
 
     blob_stats: dict[Path, os.stat_result] = {}  # Key is blob_path, value is blob stats

@@ -303,9 +303,9 @@ Fetching 8 files: 100%|███████████████████
 /home/wauplin/.cache/huggingface/hub/models--stabilityai--stable-diffusion-xl-base-1.0/snapshots/462165984030d82259a11f4367a4eed129e94a7b
 ```
 
-### Download a dataset or a Space
+### Download a dataset, a Space or a kernel
 
-The examples above show how to download from a model repository. To download a dataset or a Space, use the `--repo-type` option:
+The examples above show how to download from a model repository. To download a dataset, a Space or a kernel, use the `--repo-type` option:
 
 ```bash
 # https://huggingface.co/datasets/HuggingFaceH4/ultrachat_200k
@@ -1538,7 +1538,7 @@ Use `hf repos branch` to create and delete branches for repositories on the Hub.
 
 ## hf cache
 
-Use `hf cache` to manage your local Hugging Face cache directory. The cache stores downloaded models, datasets, and other files from the Hub.
+Use `hf cache` to manage your local Hugging Face cache directory. The cache stores models, datasets, Spaces and kernels downloaded from the Hub.
 
 ```bash
 # List cached repositories

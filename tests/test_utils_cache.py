@@ -241,6 +241,22 @@ class TestIgnoredCacheFiles:
         assert len(report.repos) == 1
 
 
+class TestScanCacheRepoTypes:
+    def test_scan_kernel_repo(self, tmp_path) -> None:
+        repo_path = tmp_path / "kernels--foo--bar"
+        (repo_path / "snapshots" / "123").mkdir(parents=True)
+        (repo_path / "refs").mkdir()
+        (repo_path / "refs" / "main").write_text("123")
+
+        report = scan_cache_dir(tmp_path)
+
+        assert len(report.warnings) == 0
+        assert len(report.repos) == 1
+        repo = next(iter(report.repos))
+        assert repo.repo_type == "kernel"
+        assert repo.repo_id == "foo/bar"
+
+
 @pytest.mark.production
 class TestCorruptedCacheUtils:
     repo_path: Path
@@ -291,7 +307,7 @@ class TestCorruptedCacheUtils:
         assert len(report.warnings) == 1
         assert (
             str(report.warnings[0])
-            == f"Repo type must be `dataset`, `model` or `space`, found `not-model` ({repo_path})."
+            == f"Repo type must be `dataset`, `model`, `space` or `kernel`, found `not-model` ({repo_path})."
         )
 
     def test_snapshots_path_not_found(self, tmp_path) -> None:

@@ -22,11 +22,12 @@ The caching system is designed as follows:
 ├─ <MODELS>
 ├─ <DATASETS>
 ├─ <SPACES>
+├─ <KERNELS>
 ```
 
 The default `<CACHE_DIR>` is `~/.cache/huggingface/hub`. However, it is customizable with the `cache_dir` argument on all methods, or by specifying either `HF_HOME` or `HF_HUB_CACHE` environment variable.
 
-Models, datasets and spaces share a common root. Each of these repositories contains the
+Models, datasets, spaces and kernels share a common root. Each of these repositories contains the
 repository type, the namespace (organization or username) if it exists and the
 repository name:
 
