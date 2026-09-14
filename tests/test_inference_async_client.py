@@ -25,8 +25,10 @@ work as well.
 
 import asyncio
 import inspect
+import re
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
+import httpx
 import numpy as np
 import pytest
 
@@ -43,6 +45,7 @@ from huggingface_hub import (
     TextGenerationOutputPrefillToken,
     constants,
 )
+from huggingface_hub.errors import HfHubHTTPError
 from huggingface_hub.inference._common import ValidationError as TextGenerationValidationError
 from huggingface_hub.inference._common import _get_unsupported_text_generation_kwargs
 
@@ -556,3 +559,330 @@ async def test_async_health_check():
     )
     with pytest.raises(ValueError, match="Health check is not supported on 'fal-ai'."):
         await client_invalid_provider.health_check()
+
+
+@pytest.mark.asyncio
+async def test_async_get_endpoint_info_missing_and_none_arguments():
+    # Missing argument with no model at client instantiation
+    client_no_model = AsyncInferenceClient()
+    with pytest.raises(ValueError, match="Model id not provided."):
+        await client_no_model.get_endpoint_info()
+
+    # Explicit None model with no model at client instantiation
+    with pytest.raises(ValueError, match="Model id not provided."):
+        await client_no_model.get_endpoint_info(model=None)
+
+    # Empty string model with no model at client instantiation
+    with pytest.raises(ValueError, match="Model id not provided."):
+        await client_no_model.get_endpoint_info(model="")
+
+    # Fallback to instance-level model when model=None is passed
+    client_with_model = AsyncInferenceClient("meta-llama/Meta-Llama-3-70B-Instruct")
+    mock_response = httpx.Response(
+        200,
+        request=httpx.Request(
+            "GET",
+            "https://router.huggingface.co/hf-inference/models/meta-llama/Meta-Llama-3-70B-Instruct/info",
+        ),
+        json={"model_id": "meta-llama/Meta-Llama-3-70B-Instruct"},
+    )
+    mock_async_client = AsyncMock()
+    mock_async_client.get.return_value = mock_response
+
+    with patch.object(client_with_model, "_get_async_client", AsyncMock(return_value=mock_async_client)):
+        info = await client_with_model.get_endpoint_info(model=None)
+    assert info == {"model_id": "meta-llama/Meta-Llama-3-70B-Instruct"}
+    assert (
+        mock_async_client.get.call_args[0][0]
+        == "https://router.huggingface.co/hf-inference/models/meta-llama/Meta-Llama-3-70B-Instruct/info"
+    )
+
+    # Fallback to instance-level model when model="" is passed
+    with patch.object(client_with_model, "_get_async_client", AsyncMock(return_value=mock_async_client)):
+        info_empty = await client_with_model.get_endpoint_info(model="")
+    assert info_empty == {"model_id": "meta-llama/Meta-Llama-3-70B-Instruct"}
+    assert (
+        mock_async_client.get.call_args[0][0]
+        == "https://router.huggingface.co/hf-inference/models/meta-llama/Meta-Llama-3-70B-Instruct/info"
+    )
+
+    # Method argument overrides instance-level model
+    override_response = httpx.Response(
+        200,
+        request=httpx.Request(
+            "GET",
+            "https://router.huggingface.co/hf-inference/models/override-model/info",
+        ),
+        json={"model_id": "override-model"},
+    )
+    mock_async_client.get.return_value = override_response
+    with patch.object(client_with_model, "_get_async_client", AsyncMock(return_value=mock_async_client)):
+        info_override = await client_with_model.get_endpoint_info(model="override-model")
+    assert info_override == {"model_id": "override-model"}
+    assert (
+        mock_async_client.get.call_args[0][0]
+        == "https://router.huggingface.co/hf-inference/models/override-model/info"
+    )
+
+
+@pytest.mark.asyncio
+async def test_async_get_endpoint_info_invalid_providers_and_types():
+    # Unsupported provider strings
+    for provider in ("fal-ai", "together", "replicate", "sambanova", "unsupported-provider", ""):
+        client = AsyncInferenceClient(provider=provider)
+        with pytest.raises(ValueError, match=re.escape(f"Getting endpoint info is not supported on '{provider}'.")):
+            await client.get_endpoint_info(model="some-model")
+
+    # Non-string provider types (int, bool, float, list, dict)
+    for invalid_provider in (123, False, 3.14, ["fal-ai"], {"provider": "together"}):
+        client = AsyncInferenceClient(provider=invalid_provider)
+        with pytest.raises(
+            ValueError, match=re.escape(f"Getting endpoint info is not supported on '{invalid_provider}'.")
+        ):
+            await client.get_endpoint_info(model="some-model")
+
+    # Supported providers: None and "hf-inference"
+    assert AsyncInferenceClient(provider=None).provider is None
+    assert AsyncInferenceClient(provider="hf-inference").provider == "hf-inference"
+
+
+@pytest.mark.asyncio
+async def test_async_get_endpoint_info_invalid_model_types():
+    client = AsyncInferenceClient()
+    # Falsy non-string types evaluate to None when no model is set on client
+    with pytest.raises(ValueError, match="Model id not provided."):
+        await client.get_endpoint_info(model=False)
+
+    # Truthy non-string types fail when string methods (like startswith) are invoked
+    for invalid_model in (123, 45.67, ["meta-llama"], {"model": "gpt2"}):
+        with pytest.raises((AttributeError, TypeError)):
+            await client.get_endpoint_info(model=invalid_model)
+
+
+@pytest.mark.asyncio
+async def test_async_get_endpoint_info_url_formatting_and_trailing_slashes():
+    mock_response = httpx.Response(
+        200,
+        request=httpx.Request("GET", "https://custom-endpoint.endpoints.huggingface.cloud/info"),
+        json={"status": "ok"},
+    )
+    mock_async_client = AsyncMock()
+    mock_async_client.get.return_value = mock_response
+
+    # Single trailing slash
+    client_single_slash = AsyncInferenceClient("https://custom-endpoint.endpoints.huggingface.cloud/")
+    with patch.object(client_single_slash, "_get_async_client", AsyncMock(return_value=mock_async_client)):
+        info = await client_single_slash.get_endpoint_info()
+    assert info == {"status": "ok"}
+    assert mock_async_client.get.call_args[0][0] == "https://custom-endpoint.endpoints.huggingface.cloud/info"
+
+    # Multiple trailing slashes
+    client_multi_slash = AsyncInferenceClient("https://custom-endpoint.endpoints.huggingface.cloud///")
+    with patch.object(client_multi_slash, "_get_async_client", AsyncMock(return_value=mock_async_client)):
+        info = await client_multi_slash.get_endpoint_info()
+    assert info == {"status": "ok"}
+    assert mock_async_client.get.call_args[0][0] == "https://custom-endpoint.endpoints.huggingface.cloud/info"
+
+    # Local http URL with trailing slash
+    client_http = AsyncInferenceClient("http://127.0.0.1:8000/")
+    with patch.object(client_http, "_get_async_client", AsyncMock(return_value=mock_async_client)):
+        info = await client_http.get_endpoint_info()
+    assert info == {"status": "ok"}
+    assert mock_async_client.get.call_args[0][0] == "http://127.0.0.1:8000/info"
+
+
+@pytest.mark.asyncio
+async def test_async_get_endpoint_info_error_boundaries():
+    client = AsyncInferenceClient()
+    mock_async_client = AsyncMock()
+
+    error_statuses = (
+        (400, "Bad Request"),
+        (401, "Invalid credentials."),
+        (403, "Access to gated model forbidden."),
+        (404, "Model nonexistent-model does not exist or is not supported."),
+        (429, "Too Many Requests."),
+        (500, "Internal server error."),
+        (502, "Bad Gateway."),
+        (503, "Service unavailable."),
+        (504, "Gateway Timeout."),
+    )
+
+    with patch.object(client, "_get_async_client", AsyncMock(return_value=mock_async_client)):
+        for status_code, error_msg in error_statuses:
+            mock_async_client.get.return_value = httpx.Response(
+                status_code,
+                request=httpx.Request(
+                    "GET", f"https://router.huggingface.co/hf-inference/models/test-model-{status_code}/info"
+                ),
+                json={"error": error_msg},
+            )
+            with pytest.raises(HfHubHTTPError) as exc_info:
+                await client.get_endpoint_info(model=f"test-model-{status_code}")
+            assert exc_info.value.response.status_code == status_code
+
+
+@pytest.mark.asyncio
+async def test_async_health_check_missing_and_none_arguments():
+    # 1. Missing argument with no model at client instantiation
+    client_no_model = AsyncInferenceClient()
+    with pytest.raises(ValueError, match="Model id not provided."):
+        await client_no_model.health_check()
+
+    # 2. Explicit None with no model at client instantiation
+    with pytest.raises(ValueError, match="Model id not provided."):
+        await client_no_model.health_check(model=None)
+
+    # 3. Empty string with no model at client instantiation
+    with pytest.raises(ValueError, match="Model id not provided."):
+        await client_no_model.health_check(model="")
+
+    # 4. Fallback to instance-level model when model=None is passed
+    client_with_model = AsyncInferenceClient("https://custom-endpoint.endpoints.huggingface.cloud")
+    mock_async_client = AsyncMock()
+    mock_async_client.get.return_value = httpx.Response(
+        200,
+        request=httpx.Request("GET", "https://custom-endpoint.endpoints.huggingface.cloud/health"),
+    )
+
+    with patch.object(client_with_model, "_get_async_client", AsyncMock(return_value=mock_async_client)):
+        assert await client_with_model.health_check(model=None) is True
+    assert mock_async_client.get.call_args[0][0] == "https://custom-endpoint.endpoints.huggingface.cloud/health"
+
+    # 5. Method argument overrides instance-level model
+    override_resp = httpx.Response(
+        200,
+        request=httpx.Request("GET", "https://override-endpoint.endpoints.huggingface.cloud/health"),
+    )
+    mock_async_client.get.return_value = override_resp
+    with patch.object(client_with_model, "_get_async_client", AsyncMock(return_value=mock_async_client)):
+        assert (
+            await client_with_model.health_check(model="https://override-endpoint.endpoints.huggingface.cloud") is True
+        )
+    assert mock_async_client.get.call_args[0][0] == "https://override-endpoint.endpoints.huggingface.cloud/health"
+
+    # 6. Empty string with instance-level model falls back to instance-level model
+    mock_async_client.get.return_value = httpx.Response(
+        200,
+        request=httpx.Request("GET", "https://custom-endpoint.endpoints.huggingface.cloud/health"),
+    )
+    with patch.object(client_with_model, "_get_async_client", AsyncMock(return_value=mock_async_client)):
+        assert await client_with_model.health_check(model="") is True
+    assert mock_async_client.get.call_args[0][0] == "https://custom-endpoint.endpoints.huggingface.cloud/health"
+
+
+@pytest.mark.asyncio
+async def test_async_health_check_invalid_providers_and_types():
+    endpoint_url = "https://custom-endpoint.endpoints.huggingface.cloud"
+    # Unsupported provider strings
+    for provider in ("fal-ai", "together", "replicate", "sambanova", "unknown-provider", ""):
+        client = AsyncInferenceClient(endpoint_url, provider=provider)
+        with pytest.raises(ValueError, match=re.escape(f"Health check is not supported on '{provider}'.")):
+            await client.health_check()
+
+    # Non-string provider types (int, bool, float, list, dict)
+    for invalid_provider in (999, False, 1.23, ["fal-ai"], {"provider": "together"}):
+        client = AsyncInferenceClient(endpoint_url, provider=invalid_provider)
+        with pytest.raises(ValueError, match=re.escape(f"Health check is not supported on '{invalid_provider}'.")):
+            await client.health_check()
+
+    # Supported providers: None and "hf-inference"
+    mock_async_client = AsyncMock()
+    mock_async_client.get.return_value = httpx.Response(
+        200,
+        request=httpx.Request("GET", "https://custom-endpoint.endpoints.huggingface.cloud/health"),
+    )
+
+    client_none = AsyncInferenceClient(endpoint_url, provider=None)
+    assert client_none.provider is None
+    with patch.object(client_none, "_get_async_client", AsyncMock(return_value=mock_async_client)):
+        assert await client_none.health_check() is True
+
+    client_hf = AsyncInferenceClient(endpoint_url, provider="hf-inference")
+    assert client_hf.provider == "hf-inference"
+    with patch.object(client_hf, "_get_async_client", AsyncMock(return_value=mock_async_client)):
+        assert await client_hf.health_check() is True
+
+
+@pytest.mark.asyncio
+async def test_async_health_check_invalid_model_urls():
+    client = AsyncInferenceClient()
+    # Hub model repo IDs (must be endpoint URLs)
+    for hub_id in ("meta-llama/Meta-Llama-3-70B-Instruct", "gpt2", "bert-base-uncased"):
+        with pytest.raises(ValueError, match="Model must be an Inference Endpoint URL."):
+            await client.health_check(model=hub_id)
+
+    # Non-HTTP(S) schemes, local paths, and malformed strings
+    for invalid_url in (
+        "ftp://endpoint.example.com",
+        "ws://endpoint.example.com",
+        "file:///tmp/endpoint",
+        "/local/path/to/endpoint",
+        "endpoints.huggingface.cloud",
+        "   ",
+    ):
+        with pytest.raises(ValueError, match="Model must be an Inference Endpoint URL."):
+            await client.health_check(model=invalid_url)
+
+
+@pytest.mark.asyncio
+async def test_async_health_check_invalid_model_types():
+    client = AsyncInferenceClient()
+    # Falsy non-string types evaluate to None when no model is set on client
+    with pytest.raises(ValueError, match="Model id not provided."):
+        await client.health_check(model=False)
+
+    # Truthy non-string types fail when string methods (like startswith) are invoked
+    for invalid_model in (123, 45.67, ["https://custom-endpoint.endpoints.huggingface.cloud"], {"url": "http://foo"}):
+        with pytest.raises((AttributeError, TypeError)):
+            await client.health_check(model=invalid_model)
+
+
+@pytest.mark.asyncio
+async def test_async_health_check_url_formatting_and_trailing_slashes():
+    mock_response = httpx.Response(
+        200,
+        request=httpx.Request("GET", "https://custom-endpoint.endpoints.huggingface.cloud/health"),
+    )
+    mock_async_client = AsyncMock()
+    mock_async_client.get.return_value = mock_response
+
+    # Single trailing slash
+    client_single = AsyncInferenceClient("https://custom-endpoint.endpoints.huggingface.cloud/")
+    with patch.object(client_single, "_get_async_client", AsyncMock(return_value=mock_async_client)):
+        assert await client_single.health_check() is True
+    assert mock_async_client.get.call_args[0][0] == "https://custom-endpoint.endpoints.huggingface.cloud/health"
+
+    # Multiple trailing slashes
+    client_multi = AsyncInferenceClient("https://custom-endpoint.endpoints.huggingface.cloud///")
+    with patch.object(client_multi, "_get_async_client", AsyncMock(return_value=mock_async_client)):
+        assert await client_multi.health_check() is True
+    assert mock_async_client.get.call_args[0][0] == "https://custom-endpoint.endpoints.huggingface.cloud/health"
+
+    # Local http URL with trailing slash
+    client_http = AsyncInferenceClient("http://127.0.0.1:8000/")
+    with patch.object(client_http, "_get_async_client", AsyncMock(return_value=mock_async_client)):
+        assert await client_http.health_check() is True
+    assert mock_async_client.get.call_args[0][0] == "http://127.0.0.1:8000/health"
+
+
+@pytest.mark.asyncio
+async def test_async_health_check_error_boundaries():
+    client = AsyncInferenceClient("https://custom-endpoint.endpoints.huggingface.cloud")
+    mock_async_client = AsyncMock()
+
+    with patch.object(client, "_get_async_client", AsyncMock(return_value=mock_async_client)):
+        # Non-200 status codes that should return False (not raise)
+        for status_code in (400, 401, 403, 404, 429, 500, 502, 503, 504, 302):
+            mock_async_client.get.return_value = httpx.Response(
+                status_code,
+                request=httpx.Request("GET", "https://custom-endpoint.endpoints.huggingface.cloud/health"),
+            )
+            assert await client.health_check() is False, f"Expected status {status_code} to return False"
+
+        # Status code 200 must return True
+        mock_async_client.get.return_value = httpx.Response(
+            200,
+            request=httpx.Request("GET", "https://custom-endpoint.endpoints.huggingface.cloud/health"),
+        )
+        assert await client.health_check() is True

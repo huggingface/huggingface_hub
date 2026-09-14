@@ -15,11 +15,13 @@ import base64
 import io
 import json
 import os
+import re
 import string
 import time
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import httpx
 import numpy as np
 import pytest
 from PIL import Image
@@ -1399,3 +1401,302 @@ def test_health_check():
     client_invalid_provider = InferenceClient("https://custom-endpoint.endpoints.huggingface.cloud", provider="fal-ai")
     with pytest.raises(ValueError, match="Health check is not supported on 'fal-ai'."):
         client_invalid_provider.health_check()
+
+
+def test_get_endpoint_info_missing_and_none_arguments(monkeypatch):
+    # Missing argument with no model at client instantiation
+    client_no_model = InferenceClient()
+    with pytest.raises(ValueError, match="Model id not provided."):
+        client_no_model.get_endpoint_info()
+
+    # Explicit None model with no model at client instantiation
+    with pytest.raises(ValueError, match="Model id not provided."):
+        client_no_model.get_endpoint_info(model=None)
+
+    # Empty string model with no model at client instantiation
+    with pytest.raises(ValueError, match="Model id not provided."):
+        client_no_model.get_endpoint_info(model="")
+
+    # Fallback to instance-level model when model=None is passed
+    client_with_model = InferenceClient("meta-llama/Meta-Llama-3-70B-Instruct")
+    mock_session = MagicMock()
+    mock_session.get.return_value = httpx.Response(
+        200,
+        request=httpx.Request(
+            "GET",
+            "https://router.huggingface.co/hf-inference/models/meta-llama/Meta-Llama-3-70B-Instruct/info",
+        ),
+        json={"model_id": "meta-llama/Meta-Llama-3-70B-Instruct"},
+    )
+    monkeypatch.setattr("huggingface_hub.inference._client.get_session", lambda: mock_session)
+
+    info = client_with_model.get_endpoint_info(model=None)
+    assert info == {"model_id": "meta-llama/Meta-Llama-3-70B-Instruct"}
+    assert (
+        mock_session.get.call_args[0][0]
+        == "https://router.huggingface.co/hf-inference/models/meta-llama/Meta-Llama-3-70B-Instruct/info"
+    )
+
+    # Fallback to instance-level model when model="" is passed
+    info_empty = client_with_model.get_endpoint_info(model="")
+    assert info_empty == {"model_id": "meta-llama/Meta-Llama-3-70B-Instruct"}
+    assert (
+        mock_session.get.call_args[0][0]
+        == "https://router.huggingface.co/hf-inference/models/meta-llama/Meta-Llama-3-70B-Instruct/info"
+    )
+
+    # Method argument overrides instance-level model
+    override_response = httpx.Response(
+        200,
+        request=httpx.Request(
+            "GET",
+            "https://router.huggingface.co/hf-inference/models/override-model/info",
+        ),
+        json={"model_id": "override-model"},
+    )
+    mock_session.get.return_value = override_response
+    info_override = client_with_model.get_endpoint_info(model="override-model")
+    assert info_override == {"model_id": "override-model"}
+    assert mock_session.get.call_args[0][0] == "https://router.huggingface.co/hf-inference/models/override-model/info"
+
+
+def test_get_endpoint_info_invalid_providers_and_types():
+    # Unsupported provider strings
+    for provider in ("fal-ai", "together", "replicate", "sambanova", "unsupported-provider", ""):
+        client = InferenceClient(provider=provider)
+        with pytest.raises(ValueError, match=re.escape(f"Getting endpoint info is not supported on '{provider}'.")):
+            client.get_endpoint_info(model="some-model")
+
+    # Non-string provider types (int, bool, float, list, dict)
+    for invalid_provider in (123, False, 3.14, ["fal-ai"], {"provider": "together"}):
+        client = InferenceClient(provider=invalid_provider)
+        with pytest.raises(
+            ValueError, match=re.escape(f"Getting endpoint info is not supported on '{invalid_provider}'.")
+        ):
+            client.get_endpoint_info(model="some-model")
+
+    # Supported providers: None and "hf-inference"
+    assert InferenceClient(provider=None).provider is None
+    assert InferenceClient(provider="hf-inference").provider == "hf-inference"
+
+
+def test_get_endpoint_info_invalid_model_types():
+    client = InferenceClient()
+    # Falsy non-string types evaluate to None when no model is set on client
+    with pytest.raises(ValueError, match="Model id not provided."):
+        client.get_endpoint_info(model=False)
+
+    # Truthy non-string types fail when string methods (like startswith) are invoked
+    for invalid_model in (123, 45.67, ["meta-llama"], {"model": "gpt2"}):
+        with pytest.raises((AttributeError, TypeError)):
+            client.get_endpoint_info(model=invalid_model)
+
+
+def test_get_endpoint_info_url_formatting_and_trailing_slashes(monkeypatch):
+    mock_session = MagicMock()
+    mock_session.get.return_value = httpx.Response(
+        200,
+        request=httpx.Request("GET", "https://custom-endpoint.endpoints.huggingface.cloud/info"),
+        json={"status": "ok"},
+    )
+    monkeypatch.setattr("huggingface_hub.inference._client.get_session", lambda: mock_session)
+
+    # Single trailing slash
+    client_single_slash = InferenceClient("https://custom-endpoint.endpoints.huggingface.cloud/")
+    info = client_single_slash.get_endpoint_info()
+    assert info == {"status": "ok"}
+    assert mock_session.get.call_args[0][0] == "https://custom-endpoint.endpoints.huggingface.cloud/info"
+
+    # Multiple trailing slashes
+    client_multi_slash = InferenceClient("https://custom-endpoint.endpoints.huggingface.cloud///")
+    info = client_multi_slash.get_endpoint_info()
+    assert info == {"status": "ok"}
+    assert mock_session.get.call_args[0][0] == "https://custom-endpoint.endpoints.huggingface.cloud/info"
+
+    # Local http URL with trailing slash
+    client_http = InferenceClient("http://127.0.0.1:8000/")
+    info = client_http.get_endpoint_info()
+    assert info == {"status": "ok"}
+    assert mock_session.get.call_args[0][0] == "http://127.0.0.1:8000/info"
+
+
+def test_get_endpoint_info_error_boundaries(monkeypatch):
+    client = InferenceClient()
+    mock_session = MagicMock()
+    monkeypatch.setattr("huggingface_hub.inference._client.get_session", lambda: mock_session)
+
+    error_statuses = (
+        (400, "Bad Request"),
+        (401, "Invalid credentials."),
+        (403, "Access to gated model forbidden."),
+        (404, "Model nonexistent-model does not exist or is not supported."),
+        (429, "Too Many Requests."),
+        (500, "Internal server error."),
+        (502, "Bad Gateway."),
+        (503, "Service unavailable."),
+        (504, "Gateway Timeout."),
+    )
+
+    for status_code, error_msg in error_statuses:
+        mock_session.get.return_value = httpx.Response(
+            status_code,
+            request=httpx.Request(
+                "GET", f"https://router.huggingface.co/hf-inference/models/test-model-{status_code}/info"
+            ),
+            json={"error": error_msg},
+        )
+        with pytest.raises(HfHubHTTPError) as exc_info:
+            client.get_endpoint_info(model=f"test-model-{status_code}")
+        assert exc_info.value.response.status_code == status_code
+
+
+def test_health_check_missing_and_none_arguments(monkeypatch):
+    # 1. Missing argument with no model at client instantiation
+    client_no_model = InferenceClient()
+    with pytest.raises(ValueError, match="Model id not provided."):
+        client_no_model.health_check()
+
+    # 2. Explicit None with no model at client instantiation
+    with pytest.raises(ValueError, match="Model id not provided."):
+        client_no_model.health_check(model=None)
+
+    # 3. Empty string with no model at client instantiation
+    with pytest.raises(ValueError, match="Model id not provided."):
+        client_no_model.health_check(model="")
+
+    # 4. Fallback to instance-level model when model=None is passed
+    client_with_model = InferenceClient("https://custom-endpoint.endpoints.huggingface.cloud")
+    mock_session = MagicMock()
+    mock_session.get.return_value = httpx.Response(
+        200,
+        request=httpx.Request("GET", "https://custom-endpoint.endpoints.huggingface.cloud/health"),
+    )
+    monkeypatch.setattr("huggingface_hub.inference._client.get_session", lambda: mock_session)
+
+    assert client_with_model.health_check(model=None) is True
+    assert mock_session.get.call_args[0][0] == "https://custom-endpoint.endpoints.huggingface.cloud/health"
+
+    # 5. Method argument overrides instance-level model
+    override_resp = httpx.Response(
+        200,
+        request=httpx.Request("GET", "https://override-endpoint.endpoints.huggingface.cloud/health"),
+    )
+    mock_session.get.return_value = override_resp
+    assert client_with_model.health_check(model="https://override-endpoint.endpoints.huggingface.cloud") is True
+    assert mock_session.get.call_args[0][0] == "https://override-endpoint.endpoints.huggingface.cloud/health"
+
+    # 6. Empty string with instance-level model falls back to instance-level model
+    mock_session.get.return_value = httpx.Response(
+        200,
+        request=httpx.Request("GET", "https://custom-endpoint.endpoints.huggingface.cloud/health"),
+    )
+    assert client_with_model.health_check(model="") is True
+    assert mock_session.get.call_args[0][0] == "https://custom-endpoint.endpoints.huggingface.cloud/health"
+
+
+def test_health_check_invalid_providers_and_types(monkeypatch):
+    endpoint_url = "https://custom-endpoint.endpoints.huggingface.cloud"
+    # Unsupported provider strings
+    for provider in ("fal-ai", "together", "replicate", "sambanova", "unknown-provider", ""):
+        client = InferenceClient(endpoint_url, provider=provider)
+        with pytest.raises(ValueError, match=re.escape(f"Health check is not supported on '{provider}'.")):
+            client.health_check()
+
+    # Non-string provider types (int, bool, float, list, dict)
+    for invalid_provider in (999, False, 1.23, ["fal-ai"], {"provider": "together"}):
+        client = InferenceClient(endpoint_url, provider=invalid_provider)
+        with pytest.raises(ValueError, match=re.escape(f"Health check is not supported on '{invalid_provider}'.")):
+            client.health_check()
+
+    # Supported providers: None and "hf-inference"
+    mock_session = MagicMock()
+    mock_session.get.return_value = httpx.Response(
+        200,
+        request=httpx.Request("GET", "https://custom-endpoint.endpoints.huggingface.cloud/health"),
+    )
+    monkeypatch.setattr("huggingface_hub.inference._client.get_session", lambda: mock_session)
+
+    client_none = InferenceClient(endpoint_url, provider=None)
+    assert client_none.provider is None
+    assert client_none.health_check() is True
+
+    client_hf = InferenceClient(endpoint_url, provider="hf-inference")
+    assert client_hf.provider == "hf-inference"
+    assert client_hf.health_check() is True
+
+
+def test_health_check_invalid_model_urls():
+    client = InferenceClient()
+    # Hub model repo IDs (must be endpoint URLs)
+    for hub_id in ("meta-llama/Meta-Llama-3-70B-Instruct", "gpt2", "bert-base-uncased"):
+        with pytest.raises(ValueError, match="Model must be an Inference Endpoint URL."):
+            client.health_check(model=hub_id)
+
+    # Non-HTTP(S) schemes, local paths, and malformed strings
+    for invalid_url in (
+        "ftp://endpoint.example.com",
+        "ws://endpoint.example.com",
+        "file:///tmp/endpoint",
+        "/local/path/to/endpoint",
+        "endpoints.huggingface.cloud",
+        "   ",
+    ):
+        with pytest.raises(ValueError, match="Model must be an Inference Endpoint URL."):
+            client.health_check(model=invalid_url)
+
+
+def test_health_check_invalid_model_types():
+    client = InferenceClient()
+    # Falsy non-string types evaluate to None when no model is set on client
+    with pytest.raises(ValueError, match="Model id not provided."):
+        client.health_check(model=False)
+
+    # Truthy non-string types fail when string methods (like startswith) are invoked
+    for invalid_model in (123, 45.67, ["https://custom-endpoint.endpoints.huggingface.cloud"], {"url": "http://foo"}):
+        with pytest.raises((AttributeError, TypeError)):
+            client.health_check(model=invalid_model)
+
+
+def test_health_check_url_formatting_and_trailing_slashes(monkeypatch):
+    mock_session = MagicMock()
+    mock_session.get.return_value = httpx.Response(
+        200,
+        request=httpx.Request("GET", "https://custom-endpoint.endpoints.huggingface.cloud/health"),
+    )
+    monkeypatch.setattr("huggingface_hub.inference._client.get_session", lambda: mock_session)
+
+    # Single trailing slash
+    client_single = InferenceClient("https://custom-endpoint.endpoints.huggingface.cloud/")
+    assert client_single.health_check() is True
+    assert mock_session.get.call_args[0][0] == "https://custom-endpoint.endpoints.huggingface.cloud/health"
+
+    # Multiple trailing slashes
+    client_multi = InferenceClient("https://custom-endpoint.endpoints.huggingface.cloud///")
+    assert client_multi.health_check() is True
+    assert mock_session.get.call_args[0][0] == "https://custom-endpoint.endpoints.huggingface.cloud/health"
+
+    # Local http URL with trailing slash
+    client_http = InferenceClient("http://127.0.0.1:8000/")
+    assert client_http.health_check() is True
+    assert mock_session.get.call_args[0][0] == "http://127.0.0.1:8000/health"
+
+
+def test_health_check_error_boundaries(monkeypatch):
+    client = InferenceClient("https://custom-endpoint.endpoints.huggingface.cloud")
+    mock_session = MagicMock()
+    monkeypatch.setattr("huggingface_hub.inference._client.get_session", lambda: mock_session)
+
+    # Non-200 status codes that should return False (not raise)
+    for status_code in (400, 401, 403, 404, 429, 500, 502, 503, 504, 302):
+        mock_session.get.return_value = httpx.Response(
+            status_code,
+            request=httpx.Request("GET", "https://custom-endpoint.endpoints.huggingface.cloud/health"),
+        )
+        assert client.health_check() is False, f"Expected status {status_code} to return False"
+
+    # Status code 200 must return True
+    mock_session.get.return_value = httpx.Response(
+        200,
+        request=httpx.Request("GET", "https://custom-endpoint.endpoints.huggingface.cloud/health"),
+    )
+    assert client.health_check() is True
