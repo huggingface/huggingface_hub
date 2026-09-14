@@ -57,6 +57,7 @@ Usage: hf [OPTIONS] COMMAND [ARGS]...
   Hugging Face Hub CLI
 
 Options:
+  --skills              Print the `hf-cli` SKILL.md to stdout (alias for `hf skills preview`).
   --install-completion  Install completion for the current shell.
   --show-completion     Show completion for the current shell, to copy it or customize the installation.
   -h, --help            Show this message and exit.
