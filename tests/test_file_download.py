@@ -1638,6 +1638,58 @@ class TestHttpGet:
                 resume_size=101,
             )
 
+    def test_http_get_range_ignored_with_caller_supplied_resume_size_on_positioned_file(self):
+        """Test the Range-ignored reset rewinds correctly when `resume_size` comes from the caller.
+
+        `test_http_get_retry_resets_to_initial_position_when_range_ignored` reaches the reset through the
+        retry recursion, which re-enters `http_get` with a `resume_size` it measured itself. A caller may
+        instead hand over a partially downloaded file directly, so the reset is reached on the *first*
+        request and with no progress bar to roll back.
+        """
+        temp_file = io.BytesIO()
+        temp_file.write(b"HEADER--" + b"A" * 30)  # caller's data + 30 bytes already downloaded
+
+        self._http_get_with_mocked_responses(
+            # 200, not 206 — the server ignored the Range header we sent for `resume_size=30`
+            [self._mock_response(headers={"Content-Length": "100"}, iter_bytes=iter([b"B" * 100]))],
+            temp_file=temp_file,
+            expected_size=100,
+            resume_size=30,
+        )
+
+        assert temp_file.getvalue() == b"HEADER--" + b"B" * 100
+
+    def test_http_get_on_already_positioned_file_reports_downloaded_size_when_server_overshoots(self):
+        """Test the overshoot side of the size check: too many bytes are reported as bytes downloaded here."""
+        temp_file = io.BytesIO()
+        temp_file.write(b"HEADER--")
+
+        with pytest.raises(OSError, match="file should be of size 100 but has size 150"):
+            self._http_get_with_mocked_responses(
+                [self._mock_response(headers={"Content-Length": "100"}, iter_bytes=iter([b"A" * 150]))],
+                temp_file=temp_file,
+                expected_size=100,
+            )
+
+    def test_http_get_rejects_resume_size_past_the_end_of_the_file_when_range_ignored(self):
+        """Test a `resume_size` larger than the file fails loudly instead of silently restarting.
+
+        The rewind is relative to the current position, so a caller claiming more bytes than the file
+        holds asks to seek before its start. Neither in-repo call site can reach this (both pass
+        `resume_size=0`, and the retry recursion measures `new_resume_size` on the same file object),
+        but the failure is worth pinning: it is a rejected seek, not a silent truncation of data the
+        caller still owns.
+        """
+        temp_file = io.BytesIO()
+
+        with pytest.raises(ValueError, match="negative seek value"):
+            self._http_get_with_mocked_responses(
+                [self._mock_response(headers={"Content-Length": "100"}, iter_bytes=iter([b"A" * 100]))],
+                temp_file=temp_file,
+                expected_size=100,
+                resume_size=101,
+            )
+
 
 class TestCreateSymlink:
     @pytest.mark.skipif(os.name == "nt", reason="No symlinks on Windows")
