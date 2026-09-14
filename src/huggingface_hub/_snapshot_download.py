@@ -536,7 +536,7 @@ def snapshot_download(
     )
 
     _finish_transfer_bar(transfer_progress)
-    transfer_progress.set_description("Download complete")
+    transfer_progress.set_description_str("Download complete")
     reconstruct_progress.set_description("Reconstruction complete")
 
     if dry_run:
