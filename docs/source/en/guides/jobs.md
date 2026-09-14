@@ -374,7 +374,7 @@ Only users with write access to the Job's namespace are allowed in (the Job crea
 
 ## Network groups
 
-Pass `network_group="<name>"` to [`run_job`] (or [`run_uv_job`]) to let Jobs of the same owner reach each other on every port. Inside each member, `HF_NETWORK_GROUP_HOSTNAME` resolves to every Job in the group, and `${HF_NETWORK_GROUP_PREFIX}<alias>` to the members that claimed an alias with `network_aliases=[...]`:
+Pass `network_group="<name>"` to [`run_job`] (or [`run_uv_job`]) to let Jobs in the same namespace and resource group reach each other on every port. Inside each member, `HF_NETWORK_GROUP_HOSTNAME` resolves to every Job in the group, and `${HF_NETWORK_GROUP_PREFIX}<alias>` to the members that claimed an alias with `network_aliases=[...]`:
 
 ```python
 >>> from huggingface_hub import run_job
@@ -389,9 +389,11 @@ Pass `network_group="<name>"` to [`run_job`] (or [`run_uv_job`]) to let Jobs of 
 ...     command=["sh", "-c", 'curl --retry 10 --retry-connrefused "http://${HF_NETWORK_GROUP_PREFIX}master:8000/"'],
 ...     network_group="train",
 ... )
+>>> server.network
+JobNetwork(group='train', aliases=['master'])
 ```
 
-Members are resolvable before they are ready, so connect with retries.
+Members are resolvable before they are ready, so connect with retries. Group names and aliases are lowercase alphanumerics and dashes, 46 and 34 characters max.
 
 ## Configure Job Timeout
 
@@ -558,7 +560,7 @@ From the CLI, pass `--name` when creating a Job, or name an existing Job through
 ... )
 ```
 
-If you don't pass `--name`, a name is derived automatically from the Docker image or the script, plus a short hash of the command so reruns of the same command share a name (e.g. `python:3.12 foo --truc` → `python-3-12-1a2b3c4d`).
+If you don't pass a name, one is derived automatically from the Docker image or the script, plus a short hash (e.g. `python:3.12 foo --truc` → `python-3-12-1a2b3c4d`). From the CLI, that hash covers the command *and* the resolved runtime settings (flavor, timeout, environment values, ...), so the same configuration always produces the same name, and changing a setting — including one coming from a script's `[tool.hf-jobs]` header — changes it. From the Python API, the hash covers the command only.
 
 ### Update labels
 
@@ -615,6 +617,28 @@ Run UV scripts (Python scripts with inline dependencies) on HF infrastructure:
 ```
 
 UV scripts are Python scripts that include their dependencies directly in the file using a special comment syntax. This makes them perfect for self-contained tasks that don't require complex project setups. Learn more about UV scripts in the [UV documentation](https://docs.astral.sh/uv/guides/scripts/).
+
+#### Ship the launch config with the script
+
+A script that only runs correctly on a specific runtime can carry that runtime with it, in an optional `[tool.hf-jobs]` table of its PEP 723 header:
+
+```python
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["vllm", "datasets"]
+#
+# [tool.hf-jobs]
+# image   = "vllm/vllm-openai:unlimited-ocr"
+# flavor  = "l4x1"
+# python  = "/usr/bin/python3"
+# secrets = ["HF_TOKEN"]
+# ///
+```
+
+`hf jobs uv run ocr.py` then launches with the right image, hardware and interpreter, and `--flavor`, `-e`, ... still override what the script declares. See the [CLI guide](./cli#ship-the-launch-config-with-the-script) for the full list of keys and the merge rules.
+
+> [!WARNING]
+> The table is read by the `hf` CLI only: [`run_uv_job`] and [`create_scheduled_uv_job`] ignore it and use exactly the arguments they are given. In other words `run_uv_job("ocr.py")` and `hf jobs uv run ocr.py` do **not** run the same Job — the Python API needs `image=`, `flavor=`, ... to be passed explicitly.
 
 
 #### Docker Images for UV Scripts

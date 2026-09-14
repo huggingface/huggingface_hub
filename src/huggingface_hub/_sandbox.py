@@ -15,6 +15,7 @@
 import hashlib
 import hmac
 import json
+import os
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -23,11 +24,14 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from secrets import token_hex
 from typing import Any, BinaryIO, Callable, Iterator, List, Literal, overload
+from urllib.parse import urlparse
 
 import httpx
 
 from . import constants
 from ._sandbox_cache import (
+    HOST_TRUST_TTL,
+    CacheContext,
     CachedHost,
     delete_pool_cache,
     read_pool_cache,
@@ -63,10 +67,42 @@ RESERVED_SANDBOX_LABELS = frozenset({SANDBOX_LABEL, MODE_LABEL, POOL_LABEL, NONC
 
 DEFAULT_IMAGE = "python:3.12"
 
+# The exact sbx-server build every sandbox job downloads and runs as root, pinned by digest.
+# The bucket object is fetched by its sha256 name and the download is verified before it is
+# made executable (see `_BOOTSTRAP_DOWNLOAD`), so the bytes that run are the bytes that were
+# reviewed for this release -- not whatever the mutable `sbx-server` alias points at today.
+# Both constants move together on every server release; the digest is printed by the server
+# repo's publish workflow.
+SANDBOX_SERVER_VERSION = "0.6.0"
+SANDBOX_SERVER_SHA256 = "bd08d60b3bdab4ddd4e81401b6dacc96e01bcee3a4753e258b99d40c07d81ee3"
+
+# The sbx-server wire contract this client drives, checked against `/health`'s `protocol` on
+# startup. A pool host keeps the binary it downloaded at boot for up to 24h, so pinning a
+# digest does not stop this client from meeting a server it did not pin -- the check does.
+SANDBOX_SERVER_PROTOCOL = 2
+
 DEFAULT_IDLE_TIMEOUT = 10 * 60  # 10 minutes
 SANDBOX_MAX_LIFETIME = "24h"
 
 DEFAULT_SANDBOXES_PER_HOST = 50
+
+# How long `close()` waits for in-flight creates before giving up on them. A
+# wedged create must not hang process exit, but returning immediately would let
+# a host it is still booting escape teardown.
+_CLOSE_DRAIN_TIMEOUT = 30.0
+
+# Ceiling on the output `run()` will accumulate for its result. Without one, a
+# runaway command (a loop printing to stdout, say) is an unbounded allocation in
+# the caller's process -- and it happened even when a callback was already
+# consuming the output. Raising beats being OOM-killed with no explanation.
+MAX_CAPTURED_OUTPUT_CHARS = 64 * 1024 * 1024
+
+# Which pool hosts `create()` may adopt from job labels. Labels are set by whoever
+# creates a Job, so "any job carrying our pool's labels" is not an identity claim --
+# see the `adopt_hosts` argument of [`SandboxPool`].
+ADOPT_OWN = "own"
+ADOPT_NAMESPACE = "namespace"
+ADOPT_NEVER = "never"
 
 SHARED_ID_SEP = "."
 
@@ -81,26 +117,65 @@ _SERVER_MOUNT_PATH = "/.hf-sbx-server"
 
 # Job startup script (needs only /bin/sh). The server bucket is public, so the download is
 # unauthenticated: no HF credential is ever placed in the job environment (see `_derive_sandbox_token`).
+#
+# It fetches a public object and runs it as root, as PID 1, holding the sandbox token -- so it
+# checks the bytes against `SANDBOX_SERVER_SHA256` and refuses to run them if they don't match.
+# The check happens *before* `chmod +x`: an unverified file that is already executable is one
+# slip away from being executed. Neither `sha256sum` nor `openssl` is guaranteed to exist in an
+# arbitrary image, so both are tried; with neither, the default is to refuse rather than to run
+# unverified code, and `SBX_ALLOW_UNVERIFIED_SERVER=1` (dedicated job `env=` or the image environment) is the way out for an
+# image that has to. It never bypasses a *failed* check, only a missing tool.
 _BOOTSTRAP_DOWNLOAD = """\
 set -e
 d=/tmp/.sbx-server
 if command -v wget >/dev/null 2>&1; then wget -q -O "$d" "$SBX_SERVER_URL"
 elif command -v curl >/dev/null 2>&1; then curl -fsSL -o "$d" "$SBX_SERVER_URL"
-else cp "$SBX_SERVER_MOUNT/sbx-server" "$d"; fi
+else cp "$SBX_SERVER_MOUNT/sbx-server-$SBX_SERVER_SHA256" "$d"; fi
+if command -v sha256sum >/dev/null 2>&1; then
+  actual=$(sha256sum "$d" | cut -d' ' -f1)
+elif command -v openssl >/dev/null 2>&1; then
+  actual=$(openssl dgst -sha256 -r "$d" | cut -d' ' -f1)
+elif [ "${SBX_ALLOW_UNVERIFIED_SERVER:-}" = 1 ]; then
+  echo "sbx: SBX_ALLOW_UNVERIFIED_SERVER=1: running the sandbox server unverified" >&2
+  actual=$SBX_SERVER_SHA256  # opted out, so there is nothing left to compare against
+else
+  echo "sbx: cannot verify the sandbox server digest: this image has neither sha256sum nor" >&2
+  echo "sbx: openssl, so refusing to run it. Use an image with either hash tool installed." >&2
+  echo "sbx: Dedicated jobs may opt out with env={'SBX_ALLOW_UNVERIFIED_SERVER': '1'};" >&2
+  echo "sbx: pool hosts require setting it in the image environment instead." >&2
+  exit 1
+fi
+if [ "$actual" != "$SBX_SERVER_SHA256" ]; then
+  echo "sbx: sandbox server digest mismatch: got $actual," >&2
+  echo "sbx: expected $SBX_SERVER_SHA256." >&2
+  echo "sbx: refusing to run it. Upgrade huggingface_hub if this client is pinned to a" >&2
+  echo "sbx: digest that is no longer published." >&2
+  exit 1
+fi
 chmod +x "$d"
-unset SBX_SERVER_URL SBX_SERVER_MOUNT
+unset SBX_SERVER_URL SBX_SERVER_MOUNT SBX_SERVER_SHA256 SBX_ALLOW_UNVERIFIED_SERVER
 exec "$d"
 """
 
 
 def _derive_sandbox_token(hf_token: str, nonce: str) -> str:
-    """Derive the per-sandbox auth token from the user's HF token and the sandbox nonce.
+    """Derive the sandbox auth token from the user's HF token and the job's nonce.
 
     Stateless: any machine holding the same HF token can recompute it from the
     nonce stored in the job's labels, so `Sandbox.connect(job_id)` needs no local state.
     Only the derived token is passed to the sandbox server as a job secret; the HF token
-    itself is not. Note this is not a hardened boundary: an untrusted image can own the
-    sandbox port, so don't treat it as a guarantee that credentials stay out of the sandbox.
+    itself is not.
+
+    Scope: one nonce is minted per *job*, not per sandbox. For a dedicated sandbox those are
+    the same thing. In a pool this derives the *host* credential, which manages the pool and
+    can recover per-sandbox tokens -- a leak there is host-wide. Each pooled sandbox also has
+    its own random capability token, minted by the host server, which is what per-sandbox
+    operations and `proxy_headers` use.
+
+    This is not a hardened boundary in either direction. An untrusted image can own the
+    sandbox port, so don't treat it as a guarantee that credentials stay out of the sandbox;
+    and the token is derived for whichever job carries the matching nonce label, so don't
+    treat holding it as proof of which job you are talking to.
     """
     return hmac.new(hf_token.encode(), f"hf-sandbox:{nonce}".encode(), hashlib.sha256).hexdigest()
 
@@ -137,23 +212,44 @@ class SandboxProcess:
     """A background process started in a sandbox with [`Sandbox.run`]`(..., background=True)`.
 
     List a sandbox's processes with [`Sandbox.processes`] and stop one with [`SandboxProcess.kill`].
-    Completed processes stay in the listing until the sandbox is deleted, so `running` and
-    `exit_code` tell whether a process is still alive or already exited (as of when it was listed).
+    Recently completed processes stay in the listing (the server keeps a bounded number of
+    them), so `running` and `exit_code` tell whether a process is still alive or already
+    exited (as of when it was listed).
     """
 
+    # Server-assigned handle, and the only identifier that addresses this process.
+    # `pid` is the OS pid: useful for correlating with `ps` inside the sandbox, but
+    # the OS may reuse it, so it is observational only. `None` for a process on a
+    # host running a server that predates opaque ids.
+    id: str | None
     pid: int
     cmd: str | List[str]
     # Back-reference to the sandbox, used by `kill()`. Excluded from repr/eq so a process
-    # stays a plain data object (and two with the same pid compare equal).
+    # stays a plain data object.
     _sandbox: "Sandbox" = field(repr=False, compare=False)
     tag: str | None = None
     started_at_ms: int | None = None
     running: bool = True
     exit_code: int | None = None
 
-    def kill(self) -> None:
-        """Terminate the background process (idempotent server-side)."""
-        self._sandbox._request("DELETE", f"/processes/{self.pid}")
+    def kill(self) -> bool:
+        """Terminate the background process. Idempotent.
+
+        Returns whether this call is what stopped it: `False` means it had already
+        exited or been terminated, which is not an error.
+
+        Note that a descendant which detaches with `setsid()` leaves the signalled
+        process group and outlives this call. Delete the sandbox to be certain
+        everything it started is gone.
+        """
+        if self.id is None:
+            raise SandboxError(
+                "This process cannot be stopped individually: its sandbox runs a sandbox server "
+                "that predates opaque process ids, so the server never issued one. Recycle the "
+                "pool's hosts, or delete the sandbox to stop everything it started."
+            )
+        response = self._sandbox._request("DELETE", f"/processes/{self.id}")
+        return bool(response.json().get("killed", False))
 
 
 @dataclass
@@ -168,12 +264,42 @@ class FileEntry:
     mode: str = ""
 
 
+@contextmanager
+def _open_download_target(local_path: Path) -> Iterator[BinaryIO]:
+    """Yield a writer whose bytes only appear at `local_path` once the download completes.
+
+    Writing straight to the destination has three problems: an interrupted transfer leaves a
+    truncated file at the final name; `open(path, "wb")` follows a symlink sitting there, so
+    the sandbox's output can be redirected into any file this process can write; and a
+    predictable temp name is a race another local process can win.
+
+    So the bytes go to a temp file in the destination directory, created `O_EXCL` (nobody
+    else's file) and `O_NOFOLLOW` (not a symlink) with mode `0600` and an unguessable name,
+    then `os.replace`d into place. `rename` does not follow symlinks either, so a symlinked
+    destination is *replaced* rather than written through, and a failure leaves nothing behind.
+    """
+    tmp = local_path.parent / f".{local_path.name}.{token_hex(8)}.part"
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_BINARY", 0)
+    fd = os.open(tmp, flags, 0o600)
+    try:
+        with os.fdopen(fd, "wb") as f:
+            yield f
+        os.replace(tmp, local_path)
+    except BaseException:
+        tmp.unlink(missing_ok=True)
+        raise
+
+
 class SandboxFiles:
     """Filesystem operations inside a sandbox, available as [`Sandbox.files`].
 
     In shared (pool) mode, paths are rooted at the sandbox's private home — the
     only place its code can write — so a leading `/` is taken relative to that
     home. In dedicated mode, paths are absolute on the container filesystem.
+
+    Paths are normalized lexically, then resolved by the host server relative to an open
+    home-directory descriptor. The file API refuses symlinks on every component, including
+    links whose targets are inside the same home.
     """
 
     # Above this size, transfers are split into ranged requests over parallel
@@ -182,17 +308,37 @@ class SandboxFiles:
     PARALLEL_THRESHOLD = 2 * 1024 * 1024
     PARALLEL_CHUNK_SIZE = 1 * 1024 * 1024
     PARALLEL_MAX_WORKERS = 16
+    # Ceiling on what `read`/`read_text` will materialize in memory. A parallel
+    # read used to collect every chunk into a list and *then* join it, so a 2 GB
+    # file peaked at roughly twice its size before the caller saw a byte. Reading
+    # a file into memory is inherently bounded by the file; this makes the bound
+    # explicit and points at the streaming alternative instead of dying in an
+    # allocator.
+    MAX_READ_BYTES = 512 * 1024 * 1024
 
     def __init__(self, sandbox: "Sandbox") -> None:
         self._sandbox = sandbox
 
     def read(self, path: str) -> bytes:
-        """Read a file from the sandbox and return its content as bytes."""
+        """Read a file from the sandbox and return its content as bytes.
+
+        Raises [`SandboxError`] above `MAX_READ_BYTES`; use [`download`] for
+        anything that large, which streams to disk instead of buffering.
+        """
         size = self.stat(path).size
+        if size > self.MAX_READ_BYTES:
+            raise SandboxError(
+                f"{path} is {size} bytes, over the {self.MAX_READ_BYTES}-byte limit for reading into "
+                "memory. Use `files.download(path, local_path)`, which streams to disk."
+            )
         if size > self.PARALLEL_THRESHOLD:
-            return b"".join(self._read_ranges(path, size))
-        response = self._sandbox._request("GET", "/files/read", params={"path": path})
-        return response.content
+            # Write each range into one preallocated buffer as it arrives, rather
+            # than collecting every chunk and joining: the join doubled peak memory.
+            buffer = bytearray(size)
+            for offset, part in self._read_ranges(path, size):
+                buffer[offset : offset + len(part)] = part
+            return bytes(buffer)
+        return self._read_range(path, 0, size)
 
     def read_text(self, path: str, encoding: str = "utf-8") -> str:
         """Read a file from the sandbox and return its content as a string."""
@@ -213,24 +359,39 @@ class SandboxFiles:
         self._sandbox._request("PUT", "/files/write", params=params, content=data)
 
     def upload(self, local_path: str | Path, path: str, mode: str | None = None) -> None:
-        """Upload a local file to the sandbox."""
-        size = Path(local_path).stat().st_size
-        if size > self.PARALLEL_THRESHOLD:
-            self._write_ranges(path, Path(local_path).read_bytes(), mode)
-            return
+        """Upload a local file to the sandbox.
+
+        The file is opened once and both sized (`fstat`) and read through that same
+        descriptor, so what is uploaded is the file that was measured -- rather than
+        whatever the path resolves to a moment later.
+        """
         with open(local_path, "rb") as f:
-            self.write(path, f, mode=mode)
+            size = os.fstat(f.fileno()).st_size
+            if size > self.PARALLEL_THRESHOLD:
+                # Each worker reads its own range straight off the descriptor, so
+                # a large upload no longer means holding the whole file in memory
+                # (`f.read()` on a 10 GB file was 10 GB of resident bytes).
+                self._write_ranges_from_file(path, f, size, mode)
+            else:
+                self.write(path, f, mode=mode)
 
     def download(self, path: str, local_path: str | Path) -> None:
-        """Download a file from the sandbox."""
+        """Download a file from the sandbox.
+
+        The bytes land in a private temp file next to the destination and are renamed
+        over it at the end, so an interrupted download leaves no truncated file and a
+        symlink sitting at `local_path` is replaced rather than followed.
+        """
         size = self.stat(path).size
-        if size > self.PARALLEL_THRESHOLD:
-            with open(local_path, "wb") as f:
-                for part in self._read_ranges(path, size):
+        with _open_download_target(Path(local_path)) as f:
+            if size > self.PARALLEL_THRESHOLD:
+                # Seek-and-write per range as it completes, so peak memory is a
+                # few chunks rather than the whole file.
+                for offset, part in self._read_ranges(path, size):
+                    f.seek(offset)
                     f.write(part)
-            return
-        with self._sandbox._stream("GET", "/files/read", params={"path": path}) as response:
-            with open(local_path, "wb") as f:
+                return
+            with self._sandbox._stream("GET", "/files/read", params={"path": path}) as response:
                 for chunk in response.iter_bytes(chunk_size=1024 * 1024):
                     f.write(chunk)
 
@@ -248,30 +409,91 @@ class SandboxFiles:
         with ThreadPoolExecutor(workers) as executor:
             return list(executor.map(fn, items))
 
-    def _read_ranges(self, path: str, size: int) -> List[bytes]:
-        def fetch(rng: tuple[int, int]) -> bytes:
-            offset, length = rng
-            response = self._sandbox._request(
-                "GET", "/files/read", params={"path": path, "offset": offset, "length": length}
-            )
-            return response.content
+    def _read_range(self, path: str, offset: int, length: int) -> bytes:
+        data = bytearray()
+        with self._sandbox._stream(
+            "GET", "/files/read", params={"path": path, "offset": offset, "length": length}
+        ) as response:
+            for chunk in response.iter_bytes(chunk_size=1024 * 1024):
+                if len(data) + len(chunk) > length:
+                    raise SandboxError("File response exceeded the requested range.")
+                data.extend(chunk)
+        if len(data) != length:
+            raise SandboxError("File changed size during transfer; retry the download.")
+        return bytes(data)
 
-        return self._parallel(self._ranges(size), fetch)
+    def _read_ranges(self, path: str, size: int) -> Iterator[tuple[int, bytes]]:
+        """Fetch every range in parallel, yielding `(offset, bytes)` as they land.
+
+        Yielding rather than returning a list is the point: the caller places each
+        chunk and drops it, so peak memory is a few chunks instead of the whole
+        file plus a copy.
+        """
+
+        def fetch(rng: tuple[int, int]) -> tuple[int, bytes]:
+            offset, length = rng
+            return offset, self._read_range(path, offset, length)
+
+        ranges = self._ranges(size)
+        workers = min(self.PARALLEL_MAX_WORKERS, len(ranges))
+        with ThreadPoolExecutor(workers) as executor:
+            for start in range(0, len(ranges), workers):
+                yield from executor.map(fetch, ranges[start : start + workers])
 
     def _write_ranges(self, path: str, data: bytes, mode: str | None) -> None:
         def push(rng: tuple[int, int]) -> None:
             offset, length = rng
-            params: dict[str, Any] = {"path": path, "offset": offset}
-            if mode is not None:
-                params["mode"] = mode
-            self._sandbox._request("PUT", "/files/write", params=params, content=data[offset : offset + length])
+            self._put_range(path, offset, data[offset : offset + length], mode, total=len(data))
 
         self._parallel(self._ranges(len(data)), push)
 
+    def _write_ranges_from_file(self, path: str, source: BinaryIO, size: int, mode: str | None) -> None:
+        """Upload `source` in parallel ranges, reading each range on demand.
+
+        Serialize reads from the shared descriptor; network writes still overlap.
+        """
+        read_lock = threading.Lock()
+
+        def push(rng: tuple[int, int]) -> None:
+            offset, length = rng
+            with read_lock:
+                source.seek(offset)
+                chunk = source.read(length)
+            if len(chunk) != length:
+                raise SandboxError("Upload source changed size during transfer.")
+            self._put_range(path, offset, chunk, mode, total=size)
+
+        self._parallel(self._ranges(size), push)
+
+    def _put_range(self, path: str, offset: int, chunk: bytes, mode: str | None, *, total: int) -> None:
+        params: dict[str, Any] = {"path": path, "offset": offset}
+        if mode is not None:
+            params["mode"] = mode
+        # Tell the server the intended final size. A ranged write does not
+        # truncate, so overwriting a larger file with a smaller one used to leave
+        # the old bytes past the new end.
+        if offset + len(chunk) >= total:
+            params["truncate_to"] = total
+        self._sandbox._request("PUT", "/files/write", params=params, content=chunk)
+
     def list(self, path: str) -> List[FileEntry]:
-        """List a directory in the sandbox."""
-        response = self._sandbox._request("GET", "/files/list", params={"path": path})
-        return [FileEntry(**entry) for entry in response.json()["entries"]]
+        """List a directory in the sandbox.
+
+        The server paginates, so this follows the cursor and returns everything --
+        a caller sees one list regardless of how the directory is chunked on the
+        wire.
+        """
+        entries: List[FileEntry] = []
+        after: str | None = None
+        while True:
+            params: dict[str, Any] = {"path": path}
+            if after is not None:
+                params["after"] = after
+            payload = self._sandbox._request("GET", "/files/list", params=params).json()
+            entries.extend(FileEntry(**entry) for entry in payload["entries"])
+            after = payload.get("next")
+            if not after:
+                return entries
 
     def stat(self, path: str) -> FileEntry:
         """Get metadata of a file or directory in the sandbox."""
@@ -332,6 +554,55 @@ def _raise_for_status(response: httpx.Response) -> None:
     raise SandboxError(f"Sandbox API error ({response.status_code}): {message}", status_code=response.status_code)
 
 
+def _check_server_protocol(response: httpx.Response, job_id: str) -> None:
+    """Refuse a server whose wire contract this client cannot drive.
+
+    Permissive in one direction only. A *newer* server is accepted: it declares its own
+    backwards compatibility by keeping the protocol integer it still supports. An *older* one
+    is refused, because the mismatches are things like the per-sandbox capability token, which
+    surfaces as a 403 on an unrelated route several calls later instead of here.
+
+    `version` is no use for this: it moves for a doc fix as readily as for a protocol break.
+    """
+    try:
+        protocol = response.json().get("protocol")
+    except Exception:
+        protocol = None
+    if isinstance(protocol, int) and not isinstance(protocol, bool) and protocol >= SANDBOX_SERVER_PROTOCOL:
+        return
+    # No field at all means a server published before protocols were declared, i.e. 1.
+    reported = protocol if protocol is not None else "1 (declares no protocol)"
+    raise SandboxError(
+        f"Sandbox job {job_id} runs sbx-server protocol {reported}, but this version of "
+        f"huggingface_hub needs protocol {SANDBOX_SERVER_PROTOCOL} or newer. A pool host keeps the "
+        "server binary it downloaded at boot for up to 24h, so recycle this pool's hosts (kill them, "
+        "or let them idle-time-out) to pick up the current server."
+    )
+
+
+class _SandboxAuth(httpx.Auth):
+    """Attach the *current* HF bearer to every request.
+
+    The bearer used to be captured once when the transport was built. A sandbox
+    host lives up to 24h, so an OIDC/OAuth credential can expire or rotate inside
+    that window, after which every request to the Jobs proxy failed even though
+    the handle was still perfectly good. Reading it per request fixes that.
+
+    The `X-Sandbox-Token` is deliberately *not* re-derived: the server holds the
+    value derived from the bearer that created the job, so re-deriving from a
+    rotated bearer would produce a token the server has never seen. The two
+    credentials answer different gates -- the proxy wants a live bearer, the
+    server wants the original capability -- and only the first needs refreshing.
+    """
+
+    def __init__(self, api: HfApi) -> None:
+        self._api = api
+
+    def auth_flow(self, request):
+        request.headers["Authorization"] = f"Bearer {_effective_token(self._api)}"
+        yield request
+
+
 class _SandboxServer:
     """HTTP transport to one `sbx-server` instance — a dedicated job or a shared host.
 
@@ -361,7 +632,6 @@ class _SandboxServer:
         # to (and rebuilt from) the pool cache without re-reading the job labels.
         self.nonce = nonce
         self._api = api
-        self._auth_token = _effective_token(api)
         self._sandbox_token = sandbox_token
         # Packing bookkeeping (shared mode only).
         self.capacity = capacity
@@ -369,15 +639,23 @@ class _SandboxServer:
         # False only for hosts rebuilt from the (best-effort) pool cache: their job may
         # be gone, so the first failed request drops them instead of failing the create.
         self.verified = True
+        # Whether *this* process started this host job, and may therefore cancel
+        # it. Ownership belongs to the host, not to the pool handle: a handle used
+        # to cancel hosts it had merely discovered via labels, which may have been
+        # started by another process -- or another member of the namespace -- and
+        # may be serving their sandboxes.
+        self.owned = False
         # httpx.Client is thread-safe, so a single client serves both sequential requests
         # and the concurrent workers used for parallel file transfers / many sandboxes.
         self._client = httpx.Client(
-            headers={
-                "Authorization": f"Bearer {self._auth_token}",
-                "X-Sandbox-Token": sandbox_token,
-            },
+            headers={"X-Sandbox-Token": sandbox_token},
+            auth=_SandboxAuth(api),
             limits=httpx.Limits(max_connections=max_connections, max_keepalive_connections=max_connections),
-            follow_redirects=True,
+            # Every request on this client carries the HF bearer and a sandbox token, and there
+            # is no redirect in this protocol -- the Jobs proxy serves the in-job server
+            # directly. Following one would hand both credentials to a destination that the
+            # response, rather than the client, chose.
+            follow_redirects=False,
         )
 
     @classmethod
@@ -408,22 +686,52 @@ class _SandboxServer:
     def image(self) -> str | None:
         return self._image
 
-    def request(self, method: str, path: str, **kwargs) -> httpx.Response:
+    def _with_token(self, kwargs: dict, sandbox_token: str | None) -> dict:
+        """Override `X-Sandbox-Token` for one request.
+
+        The client-level header carries the *host* credential, which manages the
+        pool. A pooled sandbox's own operations should present that sandbox's
+        capability token instead, so nothing wider than the sandbox is offered on
+        a per-sandbox call.
+        """
+        if sandbox_token is not None:
+            kwargs["headers"] = {**kwargs.get("headers", {}), "X-Sandbox-Token": sandbox_token}
+        return kwargs
+
+    def request(self, method: str, path: str, *, sandbox_token: str | None = None, **kwargs) -> httpx.Response:
         """Request to the in-job server. Raises SandboxError on API errors."""
         timeout = kwargs.pop("timeout", httpx.Timeout(60.0, connect=10.0))
+        kwargs = self._with_token(kwargs, sandbox_token)
         response = self._client.request(method, self.base_url + path, timeout=timeout, **kwargs)
         if response.status_code >= 400:
             _raise_for_status(response)
         return response
 
     @contextmanager
-    def stream(self, method: str, path: str, **kwargs) -> Iterator[httpx.Response]:
+    def stream(
+        self, method: str, path: str, *, sandbox_token: str | None = None, **kwargs
+    ) -> Iterator[httpx.Response]:
         """Streaming request to the in-job server. Raises SandboxError on API errors."""
         timeout = kwargs.pop("timeout", httpx.Timeout(70.0, connect=10.0))  # server pings every 15s
+        kwargs = self._with_token(kwargs, sandbox_token)
         with self._client.stream(method, self.base_url + path, timeout=timeout, **kwargs) as response:
             if response.status_code >= 400:
                 _raise_for_status(response)
             yield response
+
+    def sandbox_token(self, local_id: str) -> str | None:
+        """Recover a pooled sandbox's capability token, using the host credential.
+
+        Keeps reconnection stateless: `Sandbox.connect` can reattach to a sandbox
+        it never created. Returns `None` when the host runs a server that predates
+        per-sandbox tokens, in which case the caller falls back to the host token.
+        """
+        try:
+            return self.request("GET", f"/v1/sandboxes/{local_id}/token").json()["token"]
+        except SandboxError as e:
+            if e.status_code == 404:
+                return None  # older sbx-server: no such route
+            raise
 
     def close(self) -> None:
         self._client.close()
@@ -439,6 +747,7 @@ class _SandboxServer:
             try:
                 response = self._client.get(self.base_url + "/health", timeout=httpx.Timeout(5.0))
                 if response.status_code == 200:
+                    _check_server_protocol(response, self.job_id)
                     return
             except httpx.RequestError:
                 pass
@@ -496,9 +805,17 @@ class Sandbox:
         local_id: str | None,
         owns_sandbox: bool,
         owns_server: bool,
+        sandbox_token: str | None = None,
     ) -> None:
         self.id = id
         self._server = server
+        # Capability token for this sandbox alone (pool mode). Sent instead of the
+        # host credential on every per-sandbox call, so a pooled sandbox's
+        # operations -- and the headers handed to a port-proxy client -- confer no
+        # authority over its siblings or over the pool. None in dedicated mode
+        # (where the job is the sandbox, so the job token is already scoped to it)
+        # and on hosts running a server that predates per-sandbox tokens.
+        self._sandbox_token = sandbox_token
         # None in dedicated mode; the host-local sandbox id in shared mode.
         self._local_id = local_id
         # Path prefix for all in-server operations: dedicated routes live under
@@ -549,7 +866,11 @@ class Sandbox:
                 Hardware flavor, e.g. `"cpu-basic"`, `"a10g-small"`. See `hf jobs hardware`.
             idle_timeout (`int` or `float` or `str`, *optional*, defaults to `600`):
                 Auto-shutdown after this much inactivity (no API calls, no running
-                processes). Defaults to 10 minutes; pass `None` to disable.
+                processes). Defaults to 10 minutes; pass `None` to disable. Note that a
+                *foreground* command is not currently counted as activity, so a single
+                `run()` that takes longer than this without other API traffic can have its
+                sandbox shut down under it — raise the timeout (or pass `None`) for long
+                single commands.
             env (`dict[str, Any]`, *optional*):
                 Environment variables available in the sandbox.
             secrets (`dict[str, Any]`, *optional*):
@@ -642,10 +963,20 @@ class Sandbox:
                 existing = {item["id"] for item in server.request("GET", "/v1/sandboxes").json()}
                 if local_id not in existing:
                     raise SandboxError(f"Sandbox {sandbox_id} no longer exists on host {host_job_id}.")
+                # Recover the sandbox's capability token with the host credential, so
+                # this handle operates with the narrow one from here on.
+                sandbox_token = server.sandbox_token(local_id)
             except Exception:
                 server.close()  # don't leak the HTTP client when the host is gone/unreachable
                 raise
-            return cls(id=sandbox_id, server=server, local_id=local_id, owns_sandbox=False, owns_server=True)
+            return cls(
+                id=sandbox_id,
+                server=server,
+                local_id=local_id,
+                owns_sandbox=False,
+                owns_server=True,
+                sandbox_token=sandbox_token,
+            )
 
         job = api.inspect_job(job_id=sandbox_id, namespace=namespace)
         labels = job.labels or {}
@@ -685,7 +1016,7 @@ class Sandbox:
             if self._local_id is None:
                 self._server.cancel_job()
             else:
-                self._server.request("DELETE", f"/v1/sandboxes/{self._local_id}")
+                self._server.request("DELETE", f"/v1/sandboxes/{self._local_id}", sandbox_token=self._sandbox_token)
         except Exception as e:
             # Don't mark as killed: a later kill() call should retry so nothing leaks.
             logger.warning(f"Failed to kill sandbox {self.id}: {e}")
@@ -728,6 +1059,7 @@ class Sandbox:
         on_stdout: Callable[[str], None] | None = ...,
         on_stderr: Callable[[str], None] | None = ...,
         check: bool = ...,
+        capture_output: bool = ...,
         background: Literal[False] = ...,
     ) -> SandboxCommandResult: ...
 
@@ -754,6 +1086,7 @@ class Sandbox:
         on_stdout: Callable[[str], None] | None = None,
         on_stderr: Callable[[str], None] | None = None,
         check: bool = True,
+        capture_output: bool = True,
         background: bool = False,
     ) -> SandboxCommandResult | SandboxProcess:
         """Run a command in the sandbox and wait for it, streaming output live.
@@ -787,6 +1120,11 @@ class Sandbox:
                 Callback invoked with stderr chunks as they arrive.
             check (`bool`, *optional*, defaults to `True`):
                 If True, raise [`SandboxCommandError`] on non-zero exit.
+            capture_output (`bool`, *optional*, defaults to `True`):
+                If True, accumulate stdout/stderr into the returned result. Pass `False`
+                when you only want `on_stdout`/`on_stderr`: output is then handed to the
+                callbacks and dropped, so a command producing gigabytes does not have to fit
+                in memory. `result.stdout`/`result.stderr` are empty in that case.
             background (`bool`, *optional*, defaults to `False`):
                 If True, start the command detached and return a [`SandboxProcess`] right
                 away instead of waiting for it and returning a [`SandboxCommandResult`].
@@ -801,23 +1139,49 @@ class Sandbox:
             payload["cwd"] = cwd
         if background:
             data = self._request("POST", "/processes", json=payload).json()
-            return SandboxProcess(pid=data["pid"], cmd=cmd, tag=data.get("tag"), _sandbox=self)
+            return SandboxProcess(
+                # Absent on a server that predates opaque ids; `kill()` then says so
+                # rather than sending a pid the server will reject.
+                id=data.get("id"),
+                pid=data["pid"],
+                cmd=cmd,
+                tag=data.get("tag"),
+                _sandbox=self,
+            )
         if timeout is not None:
             payload["timeout"] = timeout
         if stdin is not None:
             payload["stdin"] = stdin
 
+        # Output was accumulated unconditionally, even when a callback was
+        # consuming it -- so a streaming consumer still paid full memory for the
+        # command's entire output. `capture_output=False` opts out.
         stdout_parts: list[str] = []
         stderr_parts: list[str] = []
+        captured = 0
         result: SandboxCommandResult | None = None
+
+        def keep(parts: list[str], data: str) -> None:
+            nonlocal captured
+            if not capture_output:
+                return
+            if captured + len(data) > MAX_CAPTURED_OUTPUT_CHARS:
+                raise SandboxError(
+                    f"command produced more than {MAX_CAPTURED_OUTPUT_CHARS} characters of output. "
+                    "Pass `capture_output=False` with `on_stdout`/`on_stderr` to stream it instead, "
+                    "or redirect it to a file in the sandbox and download that."
+                )
+            captured += len(data)
+            parts.append(data)
+
         with self._stream("POST", "/exec", json=payload) as response:
             for event in _iter_events(response):
                 if event["event"] == "stdout":
-                    stdout_parts.append(event["data"])
+                    keep(stdout_parts, event["data"])
                     if on_stdout is not None:
                         on_stdout(event["data"])
                 elif event["event"] == "stderr":
-                    stderr_parts.append(event["data"])
+                    keep(stderr_parts, event["data"])
                     if on_stderr is not None:
                         on_stderr(event["data"])
                 elif event["event"] == "exit":
@@ -829,6 +1193,8 @@ class Sandbox:
                         timed_out=event.get("timed_out", False),
                         duration_ms=event.get("duration_ms", 0),
                     )
+                    # Exit is terminal: a truncated HTTP tail must not mask the command result.
+                    break
         if result is None:
             raise SandboxError("connection lost while running command")
         if check and (result.exit_code != 0 or result.timed_out):
@@ -839,12 +1205,14 @@ class Sandbox:
         """List the background processes of this sandbox.
 
         Returns the processes started with [`Sandbox.run`]`(..., background=True)`; stop one
-        with [`SandboxProcess.kill`]. Completed processes stay listed (with `running=False` and
-        their `exit_code`) until the sandbox is deleted.
+        with [`SandboxProcess.kill`]. Recently completed processes stay listed (with
+        `running=False` and their `exit_code`); the server keeps a bounded number of them, so a
+        sandbox that has run thousands of short commands will not list them all.
         """
         data = self._request("GET", "/processes").json()
         return [
             SandboxProcess(
+                id=p.get("id"),
                 pid=p["pid"],
                 cmd=p["cmd"],
                 tag=p.get("tag"),
@@ -913,10 +1281,19 @@ class Sandbox:
 
     @property
     def proxy_headers(self) -> dict[str, str]:
-        """Auth headers to send with [`proxy_url_for`] requests (HF token + sandbox token)."""
+        """Auth headers to send with [`proxy_url_for`] requests (HF token + sandbox token).
+
+        Read these at the moment you use them: the HF token is resolved on access,
+        so a long-lived handle hands out a current bearer rather than one captured
+        when the sandbox was created.
+
+        For a pooled sandbox this is the sandbox's own capability token, not the
+        pool host's: these headers typically end up in a browser or WebSocket
+        client, so they should confer access to this sandbox and nothing else.
+        """
         return {
-            "Authorization": f"Bearer {self._server._auth_token}",
-            "X-Sandbox-Token": self._server._sandbox_token,
+            "Authorization": f"Bearer {_effective_token(self._server._api)}",
+            "X-Sandbox-Token": self._sandbox_token or self._server._sandbox_token,
         }
 
     def __repr__(self) -> str:
@@ -925,20 +1302,27 @@ class Sandbox:
     # ------------------------------------------------------------------ internals
 
     def _request(self, method: str, resource: str, **kwargs) -> httpx.Response:
-        return self._server.request(method, self._base_path + resource, **kwargs)
+        return self._server.request(method, self._base_path + resource, sandbox_token=self._sandbox_token, **kwargs)
 
     @contextmanager
     def _stream(self, method: str, resource: str, **kwargs) -> Iterator[httpx.Response]:
-        with self._server.stream(method, self._base_path + resource, **kwargs) as response:
+        with self._server.stream(
+            method, self._base_path + resource, sandbox_token=self._sandbox_token, **kwargs
+        ) as response:
             yield response
 
 
 class SandboxPool:
     """A fleet of shared "host" jobs, each packing many landlock-isolated sandboxes.
 
-    > [!NOTE]
-    > The Sandbox API is experimental. Its API and behavior may change without notice. Shared sandboxes are intended
-    > for workloads within the same trust boundary; use [`Sandbox.create`] for workloads that do not trust each other.
+    > [!WARNING]
+    > The Sandbox API is experimental. Its API and behavior may change without notice.
+    >
+    > **Pooled sandboxes are for workloads inside one trust boundary.** A pooled sandbox is a uid plus a Landlock
+    > ruleset inside a shared VM — not a VM of its own — and every sandbox on a host shares that host's auth token
+    > and its privileged control plane. Use a pool to fan out *your own* code cheaply. For mutually distrusting
+    > workloads, use [`Sandbox.create`], which gives each one its own VM. The specific gaps are listed under
+    > "Known limitations" in the sandbox conceptual guide.
 
     One host is one billed HF Job (a VM); it runs the sandbox server and multiplexes
     up to `sandboxes_per_host` lightweight sandboxes, isolated from each other by
@@ -985,6 +1369,7 @@ class SandboxPool:
         idle_timeout: int | float | str | None = DEFAULT_IDLE_TIMEOUT,
         namespace: str | None = None,
         start_timeout: float = 120.0,
+        adopt_hosts: str = ADOPT_OWN,
         token: str | None = None,
         _connect_mode: bool = False,
     ) -> None:
@@ -1009,7 +1394,10 @@ class SandboxPool:
                 Defaults to 1 (a single host).
             max_hosts (`int`, *optional*):
                 Optional cap on the number of host jobs (a cost ceiling). When
-                reached and all hosts are full, `create()` raises.
+                reached and all hosts are full, `create()` raises. The cap is enforced
+                per-process against the hosts this handle knows about, so two processes
+                using the same pool concurrently can exceed it. (Per-host density,
+                `sandboxes_per_host`, *is* enforced by the host itself.)
             name (`str`, *optional*):
                 Pool name, used as the `hf-sandbox-pool` job label so the pool is
                 discoverable (e.g. `hf sandbox pool ls`, `connect()`). `create()` reuses
@@ -1024,9 +1412,26 @@ class SandboxPool:
                 User or org namespace to run hosts under.
             start_timeout (`float`, *optional*, defaults to `120.0`):
                 Max seconds to wait for a host to become ready.
+            adopt_hosts (`str`, *optional*, defaults to `"own"`):
+                Which already-running hosts `create()` may pack onto. Hosts are found by
+                filtering Jobs on labels, and labels are set by whoever creates the Job — so a
+                label match is a claim, not proof. This decides how much more than the claim is
+                required:
+
+                - `"own"` (default): only Jobs this principal started, per the Jobs API's
+                  `initiator`. Safe in a shared namespace.
+                - `"namespace"`: any Job in the namespace carrying the pool's labels, provided
+                  its image, flavor, command and exposed URL all match. Restores cross-user
+                  host sharing; only use it in a namespace whose members you trust, since any
+                  of them can publish a Job your client will then send a token to.
+                - `"never"`: no adoption at all — this handle only uses hosts it booted itself.
             token (`str`, *optional*):
                 HF token override.
         """
+        if adopt_hosts not in (ADOPT_OWN, ADOPT_NAMESPACE, ADOPT_NEVER):
+            raise ValueError(
+                f"adopt_hosts must be one of {ADOPT_OWN!r}, {ADOPT_NAMESPACE!r}, {ADOPT_NEVER!r}; got {adopt_hosts!r}."
+            )
         if sandboxes_per_host < 1:
             raise ValueError("sandboxes_per_host must be >= 1.")
         if warm_up < 1:
@@ -1040,7 +1445,15 @@ class SandboxPool:
         self.name = name if name is not None else f"pool-{token_hex(6)}"
         self._idle_timeout = idle_timeout
         self._namespace = namespace
+        # Security context the local cache is keyed by: entries written by another endpoint,
+        # credential or namespace are a miss, not a hit (see `CacheContext`).
+        self._cache_context = _cache_context(self._api, namespace)
         self._start_timeout = start_timeout
+        self._adopt_hosts = adopt_hosts
+        # Resolved lazily and only when `adopt_hosts="own"` needs it: whoami() is
+        # heavily rate-limited, and a pool that never discovers never needs it.
+        self._principal: str | None = None
+        self._principal_resolved = False
         self._hosts: List[_SandboxServer] = []
         self._lock = threading.Lock()
         # Held across the whole one-time warm-up so concurrent first create() calls block until
@@ -1061,7 +1474,14 @@ class SandboxPool:
         # Whether close()/`__exit__` cancels the host jobs. True for a pool we created; False
         # for a connect()'d handle, which only releases its HTTP clients on exit — the shared
         # hosts (possibly serving other clients) are left running, like Sandbox.connect().
+        # Kept as the default for hosts this handle boots (a connect()'d handle
+        # boots nothing during construction), but teardown is decided per host.
         self._owns_hosts = not _connect_mode
+        # In-flight create/boot operations. `close()` waits for these to drain, so
+        # a host booted by a create() that was already past its closed check
+        # cannot land in a list nobody will ever tear down.
+        self._in_flight = 0
+        self._drained = threading.Condition(self._lock)
         # Job ids of cached hosts we found dead this session; pruned from the cache on save.
         self._dead_host_ids: set[str] = set()
 
@@ -1074,7 +1494,14 @@ class SandboxPool:
     # ------------------------------------------------------------------ public API
 
     @classmethod
-    def connect(cls, pool_id: str, *, namespace: str | None = None, token: str | None = None) -> "SandboxPool":
+    def connect(
+        cls,
+        pool_id: str,
+        *,
+        namespace: str | None = None,
+        adopt_hosts: str = ADOPT_OWN,
+        token: str | None = None,
+    ) -> "SandboxPool":
         """Reattach to a running pool by id, from any machine — no local state needed.
 
         Finds a running host labelled with `pool_id` and rebuilds the pool's config
@@ -1090,13 +1517,20 @@ class SandboxPool:
                 The id returned when the pool was first created.
             namespace (`str`, *optional*):
                 Namespace to search for the pool's hosts (defaults to yours).
+            adopt_hosts (`str`, *optional*, defaults to `"own"`):
+                Which hosts may be attached to. See [`SandboxPool`]. Reattaching to a pool whose
+                hosts another member of the namespace started needs `"namespace"`.
             token (`str`, *optional*):
                 HF token override.
         """
+        api = HfApi(token=token)
         # Fast path: rebuild the pool from the local best-effort cache, with no HTTP at all.
-        # The cached hosts are seeded (and verified) lazily on the next create(); if they are
+        # Only an entry written by this endpoint, credential and namespace is a hit (see
+        # `CacheContext`), so `namespace=` is honoured rather than being overridden by whatever
+        # the file says -- a `connect(namespace="org-B")` can no longer be served org-A's hosts.
+        # The cached hosts are seeded (and validated) lazily on the next create(); if they are
         # all stale, create() falls back to label discovery exactly like a cold connect would.
-        cache = read_pool_cache(pool_id)
+        cache = read_pool_cache(pool_id, _cache_context(api, namespace))
         if cache is not None:
             return cls(
                 image=cache.image,
@@ -1105,14 +1539,14 @@ class SandboxPool:
                 max_hosts=cache.max_hosts,
                 name=pool_id,
                 idle_timeout=cache.idle_timeout,
-                namespace=cache.namespace if namespace is None else namespace,
+                namespace=namespace,
+                adopt_hosts=adopt_hosts,
                 token=token,
                 _connect_mode=True,  # attach to existing hosts; never boot during construction
             )
 
         # Cold path: find a running host via labels and rebuild the config from its job spec.
-        api = HfApi(token=token)
-        job = _find_pool_host_job(api, pool_id, namespace=namespace)
+        job = _find_pool_host_job(api, pool_id, namespace=namespace, policy=adopt_hosts)
         env = _host_env(api, job, namespace=namespace)
         idle_raw = env.get("SBX_IDLE_TIMEOUT")
         max_hosts_raw = env.get("SBX_MAX_HOSTS")
@@ -1124,6 +1558,7 @@ class SandboxPool:
             name=pool_id,
             idle_timeout=int(idle_raw) if idle_raw is not None else None,
             namespace=namespace,
+            adopt_hosts=adopt_hosts,
             token=token,
             _connect_mode=True,  # attach to existing hosts; never boot during construction
         )
@@ -1147,7 +1582,7 @@ class SandboxPool:
         with self._lock:
             shortfall = num_hosts - len(self._hosts)
         if shortfall > 0:
-            booted = self._provision_hosts(shortfall)
+            booted = self._provision_hosts(shortfall, allow_partial=True)
             with self._lock:
                 self._hosts.extend(booted)
         with self._warmup_lock:
@@ -1184,8 +1619,25 @@ class SandboxPool:
                 delivered to the host server at creation (never stored in the host job), so
                 it doesn't appear in any job's metadata.
         """
-        if self._closed:
-            raise SandboxError("This SandboxPool is closed.")
+        with self._lock:
+            if self._closed:
+                raise SandboxError("This SandboxPool is closed.")
+            # Registered under the lock together with the closed check, so
+            # `close()` cannot snapshot the host list between the two.
+            self._in_flight += 1
+        try:
+            return self._create_locked(env, idle_timeout, forward_hf_token)
+        finally:
+            with self._lock:
+                self._in_flight -= 1
+                self._drained.notify_all()
+
+    def _create_locked(
+        self,
+        env: dict[str, Any] | None,
+        idle_timeout: int | float | str | None,
+        forward_hf_token: bool,
+    ) -> "Sandbox":
         sandbox_env = dict(env or {})
         if forward_hf_token:
             sandbox_env["HF_TOKEN"] = _effective_token(self._api)
@@ -1213,7 +1665,7 @@ class SandboxPool:
                     if self._require_live_host and discovered and not self._hosts:
                         # connect()'d to a pool whose hosts are all gone (stale cache + nothing
                         # found via labels): don't resurrect it under the same id, just report it.
-                        delete_pool_cache(self.name)
+                        delete_pool_cache(self.name, self._cache_context)
                         raise SandboxError(
                             f"No running host found for pool '{self.name}'. The pool has stopped "
                             "(all its hosts were killed or idle-timed-out); create a new one."
@@ -1284,27 +1736,73 @@ class SandboxPool:
         shared hosts may be serving other clients, so — like [`Sandbox.connect`] — leaving a
         `with` block must not tear them down. Terminate a connected pool's hosts explicitly
         with `hf sandbox pool delete <id>`.
+
+        Only hosts *this handle started* are cancelled. A host discovered via labels may
+        be serving another process' sandboxes, so it is released rather than terminated.
+
+        Raises [`SandboxError`] if a host job could not be cancelled, naming the jobs that
+        are still running — they keep billing, and their cache entries are kept so they stay
+        discoverable. When `close()` is reached through `__exit__` with an exception already
+        in flight, the failure is logged instead, so it cannot mask the original error.
         """
         with self._lock:
+            if self._closed:
+                return
+            self._closed = True
+            # Wait for in-flight creates so a host booted by one that was already
+            # past its closed check lands in `self._hosts` before the snapshot,
+            # rather than being orphaned. Bounded, because a wedged create must
+            # not hang process exit.
+            drain_timeout = self._start_timeout + _CLOSE_DRAIN_TIMEOUT
+            if self._in_flight and not self._drained.wait_for(lambda: self._in_flight == 0, timeout=drain_timeout):
+                logger.warning(
+                    f"Pool '{self.name}': {self._in_flight} operation(s) still in flight after "
+                    f"{drain_timeout}s; any host they boot will keep running."
+                )
             hosts = self._hosts
             self._hosts = []
-            self._closed = True
+
+        survivors: List[_SandboxServer] = []
+        failures: List[str] = []
         for host in hosts:
             try:
-                if self._owns_hosts:
+                # Only what this handle started. A discovered host may be serving
+                # someone else's sandboxes, and cancelling it kills them.
+                if host.owned:
                     host.cancel_job()
             except Exception as e:
+                # Keep it in the cache: that record is the user's only handle on a
+                # job that is still running and still billing.
+                survivors.append(host)
+                failures.append(f"{host.job_id} ({e})")
                 logger.warning(f"Failed to cancel sandbox host {host.job_id}: {e}")
             finally:
                 host.close()
-        if self._owns_hosts:
-            delete_pool_cache(self.name)  # the pool's hosts are gone; don't leave a stale entry
+
+        if survivors:
+            # Rewrite rather than delete, so the survivors stay discoverable.
+            self._save_cache(hosts=survivors)
+        elif self._owns_hosts:
+            # The pool's hosts are gone; don't leave a stale entry.
+            delete_pool_cache(self.name, self._cache_context)
+        if failures:
+            raise SandboxError(
+                f"Pool '{self.name}' could not terminate host job(s): {'; '.join(failures)}. "
+                "They are still running and billing; cancel them with `hf jobs cancel <id>`."
+            )
 
     def __enter__(self) -> "SandboxPool":
         return self
 
     def __exit__(self, *exc_info) -> None:
-        self.close()
+        try:
+            self.close()
+        except SandboxError:
+            # Never let a teardown failure mask the exception that is already
+            # propagating out of the `with` block.
+            if exc_info[0] is None:
+                raise
+            logger.warning(f"Pool '{self.name}' teardown failed while handling another error.", exc_info=True)
 
     # ------------------------------------------------------------------ internals
 
@@ -1340,7 +1838,7 @@ class SandboxPool:
                     with self._lock:
                         shortfall = target - len(self._hosts)
                     if shortfall > 0:
-                        booted = self._provision_hosts(shortfall)
+                        booted = self._provision_hosts(shortfall, allow_partial=True)
                         with self._lock:
                             self._hosts.extend(booted)
             self._warmed_up = True
@@ -1348,6 +1846,48 @@ class SandboxPool:
         # bare `hf sandbox pool create`) hits the cache fast path instead of re-discovering.
         if self._hosts:
             self._save_cache()
+
+    def _principal_id(self) -> str | None:
+        """Id of the principal this pool authenticates as, for the `"own"` policy."""
+        if not self._principal_resolved:
+            try:
+                self._principal = self._api.whoami(cache=True).get("id")
+                self._principal_resolved = self._principal is not None
+            except Exception as e:
+                # Leave it None: `_adoptable` then refuses rather than guessing.
+                logger.warning(f"Could not resolve the current user to validate pool hosts: {e}")
+        return self._principal
+
+    def _adoptable(self, job: JobInfo) -> bool:
+        """Whether `job` may be adopted as one of this pool's hosts."""
+        reason = _host_rejection(
+            job,
+            policy=self._adopt_hosts,
+            principal_id=self._principal_id() if self._adopt_hosts == ADOPT_OWN else None,
+            namespace=self._namespace,
+            image=self.image,
+            flavor=self.flavor,
+        )
+        if reason is not None:
+            logger.debug(f"Not adopting job {job.id} as a host for pool '{self.name}': {reason}.")
+            return False
+        return True
+
+    def _adoptable_pending(self, job: JobInfo) -> bool:
+        """Like `_adoptable`, minus the checks a not-yet-running job cannot pass."""
+        reason = _host_rejection(
+            job,
+            policy=self._adopt_hosts,
+            principal_id=self._principal_id() if self._adopt_hosts == ADOPT_OWN else None,
+            namespace=self._namespace,
+            image=self.image,
+            flavor=self.flavor,
+            check_url=False,
+        )
+        if reason is not None:
+            logger.debug(f"Not waiting for job {job.id} as a host for pool '{self.name}': {reason}.")
+            return False
+        return True
 
     def _reserve_one(self) -> "_SandboxServer | None":
         """Reserve one slot on the first host with free capacity (under lock), else None."""
@@ -1403,7 +1943,10 @@ class SandboxPool:
                     labels={MODE_LABEL: MODE_POOL, POOL_LABEL: self.name},
                     namespace=self._namespace,
                 )
-                if job.id not in known
+                # A SCHEDULING job has no exposed URL yet, so only the ownership
+                # and spec checks apply here; discovery re-validates it in full
+                # once it is RUNNING.
+                if job.id not in known and self._adoptable_pending(job)
             ),
             None,
         )
@@ -1425,11 +1968,15 @@ class SandboxPool:
         return False
 
     def _discover_hosts(self) -> None:
-        """Attach to running host jobs that match this pool (image/flavor/name).
+        """Attach to running host jobs carrying this pool's labels.
 
         Lets `create()` reuse a host warmed by an earlier call or another process
         instead of booting a new one. Hosts are found via job labels; each adopted
         host's free capacity is read from the server, so packing stays accurate.
+
+        Labels select candidates; creator, job specification and proxy URL admission
+        checks decide which candidates can receive credentials. Adopted hosts are released
+        by close(), not cancelled, because another handle may still be using them.
         """
         known = {host.job_id for host in self._hosts}
         matches = [
@@ -1439,7 +1986,7 @@ class SandboxPool:
                 labels={MODE_LABEL: MODE_POOL, POOL_LABEL: self.name},
                 namespace=self._namespace,
             )
-            if job.id not in known
+            if job.id not in known and self._adoptable(job)
         ]
 
         for job in matches:
@@ -1464,16 +2011,49 @@ class SandboxPool:
                 else:
                     self._hosts.append(server)
 
-    def _provision_hosts(self, num_new: int) -> List[_SandboxServer]:
-        """Boot `num_new` host jobs in parallel, respecting `max_hosts`."""
+    def _live_host_count(self) -> int:
+        """How many hosts are running for this pool, not just the ones we track.
+
+        `max_hosts` is documented as a cost ceiling, but it was compared against
+        `len(self._hosts)` -- an in-process count. Two processes using the same
+        pool each counted only their own hosts, so the number of billed host jobs
+        could quietly exceed the cap by a factor of however many processes were
+        involved.
+
+        Counting via labels narrows that considerably. It does not close it: two
+        processes can still list simultaneously and both decide there is room. A
+        hard cap has to be enforced where the jobs are created, not by the
+        clients racing to count them.
+        """
         with self._lock:
-            current = len(self._hosts)
-        if self.max_hosts is not None and current + num_new > self.max_hosts:
-            allowed = self.max_hosts - current
-            raise SandboxError(
-                f"Pool needs {num_new} more host(s) but max_hosts={self.max_hosts} "
-                f"allows only {max(0, allowed)} more. Raise max_hosts or kill some sandboxes."
-            )
+            tracked = {host.job_id for host in self._hosts}
+        try:
+            for job in self._api.list_jobs(
+                status="RUNNING",
+                labels={MODE_LABEL: MODE_POOL, POOL_LABEL: self.name},
+                namespace=self._namespace,
+            ):
+                tracked.add(job.id)
+        except Exception as e:
+            # Fall back to the in-process count rather than refusing to boot.
+            logger.debug(f"Could not count live hosts for pool '{self.name}': {e}")
+        return len(tracked)
+
+    def _provision_hosts(self, num_new: int, *, allow_partial: bool = False) -> List[_SandboxServer]:
+        """Boot `num_new` host jobs in parallel, respecting `max_hosts`."""
+        if self.max_hosts is not None:
+            current = self._live_host_count()
+            if allow_partial:
+                num_new = min(num_new, max(0, self.max_hosts - current))
+            if current + num_new > self.max_hosts:
+                allowed = self.max_hosts - current
+                raise SandboxError(
+                    f"Pool needs {num_new} more host(s) but max_hosts={self.max_hosts} "
+                    f"allows only {max(0, allowed)} more ({current} already running for this pool). "
+                    "Raise max_hosts or kill some sandboxes."
+                )
+        if num_new == 0:
+            return []
         # Boot in parallel, but collect every result before re-raising: if one boot fails,
         # the others may have already started billable host jobs, so cancel those instead of
         # leaking them (executor.map would surface the first error and drop the rest).
@@ -1559,6 +2139,8 @@ class SandboxPool:
             if server is not None:
                 server.close()
             raise
+        # We started this job, so this handle is the one that should end it.
+        server.owned = self._owns_hosts
         return server
 
     def _create_one(self, host: "_SandboxServer", env: dict[str, Any], idle_secs: int | None) -> "Sandbox | None":
@@ -1595,6 +2177,9 @@ class SandboxPool:
             local_id=item["id"],
             owns_sandbox=True,
             owns_server=False,
+            # Absent on hosts running a server that predates per-sandbox tokens;
+            # those keep using the host credential.
+            sandbox_token=item.get("token"),
         )
         sandbox._on_kill = self._on_sandbox_killed
         return sandbox
@@ -1616,39 +2201,106 @@ class SandboxPool:
     def _seed_hosts_from_cache(self) -> None:
         """Adopt the pool's cached hosts without any HTTP (rebuilt from cached URL + nonce).
 
-        Best-effort and unverified: each adopted host is confirmed on the first successful
-        request (and dropped on the first failure, see `_create_one`). Hosts the cache
-        believes are full are skipped — label discovery re-checks them with fresh counts if
-        the seeded ones don't satisfy the request, so a stale-full entry never blocks a create.
+        The first thing that happens to a seeded host is an authenticated `POST`, so what the
+        file says about *where* it lives is not taken on trust: the URL must be one only this
+        job can have (`_cached_host_rejection`), and an entry older than `HOST_TRUST_TTL` is
+        re-checked against the Jobs API first (`_confirm_cached_host`). A fresh entry — the
+        `pool create` → `create --pool` case the cache exists for — is used as is.
+
+        Liveness stays best-effort: a seeded host is confirmed by its first successful request
+        and dropped on the first failure (see `_create_one`). Hosts the cache believes are
+        full are skipped — label discovery re-checks them with fresh counts if the seeded ones
+        don't satisfy the request, so a stale-full entry never blocks a create.
         """
-        cache = read_pool_cache(self.name)
+        cache = read_pool_cache(self.name, self._cache_context)
         if cache is None:
             return
         hf_token = _effective_token(self._api)
-        with self._lock:
-            known = {host.job_id for host in self._hosts}
-            for ch in cache.hosts:
-                if ch.job_id in known or ch.live >= ch.capacity:
-                    continue
-                server = _SandboxServer(
-                    job_id=ch.job_id,
-                    owner=ch.owner,
-                    image=self.image,
-                    base_url=ch.base_url,
-                    nonce=ch.nonce,
-                    sandbox_token=_derive_sandbox_token(hf_token, ch.nonce),
-                    api=self._api,
-                    max_connections=min(self.sandboxes_per_host + 8, 256),
-                    capacity=ch.capacity,
-                )
-                server.live = ch.live
-                server.verified = False
-                self._hosts.append(server)
+        now = time.time()
+        for ch in cache.hosts:
+            with self._lock:
+                known = {host.job_id for host in self._hosts}
+            if ch.job_id in known or ch.live >= ch.capacity:
+                continue
+            reason = _cached_host_rejection(ch)
+            if reason is not None:
+                logger.debug(f"Dropping cached host {ch.job_id} of pool '{self.name}': it {reason}.")
+                with self._lock:
+                    self._dead_host_ids.add(ch.job_id)  # an entry we can never use is litter
+                continue
+            if now - ch.updated_at > HOST_TRUST_TTL and not self._confirm_cached_host(ch):
+                continue
+            server = _SandboxServer(
+                job_id=ch.job_id,
+                owner=ch.owner,
+                image=self.image,
+                base_url=ch.base_url,
+                nonce=ch.nonce,
+                sandbox_token=_derive_sandbox_token(hf_token, ch.nonce),
+                api=self._api,
+                max_connections=min(self.sandboxes_per_host + 8, 256),
+                capacity=ch.capacity,
+            )
+            server.live = ch.live
+            server.verified = False
+            with self._lock:
+                if any(host.job_id == ch.job_id for host in self._hosts):
+                    server.close()  # seeded concurrently by another thread
+                else:
+                    self._hosts.append(server)
 
-    def _save_cache(self) -> None:
-        """Persist the pool config + current hosts (with their live counts) for next time."""
+    def _confirm_cached_host(self, ch: CachedHost) -> bool:
+        """Confirm an aged-out cache entry against the Jobs API before crediting it.
+
+        Freshness is what the no-HTTP path rests on: the entry was written by this same
+        principal minutes ago, so the job it names is almost certainly still the host it
+        described. Past `HOST_TRUST_TTL` that argument weakens, and the entry becomes a hint
+        that has to be checked — the job must still be running, still be labelled for *this*
+        pool with the nonce the entry derives its token from, still pass the pool's adoption
+        policy, and still expose exactly the cached URL. One round-trip, and only for entries
+        the fast path would no longer be honest about.
+
+        A definitive "no" prunes the entry; a transient failure aborts this attempt
+        without losing the cached host.
+        """
+        if self._adopt_hosts == ADOPT_OWN and self._principal_id() is None:
+            raise SandboxError("Could not validate cached pool hosts: current user is unavailable; retry later.")
+        try:
+            job = self._api.inspect_job(job_id=ch.job_id, namespace=ch.owner)
+            labels = job.labels or {}
+            if job.status.stage != "RUNNING":
+                reason = f"its job is not running (status: {job.status.stage})"
+            elif labels.get(MODE_LABEL) != MODE_POOL or labels.get(POOL_LABEL) != self.name:
+                reason = f"its job is not labelled as a host of pool '{self.name}'"
+            elif labels.get(NONCE_LABEL) != ch.nonce:
+                reason = "its job carries a different nonce"
+            elif not self._adoptable(job):
+                reason = "its job is not one this pool may adopt"
+            elif (exposed := _find_server_url(job)) != ch.base_url:
+                reason = f"its job exposes {exposed!r}, not the cached URL"
+            else:
+                return True
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code != 404:
+                raise SandboxError(f"Could not confirm cached host {ch.job_id}; retry later.") from e
+            reason = "its job no longer exists"
+        except Exception as e:
+            raise SandboxError(f"Could not confirm cached host {ch.job_id}; retry later.") from e
+        logger.debug(f"Dropping stale cached host {ch.job_id} of pool '{self.name}': {reason}.")
         with self._lock:
-            hosts = [
+            self._dead_host_ids.add(ch.job_id)
+        return False
+
+    def _save_cache(self, hosts: "List[_SandboxServer] | None" = None) -> None:
+        """Persist the pool config + hosts (with their live counts) for next time.
+
+        `hosts` overrides the tracked list, for the one case where they differ:
+        `close()` persisting the hosts it could *not* cancel, since that record is
+        the caller's only handle on a job that is still billing.
+        """
+        with self._lock:
+            source = self._hosts if hosts is None else hosts
+            entries = [
                 CachedHost(
                     job_id=host.job_id,
                     owner=host.owner,
@@ -1658,20 +2310,130 @@ class SandboxPool:
                     live=host.live,
                     updated_at=time.time(),
                 )
-                for host in self._hosts
+                for host in source
             ]
             dead = set(self._dead_host_ids)
         save_pool_cache(
             self.name,
+            context=self._cache_context,
             image=self.image,
             flavor=self.flavor,
             sandboxes_per_host=self.sandboxes_per_host,
             max_hosts=self.max_hosts,
             idle_timeout=_duration_to_secs(self._idle_timeout) if self._idle_timeout is not None else None,
-            namespace=self._namespace,
-            hosts=hosts,
+            hosts=entries,
             dead_host_ids=dead,
         )
+
+
+def _normalize_image(image: str | None) -> str | None:
+    """Compare Docker images leniently: registries and tags get normalized
+    server-side, and a mis-parse here must not stop a pool from working."""
+    if image is None:
+        return None
+    image = image.strip().lower()
+    for prefix in ("docker.io/", "index.docker.io/", "library/"):
+        if image.startswith(prefix):
+            image = image[len(prefix) :]
+    return image
+
+
+def _server_host_rejection(url: str, *, job_id: str) -> str | None:
+    """Why `url` is not a URL we should send a sandbox job's credentials to.
+
+    The hostname must be derived from the job id we already hold, so nothing but the
+    client's own knowledge of which job it is talking to can decide where the credentials
+    go. The domain is not hard-coded, so staging endpoints keep working.
+    """
+    parsed = urlparse(url)
+    if parsed.scheme != "https":
+        return f"uses scheme {parsed.scheme!r}, not https"
+    # `urlparse` lowercases the hostname, so compare case-insensitively.
+    if not (parsed.hostname or "").startswith(f"{job_id}--{SANDBOX_SERVER_PORT}.".lower()):
+        return f"is not job {job_id}'s port-{SANDBOX_SERVER_PORT} URL"
+    return None
+
+
+def _server_url_rejection(job: JobInfo) -> str | None:
+    """Why this Job's exposed URL is not one we should send credentials to."""
+    urls = list(job.status.expose_urls or []) if job.status is not None else []
+    if len(urls) != 1:
+        return f"exposes {len(urls)} URL(s), expected exactly one for port {SANDBOX_SERVER_PORT}"
+    reason = _server_host_rejection(urls[0], job_id=job.id)
+    return f"exposes {urls[0]!r}, which {reason}" if reason is not None else None
+
+
+def _cached_host_rejection(host: CachedHost) -> str | None:
+    """Why a cached host entry must not be rebuilt into a credentialed transport.
+
+    Same reasoning as `_server_url_rejection`, for a URL that comes off the local disk
+    instead of the Jobs API. Without this, the cache file gets to choose where the HF bearer
+    and the derived host token are sent -- `http://127.0.0.1:1234` included -- and it gets to
+    choose it *before* any API call could have contradicted it. Deriving the expected
+    hostname from the entry's own `job_id` leaves it able to name only a job this client can
+    independently identify, which is the same bar a discovered host has to clear.
+    """
+    reason = _server_host_rejection(host.base_url, job_id=host.job_id)
+    return f"names {host.base_url!r}, which {reason}" if reason is not None else None
+
+
+def _cache_context(api: HfApi, namespace: str | None) -> CacheContext:
+    """The local pool cache's security context for this endpoint/credential/namespace."""
+    return CacheContext.for_credential(endpoint=api.endpoint, token=_effective_token(api), namespace=namespace)
+
+
+def _host_rejection(
+    job: JobInfo,
+    *,
+    policy: str,
+    principal_id: str | None,
+    namespace: str | None,
+    image: str | None,
+    flavor: str | None,
+    check_url: bool = True,
+) -> str | None:
+    """Why this Job must not be adopted as one of our pool hosts, or `None`.
+
+    Hosts are found by filtering Jobs on labels, and labels are set by whoever
+    creates the Job -- so a label match says "this Job claims to be one of our
+    hosts", not "this Job is one of our hosts". Anyone who can create a Job in
+    the namespace can make that claim, copy the public nonce from a real host's
+    labels, and receive the token derived for that host.
+
+    Everything checked here is asserted by the backend rather than by the Job's
+    creator: the initiator, the owner, the image, the flavor, the command, and
+    the exposed URL. `initiator` is the load-bearing one -- there is no
+    client-side way to set it -- and it is what makes `policy="own"` meaningful.
+    """
+    if policy == ADOPT_NEVER:
+        return "host adoption is disabled (adopt_hosts='never')"
+
+    if policy == ADOPT_OWN:
+        initiator = job.initiator
+        if initiator is None or initiator.id is None:
+            return "the Jobs API did not say who started it, so it cannot be confirmed as ours"
+        if principal_id is None:
+            return "could not resolve the current principal to compare against its initiator"
+        if initiator.id != principal_id:
+            return f"started by a different principal ({initiator.name or initiator.id})"
+
+    if namespace is not None and job.owner is not None and job.owner.name != namespace:
+        return f"runs under namespace {job.owner.name!r}, not {namespace!r}"
+
+    job_image = job.docker_image or job.space_id
+    if image is not None and _normalize_image(job_image) != _normalize_image(image):
+        return f"runs image {job_image!r}, not {image!r}"
+
+    if flavor is not None and str(job.flavor) != flavor:
+        return f"runs flavor {str(job.flavor)!r}, not {flavor!r}"
+
+    # A sandbox host runs the bootstrap script and nothing else. A Job running
+    # anything else is not a host, whatever its labels say.
+    if job.command is None or list(job.command) != _bootstrap_command():
+        return "does not run the sandbox bootstrap command"
+
+    # A SCHEDULING job has no exposed URL yet; the caller re-checks once it runs.
+    return _server_url_rejection(job) if check_url else None
 
 
 def _effective_token(api: HfApi) -> str:
@@ -1696,7 +2458,8 @@ def _bootstrap_job_spec(
 
     Shared by dedicated sandboxes and shared hosts: both fetch and exec the same unified
     `sbx-server` binary at startup (via `/bin/sh`), downloading it with wget/curl, or
-    reading it off the always-mounted server bucket when the image ships neither.
+    reading it off the always-mounted server bucket when the image ships neither. Either
+    way the download is pinned to `SANDBOX_SERVER_SHA256` and verified before it runs.
     """
     # Reserved SBX_* keys go last so user-provided env/secrets can't override them
     # (e.g. clobbering SBX_PORT would break the proxy, SBX_TOKEN would break auth).
@@ -1708,15 +2471,24 @@ def _bootstrap_job_spec(
     if forward_hf_token:
         job_secrets["HF_TOKEN"] = hf_token
 
-    job_env["SBX_SERVER_URL"] = f"{api.endpoint}/buckets/{constants.SANDBOX_SERVER_BUCKET}/resolve/sbx-server"
+    # The digest-named object, not the mutable `sbx-server` alias: a fetch that names the
+    # content it wants cannot be answered with different content, and the bootstrap re-checks
+    # the digest anyway so a rewritten object is caught rather than executed.
+    server_object = f"sbx-server-{SANDBOX_SERVER_SHA256}"
+    job_env["SBX_SERVER_URL"] = f"{api.endpoint}/buckets/{constants.SANDBOX_SERVER_BUCKET}/resolve/{server_object}"
+    job_env["SBX_SERVER_SHA256"] = SANDBOX_SERVER_SHA256
     # Always mount the server bucket as a transparent fallback for images without wget/curl.
     # It's only read (paying the ~2-3s FUSE cost) when the bootstrap script can't download.
     job_env["SBX_SERVER_MOUNT"] = _SERVER_MOUNT_PATH
     job_volumes.append(
         Volume(type="bucket", source=constants.SANDBOX_SERVER_BUCKET, mount_path=_SERVER_MOUNT_PATH, read_only=True)
     )
-    command = ["/bin/sh", "-c", _BOOTSTRAP_DOWNLOAD]
-    return command, job_env, job_secrets, job_volumes
+    return _bootstrap_command(), job_env, job_secrets, job_volumes
+
+
+def _bootstrap_command() -> list[str]:
+    """The Job command every sandbox host and dedicated sandbox runs."""
+    return ["/bin/sh", "-c", _BOOTSTRAP_DOWNLOAD]
 
 
 def _host_env(api: HfApi, job: JobInfo, *, namespace: str | None) -> dict[str, Any]:
@@ -1728,12 +2500,37 @@ def _host_env(api: HfApi, job: JobInfo, *, namespace: str | None) -> dict[str, A
     return env
 
 
-def _find_pool_host_job(api: HfApi, pool_id: str, *, namespace: str | None = None) -> JobInfo:
-    """Return any running host job belonging to `pool_id` (found via the pool label)."""
+def _find_pool_host_job(api: HfApi, pool_id: str, *, namespace: str | None = None, policy: str = ADOPT_OWN) -> JobInfo:
+    """Return a running host job belonging to `pool_id`, found via the pool label.
+
+    This one feeds `SandboxPool.connect`'s cold path, which rebuilds the pool's
+    whole configuration (image, flavor, density, caps) from the job it returns --
+    so an unvalidated match would let a Job in the namespace choose the image
+    that the pool's *next* hosts boot. Image and flavor are unknown here (they
+    are what we are about to learn), so this checks ownership and shape.
+    """
+    principal = None
+    if policy == ADOPT_OWN:
+        try:
+            principal = api.whoami(cache=True).get("id")
+        except Exception as e:
+            logger.warning(f"Could not resolve the current user to validate pool hosts: {e}")
+    rejected = []
     for job in api.list_jobs(
         status="RUNNING", labels={MODE_LABEL: MODE_POOL, POOL_LABEL: pool_id}, namespace=namespace
     ):
-        return job
+        reason = _host_rejection(
+            job, policy=policy, principal_id=principal, namespace=namespace, image=None, flavor=None
+        )
+        if reason is None:
+            return job
+        rejected.append(f"{job.id} ({reason})")
+    if rejected:
+        raise SandboxError(
+            f"Found host job(s) labelled for pool '{pool_id}' but none usable: {'; '.join(rejected)}. "
+            "Pass adopt_hosts='namespace' to SandboxPool if you intend to share hosts with other "
+            "members of this namespace."
+        )
     raise SandboxError(
         f"No running host found for pool '{pool_id}'. The pool has stopped "
         "(all its hosts were killed or idle-timed-out); create a new one."
@@ -1749,6 +2546,14 @@ def _connect_host(api: HfApi, host_job_id: str, *, namespace: str | None = None)
         raise SandboxError(f"Job {host_job_id} is not a sandbox host.")
     if job.status.stage != "RUNNING":
         raise SandboxError(f"Sandbox host {host_job_id} is not running (status: {job.status.stage}).")
+    # The caller named this job explicitly, so who started it is their call --
+    # but the credentials below must still only reach this job's own URL, over
+    # HTTPS, on a job that actually runs the sandbox bootstrap.
+    reason = _host_rejection(
+        job, policy=ADOPT_NAMESPACE, principal_id=None, namespace=namespace, image=None, flavor=None
+    )
+    if reason is not None:
+        raise SandboxError(f"Job {host_job_id} does not look like a usable sandbox host: {reason}.")
     return _SandboxServer.from_job(
         job=job,
         nonce=nonce,

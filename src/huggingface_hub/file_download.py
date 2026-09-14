@@ -55,6 +55,7 @@ from .utils._http import (
     _is_same_or_hub_host,
     http_stream_backoff,
 )
+from .utils._paths import as_extended_path
 from .utils._runtime import is_xet_available
 from .utils._xet import XetTokenType, is_valid_xet_hash, xet_connection_info_refresh_url
 from .utils.sha import sha_fileobj
@@ -1226,21 +1227,8 @@ def _hf_hub_download_to_cache_dir(
     # atomically renamed into place (see `_download_to_tmp_and_move`).
     lock_path = os.path.join(locks_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type), f"{etag}.lock")
 
-    # Some Windows versions do not allow for paths longer than 255 characters.
-    # In this case, we must specify it as an extended path by using the "\\?\" prefix.
-    if (
-        os.name == "nt"
-        and len(os.path.abspath(lock_path)) > 255
-        and not os.path.abspath(lock_path).startswith("\\\\?\\")
-    ):
-        lock_path = "\\\\?\\" + os.path.abspath(lock_path)
-
-    if (
-        os.name == "nt"
-        and len(os.path.abspath(blob_path)) > 255
-        and not os.path.abspath(blob_path).startswith("\\\\?\\")
-    ):
-        blob_path = "\\\\?\\" + os.path.abspath(blob_path)
+    lock_path = as_extended_path(lock_path)
+    blob_path = as_extended_path(blob_path)
 
     Path(lock_path).parent.mkdir(parents=True, exist_ok=True)
 
@@ -1297,11 +1285,7 @@ def _hf_hub_download_to_local_dir(
 
     Method should not be called directly. Please use `hf_hub_download` instead.
     """
-    # Some Windows versions do not allow for paths longer than 255 characters.
-    # In this case, we must specify it as an extended path by using the "\\?\" prefix.
-    if os.name == "nt" and len(os.path.abspath(local_dir)) > 255:
-        local_dir = "\\\\?\\" + os.path.abspath(local_dir)
-    local_dir = Path(local_dir)
+    local_dir = Path(as_extended_path(local_dir))
     paths = get_local_download_paths(local_dir=local_dir, filename=filename)
     local_metadata = read_download_metadata(local_dir=local_dir, filename=filename)
 

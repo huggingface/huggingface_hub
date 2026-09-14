@@ -40,6 +40,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 WAITING_TIME_IF_NO_TASKS = 10  # seconds
+MAX_CONSECUTIVE_ERRORS = 8  # abort the upload after this many consecutive errors (all workers combined)
 MAX_NB_FILES_FETCH_UPLOAD_MODE = 100
 COMMIT_SIZE_SCALE: list[int] = [20, 50, 75, 100, 125, 200, 250, 400, 600, 1000]
 
@@ -272,12 +273,21 @@ def upload_large_folder_internal(
             if print_report:
                 _print_overwrite(status.current_report())
             last_report_ts = time.time()
+        if status.fatal_error is not None:
+            logger.error(f"Too many consecutive errors ({MAX_CONSECUTIVE_ERRORS}): exiting main loop")
+            break
         if status.is_done():
             logger.info("Is done: exiting main loop")
             break
 
     for thread in threads:
         thread.join()
+
+    if status.fatal_error is not None:
+        raise RuntimeError(
+            f"Upload aborted after {MAX_CONSECUTIVE_ERRORS} consecutive errors. Progress is saved locally: re-run the"
+            " same command to resume."
+        ) from status.fatal_error
 
     logger.info(status.current_report())
     logger.info("Upload is complete!")
@@ -317,6 +327,8 @@ class LargeUploadStatus:
         self.nb_workers_commit: int = 0
         self.nb_workers_waiting: int = 0
         self.last_commit_attempt: float | None = None
+        self.nb_consecutive_errors: int = 0
+        self.fatal_error: Exception | None = None
 
         self._started_at = datetime.now()
         self._chunk_idx: int = 1
@@ -335,6 +347,21 @@ class LargeUploadStatus:
                 self.queue_commit.put(item)
             else:
                 logger.debug(f"Skipping file {paths.path_in_repo} (already uploaded and committed)")
+
+    def report_success(self) -> None:
+        with self.lock:
+            self.nb_consecutive_errors = 0
+
+    def report_error(self, exc: Exception) -> None:
+        """Give up on the whole upload once errors keep piling up.
+
+        Failed items are put back in their queue and retried indefinitely, which spins forever (and hammers the Hub)
+        when the error is permanent. Stop after `MAX_CONSECUTIVE_ERRORS` failures without a single success in between.
+        """
+        with self.lock:
+            self.nb_consecutive_errors += 1
+            if self.nb_consecutive_errors >= MAX_CONSECUTIVE_ERRORS:
+                self.fatal_error = exc
 
     def target_chunk(self) -> int:
         with self._chunk_lock:
@@ -435,6 +462,8 @@ def _worker_job(
     Read `upload_large_folder` docstring for more information on how tasks are prioritized.
     """
     while True:
+        if status.fatal_error is not None:
+            return
         next_job: tuple[WorkerJob, list[JOB_ITEM_T]] | None = None
 
         # Determine next task
@@ -450,12 +479,14 @@ def _worker_job(
                 try:
                     _compute_sha256(item)
                     status.queue_get_upload_mode.put(item)
+                    status.report_success()
                 except KeyboardInterrupt:
                     raise
                 except Exception as e:
                     logger.error(f"Failed to compute sha256: {e}")
                     traceback.format_exc()
                     status.queue_sha256.put(item)
+                    status.report_error(e)
 
                 with status.lock:
                     status.nb_workers_sha256 -= 1
@@ -463,11 +494,13 @@ def _worker_job(
             case WorkerJob.GET_UPLOAD_MODE:
                 try:
                     _get_upload_mode(items, api=api, repo_id=repo_id, repo_type=repo_type, revision=revision)
+                    status.report_success()
                 except KeyboardInterrupt:
                     raise
                 except Exception as e:
                     logger.error(f"Failed to get upload mode: {e}")
                     traceback.format_exc()
+                    status.report_error(e)
 
                 # Items are either:
                 # - dropped (if should_ignore)
@@ -494,6 +527,7 @@ def _worker_job(
                     _preupload_lfs(items, api=api, repo_id=repo_id, repo_type=repo_type, revision=revision)
                     for item in items:
                         status.queue_commit.put(item)
+                    status.report_success()
                 except KeyboardInterrupt:
                     raise
                 except Exception as e:
@@ -501,6 +535,7 @@ def _worker_job(
                     traceback.format_exc()
                     for item in items:
                         status.queue_preupload_lfs.put(item)
+                    status.report_error(e)
 
                 with status.lock:
                     status.nb_workers_preupload_lfs -= 1
@@ -510,6 +545,7 @@ def _worker_job(
                 success = True
                 try:
                     _commit(items, api=api, repo_id=repo_id, repo_type=repo_type, revision=revision)
+                    status.report_success()
                 except KeyboardInterrupt:
                     raise
                 except Exception as e:
@@ -518,6 +554,7 @@ def _worker_job(
                     for item in items:
                         status.queue_commit.put(item)
                     success = False
+                    status.report_error(e)
                 duration = time.time() - start_ts
                 status.update_chunk(success, len(items), duration)
                 with status.lock:

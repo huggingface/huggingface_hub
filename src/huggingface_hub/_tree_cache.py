@@ -38,6 +38,7 @@ import threading
 from dataclasses import dataclass
 
 from .utils import logging
+from .utils._paths import as_extended_path
 from .utils._xet import is_valid_xet_hash
 
 
@@ -86,7 +87,9 @@ def is_valid_tree_entries(entries: dict[str, TreeCacheEntry]) -> bool:
 
 
 def _tree_cache_path(tree_cache_folder: str, commit_hash: str) -> str:
-    return os.path.join(tree_cache_folder, "trees", f"{commit_hash}.json")
+    # Both readers and writers go through here, so they agree on the path (and on the in-memory cache key), including
+    # on Windows where a deep `local_dir`/`cache_dir` requires the extended-length form.
+    return as_extended_path(os.path.join(tree_cache_folder, "trees", f"{commit_hash}.json"))
 
 
 def tree_cache_folder_for_local_dir(local_dir: str) -> str:

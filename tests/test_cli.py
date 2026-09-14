@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import sys
 import warnings
 from contextlib import contextmanager
@@ -7,12 +8,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Generator, Optional
-from unittest.mock import Mock, patch
+from unittest.mock import ANY, Mock, patch
 
 import click
 import httpx
 import pytest
-from click.testing import CliRunner
+from click.testing import CliRunner, Result
 
 from huggingface_hub import HfApi, InferenceEndpointHardware, constants
 from huggingface_hub._dataset_viewer import DatasetParquetEntry
@@ -21,6 +22,7 @@ from huggingface_hub._space_api import Volume
 from huggingface_hub.cli import _skills, extensions, system
 from huggingface_hub.cli._cli_utils import RepoType, _get_huggingface_hub_update_command, parse_volumes
 from huggingface_hub.cli._output import OutputFormat, out
+from huggingface_hub.cli._uv_script_header import UvScriptHeader, parse_uv_script_header
 from huggingface_hub.cli.cache import CacheDeletionCounts
 from huggingface_hub.cli.download import download
 from huggingface_hub.cli.hf import app
@@ -2715,6 +2717,10 @@ class TestInferenceEndpointsCommands:
                     "/health",
                     "--port",
                     "30000",
+                    "--container-registry-username",
+                    "user",
+                    "--container-registry-password",
+                    "secret",
                     "--container-args",
                     "--tp 8 --reasoning-parser qwen3",
                     "--env",
@@ -2731,6 +2737,8 @@ class TestInferenceEndpointsCommands:
             "port": 30000,
         }
         assert kwargs["container_args"] == ["--tp", "8", "--reasoning-parser", "qwen3"]
+        assert kwargs["container_registry_username"] == "user"
+        assert kwargs["container_registry_password"] == "secret"
         assert "container_command" not in kwargs
         assert kwargs["env"] == {"MODEL_ID": "/repository"}
         assert kwargs["type"] == "authenticated"
@@ -3062,11 +3070,28 @@ def test_build_custom_image_warns_for_engine_without_the_field(engine: str, size
     "custom_image, extra, match",
     [
         (None, {"engine": "vllm", "tensor_parallel_size": 8}, "--custom-image is required"),
+        (None, {"container_registry_username": "user"}, "--custom-image is required"),
+        (
+            IMAGE_URL,
+            {"container_registry_password": "secret"},
+            "--container-registry-password requires --container-registry-username",
+        ),
+        (
+            IMAGE_URL,
+            {"engine": "vllm", "container_registry_username": "user"},
+            "only be set for a custom container without --engine",
+        ),
         # Without an engine key the API ignores the parallelism fields rather than rejecting them, which would
         # deploy an endpoint quietly running on a single accelerator.
         (IMAGE_URL, {"tensor_parallel_size": 8}, "require --engine"),
     ],
-    ids=["flags_without_image", "sizes_without_engine"],
+    ids=[
+        "flags_without_image",
+        "registry_credentials_without_image",
+        "registry_password_without_username",
+        "registry_credentials_with_engine",
+        "sizes_without_engine",
+    ],
 )
 def test_build_custom_image_rejects(custom_image: str | None, extra: dict, match: str) -> None:
     with pytest.raises(CLIError, match=match):
@@ -3381,7 +3406,7 @@ class TestJobsCommand:
             command=["echo", "hello"],
             env={},
             secrets={},
-            labels=None,
+            labels={"name": ANY},
             volumes=None,
             flavor=None,
             timeout=None,
@@ -3411,7 +3436,7 @@ class TestJobsCommand:
             command=["python", "-c", "'print(\"Hello from the cloud!\")'"],
             env={},
             secrets={},
-            labels=None,
+            labels={"name": ANY},
             volumes=None,
             flavor=None,
             timeout=None,
@@ -3445,7 +3470,7 @@ class TestJobsCommand:
             concurrency=None,
             env={},
             secrets={},
-            labels=None,
+            labels={"name": ANY},
             volumes=None,
             flavor=None,
             timeout=None,
@@ -3472,7 +3497,7 @@ class TestJobsCommand:
             image=None,
             env={},
             secrets={},
-            labels=None,
+            labels={"name": ANY},
             volumes=None,
             flavor=None,
             timeout=None,
@@ -3505,7 +3530,7 @@ class TestJobsCommand:
             image=None,
             env={},
             secrets={},
-            labels=None,
+            labels={"name": ANY},
             volumes=None,
             flavor=None,
             timeout=None,
@@ -3519,34 +3544,35 @@ class TestJobsCommand:
         api.fetch_job_logs.assert_not_called()
 
     def test_uv_remote_script(self, runner: CliRunner) -> None:
+        """A remote script is downloaded once at submit time, then shipped like a local script."""
         job = Mock(id="my-job-id", url="https://huggingface.co/api/jobs/687f911eaea852de79c4a50a")
         with (
             patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
             patch("huggingface_hub.cli._cli_utils._get_extended_environ", return_value={}),
+            patch("huggingface_hub.cli._uv_script_header.get_session") as session,
         ):
+            session.return_value.get.return_value = Mock(content=b"print('hello')")
             api = api_cls.return_value
-            api.run_uv_job.return_value = job
-            result = runner.invoke(app, ["jobs", "uv", "run", "--detach", "https://.../script.py"])
+            downloaded = []
+
+            def submit(script, **kwargs):
+                path = Path(script)
+                downloaded.append(path)
+                assert path.read_text(encoding="utf-8") == "print('hello')"
+                return job
+
+            api.run_uv_job.side_effect = submit
+            result = runner.invoke(app, ["jobs", "uv", "run", "--detach", "https://example.co/script.py"])
         assert result.exit_code == 0
-        api.run_uv_job.assert_called_once_with(
-            script="https://.../script.py",
-            script_args=[],
-            dependencies=None,
-            python=None,
-            image=None,
-            env={},
-            secrets={},
-            labels=None,
-            volumes=None,
-            flavor=None,
-            timeout=None,
-            expose=None,
-            ssh=False,
-            network_group=None,
-            network_aliases=None,
-            resource_group_id=None,
-            namespace=None,
+        session.return_value.get.assert_called_once_with(
+            "https://example.co/script.py", timeout=constants.DEFAULT_REQUEST_TIMEOUT
         )
+        # The downloaded copy is on disk while the Job is submitted (and cleaned up afterwards).
+        assert len(downloaded) == 1
+        assert downloaded[0].name == "script.py"
+        assert not downloaded[0].exists()
+        # The Job is still named after the URL, not after the temporary file it was downloaded to.
+        assert api.run_uv_job.call_args.kwargs["labels"]["name"].startswith("script-")
 
     def test_uv_local_script(self, runner: CliRunner, tmp_path: Path) -> None:
         script_path = tmp_path / "script.py"
@@ -3568,7 +3594,7 @@ class TestJobsCommand:
             image=None,
             env={},
             secrets={},
-            labels=None,
+            labels={"name": ANY},
             volumes=None,
             flavor=None,
             timeout=None,
@@ -4059,6 +4085,214 @@ class TestJobsWaitCommand:
         assert isinstance(result.exception, CLIError)
         assert "same namespace" in str(result.exception)
         api.wait_for_job.assert_not_called()
+
+
+class TestUvScriptHeader:
+    """Tests for the `[tool.hf-jobs]` table a UV script can carry in its PEP 723 header."""
+
+    FULL_HEADER = """
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["vllm"]
+#
+# [tool.uv]
+# exclude-newer = "2026-01-01T00:00:00Z"
+#
+# [tool.hf-jobs]
+# image           = "vllm/vllm-openai:latest"
+# flavor          = "l4x1"
+# python          = "/usr/bin/python3"
+# timeout         = "2h"
+# name            = "ocr"
+# namespace       = "my-org"
+# network_group   = "ocr-net"
+# env             = { PYTHONPATH = "/usr/local/lib/python3.12/dist-packages" }
+# secrets         = ["MY_SECRET"]
+# labels          = { template = "uv-ocr:1" }
+# volumes         = ["hf://datasets/org/pdfs:/input"]
+# network_aliases = ["worker"]
+# ///
+print("hello")
+"""
+
+    @pytest.mark.parametrize("newline", ["\n", "\r\n"])
+    def test_parses_full_table(self, newline: str) -> None:
+        header = parse_uv_script_header(self.FULL_HEADER.replace("\n", newline))
+        assert header == UvScriptHeader(
+            image="vllm/vllm-openai:latest",
+            flavor="l4x1",
+            python="/usr/bin/python3",
+            timeout="2h",
+            name="ocr",
+            namespace="my-org",
+            network_group="ocr-net",
+            env={"PYTHONPATH": "/usr/local/lib/python3.12/dist-packages"},
+            secrets=["MY_SECRET"],
+            labels={"template": "uv-ocr:1"},
+            volumes=["hf://datasets/org/pdfs:/input"],
+            network_aliases=["worker"],
+        )
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            'print("hello")',  # no PEP 723 header at all
+            '# /// script\n# dependencies = ["vllm"]\n# ///\nprint("hello")',  # header without the table
+        ],
+    )
+    def test_no_table(self, text: str) -> None:
+        assert parse_uv_script_header(text) is None
+
+    @pytest.mark.parametrize(
+        "table, expected_error",
+        [
+            ('flavour = "l4x1"', "Unknown key(s) 'flavour'"),  # a typo must not silently drop the intent
+            ("env = { DEBUG = true }", "'env.DEBUG' in the script's [tool.hf-jobs] table must be a string"),
+            ('secrets = { HF_TOKEN = "hf_xxx" }', "must be a list of names"),  # values never live in the script
+        ],
+    )
+    def test_invalid_table(self, table: str, expected_error: str) -> None:
+        with pytest.raises(CLIError, match=re.escape(expected_error)):
+            parse_uv_script_header(f"# /// script\n# [tool.hf-jobs]\n# {table}\n# ///")
+
+    def _write_script(self, tmp_path: Path, table: str) -> str:
+        script_path = tmp_path / "script.py"
+        script_path.write_text(f"# /// script\n# [tool.hf-jobs]\n{table}\n# ///\nprint('hello')")
+        return str(script_path)
+
+    @pytest.mark.parametrize("scheduled", [False, True])
+    def test_cli_flag_wins_over_script(self, runner: CliRunner, tmp_path: Path, scheduled: bool) -> None:
+        """Script values are defaults: an explicit flag overrides them, entry by entry for env/labels/volumes."""
+        script = self._write_script(
+            tmp_path,
+            "# image = 'vllm/vllm-openai:latest'\n"
+            "# flavor = 'l4x1'\n"
+            "# name = 'from-script'\n"
+            "# timeout = '2h'\n"
+            "# env = { A = 'from-script', B = 'from-script' }\n"
+            "# secrets = ['MY_SECRET']\n"
+            "# volumes = ['hf://datasets/org/pdfs:/input', 'hf://datasets/org/models:/models']",
+        )
+        job = Mock(id="my-job-id", url="https://huggingface.co/jobs/user/my-job-id")
+        with (
+            patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
+            patch("huggingface_hub.cli._cli_utils._get_extended_environ", return_value={"MY_SECRET": "s3cret"}),
+            patch("huggingface_hub.cli.jobs._get_extended_environ", return_value={"MY_SECRET": "s3cret"}),
+        ):
+            api = api_cls.return_value
+            submit = api.create_scheduled_uv_job if scheduled else api.run_uv_job
+            submit.return_value = job
+            result = runner.invoke(
+                app,
+                # fmt: off
+                [
+                    "jobs",
+                    *(["scheduled"] if scheduled else []),
+                    "uv",
+                    "run",
+                    *(["@daily"] if scheduled else ["--detach"]),
+                    script,
+                    "--flavor",
+                    "a10g-small",
+                    "--name",
+                    "from-cli",
+                    "-e",
+                    "B=from-cli",
+                    "-v",
+                    "hf://datasets/org/other:/input",
+                ],
+                # fmt: on
+            )
+        assert result.exit_code == 0
+        assert "MY_SECRET=*** (from script)" in result.output
+        assert "s3cret" not in result.output
+        kwargs = submit.call_args.kwargs
+        assert kwargs["image"] == "vllm/vllm-openai:latest"  # only in the script
+        assert kwargs["flavor"] == "a10g-small"  # CLI wins
+        assert kwargs["timeout"] == "2h"
+        assert kwargs["labels"] == {"name": "from-cli"}  # CLI wins
+        assert kwargs["env"] == {"A": "from-script", "B": "from-cli"}  # merged, CLI wins per key
+        assert kwargs["secrets"] == {"MY_SECRET": "s3cret"}  # value read from the local environment
+        # '/input' is overridden by the CLI, '/models' still comes from the script
+        assert [(volume.source, volume.mount_path) for volume in kwargs["volumes"]] == [
+            ("org/models", "/models"),
+            ("org/other", "/input"),
+        ]
+
+    def test_network_group_from_script(self, runner: CliRunner, tmp_path: Path) -> None:
+        """A script can join a network group, but a scheduled Job cannot: it must not lose it silently."""
+        script = self._write_script(tmp_path, "# network_group = 'ocr-net'\n# network_aliases = ['worker', 'gpu']")
+        job = Mock(id="my-job-id", url="https://huggingface.co/jobs/user/my-job-id")
+        with (
+            patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
+            patch("huggingface_hub.cli._cli_utils._get_extended_environ", return_value={}),
+        ):
+            api = api_cls.return_value
+            api.run_uv_job.return_value = job
+            result = runner.invoke(app, ["jobs", "uv", "run", "--detach", script])
+        assert result.exit_code == 0
+        assert "ocr-net (from script)" in result.output
+        kwargs = api.run_uv_job.call_args.kwargs
+        assert kwargs["network_group"] == "ocr-net"
+        assert kwargs["network_aliases"] == ["worker", "gpu"]
+
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            result = runner.invoke(app, ["jobs", "scheduled", "uv", "run", "@daily", script])
+        assert result.exit_code == 1
+        assert "do not support network groups" in str(result.exception)
+        api_cls.return_value.create_scheduled_uv_job.assert_not_called()
+
+    def test_missing_secret_is_an_error(self, runner: CliRunner, tmp_path: Path) -> None:
+        """A secret requested by the script but not set locally must not be submitted as an empty value."""
+        script = self._write_script(tmp_path, "# secrets = ['MY_SECRET']")
+        with (
+            patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
+            patch("huggingface_hub.cli.jobs._get_extended_environ", return_value={}),
+        ):
+            api = api_cls.return_value
+            result = runner.invoke(app, ["jobs", "uv", "run", script])
+        assert result.exit_code == 1
+        assert "MY_SECRET" in str(result.exception)
+        api.run_uv_job.assert_not_called()
+
+    def test_default_name_reflects_resolved_config(self, runner: CliRunner, tmp_path: Path) -> None:
+        """The default name hashes the resolved config, so a different runtime gives a different name."""
+
+        def auto_name(table: str, *args: str) -> str:
+            script = self._write_script(tmp_path, table)
+            with (
+                patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
+                patch("huggingface_hub.cli._cli_utils._get_extended_environ", return_value={}),
+            ):
+                api = api_cls.return_value
+                assert runner.invoke(app, ["jobs", "uv", "run", "--detach", script, *args]).exit_code == 0
+                return api.run_uv_job.call_args.kwargs["labels"]["name"]
+
+        baseline = auto_name("# flavor = 'l4x1'")
+        assert baseline == auto_name("# flavor = 'l4x1'")  # deterministic
+        assert baseline != auto_name("# flavor = 'a10g-small'")  # from the script
+        assert baseline != auto_name("# flavor = 'l4x1'", "--timeout", "2h")  # from the command line
+        # Env values change what the Job does, so they are hashed; secret values are not (only their names).
+        assert auto_name("", "-e", "FOO=a") != auto_name("", "-e", "FOO=b")
+        assert auto_name("", "-s", "TOK=a") == auto_name("", "-s", "TOK=b")
+
+    @pytest.mark.parametrize("command", [["run"], ["uv", "run"], ["scheduled", "run"], ["scheduled", "uv", "run"]])
+    def test_dry_run(self, runner: CliRunner, tmp_path: Path, command: list[str]) -> None:
+        script = self._write_script(tmp_path, "# flavor = 'l4x1'\n# secrets = ['MY_SECRET']")
+        with (
+            patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
+            patch("huggingface_hub.cli.jobs._get_extended_environ", return_value={}),
+        ):
+            args = ["jobs", *command, "--dry-run", "-v", f"{tmp_path}:/input"]
+            args += ["@daily"] if "scheduled" in command else []
+            args += [script] if "uv" in command else ["python:3.12", "echo", "hello"]
+            result = runner.invoke(app, args)
+        assert result.exit_code == 0
+        assert "(dry run) Job not submitted." in result.output
+        if "uv" in command:
+            assert "l4x1 (from script)" in result.output
+            assert "MY_SECRET=<not set> (from script)" in result.output
+        assert api_cls.return_value.mock_calls == []
 
 
 class TestBucketTransport:
@@ -4753,6 +4987,101 @@ class TestWebhooksCommand:
             result = runner.invoke(app, ["webhooks", "delete", "wh-abc123"], input="n\n")
         assert result.exit_code != 0
         api_cls.return_value.delete_webhook.assert_not_called()
+
+
+class TestSecretHygiene:
+    """Test the warnings that steer secret material out of argv (shared options in `_cli_utils.py`)."""
+
+    ARGV_WARNING = "shell history"
+
+    @staticmethod
+    def _create_sandbox(runner: CliRunner, *args: str, **kwargs) -> tuple[Result, Mock]:
+        """Run `hf sandbox create` with the network mocked out; return the result and the `Sandbox` mock."""
+        with (
+            patch("huggingface_hub.cli.sandbox.Sandbox") as sandbox_cls,
+            patch("huggingface_hub.cli.sandbox.SandboxPool"),
+            patch("huggingface_hub.cli._cli_utils._get_extended_environ", return_value={"MY_SECRET": "from-env"}),
+        ):
+            sandbox_cls.create.return_value = Mock(id="sbx", image="python:3.12")
+            result = runner.invoke(app, ["sandbox", "create", *args], **kwargs)
+        return result, sandbox_cls
+
+    def test_warns_on_inline_secret_value(self, runner: CliRunner) -> None:
+        result, _ = self._create_sandbox(runner, "-s", "MY_SECRET=psswrd")
+        assert result.exit_code == 0, result.output
+        assert self.ARGV_WARNING in result.stderr
+
+    def test_warns_once_for_several_inline_secret_values(self, runner: CliRunner) -> None:
+        result, _ = self._create_sandbox(runner, "-s", "A=1", "-s", "B=2", "-s", "C=3")
+        assert result.exit_code == 0, result.output
+        assert result.stderr.count(self.ARGV_WARNING) == 1
+
+    def test_no_warning_for_bare_secret_name(self, runner: CliRunner) -> None:
+        """The recommended form resolves the value from the environment, so nothing lands in argv."""
+        result, sandbox_cls = self._create_sandbox(runner, "-s", "MY_SECRET")
+        assert result.exit_code == 0, result.output
+        assert self.ARGV_WARNING not in result.stderr
+        assert sandbox_cls.create.call_args.kwargs["secrets"] == {"MY_SECRET": "from-env"}
+
+    def test_no_warning_for_secrets_file(self, runner: CliRunner, tmp_path: Path) -> None:
+        secrets_file = tmp_path / "secrets.env"
+        secrets_file.write_text("MY_SECRET=psswrd\n")
+        secrets_file.chmod(0o600)
+        result, _ = self._create_sandbox(runner, "--secrets-file", str(secrets_file))
+        assert result.exit_code == 0, result.output
+        assert self.ARGV_WARNING not in result.stderr
+
+    def test_no_warning_without_secret_flags(self, runner: CliRunner) -> None:
+        result, _ = self._create_sandbox(runner, "-e", "LOG_LEVEL=debug")
+        assert result.exit_code == 0, result.output
+        assert self.ARGV_WARNING not in result.stderr
+
+    def test_quiet_keeps_the_warning_on_stderr(self, runner: CliRunner) -> None:
+        result, _ = self._create_sandbox(runner, "-q", "-s", "MY_SECRET=psswrd")
+        assert result.exit_code == 0, result.output
+        assert self.ARGV_WARNING in result.stderr
+
+    def test_warns_on_inline_token(self, runner: CliRunner) -> None:
+        result, _ = self._create_sandbox(runner, "--token", "hf_abcdef")
+        assert result.exit_code == 0, result.output
+        assert self.ARGV_WARNING in result.stderr
+
+    def test_no_token_warning_for_auth_login(self, runner: CliRunner) -> None:
+        """`hf auth login --token` is the flow the warning points at, so it must stay silent."""
+        with patch("huggingface_hub.cli.auth.login") as login_mock:
+            result = runner.invoke(app, ["auth", "login", "--token", "hf_abcdef"])
+        assert result.exit_code == 0, result.output
+        assert self.ARGV_WARNING not in result.stderr
+        login_mock.assert_called_once()
+
+    def test_secrets_file_from_stdin(self, runner: CliRunner) -> None:
+        result, sandbox_cls = self._create_sandbox(runner, "--secrets-file", "-", input="MY_SECRET=piped\n")
+        assert result.exit_code == 0, result.output
+        assert sandbox_cls.create.call_args.kwargs["secrets"] == {"MY_SECRET": "piped"}
+
+    @pytest.mark.skipif(os.name != "posix", reason="File modes are POSIX-specific.")
+    def test_warns_on_group_readable_secrets_file(self, runner: CliRunner, tmp_path: Path) -> None:
+        secrets_file = tmp_path / "secrets.env"
+        secrets_file.write_text("MY_SECRET=psswrd\n")
+        secrets_file.chmod(0o644)
+        result, _ = self._create_sandbox(runner, "--secrets-file", str(secrets_file))
+        assert result.exit_code == 0, result.output
+        assert "readable by other users (mode 644)" in result.stderr
+
+    @pytest.mark.skipif(os.name != "posix", reason="File modes are POSIX-specific.")
+    def test_warns_on_group_readable_env_file(self, runner: CliRunner, tmp_path: Path) -> None:
+        env_file = tmp_path / "vars.env"
+        env_file.write_text("LOG_LEVEL=debug\n")
+        env_file.chmod(0o640)
+        result, _ = self._create_sandbox(runner, "--env-file", str(env_file))
+        assert result.exit_code == 0, result.output
+        assert "readable by other users (mode 640)" in result.stderr
+
+    def test_pool_rejects_secrets_with_a_reason(self, runner: CliRunner) -> None:
+        result, _ = self._create_sandbox(runner, "--pool", "pool-ab12cd34ef56", "-s", "MY_SECRET")
+        assert isinstance(result.exception, CLIError)
+        assert "no encrypted-secrets channel" in str(result.exception)
+        assert "--env" in str(result.exception)
 
 
 class TestGlobalFormattingFlags:

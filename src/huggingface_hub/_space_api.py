@@ -230,8 +230,9 @@ class SpaceRuntime:
 
     def __init__(self, data: dict) -> None:
         self.stage = data["stage"]
-        self.hardware = data.get("hardware", {}).get("current")
-        self.requested_hardware = data.get("hardware", {}).get("requested")
+        hardware_dict = data.get("hardware") or {}
+        self.hardware = hardware_dict.get("current")
+        self.requested_hardware = hardware_dict.get("requested")
         self.sleep_time = data.get("gcTimeout")
         self.storage = data.get("storage")
         self.dev_mode = data.get("devMode", False)

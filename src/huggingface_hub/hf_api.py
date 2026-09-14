@@ -74,6 +74,7 @@ from ._inference_endpoints import (
     _set_parallelism_in_image,
 )
 from ._jobs_api import (
+    DEFAULT_UV_IMAGE,
     TERMINAL_JOB_STAGES,
     JobHardware,
     JobHardwareInfo,
@@ -9384,6 +9385,8 @@ class HfApi:
         revision: str | None = None,
         task: str | None = None,
         custom_image: dict | None = None,
+        container_registry_username: str | None = None,
+        container_registry_password: str | None = None,
         container_command: list[str] | None = None,
         container_args: list[str] | None = None,
         env: dict[str, str] | None = None,
@@ -9444,6 +9447,11 @@ class HfApi:
                 `llamacpp`, `hfServe`, ...), which is forwarded as-is, or a flat dict describing a custom
                 container (e.g. `{"url": ..., "port": ...}`), which is sent as `{"custom": ...}` (see examples).
                 Defaults to the Hugging Face managed image.
+            container_registry_username (`str`, *optional*):
+                Username used to authenticate with the registry hosting a custom container image.
+            container_registry_password (`str`, *optional*):
+                Password used to authenticate with the registry hosting a custom container image. Requires
+                `container_registry_username`. Omitted from the API payload when not provided.
             container_command (`list[str]`, *optional*):
                 Override the container entrypoint command (maps to `model.command` in the API payload). Works with
                 both managed engine images (e.g. vLLM, SGLang) and custom images.
@@ -9565,7 +9573,19 @@ class HfApi:
                 FutureWarning,
             )
 
-        image = _build_endpoint_image_payload(custom_image) if custom_image is not None else {"huggingface": {}}
+        image: dict[str, Any]
+        if custom_image is None:
+            if container_registry_password is not None and container_registry_username is None:
+                raise ValueError("`container_registry_password` requires `container_registry_username`.")
+            if container_registry_username is not None:
+                raise ValueError("`custom_image` is required when setting container registry credentials.")
+            image = {"huggingface": {}}
+        else:
+            image = _build_endpoint_image_payload(
+                custom_image,
+                container_registry_username=container_registry_username,
+                container_registry_password=container_registry_password,
+            )
 
         payload: dict = {
             "accountId": account_id,
@@ -12186,13 +12206,15 @@ class HfApi:
                 (https://huggingface.co/settings/keys). Defaults to False.
 
             network_group (`str`, *optional*):
-                Name of a network group to join. Jobs of the same owner sharing a group are placed together and
-                can reach each other on every port. Inside each member, `HF_NETWORK_GROUP_HOSTNAME` resolves to
-                every member of the group. Lowercase alphanumerics and dashes, 46 characters max.
+                Name of a network group to join. Jobs in the same namespace and resource group sharing a group are
+                placed together and can reach each other on every port. Inside each member,
+                `HF_NETWORK_GROUP_HOSTNAME` resolves to every member of the group. Lowercase alphanumerics and dashes,
+                46 characters max.
 
             network_aliases (`list[str]`, *optional*):
                 Aliases this job claims in its network group. Members reach the jobs claiming an alias at
-                `${HF_NETWORK_GROUP_PREFIX}<alias>`. Several jobs may claim the same alias. Requires `network_group`.
+                `${HF_NETWORK_GROUP_PREFIX}<alias>`. Several jobs may claim the same alias. Lowercase alphanumerics
+                and dashes, 34 characters max, unique within the job. Requires `network_group`.
 
             resource_group_id (`str`, *optional*):
                 The ID of the resource group to create the Job in. Used to control access to resources within an
@@ -12793,6 +12815,11 @@ class HfApi:
         """
         Run a UV script Job on Hugging Face infrastructure.
 
+        > [!WARNING]
+        > Unlike `hf jobs uv run`, this method ignores the optional `[tool.hf-jobs]` table a UV script can
+        > carry in its PEP 723 header (see the [Jobs guide](../guides/jobs#ship-the-launch-config-with-the-script)):
+        > the launch configuration has to be passed explicitly here.
+
         Args:
             script (`str`):
                 Path or URL of the UV script, or a command.
@@ -12847,13 +12874,15 @@ class HfApi:
                 (https://huggingface.co/settings/keys). Defaults to False.
 
             network_group (`str`, *optional*):
-                Name of a network group to join. Jobs of the same owner sharing a group are placed together and
-                can reach each other on every port. Inside each member, `HF_NETWORK_GROUP_HOSTNAME` resolves to
-                every member of the group. Lowercase alphanumerics and dashes, 46 characters max.
+                Name of a network group to join. Jobs in the same namespace and resource group sharing a group are
+                placed together and can reach each other on every port. Inside each member,
+                `HF_NETWORK_GROUP_HOSTNAME` resolves to every member of the group. Lowercase alphanumerics and dashes,
+                46 characters max.
 
             network_aliases (`list[str]`, *optional*):
                 Aliases this job claims in its network group. Members reach the jobs claiming an alias at
-                `${HF_NETWORK_GROUP_PREFIX}<alias>`. Several jobs may claim the same alias. Requires `network_group`.
+                `${HF_NETWORK_GROUP_PREFIX}<alias>`. Several jobs may claim the same alias. Lowercase alphanumerics
+                and dashes, 34 characters max, unique within the job. Requires `network_group`.
 
             resource_group_id (`str`, *optional*):
                 The ID of the resource group to create the Job in. Used to control access to resources within an
@@ -12907,7 +12936,7 @@ class HfApi:
             >>> run_uv_job(script, script_args=script_args, volumes=[checkpoints_bucket])
             ```
         """
-        image = image or "ghcr.io/astral-sh/uv:python3.12-bookworm"
+        image = image or DEFAULT_UV_IMAGE
         env = env or {}
         secrets = secrets or {}
 
@@ -13390,6 +13419,11 @@ class HfApi:
         """
         Run a UV script Job on Hugging Face infrastructure.
 
+        > [!WARNING]
+        > Unlike `hf jobs uv run`, this method ignores the optional `[tool.hf-jobs]` table a UV script can
+        > carry in its PEP 723 header (see the [Jobs guide](../guides/jobs#ship-the-launch-config-with-the-script)):
+        > the launch configuration has to be passed explicitly here.
+
         Args:
             script (`str`):
                 Path or URL of the UV script, or a command.
@@ -13489,7 +13523,7 @@ class HfApi:
             >>> create_scheduled_uv_job(script, script_args=script_args, dependencies=["lighteval"], flavor="a10g-small", schedule="@weekly")
             ```
         """
-        image = image or "ghcr.io/astral-sh/uv:python3.12-bookworm"
+        image = image or DEFAULT_UV_IMAGE
         if name is None and not (labels and "name" in labels):
             name = _default_job_name_from_script(script, script_args or [])
 
@@ -14800,10 +14834,13 @@ class HfApi:
             42000
             ```
         """
+        headers = self._build_hf_headers(token=token)
+        headers["Accept-Encoding"] = "identity"  # prevent compression so the size matches the file
+
         response = _httpx_follow_hub_redirects_with_backoff(
             "HEAD",
             f"{self.endpoint}/buckets/{bucket_id}/resolve/{quote(remote_path, safe='')}",
-            headers=self._build_hf_headers(token=token),
+            headers=headers,
             retry_on_errors=True,
         )
 
@@ -14811,7 +14848,9 @@ class HfApi:
         if xet_file_data is None:
             raise ValueError(f"Could not parse xet file data for '{remote_path}' in bucket '{bucket_id}'.")
 
-        size = response.headers.get("Content-Length")
+        size = response.headers.get(constants.HUGGINGFACE_HEADER_X_LINKED_SIZE) or (
+            None if response.is_redirect else response.headers.get("Content-Length")
+        )
         if size is None:
             raise ValueError(f"Could not get size for '{remote_path}' in bucket '{bucket_id}'.")
 

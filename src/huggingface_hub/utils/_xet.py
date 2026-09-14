@@ -5,6 +5,7 @@ import time
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any
 
 import httpx
 
@@ -258,9 +259,9 @@ class XetSessionHolder:
     or ``sigint_abort()`` without the GIL serialising them.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._lock = threading.Lock()
-        self._session = None
+        self._session: Any = None
         self._session_pid: int | None = None
 
     def get(self):

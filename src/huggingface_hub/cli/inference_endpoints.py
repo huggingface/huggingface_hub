@@ -361,6 +361,18 @@ def deploy(
     engine: EngineOpt = None,
     health_route: HealthRouteOpt = None,
     port: PortOpt = None,
+    container_registry_username: Annotated[
+        str | None,
+        Option(
+            help="Username used to authenticate with the registry hosting --custom-image.",
+        ),
+    ] = None,
+    container_registry_password: Annotated[
+        str | None,
+        Option(
+            help="Optional password used to authenticate with the registry hosting --custom-image.",
+        ),
+    ] = None,
     tensor_parallel_size: TensorParallelSizeOpt = None,
     data_parallel_size: DataParallelSizeOpt = None,
     container_command: Annotated[
@@ -406,6 +418,8 @@ def deploy(
         engine=engine,
         health_route=health_route,
         port=port,
+        container_registry_username=container_registry_username,
+        container_registry_password=container_registry_password,
         tensor_parallel_size=tensor_parallel_size,
         data_parallel_size=data_parallel_size,
     )
@@ -419,6 +433,10 @@ def deploy(
         params["type"] = endpoint_type
     if custom_image_dict is not None:
         params["custom_image"] = custom_image_dict
+    if container_registry_username is not None:
+        params["container_registry_username"] = container_registry_username
+    if container_registry_password is not None:
+        params["container_registry_password"] = container_registry_password
     if container_command:
         params["container_command"] = shlex.split(container_command)
     if container_args:
@@ -782,6 +800,8 @@ def _build_custom_image(
     engine: str | None = None,
     health_route: str | None = None,
     port: int | None = None,
+    container_registry_username: str | None = None,
+    container_registry_password: str | None = None,
     tensor_parallel_size: int | None = None,
     data_parallel_size: int | None = None,
 ) -> dict | None:
@@ -798,12 +818,19 @@ def _build_custom_image(
             "--engine": engine,
             "--health-route": health_route,
             "--port": port,
+            "--container-registry-username": container_registry_username,
+            "--container-registry-password": container_registry_password,
             "--tensor-parallel-size": tensor_parallel_size,
             "--data-parallel-size": data_parallel_size,
         }
         if used := [flag for flag, value in image_flags.items() if value is not None]:
             raise CLIError(f"--custom-image is required when using {', '.join(used)}.")
         return None
+
+    if container_registry_password is not None and container_registry_username is None:
+        raise CLIError("--container-registry-password requires --container-registry-username.")
+    if engine is not None and container_registry_username is not None:
+        raise CLIError("Container registry credentials can only be set for a custom container without --engine.")
 
     if engine is None and (tensor_parallel_size is not None or data_parallel_size is not None):
         # Without an engine the config is a plain custom container, whose parallelism fields the API ignores
