@@ -149,7 +149,7 @@ A pooled sandbox's public id is `<host_job_id>.<local_id>`, so `connect`/`exec`/
 
 This is the crux of the pool design, so it is worth being precise about what is and isn't isolated.
 
-A stock Job runs as root inside a user namespace that maps only uids 0..65535, with a seccomp filter on and without `CAP_SYS_ADMIN` / `CAP_NET_ADMIN` / `CAP_NET_RAW`. That rules out the usual heavyweight isolation tools: no nested namespaces, no new mounts, no cgroup delegation (`unshare`, `mount`, writing to `/sys/fs/cgroup/...` all fail). What the kernel does offer is [**Landlock**](https://docs.kernel.org/userspace-api/landlock.html) (ABI 6), a Linux Security Module that lets any unprivileged process restrict itself and its children — exactly the per-sandbox boundary we need. For each sandbox the server builds a ruleset; the exec child applies `NO_NEW_PRIVS` → `landlock_restrict_self` → rlimits → `setuid/setgid` before running the command.
+A stock Job runs as root inside a user namespace that maps only uids 0..65535, with a seccomp filter on and without `CAP_SYS_ADMIN` / `CAP_NET_ADMIN` / `CAP_NET_RAW`. That rules out the usual heavyweight isolation tools: no nested namespaces, no new mounts, no cgroup delegation (`unshare`, `mount`, writing to `/sys/fs/cgroup/...` all fail). What the kernel does offer is [**Landlock**](https://docs.kernel.org/userspace-api/landlock.html) (ABI 6), a Linux Security Module that lets any unprivileged process restrict itself and its children — exactly the per-sandbox boundary we need. For each sandbox the server builds a ruleset; the exec child drops to the sandbox uid/gid and applies `NO_NEW_PRIVS`, `landlock_restrict_self`, and rlimits before running the command.
 
 Combining distinct uids (discretionary access control) with Landlock is designed and tested to provide:
 
@@ -163,7 +163,7 @@ Combining distinct uids (discretionary access control) with Landlock is designed
 - ✅ Cross-sandbox abstract unix sockets are blocked (`LANDLOCK_SCOPED_ABSTRACT_UNIX_SOCKET`; uid
   isolation alone does *not* block these).
 
-Read that list precisely: it describes what code running **inside** a sandbox can do *directly*. It says nothing about the privileged control plane. `sbx-server` runs as root, outside every sandbox's Landlock domain, and some of its endpoints act on paths and socket names that the sandbox itself controls — so a sandbox that cannot reach its neighbour directly may still be able to get the server to do it on its behalf. Those are tracked in [Known limitations](#known-limitations).
+These controls constrain the workload. The root control plane remains a separate trust boundary: its host-mode file operations refuse symlinks, its socket proxy pins the socket inode and checks the peer uid, and dedicated routes are unavailable in host mode. Residual shared channels are described in [Known limitations](#known-limitations).
 
 > [!NOTE]
 > **Why this is not a substitute for a VM.** Landlock and uid isolation are intended for workloads within the same
@@ -175,7 +175,7 @@ Read that list precisely: it describes what code running **inside** a sandbox ca
 
 Because a pooled sandbox's only writable area is its Landlock-confined home (which is also its default working directory), the file API roots every path at that home: `files.write("data/in.txt", ...)` writes to `$HOME/data/in.txt`, a leading `/` is taken relative to the home, and `..` cannot escape it. Files written through the API are `chown`ed to the sandbox's uid so the sandbox's own code can read them. This gives a clean "filesystem rooted at the sandbox" model that matches exactly what code inside the sandbox can touch — and differs from dedicated sandboxes, where paths are absolute on the container filesystem.
 
-The `..` guarantee is lexical: path components are normalized before the operation, so no request can *name* a path outside the home. **Symlinks are a different question** — see [Known limitations](#known-limitations). The file API runs as root, so a symlink placed inside the home by the sandbox's own code can currently point the operation at a target outside it.
+Paths are normalized lexically, then resolved relative to an open home-directory descriptor with symlink refusal on every component. The file API does not follow symlinks, including links within the same home; sandbox code can still use them under its Landlock rules.
 
 ### Pools have no authoritative local state
 
@@ -221,44 +221,37 @@ Two things to keep in mind. Treat `$HF_HOME` as sensitive: an entry is still a r
 
 ## Known limitations
 
-This section is deliberately exhaustive rather than reassuring: if you are deciding whether a sandbox is a strong enough boundary for a given workload, you need the gaps, not the highlights. Nothing here is a substitute for the rule of thumb — **pools for your own code, dedicated sandboxes for code you don't trust.**
+**Pools are for workloads within one trust boundary. Use dedicated sandboxes for code you do not trust.** The checks below reduce specific risks; they do not turn pooled sandboxes into separate VMs.
 
 ### Threat model at a glance
 
 | Actor | Dedicated | Pool |
 | --- | --- | --- |
-| Anonymous internet user | Cannot reach the sandbox: the Jobs proxy requires an HF token with namespace read access. | Same. |
-| Namespace member with read access | Reaches the proxy, but not the API: they cannot derive your sandbox token. Can see the job exists, its labels, and `/health`. | Same, plus they can read the pool's labels and nonce. |
-| Namespace member who can create Jobs | — | Can publish a Job carrying your pool's labels and nonce, but it is not adopted: `adopt_hosts` defaults to hosts this principal started. Relevant again if you opt into `adopt_hosts="namespace"`. |
-| Code running in the sandbox | Runs as root in the VM alongside `sbx-server`; owns the VM. | Confined by uid + Landlock as described above, but shares the kernel, VM and control plane with its neighbours. |
-| Your own client | Holds the HF token and the sandbox token. | Same; in a pool the sandbox token covers the whole host. |
+| Anonymous internet user | The Jobs proxy requires an HF token with namespace read access. | Same. |
+| Namespace member with read access | Can reach the proxy and public health check, but needs the sandbox token for API operations. | Same. |
+| Namespace member who can create Jobs | Cannot derive another user's token from its nonce. | Can copy pool labels, but default adoption checks the Jobs API's initiator. `adopt_hosts="namespace"` opts into trusting other creators. |
+| Code running in the sandbox | Shares root with the server inside the VM; do not reuse that VM across trust boundaries. | Confined by uid and Landlock, but shares the kernel, VM, and privileged control plane. |
+| Your client | Holds the HF and dedicated sandbox credentials. | Holds the host management credential and separate per-sandbox capabilities. |
 
-### Isolation gaps in pool mode
+### Isolation and resource gaps
 
-- **The control plane is reachable and privileged.** `sbx-server` runs as root outside every sandbox's Landlock domain, and the sandbox can reach it on loopback. Two of its endpoints act on names the sandbox controls:
-  - the **file API** follows symlinks, so a symlink placed in a sandbox's home can direct a root-privileged read, write, `chown` or delete outside that home;
-  - the **port proxy** connects to `$SBX_PROXY_DIR/<port>.sock` without rejecting symlinks or checking the socket's owner, so a sandbox can point it at another sandbox's socket.
+- **Host discovery is not attestation.** The default `adopt_hosts="own"` checks initiator, image, flavor, command, and exposed URL. It does not attest the running binary or make a mutable image trustworthy. Only use `adopt_hosts="namespace"` with namespace members you trust.
+- **Host credentials remain powerful.** They manage the pool and recover each sandbox's token. The server also accepts them on scoped routes during the compatibility window (`SBX_COMPAT_HOST_TOKEN=0` disables that fallback).
+- **Shared channels remain.** Outbound TCP, loopback access to the control server, UDP, kernel IPC, and readable process-list metadata are not isolated. System directories and selected device nodes remain accessible. GPU pool isolation is untested; use dedicated mode for GPU.
+- **Limits are not aggregate quotas.** Per-process rlimits and bounded output queues reduce resource amplification. They do not partition CPU shares, total memory, disk space, inodes, or network capacity between sandboxes. Directory pagination bounds responses but still materializes the directory on the server. API file writes are not a disk quota, and dedicated-mode writes to special files can block.
+- **Confinement can be explicitly weakened.** Host mode requires Landlock ABI 6 by default and refuses a failed ruleset. Lowering `SBX_MIN_LANDLOCK_ABI` or using the server's `--allow-unconfined` development flag accepts fewer guarantees; inspect authenticated `/health` for the effective ABI and features.
+- **Proxy connections are authenticated only once.** After the first request, the proxy copies bytes to that backend until EOF. Subsequent HTTP requests on that connection are not independently authenticated or routed. WebSocket/SSE compatibility does not establish safety against upstream connection reuse.
 
-  Both require a legitimate caller to invoke the endpoint (the sandbox has no token of its own), so they are confused-deputy problems rather than direct escapes — but they do break confidentiality and integrity between pooled sandboxes.
-- **Host discovery starts from Job labels**, which any Job creator in the namespace can set — so a label match is a claim, not proof. By default (`adopt_hosts="own"`) the client only adopts hosts *this principal started*, per the Jobs API's `initiator`, and additionally checks the image, flavor, command and exposed URL. Setting `adopt_hosts="namespace"` restores cross-user host sharing and, with it, the ability of any Job creator in that namespace to publish a host your client will send a token to — only use it in a namespace whose members you trust.
-- **Landlock can degrade silently.** If Landlock is unavailable, or its ruleset cannot be built, the server currently falls back to uid-only isolation and creates the sandbox anyway — without telling the client. Under uid-only isolation, `/tmp`, `/dev/shm`, TCP bind and cross-home filesystem access are *not* denied. The server also accepts Landlock ABI 1, while the ✅ list above needs ABI 4 (TCP bind) and ABI 6 (abstract sockets); production kernels provide ABI 6, but a lower one would silently drop those two guarantees.
-- **Residual shared channels**, none of which Landlock or uid isolation closes: unrestricted outbound TCP; loopback access to the control server; **UDP bind is allowed** (Landlock has no UDP coverage); a sibling's `/proc/<pid>/cmdline` and `status` are readable (`environ` is not — that is the part that would leak credentials, and it is denied); `/proc` and `/sys` are readable and `/dev` is broadly readable and writable; kernel IPC and all machine resources are shared.
-- **No CPU-share, disk or total-memory *quota*.** Per-process `RLIMIT_NPROC`, `RLIMIT_AS`, `RLIMIT_NOFILE`, `RLIMIT_FSIZE` and `RLIMIT_CPU` are set, and `max_procs`/`max_mem_mb` are clamped server-side — but cgroup delegation is not available on Jobs, so these are per-process ceilings rather than a share of the host. A sandbox running many processes within its limits can still crowd its neighbours.
-- **GPU flavors are untested in pool mode.** The client does not prevent one. Use `Sandbox.create` for GPU.
+### Lifecycle and credentials
 
-### Lifecycle and operational gaps
+- **Detached descendants can outlive process termination or timeout.** Both signal the process group; a descendant that calls `setsid()` escapes that group. Delete the pooled sandbox or terminate the dedicated Job to end the whole workload.
+- **`max_hosts` is best-effort.** Separate clients can count the same hosts and both provision more. Backend admission or idempotency is needed for a hard shared cap.
+- **Teardown can fail.** Failed host cancellations raise and retain cache records. `close()` bounds its wait for in-flight creates; a creation that outlasts that wait can leave a billable Job. Use the Jobs API or CLI to reconcile running resources.
+- **Bearer rotation does not rotate sandbox capabilities.** Proxy authentication resolves the current HF token per request, but stateless reconnect derives a host token from the exact original bearer value. Rotating that value can prevent reconnecting to existing hosts.
+- **The local cache remains trusted input for 15 minutes.** Its URL and security context are checked, but it has no integrity MAC; protect `$HF_HOME` from writes by untrusted code.
+- **A digest pin is not signed provenance.** The client verifies one specific server binary. Publishing and updating that pin remain release steps; the workflow's manifest is not a cryptographic attestation. The explicit `SBX_ALLOW_UNVERIFIED_SERVER=1` escape hatch skips verification only when both hash tools are missing.
 
-- **A detached descendant can outlive `kill()`.** `SandboxProcess.kill()` signals the command's process group; a descendant that calls `setsid()` leaves it. Deleting the sandbox (pool) or the job (dedicated) does terminate everything. Use `timeout=` if you need a hard bound.
-- **A long foreground command can trip the idle watchdog.** `idle_timeout` counts API requests, and a running foreground command is not counted as activity, so a command that runs longer than `idle_timeout` without other API traffic can have its sandbox shut down under it. Raise `idle_timeout` (or pass `None`) for long single commands.
-- **`max_hosts` is best-effort, not a hard cap.** It is now checked against every host running for the pool (found via labels), not just the ones the current process tracks — but two processes can still count simultaneously and both decide there is room. A hard cap has to be enforced where Jobs are created, not by clients racing to count them. Per-host `sandboxes_per_host` *is* enforced server-side.
-- **The server binary is not pinned or verified.** Each job downloads `sbx-server` from a mutable public bucket path and executes it as root without checking a digest or signature.
-- **The server's HTTP front end is minimal.** No connection cap and no read deadlines, so a slow-request flood can exhaust its threads; a request with a malformed `Content-Length` is treated as having no body. Reaching it still requires passing the proxy gate.
-
-### Also worth knowing
-
-- `/health` does not require the sandbox token and reports the server version, uptime and sandbox count to anyone who can pass the proxy gate.
-- Sandbox ids come from `/dev/urandom`, with a timestamp fallback if that read fails — predictable ids in that (very unlikely) case.
-- Pooled uids are allocated monotonically from 20000 and never recycled, so a host that has created ~45,000 sandboxes over its lifetime can no longer create more, even when empty.
+Unauthenticated `/health` exposes liveness and protocol only. Detailed metadata requires the host credential. Sandbox ids and tokens require the kernel random source; UID reuse follows verified process and home cleanup.
 
 ## Performance
 
