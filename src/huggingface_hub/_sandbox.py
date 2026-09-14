@@ -74,7 +74,7 @@ DEFAULT_IMAGE = "python:3.12"
 # Both constants move together on every server release; the digest is printed by the server
 # repo's publish workflow.
 SANDBOX_SERVER_VERSION = "0.6.0"
-SANDBOX_SERVER_SHA256 = "501290eacb36a3bd8746b2f2ee20e85190ec3f697b4756c3e51a574384e61db4"
+SANDBOX_SERVER_SHA256 = "bd08d60b3bdab4ddd4e81401b6dacc96e01bcee3a4753e258b99d40c07d81ee3"
 
 # The sbx-server wire contract this client drives, checked against `/health`'s `protocol` on
 # startup. A pool host keeps the binary it downloaded at boot for up to 24h, so pinning a
