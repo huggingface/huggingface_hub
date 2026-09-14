@@ -45,6 +45,7 @@ from huggingface_hub.inference._providers.hf_inference import (
     HFInferenceFeatureExtractionTask,
     HFInferenceTask,
 )
+from huggingface_hub.inference._providers.intelcs_ai_iaas import IntelCSAIConversationalTask
 from huggingface_hub.inference._providers.novita import NovitaConversationalTask, NovitaTextGenerationTask
 from huggingface_hub.inference._providers.nscale import NscaleConversationalTask, NscaleTextToImageTask
 from huggingface_hub.inference._providers.openai import OpenAIConversationalTask
@@ -1257,6 +1258,32 @@ class TestHFInferenceProvider:
         assert isinstance(request.data, bytes)
         assert request.headers["authorization"] == "Bearer hf_test_token"
         assert request.headers["content-type"] == "image/jpeg"  # based on filename
+
+
+class TestIntelCSAIConversationalTask:
+    def test_prepare_url(self):
+        helper = IntelCSAIConversationalTask()
+        assert helper.task == "conversational"
+        url = helper._prepare_url("intelcs_ai_token", "username/repo_name")
+        assert url == "https://iaas-router.iaas-billing.workers.dev/v1/chat/completions"
+
+    def test_prepare_payload_as_dict(self):
+        helper = IntelCSAIConversationalTask()
+        payload = helper._prepare_payload_as_dict(
+            [{"role": "user", "content": "Hello!"}],
+            {},
+            InferenceProviderMapping(
+                provider="intelcs-ai-iaas",
+                hf_model_id="google/gemma-3-4b-it",
+                providerId="google/gemma-3-4b-it",
+                task="conversational",
+                status="live",
+            ),
+        )
+        assert payload == {
+            "messages": [{"role": "user", "content": "Hello!"}],
+            "model": "google/gemma-3-4b-it",
+        }
 
 
 class TestNovitaProvider:
