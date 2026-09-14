@@ -196,6 +196,7 @@ def sandbox_exec(
             timeout=exec_timeout,
             on_stdout=write_stdout,
             on_stderr=write_stderr,
+            capture_output=False,
             check=False,
         )
     if result.timed_out:
