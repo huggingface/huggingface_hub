@@ -700,14 +700,30 @@ class TestSharedSandbox:
         assert sandbox.proxy_headers["X-Sandbox-Token"] == "tok-local1"
         assert sandbox.proxy_headers["X-Sandbox-Token"] != sandbox._server._sandbox_token
 
-    def test_falls_back_to_the_host_token_on_an_older_server(self, fake_server: str) -> None:
-        # A host running a server that predates per-sandbox tokens returns no token
-        # in the create response; those sandboxes keep working with the host one.
+    @pytest.mark.parametrize("token", [None, "", 42, False])
+    def test_shared_sandbox_requires_a_valid_token(self, fake_server: str, token) -> None:
         server = _make_server(fake_server, capacity=10)
-        _FakeServer.sandboxes.add("local1")
-        sandbox = Sandbox(id="job123.local1", server=server, local_id="local1", owns_sandbox=True, owns_server=False)
-        assert sandbox._sandbox_token is None
-        assert sandbox.proxy_headers["X-Sandbox-Token"] == "secret"
+        with pytest.raises(SandboxError, match="sandbox-scoped token.*recycle"):
+            Sandbox(
+                id="job123.local1",
+                server=server,
+                local_id="local1",
+                owns_sandbox=True,
+                owns_server=False,
+                sandbox_token=token,
+            )
+
+    def test_token_recovery_never_falls_back(self, fake_server, monkeypatch):
+        server = _make_server(fake_server)
+        request = MagicMock()
+        monkeypatch.setattr(server, "request", request)
+        request.side_effect = SandboxError("missing token route", status_code=404)
+        with pytest.raises(SandboxError, match="missing token route"):
+            server.sandbox_token("local1")
+        request.side_effect = None
+        request.return_value.json.return_value = {}
+        with pytest.raises(SandboxError, match="sandbox-scoped token"):
+            server.sandbox_token("local1")
 
 
 class TestSandboxPool:

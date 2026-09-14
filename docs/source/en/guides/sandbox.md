@@ -133,6 +133,13 @@ Start a server in the sandbox (in the background), then reach it from the outsid
 ...     ws_url = sbx.proxy_url_for(8000, "/ws", scheme="wss://")
 ```
 
+When using `proxy_headers`, disable redirects in your HTTP client (`follow_redirects=False`
+with httpx, or `allow_redirects=False` with requests). An application can redirect to another
+origin, and these custom authentication headers must not be forwarded there.
+
+Pooled sandboxes require a server that returns per-sandbox capability tokens. Missing tokens
+are an error; upgrade and recycle the host instead of using its management token.
+
 How the inner server must listen depends on the sandbox kind:
 
 - **Dedicated** ([`Sandbox.create`]): bind a normal TCP port on `127.0.0.1:<port>`.
