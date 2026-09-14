@@ -45,7 +45,7 @@ from huggingface_hub.cli.papers import papers_cli
 from huggingface_hub.cli.repo_files import repo_files_cli
 from huggingface_hub.cli.repos import repos_cli
 from huggingface_hub.cli.sandbox import sandbox_cli
-from huggingface_hub.cli.skills import skills_cli
+from huggingface_hub.cli.skills import skills_cli, skills_preview
 from huggingface_hub.cli.spaces import spaces_cli
 from huggingface_hub.cli.system import env, update, version
 from huggingface_hub.cli.upload import UPLOAD_EXAMPLES, upload
@@ -72,11 +72,26 @@ def _version_callback(value: bool) -> None:
         raise click.exceptions.Exit()
 
 
+def _skills_callback(value: bool) -> None:
+    if value:
+        skills_preview()
+        raise click.exceptions.Exit()
+
+
 @app.group_callback(invoke_without_command=True)
 def app_callback(
     version: Annotated[
         bool | None, Option("-v", "--version", callback=_version_callback, is_eager=True, hidden=True)
     ] = None,
+    skills: Annotated[
+        bool,
+        Option(
+            "--skills",
+            callback=_skills_callback,
+            is_eager=True,
+            help="Print the `hf-cli` SKILL.md to stdout (alias for `hf skills preview`).",
+        ),
+    ] = False,
     install_completion: InstallCompletionOpt = False,
     show_completion: ShowCompletionOpt = False,
 ) -> None:
@@ -126,7 +141,7 @@ def main():
         check_cli_update("huggingface_hub")
         # Don't nag while the user is already managing skills, nor on `hf update` which handles the
         # skill itself (it would print a redundant or contradictory hint before doing so).
-        if sys.argv[1:2] not in (["skills"], ["update"]):
+        if sys.argv[1:2] not in (["skills"], ["update"], ["--skills"]):
             check_skill_update()
 
     try:

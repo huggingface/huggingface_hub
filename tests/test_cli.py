@@ -5309,6 +5309,19 @@ class TestSkillsHfCliCLI:
         runner.invoke(app, ["skills", "update", "--dest", str(dest)])
         assert skill_file.read_text(encoding="utf-8") == build_skill_md()
 
+    def test_skills_flag_prints_the_skill(self, runner: CliRunner) -> None:
+        """`hf --skills` is a top-level alias for `hf skills preview`."""
+        result = runner.invoke(app, ["--skills"])
+        assert result.exit_code == 0, result.output
+        assert result.stdout == build_skill_md() + "\n"
+
+    def test_skills_flag_available_top_level_only(self, runner: CliRunner) -> None:
+        """The alias is a top-level flag: commands and subgroups must not accept it."""
+        for args in (["skills", "preview", "--skills"], ["repos", "--skills"]):
+            result = runner.invoke(app, args)
+            assert result.exit_code != 0, args
+            assert "--skills" in result.output, args
+
 
 class TestSkillUpdateCheck:
     """The daily `hf-cli` skill check only prints hints, it never installs nor updates."""
@@ -5358,6 +5371,7 @@ class TestSkillUpdateCheck:
         [
             (["hf", "version"], 1),
             (["hf", "skills", "add"], 0),  # the user is already managing skills
+            (["hf", "--skills"], 0),  # `hf --skills` is an alias for `hf skills preview`
             (["hf", "update"], 0),  # `hf update` handles the skill itself
         ],
     )
