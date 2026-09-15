@@ -1324,7 +1324,7 @@ class TestHttpGet:
         return r
 
     @staticmethod
-    def _http_get_with_mocked_responses(responses, **http_get_kwargs):
+    def _http_get_with_mocked_responses(responses, *, temp_file=None, **http_get_kwargs):
         """Run http_get against a sequence of mock responses, return the BytesIO."""
         it = iter(responses)
 
@@ -1333,7 +1333,8 @@ class TestHttpGet:
             yield next(it)
 
         with patch("huggingface_hub.file_download.http_stream_backoff", side_effect=_mock_stream):
-            temp_file = io.BytesIO()
+            if temp_file is None:
+                temp_file = io.BytesIO()
             http_get("fake_url", temp_file=temp_file, **http_get_kwargs)
         return temp_file
 
@@ -1433,6 +1434,261 @@ class TestHttpGet:
         assert temp_file.getvalue() == b"X" * 100
         assert tracker.total == 100
         assert tracker.n == 100
+
+    def test_http_get_on_already_positioned_file(self):
+        """Test the consistency check counts downloaded bytes, not the absolute file position.
+
+        `HfFileSystem.get_file` hands `http_get` a file object that may already hold data of its own
+        (it records `initial_pos` and restores it afterwards). Measuring progress with `temp_file.tell()`
+        then counts the caller's bytes as downloaded bytes and the size check fails spuriously.
+        """
+        temp_file = io.BytesIO()
+        temp_file.write(b"HEADER--")  # caller wrote 8 bytes before handing the file over
+
+        self._http_get_with_mocked_responses(
+            [self._mock_response(headers={"Content-Length": "100"}, iter_bytes=iter([b"A" * 100]))],
+            temp_file=temp_file,
+            expected_size=100,
+        )
+
+        assert temp_file.getvalue() == b"HEADER--" + b"A" * 100
+
+    def test_http_get_on_already_positioned_file_reports_downloaded_size_on_mismatch(self):
+        """Test a genuine size mismatch is still reported, with the downloaded size rather than the position."""
+        temp_file = io.BytesIO()
+        temp_file.write(b"HEADER--")
+
+        with pytest.raises(OSError, match="file should be of size 100 but has size 50"):
+            self._http_get_with_mocked_responses(
+                [self._mock_response(headers={"Content-Length": "100"}, iter_bytes=iter([b"A" * 50]))],
+                temp_file=temp_file,
+                expected_size=100,
+            )
+
+    def test_http_get_retry_resets_to_initial_position_when_range_ignored(self):
+        """Test the Range-ignored reset rewinds to where this download started, not to the start of the file.
+
+        Same setup as `test_http_get_retry_resets_file_when_range_ignored`, but on a file object that is
+        already positioned: `seek(0) + truncate()` would discard the caller's own bytes.
+        """
+
+        def _iter_content_1() -> Iterable[bytes]:
+            yield b"A" * 30
+            raise httpx.TimeoutException("Fake timeout")
+
+        temp_file = io.BytesIO()
+        temp_file.write(b"HEADER--")
+
+        self._http_get_with_mocked_responses(
+            [
+                self._mock_response(headers={"Content-Length": "100"}, iter_bytes=_iter_content_1()),
+                # 200, not 206 — Range was ignored, so the partial bytes are re-sent from scratch
+                self._mock_response(headers={"Content-Length": "100"}, iter_bytes=iter([b"B" * 100])),
+            ],
+            temp_file=temp_file,
+            expected_size=100,
+        )
+
+        assert temp_file.getvalue() == b"HEADER--" + b"B" * 100
+
+    def test_http_get_with_resume_size_on_already_positioned_file(self):
+        """Test an explicit `resume_size` is honoured on a positioned file: only the missing bytes are counted."""
+        temp_file = io.BytesIO()
+        temp_file.write(b"HEADER--" + b"A" * 30)  # caller's data + 30 bytes already downloaded
+
+        self._http_get_with_mocked_responses(
+            [
+                self._mock_response(
+                    status_code=206,
+                    headers={"Content-Length": "70", "Content-Range": "bytes 30-99/100"},
+                    iter_bytes=iter([b"B" * 70]),
+                )
+            ],
+            temp_file=temp_file,
+            expected_size=100,
+            resume_size=30,
+        )
+
+        assert temp_file.getvalue() == b"HEADER--" + b"A" * 30 + b"B" * 70
+
+    def test_http_get_on_already_positioned_real_file(self):
+        """Test the fix on an on-disk file handle, the shape `HfFileSystem.get_file` actually passes.
+
+        `BytesIO` and a real file object differ in how `truncate()` and `tell()` interact, so the
+        `HfFileSystem.get_file` code path (`outfile = open(lpath, "wb")`, then `initial_pos = outfile.tell()`)
+        is worth pinning directly rather than only through `BytesIO`.
+        """
+        with SoftTemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, "positioned.bin")
+            with open(path, "wb") as temp_file:
+                temp_file.write(b"HEADER--")
+                initial_pos = temp_file.tell()
+
+                self._http_get_with_mocked_responses(
+                    [self._mock_response(headers={"Content-Length": "100"}, iter_bytes=iter([b"A" * 100]))],
+                    temp_file=temp_file,
+                    expected_size=100,
+                )
+                temp_file.seek(initial_pos)
+
+            with open(path, "rb") as f:
+                assert f.read() == b"HEADER--" + b"A" * 100
+
+    def test_http_get_retry_resets_to_initial_position_twice(self):
+        """Test two consecutive Range-ignored resets on a positioned file still rewind to the origin.
+
+        The reset arm sets `resume_size = 0` after rewinding, and the retry recursion re-enters with
+        `new_resume_size`. A second reset must therefore rewind by the *second* attempt's byte count,
+        not by the first one's, and must never move below the caller's initial position.
+        """
+
+        def _iter_content_1() -> Iterable[bytes]:
+            yield b"A" * 30
+            raise httpx.TimeoutException("Fake timeout")
+
+        def _iter_content_2() -> Iterable[bytes]:
+            yield b"C" * 40
+            raise httpx.TimeoutException("Fake timeout")
+
+        temp_file = io.BytesIO()
+        temp_file.write(b"HEADER--")
+
+        self._http_get_with_mocked_responses(
+            [
+                self._mock_response(headers={"Content-Length": "100"}, iter_bytes=_iter_content_1()),
+                # Both retries come back 200 instead of 206: Range ignored twice in a row.
+                self._mock_response(headers={"Content-Length": "100"}, iter_bytes=_iter_content_2()),
+                self._mock_response(headers={"Content-Length": "100"}, iter_bytes=iter([b"D" * 100])),
+            ],
+            temp_file=temp_file,
+            expected_size=100,
+        )
+
+        assert temp_file.getvalue() == b"HEADER--" + b"D" * 100
+
+    def test_http_get_on_already_positioned_file_with_expected_size_zero(self):
+        """Test a falsy-but-not-`None` `expected_size` of 0 reaches the size check on a positioned file.
+
+        `resume_size` past `expected_size` skips the early return at the top of `http_get`, so the
+        consistency check runs with `expected_size=0` and must report the bytes downloaded here rather
+        than the absolute file position.
+        """
+        temp_file = io.BytesIO()
+        temp_file.write(b"HEADER--")
+
+        with pytest.raises(OSError, match="file should be of size 0 but has size 5"):
+            self._http_get_with_mocked_responses(
+                [
+                    self._mock_response(
+                        status_code=206,
+                        headers={"Content-Length": "0", "Content-Range": "bytes 5-5/0"},
+                        iter_bytes=iter([b""]),
+                    )
+                ],
+                temp_file=temp_file,
+                expected_size=0,
+                resume_size=5,
+            )
+
+    def test_http_get_on_already_positioned_file_without_expected_size(self):
+        """Test the `expected_size=None` caller: the size is back-filled from the response and still checked."""
+        temp_file = io.BytesIO()
+        temp_file.write(b"HEADER--")
+
+        self._http_get_with_mocked_responses(
+            [self._mock_response(headers={"Content-Length": "100"}, iter_bytes=iter([b"A" * 100]))],
+            temp_file=temp_file,
+        )
+
+        assert temp_file.getvalue() == b"HEADER--" + b"A" * 100
+
+    def test_http_get_at_offset_one(self):
+        """Test the smallest non-zero initial position, the boundary just past the unchanged offset-0 path."""
+        temp_file = io.BytesIO()
+        temp_file.write(b"H")
+
+        self._http_get_with_mocked_responses(
+            [self._mock_response(headers={"Content-Length": "100"}, iter_bytes=iter([b"A" * 100]))],
+            temp_file=temp_file,
+            expected_size=100,
+        )
+
+        assert temp_file.getvalue() == b"H" + b"A" * 100
+
+    def test_http_get_reports_downloaded_size_when_resume_size_overshoots(self):
+        """Test the error message reports bytes downloaded here, not the absolute position, when nothing arrives.
+
+        `resume_size` one past `expected_size` skips the early return at the top of `http_get`, the server
+        sends no body, and the consistency check must name the resume offset rather than offset + caller bytes.
+        """
+        temp_file = io.BytesIO()
+        temp_file.write(b"HEADER--")
+
+        with pytest.raises(OSError, match="file should be of size 100 but has size 101"):
+            self._http_get_with_mocked_responses(
+                [
+                    self._mock_response(
+                        status_code=206,
+                        headers={"Content-Length": "0", "Content-Range": "bytes 101-100/100"},
+                        iter_bytes=iter([b""]),
+                    )
+                ],
+                temp_file=temp_file,
+                expected_size=100,
+                resume_size=101,
+            )
+
+    def test_http_get_range_ignored_with_caller_supplied_resume_size_on_positioned_file(self):
+        """Test the Range-ignored reset rewinds correctly when `resume_size` comes from the caller.
+
+        `test_http_get_retry_resets_to_initial_position_when_range_ignored` reaches the reset through the
+        retry recursion, which re-enters `http_get` with a `resume_size` it measured itself. A caller may
+        instead hand over a partially downloaded file directly, so the reset is reached on the *first*
+        request and with no progress bar to roll back.
+        """
+        temp_file = io.BytesIO()
+        temp_file.write(b"HEADER--" + b"A" * 30)  # caller's data + 30 bytes already downloaded
+
+        self._http_get_with_mocked_responses(
+            # 200, not 206 — the server ignored the Range header we sent for `resume_size=30`
+            [self._mock_response(headers={"Content-Length": "100"}, iter_bytes=iter([b"B" * 100]))],
+            temp_file=temp_file,
+            expected_size=100,
+            resume_size=30,
+        )
+
+        assert temp_file.getvalue() == b"HEADER--" + b"B" * 100
+
+    def test_http_get_on_already_positioned_file_reports_downloaded_size_when_server_overshoots(self):
+        """Test the overshoot side of the size check: too many bytes are reported as bytes downloaded here."""
+        temp_file = io.BytesIO()
+        temp_file.write(b"HEADER--")
+
+        with pytest.raises(OSError, match="file should be of size 100 but has size 150"):
+            self._http_get_with_mocked_responses(
+                [self._mock_response(headers={"Content-Length": "100"}, iter_bytes=iter([b"A" * 150]))],
+                temp_file=temp_file,
+                expected_size=100,
+            )
+
+    def test_http_get_rejects_resume_size_past_the_end_of_the_file_when_range_ignored(self):
+        """Test a `resume_size` larger than the file fails loudly instead of silently restarting.
+
+        The rewind is relative to the current position, so a caller claiming more bytes than the file
+        holds asks to seek before its start. Neither in-repo call site can reach this (both pass
+        `resume_size=0`, and the retry recursion measures `new_resume_size` on the same file object),
+        but the failure is worth pinning: it is a rejected seek, not a silent truncation of data the
+        caller still owns.
+        """
+        temp_file = io.BytesIO()
+
+        with pytest.raises(ValueError, match="negative seek value"):
+            self._http_get_with_mocked_responses(
+                [self._mock_response(headers={"Content-Length": "100"}, iter_bytes=iter([b"A" * 100]))],
+                temp_file=temp_file,
+                expected_size=100,
+                resume_size=101,
+            )
 
 
 class TestCreateSymlink:
