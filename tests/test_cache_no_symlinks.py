@@ -64,7 +64,7 @@ class TestCacheLayoutIfSymlinksNotSupported:
 
         with ThreadPoolExecutor(max_workers=1) as executor:
             first = executor.submit(are_symlinks_supported, tmp_path)
-            probe_started.wait()
+            assert probe_started.wait(timeout=10)
             threading.Timer(0.2, release_probe.set).start()
             # Second caller arrives while the probe is in flight: must not see a stale `True`
             assert not are_symlinks_supported(tmp_path)
