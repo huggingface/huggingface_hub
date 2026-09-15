@@ -311,7 +311,10 @@ def _validate_path_in_repo(path_in_repo: str) -> str:
     # Validate `path_in_repo` value to prevent a server-side issue
     if path_in_repo.startswith("/"):
         path_in_repo = path_in_repo[1:]
-    if path_in_repo == "." or path_in_repo == ".." or path_in_repo.startswith("../"):
+    # Reject any ".." segment, wherever it sits in the path: a segment in the middle
+    # (e.g. "a/../../etc/passwd" or "a/../file.txt") is not caught by a prefix check
+    # and can still escape the repo root once resolved.
+    if path_in_repo == "." or any(part == ".." for part in path_in_repo.split("/")):
         raise ValueError(f"Invalid `path_in_repo` in CommitOperation: '{path_in_repo}'")
     if path_in_repo.startswith("./"):
         path_in_repo = path_in_repo[2:]
