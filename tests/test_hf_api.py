@@ -13,6 +13,7 @@
 # limitations under the License.
 import copy
 import datetime
+import json
 import os
 import re
 import subprocess
@@ -2619,6 +2620,29 @@ class TestHfApiPublicProduction:
     def test_not_a_safetensors_file(self, api: HfApi) -> None:
         with pytest.raises(SafetensorsParsingError):
             api.parse_safetensors_file_metadata("HuggingFaceH4/zephyr-7b-beta", "pytorch_model-00001-of-00008.bin")
+
+    def test_safetensors_index_weight_map_rejects_path_traversal(self, api: HfApi, tmp_path) -> None:
+        """model.safetensors.index.json is repo content, not caller input. A weight_map entry with `..`
+        segments in it shouldn't be used to fetch metadata from some other repo with the caller's own token.
+
+        parse_safetensors_file_metadata is left unpatched on purpose: if the validation ever stops running,
+        this would try a real HTTP call to a bogus URL instead of quietly passing.
+        """
+        index_file = tmp_path / "model.safetensors.index.json"
+        index_file.write_text(
+            json.dumps(
+                {
+                    "metadata": {"total_size": 1},
+                    "weight_map": {"weight.0": "../../../../some-other-namespace/some-other-repo/model.safetensors"},
+                }
+            )
+        )
+        with (
+            patch.object(HfApi, "file_exists", side_effect=[False, True]),
+            patch.object(HfApi, "hf_hub_download", return_value=str(index_file)),
+        ):
+            with pytest.raises(SafetensorsParsingError, match="weight_map"):
+                api.get_safetensors_metadata("some-namespace/some-repo")
 
     def test_inference_provider_mapping_model_info(self, api: HfApi):
         model = api.model_info("deepseek-ai/DeepSeek-R1-0528", expand="inferenceProviderMapping")

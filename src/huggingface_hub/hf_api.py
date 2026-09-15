@@ -6912,7 +6912,8 @@ class HfApi:
                 If the repo is not a safetensors repo i.e. doesn't have either a
               `model.safetensors` or a `model.safetensors.index.json` file.
             [`SafetensorsParsingError`]
-                If a safetensors file header couldn't be parsed correctly.
+                If a safetensors file header couldn't be parsed correctly, or if the index file's `weight_map`
+                names a path that escapes the repo.
 
         Example:
             ```py
@@ -6983,6 +6984,22 @@ class HfApi:
                 index = json.load(f)
 
             weight_map = index.get("weight_map", {})
+
+            # weight_map comes from model.safetensors.index.json, i.e. from the repo itself, not from the
+            # caller. Each filename gets joined into a request URL below (parse_safetensors_file_metadata ->
+            # hf_hub_url), and httpx resolves ".." segments client-side before sending, so a crafted entry can
+            # point the request at a different repo, fetched with this caller's own token. Validate the same
+            # way hf_hub_download's local-path side already does for filenames coming from repo content.
+            from ._local_folder import _validate_relative_filename
+
+            for filename in set(weight_map.values()):
+                try:
+                    _validate_relative_filename(filename)
+                except ValueError as e:
+                    raise SafetensorsParsingError(
+                        f"Failed to parse safetensors index for '{repo_id}': `weight_map` names '{filename}', which "
+                        f"is not a valid path within the repo. {e}"
+                    ) from e
 
             # Fetch metadata per shard
             files_metadata = {}
