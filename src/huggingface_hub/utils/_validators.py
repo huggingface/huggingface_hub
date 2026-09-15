@@ -34,7 +34,10 @@ REPO_ID_REGEX = re.compile(
     \b               # ends with a word boundary
     $
     """,
-    flags=re.VERBOSE,
+    # `\w` matches Unicode word characters by default, but the allowed charset is
+    # ASCII-only (see the "Rules" docstring below and the internal Hub validation
+    # it mirrors), so `café` or `文件夹` would otherwise pass this regex unrejected.
+    flags=re.VERBOSE | re.ASCII,
 )
 
 
