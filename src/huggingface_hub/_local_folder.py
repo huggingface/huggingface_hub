@@ -203,10 +203,15 @@ def _validate_relative_filename(filename: str) -> None:
     - a Windows drive path (`C:\\Windows\\...`) or drive-relative path (`D:foo`),
     - a UNC path (`\\\\attacker-host\\share\\...`) — which on Windows additionally makes the client
       authenticate to the attacker's SMB server during path resolution, leaking a NetNTLMv2 hash,
-    - a path using `..` to traverse upward.
+    - a path using `..` to traverse upward,
+    - any path segment ending with a dot or a space — Win32 silently strips trailing
+      dots/spaces from every component when creating files and directories, which renames
+      them and lets distinct repo paths (e.g. `file.` and `file`) collapse onto the same
+      on-disk location on Windows.
 
     Such filenames would otherwise cause `local_dir / filename` to discard `local_dir` (when the right
-    side is anchored) or point outside of it (with `..`). We reject them here, before touching the
+    side is anchored) or point outside of it (with `..`), or lose data via silent collisions
+    (trailing dot/space). We reject them here, before touching the
     filesystem. The check runs on all platforms and interprets the name under both POSIX and Windows
     rules, so a file materialized on Linux cannot escape when later consumed on Windows.
     """
@@ -223,6 +228,18 @@ def _validate_relative_filename(filename: str) -> None:
         if pure_path.drive or pure_path.root:
             raise ValueError(
                 f"Invalid filename '{filename}': cannot be an absolute, drive-relative or UNC path. "
+                "Please ask the repository owner to rename this file."
+            )
+    # Reject segments that Windows cannot store verbatim: Win32 strips trailing
+    # dots and spaces from every path component (files and directories alike),
+    # which silently renames it (breaking upload round-trips) and lets distinct
+    # repo paths like 'file.' vs 'file' or 'dir./x' vs 'dir/x' collapse onto the
+    # same on-disk location, overwriting each other.
+    segments = filename.replace("\\", "/").split("/")
+    for segment in segments:
+        if segment != segment.rstrip(". "):
+            raise ValueError(
+                f"Invalid filename '{filename}': path segments cannot end with a dot or a space. "
                 "Please ask the repository owner to rename this file."
             )
 

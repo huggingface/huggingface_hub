@@ -104,12 +104,21 @@ UNSAFE_FILENAMES = [
     "folder/C:\\Windows\\evil",  # nested Windows drive-absolute
     "folder/\\\\attacker\\share\\evil",  # nested UNC path
     "folder/\\evil",  # nested Windows root-relative
+    "file.",  # trailing dot: Win32-stripped, silently renames and can collide with 'file'
+    "path/in/repo.",  # trailing dot in a nested segment
+    "file ",  # trailing space: same Win32 stripping
+    "path/in/repo ",  # trailing space in a nested segment
+    "file. . ",  # mixed trailing dots and spaces
+    "docs./file.txt",  # trailing dot on an intermediate directory: Win32 strips it too
+    "folder /file.txt",  # trailing space on an intermediate directory
 ]
 
 SAFE_FILENAMES = [
     "file.txt",
     "path/in/repo.txt",
     "weird but valid/name.txt",
+    "file..txt",  # interior dots are fine
+    "file .txt",  # interior space is fine
 ]
 
 
