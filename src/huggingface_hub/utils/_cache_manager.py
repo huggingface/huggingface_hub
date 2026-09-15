@@ -22,7 +22,7 @@ from typing import Literal
 
 from huggingface_hub.errors import CacheNotFound, CorruptedCacheException
 
-from ..constants import HF_HUB_CACHE
+from ..constants import HF_HUB_CACHE, REPO_TYPES_MAPPING
 from . import logging
 from ._parsing import format_timesince
 from ._terminal import tabulate
@@ -739,14 +739,14 @@ def _scan_cached_repo(repo_path: Path) -> CachedRepoInfo:
     if "--" not in repo_path.name:
         raise CorruptedCacheException(f"Repo path is not a valid HuggingFace cache directory: {repo_path}")
 
-    repo_type, repo_id = repo_path.name.split("--", maxsplit=1)
-    repo_type = repo_type[:-1]  # "models" -> "model"
+    repo_type_prefix, repo_id = repo_path.name.split("--", maxsplit=1)
     repo_id = repo_id.replace("--", "/")  # google/fleurs -> "google/fleurs"
 
-    if repo_type not in {"dataset", "model", "space", "kernel"}:
+    if repo_type_prefix not in REPO_TYPES_MAPPING:
         raise CorruptedCacheException(
-            f"Repo type must be `dataset`, `model`, `space` or `kernel`, found `{repo_type}` ({repo_path})."
+            f"Repo type must be one of {sorted(REPO_TYPES_MAPPING)}, found `{repo_type_prefix}` ({repo_path})."
         )
+    repo_type = REPO_TYPES_MAPPING[repo_type_prefix]  # "models" -> "model"
 
     blob_stats: dict[Path, os.stat_result] = {}  # Key is blob_path, value is blob stats
 
