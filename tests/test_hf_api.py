@@ -2739,7 +2739,7 @@ class TestUploadFolderMocked:
         self.pipeline_mock.return_value.commit_url = f"{ENDPOINT_STAGING}/username/repo_id/commit/dummy_sha"
         self.pipeline_mock.return_value.pr_url = None
         mocker.patch("huggingface_hub.hf_api.is_xet_available", return_value=True)
-        mocker.patch("huggingface_hub.hf_api.pipelined_upload", self.pipeline_mock)
+        mocker.patch("huggingface_hub._upload_pipeline.pipelined_upload", self.pipeline_mock)
 
     def _upload_folder_alias(self, tmp_path, **kwargs) -> list[Union[CommitOperationAdd, CommitOperationDelete]]:
         """Alias to call `upload_folder` + retrieve the CommitOperation list passed to the pipeline."""

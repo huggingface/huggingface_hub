@@ -10,11 +10,11 @@ import warnings
 from contextlib import ExitStack
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, BinaryIO, Literal, NoReturn, overload
+from typing import Any, BinaryIO, Literal, NoReturn, cast, overload
 from urllib.parse import quote
 
 import httpx
-from tqdm.auto import tqdm as base_tqdm
+from tqdm import tqdm as base_tqdm
 
 from . import constants
 from ._local_folder import (
@@ -44,7 +44,6 @@ from .utils import (
     hf_raise_for_status,
     logging,
     parse_xet_file_data_from_response,
-    tqdm,
     validate_hf_hub_args,
 )
 from .utils._http import (
@@ -336,7 +335,7 @@ def http_get(
     displayed_filename: str | None = None,
     tqdm_class: type[base_tqdm] | None = None,
     _nb_retries: int = 5,
-    _tqdm_bar: tqdm | None = None,
+    _tqdm_bar: base_tqdm | None = None,
 ) -> None:
     """
     Download a remote file. Do not gobble up errors, and will return errors tailored to the Hugging Face Hub.
@@ -442,8 +441,8 @@ def http_get(
                 total=total,
                 initial=resume_size,
                 name="huggingface_hub.http_get",
-                tqdm_class=tqdm_class,
-                _tqdm_bar=_tqdm_bar,
+                tqdm_class=cast(Any, tqdm_class),
+                _tqdm_bar=cast(Any, _tqdm_bar),
             )
 
             progress = stack.enter_context(progress_cm)
@@ -493,7 +492,7 @@ def xet_get(
     expected_size: int | None = None,
     displayed_filename: str | None = None,
     tqdm_class: type[base_tqdm] | None = None,
-    _tqdm_bar: tqdm | None = None,
+    _tqdm_bar: base_tqdm | None = None,
 ) -> None:
     """
     Download a file using Xet storage service.

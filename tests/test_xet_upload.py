@@ -266,7 +266,7 @@ class TestXetUpload:
         mock_session.new_upload_commit.return_value = mock_commit
 
         with patch("huggingface_hub.utils._xet.get_xet_session", return_value=mock_session):
-            with patch("huggingface_hub._commit_api.are_progress_bars_disabled", return_value=True):
+            with patch("huggingface_hub.utils.are_progress_bars_disabled", return_value=True):
                 _upload_xet_files(
                     additions=[addition],
                     repo_type="model",
@@ -298,7 +298,7 @@ class TestXetUpload:
         mock_session.new_upload_commit.return_value = mock_commit
 
         with patch("huggingface_hub.utils._xet.get_xet_session", return_value=mock_session):
-            with patch("huggingface_hub._commit_api.are_progress_bars_disabled", return_value=True):
+            with patch("huggingface_hub.utils.are_progress_bars_disabled", return_value=True):
                 _upload_xet_files(
                     additions=[addition],
                     repo_type="model",

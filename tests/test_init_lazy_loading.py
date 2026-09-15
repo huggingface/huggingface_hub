@@ -1,8 +1,55 @@
+import subprocess
+import sys
+
 import jedi
 import pytest
 
 
 class TestHuggingfaceHubInit:
+    def test_utils_are_lazy_loaded(self) -> None:
+        script = """
+import sys
+import huggingface_hub.utils as utils
+assert "huggingface_hub.utils._cache_manager" not in sys.modules
+utils.scan_cache_dir
+assert "huggingface_hub.utils._cache_manager" in sys.modules
+"""
+        subprocess.run([sys.executable, "-c", script], check=True)
+
+    def test_cli_commands_are_lazy_loaded(self) -> None:
+        script = """
+import sys
+from click.testing import CliRunner
+from huggingface_hub.cli.hf import app
+assert "huggingface_hub.cli.models" not in sys.modules
+result = CliRunner().invoke(app, ["models", "--help"])
+assert result.exit_code == 0, result.output
+assert "huggingface_hub.cli.models" in sys.modules
+"""
+        subprocess.run([sys.executable, "-c", script], check=True)
+
+    def test_hf_api_dependencies_are_lazy_loaded(self) -> None:
+        script = """
+import sys
+from huggingface_hub import HfApi
+assert HfApi.__name__ == "HfApi"
+assert "huggingface_hub._commit_api" not in sys.modules
+assert "huggingface_hub.file_download" not in sys.modules
+assert "huggingface_hub._dataset_viewer" not in sys.modules
+"""
+        subprocess.run([sys.executable, "-c", script], check=True)
+
+    def test_star_import_does_not_load_optional_frameworks(self) -> None:
+        script = """
+import sys
+from huggingface_hub import *
+for module in ("fastapi", "numpy", "starlette", "torch"):
+    assert module not in sys.modules, module
+assert HFSummaryWriter.__name__ == "HFSummaryWriter"
+assert WebhooksServer.__name__ == "WebhooksServer"
+"""
+        subprocess.run([sys.executable, "-c", script], check=True)
+
     @pytest.mark.skip(
         reason="`jedi.Completion.get_signatures()` output differs between Python 3.12 and earlier versions, affecting test consistency"
     )

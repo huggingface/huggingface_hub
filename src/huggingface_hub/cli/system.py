@@ -24,7 +24,6 @@ from huggingface_hub import __version__, constants
 from ..utils import dump_environment_info, installation_method
 from ._cli_utils import _fetch_latest_pypi_version, run_update
 from ._output import out
-from ._skills import DEFAULT_SKILL_ID, _installed_hf_cli_dirs
 
 
 def env() -> None:
@@ -39,6 +38,8 @@ def version() -> None:
 
 def update() -> None:
     """Update the `hf` CLI to the latest version."""
+    from ._skills import DEFAULT_SKILL_ID, _installed_hf_cli_dirs
+
     out.text(f"Current version: {__version__}")
     out.text("Checking for updates to latest version...")
     latest_version = _fetch_latest_pypi_version("huggingface_hub")

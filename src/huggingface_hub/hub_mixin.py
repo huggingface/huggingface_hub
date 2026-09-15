@@ -4,7 +4,7 @@ import os
 from collections.abc import Callable
 from dataclasses import Field, asdict, dataclass, is_dataclass
 from pathlib import Path
-from typing import Any, ClassVar, Protocol, TypeVar
+from typing import Any, ClassVar, Protocol, TypeVar, cast
 
 import packaging.version
 
@@ -16,22 +16,11 @@ from .repocard import ModelCard, ModelCardData
 from .utils import (
     SoftTemporaryDirectory,
     is_jsonable,
-    is_safetensors_available,
     is_simple_optional_type,
-    is_torch_available,
     logging,
     unwrap_simple_optional_type,
     validate_hf_hub_args,
 )
-
-
-if is_torch_available():
-    import torch  # type: ignore
-
-if is_safetensors_available():
-    import safetensors
-    from safetensors.torch import load_model as load_model_as_safetensor
-    from safetensors.torch import save_model as save_model_as_safetensor
 
 
 logger = logging.get_logger(__name__)
@@ -754,8 +743,10 @@ class PyTorchModelHubMixin(ModelHubMixin):
 
     def _save_pretrained(self, save_directory: Path) -> None:
         """Save weights from a Pytorch model to a local directory."""
+        from safetensors.torch import save_model as save_model_as_safetensor
+
         model_to_save = self.module if hasattr(self, "module") else self  # type: ignore
-        save_model_as_safetensor(model_to_save, str(save_directory / constants.SAFETENSORS_SINGLE_FILE))  # type: ignore [arg-type]
+        save_model_as_safetensor(cast(Any, model_to_save), str(save_directory / constants.SAFETENSORS_SINGLE_FILE))
 
     @classmethod
     def _from_pretrained(
@@ -803,6 +794,8 @@ class PyTorchModelHubMixin(ModelHubMixin):
 
     @classmethod
     def _load_as_pickle(cls, model: T, model_file: str, map_location: str, strict: bool) -> T:
+        import torch
+
         state_dict = torch.load(model_file, map_location=torch.device(map_location), weights_only=True)
         model.load_state_dict(state_dict, strict=strict)  # type: ignore
         model.eval()  # type: ignore
@@ -810,8 +803,11 @@ class PyTorchModelHubMixin(ModelHubMixin):
 
     @classmethod
     def _load_as_safetensor(cls, model: T, model_file: str, map_location: str, strict: bool) -> T:
+        import safetensors
+        import safetensors.torch
+
         if packaging.version.parse(safetensors.__version__) < packaging.version.parse("0.4.3"):  # type: ignore [attr-defined]
-            load_model_as_safetensor(model, model_file, strict=strict)  # type: ignore [arg-type]
+            safetensors.torch.load_model(cast(Any, model), model_file, strict=strict)
             if map_location != "cpu":
                 logger.warning(
                     "Loading model weights on other devices than 'cpu' is not supported natively in your version of safetensors."
@@ -821,7 +817,7 @@ class PyTorchModelHubMixin(ModelHubMixin):
                 )
                 model.to(map_location)  # type: ignore [attr-defined]
         else:
-            safetensors.torch.load_model(model, model_file, strict=strict, device=map_location)  # type: ignore [arg-type]
+            safetensors.torch.load_model(cast(Any, model), model_file, strict=strict, device=map_location)
         model.eval()  # type: ignore
         return model
 
