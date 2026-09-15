@@ -1256,19 +1256,21 @@ def _hf_hub_download_to_cache_dir(
 
     # Local file doesn't exist or etag isn't a match => retrieve file from remote (or cache)
 
-    # Cross-repo dedup needs the symlink layout: `xet_hash` stays set only when the shared store
-    # can be used for this download (see `utils/_shared_blobs.py`).
-    xet_hash = xet_file_data.file_hash if xet_file_data is not None else None
-    if xet_hash is not None and not (shared_blobs_enabled() and are_symlinks_supported(cache_dir)):
-        xet_hash = None
+    # Xet hash of the blob in the shared store, None when the store must not be used for this download
+    # (see `utils/_shared_blobs.py`).
+    shared_blob_hash = (
+        xet_file_data.file_hash
+        if xet_file_data is not None and shared_blobs_enabled() and are_symlinks_supported(cache_dir)
+        else None
+    )
 
     with WeakFileLock(lock_path):
         blob_reused_from_store = (
-            xet_hash is not None
+            shared_blob_hash is not None
             and not force_download
             and not os.path.exists(blob_path)
             and try_link_from_shared_store(
-                blob_path=blob_path, xet_hash=xet_hash, cache_dir=cache_dir, expected_size=expected_size
+                blob_path=blob_path, xet_hash=shared_blob_hash, cache_dir=cache_dir, expected_size=expected_size
             )
         )
         blob_is_shared = blob_reused_from_store
@@ -1286,11 +1288,11 @@ def _hf_hub_download_to_cache_dir(
                 xet_file_data=xet_file_data,
                 tqdm_class=tqdm_class,
             )
-            if xet_hash is not None and will_download and is_xet_available():
+            if shared_blob_hash is not None and will_download and is_xet_available():
                 # Only Xet-verified downloads are published, never the plain HTTP fallback.
                 blob_is_shared = publish_blob_to_shared_store(
                     blob_path=blob_path,
-                    xet_hash=xet_hash,
+                    xet_hash=shared_blob_hash,
                     cache_dir=cache_dir,
                     expected_size=expected_size,
                     replace_existing=force_download,
@@ -2078,42 +2080,50 @@ def _chmod_and_move(src: Path, dst: Path) -> None:
             pass
 
     if os.path.lexists(dst):
-        # Replace the entry so a force download never writes through a shared symlink. Some mounts
-        # reject replace-over-existing: stage the new file and keep the old entry restorable.
-        try:
-            os.replace(src, dst)
-        except OSError:
-            staged_dst = dst.with_name(f".{dst.name}.{uuid.uuid4().hex[:8]}.new")
-            backup_dst = dst.with_name(f".{dst.name}.{uuid.uuid4().hex[:8]}.old")
-            backup_holds_previous_entry = False
-            try:
-                shutil.move(str(src), str(staged_dst), copy_function=_copy_no_matter_what)
-                os.rename(dst, backup_dst)
-                backup_holds_previous_entry = True
-                try:
-                    shutil.move(str(staged_dst), str(dst), copy_function=_copy_no_matter_what)
-                except OSError as move_error:
-                    try:
-                        if os.path.lexists(dst):
-                            os.unlink(dst)
-                        os.rename(backup_dst, dst)
-                        backup_holds_previous_entry = False
-                    except OSError as restore_error:
-                        raise OSError(
-                            f"Could not restore previous destination '{dst}' from '{backup_dst}'"
-                        ) from restore_error
-                    raise move_error
-                try:
-                    backup_dst.unlink()
-                    backup_holds_previous_entry = False
-                except OSError as cleanup_error:
-                    logger.warning(f"Could not remove previous destination backup '{backup_dst}': {cleanup_error}")
-            finally:
-                staged_dst.unlink(missing_ok=True)
-                if not backup_holds_previous_entry:
-                    backup_dst.unlink(missing_ok=True)
+        # Replace the entry so a force download never writes through a shared symlink.
+        _replace_no_matter_what(src, dst)
     else:
         shutil.move(str(src), str(dst), copy_function=_copy_no_matter_what)
+
+
+def _replace_no_matter_what(src: Path, dst: Path) -> None:
+    """Replace `dst` with `src`.
+
+    Some mounts reject replace-over-existing: stage the new file next to `dst`, move the old entry aside
+    and restore it if the final move fails.
+    """
+    try:
+        os.replace(src, dst)
+    except OSError:
+        staged_dst = dst.with_name(f".{dst.name}.{uuid.uuid4().hex[:8]}.new")
+        backup_dst = dst.with_name(f".{dst.name}.{uuid.uuid4().hex[:8]}.old")
+        backup_holds_previous_entry = False
+        try:
+            shutil.move(str(src), str(staged_dst), copy_function=_copy_no_matter_what)
+            os.rename(dst, backup_dst)
+            backup_holds_previous_entry = True
+            try:
+                shutil.move(str(staged_dst), str(dst), copy_function=_copy_no_matter_what)
+            except OSError as move_error:
+                try:
+                    if os.path.lexists(dst):
+                        os.unlink(dst)
+                    os.rename(backup_dst, dst)
+                    backup_holds_previous_entry = False
+                except OSError as restore_error:
+                    raise OSError(
+                        f"Could not restore previous destination '{dst}' from '{backup_dst}'"
+                    ) from restore_error
+                raise move_error
+            try:
+                backup_dst.unlink()
+                backup_holds_previous_entry = False
+            except OSError as cleanup_error:
+                logger.warning(f"Could not remove previous destination backup '{backup_dst}': {cleanup_error}")
+        finally:
+            staged_dst.unlink(missing_ok=True)
+            if not backup_holds_previous_entry:
+                backup_dst.unlink(missing_ok=True)
 
 
 def _copy_no_matter_what(src: str, dst: str) -> None:

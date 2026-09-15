@@ -1034,7 +1034,7 @@ def _try_delete_path(path: Path, path_type: str) -> None:
     """
     logger.debug(f"Delete {path_type}: {path}")
     try:
-        if path.is_file() or path.is_symlink():
+        if path.is_file() or path.is_symlink():  # `is_file()` is False for a broken symlink
             os.remove(path)
         else:
             shutil.rmtree(path)

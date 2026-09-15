@@ -25,9 +25,9 @@ leak the shared blob rather than risk deleting referenced content.
 
 import os
 import re
+import secrets
 import shutil
 import stat
-import uuid
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Generator
@@ -73,6 +73,7 @@ def shared_blob_manifest_path(cache_dir: str | Path, xet_hash: str) -> Path:
 
 
 def _is_regular_file(path: Path) -> bool:
+    # checks if path is a regular file without following symlinks
     try:
         return stat.S_ISREG(path.lstat().st_mode)
     except OSError:
@@ -80,6 +81,7 @@ def _is_regular_file(path: Path) -> bool:
 
 
 def _is_directory(path: Path) -> bool:
+    # checks if path is a regular directory without following symlinks
     try:
         return stat.S_ISDIR(path.lstat().st_mode)
     except OSError:
@@ -122,7 +124,10 @@ def is_shared_blobs_dir(path: str | Path) -> bool:
 
 
 def _cleanup_abandoned_marker_temps(store_dir: Path) -> bool:
-    """Remove owned marker temporaries, refusing unexpected directory content."""
+    """Remove leftover marker temporaries.
+
+    Returns whether the directory is empty afterwards, i.e. safe to mark. Any foreign content returns False.
+    """
     expected_content = f"{SHARED_BLOBS_LAYOUT_VERSION}\n"
     entries = list(store_dir.iterdir())
     for entry in entries:
@@ -151,7 +156,7 @@ def _ensure_shared_blobs_dir(cache_dir: str | Path) -> bool:
             return False
         _repair_shared_directory_mode(store_dir, cache_dir)
 
-        tmp_marker = marker_path.with_name(f"{marker_path.name}.{uuid.uuid4().hex[:8]}.tmp")
+        tmp_marker = marker_path.with_name(f"{marker_path.name}.{secrets.token_hex(4)}.tmp")
         try:
             tmp_marker.write_text(f"{SHARED_BLOBS_LAYOUT_VERSION}\n")
             tmp_marker.chmod(_shared_blob_mode(cache_dir))
@@ -312,6 +317,8 @@ def _lock_path_for_store_path(store_path: Path) -> Path:
 def _shared_blob_lock(store_path: Path) -> Generator[None, None, None]:
     """Lock publication, reference creation, and GC for one content hash."""
     lock_path = _lock_path_for_store_path(store_path)
+    # Create the lock file ourselves: `O_NOFOLLOW` refuses a planted symlink and 0o666 lets other users of a
+    # shared cache take the same lock. `FileLock` alone would follow symlinks and apply the umask.
     flags = os.O_WRONLY | os.O_CREAT
     if hasattr(os, "O_NOFOLLOW"):
         flags |= os.O_NOFOLLOW
@@ -365,7 +372,7 @@ def _append_manifest_reference(manifest_path: Path, relative_blob_path: str) -> 
 
 
 def _make_temporary_symlink(blob_path: Path, store_path: Path) -> Path:
-    tmp_link = blob_path.with_name(f".{blob_path.name}.{uuid.uuid4().hex[:8]}.shared")
+    tmp_link = blob_path.with_name(f".{blob_path.name}.{secrets.token_hex(4)}.shared")
     relative_target = os.path.relpath(_path_for_comparison(store_path), start=_path_for_comparison(blob_path).parent)
     os.symlink(relative_target, tmp_link)
     return tmp_link
@@ -561,7 +568,7 @@ def unreferenced_shared_blobs(cache_dir: str | Path) -> dict[Path, int]:
 
 
 def _rewrite_manifest(manifest_path: Path, references: set[Path], cache_dir: str | Path) -> None:
-    tmp_path = manifest_path.with_name(f"{manifest_path.name}.{uuid.uuid4().hex[:8]}.tmp")
+    tmp_path = manifest_path.with_name(f"{manifest_path.name}.{secrets.token_hex(4)}.tmp")
     cache_dir = Path(os.path.abspath(cache_dir))
     try:
         content = "".join(f"{path.relative_to(cache_dir).as_posix()}\n" for path in sorted(references))
