@@ -14,6 +14,9 @@ def _format_speed_postfix(speed: float | None) -> str:
 XET_TRANSFER_BAR_FORMAT = "{desc}: {bar}| {n_fmt:>5}B{postfix:>12}"
 XET_BYTES_BAR_FORMAT = "{l_bar}{bar}| {n_fmt:>5}B / {total_fmt:>5}B{postfix:>12}"
 
+_NUM_OVERVIEW_BARS = 2  # data_processing + upload (always shown)
+_NUM_SHARD_BARS = 1  # single Validating bar (lazy; covers shard upload/validate/sync)
+
 
 def _set_monotonic_total(bar, total: int | None) -> None:
     if total is None or not hasattr(bar, "total"):
@@ -193,17 +196,33 @@ class XetUploadProgressReporter:
 
         self.per_file_progress = is_google_colab() or not is_notebook()
 
+        _nrows = (
+            _NUM_OVERVIEW_BARS + n_lines + _NUM_SHARD_BARS + 1
+            if self.per_file_progress
+            else _NUM_OVERVIEW_BARS + _NUM_SHARD_BARS + 1
+        )
+
         self.tqdm_settings = {
             "unit": "B",
             "unit_scale": True,
             "leave": True,
             "unit_divisor": 1000,
-            "nrows": n_lines + 3 if self.per_file_progress else 3,
+            "nrows": _nrows,
             "miniters": 1,
             "bar_format": XET_BYTES_BAR_FORMAT,
         }
 
-        # Overall progress bars
+        # Percentage only — validation-entry totals are opaque Xet internals.
+        self.percent_tqdm_settings = {
+            "unit": "",
+            "unit_scale": False,
+            "leave": True,
+            "nrows": _nrows,
+            "miniters": 1,
+            "bar_format": "{desc}: {bar}| {percentage:3.0f}%{postfix:>12}",
+        }
+
+        # Overview bars (always shown)
         self.data_processing_bar = tqdm(
             total=0, desc=self.format_desc("Processing Files (0 / 0)", False), position=0, **self.tqdm_settings
         )
@@ -212,6 +231,11 @@ class XetUploadProgressReporter:
             total=0, desc=self.format_desc("New Data Upload", False), position=1, **self.tqdm_settings
         )
 
+        # Single Validating bar created lazily on the first shard event.
+        # Covers shard upload / validation / sync without exposing "shard" jargon.
+        # Positioned dynamically after the active per-file bars (see _validating_bar_position).
+        self.validating_bar: "tqdm | None" = None
+
         self.known_items: set[str] = set()
         self.completed_items: set[str] = set()
 
@@ -219,7 +243,7 @@ class XetUploadProgressReporter:
         self._prev_bytes_completed: int = 0
         self._prev_transfer_bytes_completed: int = 0
 
-        # Item bars (scrolling view)
+        # Item bars (scrolling view); positions start at _NUM_OVERVIEW_BARS
         self.item_state: OrderedDict[str, Any] = OrderedDict()
         self.current_bars: list = [None] * self.n_lines
 
@@ -241,6 +265,22 @@ class XetUploadProgressReporter:
 
         return f"{padding}{name.ljust(width)}"
 
+    def _validating_bar_position(self) -> int:
+        """Place Validating right after overview bars and any active per-file bars."""
+        if not self.per_file_progress:
+            return _NUM_OVERVIEW_BARS
+        n_active = sum(1 for bar in self.current_bars if bar is not None)
+        return _NUM_OVERVIEW_BARS + n_active
+
+    def _init_validating_bar(self) -> None:
+        """Create the Validating progress bar on first shard event."""
+        self.validating_bar = tqdm(
+            total=0,
+            desc=self.format_desc("Validating", False),
+            position=self._validating_bar_position(),
+            **self.percent_tqdm_settings,
+        )
+
     def reset_for_next_commit(self):
         """Reset per-commit state so the reporter can be reused across multiple upload commits."""
         self._prev_bytes_completed = 0
@@ -248,6 +288,11 @@ class XetUploadProgressReporter:
         self.known_items.clear()
         self.completed_items.clear()
         self.item_state.clear()
+        # Shard counters are absolute per commit — restart Validating at 0% for the next chunk.
+        if self.validating_bar is not None:
+            self.validating_bar.n = 0
+            self.validating_bar.total = 0
+            self.validating_bar.refresh()
 
     def update_progress(self, group_report, item_reports: dict):
         # Update all the per-item values.
@@ -289,7 +334,7 @@ class XetUploadProgressReporter:
             if bar is None:
                 self.current_bars[bar_idx] = tqdm(
                     desc=self.format_desc(name, True),
-                    position=2 + bar_idx,  # Set to the position past the initial bars.
+                    position=_NUM_OVERVIEW_BARS + bar_idx,
                     total=item.total_bytes,
                     initial=item.bytes_completed,
                     **self.tqdm_settings,
@@ -343,9 +388,37 @@ class XetUploadProgressReporter:
         )
         self.upload_bar.update(transfer_inc)
 
+        # Single Validating bar for shard finalization (v2 shard API).
+        # Prefer validation-entry counts (the long phase). Fall back to shard-completion
+        # counts when entries are absent (e.g. V1 synthetic Result with no Validating frames).
+        # Set absolute n/total for the current commit; reset_for_next_commit restarts at 0%.
+        shard = getattr(group_report, "shard", None)
+        if shard is not None:
+            if self.validating_bar is None:
+                self._init_validating_bar()
+
+            assert self.validating_bar is not None
+
+            if shard.total_shard_validation_entries > 0:
+                done_n, total_n = (
+                    shard.total_shard_validation_entries_completed,
+                    shard.total_shard_validation_entries,
+                )
+            else:
+                done_n, total_n = shard.total_shards_completed, shard.total_shards
+
+            self.validating_bar.total = total_n or None
+            self.validating_bar.n = done_n
+            # Keep Validating snug under the active file bars as more slots fill in.
+            self.validating_bar.pos = self._validating_bar_position()
+            self.validating_bar.refresh()
+
     def close(self):
         self.data_processing_bar.close()
         self.upload_bar.close()
+
+        if self.validating_bar is not None:
+            self.validating_bar.close()
 
         if self.per_file_progress:
             for bar in self.current_bars:

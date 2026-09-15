@@ -102,13 +102,19 @@ def _format_bytes(n: float) -> str:
 
 
 class _LiveDisplay:
-    """Three-line live progress display on stderr::
+    """Live progress display on stderr::
 
         Preparing   ████████████████████  11,100 / 11,100 ✓
         Uploading   ██████████████░░░░░░  580 / 603 files  3.8GB · 19.7MB/s
+        Validating  ████████░░░░░░░░░░░░  43%
         Committing  ██████████████████░░  10,800 / 11,100  14 commits
 
-    A small renderer thread redraws the three lines in-place every ~0.5 s on a TTY
+    The Validating line appears once the v2 shard finalization API starts reporting
+    progress. Shard upload / validation / sync are folded into this single bar so
+    users are not exposed to Xet-internal "shard" jargon (and so there is only one
+    Committing line — the git commit).
+
+    A small renderer thread redraws all lines in-place every ~0.5 s on a TTY
     (worker threads only update counters under a lock). When stderr is not a TTY,
     it falls back to a periodic ``logger.info`` summary instead.
 
@@ -117,14 +123,12 @@ class _LiveDisplay:
     tailing stderr during a long upload still see periodic progress.
     """
 
-    _N_LINES = 3
-
     def __init__(self, total_files: int, enabled: bool = True) -> None:
         self._total = total_files
         self._tty = enabled and sys.stderr.isatty()
         self._active = self._tty or logger.isEnabledFor(logging.INFO)
         self._lock = threading.Lock()
-        self._drawn = False
+        self._drawn_lines = 0  # number of lines printed in the last _redraw call
         self._stop_event = threading.Event()
         self._thread: threading.Thread | None = None
 
@@ -141,6 +145,13 @@ class _LiveDisplay:
         self._speed_ema = 0.0
         self._prev_bytes = 0
         self._prev_time: float | None = None
+
+        # Shard finalization → single Validating bar (v2 API; activated on first event)
+        self._shard_active = False
+        self._shard_val_total = 0
+        self._shard_val_done = 0
+        self._shards_total = 0
+        self._shards_done = 0
 
     # -- lifecycle (main thread) ------------------------------------------------
 
@@ -199,17 +210,43 @@ class _LiveDisplay:
         """
         if not self._active:
             return None
-        prev = 0
+        prev_transfer = 0
+        prev_shard_val_done = 0
+        prev_shard_val_total = 0
+        prev_shards_done = 0
+        prev_shards_total = 0
 
         def callback(group_report: Any, item_reports: Any) -> None:
-            nonlocal prev
+            nonlocal prev_transfer
+            nonlocal prev_shard_val_done, prev_shard_val_total
+            nonlocal prev_shards_done, prev_shards_total
             with self._lock:
                 completed = group_report.total_transfer_bytes_completed
-                self._xet_bytes += max(0, completed - prev)
-                prev = completed
+                self._xet_bytes += max(0, completed - prev_transfer)
+                prev_transfer = completed
                 for item in item_reports.values():
                     if item.total_bytes > 0 and item.bytes_completed == item.total_bytes:
                         self._xet_done.add(item.item_name)
+
+                shard = getattr(group_report, "shard", None)
+                if shard is not None:
+                    self._shard_active = True
+
+                    v = shard.total_shard_validation_entries_completed
+                    self._shard_val_done += max(0, v - prev_shard_val_done)
+                    prev_shard_val_done = v
+
+                    v = shard.total_shard_validation_entries
+                    self._shard_val_total += max(0, v - prev_shard_val_total)
+                    prev_shard_val_total = v
+
+                    v = shard.total_shards_completed
+                    self._shards_done += max(0, v - prev_shards_done)
+                    prev_shards_done = v
+
+                    v = shard.total_shards
+                    self._shards_total += max(0, v - prev_shards_total)
+                    prev_shards_total = v
 
         return callback
 
@@ -235,14 +272,19 @@ class _LiveDisplay:
         self._prev_bytes = self._xet_bytes
 
     def _redraw(self) -> None:
-        if self._drawn:
-            sys.stderr.write(f"\033[{self._N_LINES}A")
+        if self._drawn_lines > 0:
+            sys.stderr.write(f"\033[{self._drawn_lines}A")
+        # Validating sits between Uploading and Committing (before the git commit bar).
+        lines = [self._line_preparing(), self._line_uploading()]
+        if self._shard_active:
+            lines.append(self._line_validating())
+        lines.append(self._line_committing())
         width = shutil.get_terminal_size().columns
-        for line in (self._line_preparing(), self._line_uploading(), self._line_committing()):
+        for line in lines:
             truncated = line[: width - 4] + "..." if len(line) > width - 1 else line
             sys.stderr.write(f"\r\033[K{truncated}\n")
         sys.stderr.flush()
-        self._drawn = True
+        self._drawn_lines = len(lines)
 
     def _line_preparing(self) -> str:
         done = " ✓" if self._prepared >= self._total else ""
@@ -262,6 +304,17 @@ class _LiveDisplay:
         done = " ✓" if self._prepared >= self._total and n_done >= self._xet_total else ""
         return f"  Uploading   {_bar(n_done, self._xet_total)}  {n_done:,} / {self._xet_total:,} files{extra}{done}"
 
+    def _line_validating(self) -> str:
+        # Prefer validation-entry progress (the long phase). Fall back to shard-completion
+        # counts when entries are absent (e.g. V1 synthetic Result with no Validating frames).
+        # Show a percentage — raw entry counts are opaque Xet internals.
+        if self._shard_val_total > 0:
+            done_n, total_n = self._shard_val_done, self._shard_val_total
+        else:
+            done_n, total_n = self._shards_done, self._shards_total
+        pct = min(100, round(100 * done_n / total_n)) if total_n > 0 else 0
+        return f"  Validating  {_bar(done_n, total_n)}  {pct}%"
+
     def _line_committing(self) -> str:
         effective = self._total - self._ignored
         commits_str = f"  {self._nb_commits} commits" if self._nb_commits > 1 else ""
@@ -271,11 +324,19 @@ class _LiveDisplay:
         )
 
     def _summary(self) -> str:
-        return (
+        summary = (
             f"Uploading... {self._prepared:,}/{self._total:,} files checked, "
             f"{len(self._xet_done):,}/{self._xet_total:,} uploaded ({_format_bytes(self._xet_bytes)} transferred), "
             f"{self._committed:,} committed in {self._nb_commits} commit(s)"
         )
+        if self._shard_active:
+            if self._shard_val_total > 0:
+                pct = min(100, round(100 * self._shard_val_done / self._shard_val_total))
+                summary += f", validating {pct}%"
+            elif self._shards_total > 0:
+                pct = min(100, round(100 * self._shards_done / self._shards_total))
+                summary += f", validating {pct}%"
+        return summary
 
 
 class _CommitPacer:
