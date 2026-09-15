@@ -339,5 +339,8 @@ default_xet_cache_path = os.path.join(HF_HOME, "xet")
 HF_XET_CACHE = os.getenv("HF_XET_CACHE", default_xet_cache_path)
 HF_HUB_DISABLE_XET: bool = _is_true(os.environ.get("HF_HUB_DISABLE_XET"))
 
+# Disable the cache-wide shared blob store (see `huggingface_hub.utils._shared_blobs`).
+HF_HUB_DISABLE_SHARED_BLOBS: bool = _is_true(os.environ.get("HF_HUB_DISABLE_SHARED_BLOBS"))
+
 # Bucket hosting the static sandbox server binary (see huggingface_hub.Sandbox)
 SANDBOX_SERVER_BUCKET: str = "huggingface/sbx-server"
