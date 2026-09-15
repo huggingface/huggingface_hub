@@ -767,6 +767,7 @@ class RepoType(str, Enum):
     model = "model"
     dataset = "dataset"
     space = "space"
+    kernel = "kernel"
 
 
 RepoIdArg = Annotated[
@@ -782,7 +783,7 @@ RepoTypeOpt = Annotated[
     Option(
         "--type",
         "--repo-type",
-        help="The type of repository (model, dataset, or space).",
+        help="The type of repository (model, dataset, space, or kernel).",
     ),
 ]
 
@@ -794,7 +795,7 @@ RepoTypeOptionalOpt = Annotated[
     Option(
         "--type",
         "--repo-type",
-        help="The type of repository (model, dataset, or space).",
+        help="The type of repository (model, dataset, space, or kernel).",
         show_default="model",
     ),
 ]

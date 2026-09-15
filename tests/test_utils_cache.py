@@ -291,7 +291,7 @@ class TestCorruptedCacheUtils:
         assert len(report.warnings) == 1
         assert (
             str(report.warnings[0])
-            == f"Repo type must be `dataset`, `model` or `space`, found `not-model` ({repo_path})."
+            == f"Repo type must be one of ['datasets', 'kernels', 'models', 'spaces'], found `not-models` ({repo_path})."
         )
 
     def test_snapshots_path_not_found(self, tmp_path) -> None:

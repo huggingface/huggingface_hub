@@ -706,7 +706,7 @@ $ hf cache verify [OPTIONS] REPO_ID
 
 **Options**:
 
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
 * `--cache-dir TEXT`: Cache directory to use when verifying files from cache (defaults to Hugging Face cache).
 * `--local-dir TEXT`: If set, verify files under this directory instead of the cache.
@@ -1297,7 +1297,7 @@ $ hf discussions close [OPTIONS] REPO_ID NUM
 
 * `--comment TEXT`: An optional comment to post when closing.
 * `-y, --yes`: Skip confirmation prompt.
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -1329,7 +1329,7 @@ $ hf discussions comment [OPTIONS] REPO_ID NUM
 
 * `--body TEXT`: The comment text (supports Markdown).
 * `--body-file PATH`: Read the comment from a file. Use '-' for stdin.
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -1362,7 +1362,7 @@ $ hf discussions create [OPTIONS] REPO_ID
 * `--body TEXT`: The description (supports Markdown).
 * `--body-file PATH`: Read the description from a file. Use '-' for stdin.
 * `--pull-request, --pr`: Create a pull request instead of a discussion.
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -1394,7 +1394,7 @@ $ hf discussions diff [OPTIONS] REPO_ID NUM
 
 **Options**:
 
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -1426,7 +1426,7 @@ $ hf discussions edit [OPTIONS] REPO_ID NUM COMMENT_ID
 
 * `--body TEXT`: The new comment text (supports Markdown).
 * `--body-file PATH`: Read the new comment from a file. Use '-' for stdin.
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -1456,7 +1456,7 @@ $ hf discussions info [OPTIONS] REPO_ID NUM
 
 **Options**:
 
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -1489,7 +1489,7 @@ $ hf discussions list [OPTIONS] REPO_ID
 * `-k, --kind [all|discussion|pull_request]`: Filter by kind (discussion, pull_request, all).  [default: all]
 * `--author TEXT`: Filter by author or organization.
 * `--limit INTEGER`: Limit the number of results.  [default: 30]
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -1523,7 +1523,7 @@ $ hf discussions merge [OPTIONS] REPO_ID NUM
 
 * `--comment TEXT`: An optional comment to post when merging.
 * `-y, --yes`: Skip confirmation prompt.
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -1554,7 +1554,7 @@ $ hf discussions rename [OPTIONS] REPO_ID NUM NEW_TITLE
 
 **Options**:
 
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -1585,7 +1585,7 @@ $ hf discussions reopen [OPTIONS] REPO_ID NUM
 
 * `--comment TEXT`: An optional comment to post when reopening.
 * `-y, --yes`: Skip confirmation prompt.
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -1615,7 +1615,7 @@ $ hf download [OPTIONS] REPO_ID [FILENAMES]...
 
 **Options**:
 
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: (model)]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: (model)]
 * `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
 * `--include TEXT`: Glob patterns to include from files to download. eg: *.json
 * `--exclude TEXT`: Glob patterns to exclude from files to download.
@@ -3425,7 +3425,7 @@ $ hf repos branch create [OPTIONS] REPO_ID BRANCH
 
 * `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--exist-ok / --no-exist-ok`: If set to True, do not raise an error if branch already exists.  [default: no-exist-ok]
 * `--help`: Show this message and exit.
 
@@ -3456,7 +3456,7 @@ $ hf repos branch delete [OPTIONS] REPO_ID BRANCH
 **Options**:
 
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--help`: Show this message and exit.
 
 Examples
@@ -3525,7 +3525,7 @@ $ hf repos create [OPTIONS] REPO_ID
 
 **Options**:
 
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--sdk, --space-sdk TEXT`: Hugging Face Spaces SDK type. Required when --type is set to 'space'.
 * `--template TEXT`: Create a Space from an official template. Pass a template repo id (e.g. 'SpacesExamples/jupyterlab') or its short name (e.g. 'JupyterLab'). List available templates with `hf spaces templates`. Spaces only.
 * `--private / --no-private`: Whether to create a private repo if repo doesn't exist on the Hub. Ignored if the repo already exists.
@@ -3574,7 +3574,7 @@ $ hf repos delete [OPTIONS] REPO_ID
 
 **Options**:
 
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--missing-ok / --no-missing-ok`: If set to True, do not raise an error if repo does not exist.  [default: no-missing-ok]
 * `-y, --yes`: Answer Yes to prompt automatically.
@@ -3605,7 +3605,7 @@ $ hf repos delete-files [OPTIONS] REPO_ID PATTERNS...
 
 **Options**:
 
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
 * `--commit-message TEXT`: The summary / title / first line of the generated commit.
 * `--commit-description TEXT`: The description of the generated commit.
@@ -3640,7 +3640,7 @@ $ hf repos duplicate [OPTIONS] FROM_ID [TO_ID]
 
 **Options**:
 
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--private / --no-private`: Whether to create a private repo if repo doesn't exist on the Hub. Ignored if the repo already exists.
 * `--public`: Whether to make the repo public. Ignored if the repo already exists.
 * `--protected`: Whether to make the Space protected (Spaces only). Ignored if the repo already exists.
@@ -3714,7 +3714,7 @@ $ hf repos move [OPTIONS] FROM_ID TO_ID
 **Options**:
 
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--help`: Show this message and exit.
 
 Examples
@@ -3746,7 +3746,7 @@ $ hf repos settings [OPTIONS] REPO_ID
 * `--public`: Whether to make the repo public. Ignored if the repo already exists.
 * `--protected`: Whether to make the Space protected (Spaces only). Ignored if the repo already exists.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--help`: Show this message and exit.
 
 Examples
@@ -3799,7 +3799,7 @@ $ hf repos tag create [OPTIONS] REPO_ID TAG
 * `-m, --message TEXT`: The description of the tag to create.
 * `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--help`: Show this message and exit.
 
 Examples
@@ -3830,7 +3830,7 @@ $ hf repos tag delete [OPTIONS] REPO_ID TAG
 
 * `-y, --yes`: Answer Yes to prompt automatically
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--help`: Show this message and exit.
 
 Examples
@@ -3858,7 +3858,7 @@ $ hf repos tag list [OPTIONS] REPO_ID
 **Options**:
 
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--help`: Show this message and exit.
 
 Examples
@@ -5270,7 +5270,7 @@ $ hf upload [OPTIONS] REPO_ID [LOCAL_PATH] [PATH_IN_REPO]
 
 **Options**:
 
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: (model)]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: (model)]
 * `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
 * `--private / --no-private`: Whether to create a private repo if repo doesn't exist on the Hub. Ignored if the repo already exists.
 * `--include TEXT`: Glob patterns to match files to upload.
@@ -5312,7 +5312,7 @@ $ hf upload-large-folder [OPTIONS] REPO_ID LOCAL_PATH
 
 **Options**:
 
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
 * `--private / --no-private`: Whether to create a private repo if repo doesn't exist on the Hub. Ignored if the repo already exists.
 * `--include TEXT`: Glob patterns to match files to upload.
