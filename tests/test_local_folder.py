@@ -109,6 +109,8 @@ UNSAFE_FILENAMES = [
     "file ",  # trailing space: same Win32 stripping
     "path/in/repo ",  # trailing space in a nested segment
     "file. . ",  # mixed trailing dots and spaces
+    "docs./file.txt",  # trailing dot on an intermediate directory: Win32 strips it too
+    "folder /file.txt",  # trailing space on an intermediate directory
 ]
 
 SAFE_FILENAMES = [
