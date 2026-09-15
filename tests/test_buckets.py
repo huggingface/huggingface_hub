@@ -542,7 +542,7 @@ def test_copy_files_folder_to_bucket_root(api: HfApi, bucket_write: str, bucket_
 )
 def test_bucket_add_file_content_type(source, destination, expected_content_type, tmp_path):
     """Test that _BucketAddFile resolves content_type correctly."""
-    from huggingface_hub.hf_api import _BucketAddFile
+    from huggingface_hub._buckets import _BucketAddFile
 
     # If source is a str path, create a temp file so os.path.getmtime works
     if isinstance(source, str):
