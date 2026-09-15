@@ -79,7 +79,7 @@ models = hf_api.list_models()
 
 ### DryRunFileInfo
 
-[[autodoc]] huggingface_hub.hf_api.DryRunFileInfo
+[[autodoc]] huggingface_hub.DryRunFileInfo
 
 ### GitRefInfo
 

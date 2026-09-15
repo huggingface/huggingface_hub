@@ -149,6 +149,7 @@ def _collect_leaf_commands(group: Group, ctx: Context, path_parts: list[str]) ->
             continue
         if materialize := getattr(cmd, "materialize", None):
             cmd = materialize()
+        assert cmd is not None
         child_path = [*path_parts, name]
         if isinstance(cmd, Group):
             leaves.extend(_collect_leaf_commands(cmd, sub_ctx, child_path))
@@ -255,6 +256,7 @@ def build_skill_md() -> str:
             continue
         if materialize := getattr(cmd, "materialize", None):
             cmd = materialize()
+        assert cmd is not None
         if isinstance(cmd, Group):
             groups.append((name, cmd))
         else:

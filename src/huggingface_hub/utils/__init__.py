@@ -225,11 +225,11 @@ def __getattr__(name: str):
     if name in _SUBMODULES:
         module_name = "tqdm" if name == "_tqdm" else name
         return importlib.import_module(f"{__name__}.{module_name}")
-    if module_name := _ATTR_TO_MODULE.get(name):
-        if module_name.startswith("huggingface_hub."):
-            module = importlib.import_module(module_name)
+    if attr_module_name := _ATTR_TO_MODULE.get(name):
+        if attr_module_name.startswith("huggingface_hub."):
+            module = importlib.import_module(attr_module_name)
         else:
-            module = importlib.import_module(f"{__name__}.{module_name}")
+            module = importlib.import_module(f"{__name__}.{attr_module_name}")
         return getattr(module, name)
     raise AttributeError(f"No {__name__} attribute {name}")
 
