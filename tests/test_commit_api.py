@@ -38,16 +38,15 @@ class TestCommitOperationPathInRepo:
         ".file.txt": ".file.txt",
         "/file.txt": "file.txt",
         "./file.txt": "file.txt",
-        # ".." segments that resolve back into the repo (never escape the root) are fine
-        "a/../file.txt": "a/../file.txt",
-        "a/b/../../c/file.txt": "a/b/../../c/file.txt",
     }
     invalid_values = [
         ".",
         "..",
         "../file.txt",
-        # a ".." segment anywhere in the path can still escape the repo root, not just
-        # a leading "../"
+        # a ".." segment anywhere in the path is rejected, whether or not it would
+        # resolve back inside the repo root
+        "a/../file.txt",
+        "a/b/../../c/file.txt",
         "a/../../file.txt",
         "a/b/../../../file.txt",
     ]
