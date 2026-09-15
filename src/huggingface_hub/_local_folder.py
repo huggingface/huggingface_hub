@@ -203,10 +203,14 @@ def _validate_relative_filename(filename: str) -> None:
     - a Windows drive path (`C:\\Windows\\...`) or drive-relative path (`D:foo`),
     - a UNC path (`\\\\attacker-host\\share\\...`) — which on Windows additionally makes the client
       authenticate to the attacker's SMB server during path resolution, leaking a NetNTLMv2 hash,
-    - a path using `..` to traverse upward.
+    - a path using `..` to traverse upward,
+    - a final path segment ending with a dot or a space — Win32 silently strips trailing
+      dots/spaces when creating files, which renames the file and lets distinct repo
+      files (e.g. `file.` and `file`) collapse onto the same on-disk path on Windows.
 
     Such filenames would otherwise cause `local_dir / filename` to discard `local_dir` (when the right
-    side is anchored) or point outside of it (with `..`). We reject them here, before touching the
+    side is anchored) or point outside of it (with `..`), or lose data via silent collisions
+    (trailing dot/space). We reject them here, before touching the
     filesystem. The check runs on all platforms and interprets the name under both POSIX and Windows
     rules, so a file materialized on Linux cannot escape when later consumed on Windows.
     """
@@ -225,6 +229,16 @@ def _validate_relative_filename(filename: str) -> None:
                 f"Invalid filename '{filename}': cannot be an absolute, drive-relative or UNC path. "
                 "Please ask the repository owner to rename this file."
             )
+    # Reject final segments that Windows cannot store verbatim: Win32 strips trailing
+    # dots and spaces when creating the file, which silently renames it (breaking
+    # upload round-trips) and lets distinct repo files like 'file.' and 'file'
+    # collapse onto the same on-disk path, overwriting each other.
+    final_segment = filename.replace("\\", "/").split("/")[-1]
+    if final_segment != final_segment.rstrip(". "):
+        raise ValueError(
+            f"Invalid filename '{filename}': the final path segment cannot end with a dot or a space. "
+            "Please ask the repository owner to rename this file."
+        )
 
 
 def get_local_download_paths(local_dir: Path, filename: str) -> LocalDownloadFilePaths:
