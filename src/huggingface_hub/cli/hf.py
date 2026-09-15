@@ -15,53 +15,48 @@
 import os
 import sys
 import traceback
-from typing import Annotated
+from typing import Annotated, Any
 
 import click
 
 from huggingface_hub import __version__, constants
-from huggingface_hub.cli._cli_utils import check_cli_update, fallback_typer_group_factory, typer_factory
-from huggingface_hub.cli._cp import CP_EXAMPLES, make_cp
-from huggingface_hub.cli._errors import format_known_exception
-from huggingface_hub.cli._output import out
-from huggingface_hub.cli._skills import check_skill_update
-from huggingface_hub.cli.auth import auth_cli
-from huggingface_hub.cli.buckets import buckets_cli, sync
-from huggingface_hub.cli.cache import cache_cli
-from huggingface_hub.cli.collections import collections_cli
-from huggingface_hub.cli.datasets import datasets_cli
-from huggingface_hub.cli.discussions import discussions_cli
-from huggingface_hub.cli.download import DOWNLOAD_EXAMPLES, download
-from huggingface_hub.cli.extensions import (
-    dispatch_unknown_top_level_extension,
-    extensions_cli,
-    list_installed_extensions_for_help,
+from huggingface_hub.cli._cli_utils import (
+    LazyHfCommand,
+    LazyHfGroup,
+    check_cli_update,
+    fallback_typer_group_factory,
+    typer_factory,
 )
-from huggingface_hub.cli.inference_endpoints import ie_cli
-from huggingface_hub.cli.jobs import jobs_cli
-from huggingface_hub.cli.lfs import lfs_enable_largefiles, lfs_multipart_upload
-from huggingface_hub.cli.models import models_cli
-from huggingface_hub.cli.papers import papers_cli
-from huggingface_hub.cli.repo_files import repo_files_cli
-from huggingface_hub.cli.repos import repos_cli
-from huggingface_hub.cli.sandbox import sandbox_cli
-from huggingface_hub.cli.skills import skills_cli
-from huggingface_hub.cli.spaces import spaces_cli
-from huggingface_hub.cli.system import env, update, version
-from huggingface_hub.cli.upload import UPLOAD_EXAMPLES, upload
-from huggingface_hub.cli.upload_large_folder import UPLOAD_LARGE_FOLDER_EXAMPLES, upload_large_folder
-from huggingface_hub.cli.webhooks import webhooks_cli
+from huggingface_hub.cli._output import out
 from huggingface_hub.utils import logging
 
 from ._completion import _COMPLETE_VAR, InstallCompletionOpt, ShowCompletionOpt
 from ._framework import Option
 
 
+def _dispatch_unknown_top_level_extension(args: list[str], built_in_commands: set[str]) -> int | None:
+    from .extensions import dispatch_unknown_top_level_extension
+
+    return dispatch_unknown_top_level_extension(args, built_in_commands)
+
+
+def _list_installed_extensions_for_help() -> list[tuple[str, str]]:
+    from .extensions import list_installed_extensions_for_help
+
+    return list_installed_extensions_for_help()
+
+
+def check_skill_update() -> None:
+    from ._skills import check_skill_update as _check_skill_update
+
+    _check_skill_update()
+
+
 app = typer_factory(
     help="Hugging Face Hub CLI",
     cls=fallback_typer_group_factory(
-        dispatch_unknown_top_level_extension,
-        extra_commands_provider=list_installed_extensions_for_help,
+        _dispatch_unknown_top_level_extension,
+        extra_commands_provider=_list_installed_extensions_for_help,
     ),
 )
 
@@ -72,49 +67,94 @@ def _version_callback(value: bool) -> None:
         raise click.exceptions.Exit()
 
 
+def _skills_callback(value: bool) -> None:
+    if value:
+        from .skills import skills_preview
+
+        skills_preview()
+        raise click.exceptions.Exit()
+
+
 @app.group_callback(invoke_without_command=True)
 def app_callback(
     version: Annotated[
         bool | None, Option("-v", "--version", callback=_version_callback, is_eager=True, hidden=True)
     ] = None,
+    skills: Annotated[
+        bool,
+        Option(
+            "--skills",
+            callback=_skills_callback,
+            is_eager=True,
+            help="Print the `hf-cli` SKILL.md to stdout (alias for `hf skills preview`).",
+        ),
+    ] = False,
     install_completion: InstallCompletionOpt = False,
     show_completion: ShowCompletionOpt = False,
 ) -> None:
     pass
 
 
-# top level single commands (defined in their respective files)
-app.command(examples=CP_EXAMPLES)(make_cp())
-app.command()(sync)
-app.command(examples=DOWNLOAD_EXAMPLES)(download)
-app.command(examples=UPLOAD_EXAMPLES)(upload)
-app.command(examples=UPLOAD_LARGE_FOLDER_EXAMPLES)(upload_large_folder)
+_LAZY_COMMANDS: list[tuple[str, str, str, dict[str, Any]]] = [
+    ("sync", "buckets", "sync", {}),
+    ("cp", "_cp", "make_cp", {"examples_attribute": "CP_EXAMPLES", "is_factory": True}),
+    ("download", "download", "download", {"examples_attribute": "DOWNLOAD_EXAMPLES"}),
+    ("upload", "upload", "upload", {"examples_attribute": "UPLOAD_EXAMPLES"}),
+    (
+        "upload-large-folder",
+        "upload_large_folder",
+        "upload_large_folder",
+        {"examples_attribute": "UPLOAD_LARGE_FOLDER_EXAMPLES"},
+    ),
+    ("env", "system", "env", {"topic": "help"}),
+    ("update", "system", "update", {"topic": "help"}),
+    ("version", "system", "version", {"topic": "help"}),
+    ("lfs-enable-largefiles", "lfs", "lfs_enable_largefiles", {"hidden": True}),
+    ("lfs-multipart-upload", "lfs", "lfs_multipart_upload", {"hidden": True}),
+]
 
-app.command(topic="help")(env)
-app.command(topic="help")(update)
-app.command(topic="help")(version)
 
-app.command(hidden=True)(lfs_enable_largefiles)
-app.command(hidden=True)(lfs_multipart_upload)
+_LAZY_GROUPS: list[tuple[str, str, str, dict[str, Any]]] = [
+    ("auth", "auth", "auth_cli", {}),
+    ("buckets", "buckets", "buckets_cli", {}),
+    ("cache", "cache", "cache_cli", {}),
+    ("collections", "collections", "collections_cli", {}),
+    ("datasets", "datasets", "datasets_cli", {}),
+    ("discussions", "discussions", "discussions_cli", {}),
+    ("jobs", "jobs", "jobs_cli", {}),
+    ("models", "models", "models_cli", {}),
+    ("papers", "papers", "papers_cli", {}),
+    ("repos | repo", "repos", "repos_cli", {}),
+    ("sandbox", "sandbox", "sandbox_cli", {}),
+    ("skills", "skills", "skills_cli", {}),
+    ("spaces", "spaces", "spaces_cli", {}),
+    ("webhooks", "webhooks", "webhooks_cli", {}),
+    ("endpoints", "inference_endpoints", "ie_cli", {}),
+    ("extensions | ext", "extensions", "extensions_cli", {}),
+    ("repo-files", "repo_files", "repo_files_cli", {"hidden": True}),
+]
 
-# command groups
-app.add_group(auth_cli, name="auth")
-app.add_group(buckets_cli, name="buckets")
-app.add_group(cache_cli, name="cache")
-app.add_group(collections_cli, name="collections")
-app.add_group(datasets_cli, name="datasets")
-app.add_group(discussions_cli, name="discussions")
-app.add_group(jobs_cli, name="jobs")
-app.add_group(models_cli, name="models")
-app.add_group(papers_cli, name="papers")
-app.add_group(repos_cli, name="repos | repo")
-app.add_group(repo_files_cli, name="repo-files", hidden=True)
-app.add_group(sandbox_cli, name="sandbox")
-app.add_group(skills_cli, name="skills")
-app.add_group(spaces_cli, name="spaces")
-app.add_group(webhooks_cli, name="webhooks")
-app.add_group(ie_cli, name="endpoints")
-app.add_group(extensions_cli, name="extensions | ext")
+for name, module, attribute, extras in _LAZY_COMMANDS:
+    app.add_command(
+        LazyHfCommand(
+            name,
+            module=f"huggingface_hub.cli.{module}",
+            attribute=attribute,
+            **extras,
+        ),
+        name,
+    )
+
+for name, module, attribute, extras in _LAZY_GROUPS:
+    app.add_command(
+        LazyHfGroup(
+            name,
+            module=f"huggingface_hub.cli.{module}",
+            attribute=attribute,
+            **extras,
+        ),
+        name,
+    )
 
 
 def main():
@@ -126,12 +166,14 @@ def main():
         check_cli_update("huggingface_hub")
         # Don't nag while the user is already managing skills, nor on `hf update` which handles the
         # skill itself (it would print a redundant or contradictory hint before doing so).
-        if sys.argv[1:2] not in (["skills"], ["update"]):
+        if sys.argv[1:2] not in (["skills"], ["update"], ["--skills"]):
             check_skill_update()
 
     try:
         app()
     except Exception as e:
+        from ._errors import format_known_exception
+
         message = format_known_exception(e)
         if message:
             out.error(message)

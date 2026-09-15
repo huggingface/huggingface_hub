@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import json
+import os
 from pathlib import Path
 from unittest.mock import patch
 
@@ -22,6 +23,7 @@ from huggingface_hub._tree_cache import (
     _IN_MEMORY_TREE_CACHE,
     TREE_CACHE_FORMAT_VERSION,
     TreeCacheEntry,
+    _tree_cache_path,
     read_tree_cache,
     tree_cache_folder_for_local_dir,
     write_tree_cache,
@@ -120,6 +122,21 @@ class TestTreeCacheReadWrite:
         with patch("huggingface_hub._tree_cache._read_tree_cache_from_disk") as mock_read:
             assert read_tree_cache(str(tmp_path), COMMIT_HASH) == _entries()
             mock_read.assert_not_called()
+
+    @pytest.mark.skipif(os.name != "nt", reason="Windows-specific test.")
+    def test_round_trip_in_deep_folder(self, tmp_path: Path):
+        """Regression test for https://github.com/huggingface/huggingface_hub/issues/4895."""
+        # Pad `local_dir` so that `<folder>/trees/<commit_hash>.json` exceeds the Windows path limit.
+        # Use the extended-length prefix here since a plain mkdir of such a path would itself fail.
+        local_dir = tmp_path / ("d" * 200)
+        os.makedirs("\\\\?\\" + os.path.abspath(local_dir), exist_ok=True)
+        folder = tree_cache_folder_for_local_dir(str(local_dir))
+
+        write_tree_cache(folder, COMMIT_HASH, _entries())
+
+        # Drop the in-memory entry seeded by the write, so the read has to go through the disk.
+        _IN_MEMORY_TREE_CACHE.pop(_tree_cache_path(folder, COMMIT_HASH), None)
+        assert read_tree_cache(folder, COMMIT_HASH) == _entries()
 
 
 @pytest.fixture

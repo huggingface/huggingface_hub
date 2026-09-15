@@ -22,18 +22,14 @@ from .file_download import hf_hub_url
 from .lfs import UploadInfo, lfs_upload, post_lfs_batch_info
 from .utils import (
     FORBIDDEN_FOLDERS,
-    are_progress_bars_disabled,
     chunk_iterable,
     get_session,
     hf_raise_for_status,
-    hf_thread_map,
     http_backoff,
     logging,
     sha,
-    tqdm_stream_file,
     validate_hf_hub_args,
 )
-from .utils import tqdm as hf_tqdm
 from .utils._runtime import is_xet_available
 
 
@@ -262,6 +258,8 @@ class CommitOperationAdd:
         """
         if isinstance(self.path_or_fileobj, str) or isinstance(self.path_or_fileobj, Path):
             if with_tqdm:
+                from .utils import tqdm_stream_file
+
                 with tqdm_stream_file(self.path_or_fileobj) as file:
                     yield file
             else:
@@ -311,7 +309,10 @@ def _validate_path_in_repo(path_in_repo: str) -> str:
     # Validate `path_in_repo` value to prevent a server-side issue
     if path_in_repo.startswith("/"):
         path_in_repo = path_in_repo[1:]
-    if path_in_repo == "." or path_in_repo == ".." or path_in_repo.startswith("../"):
+    # Reject any ".." segment, wherever it sits in the path: a segment in the middle
+    # (e.g. "a/../../etc/passwd" or "a/../file.txt") is not caught by a prefix check
+    # and can still escape the repo root once resolved.
+    if path_in_repo == "." or any(part == ".." for part in path_in_repo.split("/")):
         raise ValueError(f"Invalid `path_in_repo` in CommitOperation: '{path_in_repo}'")
     if path_in_repo.startswith("./"):
         path_in_repo = path_in_repo[2:]
@@ -535,6 +536,9 @@ def _upload_lfs_files(
         logger.debug(
             f"Uploading {len(filtered_actions)} LFS files to the Hub using up to {num_threads} threads concurrently"
         )
+        from .utils import hf_thread_map
+        from .utils import tqdm as hf_tqdm
+
         hf_thread_map(
             _wrapped_lfs_upload,
             filtered_actions,
@@ -645,6 +649,8 @@ def _upload_xet_files(
         return op.upload_info.sha256.hex() if op.upload_info.is_hashed else hf_xet.COMPUTE_SHA256
 
     try:
+        from .utils import are_progress_bars_disabled
+
         if not are_progress_bars_disabled():
             progress = XetUploadProgressReporter()
             progress_callback = progress.update_progress

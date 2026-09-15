@@ -46,7 +46,7 @@ import sys
 from typing import TYPE_CHECKING
 
 
-__version__ = "1.31.0.dev0"
+__version__ = "1.32.0.dev0"
 
 # Alphabetical order of definitions is ensured in tests
 # WARNING: any comment added in this dictionary definition will be lost when
@@ -60,6 +60,12 @@ _SUBMOD_ATTRS = {
         "BucketUrl",
         "SyncOperation",
         "SyncPlan",
+    ],
+    "_commit_api": [
+        "CommitOperation",
+        "CommitOperationAdd",
+        "CommitOperationCopy",
+        "CommitOperationDelete",
     ],
     "_commit_scheduler": [
         "CommitScheduler",
@@ -84,6 +90,7 @@ _SUBMOD_ATTRS = {
         "JobHardwareInfo",
         "JobInfo",
         "JobInitiator",
+        "JobNetwork",
         "JobOwner",
         "JobStage",
         "JobStatus",
@@ -187,10 +194,6 @@ _SUBMOD_ATTRS = {
         "Collection",
         "CollectionItem",
         "CommitInfo",
-        "CommitOperation",
-        "CommitOperationAdd",
-        "CommitOperationCopy",
-        "CommitOperationDelete",
         "DatasetInfo",
         "DatasetLeaderboardEntry",
         "GitCommitInfo",
@@ -799,6 +802,7 @@ __all__ = [
     "JobHardwareInfo",
     "JobInfo",
     "JobInitiator",
+    "JobNetwork",
     "JobOwner",
     "JobStage",
     "JobStatus",
@@ -1267,6 +1271,12 @@ if TYPE_CHECKING:  # pragma: no cover
         SyncOperation,  # noqa: F401
         SyncPlan,  # noqa: F401
     )
+    from ._commit_api import (
+        CommitOperation,  # noqa: F401
+        CommitOperationAdd,  # noqa: F401
+        CommitOperationCopy,  # noqa: F401
+        CommitOperationDelete,  # noqa: F401
+    )
     from ._commit_scheduler import CommitScheduler  # noqa: F401
     from ._eval_results import (
         EvalResultEntry,  # noqa: F401
@@ -1288,6 +1298,7 @@ if TYPE_CHECKING:  # pragma: no cover
         JobHardwareInfo,  # noqa: F401
         JobInfo,  # noqa: F401
         JobInitiator,  # noqa: F401
+        JobNetwork,  # noqa: F401
         JobOwner,  # noqa: F401
         JobStage,  # noqa: F401
         JobStatus,  # noqa: F401
@@ -1387,10 +1398,6 @@ if TYPE_CHECKING:  # pragma: no cover
         Collection,  # noqa: F401
         CollectionItem,  # noqa: F401
         CommitInfo,  # noqa: F401
-        CommitOperation,  # noqa: F401
-        CommitOperationAdd,  # noqa: F401
-        CommitOperationCopy,  # noqa: F401
-        CommitOperationDelete,  # noqa: F401
         DatasetInfo,  # noqa: F401
         DatasetLeaderboardEntry,  # noqa: F401
         GitCommitInfo,  # noqa: F401

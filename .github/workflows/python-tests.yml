@@ -8,9 +8,14 @@ on:
     paths-ignore:
       - "docs/**"
   pull_request:
-    types: [assigned, opened, synchronize, reopened]
+    types: [opened, synchronize, reopened]
     paths-ignore:
       - "docs/**"
+
+# Cancel superseded runs: a new push to a PR makes the previous run useless.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   check-imports:
@@ -35,6 +40,9 @@ jobs:
   build-ubuntu:
     runs-on:
       group: aws-general-8-plus
+    # A healthy full-suite job takes ~20min. Anything much longer means something is stuck: fail fast instead of
+    # burning a runner until GitHub's 6h limit.
+    timeout-minutes: 45
     env:
       UV_HTTP_TIMEOUT: 600 # max 10min to install deps
 
@@ -44,8 +52,6 @@ jobs:
         python-version: ["3.10", "3.14"]
         test_name: ["no hf_xet", "Inference only", "with hf_xet"]
         include:
-          - python-version: "3.14" # LFS not ran on 3.10
-            test_name: "lfs"
           - python-version: "3.10" # test torch~=1.11 on python 3.10 only.
             test_name: "Python 3.10, torch_1.11"
           - python-version: "3.12" # test torch latest on python 3.12 only.
@@ -78,11 +84,6 @@ jobs:
               sudo apt install -y libsndfile1-dev
               ;;
 
-            lfs)
-              git config --global user.email "ci@dummy.com"
-              git config --global user.name "ci"
-              ;;
-
             gradio)
               uv pip install "huggingface_hub[gradio] @ ."
             ;;
@@ -112,7 +113,7 @@ jobs:
         working-directory: ./src # For code coverage to work
         run: |
           source ../.venv/bin/activate
-          PYTEST="python -m pytest --cov=./huggingface_hub --cov-report=xml:../coverage.xml --vcr-record=none --reruns 8 --reruns-delay 2 --only-rerun '(OSError|FileNotFoundError|Timeout|HTTPError.*409|HTTPError.*502|HTTPError.*504|not less than or equal to 0.01)'"
+          PYTEST="python -m pytest --cov=./huggingface_hub --cov-report=xml:../coverage.xml --vcr-record=none --reruns 8 --reruns-delay 2 --only-rerun '(OSError|FileNotFoundError|Timeout|HTTPError.*409|HTTPError.*502|HTTPError.*504)'"
 
           case "${{ matrix.test_name }}" in
 
@@ -127,10 +128,6 @@ jobs:
               PYTEST="$PYTEST ../tests -m 'not xet and not inference' -n 4"
               echo $PYTEST
               eval $PYTEST
-            ;;
-
-            lfs)
-              eval "RUN_GIT_LFS_TESTS=1 $PYTEST ../tests -k 'Largefiles'"
             ;;
 
             gradio)
@@ -163,6 +160,7 @@ jobs:
     # (almost) Duplicate config compared to `build-ubuntu` but running on Windows.
     # Please make sure to keep it updated as well.
     runs-on: windows-latest
+    timeout-minutes: 30
     env:
       DISABLE_SYMLINKS_IN_WINDOWS_TESTS: 1
       UV_HTTP_TIMEOUT: 600 # max 10min to install deps
@@ -213,7 +211,7 @@ jobs:
             "--vcr-record=none",
             "--reruns", "8",
             "--reruns-delay", "2",
-            "--only-rerun", "(OSError|FileNotFoundError|Timeout|HTTPError.*409|HTTPError.*502|HTTPError.*504|not less than or equal to 0.01)",
+            "--only-rerun", "(OSError|FileNotFoundError|Timeout|HTTPError.*409|HTTPError.*502|HTTPError.*504)",
             "../tests"
           )
 

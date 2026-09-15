@@ -18,7 +18,12 @@ if TYPE_CHECKING:
 logger = logging.get_logger(__name__)
 
 
-def _build_endpoint_image_payload(custom_image: dict) -> dict:
+def _build_endpoint_image_payload(
+    custom_image: dict,
+    *,
+    container_registry_username: str | None = None,
+    container_registry_password: str | None = None,
+) -> dict:
     """Build the `model.image` payload of an Inference Endpoint from a user-provided image dict.
 
     `model.image` is a union keyed by variant (`{"vLLM": {...}}`, `{"custom": {...}}`, ...). Only a flat
@@ -26,9 +31,21 @@ def _build_endpoint_image_payload(custom_image: dict) -> dict:
     one are wrapped in `{"custom": ...}`. Everything else is forwarded as-is, so variants added to the API
     later work without a release.
     """
-    if "url" in custom_image:
-        return {"custom": custom_image}
-    return custom_image
+    image = {"custom": custom_image} if "url" in custom_image else custom_image
+
+    if container_registry_password is not None and container_registry_username is None:
+        raise ValueError("`container_registry_password` requires `container_registry_username`.")
+    if container_registry_username is None:
+        return image
+
+    custom_container = image.get("custom")
+    if not isinstance(custom_container, dict):
+        raise ValueError("Container registry credentials can only be set for a custom container image.")
+
+    credentials = {"username": container_registry_username}
+    if container_registry_password is not None:
+        credentials["password"] = container_registry_password
+    return {**image, "custom": {**custom_container, "credentials": credentials}}
 
 
 # Image variants that declare `tensorParallelSize` / `dataParallelSize`. The API ignores a field a variant doesn't

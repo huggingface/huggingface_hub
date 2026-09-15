@@ -2304,6 +2304,12 @@ class TestHfApiPublicProduction:
         assert space.author == "HuggingFaceH4"
         assert isinstance(space.runtime, SpaceRuntime)
 
+    def test_space_runtime_hardware_none(self) -> None:
+        runtime = SpaceRuntime({"stage": "BUILDING", "hardware": None})
+        assert runtime.stage == "BUILDING"
+        assert runtime.hardware is None
+        assert runtime.requested_hardware is None
+
     def test_space_info_expand_author(self, api: HfApi):
         # Only the selected field is returned
         space = api.space_info(repo_id="HuggingFaceH4/zephyr-chat", expand=["author"])
@@ -2681,7 +2687,9 @@ class TestHfApiPrivate:
                 _ = api.dataset_info(repo_id=self.repo_id)
 
     def test_list_private_models(self, api: HfApi):
-        kwargs = {"sort": "created_at", "limit": 100, "author": USER}
+        # Filter on the (unique) repo name rather than paging through the N most recent repos: every CI job shares
+        # `USER`, so the repo drops off a `sort="created_at"` page as soon as other jobs create repos of their own.
+        kwargs = {"search": self.repo_id.split("/")[-1], "author": USER}
         assert all(model.id != self.repo_id for model in api.list_models(token=False, **kwargs))
         assert any(model.id == self.repo_id for model in api.list_models(token=TOKEN, **kwargs))
 
@@ -2731,7 +2739,7 @@ class TestUploadFolderMocked:
         self.pipeline_mock.return_value.commit_url = f"{ENDPOINT_STAGING}/username/repo_id/commit/dummy_sha"
         self.pipeline_mock.return_value.pr_url = None
         mocker.patch("huggingface_hub.hf_api.is_xet_available", return_value=True)
-        mocker.patch("huggingface_hub.hf_api.pipelined_upload", self.pipeline_mock)
+        mocker.patch("huggingface_hub._upload_pipeline.pipelined_upload", self.pipeline_mock)
 
     def _upload_folder_alias(self, tmp_path, **kwargs) -> list[Union[CommitOperationAdd, CommitOperationDelete]]:
         """Alias to call `upload_folder` + retrieve the CommitOperation list passed to the pipeline."""
@@ -3380,8 +3388,9 @@ class TestCommitInBackground:
         )
         t1 = time.time()
 
-        # all futures are queued instantly
-        assert t1 - t0 <= 0.01
+        # All futures are queued without waiting for the uploads themselves (which each take seconds). A generous
+        # threshold: a stricter one only measures how busy the CI runner is.
+        assert t1 - t0 <= 1
 
         # wait for the last job to complete
         upload_future_3.result()
@@ -4711,16 +4720,37 @@ def test_build_endpoint_image_payload(custom_image: dict, expected_image_payload
 
 
 @pytest.mark.parametrize(
-    "custom_image, expected_image_payload",
+    "custom_image, registry_credentials, expected_image_payload",
     [
-        (None, {"huggingface": {}}),
-        ({"vLLM": {"url": "vllm/vllm-openai:v0.23.0"}}, {"vLLM": {"url": "vllm/vllm-openai:v0.23.0"}}),
+        (None, {}, {"huggingface": {}}),
+        (
+            {"vLLM": {"url": "vllm/vllm-openai:v0.23.0"}},
+            {},
+            {"vLLM": {"url": "vllm/vllm-openai:v0.23.0"}},
+        ),
+        (
+            {"url": "private.registry/image:latest", "port": 8080},
+            {"container_registry_username": "user", "container_registry_password": "secret"},
+            {
+                "custom": {
+                    "url": "private.registry/image:latest",
+                    "port": 8080,
+                    "credentials": {"username": "user", "password": "secret"},
+                }
+            },
+        ),
+        (
+            {"url": "private.registry/image:latest"},
+            {"container_registry_username": "user"},
+            {"custom": {"url": "private.registry/image:latest", "credentials": {"username": "user"}}},
+        ),
     ],
-    ids=["no_custom_image", "custom_image"],
+    ids=["no_custom_image", "custom_image", "registry_credentials", "registry_username_only"],
 )
 def test_create_inference_endpoint_custom_image_payload(
     mocker,
     custom_image: Optional[dict],
+    registry_credentials: dict,
     expected_image_payload: dict,
 ):
     """`custom_image` reaches `model.image`, and defaults to the Hugging Face managed image."""
@@ -4759,10 +4789,48 @@ def test_create_inference_endpoint_custom_image_payload(
         task="text-generation",
         namespace="Wauplin",
         custom_image=custom_image,
+        **registry_credentials,
     )
 
     payload = mock_session.post.call_args[1]["json"]
     assert payload["model"]["image"] == expected_image_payload
+
+
+@pytest.mark.parametrize(
+    "custom_image, registry_credentials, match",
+    [
+        (None, {"container_registry_username": "user"}, "`custom_image` is required"),
+        (
+            {"url": "private.registry/image:latest"},
+            {"container_registry_password": "secret"},
+            "`container_registry_password` requires `container_registry_username`",
+        ),
+        (
+            {"vLLM": {"url": "private.registry/image:latest"}},
+            {"container_registry_username": "user"},
+            "only be set for a custom container",
+        ),
+    ],
+    ids=["credentials_without_image", "password_without_username", "credentials_for_engine"],
+)
+def test_create_inference_endpoint_rejects_invalid_registry_credentials(
+    custom_image: dict | None, registry_credentials: dict, match: str
+):
+    api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
+    with pytest.raises(ValueError, match=match):
+        api.create_inference_endpoint(
+            name="test-endpoint-custom-img",
+            repository="meta-llama/Llama-2-7b-chat-hf",
+            framework="custom",
+            accelerator="gpu",
+            instance_size="medium",
+            instance_type="nvidia-a10g",
+            region="us-east-1",
+            vendor="aws",
+            namespace="Wauplin",
+            custom_image=custom_image,
+            **registry_credentials,
+        )
 
 
 def test_create_inference_endpoint_container_command_and_args_payload(mocker):

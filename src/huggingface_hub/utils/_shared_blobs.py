@@ -41,7 +41,7 @@ from . import logging
 logger = logging.get_logger(__name__)
 
 _XET_HASH_REGEX = re.compile(r"[0-9a-f]{64}")
-_REPO_DIR_REGEX = re.compile(r"(?:models|datasets|spaces)--.+")
+_REPO_DIR_REGEX = re.compile(rf"(?:{'|'.join(sorted(constants.REPO_TYPES_MAPPING))})--.+")
 
 SHARED_BLOBS_DIR_NAME = "blobs"
 SHARED_BLOBS_MARKER_NAME = ".huggingface-shared-blobs"
@@ -86,8 +86,11 @@ def _is_directory(path: Path) -> bool:
         return False
 
 
-def _is_usable_store_entry(store_path: Path, expected_size: int) -> bool:
+def _is_usable_store_entry(store_path: Path, expected_size: int | None) -> bool:
     """Return whether `store_path` is a regular, readable payload of the expected size."""
+    if expected_size is None:
+        # Size unknown (HEAD without a content length): the entry cannot be validated.
+        return False
     try:
         store_stat = store_path.lstat()
     except OSError:
@@ -373,7 +376,9 @@ def shared_blobs_enabled() -> bool:
     return not constants.HF_HUB_DISABLE_SHARED_BLOBS and not constants.HF_HUB_DISABLE_XET
 
 
-def try_link_from_shared_store(*, blob_path: str, xet_hash: str, cache_dir: str | Path, expected_size: int) -> bool:
+def try_link_from_shared_store(
+    *, blob_path: str, xet_hash: str, cache_dir: str | Path, expected_size: int | None
+) -> bool:
     """Materialize `blobs/<etag>` as a symlink to an existing store entry, if any.
 
     The reference manifest is flushed before the symlink becomes visible. Failures are
@@ -406,7 +411,7 @@ def try_link_from_shared_store(*, blob_path: str, xet_hash: str, cache_dir: str 
     return True
 
 
-def has_shared_blob(*, xet_hash: str, cache_dir: str | Path, expected_size: int) -> bool:
+def has_shared_blob(*, xet_hash: str, cache_dir: str | Path, expected_size: int | None) -> bool:
     """Return whether a usable store entry exists, without touching the cache."""
     if (
         not shared_blobs_enabled()
@@ -422,7 +427,7 @@ def publish_blob_to_shared_store(
     blob_path: str,
     xet_hash: str,
     cache_dir: str | Path,
-    expected_size: int,
+    expected_size: int | None,
     replace_existing: bool = False,
 ) -> bool:
     """Move a fresh Xet download into the store and replace its repo blob with a symlink.
@@ -430,7 +435,8 @@ def publish_blob_to_shared_store(
     Best-effort: on failure the repo blob remains (or is restored as) a regular local
     file. Returns whether the repo blob was successfully shared.
     """
-    if _XET_HASH_REGEX.fullmatch(xet_hash) is None:
+    # Publishing a payload whose size is unknown would create an entry no reader can validate.
+    if expected_size is None or _XET_HASH_REGEX.fullmatch(xet_hash) is None:
         return False
     prefix_dir = _ensure_prefix_dir(cache_dir, xet_hash)
     relative_blob_path = _relative_blob_path(blob_path, cache_dir)

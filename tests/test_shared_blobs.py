@@ -504,6 +504,36 @@ class TestScanAndDelete:
         assert not shared_blob_path(tmp_path, XET_HASH).exists()
         assert shared_blob_path(tmp_path, OTHER_XET_HASH).exists()
 
+    def test_delete_files_frees_payload_with_its_last_reference(self, tmp_path: Path) -> None:
+        # `hf cache rm hf://<repo>/<file>` deletes single files: the payload must outlive
+        # the first reference and be collected with the last one.
+        rev_a, rev_b = "a" * 40, "b" * 40
+        blob_a = _make_cached_file(tmp_path, "models--org--repoA", rev_a, "model.bin", "11" * 32, ref="main")
+        assert publish_blob_to_shared_store(
+            blob_path=str(blob_a), xet_hash=XET_HASH, cache_dir=tmp_path, expected_size=len(CONTENT)
+        )
+        blob_b = _make_cached_file(tmp_path, "models--org--repoB", rev_b, "model.bin", "11" * 32, ref="main")
+        blob_b.unlink()
+        assert try_link_from_shared_store(
+            blob_path=str(blob_b), xet_hash=XET_HASH, cache_dir=tmp_path, expected_size=len(CONTENT)
+        )
+
+        def cached_file(report, repo_id: str):
+            repo = next(repo for repo in report.repos if repo.repo_id == repo_id)
+            return next(iter(next(iter(repo.revisions)).files))
+
+        report = scan_cache_dir(tmp_path)
+        strategy = report.delete_files(cached_file(report, "org/repoA"))
+        assert strategy.expected_freed_size == 0
+        strategy.execute()
+        assert blob_b.read_bytes() == CONTENT
+
+        report = scan_cache_dir(tmp_path)
+        strategy = report.delete_files(cached_file(report, "org/repoB"))
+        assert strategy.expected_freed_size == len(CONTENT)
+        strategy.execute()
+        assert not shared_blob_path(tmp_path, XET_HASH).exists()
+
 
 class TestDownloadIntegration:
     ETAG = "e7" * 32

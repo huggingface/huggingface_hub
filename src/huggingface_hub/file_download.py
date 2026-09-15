@@ -7,13 +7,14 @@ import stat
 import time
 import uuid
 import warnings
+from contextlib import ExitStack
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, BinaryIO, Literal, NoReturn, overload
+from typing import Any, BinaryIO, Literal, NoReturn, cast, overload
 from urllib.parse import quote
 
 import httpx
-from tqdm.auto import tqdm as base_tqdm
+from tqdm import tqdm as base_tqdm
 
 from . import constants
 from ._local_folder import (
@@ -43,7 +44,6 @@ from .utils import (
     hf_raise_for_status,
     logging,
     parse_xet_file_data_from_response,
-    tqdm,
     validate_hf_hub_args,
 )
 from .utils._http import (
@@ -54,6 +54,7 @@ from .utils._http import (
     _is_same_or_hub_host,
     http_stream_backoff,
 )
+from .utils._paths import as_extended_path
 from .utils._runtime import is_xet_available
 from .utils._shared_blobs import (
     has_shared_blob,
@@ -186,8 +187,9 @@ class DryRunFileInfo:
     Args:
         commit_hash (`str`):
             The commit_hash related to the file.
-        file_size (`int`):
-            Size of the file. In case of an LFS file, contains the size of the actual LFS file, not the pointer.
+        file_size (`int`, *optional*):
+            Size of the file, if known. In case of an LFS file, contains the size of the actual LFS file, not the
+            pointer.
         filename (`str`):
             Name of the file in the repo.
         is_cached (`bool`):
@@ -198,7 +200,7 @@ class DryRunFileInfo:
     """
 
     commit_hash: str
-    file_size: int
+    file_size: int | None
     filename: str
     local_path: str
     is_cached: bool
@@ -339,7 +341,7 @@ def http_get(
     displayed_filename: str | None = None,
     tqdm_class: type[base_tqdm] | None = None,
     _nb_retries: int = 5,
-    _tqdm_bar: tqdm | None = None,
+    _tqdm_bar: base_tqdm | None = None,
 ) -> None:
     """
     Download a remote file. Do not gobble up errors, and will return errors tailored to the Hugging Face Hub.
@@ -380,100 +382,105 @@ def http_get(
             " Install `hf_xet` with `pip install hf_xet` for xet-powered downloads."
         )
 
-    with http_stream_backoff(
-        method="GET",
-        url=url,
-        headers=headers,
-        timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT,
-        retry_on_exceptions=(),
-        retry_on_status_codes=(408, 429),
-    ) as response:
-        hf_raise_for_status(response)
-
-        # If we requested a Range but got 200 back, the server ignored our Range header
-        # (e.g. CloudFront with Accept-Encoding: gzip). Reset file to avoid corruption.
-        if resume_size > 0 and response.status_code == 200:
-            temp_file.seek(0)
-            temp_file.truncate()
-            if _tqdm_bar is not None:
-                # When the progress bar is reused across retries, its counter has already been advanced by `resume_size`
-                # worth of chunks from earlier attempts. Those bytes are gone from disk now, so roll the counter back
-                # to keep the upcoming full re-download from double-counting (e.g. ending at 130/100 on a 100-byte file).
-                _tqdm_bar.update(-resume_size)
-                if callable(update_transfer := getattr(_tqdm_bar, "update_transfer", None)):
-                    update_transfer(-resume_size)
-            resume_size = 0
-
-        total: int | None = _get_file_length_from_http_response(response)
-        if total is None:
-            # Hub serves compressible text files (e.g. vocab.json) with `Content-Encoding: gzip` and
-            # `Transfer-Encoding: chunked`, so the response carries no `Content-Length`. Fall back to the caller's
-            # `expected_size` (always known from the metadata HEAD on the hf_hub path) so the progress bar, and any
-            # aggregating wrapper such as snapshot_download's `_AggregatedTqdm` — still sees the file size.
-            total = expected_size
-
-        if displayed_filename is None:
-            displayed_filename = url
-            content_disposition = response.headers.get("Content-Disposition")
-            if content_disposition is not None:
-                match = HEADER_FILENAME_PATTERN.search(content_disposition)
-                if match is not None:
-                    # Means file is on CDN
-                    displayed_filename = match.groupdict()["filename"]
-
-        # Truncate filename if too long to display
-        if len(displayed_filename) > 40:
-            displayed_filename = f"(…){displayed_filename[-40:]}"
-
-        consistency_error_message = (
-            f"Consistency check failed: file should be of size {expected_size} but has size"
-            f" {{actual_size}} ({displayed_filename}).\nThis is usually due to network issues while downloading the file."
-            " Please retry with `force_download=True`."
-        )
-        progress_cm = _get_progress_bar_context(
-            desc=displayed_filename,
-            log_level=logger.getEffectiveLevel(),
-            total=total,
-            initial=resume_size,
-            name="huggingface_hub.http_get",
-            tqdm_class=tqdm_class,
-            _tqdm_bar=_tqdm_bar,
-        )
-
-        with progress_cm as progress:
-            new_resume_size = resume_size
-            try:
-                for chunk in response.iter_bytes(chunk_size=constants.DOWNLOAD_CHUNK_SIZE):
-                    if chunk:  # filter out keep-alive new chunks
-                        progress.update(len(chunk))
-                        if callable(update_transfer := getattr(progress, "update_transfer", None)):
-                            update_transfer(len(chunk))
-                        temp_file.write(chunk)
-                        new_resume_size += len(chunk)
-                        # Some data has been downloaded from the server so we reset the number of retries.
-                        _nb_retries = 5
-            except (httpx.ConnectError, httpx.TimeoutException, httpx.RemoteProtocolError) as e:
-                # If ConnectionError (SSLError), ReadTimeout, or RemoteProtocolError (peer closed the connection before
-                # sending the complete body) happen while streaming data from the server, it is most likely a transient
-                # error (network outage?). We log a warning message and try to resume the download a few times  before
-                # giving up. The retry mechanism is basic but should be enough in most cases.
-                if _nb_retries <= 0:
-                    logger.warning("Error while downloading from %s: %s\nMax retries exceeded.", url, str(e))
-                    raise
-                logger.warning("Error while downloading from %s: %s\nTrying to resume download...", url, str(e))
-                time.sleep(1)
-                return http_get(
+    # Keep the response and progress bar open while recursive retries reuse them.
+    with ExitStack() as stack:
+        progress = _tqdm_bar
+        new_resume_size = resume_size
+        try:
+            response = stack.enter_context(
+                http_stream_backoff(
+                    method="GET",
                     url=url,
-                    temp_file=temp_file,
-                    resume_size=new_resume_size,
-                    headers=initial_headers,
-                    expected_size=expected_size,
-                    tqdm_class=tqdm_class,
-                    _nb_retries=_nb_retries - 1,
-                    # Reuse the existing progress bar across retries so a custom `tqdm_class` (e.g. snapshot_download's `_AggregatedTqdm`,
-                    # which mutates a shared parent bar in `__init__`) is not re-instantiated and does not double-count `total`/`initial`.
-                    _tqdm_bar=progress,
+                    headers=headers,
+                    timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT,
+                    retry_on_exceptions=(),
+                    retry_on_status_codes=(408, 429),
                 )
+            )
+            hf_raise_for_status(response)
+
+            # If we requested a Range but got 200 back, the server ignored our Range header
+            # (e.g. CloudFront with Accept-Encoding: gzip). Reset file to avoid corruption.
+            if resume_size > 0 and response.status_code == 200:
+                temp_file.seek(0)
+                temp_file.truncate()
+                if _tqdm_bar is not None:
+                    # When the progress bar is reused across retries, its counter has already been advanced by `resume_size`
+                    # worth of chunks from earlier attempts. Those bytes are gone from disk now, so roll the counter back
+                    # to keep the upcoming full re-download from double-counting (e.g. ending at 130/100 on a 100-byte file).
+                    _tqdm_bar.update(-resume_size)
+                    if callable(update_transfer := getattr(_tqdm_bar, "update_transfer", None)):
+                        update_transfer(-resume_size)
+                resume_size = 0
+
+            total: int | None = _get_file_length_from_http_response(response)
+            if expected_size is None:
+                expected_size = total
+            elif total is None:
+                # Hub serves compressible text files (e.g. vocab.json) with `Content-Encoding: gzip` and
+                # `Transfer-Encoding: chunked`, so the response carries no `Content-Length`. Fall back to the caller's
+                # `expected_size` (always known from the metadata HEAD on the hf_hub path) so the progress bar, and any
+                # aggregating wrapper such as snapshot_download's `_AggregatedTqdm` — still sees the file size.
+                total = expected_size
+
+            if displayed_filename is None:
+                displayed_filename = url
+                content_disposition = response.headers.get("Content-Disposition")
+                if content_disposition is not None:
+                    match = HEADER_FILENAME_PATTERN.search(content_disposition)
+                    if match is not None:
+                        # Means file is on CDN
+                        displayed_filename = match.groupdict()["filename"]
+
+            # Truncate filename if too long to display
+            if len(displayed_filename) > 40:
+                displayed_filename = f"(…){displayed_filename[-40:]}"
+
+            consistency_error_message = (
+                f"Consistency check failed: file should be of size {expected_size} but has size"
+                f" {{actual_size}} ({displayed_filename}).\nThis is usually due to network issues while downloading the file."
+                " Please retry with `force_download=True`."
+            )
+            progress_cm = _get_progress_bar_context(
+                desc=displayed_filename,
+                log_level=logger.getEffectiveLevel(),
+                total=total,
+                initial=resume_size,
+                name="huggingface_hub.http_get",
+                tqdm_class=cast(Any, tqdm_class),
+                _tqdm_bar=cast(Any, _tqdm_bar),
+            )
+
+            progress = stack.enter_context(progress_cm)
+            new_resume_size = resume_size
+            for chunk in response.iter_bytes(chunk_size=constants.DOWNLOAD_CHUNK_SIZE):
+                if chunk:  # filter out keep-alive new chunks
+                    progress.update(len(chunk))
+                    if callable(update_transfer := getattr(progress, "update_transfer", None)):
+                        update_transfer(len(chunk))
+                    temp_file.write(chunk)
+                    new_resume_size += len(chunk)
+                    # Some data has been downloaded from the server so we reset the number of retries.
+                    _nb_retries = 5
+        except (httpx.ConnectError, httpx.TimeoutException, httpx.RemoteProtocolError) as e:
+            # Retry transient failures both when opening the stream and while reading its body.
+            if _nb_retries <= 0:
+                logger.warning("Error while downloading from %s: %s\nMax retries exceeded.", url, str(e))
+                raise
+            logger.warning("Error while downloading from %s: %s\nTrying to resume download...", url, str(e))
+            time.sleep(1)
+            return http_get(
+                url=url,
+                temp_file=temp_file,
+                resume_size=new_resume_size,
+                headers=initial_headers,
+                expected_size=expected_size,
+                tqdm_class=tqdm_class,
+                _nb_retries=_nb_retries - 1,
+                # Reuse the existing progress bar across retries so a custom `tqdm_class` (e.g. snapshot_download's `_AggregatedTqdm`,
+                # which mutates a shared parent bar in `__init__`) is not re-instantiated and does not double-count `total`/`initial`.
+                _tqdm_bar=progress,
+            )
 
     if expected_size is not None and expected_size != temp_file.tell():
         raise OSError(
@@ -491,7 +498,7 @@ def xet_get(
     expected_size: int | None = None,
     displayed_filename: str | None = None,
     tqdm_class: type[base_tqdm] | None = None,
-    _tqdm_bar: tqdm | None = None,
+    _tqdm_bar: base_tqdm | None = None,
 ) -> None:
     """
     Download a file using Xet storage service.
@@ -1180,11 +1187,10 @@ def _hf_hub_download_to_cache_dir(
         if head_call_error is not None:
             _raise_on_head_call_error(head_call_error, force_download, local_files_only)
 
-    # From now on, etag, commit_hash, url and size are not None.
+    # From now on, etag, commit_hash and url are not None.
     assert etag is not None, "etag must have been retrieved from server"
     assert commit_hash is not None, "commit_hash must have been retrieved from server"
     assert url_to_download is not None, "file location must have been retrieved from server"
-    assert expected_size is not None, "expected_size must have been retrieved from server"
     blob_path = os.path.join(storage_folder, "blobs", etag)
     pointer_path = _get_pointer_path(storage_folder, commit_hash, relative_filename)
 
@@ -1236,21 +1242,8 @@ def _hf_hub_download_to_cache_dir(
     # atomically renamed into place (see `_download_to_tmp_and_move`).
     lock_path = os.path.join(locks_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type), f"{etag}.lock")
 
-    # Some Windows versions do not allow for paths longer than 255 characters.
-    # In this case, we must specify it as an extended path by using the "\\?\" prefix.
-    if (
-        os.name == "nt"
-        and len(os.path.abspath(lock_path)) > 255
-        and not os.path.abspath(lock_path).startswith("\\\\?\\")
-    ):
-        lock_path = "\\\\?\\" + os.path.abspath(lock_path)
-
-    if (
-        os.name == "nt"
-        and len(os.path.abspath(blob_path)) > 255
-        and not os.path.abspath(blob_path).startswith("\\\\?\\")
-    ):
-        blob_path = "\\\\?\\" + os.path.abspath(blob_path)
+    lock_path = as_extended_path(lock_path)
+    blob_path = as_extended_path(blob_path)
 
     Path(lock_path).parent.mkdir(parents=True, exist_ok=True)
 
@@ -1334,11 +1327,7 @@ def _hf_hub_download_to_local_dir(
 
     Method should not be called directly. Please use `hf_hub_download` instead.
     """
-    # Some Windows versions do not allow for paths longer than 255 characters.
-    # In this case, we must specify it as an extended path by using the "\\?\" prefix.
-    if os.name == "nt" and len(os.path.abspath(local_dir)) > 255:
-        local_dir = "\\\\?\\" + os.path.abspath(local_dir)
-    local_dir = Path(local_dir)
+    local_dir = Path(as_extended_path(local_dir))
     paths = get_local_download_paths(local_dir=local_dir, filename=filename)
     local_metadata = read_download_metadata(local_dir=local_dir, filename=filename)
 
@@ -1423,11 +1412,10 @@ def _hf_hub_download_to_local_dir(
         if head_call_error is not None:
             _raise_on_head_call_error(head_call_error, force_download, local_files_only)
 
-    # From now on, etag, commit_hash, url and size are not None.
+    # From now on, etag, commit_hash and url are not None.
     assert etag is not None, "etag must have been retrieved from server"
     assert commit_hash is not None, "commit_hash must have been retrieved from server"
     assert url_to_download is not None, "file location must have been retrieved from server"
-    assert expected_size is not None, "expected_size must have been retrieved from server"
 
     # Local file exists => check if it's up-to-date
     if not force_download and paths.file_path.is_file():
@@ -1477,10 +1465,6 @@ def _hf_hub_download_to_local_dir(
             repo_type=repo_type,
         )
         if isinstance(cached_path, str):
-            with WeakFileLock(paths.lock_path):
-                paths.file_path.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copyfile(cached_path, paths.file_path)
-            write_download_metadata(local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag)
             if dry_run:
                 return DryRunFileInfo(
                     commit_hash=commit_hash,
@@ -1490,6 +1474,10 @@ def _hf_hub_download_to_local_dir(
                     local_path=str(paths.file_path),
                     will_download=False,
                 )
+            with WeakFileLock(paths.lock_path):
+                paths.file_path.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(cached_path, paths.file_path)
+            write_download_metadata(local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag)
             return str(paths.file_path)
 
     if dry_run:
@@ -1714,7 +1702,7 @@ def _get_metadata_or_catch_error(
     |
     # Or the metadata is returned as
     # `(url_to_download, etag, commit_hash, expected_size, xet_file_data, None)`
-    tuple[str, str, str, int, XetFileData | None, None]
+    tuple[str, str, str, int | None, XetFileData | None, None]
 ):
     """Get metadata for a file on the Hub, safely handling network issues.
 
@@ -1806,12 +1794,11 @@ def _get_metadata_or_catch_error(
                     "Distant resource does not have an ETag, we won't be able to reliably ensure reproducibility."
                 )
 
-            # Size must exist
+            # Xet downloads require a known size, but regular HTTP downloads can recover it from the GET response.
             expected_size = metadata.size
-            if expected_size is None:
-                raise FileMetadataError("Distant resource does not have a Content-Length.")
-
             xet_file_data = metadata.xet_file_data
+            if expected_size is None and xet_file_data is not None and is_xet_available():
+                raise FileMetadataError("Distant resource does not have a Content-Length.")
 
             # In case of a redirect, save an extra redirect on the request.get call,
             # and ensure we download the exact atomic version even if it changed

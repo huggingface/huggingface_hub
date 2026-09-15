@@ -22,7 +22,7 @@ from typing import Literal
 
 from huggingface_hub.errors import CacheNotFound, CorruptedCacheException
 
-from ..constants import HF_HUB_CACHE
+from ..constants import HF_HUB_CACHE, REPO_TYPES_MAPPING
 from . import _shared_blobs, logging
 from ._parsing import format_timesince
 from ._terminal import tabulate
@@ -30,7 +30,7 @@ from ._terminal import tabulate
 
 logger = logging.get_logger(__name__)
 
-REPO_TYPE_T = Literal["model", "dataset", "space"]
+REPO_TYPE_T = Literal["model", "dataset", "space", "kernel"]
 
 # List of OS-created helper files that need to be ignored
 FILES_TO_IGNORE = [".DS_Store", "Thumbs.db", "desktop.ini"]
@@ -179,7 +179,7 @@ class CachedRepoInfo:
     Args:
         repo_id (`str`):
             Repo id of the repo on the Hub. Example: `"google/fleurs"`.
-        repo_type (`Literal["dataset", "model", "space"]`):
+        repo_type (`Literal["dataset", "model", "space", "kernel"]`):
             Type of the cached repo.
         repo_path (`Path`):
             Local path to the cached repo.
@@ -259,10 +259,11 @@ class CachedRepoInfo:
 
 @dataclass(frozen=True)
 class DeleteCacheStrategy:
-    """Frozen data structure holding the strategy to delete cached revisions.
+    """Frozen data structure holding the strategy to delete cached revisions or files.
 
     This object is not meant to be instantiated programmatically but to be returned by
-    [`~utils.HFCacheInfo.delete_revisions`]. See documentation for usage example.
+    [`~utils.HFCacheInfo.delete_revisions`] or [`~utils.HFCacheInfo.delete_files`]. See
+    documentation for usage example.
 
     Args:
         expected_freed_size (`float`):
@@ -275,6 +276,9 @@ class DeleteCacheStrategy:
             Set of entire repo paths to be deleted.
         snapshots (`frozenset[Path]`):
             Set of snapshots to be deleted (directory of symlinks).
+        files (`frozenset[Path]`, *optional*):
+            Set of individual snapshot entries to be deleted. Their blobs are deleted only if
+            listed in `blobs`.
         cache_dir (`Path` or `None`):
             Cache directory the strategy was computed from. Used to collect shared
             blobs referenced by repo-local symlinks removed by the deletion.
@@ -285,6 +289,7 @@ class DeleteCacheStrategy:
     refs: frozenset[Path]
     repos: frozenset[Path]
     snapshots: frozenset[Path]
+    files: frozenset[Path] = frozenset()
     cache_dir: Path | None = None
 
     @property
@@ -327,6 +332,10 @@ class DeleteCacheStrategy:
         # Deletion order matters. Blobs are deleted in last so that the user can't end
         # up in a state where a `ref`` refers to a missing snapshot or a snapshot
         # symlink refers to a deleted blob.
+
+        # Unlink snapshot entries first: if it fails, their blobs must not be deleted.
+        for path in self.files:
+            path.unlink(missing_ok=True)
 
         # Delete entire repos
         for path in self.repos:
@@ -532,6 +541,56 @@ class HFCacheInfo:
             repos=frozenset(delete_strategy_repos),
             snapshots=frozenset(delete_strategy_snapshots),
             expected_freed_size=_expected_freed_size(blobs_to_unlink, self.cache_dir),
+            cache_dir=self.cache_dir,
+        )
+
+    def delete_files(self, *files: CachedFileInfo) -> DeleteCacheStrategy:
+        """Prepare the strategy to delete individual cached files.
+
+        Only the snapshot entries are removed. A blob is deleted only if no other cached file
+        references it, so blobs shared with other revisions are kept. Refs and snapshot
+        directories are kept as well, even if a snapshot ends up empty. To delete whole
+        revisions or repos, use [`~utils.HFCacheInfo.delete_revisions`].
+
+        Example:
+        ```py
+        >>> from huggingface_hub import scan_cache_dir
+        >>> cache_info = scan_cache_dir()
+        >>> files = [
+        ...     file
+        ...     for repo in cache_info.repos
+        ...     if repo.repo_id == "org/model"
+        ...     for revision in repo.revisions
+        ...     for file in revision.files
+        ...     if file.file_name == "model-Q4_K_M.gguf"
+        ... ]
+        >>> delete_strategy = cache_info.delete_files(*files)
+        >>> print(f"Will free {delete_strategy.expected_freed_size_str}.")
+        Will free 4.9G.
+        >>> delete_strategy.execute()
+        Cache deletion done. Saved 4.9G.
+        ```
+        """
+        selected = set(files)
+        retained_blobs = {
+            file.blob_path
+            for repo in self.repos
+            for revision in repo.revisions
+            for file in revision.files
+            if file not in selected
+        }
+        blobs_to_unlink = {
+            file.blob_path: file.size_on_disk for file in selected if file.blob_path not in retained_blobs
+        }
+        file_paths = frozenset(file.file_path for file in selected)
+        return DeleteCacheStrategy(
+            expected_freed_size=_expected_freed_size(blobs_to_unlink, self.cache_dir),
+            # Files stored directly in the snapshot (no symlink) are already removed with the entry.
+            blobs=frozenset(blobs_to_unlink.keys() - file_paths),
+            refs=frozenset(),
+            repos=frozenset(),
+            snapshots=frozenset(),
+            files=file_paths,
             cache_dir=self.cache_dir,
         )
 
@@ -796,14 +855,14 @@ def _scan_cached_repo(repo_path: Path) -> CachedRepoInfo:
     if "--" not in repo_path.name:
         raise CorruptedCacheException(f"Repo path is not a valid HuggingFace cache directory: {repo_path}")
 
-    repo_type, repo_id = repo_path.name.split("--", maxsplit=1)
-    repo_type = repo_type[:-1]  # "models" -> "model"
+    repo_type_prefix, repo_id = repo_path.name.split("--", maxsplit=1)
     repo_id = repo_id.replace("--", "/")  # google/fleurs -> "google/fleurs"
 
-    if repo_type not in {"dataset", "model", "space"}:
+    if repo_type_prefix not in REPO_TYPES_MAPPING:
         raise CorruptedCacheException(
-            f"Repo type must be `dataset`, `model` or `space`, found `{repo_type}` ({repo_path})."
+            f"Repo type must be one of {sorted(REPO_TYPES_MAPPING)}, found `{repo_type_prefix}` ({repo_path})."
         )
+    repo_type = REPO_TYPES_MAPPING[repo_type_prefix]  # "models" -> "model"
 
     blob_stats: dict[Path, os.stat_result] = {}  # Key is blob_path, value is blob stats
 
