@@ -4,6 +4,7 @@ import os
 import re
 import shutil
 import stat
+import threading
 import time
 import uuid
 import warnings
@@ -77,6 +78,7 @@ REGEX_COMMIT_HASH = re.compile(r"^[0-9a-f]{40}$")
 REGEX_SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
 _are_symlinks_supported_in_dir: dict[str, bool] = {}
+_ARE_SYMLINKS_SUPPORTED_LOCK = threading.Lock()
 
 # Internal retry timeout for metadata fetch when no local file exists
 _ETAG_RETRY_TIMEOUT = 60
@@ -103,44 +105,45 @@ def are_symlinks_supported(cache_dir: str | Path | None = None) -> bool:
     if constants.HF_HUB_DISABLE_SYMLINKS:
         return False
 
-    # Check symlink compatibility only once (per cache directory) at first time use
-    if cache_dir not in _are_symlinks_supported_in_dir:
-        _are_symlinks_supported_in_dir[cache_dir] = True
+    # Check symlink compatibility only once (per cache directory) at first time use. The probe runs under a lock and
+    # the result is only published once known, so a concurrent caller never sees a stale `True` (see #4915).
+    with _ARE_SYMLINKS_SUPPORTED_LOCK:
+        if cache_dir not in _are_symlinks_supported_in_dir:
+            os.makedirs(cache_dir, exist_ok=True)
+            with SoftTemporaryDirectory(dir=cache_dir) as tmpdir:
+                src_path = Path(tmpdir) / "dummy_file_src"
+                src_path.touch()
+                dst_path = Path(tmpdir) / "dummy_file_dst"
 
-        os.makedirs(cache_dir, exist_ok=True)
-        with SoftTemporaryDirectory(dir=cache_dir) as tmpdir:
-            src_path = Path(tmpdir) / "dummy_file_src"
-            src_path.touch()
-            dst_path = Path(tmpdir) / "dummy_file_dst"
+                # Relative source path as in `_create_symlink``
+                relative_src = os.path.relpath(src_path, start=os.path.dirname(dst_path))
+                try:
+                    os.symlink(relative_src, dst_path)
+                    _are_symlinks_supported_in_dir[cache_dir] = True
+                except OSError:
+                    # Likely running on Windows
+                    _are_symlinks_supported_in_dir[cache_dir] = False
 
-            # Relative source path as in `_create_symlink``
-            relative_src = os.path.relpath(src_path, start=os.path.dirname(dst_path))
-            try:
-                os.symlink(relative_src, dst_path)
-            except OSError:
-                # Likely running on Windows
-                _are_symlinks_supported_in_dir[cache_dir] = False
-
-                if not constants.HF_HUB_DISABLE_SYMLINKS_WARNING:
-                    message = (
-                        "`huggingface_hub` cache-system uses symlinks by default to"
-                        " efficiently store duplicated files but your machine does not"
-                        f" support them in {cache_dir}. Caching files will still work"
-                        " but in a degraded version that might require more space on"
-                        " your disk. This warning can be disabled by setting the"
-                        " `HF_HUB_DISABLE_SYMLINKS_WARNING` environment variable. For"
-                        " more details, see"
-                        " https://huggingface.co/docs/huggingface_hub/how-to-cache#limitations."
-                    )
-                    if os.name == "nt":
-                        message += (
-                            "\nTo support symlinks on Windows, you either need to"
-                            " activate Developer Mode or to run Python as an"
-                            " administrator. In order to activate developer mode,"
-                            " see this article:"
-                            " https://docs.microsoft.com/en-us/windows/apps/get-started/enable-your-device-for-development"
+                    if not constants.HF_HUB_DISABLE_SYMLINKS_WARNING:
+                        message = (
+                            "`huggingface_hub` cache-system uses symlinks by default to"
+                            " efficiently store duplicated files but your machine does not"
+                            f" support them in {cache_dir}. Caching files will still work"
+                            " but in a degraded version that might require more space on"
+                            " your disk. This warning can be disabled by setting the"
+                            " `HF_HUB_DISABLE_SYMLINKS_WARNING` environment variable. For"
+                            " more details, see"
+                            " https://huggingface.co/docs/huggingface_hub/how-to-cache#limitations."
                         )
-                    warnings.warn(message)
+                        if os.name == "nt":
+                            message += (
+                                "\nTo support symlinks on Windows, you either need to"
+                                " activate Developer Mode or to run Python as an"
+                                " administrator. In order to activate developer mode,"
+                                " see this article:"
+                                " https://docs.microsoft.com/en-us/windows/apps/get-started/enable-your-device-for-development"
+                            )
+                        warnings.warn(message)
 
     return _are_symlinks_supported_in_dir[cache_dir]
 
