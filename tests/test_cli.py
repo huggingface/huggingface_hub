@@ -13,7 +13,7 @@ from unittest.mock import ANY, Mock, patch
 import click
 import httpx
 import pytest
-from click.testing import CliRunner
+from click.testing import CliRunner, Result
 
 from huggingface_hub import HfApi, InferenceEndpointHardware, constants
 from huggingface_hub._dataset_viewer import DatasetParquetEntry
@@ -51,12 +51,14 @@ def runner() -> CliRunner:
     return CliRunner()
 
 
-def _make_revision(commit_hash: str, *, refs: Optional[set[str]] = None) -> CachedRevisionInfo:
+def _make_revision(
+    commit_hash: str, *, refs: set[str] | None = None, files: frozenset[CachedFileInfo] = frozenset()
+) -> CachedRevisionInfo:
     return CachedRevisionInfo(
         commit_hash=commit_hash,
         snapshot_path=Path(f"/tmp/{commit_hash}"),
         size_on_disk=0,
-        files=frozenset(),
+        files=files,
         refs=frozenset(refs or set()),
         last_modified=0.0,
     )
@@ -223,23 +225,55 @@ class TestCacheCommand:
         hf_cache_info.delete_revisions.assert_called_once_with(revision.commit_hash)
         strategy.execute.assert_called_once_with()
 
+    @pytest.mark.parametrize("target", ["hf://models/user/model/config.json", " hf://models/user/model/config.json "])
+    def test_rm_file_uri_executes_strategy(self, runner: CliRunner, target: str) -> None:
+        commit_hash = "c" * 40
+        file = CachedFileInfo(
+            file_name="config.json",
+            file_path=Path(f"/tmp/{commit_hash}/config.json"),
+            blob_path=Path("/tmp/blobs/abc"),
+            size_on_disk=0,
+            blob_last_accessed=0.0,
+            blob_last_modified=0.0,
+        )
+        revision = _make_revision(commit_hash, files=frozenset({file}))
+        repo = _make_repo("user/model", revisions=[revision])
+
+        strategy = Mock()
+        strategy.expected_freed_size_str = "0B"
+
+        hf_cache_info = Mock()
+        hf_cache_info.delete_files.return_value = strategy
+
+        with (
+            patch("huggingface_hub.cli.cache.scan_cache_dir", return_value=hf_cache_info),
+            patch("huggingface_hub.cli.cache.build_cache_index", return_value=({"model/user/model": repo}, {})),
+        ):
+            result = runner.invoke(app, ["cache", "rm", target, "--yes"])
+
+        assert result.exit_code == 0
+        assert f"model/user/model@{commit_hash}/config.json" in result.output
+        hf_cache_info.delete_files.assert_called_once_with(file)
+        strategy.execute.assert_called_once_with()
+
     @pytest.mark.parametrize(
-        "target",
+        "targets, message",
         [
-            "hf://models/openai-community/gpt2@main",
-            "hf://models/openai-community/gpt2/config.json",
+            (["hf://models/openai-community/gpt2@main"], "Revisions in hf:// URIs are not supported"),
+            (["hf://models/openai-community/gpt2@main/config.json"], "Revisions in hf:// URIs are not supported"),
+            (["hf://models/openai-community/gpt2/config.json", "model/openai-community/gpt2"], "cannot be mixed"),
         ],
     )
-    def test_rm_hf_uri_rejects_revisions_and_paths(self, runner: CliRunner, target: str) -> None:
+    def test_rm_hf_uri_rejects_invalid_targets(self, runner: CliRunner, targets: list[str], message: str) -> None:
         with (
             patch("huggingface_hub.cli.cache.scan_cache_dir"),
             patch("huggingface_hub.cli.cache.build_cache_index", return_value=({}, {})),
         ):
-            result = runner.invoke(app, ["cache", "rm", target])
+            result = runner.invoke(app, ["cache", "rm", *targets])
 
         assert result.exit_code == 1
         assert isinstance(result.exception, CLIError)
-        assert "Only repo-level hf:// URIs are supported" in str(result.exception)
+        assert message in str(result.exception)
 
     def test_rm_hf_uri_rejects_buckets(self, runner: CliRunner) -> None:
         with (
@@ -4955,6 +4989,101 @@ class TestWebhooksCommand:
         api_cls.return_value.delete_webhook.assert_not_called()
 
 
+class TestSecretHygiene:
+    """Test the warnings that steer secret material out of argv (shared options in `_cli_utils.py`)."""
+
+    ARGV_WARNING = "shell history"
+
+    @staticmethod
+    def _create_sandbox(runner: CliRunner, *args: str, **kwargs) -> tuple[Result, Mock]:
+        """Run `hf sandbox create` with the network mocked out; return the result and the `Sandbox` mock."""
+        with (
+            patch("huggingface_hub.cli.sandbox.Sandbox") as sandbox_cls,
+            patch("huggingface_hub.cli.sandbox.SandboxPool"),
+            patch("huggingface_hub.cli._cli_utils._get_extended_environ", return_value={"MY_SECRET": "from-env"}),
+        ):
+            sandbox_cls.create.return_value = Mock(id="sbx", image="python:3.12")
+            result = runner.invoke(app, ["sandbox", "create", *args], **kwargs)
+        return result, sandbox_cls
+
+    def test_warns_on_inline_secret_value(self, runner: CliRunner) -> None:
+        result, _ = self._create_sandbox(runner, "-s", "MY_SECRET=psswrd")
+        assert result.exit_code == 0, result.output
+        assert self.ARGV_WARNING in result.stderr
+
+    def test_warns_once_for_several_inline_secret_values(self, runner: CliRunner) -> None:
+        result, _ = self._create_sandbox(runner, "-s", "A=1", "-s", "B=2", "-s", "C=3")
+        assert result.exit_code == 0, result.output
+        assert result.stderr.count(self.ARGV_WARNING) == 1
+
+    def test_no_warning_for_bare_secret_name(self, runner: CliRunner) -> None:
+        """The recommended form resolves the value from the environment, so nothing lands in argv."""
+        result, sandbox_cls = self._create_sandbox(runner, "-s", "MY_SECRET")
+        assert result.exit_code == 0, result.output
+        assert self.ARGV_WARNING not in result.stderr
+        assert sandbox_cls.create.call_args.kwargs["secrets"] == {"MY_SECRET": "from-env"}
+
+    def test_no_warning_for_secrets_file(self, runner: CliRunner, tmp_path: Path) -> None:
+        secrets_file = tmp_path / "secrets.env"
+        secrets_file.write_text("MY_SECRET=psswrd\n")
+        secrets_file.chmod(0o600)
+        result, _ = self._create_sandbox(runner, "--secrets-file", str(secrets_file))
+        assert result.exit_code == 0, result.output
+        assert self.ARGV_WARNING not in result.stderr
+
+    def test_no_warning_without_secret_flags(self, runner: CliRunner) -> None:
+        result, _ = self._create_sandbox(runner, "-e", "LOG_LEVEL=debug")
+        assert result.exit_code == 0, result.output
+        assert self.ARGV_WARNING not in result.stderr
+
+    def test_quiet_keeps_the_warning_on_stderr(self, runner: CliRunner) -> None:
+        result, _ = self._create_sandbox(runner, "-q", "-s", "MY_SECRET=psswrd")
+        assert result.exit_code == 0, result.output
+        assert self.ARGV_WARNING in result.stderr
+
+    def test_warns_on_inline_token(self, runner: CliRunner) -> None:
+        result, _ = self._create_sandbox(runner, "--token", "hf_abcdef")
+        assert result.exit_code == 0, result.output
+        assert self.ARGV_WARNING in result.stderr
+
+    def test_no_token_warning_for_auth_login(self, runner: CliRunner) -> None:
+        """`hf auth login --token` is the flow the warning points at, so it must stay silent."""
+        with patch("huggingface_hub.cli.auth.login") as login_mock:
+            result = runner.invoke(app, ["auth", "login", "--token", "hf_abcdef"])
+        assert result.exit_code == 0, result.output
+        assert self.ARGV_WARNING not in result.stderr
+        login_mock.assert_called_once()
+
+    def test_secrets_file_from_stdin(self, runner: CliRunner) -> None:
+        result, sandbox_cls = self._create_sandbox(runner, "--secrets-file", "-", input="MY_SECRET=piped\n")
+        assert result.exit_code == 0, result.output
+        assert sandbox_cls.create.call_args.kwargs["secrets"] == {"MY_SECRET": "piped"}
+
+    @pytest.mark.skipif(os.name != "posix", reason="File modes are POSIX-specific.")
+    def test_warns_on_group_readable_secrets_file(self, runner: CliRunner, tmp_path: Path) -> None:
+        secrets_file = tmp_path / "secrets.env"
+        secrets_file.write_text("MY_SECRET=psswrd\n")
+        secrets_file.chmod(0o644)
+        result, _ = self._create_sandbox(runner, "--secrets-file", str(secrets_file))
+        assert result.exit_code == 0, result.output
+        assert "readable by other users (mode 644)" in result.stderr
+
+    @pytest.mark.skipif(os.name != "posix", reason="File modes are POSIX-specific.")
+    def test_warns_on_group_readable_env_file(self, runner: CliRunner, tmp_path: Path) -> None:
+        env_file = tmp_path / "vars.env"
+        env_file.write_text("LOG_LEVEL=debug\n")
+        env_file.chmod(0o640)
+        result, _ = self._create_sandbox(runner, "--env-file", str(env_file))
+        assert result.exit_code == 0, result.output
+        assert "readable by other users (mode 640)" in result.stderr
+
+    def test_pool_rejects_secrets_with_a_reason(self, runner: CliRunner) -> None:
+        result, _ = self._create_sandbox(runner, "--pool", "pool-ab12cd34ef56", "-s", "MY_SECRET")
+        assert isinstance(result.exception, CLIError)
+        assert "no encrypted-secrets channel" in str(result.exception)
+        assert "--env" in str(result.exception)
+
+
 class TestGlobalFormattingFlags:
     """Test the global --format / --json / -q flags handled in `_cli_utils.py`."""
 
@@ -5214,6 +5343,19 @@ class TestSkillsHfCliCLI:
         runner.invoke(app, ["skills", "update", "--dest", str(dest)])
         assert skill_file.read_text(encoding="utf-8") == build_skill_md()
 
+    def test_skills_flag_prints_the_skill(self, runner: CliRunner) -> None:
+        """`hf --skills` is a top-level alias for `hf skills preview`."""
+        result = runner.invoke(app, ["--skills"])
+        assert result.exit_code == 0, result.output
+        assert result.stdout == build_skill_md() + "\n"
+
+    def test_skills_flag_available_top_level_only(self, runner: CliRunner) -> None:
+        """The alias is a top-level flag: commands and subgroups must not accept it."""
+        for args in (["skills", "preview", "--skills"], ["repos", "--skills"]):
+            result = runner.invoke(app, args)
+            assert result.exit_code != 0, args
+            assert "--skills" in result.output, args
+
 
 class TestSkillUpdateCheck:
     """The daily `hf-cli` skill check only prints hints, it never installs nor updates."""
@@ -5263,6 +5405,7 @@ class TestSkillUpdateCheck:
         [
             (["hf", "version"], 1),
             (["hf", "skills", "add"], 0),  # the user is already managing skills
+            (["hf", "--skills"], 0),  # `hf --skills` is an alias for `hf skills preview`
             (["hf", "update"], 0),  # `hf update` handles the skill itself
         ],
     )

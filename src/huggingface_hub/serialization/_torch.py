@@ -1125,13 +1125,17 @@ def _remove_duplicate_names(
 @lru_cache
 def _get_dtype_size(dtype: "torch.dtype") -> int:
     """
-    Taken from https://github.com/huggingface/safetensors/blob/08db34094e9e59e2f9218f2df133b7b4aaff5a99/bindings/python/py_src/safetensors/torch.py#L344
+    Taken from https://github.com/huggingface/safetensors/blob/b7c0f38b6ae072c3cc6208933df0c81fbd2ef837/bindings/python/py_src/safetensors/torch.py#L398
     """
     import torch
 
     # torch.float8 formats require 2.1; we do not support these dtypes on earlier versions
     _float8_e4m3fn = getattr(torch, "float8_e4m3fn", None)
+    _float8_e4m3fnuz = getattr(torch, "float8_e4m3fnuz", None)
     _float8_e5m2 = getattr(torch, "float8_e5m2", None)
+    _float8_e5m2fnuz = getattr(torch, "float8_e5m2fnuz", None)
+    _float8_e8m0 = getattr(torch, "float8_e8m0fnu", None)
+    _float4_e2m1_x2 = getattr(torch, "float4_e2m1fn_x2", None)
     _SIZE = {
         torch.int64: 8,
         torch.float32: 4,
@@ -1143,9 +1147,24 @@ def _get_dtype_size(dtype: "torch.dtype") -> int:
         torch.int8: 1,
         torch.bool: 1,
         torch.float64: 8,
+        torch.complex64: 8,
         _float8_e4m3fn: 1,
+        _float8_e4m3fnuz: 1,
         _float8_e5m2: 1,
+        _float8_e5m2fnuz: 1,
+        _float8_e8m0: 1,
+        _float4_e2m1_x2: 1,
     }
+
+    if hasattr(torch, "uint64"):  # Torch 2.3.0+
+        _SIZE.update(
+            {
+                torch.uint64: 8,
+                torch.uint32: 4,
+                torch.uint16: 2,
+            }
+        )
+
     return _SIZE[dtype]
 
 

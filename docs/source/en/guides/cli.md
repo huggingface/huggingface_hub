@@ -57,6 +57,7 @@ Usage: hf [OPTIONS] COMMAND [ARGS]...
   Hugging Face Hub CLI
 
 Options:
+  --skills              Print the `hf-cli` SKILL.md to stdout (alias for `hf skills preview`).
   --install-completion  Install completion for the current shell.
   --show-completion     Show completion for the current shell, to copy it or customize the installation.
   -h, --help            Show this message and exit.
@@ -1600,7 +1601,7 @@ Deleted 2 repo(s) and 2 revision(s); freed 5.31G.
 
 ### hf cache rm
 
-`hf cache rm` removes cached repositories or individual revisions. Pass one or more repo IDs (`model/bert-base-uncased`), repo-level `hf://` URIs, or revision hashes:
+`hf cache rm` removes cached repositories, individual revisions or single files. Pass one or more repo IDs (`model/bert-base-uncased`), `hf://` URIs, or revision hashes:
 
 ```bash
 >>> hf cache rm model/LiquidAI/LFM2-VL-1.6B
@@ -1620,6 +1621,17 @@ About to delete 1 repo(s) totalling 1.1G.
   - model/openai-community/gpt2 (entire repo)
 Dry run: no files were deleted.
 ```
+
+To remove a single file instead of a whole repository, for example one GGUF quantization, pass an `hf://` file URI. The file is removed from every cached revision of the repo, and its blob is deleted only if no other cached file still references it:
+
+```bash
+>>> hf cache rm hf://models/unsloth/gemma-3-27b-it-GGUF/gemma-3-27b-it-Q4_K_M.gguf --dry-run
+About to delete 1 file(s) totalling 16.5G.
+  - model/unsloth/gemma-3-27b-it-GGUF@3f4b5c1d2e6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c/gemma-3-27b-it-Q4_K_M.gguf
+Dry run: no files were deleted.
+```
+
+The revision stays usable, and a deleted file is downloaded again the next time it is needed. Paths must match exactly: folders and glob patterns are not supported, and file targets cannot be mixed with repositories or revisions in the same call.
 
 Mix repositories and specific revisions in the same call. Use `--dry-run` to preview the impact, or `--yes` to skip the confirmation prompt—handy in automated scripts:
 
@@ -1932,14 +1944,25 @@ You can pass environment variables to your job using
 ```
 
 ```bash
-# Pass secrets - they will be encrypted server side
->>> hf jobs run -s MY_SECRET=psswrd python:3.12 python -c 'import os; print(os.environ["MY_SECRET"])'
+# Pass secrets by name - the value is read from your environment, never from the command line
+>>> hf jobs run -s MY_SECRET python:3.12 python -c 'import os; print(os.environ["MY_SECRET"])'
 ```
 
 ```bash
 # Pass secrets from a local .env.secrets file - they will be encrypted server side
 >>> hf jobs run --secrets-file .env.secrets python:3.12 python -c 'import os; print(os.environ["MY_SECRET"])'
 ```
+
+```bash
+# Or pipe them in, so the values touch neither the command line nor the disk
+>>> printf 'MY_SECRET=psswrd\n' | hf jobs run --secrets-file - python:3.12 python -c 'import os; print(os.environ["MY_SECRET"])'
+```
+
+Secrets are encrypted server side in all three forms. `-s MY_SECRET=psswrd` also works, but the value then
+ends up in your shell history and in the process listing (`/proc/<pid>/cmdline` on Linux), so the CLI prints
+a warning to stderr when you use it; keep that form for values that are not really sensitive. The same
+applies to `--token <value>`: prefer `hf auth login` or the `HF_TOKEN` environment variable. An env or
+secrets file should be readable by you only (`chmod 600`) — the CLI warns if it is not.
 
 > [!TIP]
 > Use `--secrets HF_TOKEN` to pass your local Hugging Face token implicitly.
@@ -2311,7 +2334,33 @@ hi
 >>> hf sandbox kill 687f911eaea852de79c4a50a
 ```
 
-Use `--flavor` to pick hardware (e.g. `a10g-small`), `--idle-timeout` to bound the sandbox lifetime, `-l` / `--label` to attach labels to its Job, and `-e` / `--secrets` for environment variables. To fan out many cheap CPU sandboxes, warm a pool with `hf sandbox pool create` and spawn into it with `hf sandbox create --pool <id>` (see the [Sandboxes guide](./sandbox#from-the-cli)).
+Use `--flavor` to pick hardware (e.g. `a10g-small`) , `--idle-timeout` to bound the sandbox lifetime, and `-l` / `--label` to attach labels to its Job. To fan out many cheap CPU sandboxes, warm a pool with `hf sandbox pool create` and spawn into it with `hf sandbox create --pool <id>` (see the [Sandboxes guide](./sandbox#from-the-cli)).
+
+### Pass environment variables and secrets to a sandbox
+
+There are two separate channels, with different storage properties:
+
+| channel     | flags                                | dedicated sandbox          | pooled sandbox (`--pool`)                                         |
+| ----------- | ------------------------------------ | -------------------------- | ----------------------------------------------------------------- |
+| environment | `-e` / `--env`, `--env-file`         | stored in the job metadata | delivered to the host at creation, not stored in the job metadata |
+| secrets     | `-s` / `--secrets`, `--secrets-file` | encrypted server side      | **not available** — use `--env`                                   |
+
+```bash
+# Plain environment variables
+>>> hf sandbox create -e LOG_LEVEL=debug --env-file .env
+
+# Secrets, read from your environment by name (nothing sensitive on the command line)
+>>> hf sandbox create -s OPENAI_API_KEY -s HF_TOKEN
+
+# Secrets from a file, or piped in on stdin
+>>> hf sandbox create --secrets-file .env.secrets
+>>> printf 'OPENAI_API_KEY=sk-...\n' | hf sandbox create --secrets-file -
+```
+
+`-s KEY=value` works too, but the value lands in your shell history and in the process listing, so the CLI
+warns about it on stderr, including in quiet mode. Pooled sandboxes reject `--secrets` outright: a pool has no
+encrypted-secrets channel, and `hf sandbox create --pool <id> -s KEY=value` errors out with a pointer to
+`--env`.
 
 ## hf webhooks
 
