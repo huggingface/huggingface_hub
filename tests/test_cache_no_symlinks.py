@@ -1,4 +1,6 @@
+import threading
 import warnings
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
@@ -46,6 +48,27 @@ class TestCacheLayoutIfSymlinksNotSupported:
 
             # Try with another directory: symlinks are supported, no warnings
             assert are_symlinks_supported()  # True
+
+    def test_are_symlinks_supported_concurrent_probe(self, mocker: MockerFixture, tmp_path: Path) -> None:
+        """A call made while another thread is still probing must wait for the probe result."""
+        mocker.patch("huggingface_hub.file_download._are_symlinks_supported_in_dir", {})
+        probe_started = threading.Event()
+        release_probe = threading.Event()
+
+        def _blocking_symlink(src, dst):
+            probe_started.set()
+            release_probe.wait()
+            raise OSError()
+
+        mocker.patch("huggingface_hub.file_download.os.symlink", side_effect=_blocking_symlink)
+
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            first = executor.submit(are_symlinks_supported, tmp_path)
+            probe_started.wait()
+            threading.Timer(0.2, release_probe.set).start()
+            # Second caller arrives while the probe is in flight: must not see a stale `True`
+            assert not are_symlinks_supported(tmp_path)
+            assert not first.result()
 
     def test_download_no_symlink_new_file(self, mocker: MockerFixture, tmp_path: Path) -> None:
         mock_are_symlinks_supported = mocker.patch("huggingface_hub.file_download.are_symlinks_supported")
