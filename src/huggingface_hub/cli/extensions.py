@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import Annotated, Literal
 
 import click
-import httpx
+import httpx2
 
 from huggingface_hub.errors import CLIError, CLIExtensionInstallError, ConfirmationError
 from huggingface_hub.utils import get_session, logging
@@ -620,7 +620,7 @@ def _get_extension_dir(short_name: str) -> Path:
 
 def _github_request(
     method: str, url: str, *, params: dict | None = None, headers: dict | None = None
-) -> httpx.Response:
+) -> httpx2.Response:
     """Perform a GitHub request.
 
     Shared by every GitHub/Raw fetch in this module so the timeout, redirect and rate-limit policy are
@@ -649,7 +649,7 @@ def _github_request(
     return response
 
 
-def _rate_limit_message(headers: httpx.Headers) -> str:
+def _rate_limit_message(headers: httpx2.Headers) -> str:
     """Message for a GitHub rate-limit rejection, built from the response headers.
 
     The cap itself is deliberately not quoted: it depends on the endpoint (60/hour on the core API,
@@ -684,8 +684,8 @@ def _github_repo_exists(*, owner: str, repo_name: str) -> bool:
     """
     try:
         _github_request("HEAD", f"https://github.com/{owner}/{repo_name}")
-    except httpx.HTTPError as error:
-        if isinstance(error, httpx.HTTPStatusError) and error.response.status_code == 404:
+    except httpx2.HTTPError as error:
+        if isinstance(error, httpx2.HTTPStatusError) and error.response.status_code == 404:
             return False
         raise CLIError(f"Could not reach GitHub to check whether '{owner}/{repo_name}' exists: {error}") from error
     return True
