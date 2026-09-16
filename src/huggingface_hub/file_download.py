@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any, BinaryIO, Literal, NoReturn, cast, overload
 from urllib.parse import quote
 
-import httpx
+import httpx2
 from tqdm import tqdm as base_tqdm
 
 from . import constants
@@ -50,7 +50,7 @@ from .utils._http import (
     _DEFAULT_RETRY_ON_EXCEPTIONS,
     _DEFAULT_RETRY_ON_STATUS_CODES,
     _adjust_range_header,
-    _httpx_follow_hub_redirects_with_backoff,
+    _httpx2_follow_hub_redirects_with_backoff,
     _is_same_or_hub_host,
     http_stream_backoff,
 )
@@ -289,7 +289,7 @@ def hf_hub_url(
     return url
 
 
-def _get_file_length_from_http_response(response: httpx.Response) -> int | None:
+def _get_file_length_from_http_response(response: httpx2.Response) -> int | None:
     """
     Get the length of the file from the HTTP response headers.
 
@@ -297,7 +297,7 @@ def _get_file_length_from_http_response(response: httpx.Response) -> int | None:
     `Content-Range` or `Content-Length` header, if available (in that order).
 
     Args:
-        response (`httpx.Response`):
+        response (`httpx2.Response`):
             The HTTP response object.
 
     Returns:
@@ -456,7 +456,7 @@ def http_get(
                     new_resume_size += len(chunk)
                     # Some data has been downloaded from the server so we reset the number of retries.
                     _nb_retries = 5
-        except (httpx.ConnectError, httpx.TimeoutException, httpx.RemoteProtocolError) as e:
+        except (httpx2.ConnectError, httpx2.TimeoutException, httpx2.RemoteProtocolError) as e:
             # Retry transient failures both when opening the stream and while reading its body.
             if _nb_retries <= 0:
                 logger.warning("Error while downloading from %s: %s\nMax retries exceeded.", url, str(e))
@@ -926,7 +926,7 @@ def hf_hub_download(
             the local cache.
         etag_timeout (`float`, *optional*, defaults to `10`):
             When fetching ETag, how many seconds to wait for the server to send
-            data before giving up, which is passed to `httpx.request`.
+            data before giving up, which is passed to `httpx2.request`.
         token (`str`, `bool`, *optional*):
             A token to be used for the download.
                 - If `True`, the token is read from the HuggingFace config
@@ -1615,7 +1615,7 @@ def get_hf_file_metadata(
     hf_headers["Accept-Encoding"] = "identity"  # prevent any compression => we want to know the real size of the file
 
     # Retrieve metadata
-    response = _httpx_follow_hub_redirects_with_backoff(
+    response = _httpx2_follow_hub_redirects_with_backoff(
         method="HEAD", url=url, headers=hf_headers, timeout=timeout, retry_on_errors=retry_on_errors
     )
     hf_raise_for_status(response)
@@ -1768,10 +1768,10 @@ def _get_metadata_or_catch_error(
                 if not _is_same_or_hub_host(url, metadata.location):
                     # Remove authorization header when downloading a LFS blob from a CDN
                     headers.pop("authorization", None)
-        except httpx.ProxyError:
+        except httpx2.ProxyError:
             # Actually raise on proxy error
             raise
-        except (httpx.ConnectError, httpx.TimeoutException, OfflineModeIsEnabled) as error:
+        except (httpx2.ConnectError, httpx2.TimeoutException, OfflineModeIsEnabled) as error:
             # Otherwise, our Internet connection is down.
             # etag is None
             head_error_call = error

@@ -7,7 +7,7 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from unittest.mock import MagicMock
 
-import httpx
+import httpx2
 import pytest
 
 import huggingface_hub._sandbox as sandbox_mod
@@ -100,7 +100,7 @@ def _make_sandbox(base_url: str) -> Sandbox:
     return Sandbox(id="job123", server=server, local_id=None, owns_sandbox=True, owns_server=True)
 
 
-class _TerminalStream(httpx.SyncByteStream):
+class _TerminalStream(httpx2.SyncByteStream):
     """Offline response body with an optional transport failure after its chunks."""
 
     def __init__(self, chunks, error=None):
@@ -126,9 +126,9 @@ def terminal_stream(monkeypatch):
 
     def setup(chunks, error=None):
         stream = _TerminalStream(chunks, error)
-        response = httpx.Response(200, stream=stream)
+        response = httpx2.Response(200, stream=stream)
         handler = MagicMock(return_value=response)
-        client = httpx.Client(transport=httpx.MockTransport(handler))
+        client = httpx2.Client(transport=httpx2.MockTransport(handler))
         monkeypatch.setattr(sandbox._server, "_client", client)
         return sandbox, stream, response, handler
 
@@ -1410,7 +1410,7 @@ class TestPoolCacheIntegration:
 @pytest.mark.parametrize("exit_code,timed_out", [(0, False), (3, False), (0, True), (None, True)])
 @pytest.mark.parametrize("check", [True, False])
 @pytest.mark.parametrize("split", [True, False])
-@pytest.mark.parametrize("tail_error", [None, httpx.RemoteProtocolError("incomplete chunked read")])
+@pytest.mark.parametrize("tail_error", [None, httpx2.RemoteProtocolError("incomplete chunked read")])
 def test_terminal_stream_result(terminal_stream, exit_code, timed_out, check, split, tail_error):
     events = [
         {"event": "stdout", "data": "out"},
@@ -1442,9 +1442,13 @@ def test_terminal_stream_result(terminal_stream, exit_code, timed_out, check, sp
     "body,error,expected",
     [
         (b'{"event":"stdout","data":"partial"}\n', None, SandboxError),
-        (b'{"event":"stdout","data":"partial"}\n', httpx.RemoteProtocolError("truncated"), httpx.RemoteProtocolError),
+        (
+            b'{"event":"stdout","data":"partial"}\n',
+            httpx2.RemoteProtocolError("truncated"),
+            httpx2.RemoteProtocolError,
+        ),
         (b'{"event":"exit",', None, json.JSONDecodeError),
-        (b'{"event":"exit",', httpx.RemoteProtocolError("truncated"), httpx.RemoteProtocolError),
+        (b'{"event":"exit",', httpx2.RemoteProtocolError("truncated"), httpx2.RemoteProtocolError),
         (b"{invalid}\n", None, json.JSONDecodeError),
         (b'{"event":"exit"}\n', None, KeyError),
     ],
@@ -1706,11 +1710,11 @@ class TestCachedHostFreshness:
 
     def test_missing_job_is_pruned(self, monkeypatch):
         _save_cache("p1", [_cached_host("hostA", age=HOST_TRUST_TTL + 60)])
-        response = httpx.Response(404, request=httpx.Request("GET", "https://huggingface.co/api/jobs/user/hostA"))
+        response = httpx2.Response(404, request=httpx2.Request("GET", "https://huggingface.co/api/jobs/user/hostA"))
         monkeypatch.setattr(
             sandbox_mod.HfApi,
             "inspect_job",
-            MagicMock(side_effect=httpx.HTTPStatusError("missing", request=response.request, response=response)),
+            MagicMock(side_effect=httpx2.HTTPStatusError("missing", request=response.request, response=response)),
         )
         pool = self._pool()
         pool._seed_hosts_from_cache()
@@ -1722,7 +1726,7 @@ class TestTransportHardening:
     and no local file left mangled by a transfer."""
 
     def test_a_redirect_is_not_followed(self, fake_server: str) -> None:
-        # Both credentials ride on every request, and httpx re-sends `Authorization` on a
+        # Both credentials ride on every request, and httpx2 re-sends `Authorization` on a
         # same-scheme redirect, so a 302 must be surfaced rather than chased.
         elsewhere, listener = _spawn_fake()
         _FakeServer.redirect_to = elsewhere + "/v1/sandboxes"

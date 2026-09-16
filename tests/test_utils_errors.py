@@ -1,7 +1,7 @@
 from unittest.mock import Mock
 
 import pytest
-from httpx import Request, Response
+from httpx2 import Request, Response
 
 from huggingface_hub.errors import (
     BadRequestError,

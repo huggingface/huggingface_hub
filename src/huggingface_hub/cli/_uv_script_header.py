@@ -25,7 +25,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
-import httpx
+import httpx2
 
 from huggingface_hub import constants
 from huggingface_hub.errors import CLIError
@@ -139,7 +139,7 @@ def _download_script(url: str, dest_dir: Path) -> Path:
         # Timeout so that an unreachable URL fails the CLI instead of hanging it.
         response = get_session().get(url, timeout=constants.DEFAULT_REQUEST_TIMEOUT)
         response.raise_for_status()
-    except httpx.HTTPError as e:
+    except httpx2.HTTPError as e:
         raise CLIError(f"Could not download the UV script from '{url}': {e}") from e
     local_path.write_bytes(response.content)
     return local_path

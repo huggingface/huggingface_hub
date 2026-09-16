@@ -32,8 +32,8 @@ from secrets import token_hex
 from typing import TYPE_CHECKING, Any, BinaryIO, Literal, TypeVar, cast, overload
 from urllib.parse import quote
 
-import httpcore
-import httpx
+import httpcore2
+import httpx2
 from tqdm import tqdm as base_tqdm
 
 from . import constants
@@ -121,7 +121,7 @@ from .utils import (
 )
 from .utils._auth import _get_token_from_environment, _get_token_from_file, _get_token_from_google_colab
 from .utils._deprecation import _deprecate_arguments, _deprecate_method
-from .utils._http import _httpx_follow_hub_redirects_with_backoff
+from .utils._http import _httpx2_follow_hub_redirects_with_backoff
 from .utils._runtime import is_xet_available
 from .utils._typing import CallableT
 from .utils.endpoint_helpers import _is_emission_within_threshold
@@ -3749,10 +3749,10 @@ class HfApi:
                 except OSError as e:
                     logger.warning(f"Ignored error while caching commit hash for '{repo_id}': {e}.")
                 return ResolvedRevision(resolved=sha, initial=revision, repo_id=repo_id, repo_type=repo_type)
-            except httpx.ProxyError:
+            except httpx2.ProxyError:
                 # Actually raise on proxy error: a misconfigured proxy is not an unreachable Hub
                 raise
-            except (httpx.TransportError, OfflineModeIsEnabled) as e:
+            except (httpx2.TransportError, OfflineModeIsEnabled) as e:
                 # Hub cannot be reached (offline mode, connection error, timeout, ...) => fallback on cache
                 error = e
             except HfHubHTTPError as e:
@@ -6635,7 +6635,7 @@ class HfApi:
                 the local cache.
             etag_timeout (`float`, *optional*, defaults to `10`):
                 When fetching ETag, how many seconds to wait for the server to send
-                data before giving up which is passed to `httpx.request`.
+                data before giving up which is passed to `httpx2.request`.
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -6791,7 +6791,7 @@ class HfApi:
                 If provided, the downloaded files will be placed under this directory.
             etag_timeout (`float`, *optional*, defaults to `10`):
                 When fetching ETag, how many seconds to wait for the server to send
-                data before giving up which is passed to `httpx.request`.
+                data before giving up which is passed to `httpx2.request`.
             force_download (`bool`, *optional*, defaults to `False`):
                 Whether the file should be downloaded even if it already exists in the local cache.
             token (`bool` or `str`, *optional*):
@@ -7733,7 +7733,7 @@ class HfApi:
         body: dict | None = None,
         token: bool | str | None = None,
         repo_type: str | None = None,
-    ) -> httpx.Response:
+    ) -> httpx2.Response:
         """Internal utility to POST changes to a Discussion or Pull Request"""
         if not isinstance(discussion_num, int) or discussion_num <= 0:
             raise ValueError("Invalid discussion_num, must be a positive integer")
@@ -8698,13 +8698,13 @@ class HfApi:
             except HfHubHTTPError:
                 # Permanent HTTP error (404/403/...). Never retry — fail fast.
                 raise
-            except httpx.DecodingError:
+            except httpx2.DecodingError:
                 # Response ended prematurely.
                 break
             except KeyboardInterrupt:
                 break
-            except (httpx.HTTPError, httpcore.TimeoutException) as err:
-                is_no_new_line_timeout = isinstance(err, (httpx.ReadTimeout, httpcore.ReadTimeout))
+            except (httpx2.HTTPError, httpcore2.TimeoutException) as err:
+                is_no_new_line_timeout = isinstance(err, (httpx2.ReadTimeout, httpcore2.ReadTimeout))
                 if is_no_new_line_timeout and not follow:
                     break  # no-follow: timeout means the buffer is drained
                 if on_iteration_end is not None:
@@ -12483,8 +12483,8 @@ class HfApi:
         # - there is one "metric" event every second, like this:
         # event: metric
         # data: {"cpu_usage_pct":0,"cpu_millicores":3500,"memory_used_bytes":1417216,"memory_total_bytes":15032385536,"rx_bps":0,"tx_bps":0,"gpus":{"d901cd7f":{"utilization":0,"memory_used_bytes":0,"memory_total_bytes":22836000000}},"replica":"j6qz9"}
-        # - the stream doesn't end when the job finishes, so we rely on timeouts (httpx.NetworkError with Timeout as cause)
-        # - httpx.ReadTimeout can happen if the job is marked as running but the hardware is not available yet, that we can ignore
+        # - the stream doesn't end when the job finishes, so we rely on timeouts (httpx2.NetworkError with Timeout as cause)
+        # - httpx2.ReadTimeout can happen if the job is marked as running but the hardware is not available yet, that we can ignore
         # - it returns an internal error 500 if the job has already finished, we simply ignore it
         # - ChunkedEncodingError can happen in case of stopped logging in the middle of streaming
         # - there is a ": keep-alive" every 30 seconds
@@ -14886,7 +14886,7 @@ class HfApi:
         headers = self._build_hf_headers(token=token)
         headers["Accept-Encoding"] = "identity"  # prevent compression so the size matches the file
 
-        response = _httpx_follow_hub_redirects_with_backoff(
+        response = _httpx2_follow_hub_redirects_with_backoff(
             "HEAD",
             f"{self.endpoint}/buckets/{bucket_id}/resolve/{quote(remote_path, safe='')}",
             headers=headers,

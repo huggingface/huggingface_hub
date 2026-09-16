@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 from typing import Literal, overload
 
-import httpx
+import httpx2
 from tqdm.auto import tqdm as base_tqdm
 
 from . import constants
@@ -176,7 +176,7 @@ def snapshot_download(
             The user-agent info in the form of a dictionary or a string.
         etag_timeout (`float`, *optional*, defaults to `10`):
             When fetching ETag, how many seconds to wait for the server to send
-            data before giving up, which is passed to `httpx.request`.
+            data before giving up, which is passed to `httpx2.request`.
         force_download (`bool`, *optional*, defaults to `False`):
             Whether the file should be downloaded even if it already exists in the local cache.
         token (`str`, `bool`, *optional*):
@@ -275,10 +275,10 @@ def snapshot_download(
             repo_info = api.repo_info(repo_id=repo_id, repo_type=repo_type, revision=revision)
             assert repo_info.sha is not None, "Repo info returned from server must have a revision sha."
             commit_hash = repo_info.sha
-        except httpx.ProxyError:
+        except httpx2.ProxyError:
             # Actually raise on proxy error
             raise
-        except (httpx.ConnectError, httpx.TimeoutException, OfflineModeIsEnabled) as error:
+        except (httpx2.ConnectError, httpx2.TimeoutException, OfflineModeIsEnabled) as error:
             # Internet connection is down
             # => will try to use local files only
             api_call_error = error

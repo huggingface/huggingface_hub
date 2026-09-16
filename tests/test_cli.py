@@ -11,7 +11,7 @@ from typing import Generator, Optional
 from unittest.mock import ANY, Mock, patch
 
 import click
-import httpx
+import httpx2
 import pytest
 from click.testing import CliRunner, Result
 
@@ -5500,14 +5500,14 @@ class _FakeGitHubSession:
     Patterns are matched as substrings of the URL; anything unmatched 404s.
     """
 
-    def __init__(self, responses: dict[str, httpx.Response] | None = None) -> None:
+    def __init__(self, responses: dict[str, httpx2.Response] | None = None) -> None:
         self.urls: list[str] = []
         self.responses = responses or {}
 
-    def request(self, method: str, url: str, **kwargs) -> httpx.Response:
+    def request(self, method: str, url: str, **kwargs) -> httpx2.Response:
         self.urls.append(url)
-        response = next((r for pattern, r in self.responses.items() if pattern in url), httpx.Response(404))
-        response.request = httpx.Request(method, url)
+        response = next((r for pattern, r in self.responses.items() if pattern in url), httpx2.Response(404))
+        response.request = httpx2.Request(method, url)
         return response
 
     def __getattr__(self, method: str):
@@ -5572,9 +5572,9 @@ class TestExtensionsGitHubAccess:
         # Shell-script extensions ship neither manifest.json nor pyproject.toml, so the repo's "About"
         # field is their only description. It is served by github.com, off the REST API quota.
         github.responses = {
-            BINARY_URL: httpx.Response(200, content=b"#!/bin/sh"),
-            REPO_PAGE_URL: httpx.Response(200, text=f'<meta name="description" content="{about}">'),
-            COMMITS_URL: httpx.Response(200, text="a" * 40),
+            BINARY_URL: httpx2.Response(200, content=b"#!/bin/sh"),
+            REPO_PAGE_URL: httpx2.Response(200, text=f'<meta name="description" content="{about}">'),
+            COMMITS_URL: httpx2.Response(200, text="a" * 40),
         }
         manifest = extensions._install_extension(owner="huggingface", repo_name="hf-demo", short_name="demo")
 
@@ -5591,9 +5591,9 @@ class TestExtensionsGitHubAccess:
     def test_install_completes_when_the_api_quota_is_exhausted(self, github: _FakeGitHubSession) -> None:
         # The extension itself comes from the CDN, so only the optional version marker is lost.
         github.responses = {
-            BINARY_URL: httpx.Response(200, content=b"#!/bin/sh"),
-            "HEAD/manifest.json": httpx.Response(200, json={"description": "Demo extension"}),
-            "api.github.com": httpx.Response(403, headers={"x-ratelimit-remaining": "0"}),
+            BINARY_URL: httpx2.Response(200, content=b"#!/bin/sh"),
+            "HEAD/manifest.json": httpx2.Response(200, json={"description": "Demo extension"}),
+            "api.github.com": httpx2.Response(403, headers={"x-ratelimit-remaining": "0"}),
         }
         manifest = extensions._install_extension(owner="huggingface", repo_name="hf-demo", short_name="demo")
 
@@ -5604,8 +5604,8 @@ class TestExtensionsGitHubAccess:
     def test_unreachable_github_is_not_reported_as_a_missing_repo(
         self, github: _FakeGitHubSession, runner: CliRunner
     ) -> None:
-        # Only a 404 means "missing"; anything else must not escape as a raw httpx traceback either.
-        github.responses = {REPO_PAGE_URL: httpx.Response(500)}
+        # Only a 404 means "missing"; anything else must not escape as a raw httpx2 traceback either.
+        github.responses = {REPO_PAGE_URL: httpx2.Response(500)}
         result = runner.invoke(app, ["extensions", "install", "huggingface/hf-demo"])
 
         assert isinstance(result.exception, CLIError)
@@ -5619,7 +5619,7 @@ class TestExtensionsGitHubAccess:
         # A secondary limit: GitHub asks for a back-off and rides the *primary* window's reset
         # timestamp alongside it, on a quota that is not exhausted. The back-off is what applies.
         github.responses = {
-            "api.github.com": httpx.Response(
+            "api.github.com": httpx2.Response(
                 429,
                 headers={"x-ratelimit-remaining": "53", "x-ratelimit-reset": "1786500000", "retry-after": "60"},
             )

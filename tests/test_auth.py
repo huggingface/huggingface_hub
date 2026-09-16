@@ -5,7 +5,7 @@ import time
 from contextlib import contextmanager
 from unittest.mock import MagicMock, patch
 
-import httpx
+import httpx2
 import pytest
 
 from huggingface_hub import constants
@@ -248,8 +248,8 @@ class TestRequestDeviceCode:
         assert result["expires_in"] == 900
 
     def test_failure(self):
-        response = httpx.Response(
-            400, text="bad request", request=httpx.Request("POST", "https://hub.test/oauth/device")
+        response = httpx2.Response(
+            400, text="bad request", request=httpx2.Request("POST", "https://hub.test/oauth/device")
         )
         with patch("huggingface_hub.utils._oauth_device.get_session") as mock_session:
             mock_session.return_value.post.return_value = response
@@ -308,7 +308,7 @@ class TestPollDeviceToken:
             patch("huggingface_hub.utils._oauth_device.time.sleep"),
         ):
             mock_session.return_value.post.side_effect = [
-                httpx.ConnectError("network blip"),
+                httpx2.ConnectError("network blip"),
                 _mock_response({}, status_code=502),
                 non_json,
                 _mock_response({"message": "forbidden"}, status_code=403),  # JSON without an `error` field
