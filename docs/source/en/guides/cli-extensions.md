@@ -39,6 +39,10 @@ falls back to installing the repo as a Python package.
 A shell script extension is the simplest type. You only need a GitHub repository with an executable file
 named `hf-<name>` at the root.
 
+> [!WARNING]
+> Shell script extensions are not supported on Windows. If your extension must work on Windows, make it a
+> [Python extension](#create-a-python-extension) instead.
+
 ### Minimal example
 
 Create a repository named `hf-hello` on GitHub with a single file:

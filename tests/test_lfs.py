@@ -116,6 +116,18 @@ class TestSliceFileObj:
             assert fileobj_slice.tell() == 0
             assert fileobj_slice.fileobj.tell() == 100
 
+    def test_slice_fileobj_iter_reads_full_slice(self):
+        # Regression test: iterating a slice must yield the whole slice in 4 MB
+        # chunks. Previously __iter__ had a single `yield`, so it returned only the
+        # first 4 MB chunk and silently dropped everything after it.
+        chunk_size = 4 * 1024 * 1024
+        content = b"x" * (chunk_size + 500)  # spans more than one chunk
+        fileobj = BytesIO(content)
+        with SliceFileObj(fileobj, seek_from=0, read_limit=len(content)) as fileobj_slice:
+            chunks = list(fileobj_slice)
+        assert len(chunks) > 1
+        assert b"".join(chunks) == content
+
     def test_slice_fileobj_file(self):
         self.content = b"RANDOM self.content uauabciabeubahveb" * 1024
 

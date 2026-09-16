@@ -73,7 +73,7 @@ _SKILL_TIPS = """
 
 To mount Hub repositories or buckets as local filesystems — no download, no copy, no waiting — use `hf-mount`. Files are fetched on demand. GitHub: https://github.com/huggingface/hf-mount
 
-Install: `curl -fsSL https://raw.githubusercontent.com/huggingface/hf-mount/main/install.sh | sh`
+Install: `brew install hf-mount`, or download a binary from https://github.com/huggingface/hf-mount/releases
 
 Some command examples:
 - `hf-mount start repo openai-community/gpt2 /tmp/gpt2` — mount a repo (read-only)
@@ -147,6 +147,9 @@ def _collect_leaf_commands(group: Group, ctx: Context, path_parts: list[str]) ->
         cmd = group.get_command(sub_ctx, name)
         if cmd is None or cmd.hidden:
             continue
+        if materialize := getattr(cmd, "materialize", None):
+            cmd = materialize()
+        assert cmd is not None
         child_path = [*path_parts, name]
         if isinstance(cmd, Group):
             leaves.extend(_collect_leaf_commands(cmd, sub_ctx, child_path))
@@ -251,6 +254,9 @@ def build_skill_md() -> str:
         cmd = click_app.get_command(ctx, name)  # type: ignore[attr-defined]
         if cmd is None or cmd.hidden:
             continue
+        if materialize := getattr(cmd, "materialize", None):
+            cmd = materialize()
+        assert cmd is not None
         if isinstance(cmd, Group):
             groups.append((name, cmd))
         else:

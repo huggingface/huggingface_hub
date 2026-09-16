@@ -172,6 +172,33 @@ username/logs
 ]
 ```
 
+### Change bucket visibility
+
+Use [`update_bucket_settings`] to switch an existing bucket between private and public.
+
+```py
+>>> from huggingface_hub import update_bucket_settings
+
+# Make a bucket private
+>>> update_bucket_settings("username/my-bucket", private=True)
+
+# Make it public again
+>>> update_bucket_settings("username/my-bucket", private=False)
+```
+
+Or via CLI:
+
+```bash
+# Make a bucket private
+>>> hf buckets settings username/my-bucket --private
+✓ Bucket settings updated
+  bucket_id: username/my-bucket
+  private: True
+
+# Make it public again
+>>> hf buckets settings username/my-bucket --public
+```
+
 ### Delete a bucket
 
 Use [`delete_bucket`] to delete a bucket. This operation is irreversible.

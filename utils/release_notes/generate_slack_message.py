@@ -18,6 +18,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from .opencode import check_opencode_model
 from .validate_notes import find_release_notes_file
 
 
@@ -111,6 +112,17 @@ def main(version: str, rc_version: str, input_file: Path | None = None, output_f
     Returns:
         Exit code (0 for success, non-zero for failure)
     """
+    # Validate the configured model before doing any expensive work.
+    # OpenCode exits 0 on unknown models, so a typo here would otherwise
+    # silently produce an empty Slack message.
+    model = os.environ.get("RELEASE_NOTES_MODEL")
+    if model:
+        try:
+            check_opencode_model(model)
+        except RuntimeError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            return 1
+
     # Resolve input file
     if input_file is None:
         input_file = find_release_notes_file(version)

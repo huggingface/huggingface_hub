@@ -22,11 +22,12 @@ The caching system is designed as follows:
 ├─ <MODELS>
 ├─ <DATASETS>
 ├─ <SPACES>
+├─ <KERNELS>
 ```
 
 The default `<CACHE_DIR>` is `~/.cache/huggingface/hub`. However, it is customizable with the `cache_dir` argument on all methods, or by specifying either `HF_HOME` or `HF_HUB_CACHE` environment variable.
 
-Models, datasets and spaces share a common root. Each of these repositories contains the
+Models, datasets, spaces and kernels share a common root. Each of these repositories contains the
 repository type, the namespace (organization or username) if it exists and the
 repository name:
 
@@ -237,6 +238,15 @@ Download helpers ([`hf_hub_download`], [`snapshot_download`], [`get_cached_repo_
 ```
 
 The `revision` -> `commit hash` mapping is also written to the `refs/` folder of the cache (see [Refs](#refs)). This means that if the Hub cannot be reached later on (offline mode, connection error, timeout, Hub downtime), [`HfApi.resolve_revision`] transparently falls back to the cached value. If nothing is cached either, a [`~errors.RevisionResolutionError`] is raised.
+
+A commit hash only means something for the repo it was resolved against, and download helpers use it as is. So a [`ResolvedRevision`] must only be passed to the repo it was resolved for. If a library also downloads from another repo (a base model, an adapter, a component living in its own repo, ...), it needs a revision resolved for that repo. Just pass the [`ResolvedRevision`] back to [`HfApi.resolve_revision`]: it remembers which repo it belongs to and resolves the revision initially requested (`"main"` here) again for the new repo.
+
+```py
+>>> other_revision = resolve_revision("openai-community/gpt2-medium", revision=revision)  # resolves "main" again
+>>> other_revision.resolved
+'6dcaa7a952f72f9298047fd5137cd6e4f05f41da'
+>>> config = hf_hub_download("openai-community/gpt2-medium", "config.json", revision=other_revision)
+```
 
 ## Chunk-based caching (Xet)
 
@@ -570,8 +580,8 @@ Verify a specific cached revision:
 Scanning your cache is interesting but what you really want to do next is usually to
 delete some portions to free up some space on your drive. This is possible using the
 `hf cache rm` and `hf cache prune` CLI commands. One can also programmatically use the
-[`~HFCacheInfo.delete_revisions`] helper from the [`HFCacheInfo`] object returned when
-scanning the cache.
+[`~HFCacheInfo.delete_revisions`] and [`~HFCacheInfo.delete_files`] helpers from the
+[`HFCacheInfo`] object returned when scanning the cache.
 
 **Delete strategy**
 
@@ -588,6 +598,10 @@ The strategy to delete revisions is the following:
 - blobs files that are targeted only by revisions to be deleted are deleted as well.
 - if a revision is linked to 1 or more `refs`, references are deleted.
 - if all revisions from a repo are deleted, the entire cached repository is deleted.
+
+Deleting individual files with [`~HFCacheInfo.delete_files`] follows the same logic: the
+snapshot entries are removed, and their blobs are deleted only if no other cached file
+references them. Refs and snapshot folders are kept.
 
 > [!TIP]
 > Revision hashes are unique across all repositories. `hf cache rm` therefore accepts either
@@ -634,6 +648,19 @@ or `--yes` to skip the confirmation prompt when scripting:
 About to delete 1 repo(s) and 1 revision(s) totalling 1.1G.
   - model/t5-small:
       8f3ad1c [main] 1.1G
+Dry run: no files were deleted.
+```
+
+To remove a single file instead of a whole repository, for example one GGUF quantization,
+pass an `hf://` file URI. The file is removed from every cached revision of the repo, and
+its blob is deleted only if no other cached file still references it. The revision stays
+usable, and a deleted file is downloaded again the next time it is needed. Paths must match
+exactly: folders and glob patterns are not supported.
+
+```text
+➜ hf cache rm hf://models/unsloth/gemma-3-27b-it-GGUF/gemma-3-27b-it-Q4_K_M.gguf --dry-run
+About to delete 1 file(s) totalling 16.5G.
+  - model/unsloth/gemma-3-27b-it-GGUF@3f4b5c1d2e6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c/gemma-3-27b-it-Q4_K_M.gguf
 Dry run: no files were deleted.
 ```
 
