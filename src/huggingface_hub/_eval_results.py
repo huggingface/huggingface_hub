@@ -196,9 +196,8 @@ def parse_eval_result_entries(data: list[dict[str, Any]]) -> list[EvalResultEntr
     """
     entries = []
     for item in data:
-        if "data" not in item and "dataset" not in item:  # file failed server-side validation
-            if "error" in item:
-                logger.warning(f"Skipping invalid eval results file '{item.get('filename')}': {item['error']}")
+        if "error" in item:  # file failed server-side validation
+            logger.warning(f"Skipping invalid eval results file '{item.get('filename')}': {item['error']}")
             continue
         entry_data = item.get("data", item)
         dataset = entry_data.get("dataset", {})
