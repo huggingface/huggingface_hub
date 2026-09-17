@@ -587,6 +587,11 @@ def list_catalog(
         out.error(f"Catalog fetch failed: {error}")
         raise click.exceptions.Exit(code=error.response.status_code) from error
 
+    # The API filters *models*: a model with one matching recipe comes back with all of its recipes. This table is
+    # one row per recipe, so the siblings are dropped here, otherwise '--accelerator neuron' lists gpu rows and the
+    # hint below offers one of them. Server-side `engine` is a family ('vllm' also matches 'vllmNeuron'), so match
+    # it the same way instead of dropping rows the server deliberately kept. Both sides lowercased, as in
+    # 'hf endpoints hardware': relying on the server's casing would turn a change into a silently empty result.
     items = [
         {
             "repo_id": model.repo_id,
@@ -599,6 +604,8 @@ def list_catalog(
         }
         for model in models
         for recipe in model.recipes
+        if (accelerator is None or recipe.accelerator.lower() == accelerator.lower())
+        and (engine is None or recipe.engine.lower().startswith(engine.lower()))
     ]
     out.table(items, id_key="recipe_id")
     if items:

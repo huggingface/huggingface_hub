@@ -3053,7 +3053,9 @@ class TestInferenceEndpointsCommands:
                         "accelerator": "gpu",
                         "engineType": "llamacpp",
                         "ggufFile": "QwQ-32B-Preview-Q8_0.gguf",
-                    }
+                    },
+                    # The API filters models, not recipes: this sibling comes back even though it is not llamacpp.
+                    {"publicId": "sizzling-biryani-g4xsi1ac", "accelerator": "gpu", "engineType": "vllm"},
                 ],
             }
         )
@@ -3070,6 +3072,8 @@ class TestInferenceEndpointsCommands:
         assert "bartowski/QwQ-32B-Preview-GGUF" in result.stdout
         assert "baked-orange-m863gx7d" in result.stdout
         assert "QwQ-32B-Preview-Q8_0.gguf" in result.stdout
+        # The non-llamacpp sibling is filtered out, so '--engine' means what its help says.
+        assert "sizzling-biryani-g4xsi1ac" not in result.stdout
 
 
 IMAGE_URL = "vllm/vllm-openai:v0.23.0"

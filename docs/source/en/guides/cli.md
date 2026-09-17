@@ -2560,7 +2560,7 @@ bartowski/QwQ-32B-Preview-GGUF      text-generation    Apache 2.0 gpu         ll
 >>> hf endpoints catalog ls --engine vllm --task text-generation --search llama --limit 10
 ```
 
-`--accelerator`, `--engine`, `--license`, `--task`, `--search` and `--limit` all filter server-side.
+`--accelerator`, `--engine`, `--license`, `--task`, `--search` and `--limit` narrow the list down. Note that the API filters *models*: a model with one matching recipe is returned with all of its recipes, so the CLI drops the rows that don't match `--accelerator` / `--engine` before printing. [`list_inference_catalog`] returns the models untouched.
 
 ```bash
 # Deploy the default recipe of a model
