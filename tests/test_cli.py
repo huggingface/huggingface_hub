@@ -15,7 +15,7 @@ import httpx
 import pytest
 from click.testing import CliRunner, Result
 
-from huggingface_hub import HfApi, InferenceEndpointHardware, constants
+from huggingface_hub import HfApi, InferenceCatalogModel, InferenceEndpointHardware, constants
 from huggingface_hub._dataset_viewer import DatasetParquetEntry
 from huggingface_hub._jobs_api import JobInfo, JobOwner, _create_job_spec, _derive_job_volume_name
 from huggingface_hub._space_api import Volume
@@ -2827,12 +2827,31 @@ class TestInferenceEndpointsCommands:
         api_cls.assert_called_once_with(token=None)
         api.create_inference_endpoint_from_catalog.assert_called_once_with(
             repo_id="catalog/model",
+            recipe_id=None,
             name=None,
             accelerator=None,
+            gguf_file=None,
             namespace=None,
             token=None,
         )
         assert '"name": "catalog"' in result.stdout
+
+    def test_deploy_from_catalog_recipe(self, runner: CliRunner) -> None:
+        endpoint = Mock(raw={"name": "catalog"})
+        with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.create_inference_endpoint_from_catalog.return_value = endpoint
+            result = runner.invoke(app, ["endpoints", "catalog", "deploy", "--recipe", "ebony-pecan-n6tu7fs3"])
+        assert result.exit_code == 0
+        api.create_inference_endpoint_from_catalog.assert_called_once_with(
+            repo_id=None,
+            recipe_id="ebony-pecan-n6tu7fs3",
+            name=None,
+            accelerator=None,
+            gguf_file=None,
+            namespace=None,
+            token=None,
+        )
 
     def test_describe(self, runner: CliRunner) -> None:
         endpoint = Mock(raw={"name": "describe"})
@@ -3020,15 +3039,37 @@ class TestInferenceEndpointsCommands:
         assert '"name": "zero"' in result.stdout
 
     def test_list_catalog(self, runner: CliRunner) -> None:
+        model = InferenceCatalogModel.from_raw(
+            {
+                "repoId": "bartowski/QwQ-32B-Preview-GGUF",
+                "modelName": "QwQ-32B-Preview-GGUF",
+                "authorName": "bartowski",
+                "license": "Apache 2.0",
+                "task": "text-generation",
+                "createdAt": "2025-05-07T12:04:27.463Z",
+                "recipes": [
+                    {
+                        "publicId": "baked-orange-m863gx7d",
+                        "accelerator": "gpu",
+                        "engineType": "llamacpp",
+                        "ggufFile": "QwQ-32B-Preview-Q8_0.gguf",
+                    }
+                ],
+            }
+        )
         with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
             api = api_cls.return_value
-            api.list_inference_catalog.return_value = ["model"]
-            result = runner.invoke(app, ["endpoints", "catalog", "ls"])
+            api.list_inference_catalog.return_value = [model]
+            result = runner.invoke(app, ["endpoints", "catalog", "ls", "--engine", "llamacpp"])
         assert result.exit_code == 0
         api_cls.assert_called_once_with(token=None)
-        api.list_inference_catalog.assert_called_once_with(token=None)
-        assert '"models"' in result.stdout
-        assert '"model"' in result.stdout
+        api.list_inference_catalog.assert_called_once_with(
+            accelerator=None, engine="llamacpp", license=None, task=None, search=None, limit=None, token=None
+        )
+        # One row per recipe, with the recipe id to pass to 'catalog deploy --recipe'.
+        assert "bartowski/QwQ-32B-Preview-GGUF" in result.stdout
+        assert "baked-orange-m863gx7d" in result.stdout
+        assert "QwQ-32B-Preview-Q8_0.gguf" in result.stdout
 
 
 IMAGE_URL = "vllm/vllm-openai:v0.23.0"

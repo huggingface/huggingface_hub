@@ -60,6 +60,7 @@ from huggingface_hub.hf_api import (
     ExpandDatasetProperty_T,
     ExpandModelProperty_T,
     ExpandSpaceProperty_T,
+    InferenceCatalogModel,
     InferenceEndpoint,
     InferenceProviderMapping,
     ModelInfo,
@@ -4615,11 +4616,13 @@ class TestHfApiAuthCheck:
 
 class TestHfApiInferenceCatalog:
     def test_list_inference_catalog(self, api: HfApi) -> None:
-        models = api.list_inference_catalog()  # note: @experimental api
-        # Check that server returns a list[str] => at least if it changes in the future, we'll notice
-        assert isinstance(models, list)
+        models = api.list_inference_catalog(engine="vllm", task="text-generation")  # note: @experimental api
+        # Parse the whole payload => at least if the schema changes in the future, we'll notice
         assert len(models) > 0
-        assert all(isinstance(model, str) for model in models)
+        assert all(isinstance(model, InferenceCatalogModel) for model in models)
+        assert all(model.task == "text-generation" for model in models)
+        # A model is listed with at least the recipe it was filtered on.
+        assert all(any(recipe.engine == "vllm" for recipe in model.recipes) for model in models)
 
     def test_create_inference_endpoint_from_catalog(self, api: HfApi, mocker) -> None:
         mock_get_session = mocker.patch("huggingface_hub.hf_api.get_session")
@@ -4678,14 +4681,42 @@ class TestHfApiInferenceCatalog:
         )
         assert isinstance(endpoint, InferenceEndpoint)
         assert endpoint.name == "llama-3-2-3b-instruct-eey"
+        assert endpoint.namespace == "Wauplin"
+        url, kwargs = (
+            mock_get_session.return_value.post.call_args[0][0],
+            mock_get_session.return_value.post.call_args[1],
+        )
+        assert url.endswith("/catalog/model/meta-llama/Llama-3.2-3B-Instruct/deploy")
+        assert kwargs["json"] == {"namespace": "Wauplin"}
 
-    def test_create_inference_endpoint_from_catalog_rejects_token_false(self, api: HfApi) -> None:
+        # Same call, but targeting an exact recipe instead of the model's default one.
+        api.create_inference_endpoint_from_catalog(
+            recipe_id="ebony-pecan-n6tu7fs3", name="my-endpoint", namespace="Wauplin"
+        )
+        url, kwargs = (
+            mock_get_session.return_value.post.call_args[0][0],
+            mock_get_session.return_value.post.call_args[1],
+        )
+        assert url.endswith("/catalog/recipe/ebony-pecan-n6tu7fs3/deploy")
+        assert kwargs["json"] == {"namespace": "Wauplin", "config": {"name": "my-endpoint"}}
+
+    def test_create_inference_endpoint_from_catalog_rejects_bad_input(self, api: HfApi) -> None:
         # `token=False` means "do not authenticate", but this endpoint cannot be created without
         # authentication. Reject it explicitly instead of silently falling back to a stored token.
         with pytest.raises(ValueError, match="Cannot use `token=False`"):
             api.create_inference_endpoint_from_catalog(
                 repo_id="meta-llama/Llama-3.2-3B-Instruct", namespace="Wauplin", token=False
             )
+
+        # A model and a recipe are two different API routes: exactly one of them must be given.
+        with pytest.raises(ValueError, match="exactly one"):
+            api.create_inference_endpoint_from_catalog(namespace="Wauplin")
+        with pytest.raises(ValueError, match="exactly one"):
+            api.create_inference_endpoint_from_catalog(repo_id="meta-llama/Llama-3.2-3B-Instruct", recipe_id="x")
+
+        # `accelerator`/`gguf_file` pick a recipe among a model's ones: the server ignores them for a recipe id.
+        with pytest.raises(ValueError, match="cannot be used with `recipe_id`"):
+            api.create_inference_endpoint_from_catalog(recipe_id="x", accelerator="gpu")
 
 
 @pytest.mark.parametrize(
