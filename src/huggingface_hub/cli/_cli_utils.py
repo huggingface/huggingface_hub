@@ -15,6 +15,7 @@
 
 import difflib
 import importlib.metadata
+import logging
 import os
 import re
 import shlex
@@ -28,29 +29,29 @@ from typing import TYPE_CHECKING, Annotated, Any, Literal, TypeVar, cast
 
 import click
 
-from huggingface_hub import Volume, __version__, constants
+from huggingface_hub import __version__, constants
 from huggingface_hub.errors import CLIError
-from huggingface_hub.utils import (
-    get_session,
-    hf_raise_for_status,
-    installation_method,
-    logging,
-    parse_hf_mount,
-)
 from huggingface_hub.utils._dotenv import load_dotenv
 
-from ._framework import Argument, HfCommand, HfGroup, Option
+from ._framework import Argument, HfCommand, HfGroup, Option, build_command
 from ._help_formatter import StyledContext
 from ._output import OutputFormat, out
 
 
-logger = logging.get_logger()
+logger = logging.getLogger(__name__)
 
 # Arbitrary default limit for models/datasets/spaces list commands.
 REPO_LIST_DEFAULT_LIMIT = 30
 
 if TYPE_CHECKING:
+    from huggingface_hub import Volume
     from huggingface_hub.hf_api import HfApi
+
+
+def installation_method() -> str:
+    from huggingface_hub.utils import installation_method as _installation_method
+
+    return _installation_method()
 
 
 def get_hf_api(token: str | None = None) -> "HfApi":
@@ -153,6 +154,13 @@ class HFCliTyperGroup(HfGroup):
     def resolve_command(self, ctx: click.Context, args: list[str]) -> tuple:
         cmd_name = args[0] if args and not args[0].startswith("-") else None
         cmd = self.get_command(ctx, cmd_name) if cmd_name else None
+
+        if isinstance(cmd, (LazyHfCommand, LazyHfGroup)):
+            loaded_cmd = cmd.materialize()
+            for registered_name, registered_cmd in self.commands.items():
+                if registered_cmd is cmd:
+                    self.commands[registered_name] = loaded_cmd
+            cmd = loaded_cmd
 
         if cmd is not None:
             self._rewrite_repo_type_prefix(cmd, args)
@@ -620,6 +628,86 @@ def HFCliCommand(topic: TOPIC_T, examples: list[str] | None = None) -> type[HfCo
     )
 
 
+class LazyHfCommand(click.Command):
+    """A lightweight command placeholder that imports its implementation when selected."""
+
+    def __init__(
+        self,
+        name: str,
+        *,
+        module: str,
+        attribute: str,
+        is_factory: bool = False,
+        topic: TOPIC_T = "main",
+        examples_attribute: str | None = None,
+        hidden: bool = False,
+    ) -> None:
+        super().__init__(name=name, hidden=hidden)
+        self.module = module
+        self.attribute = attribute
+        self.is_factory = is_factory
+        self.topic = topic
+        self.examples: list[str] = []
+        self.examples_attribute = examples_attribute
+        self._loaded: click.Command | None = None
+
+    def materialize(self) -> click.Command:
+        if self._loaded is None:
+            module = importlib.import_module(self.module)
+            callback = getattr(module, self.attribute)
+            examples = getattr(module, self.examples_attribute) if self.examples_attribute is not None else []
+            if self.is_factory:
+                callback = callback()
+            if isinstance(callback, click.Command):
+                command = callback
+                command.name = self.name
+                command.hidden = self.hidden
+            else:
+                epilog = generate_epilog(examples) if examples else None
+                command = build_command(
+                    callback,
+                    name=self.name,
+                    cls=HFCliCommand(self.topic, examples),
+                    epilog=epilog,
+                    hidden=self.hidden,
+                )
+            self.examples = getattr(command, "examples", examples)
+            self._loaded = command
+        return self._loaded
+
+    def get_short_help_str(self, limit: int = 45) -> str:
+        return self.materialize().get_short_help_str(limit)
+
+
+class LazyHfGroup(click.Group):
+    """A lightweight group placeholder that imports its implementation when selected or inspected."""
+
+    def __init__(self, name: str, *, module: str, attribute: str, hidden: bool = False) -> None:
+        super().__init__(name=name, hidden=hidden)
+        self.module = module
+        self.attribute = attribute
+        self._loaded: click.Group | None = None
+
+    def materialize(self) -> click.Group:
+        if self._loaded is None:
+            group = getattr(importlib.import_module(self.module), self.attribute)
+            if not isinstance(group, click.Group):
+                raise TypeError(f"{self.module}.{self.attribute} is not a Click group")
+            group.name = self.name
+            group.hidden = self.hidden
+            self._loaded = group
+        return self._loaded
+
+    def list_commands(self, ctx: click.Context) -> list[str]:
+        return self.materialize().list_commands(ctx)
+
+    def get_command(self, ctx: click.Context, cmd_name: str) -> click.Command | None:
+        return self.materialize().get_command(ctx, cmd_name)
+
+    def get_short_help_str(self, limit: int = 45) -> str:
+        return self.materialize().get_short_help_str(limit)
+
+
 def typer_factory(help: str, epilog: str | None = None, cls: type[HFCliTyperGroup] | None = None) -> "HFCliTyperGroup":
     """Create a CLI command group with consistent settings.
 
@@ -679,6 +767,7 @@ class RepoType(str, Enum):
     model = "model"
     dataset = "dataset"
     space = "space"
+    kernel = "kernel"
 
 
 RepoIdArg = Annotated[
@@ -694,7 +783,7 @@ RepoTypeOpt = Annotated[
     Option(
         "--type",
         "--repo-type",
-        help="The type of repository (model, dataset, or space).",
+        help="The type of repository (model, dataset, space, or kernel).",
     ),
 ]
 
@@ -706,15 +795,54 @@ RepoTypeOptionalOpt = Annotated[
     Option(
         "--type",
         "--repo-type",
-        help="The type of repository (model, dataset, or space).",
+        help="The type of repository (model, dataset, space, or kernel).",
         show_default="model",
     ),
 ]
+
+# --- Secret hygiene: keep secret material out of argv ---
+#
+# Anything passed as a flag value lands in the shell history file and, on Linux, in
+# `/proc/<pid>/cmdline`, which any process of the same user can read. The CLI already offers
+# argv-free alternatives (`hf auth login`, `HF_TOKEN`, bare `--secrets KEY`, `--secrets-file`);
+# these warnings point at them. They stay warnings on purpose: erroring out would break
+# existing automation.
+
+
+def _warn_secret_hygiene(message: str) -> None:
+    """Emit a secret-hygiene warning on stderr in every output mode."""
+    out.warning(message)
+
+
+def _warn_on_inline_token(token: str | None) -> str | None:
+    """Option callback for `TokenOpt`: warn when a token is passed as a flag value."""
+    ctx = click.get_current_context(silent=True)
+    # `hf auth login --token` is the non-interactive login flow this warning points users *to*,
+    # so it is exempt. Matched on a suffix because the root command name depends on how the CLI
+    # was invoked (`hf`, `huggingface-cli`, a test runner's prog name...).
+    if token is not None and not (ctx is not None and ctx.command_path.endswith("auth login")):
+        _warn_secret_hygiene(
+            "`--token <value>` leaves your token in your shell history and in process listings. Run "
+            "`hf auth login` once, or export `HF_TOKEN`, and drop the flag."
+        )
+    return token
+
+
+def _warn_on_inline_secrets(secrets: list[str] | None) -> list[str] | None:
+    """Option callback for `SecretsOpt`: warn once if any pair carries an inline value."""
+    if secrets and any("=" in secret for secret in secrets):
+        _warn_secret_hygiene(
+            "`--secrets KEY=value` leaves the value in your shell history and in process listings. Prefer "
+            "`--secrets KEY` (value read from your environment), `--secrets-file FILE` or `--secrets-file -`."
+        )
+    return secrets
+
 
 TokenOpt = Annotated[
     str | None,
     Option(
         help="A User Access Token generated from https://huggingface.co/settings/tokens.",
+        callback=_warn_on_inline_token,
     ),
 ]
 
@@ -771,9 +899,11 @@ SecretsOpt = Annotated[
         "-s",
         "--secrets",
         help=(
-            "Set secret environment variables. E.g. --secrets SECRET=value"
-            " or `--secrets HF_TOKEN` to pass your Hugging Face token."
+            "Set secret environment variables. Prefer `--secrets SECRET` to read the value from your"
+            " environment (e.g. `--secrets HF_TOKEN` to pass your Hugging Face token); `--secrets SECRET=value`"
+            " puts the value in your shell history."
         ),
+        callback=_warn_on_inline_secrets,
     ),
 ]
 
@@ -781,14 +911,14 @@ EnvFileOpt = Annotated[
     str | None,
     Option(
         "--env-file",
-        help="Read in a file of environment variables.",
+        help="Read in a file of environment variables. Use `-` to read them from stdin.",
     ),
 ]
 
 SecretsFileOpt = Annotated[
     str | None,
     Option(
-        help="Read in a file of secret environment variables.",
+        help="Read in a file of secret environment variables. Use `-` to read them from stdin.",
     ),
 ]
 
@@ -803,6 +933,23 @@ def _get_extended_environ() -> dict[str, str]:
     return extended_environ
 
 
+def _read_env_file(env_file: str) -> str:
+    """Read an env/secrets file, or stdin when ``env_file`` is ``-``.
+
+    Piping through stdin is the only way to hand the CLI a secret value that touches neither
+    argv nor the disk.
+    """
+    if env_file == "-":
+        return sys.stdin.read()
+    path = Path(env_file)
+    # POSIX only: Windows reports a synthetic 0o666/0o444 mode, so this would always fire there.
+    if os.name == "posix" and (mode := path.stat().st_mode & 0o777) & 0o077:
+        _warn_secret_hygiene(
+            f"'{env_file}' is readable by other users (mode {mode:o}). Run `chmod 600 {env_file}` to restrict it."
+        )
+    return path.read_text()
+
+
 def parse_env_map(
     env: list[str] | None = None,
     env_file: str | None = None,
@@ -812,12 +959,13 @@ def parse_env_map(
     Uses an extended environment that includes the user's HF token so that
     bare ``--secrets HF_TOKEN`` resolves correctly.
     """
-    extended_environ = _get_extended_environ()
     env_map: dict[str, str | None] = {}
-    if env_file:
-        env_map.update(load_dotenv(Path(env_file).read_text(), environ=extended_environ))
-    for env_value in env or []:
-        env_map.update(load_dotenv(env_value, environ=extended_environ))
+    if env_file or env:
+        extended_environ = _get_extended_environ()
+        if env_file:
+            env_map.update(load_dotenv(_read_env_file(env_file), environ=extended_environ))
+        for env_value in env or []:
+            env_map.update(load_dotenv(env_value, environ=extended_environ))
     return env_map
 
 
@@ -863,6 +1011,9 @@ def parse_volumes(volumes: list[str] | None) -> "list[Volume] | None":
     """
     if not volumes:
         return None
+
+    from huggingface_hub import Volume
+    from huggingface_hub.utils import parse_hf_mount
 
     result: list[Volume] = []
     for raw_spec in volumes:
@@ -1003,6 +1154,8 @@ def _check_cli_update(library: Literal["huggingface_hub", "transformers"]) -> No
 def _fetch_latest_pypi_version(library: str) -> str | None:
     """Fetch the latest version of a library from PyPI. Returns None if the request fails."""
     try:
+        from huggingface_hub.utils import get_session, hf_raise_for_status
+
         response = get_session().get(f"https://pypi.org/pypi/{library}/json", timeout=2)
         hf_raise_for_status(response)
         return response.json()["info"]["version"]
@@ -1014,6 +1167,8 @@ def _fetch_latest_pypi_version(library: str) -> str | None:
 def _fetch_latest_brew_version() -> str | None:
     """Fetch the latest version of the `hf` formula from the Homebrew registry. Returns None if the request fails."""
     try:
+        from huggingface_hub.utils import get_session, hf_raise_for_status
+
         response = get_session().get("https://formulae.brew.sh/api/formula/hf.json", timeout=2)
         hf_raise_for_status(response)
         return response.json()["versions"]["stable"]

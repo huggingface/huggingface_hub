@@ -12,7 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 from contextlib import contextmanager
+from datetime import datetime, timezone
 from io import BytesIO
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -266,7 +268,7 @@ class TestXetUpload:
         mock_session.new_upload_commit.return_value = mock_commit
 
         with patch("huggingface_hub.utils._xet.get_xet_session", return_value=mock_session):
-            with patch("huggingface_hub._commit_api.are_progress_bars_disabled", return_value=True):
+            with patch("huggingface_hub.utils.are_progress_bars_disabled", return_value=True):
                 _upload_xet_files(
                     additions=[addition],
                     repo_type="model",
@@ -298,7 +300,7 @@ class TestXetUpload:
         mock_session.new_upload_commit.return_value = mock_commit
 
         with patch("huggingface_hub.utils._xet.get_xet_session", return_value=mock_session):
-            with patch("huggingface_hub._commit_api.are_progress_bars_disabled", return_value=True):
+            with patch("huggingface_hub.utils.are_progress_bars_disabled", return_value=True):
                 _upload_xet_files(
                     additions=[addition],
                     repo_type="model",
@@ -372,6 +374,8 @@ class TestBucketXetUploadSkipSha256:
 
         test_file = tmp_path / "test_file.bin"
         test_file.write_bytes(b"file content for bucket test")
+        mtime = 1700000000.123
+        os.utime(test_file, (mtime, mtime))
 
         api.batch_bucket_files(
             bucket_id,
@@ -381,9 +385,10 @@ class TestBucketXetUploadSkipSha256:
             ],
         )
 
-        uploaded = {e.path for e in api.list_bucket_tree(bucket_id)}
+        uploaded = {e.path: e for e in api.list_bucket_tree(bucket_id)}
         assert "from_path.bin" in uploaded
         assert "from_bytes.bin" in uploaded
+        assert uploaded["from_path.bin"].mtime == datetime.fromtimestamp(mtime, tz=timezone.utc)
 
         api.delete_bucket(bucket_id)
 

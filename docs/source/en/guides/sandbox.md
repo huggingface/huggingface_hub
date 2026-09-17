@@ -3,18 +3,17 @@ rendered properly in your Markdown viewer.
 -->
 # Sandboxes
 
-> [!WARNING]
-> Sandboxes are an **experimental** feature. The API, the defaults and the underlying implementation may change at any
-> time without notice, and the isolation guarantees are best-effort. In particular, do not rely on a sandbox to keep
-> secrets away from the code running inside it: a sandbox image you don't fully trust may be able to observe requests
-> made to the in-job server, including the credentials used to authenticate them. Treat any credential reachable by a
-> sandbox as potentially exposed to that sandbox, and prefer short-lived, narrowly-scoped tokens.
+> [!NOTE]
+> Sandboxes are an **experimental** feature. The API, defaults, and behavior may change without notice. Shared
+> sandboxes are intended for workloads within the same trust boundary; their isolation does not guarantee protection
+> from every cross-sandbox attack. Use dedicated sandboxes for workloads that do not trust each other, and avoid making
+> long-lived or broadly scoped credentials available to sandbox workloads.
 
 A sandbox is an isolated cloud machine you can spin up in seconds, run commands in with live-streamed output, and move files in and out of — all from Python or the CLI. Sandboxes are built on top of [Jobs](./jobs): under the hood, a sandbox is just a Job running a tiny server that exposes command execution and file transfer over HTTP.
 
 They are a good fit whenever you need to run code somewhere other than your own machine:
 
-- **Running untrusted or AI-generated code** — let an agent execute arbitrary code without giving it access to your filesystem.
+- **Running untrusted or AI-generated code** — let an agent execute arbitrary code without giving it access to your filesystem. Use a *dedicated* sandbox for this: it is a VM of its own.
 - **Reproducible builds and experiments** — run on a clean, well-defined image, on CPU or GPU.
 - **Fanning out work** — launch hundreds of parallel environments (RL rollouts, evaluation, batch tool execution) cheaply.
 
@@ -223,8 +222,13 @@ To reattach from another machine with no local state, reconnect by pool id with 
 
 A `connect()`'d pool does not own the shared hosts (other clients may be using them), so — like [`Sandbox.connect`] — leaving its `with` block (or calling `close()`) only releases the local HTTP clients and leaves the hosts running. Terminate a pool's hosts explicitly with `pool delete` / `hf sandbox pool delete <id>`.
 
-> [!WARNING]
-> Sandboxes within a host are isolated from each other by distinct uids plus a per-sandbox Landlock ruleset — they cannot read, signal, or write each other's files, and each is confined to its own private home. This is the right boundary for *one user's own* parallel workloads. For mutually-hostile untrusted code, or for GPU, use [`Sandbox.create`] (a separate VM per sandbox). The trade-offs are detailed in the [conceptual guide](../concepts/sandbox#isolation-in-a-pool-uid--landlock).
+> [!NOTE]
+> Sandboxes within a host are separated by distinct uids and per-sandbox Landlock rulesets. Shared sandboxes are
+> intended for *one user's own* parallel workloads, and isolation from every cross-sandbox attack is not guaranteed.
+> For mutually untrusted code, or for GPU, use [`Sandbox.create`] (a separate VM per sandbox). The trade-offs are
+> detailed in the conceptual guide: [how the isolation
+> works](../concepts/sandbox#isolation-in-a-pool-uid--landlock) and — more important if you are choosing between the
+> two modes — the full list of [known limitations](../concepts/sandbox#known-limitations).
 
 ## From the CLI
 
@@ -233,6 +237,9 @@ The `hf sandbox` command mirrors the Python API. A dedicated sandbox:
 ```bash
 >>> hf sandbox create
 ✓ Sandbox ready id=687f911eaea852de79c4a50a image=python:3.12 elapsed=6.0s
+
+# Attach labels to the underlying Job
+>>> hf sandbox create --label controller-run=run-42 --label team=data-infra
 
 >>> hf sandbox exec 687f911eaea852de79c4a50a -- python -c "print('hi')"
 hi

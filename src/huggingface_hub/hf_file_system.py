@@ -19,7 +19,9 @@ from fsspec.config import apply_config
 from fsspec.utils import isfilelike
 
 from . import constants
+from ._buckets import BucketFile, BucketFolder
 from ._commit_api import CommitOperationCopy, CommitOperationDelete
+from ._local_folder import _validate_relative_filename
 from .errors import (
     BucketNotFoundError,
     EntryNotFoundError,
@@ -28,7 +30,7 @@ from .errors import (
     RevisionNotFoundError,
 )
 from .file_download import hf_hub_url, http_get
-from .hf_api import SPECIAL_REFS_REVISION_REGEX, BucketFile, BucketFolder, HfApi, LastCommitInfo, RepoFile, RepoFolder
+from .hf_api import SPECIAL_REFS_REVISION_REGEX, HfApi, LastCommitInfo, RepoFile, RepoFolder
 from .utils import HFValidationError, hf_raise_for_status, http_backoff, http_stream_backoff, parse_hf_uri
 from .utils.insecure_hashlib import md5
 
@@ -1094,6 +1096,10 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
 
         """
         revision = kwargs.get("revision")
+        resolve_remote_path = self.resolve_path(rpath, revision=revision)
+        # Recursive downloads map remote filenames to local paths, including on Windows.
+        # Validate before creating directories, opening files, or delegating to fsspec.
+        _validate_relative_filename(resolve_remote_path.path)
         unhandled_kwargs = set(kwargs.keys()) - {"revision"}
         if not isinstance(callback, (NoOpCallback, TqdmCallback)) or len(unhandled_kwargs) > 0:
             # for now, let's not handle custom callbacks
@@ -1118,7 +1124,6 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         initial_pos = outfile.tell()
 
         # Custom implementation of `get_file` to use `http_get`.
-        resolve_remote_path = self.resolve_path(rpath, revision=revision)
         expected_size = self.info(rpath, revision=revision)["size"]
         callback.set_size(expected_size)
         try:

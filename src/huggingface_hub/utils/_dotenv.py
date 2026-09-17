@@ -29,15 +29,26 @@ def load_dotenv(dotenv_str: str, environ: dict[str, str] | None = None) -> dict[
         ^\s*
         (?:export[^\S\n]+)?               # optional export
         ([A-Za-z_][A-Za-z0-9_]*)          # key
-        [^\S\n]*(=)?[^\S\n]*
-        (                                 # value group
+        (?:
+            [^\S\n]*
+            (=)                           # equal sign
             (?:
-                '(?:\\'|[^'])*'           # single-quoted value
-                | \"(?:\\\"|[^\"])*\"     # double-quoted value
-                | [^#\n\r]+?              # unquoted value
+                [^\S\n]*
+                (                         # quoted value
+                    '(?:\\'|[^'])*'       # single-quoted
+                    | \"(?:\\\"|[^\"])*\" # double-quoted
+                )
+                [^\S\n]*(?:\#[^\n\r]*)?   # inline comment (needs no preceding whitespace after a quote)
+                |
+                (?:[^\S\n]+(?!\#))?       # whitespace after '=' also separates an inline comment
+                (                         # unquoted value (may contain '#')
+                    [^\n\r]*?
+                )
+                (?:[^\S\n]+\#[^\n\r]*)?   # inline comment (must be preceded by whitespace)
             )
-        )?
-        [^\S\n]*(?:\#.*)?$                # optional inline comment
+            |
+            [^\S\n]*(?:\#[^\n\r]*)?       # bare key (no '='), with an optional inline comment
+        )$
     """,
         re.VERBOSE,
     )
@@ -52,12 +63,15 @@ def load_dotenv(dotenv_str: str, environ: dict[str, str] | None = None) -> dict[
             key = match.group(1)
             val = None
             if match.group(2):  # if there is '='
-                raw_val = match.group(3) or ""
+                raw_val = match.group(3) or match.group(4) or ""
                 val = raw_val.strip()
                 # Remove surrounding quotes if quoted
-                if (val.startswith('"') and val.endswith('"')) or (val.startswith("'") and val.endswith("'")):
-                    escapes = _DOUBLE_QUOTE_ESCAPES if raw_val.startswith('"') else _ESCAPES
-                    val = _unescape(val[1:-1], escapes)
+                if val.startswith('"') and val.endswith('"'):
+                    # Double-quoted values expand escape sequences (\n, \t, \", \\, \$).
+                    val = _unescape(val[1:-1], _DOUBLE_QUOTE_ESCAPES)
+                elif val.startswith("'") and val.endswith("'"):
+                    # Single-quoted values are kept verbatim: no escape expansion.
+                    val = val[1:-1]
             elif environ is not None:
                 # Get it from the current environment
                 val = environ.get(key)

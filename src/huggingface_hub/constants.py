@@ -73,9 +73,9 @@ if _staging_mode:
     ENDPOINT = _HF_DEFAULT_STAGING_ENDPOINT
     HUGGINGFACE_CO_URL_TEMPLATE = _HF_DEFAULT_STAGING_ENDPOINT + "/{repo_id}/resolve/{revision}/{filename}"
 
-# Hosts whose web URLs can be parsed into a ``hf://`` URI (see ``huggingface_hub/utils/_hf_uris.py``).
-# Includes the public Hub host and its ``hf.co`` short domain, the staging host, and the host of the
-# currently configured ``ENDPOINT`` so that self-hosted / staging endpoints work too.
+# Hosts considered to be Hugging Face Hub endpoints: the public Hub host, its ``hf.co`` short domain, the staging
+# host, and the host of the configured ``ENDPOINT``. Used to parse web URLs into ``hf://`` URIs and to decide which
+# redirects to follow when resolving files. The auth header is forwarded to these hosts: only add trusted ones.
 HF_URL_HOSTS: frozenset[str] = frozenset(
     {"hf.co"}
     | {
@@ -338,6 +338,9 @@ HUGGINGFACE_HEADER_LINK_XET_AUTH_KEY = "xet-auth"
 default_xet_cache_path = os.path.join(HF_HOME, "xet")
 HF_XET_CACHE = os.getenv("HF_XET_CACHE", default_xet_cache_path)
 HF_HUB_DISABLE_XET: bool = _is_true(os.environ.get("HF_HUB_DISABLE_XET"))
+
+# Disable the cache-wide shared blob store (see `huggingface_hub.utils._shared_blobs`).
+HF_HUB_DISABLE_SHARED_BLOBS: bool = _is_true(os.environ.get("HF_HUB_DISABLE_SHARED_BLOBS"))
 
 # Bucket hosting the static sandbox server binary (see huggingface_hub.Sandbox)
 SANDBOX_SERVER_BUCKET: str = "huggingface/sbx-server"

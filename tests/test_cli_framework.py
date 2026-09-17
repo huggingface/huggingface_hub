@@ -206,6 +206,10 @@ class TestHelpRecords:
 
         out = self._help(f)
         assert "REPO_ID" in out and "the repo" in out and "[required]" in out
+        # Click >= 8.5 renders its own "Positional arguments" section on top of ours; make sure
+        # it stays suppressed so arguments are not listed twice.
+        assert "Positional arguments" not in out
+        assert out.count("the repo") == 1
 
     def test_bool_flag_default_string(self):
         def f(force: Annotated[bool, Option(help="force it")] = False): ...
