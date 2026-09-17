@@ -96,9 +96,6 @@ class TestHfFileSystemBucketRW(_HfFileSystemBucketChecks, _HfFileSystemBaseRWTes
             f.edit((8, 13), "a fantastic")
             f.delete(24, 5)
             f.append("!")
-            import warnings
-
-            warnings.warn(str(f.buffer.ranges))
 
         with self.hffs.open(self.text_file, "r") as f:
             assert f.read() == "this is a fantastic text!"
