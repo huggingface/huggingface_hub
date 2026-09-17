@@ -58,7 +58,7 @@ from ._cli_utils import (
     typer_factory,
 )
 from ._framework import Argument, Option
-from ._output import _dataclass_to_dict, out
+from ._output import OutputFormat, _dataclass_to_dict, out
 from ._uv_script_header import TABLE_NAME, UvScriptHeader, load_uv_script
 
 
@@ -467,6 +467,54 @@ DetachOpt = Annotated[
     ),
 ]
 
+FormatOpt = Annotated[
+    str | None,
+    Option(
+        "--format",
+        help="Output format: auto, human, agent, json, or quiet.",
+    ),
+]
+
+JsonOpt = Annotated[
+    bool,
+    Option(
+        "--json",
+        help="JSON output. Equivalent to '--format json'.",
+    ),
+]
+
+QuietOpt = Annotated[
+    bool,
+    Option(
+        "-q",
+        "--quiet",
+        help="Quiet output (one ID per line). Equivalent to '--format quiet'.",
+    ),
+]
+
+
+def _apply_run_output_flags(
+    format: str | None = None,
+    json_output: bool = False,
+    quiet: bool = False,
+) -> None:
+    """Apply --format / --json / -q on Jobs run commands that ignore unknown options."""
+    flags: list[tuple[str, OutputFormat]] = []
+    if format is not None:
+        try:
+            flags.append(("--format", format if isinstance(format, OutputFormat) else OutputFormat(format)))
+        except ValueError:
+            valid = ", ".join(member.value for member in OutputFormat)
+            raise CLIError(f"Invalid value for '--format': '{format}'. Valid values: {valid}.") from None
+    if json_output:
+        flags.append(("--json", OutputFormat.json))
+    if quiet:
+        flags.append(("-q/--quiet", OutputFormat.quiet))
+    if len(flags) > 1:
+        raise CLIError(f"'{flags[0][0]}' and '{flags[1][0]}' are mutually exclusive.")
+    if flags:
+        out.set_mode(flags[0][1])
+
 DryRunOpt = Annotated[
     bool,
     Option(
@@ -665,8 +713,12 @@ def jobs_run(
     resource_group_id: ResourceGroupIdOpt = None,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
+    format: FormatOpt = None,
+    json_output: JsonOpt = False,
+    quiet: QuietOpt = False,
 ) -> None:
     """Run a Job."""
+    _apply_run_output_flags(format, json_output, quiet)
     env_map = parse_env_map(env, env_file)
     secrets_map = parse_env_map(secrets, secrets_file)
     labels_map = _parse_labels_map(label, name=name) or {}
@@ -1304,8 +1356,12 @@ def jobs_uv_run(
     token: TokenOpt = None,
     with_: WithOpt = None,
     python: PythonOpt = None,
+    format: FormatOpt = None,
+    json_output: JsonOpt = False,
+    quiet: QuietOpt = False,
 ) -> None:
     """Run a UV script (local file or URL) on HF infrastructure"""
+    _apply_run_output_flags(format, json_output, quiet)
     api = get_hf_api(token=token)
     with _resolve_uv_job_config(
         api=api,
@@ -1437,8 +1493,12 @@ def scheduled_run(
     resource_group_id: ResourceGroupIdOpt = None,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
+    format: FormatOpt = None,
+    json_output: JsonOpt = False,
+    quiet: QuietOpt = False,
 ) -> None:
     """Schedule a Job."""
+    _apply_run_output_flags(format, json_output, quiet)
     env_map = parse_env_map(env, env_file)
     secrets_map = parse_env_map(secrets, secrets_file)
     labels_map = _parse_labels_map(label, name=name) or {}
@@ -1818,8 +1878,12 @@ def scheduled_uv_run(
     token: TokenOpt = None,
     with_: WithOpt = None,
     python: PythonOpt = None,
+    format: FormatOpt = None,
+    json_output: JsonOpt = False,
+    quiet: QuietOpt = False,
 ) -> None:
     """Run a UV script (local file or URL) on HF infrastructure"""
+    _apply_run_output_flags(format, json_output, quiet)
     api = get_hf_api(token=token)
     with _resolve_uv_job_config(
         api=api,
