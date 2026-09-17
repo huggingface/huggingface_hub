@@ -3381,7 +3381,7 @@ class TestJobsCommand:
             network_group=None,
             network_aliases=None,
             resource_group_id=None,
-            compose=None,
+            with_services=None,
             namespace=None,
         )
         api.fetch_job_logs.assert_not_called()
@@ -3412,7 +3412,7 @@ class TestJobsCommand:
             network_group=None,
             network_aliases=None,
             resource_group_id=None,
-            compose=None,
+            with_services=None,
             namespace=None,
         )
         api.fetch_job_logs.assert_not_called()
@@ -3474,7 +3474,7 @@ class TestJobsCommand:
             network_group=None,
             network_aliases=None,
             resource_group_id=None,
-            compose=None,
+            with_services=None,
             namespace=None,
         )
         api.fetch_job_logs.assert_not_called()
@@ -3508,7 +3508,7 @@ class TestJobsCommand:
             network_group=None,
             network_aliases=None,
             resource_group_id=None,
-            compose=None,
+            with_services=None,
             namespace=None,
         )
         api.fetch_job_logs.assert_not_called()
@@ -3573,7 +3573,7 @@ class TestJobsCommand:
             network_group=None,
             network_aliases=None,
             resource_group_id=None,
-            compose=None,
+            with_services=None,
             namespace=None,
         )
         api.fetch_job_logs.assert_not_called()

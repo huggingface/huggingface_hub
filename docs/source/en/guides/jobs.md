@@ -378,20 +378,60 @@ Pass `network_group="<name>"` to [`run_job`] (or [`run_uv_job`]) to let Jobs in 
 
 ```python
 >>> from huggingface_hub import run_job
->>> server = run_job(
+>>> server_job = run_job(
 ...     image="python:3.12",
 ...     command=["python", "-m", "http.server", "8000"],
 ...     network_group="train",
-...     network_aliases=["master"],
+...     network_aliases=["server"],
 ... )
->>> client = run_job(
+>>> client_job = run_job(
 ...     image="python:3.12",
-...     command=["sh", "-c", 'curl --retry 10 --retry-connrefused "http://${HF_NETWORK_GROUP_PREFIX}master:8000/"'],
+...     command=["sh", "-c", 'curl --retry 10 --retry-connrefused "http://${HF_NETWORK_GROUP_PREFIX}server:8000/"'],
 ...     network_group="train",
 ... )
 ```
 
 Members are resolvable before they are ready, so connect with retries. Group names and aliases are lowercase alphanumerics and dashes, 46 and 34 characters max.
+
+### Start and connect multiple services
+
+Run services along with your main job to run servers or distributed workloads.
+
+E.g. run the same example as previsouly but with services from a docker compose file:
+
+```python
+>>> import yaml
+>>> from huggingface_hub import run_job
+>>> with open("server-docker-compose.yml") as f:
+...     server_docker_compose = yaml.safe_load(f)
+>>> job = run_job(
+...     image="python:3.12",
+...     command=["sh", "-c", 'curl --retry 10 --retry-connrefused "http://${HF_NETWORK_GROUP_PREFIX}server:8000/"'],
+...     network_group="train",
+...     with_services=server_docker_compose["services"],
+... )
+```
+
+with `server-docker-compose.yml` being
+
+```yaml
+services:
+  server:
+    image: python:3.12
+    command: ["python", "-m", "http.server", "8000"]
+```
+
+Pre-existing services templates are available, e.g. for Spark, Dask and Ray:
+
+```python
+>>> from huggingface_hub import run_uv_job
+>>> from huggingface_hub.jobs_services import dask, ray, spark_connect
+>>> run_uv_job("my_dask_script.py", with_services=dask(num_workers=4))
+>>> run_uv_job("my_ray_script.py", with_services=ray(num_workers=4))
+>>> run_uv_job("my_spark_connect_script.py", with_services=spark_connect(num_workers=4))
+```
+
+See the [`run_job`] and [`run_uv_job`] functions for more information.
 
 ## Configure Job Timeout
 

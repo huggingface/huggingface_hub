@@ -37,7 +37,6 @@ from urllib.parse import quote
 
 import httpcore
 import httpx
-import yaml
 from tqdm.auto import tqdm as base_tqdm
 
 from . import constants
@@ -12158,7 +12157,7 @@ class HfApi:
         network_aliases: list[str] | None = None,
         resource_group_id: str | None = None,
         namespace: str | None = None,
-        compose: str | Path | None = None,
+        with_services: dict[str, Any] | None = None,
         token: bool | str | None = None,
     ) -> JobInfo:
         """
@@ -12231,10 +12230,20 @@ class HfApi:
 
             token (`bool` or `str`, *optional*):
 
-            compose (`str` or `Path`, *optional*):
-                Path to a YAML compose file defining background services to start alongside this job.
-                The file must have a `services` section where each service has `image` and `command` keys.
+            with_services (`dict[str, Any]`, *optional*):
+                A docker compose-like dict defining background services to start alongside this job.
+                The dict must have a `services` key where each value has at least `image` and `command` keys.
                 Services are automatically cancelled when the main job exits.
+
+                Use template functions from [`jobs_services`](#huggingface_hub.jobs_services) or load a YAML
+                file with `yaml.safe_load()`:
+
+                ```python
+                >>> from huggingface_hub.jobs_services import ray
+                >>> services = ray(num_workers=2)
+                ```
+
+            token (`bool` or `str`, *optional*):
                 A valid user access token. If not provided, the locally saved token will be used, which is the
                 recommended authentication method. Set to `False` to disable authentication.
                 Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
@@ -12257,14 +12266,14 @@ class HfApi:
             ```
 
 
-            Run a Job with compose services:
+            Run a Job with additional services:
 
             ```python
             >>> from huggingface_hub import run_job
             >>> run_job(
             ...     image="python:3.12",
             ...     command=["sh", "-c", 'curl --retry 10 --retry-connrefused "http://${HF_NETWORK_GROUP_PREFIX}server:8000/"'],
-            ...     compose="server-compose.yml",
+            ...     with_services="server-docker-compose.yml",
             ... )
             ```
 
@@ -12282,8 +12291,8 @@ class HfApi:
         """
         if namespace is None:
             namespace = self.whoami(token=token)["name"]
-        if compose:
-            network_group, service_specs = self._parse_compose_file(compose)
+        if with_services:
+            network_group, service_specs = self._parse_services(with_services)
             service_jobs = self._run_job_services(
                 services=service_specs,
                 network_group=network_group,
@@ -12301,7 +12310,6 @@ class HfApi:
             )
             # Wrap command with service cleanup (bash EXIT trap)
             command = self._wrap_command_for_service_cleanup(command, service_jobs, namespace)
-            network_group = network_group
         if name is None and not (labels and "name" in labels):
             name = _default_job_name_from_image(image, command)
         job_spec = _create_job_spec(
@@ -12347,11 +12355,11 @@ class HfApi:
 
         Args:
             services (`dict[str, dict[str, Any]]`):
-                Service specs from `_parse_compose_file()`. Each value is a dict with
+                Service specs from `_parse_services()`. Each value is a dict with
                 at least `image` and `command` keys, plus optional `flavor`, `replicas`,
                 `env`, `secrets`, `volumes`, `expose`, `ssh`.
             network_group (`str`):
-                Network group name for all services (e.g., 'jobs-compose-abc123').
+                Network group name for all services (e.g., 'jobs-services-abc123').
             timeout (`Union[int, float, str]`, *optional*):
                 Max duration for the Job: int with s (seconds, default), m (minutes), h (hours) or d (days).
                 Example: `300` or `"5m"` for 5 minutes.
@@ -12381,8 +12389,8 @@ class HfApi:
                 secrets=service_spec.get("secrets"),
                 flavor=service_spec.get("flavor"),
                 timeout=timeout,
-                name=f"compose-{service_name}",
-                labels={"compose-role": "service", **service_spec.get("labels", {})},
+                name=f"service-{service_name}",
+                labels={"service": "", **service_spec.get("labels", {})},
                 volumes=service_spec.get("volumes"),
                 expose=service_spec.get("expose"),
                 ssh=service_spec.get("ssh", False),
@@ -12916,7 +12924,7 @@ class HfApi:
         network_aliases: list[str] | None = None,
         resource_group_id: str | None = None,
         namespace: str | None = None,
-        compose: str | Path | None = None,
+        with_services: dict[str, Any] | None = None,
         token: bool | str | None = None,
     ) -> JobInfo:
         """
@@ -13001,13 +13009,20 @@ class HfApi:
 
             token (`bool` or `str`, *optional*):
 
-            compose (`str` or `Path`, *optional*):
-                Path to a YAML compose file defining background services to start alongside this job.
-                The file must have a `services` section where each service has `image` and `command` keys.
+            with_services (`dict[str, Any]`, *optional*):
+                A docker compose-like dict defining background services to start alongside this job.
+                The dict must have a `services` key where each value has at least `image` and `command` keys.
                 Services are automatically cancelled when the main job exits.
-                A valid user access token. If not provided, the locally saved token will be used, which is the
-                recommended authentication method. Set to `False` to disable authentication.
-                Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+
+                Use template functions from [`jobs_services`](#huggingface_hub.jobs_services) or load a YAML
+                file with `yaml.safe_load()`:
+
+                ```python
+                >>> from huggingface_hub.jobs_services import ray
+                >>> services = ray(num_workers=2)
+                ```
+
+            token (`bool` or `str`, *optional*):
 
         Example:
 
@@ -13044,7 +13059,7 @@ class HfApi:
             ```python
             >>> from huggingface_hub import run_uv_job
             >>> script = "my_script.py"
-            >>> run_uv_job(script, compose="server-compose.yml")
+            >>> run_uv_job(script, with_services="server-docker-compose.yml")
             ```
 
             Mount volumes, e.g. to save model checkpoints during training:
@@ -13095,42 +13110,39 @@ class HfApi:
             network_aliases=network_aliases,
             resource_group_id=resource_group_id,
             namespace=namespace,
-            compose=compose,
+            with_services=with_services,
             token=token,
         )
 
-    def _parse_compose_file(self, compose_path: str | Path) -> tuple[str, dict[str, dict[str, Any]]]:
+    def _parse_services(self, services: dict[str, Any]) -> tuple[str, dict[str, dict[str, Any]]]:
         """
-        Parse a compose file and return the network group name and service specs.
+        Parse a docker compose-like dict and return the network group name and service specs.
 
         Args:
-            compose_path (`str` or `Path`):
-                Path to the compose YAML file.
+            services (`dict[str, Any]`):
+                A docker compose-like dict as parsed from YAML or generated via template functions.
+                Each service must have `image` and `command`. If it comes from a docker compose YAML
+                file, the dict must be the content of the `services` key.
 
         Returns:
             A tuple of (network_group, service_specs) where:
-            - network_group is the auto-generated network group name (e.g., 'jobs-compose-{uuid}')
+            - network_group is the auto-generated network group name (e.g., 'jobs-services-{uuid}')
             - service_specs is a dict mapping service names to their job specs
 
         Raises:
-            ValueError: If yaml is not installed or the compose file is invalid.
+            ValueError: If the docker compose-like dict is invalid.
         """
-        compose_path = Path(compose_path)
-        if not compose_path.is_file():
-            raise ValueError(f"Compose file not found: {compose_path}")
+        if not services or "services" not in services:
+            raise ValueError("Services dict must have a 'services' section")
 
-        with open(compose_path) as f:
-            compose_data = yaml.safe_load(f)
-
-        if not compose_data or "services" not in compose_data:
-            raise ValueError("Compose file must have a 'services' section")
+        services_data = services
 
         # Generate a unique network group for this compose run
-        composed_network_group = f"jobs-compose-{uuid.uuid4().hex[:12]}"
+        composed_network_group = f"jobs-services-{uuid.uuid4().hex[:12]}"
 
         # Build job spec dicts for each service
         service_specs: dict[str, dict[str, Any]] = {}
-        for service_name, service_config in compose_data["services"].items():
+        for service_name, service_config in services_data["services"].items():
             if "image" not in service_config or "command" not in service_config:
                 raise ValueError(f"Service '{service_name}' must have 'image' and 'command' specified")
             spec: dict[str, Any] = {"image": service_config["image"]}
