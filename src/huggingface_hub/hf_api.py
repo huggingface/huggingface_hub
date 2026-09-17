@@ -14824,6 +14824,7 @@ class HfApi:
                         "type": "copyFile",
                         "path": op.destination,
                         "xetHash": op.xet_hash,
+                        "mtime": op.mtime,
                         "sourceRepoType": op.source_repo_type,
                         "sourceRepoId": op.source_repo_id,
                     }
