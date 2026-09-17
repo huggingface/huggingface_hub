@@ -152,8 +152,8 @@ hf discussions list bigscience/bloom
 # List discussions on a dataset repo
 hf discussions list nebius/SWE-rebench-V2 --type dataset
 
-# Get info for a specific discussion with comments
-hf discussions info bigscience/bloom 2 --comments
+# Get info for a specific discussion, including its comment thread
+hf discussions info bigscience/bloom 2
 
 # Create a new discussion
 hf discussions create username/repo-name --title "Bug report" --body "Description here"
