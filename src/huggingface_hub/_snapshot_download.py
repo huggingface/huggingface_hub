@@ -27,6 +27,7 @@ from .file_download import (
 )
 from .hf_api import HfApi, RepoFile
 from .utils import OfflineModeIsEnabled, filter_repo_objects, logging, validate_hf_hub_args
+from .utils._paths import as_extended_path
 from .utils._xet_progress_reporting import (
     XET_BYTES_BAR_FORMAT,
     XET_TRANSFER_BAR_FORMAT,
@@ -535,7 +536,7 @@ def snapshot_download(
     )
 
     _finish_transfer_bar(transfer_progress)
-    transfer_progress.set_description("Download complete")
+    transfer_progress.set_description_str("Download complete")
     reconstruct_progress.set_description("Reconstruction complete")
 
     if dry_run:
@@ -693,7 +694,4 @@ def _local_file_exists(base_dir: str, path: str) -> bool:
     On Windows, paths longer than 255 characters must be prefixed with `\\\\?\\`, otherwise `os.path.isfile` reports an
     existing file as missing.
     """
-    full_path = os.path.join(base_dir, *path.split("/"))
-    if os.name == "nt" and len(os.path.abspath(full_path)) > 255 and not full_path.startswith("\\\\?\\"):
-        full_path = "\\\\?\\" + os.path.abspath(full_path)
-    return os.path.isfile(full_path)
+    return os.path.isfile(as_extended_path(os.path.join(base_dir, *path.split("/"))))

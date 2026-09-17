@@ -22,11 +22,12 @@ The caching system is designed as follows:
 ├─ <MODELS>
 ├─ <DATASETS>
 ├─ <SPACES>
+├─ <KERNELS>
 ```
 
 The default `<CACHE_DIR>` is `~/.cache/huggingface/hub`. However, it is customizable with the `cache_dir` argument on all methods, or by specifying either `HF_HOME` or `HF_HUB_CACHE` environment variable.
 
-Models, datasets and spaces share a common root. Each of these repositories contains the
+Models, datasets, spaces and kernels share a common root. Each of these repositories contains the
 repository type, the namespace (organization or username) if it exists and the
 repository name:
 
@@ -202,6 +203,20 @@ directly instead of symlinking to `blobs/`.
 When symlinks are not supported, a warning message is displayed to the user to alert
 them they are using a degraded version of the cache-system. This warning can be disabled
 by setting the `HF_HUB_DISABLE_SYMLINKS_WARNING` environment variable to true.
+
+### Shared blobs across repos
+
+By default, Xet files are also deduplicated across repos. A Xet file downloaded through `hf_xet` is stored once at `<CACHE_DIR>/blobs/<prefix>/<xet_hash>`, and the repo's `blobs/<etag>` entry is a relative symlink to it. When another repo needs the same file, it gets a symlink instead of a download: no bytes are transferred and no extra space is used. The snapshot layout does not change. A marker file identifies the store, so a `blobs` directory that was not created by `huggingface_hub` is never touched.
+
+Each shared file has a `<xet_hash>.refs` manifest listing the repo blobs that use it. `hf cache rm` reads it to check only the shared files affected by a deletion, and `hf cache prune` removes shared files that no cached repo uses anymore. The manifest is only a hint: every entry is checked against the filesystem, and a file with missing or unreadable metadata is kept. Cleanup prefers leaving reclaimable data behind over breaking a valid cache entry.
+
+Per-repo sizes stay logical, so a shared file is counted for every repo that uses it. The cache-wide `size_on_disk` is physical: each shared file is counted once, including files no repo uses anymore.
+
+Older clients (`huggingface_hub`, `huggingface.js`, `hf-hub`, `llama.cpp`, and anything that follows symlinks) keep reading and downloading normally, in the same repo folders. Two limitations:
+- Their cache deletion tools may delete a shared file still used by other repos. Affected files are re-downloaded on next use. Use an up-to-date `huggingface_hub` for `hf cache rm`, `hf cache prune`, and programmatic deletion.
+- Their cache scanners may report the top-level `blobs` directory as an unknown entry.
+
+The store requires the symlink-based cache layout and is disabled by `HF_HUB_DISABLE_XET=1`. Any failure to share a file, such as an unsupported filesystem, a permission error, or a pre-existing unmarked `blobs` directory, silently falls back to regular repo-local storage. Set [`HF_HUB_DISABLE_SHARED_BLOBS=1`](../package_reference/environment_variables#hfhubdisablesharedblobs) to opt out entirely.
 
 ## Pin a revision (advanced)
 
@@ -579,8 +594,8 @@ Verify a specific cached revision:
 Scanning your cache is interesting but what you really want to do next is usually to
 delete some portions to free up some space on your drive. This is possible using the
 `hf cache rm` and `hf cache prune` CLI commands. One can also programmatically use the
-[`~HFCacheInfo.delete_revisions`] helper from the [`HFCacheInfo`] object returned when
-scanning the cache.
+[`~HFCacheInfo.delete_revisions`] and [`~HFCacheInfo.delete_files`] helpers from the
+[`HFCacheInfo`] object returned when scanning the cache.
 
 **Delete strategy**
 
@@ -597,6 +612,10 @@ The strategy to delete revisions is the following:
 - blobs files that are targeted only by revisions to be deleted are deleted as well.
 - if a revision is linked to 1 or more `refs`, references are deleted.
 - if all revisions from a repo are deleted, the entire cached repository is deleted.
+
+Deleting individual files with [`~HFCacheInfo.delete_files`] follows the same logic: the
+snapshot entries are removed, and their blobs are deleted only if no other cached file
+references them. Refs and snapshot folders are kept.
 
 > [!TIP]
 > Revision hashes are unique across all repositories. `hf cache rm` therefore accepts either
@@ -646,12 +665,23 @@ About to delete 1 repo(s) and 1 revision(s) totalling 1.1G.
 Dry run: no files were deleted.
 ```
 
+To remove a single file instead of a whole repository, for example one GGUF quantization,
+pass an `hf://` file URI. The file is removed from every cached revision of the repo, and
+its blob is deleted only if no other cached file still references it. The revision stays
+usable, and a deleted file is downloaded again the next time it is needed. Paths must match
+exactly: folders and glob patterns are not supported.
+
+```text
+➜ hf cache rm hf://models/unsloth/gemma-3-27b-it-GGUF/gemma-3-27b-it-Q4_K_M.gguf --dry-run
+About to delete 1 file(s) totalling 16.5G.
+  - model/unsloth/gemma-3-27b-it-GGUF@3f4b5c1d2e6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c/gemma-3-27b-it-Q4_K_M.gguf
+Dry run: no files were deleted.
+```
+
 When working outside the default cache location, pair the command with
 `--cache-dir PATH`.
 
-To clean up cache garbage in bulk, run `hf cache prune`. It automatically deletes both
-revisions that are no longer referenced by a branch or tag and any leftover `.incomplete`
-files from interrupted downloads:
+To clean up cache garbage in bulk, run `hf cache prune`. It automatically deletes revisions that are no longer referenced by a branch or tag, leftover `.incomplete` files from interrupted downloads, and shared blobs that no cached repo references anymore:
 
 ```text
 ➜ hf cache prune

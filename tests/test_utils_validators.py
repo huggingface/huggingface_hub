@@ -48,6 +48,8 @@ class TestRepoIdValidator:
         "foo--bar",  # Cannot contain "--"
         "foo..bar",  # Cannot contain "."
         "foo.git",  # Cannot end with ".git"
+        "café",  # Only ASCII alphanumeric chars (and -, _, .) are allowed
+        "文件夹/bar",  # Same, in the namespace part
     )
 
     def test_valid_repo_ids(self) -> None:

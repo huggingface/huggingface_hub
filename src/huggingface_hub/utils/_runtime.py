@@ -27,7 +27,7 @@ from .. import __version__, constants
 
 _PY_VERSION: str = sys.version.split()[0].rstrip("+")
 
-_package_versions = {}
+_package_versions: dict[str, str] = {}
 
 _CANDIDATES = {
     "aiohttp": {"aiohttp"},
@@ -61,19 +61,17 @@ _CANDIDATES = {
     "torch": {"torch"},
 }
 
-# Check once at runtime
-for candidate_name, package_names in _CANDIDATES.items():
-    _package_versions[candidate_name] = "N/A"
-    for name in package_names:
-        try:
-            _package_versions[candidate_name] = importlib.metadata.version(name)
-            break
-        except importlib.metadata.PackageNotFoundError:
-            pass
-
 
 def _get_version(package_name: str) -> str:
-    return _package_versions.get(package_name, "N/A")
+    if package_name not in _package_versions:
+        _package_versions[package_name] = "N/A"
+        for distribution_name in _CANDIDATES.get(package_name, (package_name,)):
+            try:
+                _package_versions[package_name] = importlib.metadata.version(distribution_name)
+                break
+            except importlib.metadata.PackageNotFoundError:
+                pass
+    return _package_versions[package_name]
 
 
 def is_package_available(package_name: str) -> bool:
@@ -375,7 +373,7 @@ def dump_environment_info() -> dict[str, Any]:
     - `diffusers` (https://github.com/huggingface/diffusers/blob/main/src/diffusers/commands/env.py)
     - `transformers` (https://github.com/huggingface/transformers/blob/main/src/transformers/commands/env.py)
     """
-    from huggingface_hub import get_token, whoami
+    from huggingface_hub import get_token
     from huggingface_hub.utils import is_agent, list_credential_helpers
 
     token = get_token()
@@ -402,6 +400,8 @@ def dump_environment_info() -> dict[str, Any]:
     info["Has saved token ?"] = token is not None
     if token is not None:
         try:
+            from huggingface_hub import whoami
+
             info["Who am I ?"] = whoami()["name"]
         except Exception:
             pass
@@ -436,6 +436,7 @@ def dump_environment_info() -> dict[str, Any]:
     info["HF_HUB_DISABLE_EXPERIMENTAL_WARNING"] = constants.HF_HUB_DISABLE_EXPERIMENTAL_WARNING
     info["HF_HUB_DISABLE_IMPLICIT_TOKEN"] = constants.HF_HUB_DISABLE_IMPLICIT_TOKEN
     info["HF_HUB_DISABLE_XET"] = constants.HF_HUB_DISABLE_XET
+    info["HF_HUB_DISABLE_SHARED_BLOBS"] = constants.HF_HUB_DISABLE_SHARED_BLOBS
     info["HF_HUB_ETAG_TIMEOUT"] = constants.HF_HUB_ETAG_TIMEOUT
     info["HF_HUB_DOWNLOAD_TIMEOUT"] = constants.HF_HUB_DOWNLOAD_TIMEOUT
     info["HF_XET_HIGH_PERFORMANCE"] = constants.HF_XET_HIGH_PERFORMANCE

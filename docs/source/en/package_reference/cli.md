@@ -17,6 +17,7 @@ $ hf [OPTIONS] [COMMAND] [ARGS]...
 
 **Options**:
 
+* `--skills`: Print the `hf-cli` SKILL.md to stdout (alias for `hf skills preview`).
 * `--install-completion`: Install completion for the current shell.
 * `--show-completion`: Show completion for the current shell, to copy it or customize the installation.
 * `--help`: Show this message and exit.
@@ -589,7 +590,7 @@ $ hf cache [OPTIONS] COMMAND [ARGS]...
 
 * `list`: List cached repositories or revisions. [alias: ls]
 * `prune`: Remove detached revisions and incomplete downloads from the cache.
-* `rm`: Remove cached repositories or revisions.
+* `rm`: Remove cached repositories, revisions or files.
 * `verify`: Verify checksums for a single repo revision from cache or a local directory.
 
 ### `hf cache list`
@@ -651,7 +652,7 @@ Learn more
 
 ### `hf cache rm`
 
-Remove cached repositories or revisions.
+Remove cached repositories, revisions or files.
 
 **Usage**:
 
@@ -661,7 +662,7 @@ $ hf cache rm [OPTIONS] TARGETS...
 
 **Arguments**:
 
-* `TARGETS...`: One or more repo IDs (e.g. model/bert-base-uncased), repo-level hf:// URIs, or revision hashes to delete.  [required]
+* `TARGETS...`: One or more repo IDs (e.g. model/bert-base-uncased), hf:// URIs (repo or file), or revision hashes to delete.  [required]
 
 **Options**:
 
@@ -673,6 +674,7 @@ $ hf cache rm [OPTIONS] TARGETS...
 Examples
   $ hf cache rm model/gpt2
   $ hf cache rm hf://models/openai-community/gpt2
+  $ hf cache rm hf://models/openai-community/gpt2/model.safetensors
   $ hf cache rm <revision_hash>
   $ hf cache rm model/gpt2 --dry-run
   $ hf cache rm model/gpt2 --yes
@@ -704,7 +706,7 @@ $ hf cache verify [OPTIONS] REPO_ID
 
 **Options**:
 
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
 * `--cache-dir TEXT`: Cache directory to use when verifying files from cache (defaults to Hugging Face cache).
 * `--local-dir TEXT`: If set, verify files under this directory instead of the cache.
@@ -1295,7 +1297,7 @@ $ hf discussions close [OPTIONS] REPO_ID NUM
 
 * `--comment TEXT`: An optional comment to post when closing.
 * `-y, --yes`: Skip confirmation prompt.
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -1327,7 +1329,7 @@ $ hf discussions comment [OPTIONS] REPO_ID NUM
 
 * `--body TEXT`: The comment text (supports Markdown).
 * `--body-file PATH`: Read the comment from a file. Use '-' for stdin.
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -1360,7 +1362,7 @@ $ hf discussions create [OPTIONS] REPO_ID
 * `--body TEXT`: The description (supports Markdown).
 * `--body-file PATH`: Read the description from a file. Use '-' for stdin.
 * `--pull-request, --pr`: Create a pull request instead of a discussion.
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -1392,7 +1394,7 @@ $ hf discussions diff [OPTIONS] REPO_ID NUM
 
 **Options**:
 
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -1424,7 +1426,7 @@ $ hf discussions edit [OPTIONS] REPO_ID NUM COMMENT_ID
 
 * `--body TEXT`: The new comment text (supports Markdown).
 * `--body-file PATH`: Read the new comment from a file. Use '-' for stdin.
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -1454,7 +1456,7 @@ $ hf discussions info [OPTIONS] REPO_ID NUM
 
 **Options**:
 
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -1487,7 +1489,7 @@ $ hf discussions list [OPTIONS] REPO_ID
 * `-k, --kind [all|discussion|pull_request]`: Filter by kind (discussion, pull_request, all).  [default: all]
 * `--author TEXT`: Filter by author or organization.
 * `--limit INTEGER`: Limit the number of results.  [default: 30]
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -1521,7 +1523,7 @@ $ hf discussions merge [OPTIONS] REPO_ID NUM
 
 * `--comment TEXT`: An optional comment to post when merging.
 * `-y, --yes`: Skip confirmation prompt.
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -1552,7 +1554,7 @@ $ hf discussions rename [OPTIONS] REPO_ID NUM NEW_TITLE
 
 **Options**:
 
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -1583,7 +1585,7 @@ $ hf discussions reopen [OPTIONS] REPO_ID NUM
 
 * `--comment TEXT`: An optional comment to post when reopening.
 * `-y, --yes`: Skip confirmation prompt.
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -1613,7 +1615,7 @@ $ hf download [OPTIONS] REPO_ID [FILENAMES]...
 
 **Options**:
 
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: (model)]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: (model)]
 * `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
 * `--include TEXT`: Glob patterns to include from files to download. eg: *.json
 * `--exclude TEXT`: Glob patterns to exclude from files to download.
@@ -1810,9 +1812,9 @@ $ hf endpoints deploy [OPTIONS] NAME
 * `--container-command TEXT`: Override the container entrypoint, as a quoted string split into tokens (e.g. "python -m sglang.launch_server").
 * `--container-args TEXT`: Arguments appended to the container entrypoint, as a quoted string split into tokens (e.g. "--tp 8 --reasoning-parser qwen3").
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
-* `--env-file TEXT`: Read in a file of environment variables.
-* `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
-* `--secrets-file TEXT`: Read in a file of secret environment variables.
+* `--env-file TEXT`: Read in a file of environment variables. Use `-` to read them from stdin.
+* `-s, --secrets TEXT`: Set secret environment variables. Prefer `--secrets SECRET` to read the value from your environment (e.g. `--secrets HF_TOKEN` to pass your Hugging Face token); `--secrets SECRET=value` puts the value in your shell history.
+* `--secrets-file TEXT`: Read in a file of secret environment variables. Use `-` to read them from stdin.
 * `--type [public|protected|authenticated|private]`: Endpoint access type. Defaults to 'authenticated' (token-gated, publicly reachable).
 * `--help`: Show this message and exit.
 
@@ -2496,12 +2498,12 @@ $ hf jobs run [OPTIONS] IMAGE COMMAND...
 **Options**:
 
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
-* `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
+* `-s, --secrets TEXT`: Set secret environment variables. Prefer `--secrets SECRET` to read the value from your environment (e.g. `--secrets HF_TOKEN` to pass your Hugging Face token); `--secrets SECRET=value` puts the value in your shell history.
 * `--name TEXT`: Name the Job. Stored as the `name` label. Names do not have to be unique. Defaults to the image or script name plus a short hash of the resolved launch configuration.
 * `-l, --label TEXT`: Set labels. E.g. --label KEY=VALUE or --label LABEL
 * `-v, --volume TEXT`: Mount one or more volumes. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro|:rw] or LOCAL_DIR:/MOUNT_PATH[:ro|:rw]. TYPE is one of: models, datasets, spaces, buckets. TYPE defaults to models if omitted. models, datasets and spaces are always mounted read-only. buckets are read+write by default. A local directory source is first synced to a bucket and mounted read-only by default. E.g. -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro or -v ./inputs:/inputs
-* `--env-file TEXT`: Read in a file of environment variables.
-* `--secrets-file TEXT`: Read in a file of secret environment variables.
+* `--env-file TEXT`: Read in a file of environment variables. Use `-` to read them from stdin.
+* `--secrets-file TEXT`: Read in a file of secret environment variables. Use `-` to read them from stdin.
 * `--flavor [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|rtx-pro-6000|rtx-pro-6000x2|rtx-pro-6000x4|rtx-pro-6000x8]`: Flavor for the hardware. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.
 * `--timeout TEXT`: Max duration: int with s (seconds, default), m (minutes), h (hours) or d (days).
 * `-d, --detach`: Run the Job in the background and print the Job ID.
@@ -2727,12 +2729,12 @@ $ hf jobs scheduled run [OPTIONS] SCHEDULE IMAGE COMMAND...
 * `--suspend / --no-suspend`: Suspend (pause) the scheduled Job
 * `--concurrency / --no-concurrency`: Allow multiple instances of this Job to run concurrently
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
-* `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
+* `-s, --secrets TEXT`: Set secret environment variables. Prefer `--secrets SECRET` to read the value from your environment (e.g. `--secrets HF_TOKEN` to pass your Hugging Face token); `--secrets SECRET=value` puts the value in your shell history.
 * `--name TEXT`: Name the Job. Stored as the `name` label. Names do not have to be unique. Defaults to the image or script name plus a short hash of the resolved launch configuration.
 * `-l, --label TEXT`: Set labels. E.g. --label KEY=VALUE or --label LABEL
 * `-v, --volume TEXT`: Mount one or more volumes. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro|:rw] or LOCAL_DIR:/MOUNT_PATH[:ro|:rw]. TYPE is one of: models, datasets, spaces, buckets. TYPE defaults to models if omitted. models, datasets and spaces are always mounted read-only. buckets are read+write by default. A local directory source is first synced to a bucket and mounted read-only by default. E.g. -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro or -v ./inputs:/inputs
-* `--env-file TEXT`: Read in a file of environment variables.
-* `--secrets-file TEXT`: Read in a file of secret environment variables.
+* `--env-file TEXT`: Read in a file of environment variables. Use `-` to read them from stdin.
+* `--secrets-file TEXT`: Read in a file of secret environment variables. Use `-` to read them from stdin.
 * `--flavor [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|rtx-pro-6000|rtx-pro-6000x2|rtx-pro-6000x4|rtx-pro-6000x8]`: Flavor for the hardware. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.
 * `--timeout TEXT`: Max duration: int with s (seconds, default), m (minutes), h (hours) or d (days).
 * `--dry-run`: Print the resolved Job configuration without submitting the Job.
@@ -2847,12 +2849,12 @@ $ hf jobs scheduled uv run [OPTIONS] SCHEDULE SCRIPT [SCRIPT_ARGS]...
 * `--image TEXT`: Use a custom Docker image with `uv` installed.
 * `--flavor [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|rtx-pro-6000|rtx-pro-6000x2|rtx-pro-6000x4|rtx-pro-6000x8]`: Flavor for the hardware. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
-* `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
+* `-s, --secrets TEXT`: Set secret environment variables. Prefer `--secrets SECRET` to read the value from your environment (e.g. `--secrets HF_TOKEN` to pass your Hugging Face token); `--secrets SECRET=value` puts the value in your shell history.
 * `--name TEXT`: Name the Job. Stored as the `name` label. Names do not have to be unique. Defaults to the image or script name plus a short hash of the resolved launch configuration.
 * `-l, --label TEXT`: Set labels. E.g. --label KEY=VALUE or --label LABEL
 * `-v, --volume TEXT`: Mount one or more volumes. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro|:rw] or LOCAL_DIR:/MOUNT_PATH[:ro|:rw]. TYPE is one of: models, datasets, spaces, buckets. TYPE defaults to models if omitted. models, datasets and spaces are always mounted read-only. buckets are read+write by default. A local directory source is first synced to a bucket and mounted read-only by default. E.g. -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro or -v ./inputs:/inputs
-* `--env-file TEXT`: Read in a file of environment variables.
-* `--secrets-file TEXT`: Read in a file of secret environment variables.
+* `--env-file TEXT`: Read in a file of environment variables. Use `-` to read them from stdin.
+* `--secrets-file TEXT`: Read in a file of secret environment variables. Use `-` to read them from stdin.
 * `--timeout TEXT`: Max duration: int with s (seconds, default), m (minutes), h (hours) or d (days).
 * `--dry-run`: Print the resolved Job configuration without submitting the Job.
 * `--expose INTEGER`: Expose a container port through the jobs proxy. Repeat the flag for multiple ports (e.g. `--expose 8000 --expose 8001`). Each exposed port is reachable on the public jobs domain; access requires an HF token with read access to the job's namespace.
@@ -2974,12 +2976,12 @@ $ hf jobs uv run [OPTIONS] SCRIPT [SCRIPT_ARGS]...
 * `--image TEXT`: Use a custom Docker image with `uv` installed.
 * `--flavor [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|rtx-pro-6000|rtx-pro-6000x2|rtx-pro-6000x4|rtx-pro-6000x8]`: Flavor for the hardware. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
-* `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
+* `-s, --secrets TEXT`: Set secret environment variables. Prefer `--secrets SECRET` to read the value from your environment (e.g. `--secrets HF_TOKEN` to pass your Hugging Face token); `--secrets SECRET=value` puts the value in your shell history.
 * `--name TEXT`: Name the Job. Stored as the `name` label. Names do not have to be unique. Defaults to the image or script name plus a short hash of the resolved launch configuration.
 * `-l, --label TEXT`: Set labels. E.g. --label KEY=VALUE or --label LABEL
 * `-v, --volume TEXT`: Mount one or more volumes. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro|:rw] or LOCAL_DIR:/MOUNT_PATH[:ro|:rw]. TYPE is one of: models, datasets, spaces, buckets. TYPE defaults to models if omitted. models, datasets and spaces are always mounted read-only. buckets are read+write by default. A local directory source is first synced to a bucket and mounted read-only by default. E.g. -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro or -v ./inputs:/inputs
-* `--env-file TEXT`: Read in a file of environment variables.
-* `--secrets-file TEXT`: Read in a file of secret environment variables.
+* `--env-file TEXT`: Read in a file of environment variables. Use `-` to read them from stdin.
+* `--secrets-file TEXT`: Read in a file of secret environment variables. Use `-` to read them from stdin.
 * `--timeout TEXT`: Max duration: int with s (seconds, default), m (minutes), h (hours) or d (days).
 * `-d, --detach`: Run the Job in the background and print the Job ID.
 * `--dry-run`: Print the resolved Job configuration without submitting the Job.
@@ -3423,7 +3425,7 @@ $ hf repos branch create [OPTIONS] REPO_ID BRANCH
 
 * `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--exist-ok / --no-exist-ok`: If set to True, do not raise an error if branch already exists.  [default: no-exist-ok]
 * `--help`: Show this message and exit.
 
@@ -3454,7 +3456,7 @@ $ hf repos branch delete [OPTIONS] REPO_ID BRANCH
 **Options**:
 
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--help`: Show this message and exit.
 
 Examples
@@ -3523,7 +3525,7 @@ $ hf repos create [OPTIONS] REPO_ID
 
 **Options**:
 
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--sdk, --space-sdk TEXT`: Hugging Face Spaces SDK type. Required when --type is set to 'space'.
 * `--template TEXT`: Create a Space from an official template. Pass a template repo id (e.g. 'SpacesExamples/jupyterlab') or its short name (e.g. 'JupyterLab'). List available templates with `hf spaces templates`. Spaces only.
 * `--private / --no-private`: Whether to create a private repo if repo doesn't exist on the Hub. Ignored if the repo already exists.
@@ -3536,10 +3538,10 @@ $ hf repos create [OPTIONS] REPO_ID
 * `--flavor [cpu-basic|cpu-upgrade|zero-a10g|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8]`: Space hardware flavor (e.g. 'cpu-basic', 't4-medium', 'l4x4'). Only for Spaces.
 * `--storage [small|medium|large]`: (Deprecated, use volumes instead) Space persistent storage tier ('small', 'medium', or 'large'). Only for Spaces.
 * `--sleep-time INTEGER`: Seconds of inactivity before the Space is put to sleep. Use -1 to disable. Only for Spaces.
-* `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
-* `--secrets-file TEXT`: Read in a file of secret environment variables.
+* `-s, --secrets TEXT`: Set secret environment variables. Prefer `--secrets SECRET` to read the value from your environment (e.g. `--secrets HF_TOKEN` to pass your Hugging Face token); `--secrets SECRET=value` puts the value in your shell history.
+* `--secrets-file TEXT`: Read in a file of secret environment variables. Use `-` to read them from stdin.
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
-* `--env-file TEXT`: Read in a file of environment variables.
+* `--env-file TEXT`: Read in a file of environment variables. Use `-` to read them from stdin.
 * `-v, --volume TEXT`: Mount one or more volumes. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. TYPE is one of: models, datasets, spaces, buckets. TYPE defaults to models if omitted. models, datasets and spaces are always mounted read-only. buckets are read+write by default. E.g. -v hf://org/m:/data or -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro
 * `--help`: Show this message and exit.
 
@@ -3572,7 +3574,7 @@ $ hf repos delete [OPTIONS] REPO_ID
 
 **Options**:
 
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--missing-ok / --no-missing-ok`: If set to True, do not raise an error if repo does not exist.  [default: no-missing-ok]
 * `-y, --yes`: Answer Yes to prompt automatically.
@@ -3603,7 +3605,7 @@ $ hf repos delete-files [OPTIONS] REPO_ID PATTERNS...
 
 **Options**:
 
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
 * `--commit-message TEXT`: The summary / title / first line of the generated commit.
 * `--commit-description TEXT`: The description of the generated commit.
@@ -3638,7 +3640,7 @@ $ hf repos duplicate [OPTIONS] FROM_ID [TO_ID]
 
 **Options**:
 
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--private / --no-private`: Whether to create a private repo if repo doesn't exist on the Hub. Ignored if the repo already exists.
 * `--public`: Whether to make the repo public. Ignored if the repo already exists.
 * `--protected`: Whether to make the Space protected (Spaces only). Ignored if the repo already exists.
@@ -3647,10 +3649,10 @@ $ hf repos duplicate [OPTIONS] FROM_ID [TO_ID]
 * `--flavor [cpu-basic|cpu-upgrade|zero-a10g|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8]`: Space hardware flavor (e.g. 'cpu-basic', 't4-medium', 'l4x4'). Only for Spaces.
 * `--storage [small|medium|large]`: (Deprecated, use volumes instead) Space persistent storage tier ('small', 'medium', or 'large'). Only for Spaces.
 * `--sleep-time INTEGER`: Seconds of inactivity before the Space is put to sleep. Use -1 to disable. Only for Spaces.
-* `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
-* `--secrets-file TEXT`: Read in a file of secret environment variables.
+* `-s, --secrets TEXT`: Set secret environment variables. Prefer `--secrets SECRET` to read the value from your environment (e.g. `--secrets HF_TOKEN` to pass your Hugging Face token); `--secrets SECRET=value` puts the value in your shell history.
+* `--secrets-file TEXT`: Read in a file of secret environment variables. Use `-` to read them from stdin.
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
-* `--env-file TEXT`: Read in a file of environment variables.
+* `--env-file TEXT`: Read in a file of environment variables. Use `-` to read them from stdin.
 * `-v, --volume TEXT`: Mount one or more volumes. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. TYPE is one of: models, datasets, spaces, buckets. TYPE defaults to models if omitted. models, datasets and spaces are always mounted read-only. buckets are read+write by default. E.g. -v hf://org/m:/data or -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro
 * `--help`: Show this message and exit.
 
@@ -3712,7 +3714,7 @@ $ hf repos move [OPTIONS] FROM_ID TO_ID
 **Options**:
 
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--help`: Show this message and exit.
 
 Examples
@@ -3744,7 +3746,7 @@ $ hf repos settings [OPTIONS] REPO_ID
 * `--public`: Whether to make the repo public. Ignored if the repo already exists.
 * `--protected`: Whether to make the Space protected (Spaces only). Ignored if the repo already exists.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--help`: Show this message and exit.
 
 Examples
@@ -3797,7 +3799,7 @@ $ hf repos tag create [OPTIONS] REPO_ID TAG
 * `-m, --message TEXT`: The description of the tag to create.
 * `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--help`: Show this message and exit.
 
 Examples
@@ -3828,7 +3830,7 @@ $ hf repos tag delete [OPTIONS] REPO_ID TAG
 
 * `-y, --yes`: Answer Yes to prompt automatically
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--help`: Show this message and exit.
 
 Examples
@@ -3856,7 +3858,7 @@ $ hf repos tag list [OPTIONS] REPO_ID
 **Options**:
 
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--help`: Show this message and exit.
 
 Examples
@@ -3946,10 +3948,10 @@ $ hf sandbox create [OPTIONS] [IMAGE]
 * `--flavor [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|rtx-pro-6000|rtx-pro-6000x2|rtx-pro-6000x4|rtx-pro-6000x8]`: Flavor for the hardware. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.
 * `--idle-timeout TEXT`: Auto-terminate the sandbox after this much inactivity (e.g. '10m'). Defaults to 10m.
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
-* `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
+* `-s, --secrets TEXT`: Set secret environment variables. Prefer `--secrets SECRET` to read the value from your environment (e.g. `--secrets HF_TOKEN` to pass your Hugging Face token); `--secrets SECRET=value` puts the value in your shell history.
 * `-l, --label TEXT`: Set labels. E.g. --label KEY=VALUE or --label LABEL
-* `--env-file TEXT`: Read in a file of environment variables.
-* `--secrets-file TEXT`: Read in a file of secret environment variables.
+* `--env-file TEXT`: Read in a file of environment variables. Use `-` to read them from stdin.
+* `--secrets-file TEXT`: Read in a file of secret environment variables. Use `-` to read them from stdin.
 * `-v, --volume TEXT`: Mount one or more volumes. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. TYPE is one of: models, datasets, spaces, buckets. TYPE defaults to models if omitted. models, datasets and spaces are always mounted read-only. buckets are read+write by default. E.g. -v hf://org/m:/data or -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--forward-hf-token`: Inject your HF token as HF_TOKEN in the sandbox.
@@ -3990,7 +3992,7 @@ $ hf sandbox exec [OPTIONS] SANDBOX_ID COMMAND...
 
 * `-w, --workdir TEXT`: Working directory.
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
-* `--env-file TEXT`: Read in a file of environment variables.
+* `--env-file TEXT`: Read in a file of environment variables. Use `-` to read them from stdin.
 * `--timeout FLOAT`: Kill the command after this many seconds.
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
@@ -4242,7 +4244,7 @@ $ hf sandbox spawn [OPTIONS] SANDBOX_ID COMMAND...
 
 * `-w, --workdir TEXT`: Working directory.
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
-* `--env-file TEXT`: Read in a file of environment variables.
+* `--env-file TEXT`: Read in a file of environment variables. Use `-` to read them from stdin.
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
@@ -4793,8 +4795,8 @@ $ hf spaces secrets add [OPTIONS] SPACE_ID
 
 **Options**:
 
-* `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
-* `--secrets-file TEXT`: Read in a file of secret environment variables.
+* `-s, --secrets TEXT`: Set secret environment variables. Prefer `--secrets SECRET` to read the value from your environment (e.g. `--secrets HF_TOKEN` to pass your Hugging Face token); `--secrets SECRET=value` puts the value in your shell history.
+* `--secrets-file TEXT`: Read in a file of secret environment variables. Use `-` to read them from stdin.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -4995,7 +4997,7 @@ $ hf spaces variables add [OPTIONS] SPACE_ID
 **Options**:
 
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
-* `--env-file TEXT`: Read in a file of environment variables.
+* `--env-file TEXT`: Read in a file of environment variables. Use `-` to read them from stdin.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -5268,7 +5270,7 @@ $ hf upload [OPTIONS] REPO_ID [LOCAL_PATH] [PATH_IN_REPO]
 
 **Options**:
 
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: (model)]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: (model)]
 * `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
 * `--private / --no-private`: Whether to create a private repo if repo doesn't exist on the Hub. Ignored if the repo already exists.
 * `--include TEXT`: Glob patterns to match files to upload.
@@ -5310,7 +5312,7 @@ $ hf upload-large-folder [OPTIONS] REPO_ID LOCAL_PATH
 
 **Options**:
 
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
 * `--private / --no-private`: Whether to create a private repo if repo doesn't exist on the Hub. Ignored if the repo already exists.
 * `--include TEXT`: Glob patterns to match files to upload.

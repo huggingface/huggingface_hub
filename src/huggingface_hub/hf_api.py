@@ -29,41 +29,14 @@ from functools import wraps
 from itertools import islice
 from pathlib import Path
 from secrets import token_hex
-from typing import TYPE_CHECKING, Any, BinaryIO, Literal, TypeVar, overload
+from typing import TYPE_CHECKING, Any, BinaryIO, Literal, TypeVar, cast, overload
 from urllib.parse import quote
 
 import httpcore
 import httpx
-from tqdm.auto import tqdm as base_tqdm
+from tqdm import tqdm as base_tqdm
 
 from . import constants
-from ._buckets import (
-    BucketFile,
-    BucketFileMetadata,
-    BucketFolder,
-    BucketInfo,
-    BucketUrl,
-    SyncPlan,
-    _BucketAddFile,
-    _BucketCopyFile,
-    _BucketDeleteFile,
-    _parse_bucket_uri,
-    sync_bucket_internal,
-)
-from ._commit_api import (
-    DUPLICATE_LFS_BATCH_SIZE,
-    CommitOperation,
-    CommitOperationAdd,
-    CommitOperationCopy,
-    CommitOperationDelete,
-    _CopySource,
-    _fetch_files_to_copy,
-    _fetch_upload_modes,
-    _send_commit,
-    _upload_files,
-    _warn_on_overwriting_operations,
-)
-from ._dataset_viewer import DatasetParquetEntry
 from ._eval_results import EvalResultEntry, parse_eval_result_entries
 from ._inference_endpoints import (
     InferenceEndpoint,
@@ -99,8 +72,6 @@ from ._space_api import (
     SpaceVariable,
     Volume,
 )
-from ._upload_large_folder import upload_large_folder_internal
-from ._upload_pipeline import pipelined_upload
 from .community import (
     Discussion,
     DiscussionComment,
@@ -123,15 +94,6 @@ from .errors import (
     RevisionNotFoundError,
     RevisionResolutionError,
 )
-from .file_download import (
-    REGEX_COMMIT_HASH,
-    DryRunFileInfo,
-    HfFileMetadata,
-    _cache_commit_hash_for_specific_revision,
-    get_hf_file_metadata,
-    hf_hub_url,
-    repo_folder_name,
-)
 from .repocard_data import DatasetCardData, ModelCardData, SpaceCardData
 from .utils import (
     DEFAULT_IGNORE_PATTERNS,
@@ -141,7 +103,6 @@ from .utils import (
     SafetensorsParsingError,
     SafetensorsRepoMetadata,
     TensorInfo,
-    are_progress_bars_disabled,
     build_hf_headers,
     chunk_iterable,
     experimental,
@@ -150,30 +111,41 @@ from .utils import (
     get_session,
     get_token,
     hf_raise_for_status,
-    hf_thread_map,
     http_backoff,
     logging,
     paginate,
     parse_datetime,
     parse_hf_uri,
     parse_xet_file_data_from_response,
-    silent_tqdm,
     validate_hf_hub_args,
 )
-from .utils import tqdm as hf_tqdm
 from .utils._auth import _get_token_from_environment, _get_token_from_file, _get_token_from_google_colab
 from .utils._deprecation import _deprecate_arguments, _deprecate_method
 from .utils._http import _httpx_follow_hub_redirects_with_backoff
 from .utils._runtime import is_xet_available
 from .utils._typing import CallableT
-from .utils._verification import collect_local_files, resolve_local_root, verify_maps
 from .utils.endpoint_helpers import _is_emission_within_threshold
 
 
 if TYPE_CHECKING:
+    from ._buckets import (
+        BucketFile,
+        BucketFileMetadata,
+        BucketFolder,
+        BucketInfo,
+        BucketUrl,
+        SyncPlan,
+        _BucketAddFile,
+        _BucketCopyFile,
+        _BucketDeleteFile,
+    )
+    from ._commit_api import CommitOperation, CommitOperationAdd, CommitOperationCopy, CommitOperationDelete
+    from ._dataset_viewer import DatasetParquetEntry
+    from .file_download import DryRunFileInfo, HfFileMetadata
     from .inference._providers import PROVIDER_T
     from .utils._verification import FolderVerification
     from .utils._xet_progress_reporting import XetUploadProgressReporter
+
 
 R = TypeVar("R")  # Return type
 CollectionItemType_T = Literal["model", "dataset", "space", "paper", "collection", "bucket"]
@@ -2876,6 +2848,9 @@ class HfApi:
             DatasetParquetEntry(config='default', split='train', url='https://huggingface.co/...', size=5038)
             ```
         """
+
+        from ._dataset_viewer import DatasetParquetEntry
+
         if self.endpoint != constants._HF_DEFAULT_ENDPOINT:
             raise ValueError(
                 "The Dataset Viewer is only available on the Hugging Face Hub"
@@ -3741,6 +3716,9 @@ class HfApi:
             >>> weights = hf_hub_download("openai-community/gpt2", "model.safetensors", revision=revision)
             ```
         """
+
+        from .file_download import REGEX_COMMIT_HASH, _cache_commit_hash_for_specific_revision, repo_folder_name
+
         if repo_type is None:
             repo_type = constants.REPO_TYPE_MODEL
 
@@ -3936,6 +3914,9 @@ class HfApi:
             False
             ```
         """
+
+        from .file_download import get_hf_file_metadata, hf_hub_url
+
         url = hf_hub_url(
             repo_id=repo_id, repo_type=repo_type, revision=revision, filename=filename, endpoint=self.endpoint
         )
@@ -4161,6 +4142,8 @@ class HfApi:
                 If revision is not found (error 404) on the repo.
 
         """
+
+        from .utils._verification import collect_local_files, resolve_local_root, verify_maps
 
         if repo_type is None:
             repo_type = constants.REPO_TYPE_MODEL
@@ -5215,6 +5198,15 @@ class HfApi:
                 If repository is not found (error 404): wrong repo_id/repo_type, private
                 but not authenticated or repo does not exist.
         """
+
+        from ._commit_api import (
+            CommitOperationAdd,
+            CommitOperationCopy,
+            _fetch_files_to_copy,
+            _send_commit,
+            _warn_on_overwriting_operations,
+        )
+
         if parent_commit is not None and not constants.REGEX_COMMIT_OID.fullmatch(parent_commit):
             raise ValueError(
                 f"`parent_commit` is not a valid commit OID. It must match the following regex: {constants.REGEX_COMMIT_OID}"
@@ -5465,6 +5457,9 @@ class HfApi:
         >>> create_commit(repo_id, operations=operations, commit_message="Commit all shards")
         ```
         """
+
+        from ._commit_api import _fetch_upload_modes, _upload_files
+
         repo_type = repo_type if repo_type is not None else constants.REPO_TYPE_MODEL
         if repo_type not in constants.REPO_TYPES:
             raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
@@ -5585,6 +5580,9 @@ class HfApi:
             repo_type (`str`, *optional*):
                 The type of the destination repository (e.g. `"model"` -default-, `"dataset"` or `"space"`).
         """
+
+        from ._commit_api import DUPLICATE_LFS_BATCH_SIZE, _CopySource
+
         repo_type = repo_type if repo_type is not None else constants.REPO_TYPE_MODEL
         if repo_type not in constants.REPO_TYPES:
             raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
@@ -5805,6 +5803,9 @@ class HfApi:
         ... )
         ```
         """
+
+        from ._commit_api import CommitOperationAdd
+
         if repo_type not in constants.REPO_TYPES:
             raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
 
@@ -6068,6 +6069,8 @@ class HfApi:
         commit_message = commit_message or "Upload folder using huggingface_hub"
 
         if is_xet_available():
+            from ._upload_pipeline import pipelined_upload
+
             # Streamed multi-commit pipeline: uploads and commits overlap, large folders are
             # committed in adaptive batches, interrupted uploads resume by re-running.
             return pipelined_upload(
@@ -6173,6 +6176,9 @@ class HfApi:
         >       If the file to download cannot be found.
 
         """
+
+        from ._commit_api import CommitOperationDelete
+
         commit_message = (
             commit_message if commit_message is not None else f"Delete {path_in_repo} with huggingface_hub"
         )
@@ -6324,6 +6330,9 @@ class HfApi:
                 Specifying `parent_commit` ensures the repo has not changed before committing the changes, and can be
                 especially useful if the repo is updated / committed to concurrently.
         """
+
+        from ._commit_api import CommitOperationDelete
+
         return self.create_commit(
             repo_id=repo_id,
             repo_type=repo_type,
@@ -6456,6 +6465,8 @@ class HfApi:
             FutureWarning,
             stacklevel=2,
         )
+        from ._upload_large_folder import upload_large_folder_internal
+
         return upload_large_folder_internal(
             self,
             repo_id=repo_id,
@@ -6494,6 +6505,9 @@ class HfApi:
         Returns:
             A [`HfFileMetadata`] object containing metadata such as location, etag, size and commit_hash.
         """
+
+        from .file_download import get_hf_file_metadata
+
         if token is None:
             # Cannot do `token = token or self.token` as token can be `False`.
             token = self.token
@@ -6684,7 +6698,7 @@ class HfApi:
             token=token,
             headers=self.headers,
             local_files_only=local_files_only,
-            tqdm_class=tqdm_class,
+            tqdm_class=cast(Any, tqdm_class),
             dry_run=dry_run,
         )
 
@@ -6846,7 +6860,7 @@ class HfApi:
             allow_patterns=allow_patterns,
             ignore_patterns=ignore_patterns,
             max_workers=max_workers,
-            tqdm_class=tqdm_class,
+            tqdm_class=cast(Any, tqdm_class),
             headers=self.headers,
             dry_run=dry_run,
         )
@@ -6983,6 +6997,9 @@ class HfApi:
                     timeout=timeout,
                 )
 
+            from .utils import hf_thread_map
+            from .utils import tqdm as hf_tqdm
+
             hf_thread_map(
                 _parse,
                 set(weight_map.values()),
@@ -7049,6 +7066,9 @@ class HfApi:
             [`SafetensorsParsingError`]:
                 If a safetensors file header couldn't be parsed correctly.
         """
+
+        from .file_download import hf_hub_url
+
         url = hf_hub_url(
             repo_id=repo_id, filename=filename, repo_type=repo_type, revision=revision, endpoint=self.endpoint
         )
@@ -11618,6 +11638,9 @@ class HfApi:
         Note: `.gitattributes` file is essential to make a repo work properly on the Hub. This file will always be
               kept even if it matches the `delete_patterns` constraints.
         """
+
+        from ._commit_api import CommitOperationDelete
+
         if delete_patterns is None:
             # If no delete patterns, no need to list and filter remote files
             return []
@@ -11655,6 +11678,8 @@ class HfApi:
         Files not matching the `allow_patterns` (allowlist) and `ignore_patterns` (denylist)
         constraints are discarded.
         """
+
+        from ._commit_api import CommitOperationAdd
 
         folder_path = Path(folder_path).expanduser().resolve()
         if not folder_path.is_dir():
@@ -13839,6 +13864,8 @@ class HfApi:
             BucketUrl(...)
             ```
         """
+        from ._buckets import BucketUrl, _parse_bucket_uri
+
         payload: dict[str, Any] = {}
         if private is not None:
             payload["private"] = private
@@ -13920,6 +13947,8 @@ class HfApi:
             12
             ```
         """
+        from ._buckets import BucketInfo
+
         response = get_session().get(
             f"{self.endpoint}/api/buckets/{bucket_id}",
             headers=self._build_hf_headers(token=token),
@@ -13964,6 +13993,8 @@ class HfApi:
             ...     print(bucket)
             ```
         """
+        from ._buckets import BucketInfo
+
         if namespace is None:
             namespace = "me"
         params: dict[str, Any] = {}
@@ -14157,6 +14188,8 @@ class HfApi:
             ...     print(file_info.path)
             ```
         """
+        from ._buckets import BucketFile, BucketFolder
+
         encoded_prefix = "/" + quote(prefix, safe="") if prefix else ""
         params = {}
         if recursive is not None:
@@ -14210,6 +14243,8 @@ class HfApi:
         BucketFile(type='file', path='checkpoints/model.safetensors', size=2408828, xet_hash='3ed0e9fefe788ddd61d1e26eba67057e9740a064b009256fbafadf6bb95785ca', mtime=datetime.datetime(2024, 9, 25, 15, 31, 2, 346000, tzinfo=datetime.timezone.utc))
         ```
         """
+        from ._buckets import BucketFile
+
         headers = self._build_hf_headers(token=token)
 
         for batch in chunk_iterable(paths, chunk_size=_BUCKET_PATHS_INFO_BATCH_SIZE):
@@ -14310,6 +14345,8 @@ class HfApi:
         *,
         token: str | bool | None = None,
     ) -> None:
+        from ._buckets import BucketFile, _BucketCopyFile
+
         destination_bucket_id = destination.id
         destination_path = destination.path_in_repo
         destination_is_directory = False
@@ -14400,6 +14437,7 @@ class HfApi:
                 raise EntryNotFoundError(f"No files found at '{source_str}' in {source.type} '{source.id}'.")
 
         if pending_downloads:
+            from .utils import silent_tqdm
 
             def _download_and_collect(item: tuple[str, str]) -> None:
                 file_path, target_path = item
@@ -14412,6 +14450,8 @@ class HfApi:
                     tqdm_class=silent_tqdm,  # type: ignore
                 )
                 all_adds.append((local_path, target_path))
+
+            from .utils import hf_thread_map
 
             hf_thread_map(_download_and_collect, pending_downloads, desc="Downloading text files for copy")
 
@@ -14482,6 +14522,9 @@ class HfApi:
         *,
         token: str | bool | None = None,
     ) -> None:
+
+        from ._commit_api import CommitOperationCopy
+
         destination_path = destination.path_in_repo
         destination_is_directory = False
         destination_exists_as_directory = False
@@ -14630,6 +14673,7 @@ class HfApi:
             return
 
         # Large batch: chunk copies first (no upload), then adds, then deletes
+        from .utils import are_progress_bars_disabled
         from .utils._xet_progress_reporting import XetUploadProgressReporter
 
         if add and not are_progress_bars_disabled():
@@ -14663,6 +14707,8 @@ class HfApi:
         _progress: XetUploadProgressReporter | None = None,
     ):
         """Internal method: process a single batch of bucket file operations (upload to XET + call /batch)."""
+        from ._buckets import _BucketAddFile, _BucketCopyFile, _BucketDeleteFile
+
         # Convert public API inputs to internal operation objects
         operations: list[_BucketAddFile | _BucketCopyFile | _BucketDeleteFile] = []
         if add:
@@ -14698,6 +14744,7 @@ class HfApi:
 
         from hf_xet import SKIP_SHA256
 
+        from .utils import are_progress_bars_disabled
         from .utils._xet import (
             XetTokenType,
             abort_xet_session,
@@ -14777,6 +14824,7 @@ class HfApi:
                         "type": "copyFile",
                         "path": op.destination,
                         "xetHash": op.xet_hash,
+                        "mtime": op.mtime,
                         "sourceRepoType": op.source_repo_type,
                         "sourceRepoId": op.source_repo_id,
                     }
@@ -14834,6 +14882,8 @@ class HfApi:
             42000
             ```
         """
+        from ._buckets import BucketFileMetadata
+
         headers = self._build_hf_headers(token=token)
         headers["Accept-Encoding"] = "identity"  # prevent compression so the size matches the file
 
@@ -14911,6 +14961,7 @@ class HfApi:
         """
         from hf_xet import XetFileInfo  # type: ignore[no-redef]
 
+        from ._buckets import BucketFile
         from .utils._xet import abort_xet_session, get_xet_session, xet_headers_without_auth
 
         headers = self._build_hf_headers(token=token)
@@ -15087,6 +15138,8 @@ class HfApi:
             >>> api.sync_bucket(apply="sync-plan.jsonl")
             ```
         """
+        from ._buckets import sync_bucket_internal
+
         return sync_bucket_internal(
             source=source,
             dest=dest,
