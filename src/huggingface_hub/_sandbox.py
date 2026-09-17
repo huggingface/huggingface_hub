@@ -307,7 +307,7 @@ class SandboxFiles:
     # bandwidth-delay product (~2 MiB/s at ~100ms RTT); parallel streams scale it.
     PARALLEL_THRESHOLD = 2 * 1024 * 1024
     PARALLEL_CHUNK_SIZE = 1 * 1024 * 1024
-    PARALLEL_MAX_WORKERS = 16
+    PARALLEL_MAX_WORKERS = constants.SANDBOX_PARALLEL_MAX_WORKERS
     # Ceiling on what `read`/`read_text` will materialize in memory. A parallel
     # read used to collect every chunk into a list and *then* join it, so a 2 GB
     # file peaked at roughly twice its size before the caller saw a byte. Reading

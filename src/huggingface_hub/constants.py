@@ -346,3 +346,8 @@ HF_HUB_DISABLE_SHARED_BLOBS: bool = _is_true(os.environ.get("HF_HUB_DISABLE_SHAR
 
 # Bucket hosting the static sandbox server binary (see huggingface_hub.Sandbox)
 SANDBOX_SERVER_BUCKET: str = "huggingface/sbx-server"
+
+# Sandbox file transfer concurrency. Lower values avoid triggering per-source CDN throttles on
+# high-bandwidth links; higher values improve throughput on lower-bandwidth or high-latency connections.
+# Can be overridden with HF_SANDBOX_PARALLEL_MAX_WORKERS environment variable.
+SANDBOX_PARALLEL_MAX_WORKERS: int = _as_int(os.environ.get("HF_SANDBOX_PARALLEL_MAX_WORKERS")) or 4
