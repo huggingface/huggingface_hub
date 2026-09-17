@@ -3450,6 +3450,122 @@ class TestJobsCommand:
         )
         api.fetch_job_logs.assert_not_called()
 
+    def test_run_quiet_is_not_the_image(self, runner: CliRunner) -> None:
+        """-q/--format/--json must be consumed by hf jobs run, not forwarded as the image."""
+        job = Mock(id="job-id", url="https://huggingface.co/jobs/me/job-id", labels={"name": "n"}, owner=Mock(name="me"))
+        job.status.expose_urls = None
+        job.status.ssh_url = None
+        try:
+            with (
+                patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
+                patch("huggingface_hub.cli._cli_utils._get_extended_environ", return_value={}),
+            ):
+                api = api_cls.return_value
+                api.run_job.return_value = job
+                result = runner.invoke(
+                    app, ["jobs", "run", "--detach", "-q", "--flavor", "cpu-basic", "python:3.12", "python", "train.py"]
+                )
+            assert result.exit_code == 0, result.output
+            assert api.run_job.call_args.kwargs["image"] == "python:3.12"
+            assert api.run_job.call_args.kwargs["command"] == ["python", "train.py"]
+            assert api.run_job.call_args.kwargs["flavor"] == "cpu-basic"
+            assert result.output.strip() == "job-id"
+        finally:
+            out.set_mode(OutputFormat.auto)
+
+    def test_run_json_flag(self, runner: CliRunner) -> None:
+        job = Mock(id="job-id", url="https://huggingface.co/jobs/me/job-id", labels={"name": "n"}, owner=Mock(name="me"))
+        job.status.expose_urls = None
+        job.status.ssh_url = None
+        try:
+            with (
+                patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
+                patch("huggingface_hub.cli._cli_utils._get_extended_environ", return_value={}),
+            ):
+                api = api_cls.return_value
+                api.run_job.return_value = job
+                result = runner.invoke(
+                    app, ["jobs", "run", "--detach", "--json", "python:3.12", "python", "train.py"]
+                )
+            assert result.exit_code == 0, result.output
+            assert api.run_job.call_args.kwargs["image"] == "python:3.12"
+            data = json.loads(result.stdout)
+            assert data["id"] == "job-id"
+        finally:
+            out.set_mode(OutputFormat.auto)
+
+    def test_run_format_after_script_still_belongs_to_hf(self, runner: CliRunner) -> None:
+        job = Mock(id="job-id", url="https://huggingface.co/jobs/me/job-id", labels={"name": "n"}, owner=Mock(name="me"))
+        job.status.expose_urls = None
+        job.status.ssh_url = None
+        try:
+            with (
+                patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
+                patch("huggingface_hub.cli._cli_utils._get_extended_environ", return_value={}),
+            ):
+                api = api_cls.return_value
+                api.run_job.return_value = job
+                result = runner.invoke(
+                    app, ["jobs", "run", "--detach", "python:3.12", "python", "train.py", "--json"]
+                )
+            assert result.exit_code == 0, result.output
+            assert api.run_job.call_args.kwargs["command"] == ["python", "train.py"]
+            data = json.loads(result.stdout)
+            assert data["id"] == "job-id"
+        finally:
+            out.set_mode(OutputFormat.auto)
+
+    def test_run_double_dash_forwards_format_flags(self, runner: CliRunner) -> None:
+        job = Mock(id="job-id", url="https://huggingface.co/jobs/me/job-id", labels={"name": "n"}, owner=Mock(name="me"))
+        job.status.expose_urls = None
+        job.status.ssh_url = None
+        try:
+            with (
+                patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
+                patch("huggingface_hub.cli._cli_utils._get_extended_environ", return_value={}),
+            ):
+                api = api_cls.return_value
+                api.run_job.return_value = job
+                result = runner.invoke(
+                    app, ["jobs", "run", "--detach", "python:3.12", "python", "train.py", "--", "-q", "--json"]
+                )
+            assert result.exit_code == 0, result.output
+            assert api.run_job.call_args.kwargs["command"] == ["python", "train.py", "-q", "--json"]
+            assert "job-id" in result.output
+            assert not result.output.strip() == "job-id"
+        finally:
+            out.set_mode(OutputFormat.auto)
+
+    def test_run_json_and_format_are_exclusive(self, runner: CliRunner) -> None:
+        try:
+            result = runner.invoke(
+                app, ["jobs", "run", "--json", "--format", "quiet", "python:3.12", "python", "train.py"]
+            )
+            assert result.exit_code != 0
+            assert "mutually exclusive" in str(result.exception)
+        finally:
+            out.set_mode(OutputFormat.auto)
+
+    def test_uv_run_format_quiet_is_not_the_script(self, runner: CliRunner) -> None:
+        job = Mock(id="job-id", url="https://huggingface.co/jobs/me/job-id", labels={"name": "n"}, owner=Mock(name="me"))
+        job.status.expose_urls = None
+        job.status.ssh_url = None
+        try:
+            with (
+                patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
+                patch("huggingface_hub.cli._cli_utils._get_extended_environ", return_value={}),
+            ):
+                api = api_cls.return_value
+                api.run_uv_job.return_value = job
+                result = runner.invoke(
+                    app, ["jobs", "uv", "run", "--detach", "--format", "quiet", "hello.py"]
+                )
+            assert result.exit_code == 0, result.output
+            assert api.run_uv_job.call_args.kwargs["script"] == "hello.py"
+            assert result.output.strip() == "job-id"
+        finally:
+            out.set_mode(OutputFormat.auto)
+
     def test_create_scheduled_job(self, runner: CliRunner) -> None:
         scheduled_job = Mock(id="my-job-id")
         with (
