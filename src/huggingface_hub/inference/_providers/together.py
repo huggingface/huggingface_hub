@@ -58,6 +58,15 @@ class TogetherTextGenerationTask(BaseTextGenerationTask):
     def __init__(self):
         super().__init__(provider=_PROVIDER, base_url=_BASE_URL)
 
+    def _prepare_payload_as_dict(
+        self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
+    ) -> dict | None:
+        params = filter_none(parameters.copy())
+        # Together's completion endpoint is OpenAI-compatible and expects `max_tokens`.
+        params["max_tokens"] = params.pop("max_new_tokens", None)
+
+        return {"prompt": inputs, **params, "model": provider_mapping_info.provider_id}
+
     def get_response(self, response: bytes | dict, request_params: RequestParameters | None = None) -> Any:
         output = _as_dict(response)["choices"][0]
         return {
