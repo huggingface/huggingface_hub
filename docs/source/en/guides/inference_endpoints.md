@@ -23,8 +23,6 @@ InferenceCatalogModel(repo_id='meta-llama/Llama-3.1-8B-Instruct', name='Llama-3.
  InferenceCatalogRecipe(id='artisanal-quinoa-yz9ynamx', accelerator='neuron', engine='vllmNeuron', gguf_file=None, revision=None)]
 ```
 
-The filters apply to *models*, not to recipes: as above, a model selected by `accelerator="neuron"` is returned with all of its recipes, including the GPU one.
-
 Pass a `repo_id` to [`create_inference_endpoint_from_catalog`] to deploy a model's default recipe, optionally narrowed down with `accelerator` (`"cpu"`, `"gpu"` or `"neuron"`) and `gguf_file`, or pass a `recipe_id` to deploy an exact recipe:
 
 ```py
