@@ -1,3 +1,4 @@
+import base64
 import json
 import mimetypes
 import uuid
@@ -164,3 +165,33 @@ class DeepInfraFeatureExtractionTask(TaskProviderHelper):
 
     def get_response(self, response: bytes | dict, request_params: RequestParameters | None = None) -> Any:
         return [item["embedding"] for item in _as_dict(response)["data"]]
+
+
+class DeepInfraTextToImageTask(TaskProviderHelper):
+    def __init__(self):
+        super().__init__(provider=_PROVIDER, base_url=_BASE_URL, task="text-to-image")
+
+    def _prepare_route(self, mapped_model: str, api_key: str) -> str:
+        return "/v1/openai/images/generations"
+
+    def _prepare_payload_as_dict(
+        self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
+    ) -> dict | None:
+        parameters = filter_none(parameters)
+        if "width" in parameters and "height" in parameters:
+            parameters["size"] = f"{parameters.pop('width')}x{parameters.pop('height')}"
+        # DeepInfra's OpenAI-compatible images endpoint ignores diffusion-specific fields;
+        # drop them so they are not silently swallowed by the provider.
+        for unsupported in ("num_inference_steps", "guidance_scale", "negative_prompt", "scheduler", "seed"):
+            parameters.pop(unsupported, None)
+        # `prompt`/`model` are applied after the caller parameters so neither can be overridden.
+        return {
+            **parameters,
+            "response_format": "b64_json",
+            "prompt": inputs,
+            "model": provider_mapping_info.provider_id,
+        }
+
+    def get_response(self, response: bytes | dict, request_params: RequestParameters | None = None) -> Any:
+        response_dict = _as_dict(response)
+        return base64.b64decode(response_dict["data"][0]["b64_json"])
