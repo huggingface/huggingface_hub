@@ -16,6 +16,7 @@
 import itertools
 import multiprocessing
 import multiprocessing.pool
+import re
 import shlex
 import shutil
 import time
@@ -27,6 +28,8 @@ from pathlib import Path
 from queue import Empty, Queue
 from typing import Annotated, Any, TypeVar
 from urllib.parse import urlsplit
+
+import yaml
 
 from huggingface_hub import HfApi, JobHardware, JobInfo, JobStage, Volume, constants
 from huggingface_hub._jobs_api import (
@@ -617,6 +620,77 @@ JobVolumesOpt = Annotated[
     ),
 ]
 
+WithServicesOpt = Annotated[
+    str | None,
+    Option(
+        "--with-services",
+        help="Services configuration for background services. "
+        "Accepts YAML file paths (e.g. `--with-services docker-compose.yml`) or template calls "
+        "(e.g. `--with-services dask(num_workers=4)`, `--with-services ray(num_workers=2)`, "
+        "`--with-services spark_connect(num_workers=3)`). "
+        "Services are in the same network group as the Job and are accessible via "
+        "${HF_NETWORK_GROUP_PREFIX}service-name:PORT. "
+        "Services must have an 'image' and 'command' key. "
+        "The Job will automatically cancel services on exit.",
+    ),
+]
+
+
+def _resolve_services(services_arg: str | None) -> dict[str, Any] | None:
+    """Resolve a compose argument to a dict.
+
+    Accepts:
+    - None: returns None
+    - YAML file path: loads and parses the YAML file
+    - Template call: parses as name(args) and calls the template function
+    """
+    if services_arg is None:
+        return None
+
+    # Try to parse as a template call: name or name(key=value, ...)
+    template_match = re.match(r"^(\w+)(?:\((.*)\))?$", services_arg, re.DOTALL)
+    if template_match:
+        template_name = template_match.group(1)
+        args_str = template_match.group(2)
+
+        from huggingface_hub.jobs_services import SERVICES_TEMPLATES
+
+        if template_name not in SERVICES_TEMPLATES:
+            available = ", ".join(f"`{name}(...)`" for name in SERVICES_TEMPLATES)
+            raise CLIError(
+                f"Unknown services template '{template_name}'. "
+                f"Available templates: {available}. "
+                f"Usage: --with-services {template_name}(param=value)"
+            )
+
+        kwargs: dict[str, Any] = {}
+        if args_str and args_str.strip():
+            for arg in re.finditer(r"(\w+)=(\S+)", args_str):
+                key, value = arg.group(1), arg.group(2)
+                try:
+                    value = int(value)
+                except ValueError:
+                    try:
+                        value = float(value)
+                    except ValueError:
+                        pass
+                kwargs[key] = value
+
+        return SERVICES_TEMPLATES[template_name](**kwargs)
+
+    # Otherwise, treat as a YAML file path
+    services_path = Path(services_arg)
+    if not services_path.is_file():
+        raise CLIError(f"Services file not found: {services_arg}")
+
+    with open(services_path) as f:
+        services_data = yaml.safe_load(f)
+
+    if services_data is None or "services" not in services_data:
+        raise CLIError("Services file must have a 'services' section")
+
+    return services_data
+
 
 jobs_cli = typer_factory(help="Run and manage Jobs on the Hub.")
 
@@ -642,6 +716,7 @@ def _stream_logs_and_check_status(api: HfApi, job: JobInfo) -> None:
         "hf jobs run -e FOO=foo python:3.12 python script.py",
         "hf jobs run --secrets HF_TOKEN python:3.12 python script.py",
         "hf jobs run -v hf://org/my-model:/data -v hf://buckets/org/b:/mnt python:3.12 python script.py",
+        "hf jobs run --with-services docker-compose.yml python:3.12 python script.py",
     ],
 )
 def jobs_run(
@@ -663,10 +738,11 @@ def jobs_run(
     network_group: NetworkGroupOpt = None,
     network_alias: NetworkAliasOpt = None,
     resource_group_id: ResourceGroupIdOpt = None,
+    with_services: WithServicesOpt = None,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
-    """Run a Job."""
+    """Run a Job on HF infrastructure."""
     env_map = parse_env_map(env, env_file)
     secrets_map = parse_env_map(secrets, secrets_file)
     labels_map = _parse_labels_map(label, name=name) or {}
@@ -709,6 +785,14 @@ def jobs_run(
         },
         dry_run=dry_run,
     )
+    services_data = None
+    if with_services:
+        services_data = _resolve_services(with_services)
+        out.hint(
+            "Services will be started automatically and cancelled when the job exits. "
+            "Use `hf jobs cancel <service_job_id>` to manually stop services."
+        )
+
     if dry_run:
         return
     job = api.run_job(
@@ -725,6 +809,7 @@ def jobs_run(
         network_group=network_group,
         network_aliases=network_alias,
         resource_group_id=resource_group_id,
+        with_services=services_data,
         namespace=namespace,
     )
     out.result("Job started", id=job.id, name=(job.labels or {}).get("name"), url=job.url)
@@ -1277,6 +1362,7 @@ jobs_cli.add_group(uv_app, name="uv")
         "hf jobs uv run --flavor a10g-small ml_training.py",
         "hf jobs uv run --with transformers train.py",
         "hf jobs uv run -v hf://org/my-model:/data -v hf://buckets/org/b:/mnt script.py",
+        "hf jobs uv run --with-services docker-compose.yml script.py",
         "hf jobs uv run --dry-run script.py",
     ],
 )
@@ -1303,6 +1389,7 @@ def jobs_uv_run(
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
     with_: WithOpt = None,
+    with_services: WithServicesOpt = None,
     python: PythonOpt = None,
 ) -> None:
     """Run a UV script (local file or URL) on HF infrastructure"""
@@ -1328,6 +1415,14 @@ def jobs_uv_run(
         network_aliases=network_alias,
         dry_run=dry_run,
     ) as config:
+        services_data = None
+        if with_services:
+            services_data = _resolve_services(with_services)
+            out.hint(
+                "Services will be started automatically and cancelled when the job exits. "
+                "Use `hf jobs cancel <service_job_id>` to manually stop services."
+            )
+
         _print_job_summary(
             {
                 "script": script,
@@ -1370,6 +1465,7 @@ def jobs_uv_run(
             network_group=config.network_group,
             network_aliases=config.network_aliases or None,
             resource_group_id=resource_group_id,
+            with_services=services_data,
             namespace=config.namespace,
         )
     out.result("Job started", id=job.id, name=(job.labels or {}).get("name"), url=job.url)

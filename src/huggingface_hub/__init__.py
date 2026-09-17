@@ -572,6 +572,12 @@ _SUBMOD_ATTRS = {
     "inference._mcp.mcp_client": [
         "MCPClient",
     ],
+    "jobs_services": [
+        "dask",
+        "ray",
+        "spark",
+        "spark_connect",
+    ],
     "repocard": [
         "DatasetCard",
         "ModelCard",
@@ -977,6 +983,7 @@ __all__ = [
     "create_scheduled_uv_job",
     "create_tag",
     "create_webhook",
+    "dask",
     "dataset_info",
     "delete_branch",
     "delete_bucket",
@@ -1103,6 +1110,7 @@ __all__ = [
     "permanently_delete_lfs_files",
     "preupload_lfs_files",
     "push_to_hub_fastai",
+    "ray",
     "read_dduf_file",
     "read_paper",
     "reject_access_request",
@@ -1131,6 +1139,8 @@ __all__ = [
     "set_space_volumes",
     "snapshot_download",
     "space_info",
+    "spark",
+    "spark_connect",
     "split_state_dict_into_shards_factory",
     "split_torch_state_dict_into_shards",
     "super_squash_history",
@@ -1770,6 +1780,12 @@ if TYPE_CHECKING:  # pragma: no cover
     )
     from .inference._mcp.agent import Agent  # noqa: F401
     from .inference._mcp.mcp_client import MCPClient  # noqa: F401
+    from .jobs_services import (
+        dask,  # noqa: F401
+        ray,  # noqa: F401
+        spark,  # noqa: F401
+        spark_connect,  # noqa: F401
+    )
     from .repocard import (
         DatasetCard,  # noqa: F401
         ModelCard,  # noqa: F401

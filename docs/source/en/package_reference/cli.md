@@ -2284,7 +2284,7 @@ $ hf jobs [OPTIONS] COMMAND [ARGS]...
 * `labels`: Update labels on a Job.
 * `list`: List Jobs. [alias: ls, ps]
 * `logs`: Fetch the logs of a Job.
-* `run`: Run a Job.
+* `run`: Run a Job on HF infrastructure.
 * `scheduled`: Create and manage scheduled Jobs on the Hub.
 * `ssh`: SSH into a running Job.
 * `stats`: Fetch the resource usage statistics and metrics of Jobs
@@ -2482,7 +2482,7 @@ Learn more
 
 ### `hf jobs run`
 
-Run a Job.
+Run a Job on HF infrastructure.
 
 **Usage**:
 
@@ -2513,6 +2513,7 @@ $ hf jobs run [OPTIONS] IMAGE COMMAND...
 * `--network-group TEXT`: Join a network group. Jobs in the same namespace and resource group sharing a group are placed together and reach each other on every port. Inside each member, `$HF_NETWORK_GROUP_HOSTNAME` resolves to every member. Lowercase alphanumerics and dashes, 46 characters max.
 * `--network-alias TEXT`: Claim an alias in the network group. Members reach the jobs claiming it at `${HF_NETWORK_GROUP_PREFIX}<alias>`. Repeat the flag for several aliases. Lowercase alphanumerics and dashes, 34 characters max, unique within the job. Requires `--network-group`.
 * `--resource-group-id TEXT`: The ID of the resource group to create the Job in. Used to control access to resources within an organization and for cost attribution/spending-limit features.
+* `--with-services TEXT`: Services configuration for background services. Accepts YAML file paths (e.g. `--with-services docker-compose.yml`) or template calls (e.g. `--with-services dask(num_workers=4)`, `--with-services ray(num_workers=2)`, `--with-services spark_connect(num_workers=3)`). Services are in the same network group as the Job and are accessible via ${HF_NETWORK_GROUP_PREFIX}service-name:PORT. Services must have an 'image' and 'command' key. The Job will automatically cancel services on exit.
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
@@ -2523,6 +2524,7 @@ Examples
   $ hf jobs run -e FOO=foo python:3.12 python script.py
   $ hf jobs run --secrets HF_TOKEN python:3.12 python script.py
   $ hf jobs run -v hf://org/my-model:/data -v hf://buckets/org/b:/mnt python:3.12 python script.py
+  $ hf jobs run --with-services docker-compose.yml python:3.12 python script.py
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -2993,6 +2995,7 @@ $ hf jobs uv run [OPTIONS] SCRIPT [SCRIPT_ARGS]...
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--with TEXT`: Run with the given packages installed
+* `--with-services TEXT`: Services configuration for background services. Accepts YAML file paths (e.g. `--with-services docker-compose.yml`) or template calls (e.g. `--with-services dask(num_workers=4)`, `--with-services ray(num_workers=2)`, `--with-services spark_connect(num_workers=3)`). Services are in the same network group as the Job and are accessible via ${HF_NETWORK_GROUP_PREFIX}service-name:PORT. Services must have an 'image' and 'command' key. The Job will automatically cancel services on exit.
 * `-p, --python TEXT`: The Python interpreter to use for the run environment
 * `--help`: Show this message and exit.
 
@@ -3002,6 +3005,7 @@ Examples
   $ hf jobs uv run --flavor a10g-small ml_training.py
   $ hf jobs uv run --with transformers train.py
   $ hf jobs uv run -v hf://org/my-model:/data -v hf://buckets/org/b:/mnt script.py
+  $ hf jobs uv run --with-services docker-compose.yml script.py
   $ hf jobs uv run --dry-run script.py
 
 Learn more

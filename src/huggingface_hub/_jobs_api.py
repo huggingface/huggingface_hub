@@ -665,6 +665,7 @@ def _create_job_spec(
         if network_aliases:
             network["aliases"] = network_aliases
         job_spec["network"] = network
+        labels = {"network-group": network_group, **(labels or {})}
     # resource group is optional
     if resource_group_id:
         job_spec["resourceGroupId"] = resource_group_id
