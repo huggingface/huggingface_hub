@@ -52,6 +52,7 @@ from .utils._http import (
     _adjust_range_header,
     _httpx_follow_hub_redirects_with_backoff,
     _is_same_or_hub_host,
+    flag_as_download_call,
     http_stream_backoff,
 )
 from .utils._paths import as_extended_path
@@ -848,6 +849,7 @@ def hf_hub_download(
 
 
 @validate_hf_hub_args
+@flag_as_download_call
 def hf_hub_download(
     repo_id: str,
     filename: str,
