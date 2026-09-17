@@ -617,6 +617,16 @@ JobVolumesOpt = Annotated[
     ),
 ]
 
+ComposeFileOpt = Annotated[
+    Path | None,
+    Option(
+        "--compose",
+        help="Docker Compose file to define background services to start alongside the Job. "
+        "Services must have an 'image' and 'command' key. "
+        "The Job will automatically cancel services on exit.",
+    ),
+]
+
 
 jobs_cli = typer_factory(help="Run and manage Jobs on the Hub.")
 
@@ -642,6 +652,7 @@ def _stream_logs_and_check_status(api: HfApi, job: JobInfo) -> None:
         "hf jobs run -e FOO=foo python:3.12 python script.py",
         "hf jobs run --secrets HF_TOKEN python:3.12 python script.py",
         "hf jobs run -v hf://org/my-model:/data -v hf://buckets/org/b:/mnt python:3.12 python script.py",
+        "hf jobs run --compose compose.yml python:3.12 python script.py",
     ],
 )
 def jobs_run(
@@ -663,10 +674,11 @@ def jobs_run(
     network_group: NetworkGroupOpt = None,
     network_alias: NetworkAliasOpt = None,
     resource_group_id: ResourceGroupIdOpt = None,
+    compose: ComposeFileOpt = None,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
-    """Run a Job."""
+    """Run a Job on HF infrastructure."""
     env_map = parse_env_map(env, env_file)
     secrets_map = parse_env_map(secrets, secrets_file)
     labels_map = _parse_labels_map(label, name=name) or {}
@@ -709,6 +721,17 @@ def jobs_run(
         },
         dry_run=dry_run,
     )
+    if compose:
+        # Validate compose file (actual parsing and service startup happens in api.run_job)
+        compose_path = Path(compose)
+        if not compose_path.is_file():
+            raise CLIError(f"Compose file not found: {compose}")
+        labels_map["role"] = "main"
+        out.hint(
+            "Services will be started automatically and cancelled when the job exits. "
+            "Use `hf jobs cancel <service_job_id>` to manually stop services."
+        )
+
     if dry_run:
         return
     job = api.run_job(
@@ -725,6 +748,7 @@ def jobs_run(
         network_group=network_group,
         network_aliases=network_alias,
         resource_group_id=resource_group_id,
+        compose=compose,
         namespace=namespace,
     )
     out.result("Job started", id=job.id, name=(job.labels or {}).get("name"), url=job.url)
@@ -1277,6 +1301,7 @@ jobs_cli.add_group(uv_app, name="uv")
         "hf jobs uv run --flavor a10g-small ml_training.py",
         "hf jobs uv run --with transformers train.py",
         "hf jobs uv run -v hf://org/my-model:/data -v hf://buckets/org/b:/mnt script.py",
+        "hf jobs uv run --compose compose.yml script.py",
         "hf jobs uv run --dry-run script.py",
     ],
 )
@@ -1303,6 +1328,7 @@ def jobs_uv_run(
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
     with_: WithOpt = None,
+    compose: ComposeFileOpt = None,
     python: PythonOpt = None,
 ) -> None:
     """Run a UV script (local file or URL) on HF infrastructure"""
@@ -1328,6 +1354,15 @@ def jobs_uv_run(
         network_aliases=network_alias,
         dry_run=dry_run,
     ) as config:
+        if compose:
+            compose_path = Path(compose)
+            if not compose_path.is_file():
+                raise CLIError(f"Compose file not found: {compose}")
+            out.hint(
+                "Services will be started automatically and cancelled when the job exits. "
+                "Use `hf jobs cancel <service_job_id>` to manually stop services."
+            )
+
         _print_job_summary(
             {
                 "script": script,
@@ -1370,6 +1405,7 @@ def jobs_uv_run(
             network_group=config.network_group,
             network_aliases=config.network_aliases or None,
             resource_group_id=resource_group_id,
+            compose=compose,
             namespace=config.namespace,
         )
     out.result("Job started", id=job.id, name=(job.labels or {}).get("name"), url=job.url)

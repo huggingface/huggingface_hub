@@ -16,9 +16,12 @@ from __future__ import annotations
 import inspect
 import itertools
 import json
+import os
 import re
+import shlex
 import struct
 import time
+import uuid
 import warnings
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Iterator
@@ -34,6 +37,7 @@ from urllib.parse import quote
 
 import httpcore
 import httpx
+import yaml
 from tqdm.auto import tqdm as base_tqdm
 
 from . import constants
@@ -12154,6 +12158,7 @@ class HfApi:
         network_aliases: list[str] | None = None,
         resource_group_id: str | None = None,
         namespace: str | None = None,
+        compose: str | Path | None = None,
         token: bool | str | None = None,
     ) -> JobInfo:
         """
@@ -12225,6 +12230,11 @@ class HfApi:
                 The namespace where the Job will be created. Defaults to the current user's namespace.
 
             token (`bool` or `str`, *optional*):
+
+            compose (`str` or `Path`, *optional*):
+                Path to a YAML compose file defining background services to start alongside this job.
+                The file must have a `services` section where each service has `image` and `command` keys.
+                Services are automatically cancelled when the main job exits.
                 A valid user access token. If not provided, the locally saved token will be used, which is the
                 recommended authentication method. Set to `False` to disable authentication.
                 Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
@@ -12246,6 +12256,18 @@ class HfApi:
             >>> run_job(image=image, command=command, flavor="a10g-small")
             ```
 
+
+            Run a Job with compose services:
+
+            ```python
+            >>> from huggingface_hub import run_job
+            >>> run_job(
+            ...     image="python:3.12",
+            ...     command=["sh", "-c", 'curl --retry 10 --retry-connrefused "http://${HF_NETWORK_GROUP_PREFIX}server:8000/"'],
+            ...     compose="server-compose.yml",
+            ... )
+            ```
+
             Run a Job with volumes:
 
             ```python
@@ -12260,6 +12282,26 @@ class HfApi:
         """
         if namespace is None:
             namespace = self.whoami(token=token)["name"]
+        if compose:
+            network_group, service_specs = self._parse_compose_file(compose)
+            service_jobs = self._run_job_services(
+                services=service_specs,
+                network_group=network_group,
+                resource_group_id=resource_group_id,
+                namespace=namespace,
+                token=token,
+            )
+            # Wait for services to be RUNNING (or to fail)
+            self.wait_for_job(
+                job_id=[job.id for job in service_jobs.values()],
+                stages=[JobStage.RUNNING, JobStage.CANCELED, JobStage.ERROR, JobStage.COMPLETED, JobStage.DELETED],
+                namespace=namespace,
+                token=token,
+                timeout=timeout,
+            )
+            # Wrap command with service cleanup (bash EXIT trap)
+            command = self._wrap_command_for_service_cleanup(command, service_jobs, namespace)
+            network_group = network_group
         if name is None and not (labels and "name" in labels):
             name = _default_job_name_from_image(image, command)
         job_spec = _create_job_spec(
@@ -12286,6 +12328,70 @@ class HfApi:
         hf_raise_for_status(response)
         job_info = response.json()
         return JobInfo(**job_info, endpoint=self.endpoint)
+
+    def _run_job_services(
+        self,
+        *,
+        services: dict[str, dict[str, Any]],
+        network_group: str,
+        timeout: int | float | str | None = None,
+        resource_group_id: str | None = None,
+        namespace: str | None = None,
+        token: bool | str | None = None,
+    ) -> dict[str, "JobInfo"]:
+        """
+        Start background services from a compose file as separate HF Jobs.
+
+        Each service in the compose file is created as an independent job in the
+        same network group so they can communicate via HF_NETWORK_GROUP_PREFIX.
+
+        Args:
+            services (`dict[str, dict[str, Any]]`):
+                Service specs from `_parse_compose_file()`. Each value is a dict with
+                at least `image` and `command` keys, plus optional `flavor`, `replicas`,
+                `env`, `secrets`, `volumes`, `expose`, `ssh`.
+            network_group (`str`):
+                Network group name for all services (e.g., 'jobs-compose-abc123').
+            timeout (`Union[int, float, str]`, *optional*):
+                Max duration for the Job: int with s (seconds, default), m (minutes), h (hours) or d (days).
+                Example: `300` or `"5m"` for 5 minutes.
+            resource_group_id (`str`, *optional*):
+                Resource group for the services.
+            namespace (`str`):
+                The namespace where services will be created.
+            token (`bool` or `str`, *optional*):
+                User access token.
+
+        Returns:
+            A dict mapping service names to their `JobInfo` objects.
+
+        Raises:
+            HfHubHTTPError: If any service fails to start.
+        """
+        if namespace is None:
+            namespace = self.whoami(token=token)["name"]
+
+        service_jobs: dict[str, "JobInfo"] = {}
+
+        for service_name, service_spec in services.items():
+            service_jobs[service_name] = self.run_job(
+                image=service_spec["image"],
+                command=service_spec["command"],
+                env=service_spec.get("env"),
+                secrets=service_spec.get("secrets"),
+                flavor=service_spec.get("flavor"),
+                timeout=timeout,
+                name=f"compose-{service_name}",
+                labels={"compose-role": "service", **service_spec.get("labels", {})},
+                volumes=service_spec.get("volumes"),
+                expose=service_spec.get("expose"),
+                ssh=service_spec.get("ssh", False),
+                network_group=network_group,
+                network_aliases=[service_name],
+                resource_group_id=resource_group_id,
+            )
+
+        return service_jobs
 
     def _fetch_running_job_sse(
         self,
@@ -12810,6 +12916,7 @@ class HfApi:
         network_aliases: list[str] | None = None,
         resource_group_id: str | None = None,
         namespace: str | None = None,
+        compose: str | Path | None = None,
         token: bool | str | None = None,
     ) -> JobInfo:
         """
@@ -12893,6 +13000,11 @@ class HfApi:
                 The namespace where the Job will be created. Defaults to the current user's namespace.
 
             token (`bool` or `str`, *optional*):
+
+            compose (`str` or `Path`, *optional*):
+                Path to a YAML compose file defining background services to start alongside this job.
+                The file must have a `services` section where each service has `image` and `command` keys.
+                Services are automatically cancelled when the main job exits.
                 A valid user access token. If not provided, the locally saved token will be used, which is the
                 recommended authentication method. Set to `False` to disable authentication.
                 Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
@@ -12924,6 +13036,15 @@ class HfApi:
             >>> script = "lighteval"
             >>> script_args= ["endpoint", "inference-providers", "model_name=openai/gpt-oss-20b,provider=auto", "lighteval|gsm8k|0|0"]
             >>> run_uv_job(script, script_args=script_args, dependencies=["lighteval"], flavor="a10g-small")
+            ```
+
+
+            Run a script with compose services:
+
+            ```python
+            >>> from huggingface_hub import run_uv_job
+            >>> script = "my_script.py"
+            >>> run_uv_job(script, compose="server-compose.yml")
             ```
 
             Mount volumes, e.g. to save model checkpoints during training:
@@ -12974,8 +13095,141 @@ class HfApi:
             network_aliases=network_aliases,
             resource_group_id=resource_group_id,
             namespace=namespace,
+            compose=compose,
             token=token,
         )
+
+    def _parse_compose_file(self, compose_path: str | Path) -> tuple[str, dict[str, dict[str, Any]]]:
+        """
+        Parse a compose file and return the network group name and service specs.
+
+        Args:
+            compose_path (`str` or `Path`):
+                Path to the compose YAML file.
+
+        Returns:
+            A tuple of (network_group, service_specs) where:
+            - network_group is the auto-generated network group name (e.g., 'jobs-compose-{uuid}')
+            - service_specs is a dict mapping service names to their job specs
+
+        Raises:
+            ValueError: If yaml is not installed or the compose file is invalid.
+        """
+        compose_path = Path(compose_path)
+        if not compose_path.is_file():
+            raise ValueError(f"Compose file not found: {compose_path}")
+
+        with open(compose_path) as f:
+            compose_data = yaml.safe_load(f)
+
+        if not compose_data or "services" not in compose_data:
+            raise ValueError("Compose file must have a 'services' section")
+
+        # Generate a unique network group for this compose run
+        composed_network_group = f"jobs-compose-{uuid.uuid4().hex[:12]}"
+
+        # Build job spec dicts for each service
+        service_specs: dict[str, dict[str, Any]] = {}
+        for service_name, service_config in compose_data["services"].items():
+            if "image" not in service_config or "command" not in service_config:
+                raise ValueError(f"Service '{service_name}' must have 'image' and 'command' specified")
+            spec: dict[str, Any] = {"image": service_config["image"]}
+            cmd = service_config["command"]
+            if isinstance(cmd, str):
+                spec["command"] = ["sh", "-c", cmd]
+            else:
+                spec["command"] = cmd
+            for key in ["flavor", "replicas", "env", "secrets", "volumes", "expose", "ssh"]:
+                if key in service_config:
+                    value = service_config[key]
+                    if isinstance(value, str) and value.startswith("${") and value.endswith("}"):
+                        value = value.strip("${}")
+                        if "-" in value:
+                            spec[key] = os.environ.get(*value.split("-", 1))
+                        else:
+                            spec[key] = os.environ[value]
+            service_specs[service_name] = spec
+
+        return composed_network_group, service_specs
+
+    @staticmethod
+    def _wrap_command_for_service_cleanup(
+        command: list[str], service_jobs: dict[str, JobInfo], namespace: str
+    ) -> list[str]:
+        """Wrap a command in bash with an EXIT trap to cancel compose services."""
+        if not service_jobs:
+            return command
+
+        escaped_cmd = shlex.join(command)
+
+        lines = [
+            "#!/bin/bash",
+            "set -e",
+            "",
+            "# --- AUTO-INJECTED SERVICE CLEANUP (do not edit)",
+            "_trap_cancel_services() {",
+            '    local cancelled=""',
+            "    local IFS=';'",
+            "    for entry in $HF_SERVICES_TO_CANCEL; do",
+            '        if [[ -n "$entry" && "$entry" == *":"* ]]; then',
+            '            name="${entry%%:*}"',
+            '            job_id="${entry##*:}"',
+            '            url="${HF_API:-https://huggingface.co}/api/jobs/PLACEHOLDER/$job_id/cancel"',
+            '            auth_token="$HF_JOBS_TOKEN"',
+            '            if [[ -n "$auth_token" ]]; then',
+            '                curl -s -X POST -H "Authorization: Bearer $auth_token" "$url" --connect-timeout 10 || true',
+            '                cancelled="${cancelled}${name};"',
+            "            fi",
+            "        fi",
+            "    done",
+            '    if [[ -n "$cancelled" ]]; then',
+            '        cancelled="${cancelled%;}"',
+            '        echo "[service-cleanup] Cancelled services: $cancelled"',
+            "    fi",
+            "}",
+            "trap _trap_cancel_services EXIT",
+            "# --- END AUTO-INJECTED SERVICE CLEANUP ---",
+            "",
+            escaped_cmd,
+        ]
+        bash_script = "\n".join(lines).replace("PLACEHOLDER", namespace) + "\n"
+        return ["/bin/bash", "-c", bash_script]
+
+    @staticmethod
+    def _inject_service_cleanup(script_body: str, service_jobs: dict[str, JobInfo], namespace: str) -> str:
+        """Inject a service-cleanup handler into a UV script body."""
+        if not service_jobs:
+            return script_body
+
+        service_names = sorted(service_jobs.keys())
+        service_names_str = ", ".join(service_names)
+
+        lines = [
+            "# --- AUTO-INJECTED SERVICE CLEANUP (do not edit)",
+            "import atexit",
+            "import sys",
+            "import os",
+            "",
+            "def _hf_cancel_services():",
+            "    for item in os.environ.get('HF_SERVICES_TO_CANCEL', '').split(';'):",
+            "        if not item or ':' not in item:",
+            "            continue",
+            "        name, job_id = item.split(':', 1)",
+            "        try:",
+            "            import urllib.request",
+            f"            url = f'{{os.environ.get('HF_API', 'https://huggingface.co')}}/api/jobs/{namespace}/{{job_id}}/cancel'",
+            "            auth_token = os.environ.get('HF_JOBS_TOKEN', '')",
+            "            headers = {'Authorization': f'Bearer {auth_token}'} if auth_token else {{}}",
+            "            urllib.request.urlopen(urllib.request.Request(url, headers=headers, method='POST'), timeout=30)",
+            "        except Exception as e:",
+            "            print(f'[service-cleanup] Failed to cancel {name}: {{e}}', file=sys.stderr, flush=True)",
+            "",
+            f"    print(f'[service-cleanup] Cancelled services: {service_names_str}', flush=True)",
+            "",
+            "atexit.register(_hf_cancel_services)",
+            "# --- END AUTO-INJECTED SERVICE CLEANUP ---",
+        ]
+        return "\n".join(lines) + "\n" + script_body
 
     def create_scheduled_job(
         self,
