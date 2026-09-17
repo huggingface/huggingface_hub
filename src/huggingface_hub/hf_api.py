@@ -12310,6 +12310,20 @@ class HfApi:
             )
             # Wrap command with service cleanup (bash EXIT trap)
             command = self._wrap_command_for_service_cleanup(command, service_jobs, namespace)
+            # Inject HF_SERVICES_TO_CANCEL and HF_JOBS_TOKEN into the env dict
+            services_to_cancel_str = ";".join(f"{name}:{job.id}" for name, job in sorted(service_jobs.items()))
+            # Resolve the actual token value for the job
+            job_token: str | None = None
+            if isinstance(token, str):
+                job_token = token
+            else:
+                # token is True, False, or None -> try to resolve from environment
+                job_token = _get_token_from_environment() or _get_token_from_file()
+            env = {
+                **(env or {}),
+                "HF_SERVICES_TO_CANCEL": services_to_cancel_str,
+                "HF_JOBS_TOKEN": job_token,
+            }
         if name is None and not (labels and "name" in labels):
             name = _default_job_name_from_image(image, command)
         job_spec = _create_job_spec(
@@ -13206,42 +13220,6 @@ class HfApi:
         ]
         bash_script = "\n".join(lines).replace("PLACEHOLDER", namespace) + "\n"
         return ["/bin/bash", "-c", bash_script]
-
-    @staticmethod
-    def _inject_service_cleanup(script_body: str, service_jobs: dict[str, JobInfo], namespace: str) -> str:
-        """Inject a service-cleanup handler into a UV script body."""
-        if not service_jobs:
-            return script_body
-
-        service_names = sorted(service_jobs.keys())
-        service_names_str = ", ".join(service_names)
-
-        lines = [
-            "# --- AUTO-INJECTED SERVICE CLEANUP (do not edit)",
-            "import atexit",
-            "import sys",
-            "import os",
-            "",
-            "def _hf_cancel_services():",
-            "    for item in os.environ.get('HF_SERVICES_TO_CANCEL', '').split(';'):",
-            "        if not item or ':' not in item:",
-            "            continue",
-            "        name, job_id = item.split(':', 1)",
-            "        try:",
-            "            import urllib.request",
-            f"            url = f'{{os.environ.get('HF_API', 'https://huggingface.co')}}/api/jobs/{namespace}/{{job_id}}/cancel'",
-            "            auth_token = os.environ.get('HF_JOBS_TOKEN', '')",
-            "            headers = {'Authorization': f'Bearer {auth_token}'} if auth_token else {{}}",
-            "            urllib.request.urlopen(urllib.request.Request(url, headers=headers, method='POST'), timeout=30)",
-            "        except Exception as e:",
-            "            print(f'[service-cleanup] Failed to cancel {name}: {{e}}', file=sys.stderr, flush=True)",
-            "",
-            f"    print(f'[service-cleanup] Cancelled services: {service_names_str}', flush=True)",
-            "",
-            "atexit.register(_hf_cancel_services)",
-            "# --- END AUTO-INJECTED SERVICE CLEANUP ---",
-        ]
-        return "\n".join(lines) + "\n" + script_body
 
     def create_scheduled_job(
         self,

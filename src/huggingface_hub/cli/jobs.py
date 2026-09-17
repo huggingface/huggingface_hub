@@ -785,6 +785,7 @@ def jobs_run(
         },
         dry_run=dry_run,
     )
+    services_data = None
     if with_services:
         services_data = _resolve_services(with_services)
         out.hint(
@@ -1414,8 +1415,9 @@ def jobs_uv_run(
         network_aliases=network_alias,
         dry_run=dry_run,
     ) as config:
-        services_data = _resolve_services(with_services)
-        if services_data:
+        services_data = None
+        if with_services:
+            services_data = _resolve_services(with_services)
             out.hint(
                 "Services will be started automatically and cancelled when the job exits. "
                 "Use `hf jobs cancel <service_job_id>` to manually stop services."
