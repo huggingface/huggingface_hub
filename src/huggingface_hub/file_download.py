@@ -110,10 +110,8 @@ def are_symlinks_supported(cache_dir: str | Path | None = None) -> bool:
     if constants.HF_HUB_DISABLE_SYMLINKS:
         return False
 
-    # Check symlink compatibility only once (per cache directory) at first time use
+    # Cache symlink compatibility per directory, publishing the result only after the probe completes.
     if cache_dir not in _are_symlinks_supported_in_dir:
-        _are_symlinks_supported_in_dir[cache_dir] = True
-
         os.makedirs(cache_dir, exist_ok=True)
         with SoftTemporaryDirectory(dir=cache_dir) as tmpdir:
             src_path = Path(tmpdir) / "dummy_file_src"
@@ -124,6 +122,7 @@ def are_symlinks_supported(cache_dir: str | Path | None = None) -> bool:
             relative_src = os.path.relpath(src_path, start=os.path.dirname(dst_path))
             try:
                 os.symlink(relative_src, dst_path)
+                _are_symlinks_supported_in_dir[cache_dir] = True
             except OSError:
                 # Likely running on Windows
                 _are_symlinks_supported_in_dir[cache_dir] = False
