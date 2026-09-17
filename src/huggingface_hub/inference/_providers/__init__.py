@@ -14,6 +14,7 @@ from .deepinfra import (
     DeepInfraAutomaticSpeechRecognitionTask,
     DeepInfraConversationalTask,
     DeepInfraFeatureExtractionTask,
+    DeepInfraSentenceSimilarityTask,
     DeepInfraTextGenerationTask,
     DeepInfraTextToSpeechTask,
 )
@@ -32,6 +33,7 @@ from .hf_inference import (
     HFInferenceBinaryInputTask,
     HFInferenceConversational,
     HFInferenceFeatureExtractionTask,
+    HFInferenceSentenceSimilarityTask,
     HFInferenceTask,
 )
 from .novita import NovitaConversationalTask, NovitaTextGenerationTask, NovitaTextToVideoTask
@@ -109,6 +111,7 @@ PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
         "automatic-speech-recognition": DeepInfraAutomaticSpeechRecognitionTask(),
         "conversational": DeepInfraConversationalTask(),
         "feature-extraction": DeepInfraFeatureExtractionTask(),
+        "sentence-similarity": DeepInfraSentenceSimilarityTask(),
         "text-generation": DeepInfraTextGenerationTask(),
         "text-to-speech": DeepInfraTextToSpeechTask(),
     },
@@ -150,7 +153,7 @@ PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
         "zero-shot-image-classification": HFInferenceBinaryInputTask("zero-shot-image-classification"),
         "zero-shot-classification": HFInferenceTask("zero-shot-classification"),
         "image-to-image": HFInferenceBinaryInputTask("image-to-image"),
-        "sentence-similarity": HFInferenceTask("sentence-similarity"),
+        "sentence-similarity": HFInferenceSentenceSimilarityTask(),
         "table-question-answering": HFInferenceTask("table-question-answering"),
         "tabular-classification": HFInferenceTask("tabular-classification"),
         "text-to-speech": HFInferenceTask("text-to-speech"),

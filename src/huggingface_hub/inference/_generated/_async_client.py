@@ -1710,7 +1710,7 @@ class AsyncInferenceClient:
             api_key=self.token,
         )
         response = await self._inner_post(request_parameters)
-        return _bytes_to_list(response)
+        return provider_helper.get_response(response)
 
     async def summarization(
         self,
