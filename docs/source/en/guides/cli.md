@@ -1308,14 +1308,9 @@ To inspect a specific discussion or PR, pass the repo ID and the discussion numb
 >>> hf discussions info username/my-model 5
 ```
 
-By default, only the discussion metadata (title, status, author, etc.) is shown. Add `--comments` to include the full conversation thread, or `--diff` to display the PR diff:
+The output contains the discussion metadata (title, status, author, etc.) together with the full list of conversation events. To display the diff of a pull request, use `hf discussions diff` instead.
 
-```bash
->>> hf discussions info username/my-model 5 --comments
->>> hf discussions info username/my-model 5 --diff
-```
-
-Use `--format json` for machine-readable output, and `--no-color` to strip ANSI colors when piping to other tools.
+Use `--format json` for machine-readable output, and set `NO_COLOR=1` to strip ANSI colors when piping to other tools.
 
 ### Create a discussion or PR
 
@@ -1647,7 +1642,7 @@ When working outside the default cache location, pair the command with `--cache-
 
 ### hf cache prune
 
-`hf cache prune` is a convenience shortcut that reclaims space taken by cache garbage: every detached (unreferenced) revision (keeping only revisions still reachable through a branch or tag) and any leftover `.incomplete` files from interrupted downloads:
+`hf cache prune` is a convenience shortcut that reclaims space taken by cache garbage: every detached (unreferenced) revision (keeping only revisions still reachable through a branch or tag), any leftover `.incomplete` files from interrupted downloads, and shared blobs no longer referenced by any cached repo:
 
 ```bash
 >>> hf cache prune
@@ -1816,6 +1811,7 @@ Copy-and-paste the text below in your GitHub issue.
 - HF_HUB_DISABLE_EXPERIMENTAL_WARNING: False
 - HF_HUB_DISABLE_IMPLICIT_TOKEN: False
 - HF_HUB_DISABLE_XET: False
+- HF_HUB_DISABLE_SHARED_BLOBS: False
 - HF_HUB_ETAG_TIMEOUT: 10
 - HF_HUB_DOWNLOAD_TIMEOUT: 10
 ```

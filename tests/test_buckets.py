@@ -13,7 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import warnings
-from unittest.mock import MagicMock
+from datetime import datetime, timezone
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -325,10 +326,15 @@ def test_download_bucket_files_raises_on_missing_when_requested(api: HfApi, buck
 def test_copy_files_bucket_to_same_bucket_file(api: HfApi, bucket_write: str, tmp_path):
     api.batch_bucket_files(bucket_write, add=[(b"bucket-content", "source.txt")])
 
-    api.copy_files(
-        f"hf://buckets/{bucket_write}/source.txt",
-        f"hf://buckets/{bucket_write}/copied.txt",
-    )
+    mtime = 1700000000.123
+    with patch("huggingface_hub._buckets.time.time", return_value=mtime):
+        api.copy_files(
+            f"hf://buckets/{bucket_write}/source.txt",
+            f"hf://buckets/{bucket_write}/copied.txt",
+        )
+
+    copied = next(entry for entry in api.list_bucket_tree(bucket_write) if entry.path == "copied.txt")
+    assert copied.mtime == datetime.fromtimestamp(mtime, tz=timezone.utc)
 
     output_path = tmp_path / "copied.txt"
     api.download_bucket_files(bucket_write, [("copied.txt", str(output_path))])
