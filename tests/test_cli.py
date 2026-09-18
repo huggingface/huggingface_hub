@@ -315,6 +315,204 @@ class TestCacheCommand:
         hf_cache_info.delete_revisions.assert_called_once_with(revision.commit_hash)
         strategy.execute.assert_not_called()
 
+    def test_xet_rm_deletes_entire_cache(self, runner: CliRunner, tmp_path: Path) -> None:
+        xet_cache = tmp_path / "xet"
+        (xet_cache / "endpoint" / "shard-cache").mkdir(parents=True)
+        (xet_cache / "endpoint" / "shard-cache" / "shard.mdb").write_bytes(b"shard")
+        (xet_cache / "endpoint" / "staging" / "shard-session").mkdir(parents=True)
+        (xet_cache / "logs").mkdir()
+
+        result = runner.invoke(app, ["cache", "xet", "rm", "--cache-dir", str(xet_cache), "--yes"])
+
+        assert result.exit_code == 0
+        assert not xet_cache.exists()
+        assert "Deleted the Xet cache directory" in result.output
+        assert "resume state" in result.output
+
+    def test_xet_rm_uses_default_cache(self, runner: CliRunner) -> None:
+        xet_cache = Path(constants.HF_XET_CACHE)
+        (xet_cache / "endpoint").mkdir(parents=True)
+        (xet_cache / "endpoint" / "marker").write_text("delete")
+
+        result = runner.invoke(app, ["cache", "xet", "rm", "--yes"])
+
+        assert result.exit_code == 0
+        assert not xet_cache.exists()
+
+    def test_xet_rm_dry_run_preserves_cache(self, runner: CliRunner, tmp_path: Path) -> None:
+        xet_cache = tmp_path / "xet"
+        xet_cache.mkdir()
+        marker = xet_cache / "marker"
+        marker.write_text("keep")
+
+        result = runner.invoke(app, ["cache", "xet", "rm", "--cache-dir", str(xet_cache), "--dry-run"])
+
+        assert result.exit_code == 0
+        assert marker.read_text() == "keep"
+        assert "Dry run: no files were deleted" in result.output
+
+    def test_xet_rm_missing_cache_is_harmless(self, runner: CliRunner, tmp_path: Path) -> None:
+        xet_cache = tmp_path / "missing-xet"
+
+        result = runner.invoke(app, ["cache", "xet", "rm", "--cache-dir", str(xet_cache), "--yes"])
+
+        assert result.exit_code == 0
+        assert "Nothing to delete" in result.output
+
+    @pytest.mark.parametrize("input_text", ["n\n", ""])
+    def test_xet_rm_confirmation_decline_preserves_cache(
+        self, runner: CliRunner, tmp_path: Path, input_text: str
+    ) -> None:
+        xet_cache = tmp_path / "xet"
+        xet_cache.mkdir()
+        marker = xet_cache / "marker"
+        marker.write_text("keep")
+
+        result = runner.invoke(app, ["cache", "xet", "rm", "--cache-dir", str(xet_cache)], input=input_text)
+
+        assert result.exit_code != 0
+        assert marker.read_text() == "keep"
+
+    @pytest.mark.parametrize("cache_dir", [Path("/"), Path.home()])
+    def test_xet_rm_rejects_broad_cache_paths(self, runner: CliRunner, cache_dir: Path) -> None:
+        result = runner.invoke(app, ["cache", "xet", "rm", "--cache-dir", str(cache_dir), "--yes"])
+
+        assert result.exit_code == 1
+        assert isinstance(result.exception, CLIError)
+        assert "broad path" in str(result.exception)
+
+    @pytest.mark.parametrize("cache_root", ["HF_HOME", "HF_HUB_CACHE"])
+    def test_xet_rm_rejects_huggingface_cache_roots(self, runner: CliRunner, cache_root: str) -> None:
+        cache_dir = Path(getattr(constants, cache_root))
+        result = runner.invoke(app, ["cache", "xet", "rm", "--cache-dir", str(cache_dir), "--yes"])
+
+        assert result.exit_code == 1
+        assert isinstance(result.exception, CLIError)
+        assert "broad path" in str(result.exception)
+
+    def test_xet_rm_rejects_ancestors_of_huggingface_cache_roots(self, runner: CliRunner) -> None:
+        for cache_root in (constants.HF_HOME, constants.HF_HUB_CACHE):
+            result = runner.invoke(app, ["cache", "xet", "rm", "--cache-dir", str(Path(cache_root).parent), "--yes"])
+
+            assert result.exit_code == 1
+            assert isinstance(result.exception, CLIError)
+            assert "broad path" in str(result.exception)
+
+    def test_xet_rm_rejects_ancestors_of_current_directory(self, runner: CliRunner) -> None:
+        for cache_dir in (Path.cwd(), Path.cwd().parent):
+            result = runner.invoke(app, ["cache", "xet", "rm", "--cache-dir", str(cache_dir), "--yes"])
+
+            assert result.exit_code == 1
+            assert isinstance(result.exception, CLIError)
+            assert "broad path" in str(result.exception)
+
+    def test_xet_rm_rejects_symlink_cache_path(self, runner: CliRunner, tmp_path: Path) -> None:
+        target = tmp_path / "actual-xet"
+        target.mkdir()
+        link = tmp_path / "linked-xet"
+        link.symlink_to(target, target_is_directory=True)
+
+        result = runner.invoke(app, ["cache", "xet", "rm", "--cache-dir", str(link), "--yes"])
+
+        assert result.exit_code == 1
+        assert isinstance(result.exception, CLIError)
+        assert "symlink" in str(result.exception)
+        assert target.exists()
+
+    def test_xet_rm_removes_child_symlink_without_following_target(self, runner: CliRunner, tmp_path: Path) -> None:
+        xet_cache = tmp_path / "xet"
+        xet_cache.mkdir()
+        outside = tmp_path / "outside"
+        outside.write_text("keep")
+        (xet_cache / "link").symlink_to(outside)
+
+        result = runner.invoke(app, ["cache", "xet", "rm", "--cache-dir", str(xet_cache), "--yes"])
+
+        assert result.exit_code == 0
+        assert not xet_cache.exists()
+        assert outside.read_text() == "keep"
+
+    def test_xet_rm_rechecks_path_after_confirmation(self, runner: CliRunner, tmp_path: Path) -> None:
+        xet_cache = tmp_path / "xet"
+        xet_cache.mkdir()
+        outside = tmp_path / "outside"
+        outside.mkdir()
+        (outside / "marker").write_text("keep")
+
+        def replace_with_symlink(*_: object, **__: object) -> None:
+            xet_cache.rmdir()
+            xet_cache.symlink_to(outside, target_is_directory=True)
+
+        with patch("huggingface_hub.cli.cache.out.confirm", side_effect=replace_with_symlink):
+            result = runner.invoke(app, ["cache", "xet", "rm", "--cache-dir", str(xet_cache)])
+
+        assert result.exit_code == 1
+        assert isinstance(result.exception, CLIError)
+        assert "symlink" in str(result.exception)
+        assert (outside / "marker").read_text() == "keep"
+
+    def test_xet_rm_rejects_parent_symlink_retarget_after_confirmation(
+        self, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        first_root = tmp_path / "first-root"
+        second_root = tmp_path / "second-root"
+        first_cache = first_root / "xet"
+        second_cache = second_root / "xet"
+        first_cache.mkdir(parents=True)
+        second_cache.mkdir(parents=True)
+        (first_cache / "marker").write_text("first")
+        (second_cache / "marker").write_text("second")
+        parent_link = tmp_path / "cache-link"
+        parent_link.symlink_to(first_root, target_is_directory=True)
+
+        def retarget_parent(*_: object, **__: object) -> None:
+            parent_link.unlink()
+            parent_link.symlink_to(second_root, target_is_directory=True)
+
+        with patch("huggingface_hub.cli.cache.out.confirm", side_effect=retarget_parent):
+            result = runner.invoke(app, ["cache", "xet", "rm", "--cache-dir", str(parent_link / "xet")])
+
+        assert result.exit_code == 1
+        assert isinstance(result.exception, CLIError)
+        assert "changed after confirmation" in str(result.exception)
+        assert (first_cache / "marker").read_text() == "first"
+        assert (second_cache / "marker").read_text() == "second"
+
+    def test_xet_rm_rejects_regular_file(self, runner: CliRunner, tmp_path: Path) -> None:
+        cache_file = tmp_path / "xet"
+        cache_file.write_text("not a directory")
+
+        result = runner.invoke(app, ["cache", "xet", "rm", "--cache-dir", str(cache_file), "--yes"])
+
+        assert result.exit_code == 1
+        assert isinstance(result.exception, CLIError)
+        assert "not a directory" in str(result.exception)
+        assert cache_file.exists()
+
+    def test_xet_rm_propagates_delete_error(self, runner: CliRunner, tmp_path: Path) -> None:
+        xet_cache = tmp_path / "xet"
+        xet_cache.mkdir()
+
+        with patch("huggingface_hub.cli.cache.shutil.rmtree", side_effect=PermissionError("denied")):
+            result = runner.invoke(app, ["cache", "xet", "rm", "--cache-dir", str(xet_cache), "--yes"])
+
+        assert result.exit_code == 1
+        assert isinstance(result.exception, PermissionError)
+        assert "Deleted the Xet cache directory" not in result.output
+        assert xet_cache.exists()
+
+    def test_xet_rm_does_not_hide_missing_child_error(self, runner: CliRunner, tmp_path: Path) -> None:
+        xet_cache = tmp_path / "xet"
+        xet_cache.mkdir()
+
+        with patch("huggingface_hub.cli.cache.shutil.rmtree", side_effect=FileNotFoundError("child disappeared")):
+            result = runner.invoke(app, ["cache", "xet", "rm", "--cache-dir", str(xet_cache), "--yes"])
+
+        assert result.exit_code == 1
+        assert isinstance(result.exception, FileNotFoundError)
+        assert "Deleted the Xet cache directory" not in result.output
+        assert xet_cache.exists()
+
     def test_prune_dry_run(self, runner: CliRunner) -> None:
         referenced = _make_revision("e" * 40, refs={"main"})
         detached = _make_revision("f" * 40, refs=set())

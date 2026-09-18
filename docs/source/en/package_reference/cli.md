@@ -592,6 +592,7 @@ $ hf cache [OPTIONS] COMMAND [ARGS]...
 * `prune`: Remove detached revisions and incomplete downloads from the cache.
 * `rm`: Remove cached repositories, revisions or files.
 * `verify`: Verify checksums for a single repo revision from cache or a local directory.
+* `xet`: Manage the Xet cache directory.
 
 ### `hf cache list`
 
@@ -719,6 +720,52 @@ Examples
   $ hf cache verify gpt2
   $ hf cache verify gpt2 --revision refs/pr/1
   $ hf cache verify my-dataset --repo-type dataset
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf cache xet`
+
+Manage the Xet cache directory.
+
+**Usage**:
+
+```console
+$ hf cache xet [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `remove`: Remove the entire Xet cache directory. [alias: rm]
+
+#### `hf cache xet remove`
+
+Remove the entire Xet cache directory. [alias: rm]
+
+**Usage**:
+
+```console
+$ hf cache xet remove [OPTIONS]
+```
+
+**Options**:
+
+* `--cache-dir TEXT`: Xet cache directory to remove (defaults to HF_XET_CACHE).
+* `-y, --yes`: Skip confirmation prompt.
+* `--dry-run / --no-dry-run`: Preview removal without deleting anything.  [default: no-dry-run]
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf cache xet rm
+  $ hf cache xet rm --dry-run
+  $ hf cache xet rm --cache-dir /path/to/xet
+  $ hf cache xet rm --yes
 
 Learn more
   Use `hf <command> --help` for more information about a command.
