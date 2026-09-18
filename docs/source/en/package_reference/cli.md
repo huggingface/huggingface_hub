@@ -2515,6 +2515,9 @@ $ hf jobs run [OPTIONS] IMAGE COMMAND...
 * `--resource-group-id TEXT`: The ID of the resource group to create the Job in. Used to control access to resources within an organization and for cost attribution/spending-limit features.
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--format [agent|auto|human|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
+* `--json`: JSON output. Equivalent to '--format json'.
+* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
 * `--help`: Show this message and exit.
 
 Examples
@@ -2742,6 +2745,9 @@ $ hf jobs scheduled run [OPTIONS] SCHEDULE IMAGE COMMAND...
 * `--resource-group-id TEXT`: The ID of the resource group to create the Job in. Used to control access to resources within an organization and for cost attribution/spending-limit features.
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--format [agent|auto|human|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
+* `--json`: JSON output. Equivalent to '--format json'.
+* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
 * `--help`: Show this message and exit.
 
 Examples
@@ -2863,6 +2869,9 @@ $ hf jobs scheduled uv run [OPTIONS] SCHEDULE SCRIPT [SCRIPT_ARGS]...
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--with TEXT`: Run with the given packages installed
 * `-p, --python TEXT`: The Python interpreter to use for the run environment
+* `--format [agent|auto|human|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
+* `--json`: JSON output. Equivalent to '--format json'.
+* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
 * `--help`: Show this message and exit.
 
 Examples
@@ -2994,6 +3003,9 @@ $ hf jobs uv run [OPTIONS] SCRIPT [SCRIPT_ARGS]...
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--with TEXT`: Run with the given packages installed
 * `-p, --python TEXT`: The Python interpreter to use for the run environment
+* `--format [agent|auto|human|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
+* `--json`: JSON output. Equivalent to '--format json'.
+* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
 * `--help`: Show this message and exit.
 
 Examples

@@ -381,13 +381,14 @@ class HFCliTyperGroup(HfGroup):
         return super().command(name, cls=HFCliCommand(topic, examples), epilog=epilog, **kwargs)
 
 
+_FORMAT_HELP = "Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal."
+_JSON_HELP = "JSON output. Equivalent to '--format json'."
+_QUIET_HELP = "Quiet output (one ID per line). Equivalent to '--format quiet'."
+
 _FORMATTING_OPTIONS_HELP_RECORDS: list[tuple[str, str]] = [
-    (
-        "--format [auto|human|agent|json|quiet]",
-        "Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.",
-    ),
-    ("--json", "JSON output. Equivalent to '--format json'."),
-    ("-q, --quiet", "Quiet output (one ID per line). Equivalent to '--format quiet'."),
+    ("--format [auto|human|agent|json|quiet]", _FORMAT_HELP),
+    ("--json", _JSON_HELP),
+    ("-q, --quiet", _QUIET_HELP),
     ("--no-truncate", "Do not truncate scalar values in human tables (list/dict columns stay shortened)."),
 ]
 
@@ -395,6 +396,27 @@ _FORMATTING_OPTIONS_HELP_RECORDS: list[tuple[str, str]] = [
 def _format_formatting_options_section(formatter: click.HelpFormatter) -> None:
     with formatter.section("Formatting options"):
         formatter.write_dl(_FORMATTING_OPTIONS_HELP_RECORDS)
+
+
+# Formatting options for pass-through commands (`ignore_unknown_options=True`, e.g. `hf jobs run`), which
+# `_consume_format_flags_for_leaf` leaves untouched. Such commands must declare the flags explicitly (so click
+# parses them instead of forwarding them to the container command) and apply them with `set_output_format()`.
+FormatOpt = Annotated[OutputFormat | None, Option("--format", help=_FORMAT_HELP)]
+JsonOpt = Annotated[bool, Option("--json", help=_JSON_HELP)]
+QuietOpt = Annotated[bool, Option("-q", "--quiet", help=_QUIET_HELP)]
+
+
+def set_output_format(format: OutputFormat | None, json: bool, quiet: bool) -> None:
+    """Apply the formatting flags declared by a pass-through command to the `out` singleton."""
+    flags = [flag for flag, given in (("--format", format is not None), ("--json", json), ("-q", quiet)) if given]
+    if len(flags) > 1:
+        raise click.UsageError(f"'{flags[0]}' and '{flags[1]}' are mutually exclusive.")
+    if format is not None:
+        out.set_mode(format)
+    elif json:
+        out.set_mode(OutputFormat.json)
+    elif quiet:
+        out.set_mode(OutputFormat.quiet)
 
 
 def _has_local_formatting_option(cmd: click.Command) -> bool:

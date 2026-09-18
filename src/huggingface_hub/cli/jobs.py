@@ -44,6 +44,9 @@ from huggingface_hub.utils._parsing import format_duration, parse_duration
 from ._cli_utils import (
     EnvFileOpt,
     EnvOpt,
+    FormatOpt,
+    JsonOpt,
+    QuietOpt,
     SecretsFileOpt,
     SecretsOpt,
     SoftChoice,
@@ -55,6 +58,7 @@ from ._cli_utils import (
     get_hf_api,
     parse_env_map,
     parse_volumes,
+    set_output_format,
     typer_factory,
 )
 from ._framework import Argument, Option
@@ -665,8 +669,12 @@ def jobs_run(
     resource_group_id: ResourceGroupIdOpt = None,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
+    format: FormatOpt = None,
+    json_output: JsonOpt = False,
+    quiet: QuietOpt = False,
 ) -> None:
     """Run a Job."""
+    set_output_format(format, json_output, quiet)
     env_map = parse_env_map(env, env_file)
     secrets_map = parse_env_map(secrets, secrets_file)
     labels_map = _parse_labels_map(label, name=name) or {}
@@ -1304,8 +1312,12 @@ def jobs_uv_run(
     token: TokenOpt = None,
     with_: WithOpt = None,
     python: PythonOpt = None,
+    format: FormatOpt = None,
+    json_output: JsonOpt = False,
+    quiet: QuietOpt = False,
 ) -> None:
     """Run a UV script (local file or URL) on HF infrastructure"""
+    set_output_format(format, json_output, quiet)
     api = get_hf_api(token=token)
     with _resolve_uv_job_config(
         api=api,
@@ -1437,8 +1449,12 @@ def scheduled_run(
     resource_group_id: ResourceGroupIdOpt = None,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
+    format: FormatOpt = None,
+    json_output: JsonOpt = False,
+    quiet: QuietOpt = False,
 ) -> None:
     """Schedule a Job."""
+    set_output_format(format, json_output, quiet)
     env_map = parse_env_map(env, env_file)
     secrets_map = parse_env_map(secrets, secrets_file)
     labels_map = _parse_labels_map(label, name=name) or {}
@@ -1818,8 +1834,12 @@ def scheduled_uv_run(
     token: TokenOpt = None,
     with_: WithOpt = None,
     python: PythonOpt = None,
+    format: FormatOpt = None,
+    json_output: JsonOpt = False,
+    quiet: QuietOpt = False,
 ) -> None:
     """Run a UV script (local file or URL) on HF infrastructure"""
+    set_output_format(format, json_output, quiet)
     api = get_hf_api(token=token)
     with _resolve_uv_job_config(
         api=api,
