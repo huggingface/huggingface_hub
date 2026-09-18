@@ -361,7 +361,13 @@ The `chunk_cache` is limited to 10GB in size while the `shard_cache` has a soft 
 
 These caches are used primarily to facilitate the reconstruction (download) or upload of a file. To interact with the assets themselves, it’s recommended that you use the [`huggingface_hub` cache system APIs](https://huggingface.co/docs/huggingface_hub/guides/manage-cache).
 
-If you need to reclaim the space utilized by either cache or need to debug any potential cache-related issues, simply remove the `xet` cache entirely by running `rm -rf ~/<cache_dir>/xet` where `<cache_dir>` is the location of your Hugging Face cache, typically `~/.cache/huggingface` 
+If you need to reclaim the space utilized by either cache or need to debug any potential cache-related issues, remove the entire Xet cache with:
+
+```bash
+hf cache xet rm
+```
+
+The command asks for confirmation and accepts `--dry-run`, `--yes`, and `--cache-dir PATH`. Stop active Xet transfers first: removing the cache also removes upload-resume metadata, so interrupted uploads may need to restart. `hf cache prune` does not remove Xet cache data.
 
 Example full `xet`cache directory tree:
 

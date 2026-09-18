@@ -1549,6 +1549,9 @@ Use `hf cache` to manage your local Hugging Face cache directory. The cache stor
 # Remove unreferenced revisions
 >>> hf cache prune
 
+# Remove the entire Xet cache
+>>> hf cache xet rm
+
 # Verify cached file checksums
 >>> hf cache verify gpt2
 ```
@@ -1639,6 +1642,10 @@ Dry run: no files were deleted.
 ```
 
 When working outside the default cache location, pair the command with `--cache-dir PATH`.
+
+### hf cache xet rm
+
+`hf cache xet rm` removes the entire Xet cache, including shard caches and upload-resume metadata. It asks for confirmation before deleting anything; use `--dry-run` to preview the operation or `--yes` to skip the prompt in scripts. Stop active Xet transfers first because interrupted uploads may need to restart after their resume state is removed. The command targets `HF_XET_CACHE` by default and accepts `--cache-dir PATH` for an alternate Xet cache location. A missing cache directory is treated as a no-op. `hf cache prune` only manages the regular Hub cache and does not remove Xet data.
 
 ### hf cache prune
 

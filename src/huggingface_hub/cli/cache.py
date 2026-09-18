@@ -14,15 +14,18 @@
 """Contains the 'hf cache' command group with cache management subcommands."""
 
 import re
+import shutil
 import time
 from collections import defaultdict
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from enum import Enum
+from pathlib import Path
 from typing import Annotated, Any
 
 import click
 
+from huggingface_hub import constants
 from huggingface_hub.errors import CLIError
 
 from ..utils import (
@@ -45,6 +48,8 @@ from ._output import out
 
 
 cache_cli = typer_factory(help="Manage local cache directory.")
+xet_cli = typer_factory(help="Manage the Xet cache directory.")
+cache_cli.add_group(xet_cli, name="xet")
 
 
 #### Cache helper utilities
@@ -177,6 +182,29 @@ def _parse_hf_uri_target(target: str) -> HfUri:
 def _cache_id(uri: HfUri) -> str:
     """Return the `type/id` cache id of a repo URI."""
     return f"{uri.type}/{uri.id}"
+
+
+def _resolve_xet_cache_dir(cache_dir: str | None) -> Path:
+    """Resolve and validate a path before allowing the entire Xet cache to be removed."""
+    path = Path(cache_dir or constants.HF_XET_CACHE).expanduser().absolute()
+    if path.is_symlink():
+        raise CLIError(f"Refusing to remove Xet cache through symlink: {path}")
+
+    resolved = path.resolve(strict=False)
+    home = Path.home().resolve()
+    root = Path(resolved.anchor)
+    protected_roots = (
+        Path(constants.HF_HOME).resolve(),
+        Path(constants.HF_HUB_CACHE).resolve(),
+    )
+    if resolved in {root, home} or any(
+        protected == resolved or protected.is_relative_to(resolved) for protected in protected_roots
+    ):
+        raise CLIError(f"Refusing to remove broad path as an Xet cache: {resolved}")
+
+    if resolved.exists() and not resolved.is_dir():
+        raise CLIError(f"Xet cache path is not a directory: {resolved}")
+    return resolved
 
 
 def collect_cache_entries(
@@ -691,6 +719,71 @@ def rm(
         revisions_deleted=counts.total_revision_count,
         freed=strategy.expected_freed_size_str,
     )
+
+
+@xet_cli.command(
+    "remove | rm",
+    examples=[
+        "hf cache xet rm",
+        "hf cache xet rm --dry-run",
+        "hf cache xet rm --cache-dir /path/to/xet",
+        "hf cache xet rm --yes",
+    ],
+)
+def xet_rm(
+    cache_dir: Annotated[
+        str | None,
+        Option(
+            help="Xet cache directory to remove (defaults to HF_XET_CACHE).",
+        ),
+    ] = None,
+    yes: Annotated[
+        bool,
+        Option(
+            "-y",
+            "--yes",
+            help="Skip confirmation prompt.",
+        ),
+    ] = False,
+    dry_run: Annotated[
+        bool,
+        Option(
+            help="Preview removal without deleting anything.",
+        ),
+    ] = False,
+) -> None:
+    """Remove the entire Xet cache directory."""
+    path = _resolve_xet_cache_dir(cache_dir)
+    if not path.exists():
+        out.text(f"Xet cache directory not found: {path}. Nothing to delete.")
+        return
+
+    out.text(f"About to delete the entire Xet cache directory: {path}.")
+    out.warning(
+        "Stop active Xet transfers first. Removing the cache deletes upload resume state, "
+        "so interrupted uploads may need to restart."
+    )
+    if dry_run:
+        out.result("Dry run: no files were deleted.", dry_run=True, path=str(path))
+        return
+
+    out.confirm("Proceed with deletion?", yes=yes)
+    # Re-check immediately before the destructive operation so a path replaced between
+    # the initial validation and confirmation cannot turn into a symlink target.
+    confirmed_path = _resolve_xet_cache_dir(cache_dir)
+    if confirmed_path != path:
+        raise CLIError(
+            f"Xet cache path changed after confirmation ({path} -> {confirmed_path}); refusing to delete it."
+        )
+    try:
+        shutil.rmtree(path)
+    except FileNotFoundError:
+        if path.exists():
+            raise
+        out.text(f"Xet cache directory disappeared before deletion: {path}. Nothing to delete.")
+        return
+
+    out.result("Deleted the Xet cache directory.", path=str(path))
 
 
 @cache_cli.command(examples=["hf cache prune", "hf cache prune --dry-run"])
