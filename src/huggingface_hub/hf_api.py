@@ -239,7 +239,7 @@ DailyPapersSort_T = Literal["publishedAt", "trending"]
 REPO_REGIONS = Literal["us", "eu"]
 
 USERNAME_PLACEHOLDER = "hf_user"
-_REGEX_DISCUSSION_URL = re.compile(r".*/discussions/(\d+)$")
+_REGEX_DISCUSSION_URL = re.compile(r".*/discussions/(\d+)")
 _REGEX_HTTP_PROTOCOL = re.compile(r"https?://")
 
 _CREATE_COMMIT_NO_REPO_ERROR_MESSAGE = (
@@ -3729,7 +3729,7 @@ class HfApi:
             if revision._repo_id is None or (revision._repo_id, revision._repo_type) == (repo_id, repo_type):
                 return revision  # already resolved for this repo => nothing to do
             revision = revision.initial  # resolved for another repo => resolve what was initially requested
-        if revision is not None and REGEX_COMMIT_HASH.match(revision):
+        if revision is not None and REGEX_COMMIT_HASH.fullmatch(revision):
             return ResolvedRevision(resolved=revision, initial=revision, repo_id=repo_id, repo_type=repo_type)
 
         if cache_dir is None:
@@ -15171,7 +15171,7 @@ def _parse_revision_from_pr_url(pr_url: str) -> str:
     "refs/pr/2"
     ```
     """
-    re_match = re.match(_REGEX_DISCUSSION_URL, pr_url)
+    re_match = _REGEX_DISCUSSION_URL.fullmatch(pr_url)
     if re_match is None:
         raise RuntimeError(f"Unexpected response from the hub, expected a Pull Request URL but got: '{pr_url}'")
     return f"refs/pr/{re_match[1]}"

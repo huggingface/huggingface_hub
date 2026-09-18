@@ -78,10 +78,10 @@ _CACHED_NO_EXIST_T = Any
 HEADER_FILENAME_PATTERN = re.compile(r'filename="(?P<filename>.*?)";')
 
 # Regex to check if the revision IS directly a commit_hash
-REGEX_COMMIT_HASH = re.compile(r"^[0-9a-f]{40}$")
+REGEX_COMMIT_HASH = re.compile(r"[0-9a-f]{40}")
 
 # Regex to check if the file etag IS a valid sha256
-REGEX_SHA256 = re.compile(r"^[0-9a-f]{64}$")
+REGEX_SHA256 = re.compile(r"[0-9a-f]{64}")
 
 _are_symlinks_supported_in_dir: dict[str, bool] = {}
 
@@ -1097,7 +1097,7 @@ def _hf_hub_download_to_cache_dir(
     relative_filename = os.path.join(*filename.split("/"))
 
     # if user provides a commit_hash and they already have the file on disk, shortcut everything.
-    if REGEX_COMMIT_HASH.match(revision):
+    if REGEX_COMMIT_HASH.fullmatch(revision):
         pointer_path = _get_pointer_path(storage_folder, revision, relative_filename)
         if os.path.exists(pointer_path):
             if dry_run:
@@ -1143,7 +1143,7 @@ def _hf_hub_download_to_cache_dir(
         # Couldn't make a HEAD call => let's try to find a local file
         if not force_download:
             commit_hash = None
-            if REGEX_COMMIT_HASH.match(revision):
+            if REGEX_COMMIT_HASH.fullmatch(revision):
                 commit_hash = revision
             else:
                 ref_path = os.path.join(storage_folder, "refs", revision)
@@ -1341,7 +1341,7 @@ def _hf_hub_download_to_local_dir(
 
     # Local file exists + metadata exists + commit_hash matches => return file
     if (
-        REGEX_COMMIT_HASH.match(revision)
+        REGEX_COMMIT_HASH.fullmatch(revision)
         and paths.file_path.is_file()
         and local_metadata is not None
         and local_metadata.commit_hash == revision
@@ -1445,7 +1445,7 @@ def _hf_hub_download_to_local_dir(
         # => means it's an LFS file (large)
         # => let's compute local hash and compare
         # => if match, update metadata and return file
-        if local_metadata is None and REGEX_SHA256.match(etag) is not None:
+        if local_metadata is None and REGEX_SHA256.fullmatch(etag) is not None:
             with open(paths.file_path, "rb") as f:
                 file_hash = sha_fileobj(f).hex()
             if file_hash == etag:
@@ -1734,7 +1734,7 @@ def _get_metadata_or_catch_error(
         )
 
     # Skip the per-file HEAD call when the file metadata can be rebuilt from a tree listing cached on disk.
-    if tree_cache_folder is not None and REGEX_COMMIT_HASH.match(revision):
+    if tree_cache_folder is not None and REGEX_COMMIT_HASH.fullmatch(revision):
         tree_metadata = _xet_file_metadata_from_tree_cache(
             tree_cache_folder=tree_cache_folder,
             repo_id=repo_id,

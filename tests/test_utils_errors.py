@@ -332,9 +332,9 @@ class TestHfHubHTTPError:
 def test_repo_api_regex(url: str, should_match: bool) -> None:
     """Test the regex used to match repo API URLs."""
     if should_match:
-        assert REPO_API_REGEX.match(url)
+        assert REPO_API_REGEX.search(url)
     else:
-        assert REPO_API_REGEX.match(url) is None
+        assert REPO_API_REGEX.search(url) is None
 
 
 def test_hf_hub_http_error_inherits_from_os_error() -> None:
