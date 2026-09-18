@@ -12,16 +12,18 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import json
 import warnings
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
 
 from huggingface_hub import HfApi
 from huggingface_hub._buckets import BucketFile, BucketInfo, SyncOperation, SyncPlan, _execute_plan
 from huggingface_hub._jobs_api import _derive_job_volume_name
-from huggingface_hub.errors import BucketNotFoundError, EntryNotFoundError, HfHubHTTPError
+from huggingface_hub.errors import BucketBatchError, BucketNotFoundError, EntryNotFoundError, HfHubHTTPError
 
 from .testing_constants import ENDPOINT_STAGING, ENTERPRISE_ORG, ENTERPRISE_TOKEN, OTHER_TOKEN, TOKEN, USER
 from .testing_utils import repo_name
@@ -640,3 +642,103 @@ def test_execute_plan_rejects_path_traversal(tmp_path):
     with pytest.raises(ValueError, match="Invalid filename"):
         _execute_plan(plan, api)
     assert outside.exists()  # not deleted
+
+
+def _batch_response(content: bytes, status_code: int = 200) -> httpx.Response:
+    return httpx.Response(
+        status_code,
+        content=content,
+        request=httpx.Request("POST", f"{ENDPOINT_STAGING}/api/buckets/user/bucket/batch"),
+    )
+
+
+# The endpoint reports failed operations in the body of a 200 (partial failure) as well as of a 422.
+@pytest.mark.parametrize("status_code", [200, 422])
+def test_batch_bucket_files_raises_on_reported_failures(mocker, status_code: int):
+    body = b'{"success": false, "processed": 2, "succeeded": 1, "failed": [{"path": "a.txt", "error": "boom"}]}'
+    mocker.patch("huggingface_hub.hf_api.http_backoff", return_value=_batch_response(body, status_code))
+    api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
+
+    with pytest.raises(BucketBatchError, match=r"1 out of 2 operation\(s\)[\s\S]*a\.txt: boom") as exc_info:
+        api.batch_bucket_files("user/bucket", delete=["a.txt", "b.txt"])
+
+    assert exc_info.value.failures == [{"path": "a.txt", "error": "boom"}]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        b'{"success": false, "processed": 2, "succeeded": 2, "failed": []}',  # `success` says otherwise
+        b'{"success": true, "processed": 2, "succeeded": 1, "failed": []}',  # one operation unaccounted for
+    ],
+)
+def test_batch_bucket_files_raises_when_failures_are_not_listed(mocker, body: bytes):
+    # A failure the server does not itemize must not be reported as a success either.
+    mocker.patch("huggingface_hub.hf_api.http_backoff", return_value=_batch_response(body))
+    api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
+
+    with pytest.raises(BucketBatchError):
+        api.batch_bucket_files("user/bucket", delete=["a.txt", "b.txt"])
+
+
+def test_batch_bucket_files_truncates_long_failure_list(mocker):
+    # A batch can report up to 1000 failures: only the first few are listed in the message.
+    failed = [{"path": f"{i}.txt", "error": "boom"} for i in range(25)]
+    body = json.dumps({"success": False, "processed": 25, "succeeded": 0, "failed": failed}).encode()
+    mocker.patch("huggingface_hub.hf_api.http_backoff", return_value=_batch_response(body))
+    api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
+
+    with pytest.raises(BucketBatchError) as exc_info:
+        api.batch_bucket_files("user/bucket", delete=[f"{i}.txt" for i in range(25)])
+
+    message = str(exc_info.value)
+    assert "9.txt: boom" in message  # the first failures are listed
+    assert "24.txt" not in message  # the last ones are not
+    assert "... and 15 more" in message
+    assert len(exc_info.value.failures) == 25  # the full list stays available on the exception
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        b'{"success": true, "processed": 1, "succeeded": 1, "failed": []}',
+        b"",  # no body
+        b"<html>not json</html>",  # non-JSON body (e.g. returned by a proxy)
+        b'{"failed": null}',  # unexpected payload shape
+    ],
+)
+def test_batch_bucket_files_does_not_raise_without_failures(mocker, body: bytes):
+    mock = mocker.patch("huggingface_hub.hf_api.http_backoff", return_value=_batch_response(body))
+    api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
+
+    api.batch_bucket_files("user/bucket", delete=["a.txt"])
+
+    mock.assert_called_once()  # the request was actually sent
+
+
+def test_batch_bucket_files_still_raises_plain_http_errors(mocker):
+    # Reading the body first must not swallow the statuses that carry no batch report.
+    body = b'{"error": "Authorization header is invalid"}'
+    mocker.patch("huggingface_hub.hf_api.http_backoff", return_value=_batch_response(body, 401))
+    api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
+
+    with pytest.raises(HfHubHTTPError) as exc_info:
+        api.batch_bucket_files("user/bucket", delete=["a.txt"])
+
+    assert not isinstance(exc_info.value, BucketBatchError)
+
+
+@pytest.mark.parametrize("status_code", [403, 404, 500])
+def test_batch_bucket_files_does_not_hijack_other_statuses(mocker, status_code: int):
+    # Only a success and the documented 422 carry a batch report. A batch-shaped body on any other status must
+    # still reach `hf_raise_for_status`, which turns it into the specialised error (e.g. BucketNotFoundError).
+    body = b'{"success": false, "processed": 1, "succeeded": 0, "failed": [{"path": "a.txt", "error": "x"}]}'
+    response = _batch_response(body, status_code)
+    response.headers["X-Error-Code"] = "RepoNotFound"
+    mocker.patch("huggingface_hub.hf_api.http_backoff", return_value=response)
+    api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
+
+    with pytest.raises(HfHubHTTPError) as exc_info:
+        api.batch_bucket_files("user/bucket", delete=["a.txt"])
+
+    assert not isinstance(exc_info.value, BucketBatchError)

@@ -2,6 +2,7 @@
 
 from enum import Enum
 from pathlib import Path
+from typing import Any
 
 from httpx import HTTPError, Response
 
@@ -278,6 +279,26 @@ class BucketNotFoundError(HfHubHTTPError):
     """
 
     bucket_id: str | None = None
+
+
+class BucketBatchError(HfHubHTTPError):
+    """
+    Raised when the server reports that some operations of a bucket batch failed.
+
+    The batch endpoint reports per-operation failures in its response body, both on a `200` (the batch was applied
+    partially) and on a `422`. Both cases raise this error.
+
+    Attributes:
+        failures (`list`):
+            The operations reported as failed, exactly as the server listed them, e.g.
+            `[{"path": "config.json", "error": "..."}]`. Passed through rather than validated, so that a body
+            mangled in transit is surfaced instead of silently dropped. The server may also report more failures
+            than it lists, in which case the error message says so.
+    """
+
+    def __init__(self, message: str, *, response: Response, failures: list[Any]) -> None:
+        super().__init__(message, response=response)
+        self.failures = failures
 
 
 # JOB ERRORS

@@ -17,6 +17,7 @@ import traceback
 from collections.abc import Callable
 
 from huggingface_hub.errors import (
+    BucketBatchError,
     BucketNotFoundError,
     CLIError,
     CLIExtensionInstallError,
@@ -130,6 +131,8 @@ CLI_ERROR_MAPPINGS: dict[type[Exception], Callable[..., str]] = {
     # GatedRepoError must come before RepositoryNotFoundError (it's a subclass).
     GatedRepoError: _format_gated_repo,
     BucketNotFoundError: _format_bucket_not_found,
+    # BucketBatchError must come before HfHubHTTPError (it's a subclass): its message lists the failed operations.
+    BucketBatchError: lambda error: str(error),
     RepositoryNotFoundError: _format_repo_not_found,
     RevisionNotFoundError: _format_revision_not_found,
     LocalTokenNotFoundError: lambda _: "Not logged in. Run 'hf auth login' first.",
