@@ -194,7 +194,6 @@ def _resolve_xet_cache_dir(cache_dir: str | None) -> Path:
     home = Path.home().resolve()
     root = Path(resolved.anchor)
     protected_roots = (
-        Path.cwd().resolve(),
         Path(constants.HF_HOME).resolve(),
         Path(constants.HF_HUB_CACHE).resolve(),
     )

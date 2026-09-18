@@ -398,13 +398,25 @@ class TestCacheCommand:
             assert isinstance(result.exception, CLIError)
             assert "broad path" in str(result.exception)
 
-    def test_xet_rm_rejects_ancestors_of_current_directory(self, runner: CliRunner) -> None:
-        for cache_dir in (Path.cwd(), Path.cwd().parent):
-            result = runner.invoke(app, ["cache", "xet", "rm", "--cache-dir", str(cache_dir), "--yes"])
+    @pytest.mark.skipif(os.name == "nt", reason="Windows does not allow deleting the current directory.")
+    @pytest.mark.parametrize("inside_endpoint", [False, True])
+    def test_xet_rm_from_inside_cache(
+        self, runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, inside_endpoint: bool
+    ) -> None:
+        xet_cache = tmp_path / "xet"
+        endpoint = xet_cache / "endpoint"
+        endpoint.mkdir(parents=True)
+        outside = tmp_path / "outside"
+        outside.write_text("keep")
+        monkeypatch.setattr(constants, "HF_XET_CACHE", str(xet_cache))
 
-            assert result.exit_code == 1
-            assert isinstance(result.exception, CLIError)
-            assert "broad path" in str(result.exception)
+        with monkeypatch.context() as context:
+            context.chdir(endpoint if inside_endpoint else xet_cache)
+            result = runner.invoke(app, ["cache", "xet", "rm", "--yes"])
+
+        assert result.exit_code == 0
+        assert not xet_cache.exists()
+        assert outside.read_text() == "keep"
 
     def test_xet_rm_rejects_symlink_cache_path(self, runner: CliRunner, tmp_path: Path) -> None:
         target = tmp_path / "actual-xet"
