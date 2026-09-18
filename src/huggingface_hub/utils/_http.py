@@ -774,10 +774,32 @@ def _httpx_follow_hub_redirects_with_backoff(
     raise httpx.TooManyRedirects(f"Exceeded {_MAX_REDIRECTS} redirects while resolving '{url}'.")
 
 
+_DEFAULT_PORTS = {"http": 80, "https": 443}
+
+
+def _url_origin(url: str) -> tuple[str, str, int]:
+    """Origin of a url: (scheme, hostname, port), with the scheme's default port if not explicit."""
+    parsed = urlparse(url)
+    return (parsed.scheme, (parsed.hostname or "").lower(), parsed.port or _DEFAULT_PORTS.get(parsed.scheme, 0))
+
+
 def _is_same_or_hub_host(url: str, target: str) -> bool:
-    """Whether `target` is served by the same host as `url`, or by a known Hub host."""
-    target_host = (urlparse(target).hostname or "").lower()
-    return target_host == (urlparse(url).hostname or "").lower() or target_host in constants.HF_URL_HOSTS
+    """Whether `target` is served by the same origin as `url`, or by a known Hub host.
+
+    Same origin means same scheme, host and port: `http://localhost:8001` and `http://localhost:8002` are NOT the
+    same origin. A redirect to the same hostname on another port is typically a storage host (CDN, xet bridge,...):
+    the auth header must not be forwarded there. Redirects to a known Hub host are followed only on standard
+    ports, for the same reason (e.g. `HF_ENDPOINT=http://localhost:15564` must not trust `http://localhost:8002`).
+    """
+    if _url_origin(url) == _url_origin(target):
+        return True
+    target_parsed = urlparse(target)
+    # Hub hosts are only known by hostname: only trust them on their scheme's standard port, so that e.g.
+    # `HF_ENDPOINT=http://localhost:15564` does not make `http://localhost:8002` a trusted Hub host.
+    return (target_parsed.hostname or "").lower() in constants.HF_URL_HOSTS and target_parsed.port in (
+        None,
+        _DEFAULT_PORTS.get(target_parsed.scheme),
+    )
 
 
 def fix_hf_endpoint_in_url(url: str, endpoint: str | None) -> str:
