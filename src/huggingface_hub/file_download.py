@@ -354,7 +354,8 @@ def http_get(
         url (`str`):
             The URL of the file to download.
         temp_file (`BinaryIO`):
-            The file-like object where to save the file.
+            The file-like object where to save the file. Content is written from the object's current position, so the
+            caller may hand over a file that already contains data of its own (see [`HfFileSystem.get_file`]).
         resume_size (`int`, *optional*):
             The number of bytes already downloaded. If set to 0 (default), the whole file is download. If set to a
             positive number, the download will resume at the given position.
@@ -402,7 +403,9 @@ def http_get(
             # If we requested a Range but got 200 back, the server ignored our Range header
             # (e.g. CloudFront with Accept-Encoding: gzip). Reset file to avoid corruption.
             if resume_size > 0 and response.status_code == 200:
-                temp_file.seek(0)
+                # Rewind to where this download started, which is not necessarily the start of the file: the caller
+                # may have handed over a file object that already contains data of its own.
+                temp_file.seek(max(temp_file.tell() - resume_size, 0))
                 temp_file.truncate()
                 if _tqdm_bar is not None:
                     # When the progress bar is reused across retries, its counter has already been advanced by `resume_size`
@@ -482,10 +485,12 @@ def http_get(
                 _tqdm_bar=progress,
             )
 
-    if expected_size is not None and expected_size != temp_file.tell():
+    # Compare against the bytes downloaded by this call rather than the absolute file position: the two differ
+    # whenever the caller passed a file object that was not positioned at 0.
+    if expected_size is not None and expected_size != new_resume_size:
         raise OSError(
             consistency_error_message.format(
-                actual_size=temp_file.tell(),
+                actual_size=new_resume_size,
             )
         )
 
