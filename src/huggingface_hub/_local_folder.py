@@ -209,6 +209,8 @@ def _validate_relative_filename(filename: str) -> None:
     side is anchored) or point outside of it (with `..`). We reject them here, before touching the
     filesystem. The check runs on all platforms and interprets the name under both POSIX and Windows
     rules, so a file materialized on Linux cannot escape when later consumed on Windows.
+
+    On Windows only, we additionally reject path segments ending with a dot or a space (see below).
     """
     # Reject parent-directory traversal ('..' as any segment, whether '/'- or '\'-separated).
     if ".." in filename.replace("\\", "/").split("/"):
@@ -225,6 +227,20 @@ def _validate_relative_filename(filename: str) -> None:
                 f"Invalid filename '{filename}': cannot be an absolute, drive-relative or UNC path. "
                 "Please ask the repository owner to rename this file."
             )
+    # Win32 silently strips trailing dots and spaces from every path segment when creating a file, so a
+    # repo file 'docs/file.' lands on disk as 'docs/file'. This renames the local copy (breaking upload
+    # round-trips) and, if the repo also contains 'docs/file', makes both files collapse onto the same
+    # local path, silently overwriting each other. Such names are valid and distinct on Linux/macOS, so
+    # this check is Windows-only: rejecting them everywhere would break downloads and uploads that work
+    # fine today.
+    if os.name == "nt":
+        for segment in filename.replace("\\", "/").split("/"):
+            if segment != "." and segment != segment.rstrip(". "):
+                raise ValueError(
+                    f"Invalid filename '{filename}': on Windows, path segments cannot end with a dot or a "
+                    "space as they would be silently stripped, renaming the file and possibly overwriting "
+                    "another one. Please ask the repository owner to rename this file."
+                )
 
 
 def get_local_download_paths(local_dir: Path, filename: str) -> LocalDownloadFilePaths:

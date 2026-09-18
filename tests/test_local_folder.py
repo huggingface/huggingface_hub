@@ -110,6 +110,7 @@ SAFE_FILENAMES = [
     "file.txt",
     "path/in/repo.txt",
     "weird but valid/name.txt",
+    "file..txt",  # interior dots and spaces are fine, even on Windows
 ]
 
 
@@ -122,6 +123,16 @@ def test_validate_relative_filename_rejects_unsafe(filename: str):
 @pytest.mark.parametrize("filename", SAFE_FILENAMES)
 def test_validate_relative_filename_accepts_safe(filename: str):
     _validate_relative_filename(filename)  # does not raise
+
+
+@pytest.mark.parametrize("filename", ["file.", "file ", "path/in/repo.", "docs./file.txt", "folder /file.txt"])
+def test_validate_relative_filename_trailing_dot_or_space(filename: str):
+    """Win32 strips trailing dots/spaces, so such names are rejected on Windows but valid elsewhere."""
+    if os.name == "nt":
+        with pytest.raises(ValueError, match="Invalid filename"):
+            _validate_relative_filename(filename)
+    else:
+        _validate_relative_filename(filename)  # does not raise
 
 
 @pytest.mark.parametrize("filename", UNSAFE_FILENAMES)
