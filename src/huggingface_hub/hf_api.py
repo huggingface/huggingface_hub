@@ -82,6 +82,7 @@ from .community import (
 )
 from .errors import (
     BadRequestError,
+    BucketBatchError,
     EntryNotFoundError,
     FileDuplicationError,
     GatedRepoError,
@@ -254,6 +255,9 @@ _AUTH_CHECK_NO_REPO_ERROR_MESSAGE = (
 _BUCKET_PATHS_INFO_BATCH_SIZE = 1000
 _BUCKET_BATCH_ADD_CHUNK_SIZE = 1000
 _BUCKET_BATCH_DELETE_CHUNK_SIZE = 1000
+# A single batch can report up to `_BUCKET_BATCH_ADD_CHUNK_SIZE` failures: only list the first few in the error
+# message (the full list is available on `BucketBatchError.failures`).
+_BUCKET_BATCH_MAX_LISTED_FAILURES = 10
 
 # Regex used to match special revisions with "/" in them (see #1710)
 SPECIAL_REFS_REVISION_REGEX = re.compile(
@@ -14631,6 +14635,11 @@ class HfApi:
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
 
+        Raises:
+            [`~errors.BucketBatchError`]: If the server reports that some of the operations failed. The failed
+            operations are listed in the error message and available on `BucketBatchError.failures`. Failures are
+            reported per operation, so the rest of the batch may well have been applied.
+
         Example:
             ```python
             >>> from huggingface_hub import batch_bucket_files
@@ -14846,6 +14855,11 @@ class HfApi:
         response = http_backoff(
             "POST", f"{self.endpoint}/api/buckets/{bucket_id}/batch", headers=headers, content=data
         )
+        # The endpoint reports failed operations in the response body, on a success as well as on the documented
+        # 422. Every other status is left untouched: their bodies carry a different kind of error (missing bucket,
+        # missing permission, ...) that `hf_raise_for_status` knows how to turn into a specialised exception.
+        if response.is_success or response.status_code == 422:
+            _raise_on_bucket_batch_failures(response, bucket_id=bucket_id, sent=len(operations))
         hf_raise_for_status(response)
 
     @validate_hf_hub_args
@@ -15160,6 +15174,58 @@ class HfApi:
             quiet=quiet,
             token=token,
         )
+
+
+def _raise_on_bucket_batch_failures(response: httpx.Response, *, bucket_id: str, sent: int) -> None:
+    """Raise [`BucketBatchError`] if a bucket `/batch` response reports failed operations.
+
+    The endpoint answers with `{"success", "processed", "succeeded", "failed": [{"path", "error"}]}`, holding to the
+    invariant `processed == succeeded + len(failed)`. A partially applied batch is a 200 with a non-empty `failed`,
+    and a batch where everything failed is a 422 with the same body, so failures must be read from the body rather
+    than from the status. Callers must still call `hf_raise_for_status` afterwards for the other statuses.
+
+    The body is parsed defensively: anything that is not a JSON object is left to `hf_raise_for_status`.
+    """
+    try:
+        payload = response.json()
+    except ValueError:  # empty body, truncated body, non-JSON body, ...
+        return
+    if not isinstance(payload, dict):
+        return
+
+    failed = payload.get("failed")
+    # Reported as-is rather than filtered to the documented `{"path", "error"}` shape: the server only ever appends
+    # that shape, so anything else means the body was mangled in transit, and surfacing it beats dropping it.
+    failures = failed if isinstance(failed, list) else []
+    processed, succeeded = payload.get("processed"), payload.get("succeeded")
+    # Anything processed but neither succeeded nor listed in `failed` breaks the invariant above and would
+    # otherwise pass as a success. Collapsed duplicate adds and no-op deletes count as succeeded, so they don't
+    # trip this.
+    unlisted = (
+        processed - succeeded - len(failures) if isinstance(processed, int) and isinstance(succeeded, int) else 0
+    )
+    if not failures and unlisted <= 0 and payload.get("success") is not False:
+        return  # nothing was reported as failed
+
+    listed = failures[:_BUCKET_BATCH_MAX_LISTED_FAILURES]
+    messages = [
+        f"  - {failure.get('path')}: {failure.get('error')}" if isinstance(failure, dict) else f"  - {failure}"
+        for failure in listed
+    ]
+    if len(failures) > len(listed):
+        messages.append(f"  - ... and {len(failures) - len(listed)} more")
+    if unlisted > 0:
+        messages.append(f"  - {unlisted} more operation(s) failed, not listed by the server")
+    if not messages:
+        messages.append("  - the server did not report which operations failed")
+
+    count = len(failures) + max(unlisted, 0)
+    raise BucketBatchError(
+        f"Failed to apply {count if count else 'some'} out of {sent} operation(s) on bucket '{bucket_id}':\n"
+        + "\n".join(messages),
+        response=response,
+        failures=failures,
+    )
 
 
 def _parse_revision_from_pr_url(pr_url: str) -> str:

@@ -10,8 +10,10 @@ from huggingface_hub.cli._errors import (
     _format_gated_repo,
     _format_repo_not_found,
     _format_revision_not_found,
+    format_known_exception,
 )
 from huggingface_hub.errors import (
+    BucketBatchError,
     BucketNotFoundError,
     GatedRepoError,
     RemoteEntryNotFoundError,
@@ -120,3 +122,17 @@ class TestFormatRevisionNotFound:
     def test_without_repo_id(self):
         err = _make_error(RevisionNotFoundError, repo_id=None, repo_type=None)
         assert _format_revision_not_found(err) == "Revision not found in repository. Check the revision parameter."
+
+
+def test_bucket_batch_error_is_formatted():
+    # BucketBatchError is a HfHubHTTPError subclass: it must be matched before it, so that the CLI prints the
+    # failed operations rather than the generic HTTP error message.
+    response = Mock(spec=httpx.Response)
+    response.headers = httpx.Headers({})
+    response.request = Mock(spec=httpx.Request)
+    err = BucketBatchError(
+        "Failed to apply 1 out of 2 operation(s)",
+        response=response,
+        failures=[{"path": "a.txt", "error": "boom"}],
+    )
+    assert format_known_exception(err) == "Failed to apply 1 out of 2 operation(s)"
