@@ -60,6 +60,7 @@ from ._jobs_api import (
     _default_job_name_from_script,
     _derive_job_volume_name,
 )
+from ._local_folder import _validate_relative_filename
 from ._revision import ResolvedRevision
 from ._space_api import (
     INTERMEDIATE_SPACE_STAGES,
@@ -2217,6 +2218,21 @@ def _parse_safetensors_header(metadata_as_bytes: bytes, filename: str, context_m
             f"Failed to parse safetensors header for '{filename}' ({context_msg}): header format not recognized. "
             "Please make sure this is a correctly formatted safetensors file."
         ) from e
+
+
+def _validate_weight_map(weight_map: dict[str, str]) -> None:
+    """Validate the shard filenames listed in a `model.safetensors.index.json` `weight_map`.
+
+    The index file is repo content, not caller input, so a repo owner can put anything in it. Each filename is
+    then used to build a request URL (remote repo) or joined to a local folder (local repo). A `..` segment
+    survives `quote()` and is resolved client-side by httpx, which would make us fetch a *different* repo with
+    the caller's own token. Reject such filenames before any file is fetched or read.
+    """
+    for filename in set(weight_map.values()):
+        try:
+            _validate_relative_filename(filename)
+        except ValueError as e:
+            raise SafetensorsParsingError(f"Invalid entry in '{constants.SAFETENSORS_INDEX_FILE}': {e}") from e
 
 
 class HfApi:
@@ -6984,6 +7000,7 @@ class HfApi:
                 index = json.load(f)
 
             weight_map = index.get("weight_map", {})
+            _validate_weight_map(weight_map)
 
             # Fetch metadata per shard
             files_metadata = {}
@@ -15308,6 +15325,7 @@ def get_local_safetensors_metadata(path: str | Path) -> SafetensorsRepoMetadata:
             index = json.load(f)
 
         weight_map = index.get("weight_map", {})
+        _validate_weight_map(weight_map)
 
         # Parse metadata from each shard
         files_metadata = {}
