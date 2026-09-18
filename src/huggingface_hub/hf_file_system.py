@@ -19,6 +19,7 @@ from fsspec.config import apply_config
 from fsspec.utils import isfilelike
 
 from . import constants
+from ._buckets import BucketFile, BucketFolder
 from ._commit_api import CommitOperationCopy, CommitOperationDelete
 from ._local_folder import _validate_relative_filename
 from .errors import (
@@ -29,7 +30,7 @@ from .errors import (
     RevisionNotFoundError,
 )
 from .file_download import hf_hub_url, http_get
-from .hf_api import SPECIAL_REFS_REVISION_REGEX, BucketFile, BucketFolder, HfApi, LastCommitInfo, RepoFile, RepoFolder
+from .hf_api import SPECIAL_REFS_REVISION_REGEX, HfApi, LastCommitInfo, RepoFile, RepoFolder
 from .utils import HFValidationError, hf_raise_for_status, http_backoff, http_stream_backoff, parse_hf_uri
 from .utils.insecure_hashlib import md5
 

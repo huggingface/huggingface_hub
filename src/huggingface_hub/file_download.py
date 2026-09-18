@@ -10,11 +10,11 @@ import warnings
 from contextlib import ExitStack
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, BinaryIO, Literal, NoReturn, overload
+from typing import Any, BinaryIO, Literal, NoReturn, cast, overload
 from urllib.parse import quote
 
 import httpx
-from tqdm.auto import tqdm as base_tqdm
+from tqdm import tqdm as base_tqdm
 
 from . import constants
 from ._local_folder import (
@@ -44,7 +44,6 @@ from .utils import (
     hf_raise_for_status,
     logging,
     parse_xet_file_data_from_response,
-    tqdm,
     validate_hf_hub_args,
 )
 from .utils._http import (
@@ -53,10 +52,17 @@ from .utils._http import (
     _adjust_range_header,
     _httpx_follow_hub_redirects_with_backoff,
     _is_same_or_hub_host,
+    flag_as_download_call,
     http_stream_backoff,
 )
 from .utils._paths import as_extended_path
 from .utils._runtime import is_xet_available
+from .utils._shared_blobs import (
+    has_shared_blob,
+    publish_blob_to_shared_store,
+    shared_blobs_enabled,
+    try_link_from_shared_store,
+)
 from .utils._xet import XetTokenType, is_valid_xet_hash, xet_connection_info_refresh_url
 from .utils.sha import sha_fileobj
 from .utils.tqdm import _get_progress_bar_context
@@ -104,10 +110,8 @@ def are_symlinks_supported(cache_dir: str | Path | None = None) -> bool:
     if constants.HF_HUB_DISABLE_SYMLINKS:
         return False
 
-    # Check symlink compatibility only once (per cache directory) at first time use
+    # Cache symlink compatibility per directory, publishing the result only after the probe completes.
     if cache_dir not in _are_symlinks_supported_in_dir:
-        _are_symlinks_supported_in_dir[cache_dir] = True
-
         os.makedirs(cache_dir, exist_ok=True)
         with SoftTemporaryDirectory(dir=cache_dir) as tmpdir:
             src_path = Path(tmpdir) / "dummy_file_src"
@@ -118,6 +122,7 @@ def are_symlinks_supported(cache_dir: str | Path | None = None) -> bool:
             relative_src = os.path.relpath(src_path, start=os.path.dirname(dst_path))
             try:
                 os.symlink(relative_src, dst_path)
+                _are_symlinks_supported_in_dir[cache_dir] = True
             except OSError:
                 # Likely running on Windows
                 _are_symlinks_supported_in_dir[cache_dir] = False
@@ -336,7 +341,7 @@ def http_get(
     displayed_filename: str | None = None,
     tqdm_class: type[base_tqdm] | None = None,
     _nb_retries: int = 5,
-    _tqdm_bar: tqdm | None = None,
+    _tqdm_bar: base_tqdm | None = None,
 ) -> None:
     """
     Download a remote file. Do not gobble up errors, and will return errors tailored to the Hugging Face Hub.
@@ -445,8 +450,8 @@ def http_get(
                 total=total,
                 initial=resume_size,
                 name="huggingface_hub.http_get",
-                tqdm_class=tqdm_class,
-                _tqdm_bar=_tqdm_bar,
+                tqdm_class=cast(Any, tqdm_class),
+                _tqdm_bar=cast(Any, _tqdm_bar),
             )
 
             progress = stack.enter_context(progress_cm)
@@ -498,7 +503,7 @@ def xet_get(
     expected_size: int | None = None,
     displayed_filename: str | None = None,
     tqdm_class: type[base_tqdm] | None = None,
-    _tqdm_bar: tqdm | None = None,
+    _tqdm_bar: base_tqdm | None = None,
 ) -> None:
     """
     Download a file using Xet storage service.
@@ -848,6 +853,7 @@ def hf_hub_download(
 
 
 @validate_hf_hub_args
+@flag_as_download_call
 def hf_hub_download(
     repo_id: str,
     filename: str,
@@ -1195,7 +1201,17 @@ def _hf_hub_download_to_cache_dir(
     pointer_path = _get_pointer_path(storage_folder, commit_hash, relative_filename)
 
     if dry_run:
-        is_cached = os.path.exists(pointer_path) or os.path.exists(blob_path)
+        # A usable shared store entry counts as cached: the real call would symlink it without downloading.
+        # Symlink support is not probed here (probing writes to the cache), so the preview may be optimistic.
+        is_cached = (
+            os.path.exists(pointer_path)
+            or os.path.exists(blob_path)
+            or (
+                xet_file_data is not None
+                and not constants.HF_HUB_DISABLE_SYMLINKS
+                and has_shared_blob(xet_hash=xet_file_data.file_hash, cache_dir=cache_dir, expected_size=expected_size)
+            )
+        )
         return DryRunFileInfo(
             commit_hash=commit_hash,
             file_size=expected_size,
@@ -1246,21 +1262,50 @@ def _hf_hub_download_to_cache_dir(
 
     # Local file doesn't exist or etag isn't a match => retrieve file from remote (or cache)
 
+    # Xet hash of the blob in the shared store, None when the store must not be used for this download
+    # (see `utils/_shared_blobs.py`).
+    shared_blob_hash = (
+        xet_file_data.file_hash
+        if xet_file_data is not None and shared_blobs_enabled() and are_symlinks_supported(cache_dir)
+        else None
+    )
+
     with WeakFileLock(lock_path):
-        _download_to_tmp_and_move(
-            incomplete_path=Path(blob_path + ".incomplete"),
-            destination_path=Path(blob_path),
-            url_to_download=url_to_download,
-            headers=headers,
-            expected_size=expected_size,
-            filename=filename,
-            force_download=force_download,
-            etag=etag,
-            xet_file_data=xet_file_data,
-            tqdm_class=tqdm_class,
+        blob_reused_from_store = (
+            shared_blob_hash is not None
+            and not force_download
+            and not os.path.exists(blob_path)
+            and try_link_from_shared_store(
+                blob_path=blob_path, xet_hash=shared_blob_hash, cache_dir=cache_dir, expected_size=expected_size
+            )
         )
+        blob_is_shared = blob_reused_from_store
+        if not blob_reused_from_store:
+            will_download = force_download or not os.path.exists(blob_path)
+            _download_to_tmp_and_move(
+                incomplete_path=Path(blob_path + ".incomplete"),
+                destination_path=Path(blob_path),
+                url_to_download=url_to_download,
+                headers=headers,
+                expected_size=expected_size,
+                filename=filename,
+                force_download=force_download,
+                etag=etag,
+                xet_file_data=xet_file_data,
+                tqdm_class=tqdm_class,
+            )
+            if shared_blob_hash is not None and will_download and is_xet_available():
+                # Only Xet-verified downloads are published, never the plain HTTP fallback.
+                blob_is_shared = publish_blob_to_shared_store(
+                    blob_path=blob_path,
+                    xet_hash=shared_blob_hash,
+                    cache_dir=cache_dir,
+                    expected_size=expected_size,
+                    replace_existing=force_download,
+                )
         if not os.path.exists(pointer_path):
-            _create_symlink(blob_path, pointer_path, new_blob=True)
+            # A shared blob is a symlink: if the snapshot symlink fails, copy through it instead of moving it away.
+            _create_symlink(blob_path, pointer_path, new_blob=not blob_is_shared)
 
     return pointer_path
 
@@ -2040,7 +2085,51 @@ def _chmod_and_move(src: Path, dst: Path) -> None:
             # See https://github.com/huggingface/huggingface_hub/issues/2359
             pass
 
-    shutil.move(str(src), str(dst), copy_function=_copy_no_matter_what)
+    if os.path.lexists(dst):
+        # Replace the entry so a force download never writes through a shared symlink.
+        _replace_no_matter_what(src, dst)
+    else:
+        shutil.move(str(src), str(dst), copy_function=_copy_no_matter_what)
+
+
+def _replace_no_matter_what(src: Path, dst: Path) -> None:
+    """Replace `dst` with `src`.
+
+    Some mounts reject replace-over-existing: stage the new file next to `dst`, move the old entry aside
+    and restore it if the final move fails.
+    """
+    try:
+        os.replace(src, dst)
+    except OSError:
+        staged_dst = dst.with_name(f".{dst.name}.{uuid.uuid4().hex[:8]}.new")
+        backup_dst = dst.with_name(f".{dst.name}.{uuid.uuid4().hex[:8]}.old")
+        backup_holds_previous_entry = False
+        try:
+            shutil.move(str(src), str(staged_dst), copy_function=_copy_no_matter_what)
+            os.rename(dst, backup_dst)
+            backup_holds_previous_entry = True
+            try:
+                shutil.move(str(staged_dst), str(dst), copy_function=_copy_no_matter_what)
+            except OSError as move_error:
+                try:
+                    if os.path.lexists(dst):
+                        os.unlink(dst)
+                    os.rename(backup_dst, dst)
+                    backup_holds_previous_entry = False
+                except OSError as restore_error:
+                    raise OSError(
+                        f"Could not restore previous destination '{dst}' from '{backup_dst}'"
+                    ) from restore_error
+                raise move_error
+            try:
+                backup_dst.unlink()
+                backup_holds_previous_entry = False
+            except OSError as cleanup_error:
+                logger.warning(f"Could not remove previous destination backup '{backup_dst}': {cleanup_error}")
+        finally:
+            staged_dst.unlink(missing_ok=True)
+            if not backup_holds_previous_entry:
+                backup_dst.unlink(missing_ok=True)
 
 
 def _copy_no_matter_what(src: str, dst: str) -> None:

@@ -23,6 +23,10 @@ WARNING_HEADER = """<!--
 def get_docs_for_click(
     *, obj: click.Command, ctx: click.Context, indent: int = 0, name: str = "", call_prefix: str = ""
 ) -> str:
+    if materialize := getattr(obj, "materialize", None):
+        obj = materialize()
+        ctx = click.Context(obj, parent=ctx.parent, info_name=ctx.info_name)
+
     """Render Markdown reference for a Click command tree.
 
     Ported from ``typer.cli.get_docs_for_click`` (rich/HTML branches dropped) so the

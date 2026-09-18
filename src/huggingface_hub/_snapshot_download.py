@@ -27,6 +27,7 @@ from .file_download import (
 )
 from .hf_api import HfApi, RepoFile
 from .utils import OfflineModeIsEnabled, filter_repo_objects, logging, validate_hf_hub_args
+from .utils._http import flag_as_download_call
 from .utils._paths import as_extended_path
 from .utils._xet_progress_reporting import (
     XET_BYTES_BAR_FORMAT,
@@ -118,6 +119,7 @@ def snapshot_download(
 
 
 @validate_hf_hub_args
+@flag_as_download_call
 def snapshot_download(
     repo_id: str,
     *,
