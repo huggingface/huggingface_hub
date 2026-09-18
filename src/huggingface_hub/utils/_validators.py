@@ -27,12 +27,10 @@ from ._typing import CallableT
 
 REPO_ID_REGEX = re.compile(
     r"""
-    ^
     (\b[\w\-.]+\b/)? # optional namespace (username or organization)
     \b               # starts with a word boundary
     [\w\-.]{1,96}    # repo_name: alphanumeric + . _ -
     \b               # ends with a word boundary
-    $
     """,
     # `\w` matches Unicode word characters by default, but the allowed charset is
     # ASCII-only (see the "Rules" docstring below and the internal Hub validation
@@ -137,7 +135,7 @@ def validate_repo_id(repo_id: str | None) -> None:
             f" '{repo_id}'. Use `repo_type` argument if needed."
         )
 
-    if not REPO_ID_REGEX.match(repo_id):
+    if not REPO_ID_REGEX.fullmatch(repo_id):
         raise HFValidationError(
             "Repo id must use alphanumeric chars, '-', '_' or '.'."
             " The name cannot start or end with '-' or '.' and the maximum length is 96:"

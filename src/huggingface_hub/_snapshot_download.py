@@ -266,7 +266,7 @@ def snapshot_download(
     commit_hash: str | None = None
     if isinstance(revision, ResolvedRevision):
         commit_hash = revision.resolved
-    elif REGEX_COMMIT_HASH.match(revision):
+    elif REGEX_COMMIT_HASH.fullmatch(revision):
         commit_hash = revision
 
     api_call_error: Exception | None = None
@@ -663,7 +663,7 @@ def get_cached_repo_tree(
     # or it's a branch/tag name recorded in `refs/` by a previous download.
     if isinstance(revision, ResolvedRevision):
         commit_hash = revision.resolved
-    elif REGEX_COMMIT_HASH.match(revision):
+    elif REGEX_COMMIT_HASH.fullmatch(revision):
         commit_hash = revision
     else:
         ref_path = os.path.join(storage_folder, "refs", revision)

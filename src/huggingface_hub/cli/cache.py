@@ -58,11 +58,11 @@ class _DeletionResolution:
     files: dict[CachedFileInfo, str] = field(default_factory=dict)  # selected files, mapped to their display label
 
 
-_FILTER_PATTERN = re.compile(r"^(?P<key>[a-zA-Z_]+)\s*(?P<op>==|!=|>=|<=|>|<|=)\s*(?P<value>.+)$")
+_FILTER_PATTERN = re.compile(r"(?P<key>[a-zA-Z_]+)\s*(?P<op>==|!=|>=|<=|>|<|=)\s*(?P<value>.+)")
 _ALLOWED_OPERATORS = {"=", "!=", ">", "<", ">=", "<="}
 _FILTER_KEYS = {"accessed", "modified", "refs", "size", "type"}
 _SORT_KEYS = {"accessed", "modified", "name", "size"}
-_SORT_PATTERN = re.compile(r"^(?P<key>[a-zA-Z_]+)(?::(?P<order>asc|desc))?$")
+_SORT_PATTERN = re.compile(r"(?P<key>[a-zA-Z_]+)(?::(?P<order>asc|desc))?")
 _SORT_DEFAULT_ORDER = {
     # Default ordering: accessed/modified/size are descending (newest/biggest first), name is ascending
     "accessed": "desc",
@@ -209,7 +209,7 @@ def compile_cache_filter(
     expr: str, repo_refs_map: RepoRefsMap
 ) -> Callable[[CachedRepoInfo, CachedRevisionInfo | None, float], bool]:
     """Convert a `hf cache ls` filter expression into the yes/no test we apply to each cache entry before displaying it."""
-    match = _FILTER_PATTERN.match(expr.strip())
+    match = _FILTER_PATTERN.fullmatch(expr.strip())
     if not match:
         raise ValueError(f"Invalid filter expression: '{expr}'.")
 
@@ -297,7 +297,7 @@ def compile_cache_sort(sort_expr: str) -> tuple[Callable[[CacheEntry], tuple[Any
         A tuple of (key_function, reverse_flag) where reverse_flag indicates whether
         to sort in descending order (True) or ascending order (False).
     """
-    match = _SORT_PATTERN.match(sort_expr.strip().lower())
+    match = _SORT_PATTERN.fullmatch(sort_expr.strip().lower())
     if not match:
         raise ValueError(f"Invalid sort expression: '{sort_expr}'. Expected format: 'key' or 'key:asc' or 'key:desc'.")
 

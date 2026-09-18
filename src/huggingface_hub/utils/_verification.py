@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from ..hf_api import RepoFile
 
 # using fullmatch for clarity and strictness
-_REGEX_COMMIT_HASH = re.compile(r"^[0-9a-f]{40}$")
+_REGEX_COMMIT_HASH = re.compile(r"[0-9a-f]{40}")
 
 
 # Typed structure describing a checksum mismatch

@@ -1163,7 +1163,7 @@ def _curlify(request: httpx.Request) -> str:
 
 
 # Regex to parse HTTP Range header
-RANGE_REGEX = re.compile(r"^\s*bytes\s*=\s*(\d*)\s*-\s*(\d*)\s*$", re.IGNORECASE)
+RANGE_REGEX = re.compile(r"\s*bytes\s*=\s*(\d*)\s*-\s*(\d*)\s*", re.IGNORECASE)
 
 
 def _adjust_range_header(original_range: str | None, resume_size: int) -> str | None:
@@ -1176,7 +1176,7 @@ def _adjust_range_header(original_range: str | None, resume_size: int) -> str | 
     if "," in original_range:
         raise ValueError(f"Multiple ranges detected - {original_range!r}, not supported yet.")
 
-    match = RANGE_REGEX.match(original_range)
+    match = RANGE_REGEX.fullmatch(original_range)
     if not match:
         raise RuntimeError(f"Invalid range format - {original_range!r}.")
     start, end = match.groups()
