@@ -1854,7 +1854,12 @@ Run compute jobs on Hugging Face infrastructure with a familiar Docker-like inte
 >>> hf jobs run python:3.12 python -c 'print("Hello from HF compute!")'
 ```
 
-This command runs the job and shows the logs. You can pass `--detach` to run the Job in the background and only print the Job ID.
+This command runs the job and shows the logs. You can pass `--detach` to run the Job in the background and only print the Job ID. Add `-q` to print the Job ID alone, which is handy to capture it in a script:
+
+```bash
+>>> JOB_ID=$(hf jobs run -dq python:3.12 python train.py)
+>>> hf jobs wait "$JOB_ID"
+```
 
 #### 2. Check job status
 
@@ -2184,6 +2189,8 @@ rather than showing Jobs help:
 ```bash
 >>> hf jobs uv run --flavor t4-small train.py -- --help
 ```
+
+This also applies to the formatting flags: `hf jobs run`, `hf jobs uv run` and their `scheduled` variants consume `--format`, `--json` and `-q` wherever they appear, so use `--` when your script needs them.
 
 #### Ship the launch config with the script
 
