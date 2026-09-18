@@ -23,6 +23,8 @@ from huggingface_hub.utils._http import (
     _WARNED_TOPICS,
     RateLimitInfo,
     _adjust_range_header,
+    _httpx_follow_hub_redirects_with_backoff,
+    _is_same_or_hub_host,
     _parse_bucket_id_from_url,
     _parse_repo_info_from_url,
     _parse_retry_after,
@@ -870,3 +872,145 @@ def test_flag_as_download_call_decorator():
             assert is_flagged(response)
         else:
             assert not is_flagged(response)
+
+
+class TestFollowHubRedirects:
+    """Tests for redirect handling when resolving files on the Hub.
+
+    Only redirects that stay on the Hub (same origin, or another Hub host on a standard port) are followed.
+    Redirects to a storage host (CDN, xet bridge,...) are not: the file metadata is carried by the redirect
+    response itself and the auth header must not be forwarded there.
+    """
+
+    @pytest.mark.parametrize(
+        "url, target, expected",
+        [
+            # Same origin => Hub redirect (e.g. renamed repo) => followed
+            (
+                "https://huggingface.co/org/repo/resolve/main/file.bin",
+                "https://huggingface.co/org/renamed/resolve/main/file.bin",
+                True,
+            ),
+            # Same origin, explicit default port
+            ("https://huggingface.co/resolve/main/file.bin", "https://huggingface.co:443/resolve/main/file.bin", True),
+            # Another Hub host on its standard port => followed
+            (
+                "https://example.com/org/repo/resolve/main/file.bin",
+                "https://huggingface.co/org/repo/resolve/main/file.bin",
+                True,
+            ),
+            # Same hostname, different port => storage host => NOT followed
+            (
+                "http://localhost:15564/org/repo/resolve/main/file.bin",
+                "http://localhost:14886/blob/deadbeef?signature=abc",
+                False,
+            ),
+            # Hub host on a non-standard port => NOT followed
+            ("https://example.com/resolve/main/file.bin", "https://huggingface.co:8443/resolve/main/file.bin", False),
+            # Scheme change => NOT followed (be strict, same as before following Hub-host redirects)
+            ("http://localhost:15564/resolve/main/file.bin", "https://localhost:15564/resolve/main/file.bin", False),
+            # Storage host (CDN) => NOT followed
+            ("https://huggingface.co/org/repo/resolve/main/file.bin", "https://cdn-lfs.hf.co/abc", False),
+        ],
+    )
+    def test_is_same_or_hub_host(self, monkeypatch, url, target, expected):
+        monkeypatch.setattr(constants, "HF_URL_HOSTS", frozenset({"huggingface.co"}))
+        assert _is_same_or_hub_host(url, target) is expected
+
+    def test_is_same_or_hub_host_with_ported_endpoint(self, monkeypatch):
+        """A Hub host is only trusted on its standard port.
+
+        With `HF_ENDPOINT=http://localhost:15564`, "localhost" is a known Hub host, but a redirect to e.g.
+        `http://localhost:14886` (a storage host on the same hostname) must not be followed.
+        """
+        monkeypatch.setattr(constants, "HF_URL_HOSTS", frozenset({"localhost", "huggingface.co"}))
+        # Standard port => trusted
+        assert _is_same_or_hub_host("https://example.com/file.bin", "http://localhost/resolve/main/file.bin")
+        # Explicit standard port => trusted
+        assert _is_same_or_hub_host("https://example.com/file.bin", "http://localhost:80/resolve/main/file.bin")
+        # Any other port => not trusted
+        assert not _is_same_or_hub_host("https://example.com/file.bin", "http://localhost:14886/resolve/main/file.bin")
+
+
+class _RedirectHubHandler(BaseHTTPRequestHandler):
+    """Fake Hub answering /resolve with a 302 to `location` (metadata headers on the redirect itself)."""
+
+    location: str
+
+    def do_HEAD(self):
+        self.send_response(302)
+        self.send_header("X-Repo-Commit", "0" * 40)
+        self.send_header("X-Linked-Etag", '"deadbeef"')
+        self.send_header("X-Linked-Size", "12")
+        self.send_header("Location", self.location)
+        self.end_headers()
+
+    def log_message(self, *_):
+        pass
+
+
+class _StorageHandler(BaseHTTPRequestHandler):
+    """Fake storage host (e.g. CDN or xet bridge): serves the file, without any Hub metadata header."""
+
+    def do_HEAD(self):
+        self.send_response(200)
+        self.send_header("Content-Length", "12")
+        self.send_header("ETag", '"deadbeef"')
+        self.end_headers()
+
+    def log_message(self, *_):
+        pass
+
+
+def _start_local_server(handler_cls) -> str:
+    server = HTTPServer(("127.0.0.1", 0), handler_cls)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    return f"http://127.0.0.1:{server.server_address[1]}"
+
+
+def test_resolve_redirect_to_same_hostname_other_port_is_not_followed():
+    """Regression test: a /resolve redirect to the same hostname on another port is a storage redirect.
+
+    The file metadata is carried by the 302 response: it must be returned as-is, not replaced by the
+    storage host's response (which lacks `X-Repo-Commit` and friends).
+    """
+    storage_url = _start_local_server(_StorageHandler)
+    hub_handler = type("HubHandler", (_RedirectHubHandler,), {"location": f"{storage_url}/blob/deadbeef"})
+    hub_url = _start_local_server(hub_handler)
+
+    response = _httpx_follow_hub_redirects_with_backoff("HEAD", f"{hub_url}/org/repo/resolve/main/file.bin")
+
+    # We got the Hub's 302, not the storage host's 200
+    assert response.status_code == 302
+    assert response.headers["X-Repo-Commit"] == "0" * 40
+    assert response.headers["X-Linked-Etag"] == '"deadbeef"'
+    assert response.headers["Location"] == f"{storage_url}/blob/deadbeef"
+
+
+class _SameOriginRedirectHandler(BaseHTTPRequestHandler):
+    """Fake Hub redirecting /resolve to a renamed repo on the same server, then serving the file."""
+
+    def do_HEAD(self):
+        if self.path.startswith("/org/repo/resolve/"):
+            self.send_response(302)
+            self.send_header("Location", "/org/renamed" + self.path[len("/org/repo") :])
+            self.end_headers()
+        else:
+            self.send_response(200)
+            self.send_header("X-Repo-Commit", "0" * 40)
+            self.send_header("Content-Length", "12")
+            self.end_headers()
+
+    def log_message(self, *_):
+        pass
+
+
+def test_resolve_redirect_to_same_origin_is_followed():
+    """A /resolve redirect that stays on the same origin (e.g. renamed repo) is followed."""
+    hub_url = _start_local_server(_SameOriginRedirectHandler)
+
+    response = _httpx_follow_hub_redirects_with_backoff("HEAD", f"{hub_url}/org/repo/resolve/main/file.bin")
+
+    assert response.status_code == 200
+    assert response.headers["X-Repo-Commit"] == "0" * 40
+    assert response.request.url == f"{hub_url}/org/renamed/resolve/main/file.bin"
