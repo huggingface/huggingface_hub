@@ -2,3 +2,5 @@
   sections:
   - local: guides/download
     title: Dosya indirme
+  - local: guides/upload
+    title: Dosya yükleme
