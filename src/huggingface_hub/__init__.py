@@ -76,6 +76,8 @@ _SUBMOD_ATTRS = {
         "parse_eval_result_entries",
     ],
     "_inference_endpoints": [
+        "InferenceCatalogModel",
+        "InferenceCatalogRecipe",
         "InferenceEndpoint",
         "InferenceEndpointError",
         "InferenceEndpointHardware",
@@ -788,6 +790,8 @@ __all__ = [
     "ImageToVideoOutput",
     "ImageToVideoParameters",
     "ImageToVideoTargetSize",
+    "InferenceCatalogModel",
+    "InferenceCatalogRecipe",
     "InferenceClient",
     "InferenceEndpoint",
     "InferenceEndpointError",
@@ -1284,6 +1288,8 @@ if TYPE_CHECKING:  # pragma: no cover
         parse_eval_result_entries,  # noqa: F401
     )
     from ._inference_endpoints import (
+        InferenceCatalogModel,  # noqa: F401
+        InferenceCatalogRecipe,  # noqa: F401
         InferenceEndpoint,  # noqa: F401
         InferenceEndpointError,  # noqa: F401
         InferenceEndpointHardware,  # noqa: F401

@@ -600,3 +600,94 @@ class InferenceEndpointHardware:
             max_accelerators=quota["maxAccelerators"],
             used_accelerators=quota["usedAccelerators"],
         )
+
+
+@dataclass
+class InferenceCatalogRecipe:
+    """
+    Contains information about a pre-tested way of deploying a model from the Inference Catalog.
+
+    A recipe is a hardware and engine combination that the Inference Endpoints team has tested for a given model. A
+    model usually has one recipe, but it can have several (e.g. a GPU one and a Neuron one, or one per GGUF quant).
+
+    Args:
+        id (`str`):
+            The public recipe id, to pass to [`create_inference_endpoint_from_catalog`] as `recipe_id`.
+        accelerator (`str`):
+            The type of hardware accelerator the recipe runs on, e.g. `"cpu"`, `"gpu"` or `"neuron"`.
+        engine (`str`):
+            The inference engine the recipe runs, e.g. `"vllm"`, `"llamacpp"`, `"tei"` or `"sglang"`.
+        gguf_file (`str`, *optional*):
+            The GGUF file deployed by the recipe. Only set for `"llamacpp"` recipes.
+        revision (`str`, *optional*):
+            The model revision the recipe is pinned to, if any.
+    """
+
+    id: str
+    accelerator: str
+    engine: str
+    gguf_file: str | None
+    revision: str | None
+
+    @classmethod
+    def from_raw(cls, raw: dict) -> "InferenceCatalogRecipe":
+        """Initialize object from a raw recipe dictionary, nested under a model in the API response."""
+        return cls(
+            id=raw["publicId"],
+            accelerator=raw["accelerator"],
+            engine=raw["engineType"],
+            gguf_file=raw.get("ggufFile"),
+            revision=raw.get("revision"),
+        )
+
+
+@dataclass
+class InferenceCatalogModel:
+    """
+    Contains information about a model available in the Inference Catalog.
+
+    Args:
+        repo_id (`str`):
+            The id of the model repository on the Hub, e.g. `"meta-llama/Llama-3.1-8B-Instruct"`.
+        name (`str`):
+            The model name, i.e. the part of `repo_id` after the author, e.g. `"Llama-3.1-8B-Instruct"`.
+        author (`str`):
+            The author of the model repository, e.g. `"meta-llama"`.
+        license (`str`):
+            The license of the model, e.g. `"Apache 2.0"`.
+        task (`str`):
+            The task the model is deployed on, e.g. `"text-generation"`.
+        created_at (`datetime`):
+            The date the model was added to the catalog.
+        recipes (`list[InferenceCatalogRecipe]`):
+            The tested ways of deploying this model.
+
+    Example:
+        ```python
+        >>> from huggingface_hub import list_inference_catalog
+        >>> catalog = list_inference_catalog(engine="vllm")
+        >>> catalog[0]
+        InferenceCatalogModel(repo_id='Qwen/Qwen2.5-Coder-7B-Instruct', name='Qwen2.5-Coder-7B-Instruct', ...)
+        ```
+    """
+
+    repo_id: str
+    name: str
+    author: str
+    license: str
+    task: str
+    created_at: datetime
+    recipes: list[InferenceCatalogRecipe]
+
+    @classmethod
+    def from_raw(cls, raw: dict) -> "InferenceCatalogModel":
+        """Initialize object from a raw catalog item dictionary."""
+        return cls(
+            repo_id=raw["repoId"],
+            name=raw["modelName"],
+            author=raw["authorName"],
+            license=raw["license"],
+            task=raw["task"],
+            created_at=parse_datetime(raw["createdAt"]),
+            recipes=[InferenceCatalogRecipe.from_raw(recipe) for recipe in raw["recipes"]],
+        )

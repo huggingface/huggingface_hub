@@ -2552,13 +2552,32 @@ To retune a running endpoint, pass the sizes on their own. `model.image` is sent
 
 Use `hf endpoints catalog` to interact with the Inference Endpoints Model Catalog. Deploy models directly from the catalog with optimized configurations.
 
+Each catalog model comes with one or more *recipes*: a hardware and engine combination that has been tested for it. `hf endpoints catalog ls` prints one row per recipe, so a model with both a GPU and a Neuron recipe shows up twice:
+
 ```bash
 # List available catalog models
 >>> hf endpoints catalog ls
+REPO_ID                             TASK               LICENSE    ACCELERATOR ENGINE   GGUF_FILE                     RECIPE_ID
+----------------------------------- ------------------ ---------- ----------- -------- ----------------------------- -------------------------
+meta-llama/Llama-3.1-8B-Instruct    text-generation    Llama 3.1  gpu         vllm                                   sizzling-biryani-g4xsi1ac
+meta-llama/Llama-3.1-8B-Instruct    text-generation    Llama 3.1  neuron      vllmNeuron                             artisanal-quinoa-yz9ynamx
+bartowski/QwQ-32B-Preview-GGUF      text-generation    Apache 2.0 gpu         llamacpp QwQ-32B-Preview-Q8_0.gguf     baked-orange-m863gx7d
 
-# Deploy a model from the catalog
+# Narrow it down
+>>> hf endpoints catalog ls --engine vllm --task text-generation --search llama --limit 10
+```
+
+`--accelerator`, `--engine`, `--license`, `--task`, `--search` and `--limit` all filter server-side.
+
+```bash
+# Deploy the default recipe of a model
 >>> hf endpoints catalog deploy --repo meta-llama/Llama-3.2-1B-Instruct
+
+# Deploy an exact recipe listed above
+>>> hf endpoints catalog deploy --recipe artisanal-quinoa-yz9ynamx
 
 # Deploy with a custom name
 >>> hf endpoints catalog deploy --repo meta-llama/Llama-3.2-1B-Instruct --name my-llama-endpoint
 ```
+
+With `--repo`, the default recipe can be narrowed down with `--accelerator` (`cpu`, `gpu`, `neuron`) and `--gguf-file` (for models that have one recipe per quant). Both are rejected together with `--recipe`, which already designates a single recipe.
