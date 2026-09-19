@@ -1,0 +1,4 @@
+- title: "Nasıl yapılır rehberleri"
+  sections:
+  - local: guides/download
+    title: Dosya indirme
