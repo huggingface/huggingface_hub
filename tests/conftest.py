@@ -100,9 +100,11 @@ def disable_symlinks_on_windows_ci(monkeypatch: pytest.MonkeyPatch) -> None:
             return False  # symlinks are never supported
 
     if os.name == "nt" and os.environ.get("DISABLE_SYMLINKS_IN_WINDOWS_TESTS"):
+        # Use the string target form so monkeypatch imports the submodule itself: `huggingface_hub`
+        # loads its submodules lazily, so `huggingface_hub.file_download` may not exist yet when only
+        # a subset of the test suite is run (nothing else imported it first).
         monkeypatch.setattr(
-            huggingface_hub.file_download,
-            "_are_symlinks_supported_in_dir",
+            "huggingface_hub.file_download._are_symlinks_supported_in_dir",
             FakeSymlinkDict(),
         )
 
