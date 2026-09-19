@@ -49,3 +49,19 @@ class TestCLIUtils:
         """
         with pytest.raises(IndexError):
             tabulate(rows=[[1]], headers=["Header 1", "Header 2"])
+
+    def test_tabulate_pads_by_display_width(self) -> None:
+        """Test `tabulate` pads columns by terminal display width, not code points.
+
+        East Asian wide characters take 2 terminal columns but count as 1 code point.
+        See https://github.com/huggingface/huggingface_hub/issues/4946.
+        """
+        rows = [["小", "abc"], ["x", "y"]]
+        headers = ["a", "b"]
+        assert tabulate(rows=rows, headers=headers) == ("a  b  \n-- ---\n小 abc\nx  y  ")
+
+    def test_tabulate_display_width_right_align(self) -> None:
+        """Test `tabulate` right-alignment pads wide characters correctly."""
+        rows = [["1", "小"], ["22", "abc"]]
+        headers = ["n", "v"]
+        assert tabulate(rows=rows, headers=headers, alignments={"v": "right"}) == ("n    v\n-- ---\n1   小\n22 abc")

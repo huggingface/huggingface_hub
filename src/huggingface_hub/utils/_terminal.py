@@ -17,6 +17,7 @@ import ctypes
 import os
 import shutil
 import sys
+import unicodedata
 from contextlib import contextmanager
 
 from ._detect_agent import is_agent
@@ -242,6 +243,22 @@ def _select_with_numbers(prompt: str, choices: list[str]) -> int:
         print(f"Invalid choice. Enter a number between 1 and {len(choices)}.")
 
 
+def _display_width(value: str) -> int:
+    """Number of terminal columns `value` occupies.
+
+    East Asian Wide/Fullwidth characters render two columns wide, so counting code
+    points (like `len()`) underestimates the space they take. This simple count does
+    not model combining marks or zero-width joiners.
+    """
+    return sum(2 if unicodedata.east_asian_width(char) in ("W", "F") else 1 for char in value)
+
+
+def _pad(value: str, width: int, align: str) -> str:
+    """Pad `value` with spaces to `width` terminal columns (left- or right-aligned)."""
+    fill = " " * max(width - _display_width(value), 0)
+    return value + fill if align == "<" else fill + value
+
+
 def tabulate(
     rows: list[list[str | int]],
     headers: list[str],
@@ -257,12 +274,11 @@ def tabulate(
     for row in rows:
         if len(row) < len(headers):
             raise IndexError(f"Row has {len(row)} values but expected {len(headers)} (headers: {headers})")
-    col_widths = [max(len(str(x)) for x in col) for col in zip(*rows, headers)]
+    col_widths = [max(_display_width(str(x)) for x in col) for col in zip(*rows, headers)]
     col_aligns = [_ALIGN_MAP.get((alignments or {}).get(h, "left"), "<") for h in headers]
-    row_format = " ".join(f"{{:{a}{w}}}" for a, w in zip(col_aligns, col_widths))
     lines = []
-    lines.append(row_format.format(*headers))
-    lines.append(row_format.format(*["-" * w for w in col_widths]))
+    lines.append(" ".join(_pad(str(h), w, a) for h, w, a in zip(headers, col_widths, col_aligns)))
+    lines.append(" ".join("-" * w for w in col_widths))
     for row in rows:
-        lines.append(row_format.format(*row))
+        lines.append(" ".join(_pad(str(x), w, a) for x, w, a in zip(row, col_widths, col_aligns)))
     return "\n".join(lines)
