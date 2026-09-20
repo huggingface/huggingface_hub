@@ -1545,6 +1545,54 @@ class TestExtraLargeFileDownloadPaths:
                 )
 
 
+@pytest.mark.skipif(os.name != "nt", reason="Windows-specific test.")
+class TestCacheDirNearMaxPathBoundary:
+    r"""A `blob_path` just under the extended-path threshold must not crash once the per-process
+    `.incomplete` suffix is appended.
+
+    `_hf_hub_download_to_cache_dir` calls `as_extended_path()` on `blob_path` (file_download.py) before
+    the `.<8 random hex chars>.incomplete` suffix (~20 chars) is appended by `_download_to_tmp_and_move`
+    to build the real temporary file name. A `blob_path` within ~20 chars of the 255-char threshold is
+    judged short enough by `as_extended_path()`, but the temporary file actually opened for writing then
+    exceeds Windows' MAX_PATH (260) without the `\\?\` prefix, and used to fail with `FileNotFoundError`.
+    """
+
+    def test_download_does_not_crash_near_the_threshold(self) -> None:
+        repo_id = "someorg/some-fairly-descriptive-model-name"
+        repo_folder = "models--someorg--some-fairly-descriptive-model-name"
+        etag = "e7" * 32  # 64-char hex etag, as used for LFS/Xet files
+        content = b"content"
+
+        # Root the cache_dir directly under the OS temp dir (not pytest's `tmp_path`, whose own depth
+        # varies with `--basetemp`) so the padding below reliably lands `blob_path` at the boundary.
+        with SoftTemporaryDirectory() as base_dir:
+            # Pad `cache_dir` so `blob_path` (before the temp-file suffix) is exactly 250 characters:
+            # short enough that `as_extended_path()` (threshold 255) leaves it unprefixed, but long
+            # enough that appending the per-download suffix (~20 chars) pushes the real temporary file
+            # past 260.
+            pad_len = 0
+            while True:
+                cache_dir = Path(base_dir) / ("p" * pad_len)
+                blob_path = cache_dir / repo_folder / "blobs" / etag
+                if len(os.path.abspath(blob_path)) >= 250:
+                    break
+                pad_len += 1
+            cache_dir.mkdir(parents=True, exist_ok=True)
+
+            metadata = ("https://example.com/file.bin", etag, "d" * 40, len(content), None, None)
+
+            def fake_http_get(url: str, temp_file, **kwargs) -> None:
+                temp_file.write(content)
+
+            with (
+                patch("huggingface_hub.file_download._get_metadata_or_catch_error", return_value=metadata),
+                patch("huggingface_hub.file_download.http_get", side_effect=fake_http_get),
+            ):
+                path = Path(hf_hub_download(repo_id, "file.bin", cache_dir=str(cache_dir)))
+
+            assert path.read_bytes() == content
+
+
 def _recursive_chmod(path: str, mode: int) -> None:
     # Taken from https://stackoverflow.com/a/2853934
     for root, dirs, files in os.walk(path):
