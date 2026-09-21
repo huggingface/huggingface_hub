@@ -26,7 +26,7 @@ def load_dotenv(dotenv_str: str, environ: dict[str, str] | None = None) -> dict[
     env: dict[str, str] = {}
     line_pattern = re.compile(
         r"""
-        ^\s*
+        \s*
         (?:export[^\S\n]+)?               # optional export
         ([A-Za-z_][A-Za-z0-9_]*)          # key
         (?:
@@ -48,7 +48,7 @@ def load_dotenv(dotenv_str: str, environ: dict[str, str] | None = None) -> dict[
             )
             |
             [^\S\n]*(?:\#[^\n\r]*)?       # bare key (no '='), with an optional inline comment
-        )$
+        )
     """,
         re.VERBOSE,
     )
@@ -58,7 +58,7 @@ def load_dotenv(dotenv_str: str, environ: dict[str, str] | None = None) -> dict[
         if not line or line.startswith("#"):
             continue  # Skip comments and empty lines
 
-        match = line_pattern.match(line)
+        match = line_pattern.fullmatch(line)
         if match:
             key = match.group(1)
             val = None

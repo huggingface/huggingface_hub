@@ -83,7 +83,10 @@ line-length = 119
 # Ignored rules:
 # "E501" -> line length violation
 lint.ignore = ["E501"]
-lint.select = ["E", "F", "I", "W"]
+lint.select = ["E", "F", "I", "TID251", "W"]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"re.match".msg = "`re.match` is soft-deprecated (it only anchors the prefix). Use `re.fullmatch` for a whole-string match, or `re.search` with an explicit `^` anchor for a prefix match."
 
 [tool.ruff.lint.isort]
 known-first-party = ["huggingface_hub"]
