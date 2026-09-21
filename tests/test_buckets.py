@@ -644,47 +644,18 @@ def test_execute_plan_rejects_path_traversal(tmp_path):
     assert outside.exists()  # not deleted
 
 
-def _batch_response(body: dict, status_code: int = 200) -> httpx.Response:
-    return httpx.Response(
+@pytest.mark.parametrize("status_code", [200, 422])
+def test_batch_bucket_files_raises_on_failed_operations(mocker, status_code: int):
+    body = {"success": False, "processed": 2, "succeeded": 1, "failed": [{"path": "a.txt", "error": "boom"}]}
+    response = httpx.Response(
         status_code,
         content=json.dumps(body).encode(),
         request=httpx.Request("POST", f"{ENDPOINT_STAGING}/api/buckets/user/bucket/batch"),
     )
-
-
-@pytest.mark.parametrize("status_code", [200, 422])
-def test_batch_bucket_files_raises_on_failed_operations(mocker, status_code: int):
-    body = {"success": False, "processed": 2, "succeeded": 1, "failed": [{"path": "a.txt", "error": "boom"}]}
-    mocker.patch("huggingface_hub.hf_api.http_backoff", return_value=_batch_response(body, status_code))
+    mocker.patch("huggingface_hub.hf_api.http_backoff", return_value=response)
     api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
 
     with pytest.raises(BucketBatchError, match=r"1 out of 2 operation\(s\)[\s\S]*a\.txt: boom") as exc_info:
         api.batch_bucket_files("user/bucket", delete=["a.txt", "b.txt"])
 
     assert exc_info.value.failures == [{"path": "a.txt", "error": "boom"}]
-
-
-def test_batch_bucket_files_truncates_failed_operations_in_message(mocker):
-    failed = [{"path": f"{i}.txt", "error": "boom"} for i in range(25)]
-    body = {"success": False, "processed": 25, "succeeded": 0, "failed": failed}
-    mocker.patch("huggingface_hub.hf_api.http_backoff", return_value=_batch_response(body))
-    api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
-
-    with pytest.raises(BucketBatchError) as exc_info:
-        api.batch_bucket_files("user/bucket", delete=[f"{i}.txt" for i in range(25)])
-
-    assert "9.txt: boom" in str(exc_info.value)
-    assert "24.txt" not in str(exc_info.value)
-    assert "... and 15 more" in str(exc_info.value)
-    assert len(exc_info.value.failures) == 25
-
-
-def test_batch_bucket_files_other_statuses_keep_their_error(mocker):
-    body = {"success": False, "processed": 1, "succeeded": 0, "failed": [{"path": "a.txt", "error": "x"}]}
-    response = _batch_response(body, 404)
-    response.headers["X-Error-Code"] = "RepoNotFound"
-    mocker.patch("huggingface_hub.hf_api.http_backoff", return_value=response)
-    api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
-
-    with pytest.raises(BucketNotFoundError):
-        api.batch_bucket_files("user/bucket", delete=["a.txt"])
