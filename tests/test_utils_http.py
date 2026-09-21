@@ -992,8 +992,9 @@ class _SameOriginRedirectHandler(BaseHTTPRequestHandler):
 
     def do_HEAD(self):
         if self.path.startswith("/org/repo/resolve/"):
+            # Redirect to the same file in the renamed repo, on the same origin
             self.send_response(302)
-            self.send_header("Location", "/org/renamed" + self.path[len("/org/repo") :])
+            self.send_header("Location", "/org/renamed/resolve/main/file.bin")
             self.end_headers()
         else:
             self.send_response(200)
