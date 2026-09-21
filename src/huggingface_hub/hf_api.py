@@ -82,6 +82,7 @@ from .community import (
 )
 from .errors import (
     BadRequestError,
+    BucketBatchError,
     EntryNotFoundError,
     FileDuplicationError,
     GatedRepoError,
@@ -254,6 +255,7 @@ _AUTH_CHECK_NO_REPO_ERROR_MESSAGE = (
 _BUCKET_PATHS_INFO_BATCH_SIZE = 1000
 _BUCKET_BATCH_ADD_CHUNK_SIZE = 1000
 _BUCKET_BATCH_DELETE_CHUNK_SIZE = 1000
+_BUCKET_BATCH_MAX_LISTED_FAILURES = 10  # in the error message; the full list is on `BucketBatchError.failures`
 
 # Regex used to match special revisions with "/" in them (see #1710)
 SPECIAL_REFS_REVISION_REGEX = re.compile(
@@ -14631,6 +14633,11 @@ class HfApi:
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
 
+        Raises:
+            [`~errors.BucketBatchError`]:
+                If the server reports that some operations failed. The other operations of the batch may have
+                been applied.
+
         Example:
             ```python
             >>> from huggingface_hub import batch_bucket_files
@@ -14846,6 +14853,19 @@ class HfApi:
         response = http_backoff(
             "POST", f"{self.endpoint}/api/buckets/{bucket_id}/batch", headers=headers, content=data
         )
+        # Failed operations are listed in the body of a 200 (partial failure) or a 422 (all failed)
+        if response.is_success or response.status_code == 422:
+            failures = response.json().get("failed", [])
+            if failures:
+                messages = [f"  - {f['path']}: {f['error']}" for f in failures[:_BUCKET_BATCH_MAX_LISTED_FAILURES]]
+                if len(failures) > _BUCKET_BATCH_MAX_LISTED_FAILURES:
+                    messages.append(f"  - ... and {len(failures) - _BUCKET_BATCH_MAX_LISTED_FAILURES} more")
+                raise BucketBatchError(
+                    f"Failed to apply {len(failures)} out of {len(operations)} operation(s) on bucket '{bucket_id}':\n"
+                    + "\n".join(messages),
+                    response=response,
+                    failures=failures,
+                )
         hf_raise_for_status(response)
 
     @validate_hf_hub_args

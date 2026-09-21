@@ -280,6 +280,20 @@ class BucketNotFoundError(HfHubHTTPError):
     bucket_id: str | None = None
 
 
+class BucketBatchError(HfHubHTTPError):
+    """
+    Raised when the server reports that some operations of a bucket batch failed.
+
+    Attributes:
+        failures (`list[dict[str, str]]`):
+            The failed operations as listed by the server, e.g. `[{"path": "config.json", "error": "..."}]`.
+    """
+
+    def __init__(self, message: str, *, response: Response, failures: list[dict[str, str]]) -> None:
+        super().__init__(message, response=response)
+        self.failures = failures
+
+
 # JOB ERRORS
 
 
