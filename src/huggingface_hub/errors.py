@@ -289,9 +289,7 @@ class BucketBatchError(HfHubHTTPError):
             The failed operations as listed by the server, e.g. `[{"path": "config.json", "error": "..."}]`.
     """
 
-    def __init__(self, message: str, *, response: Response, failures: list[dict[str, str]]) -> None:
-        super().__init__(message, response=response)
-        self.failures = failures
+    failures: list[dict[str, str]] = []
 
 
 # JOB ERRORS

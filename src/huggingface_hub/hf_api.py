@@ -14860,12 +14860,13 @@ class HfApi:
                 messages = [f"  - {f['path']}: {f['error']}" for f in failures[:_BUCKET_BATCH_MAX_LISTED_FAILURES]]
                 if len(failures) > _BUCKET_BATCH_MAX_LISTED_FAILURES:
                     messages.append(f"  - ... and {len(failures) - _BUCKET_BATCH_MAX_LISTED_FAILURES} more")
-                raise BucketBatchError(
+                error = BucketBatchError(
                     f"Failed to apply {len(failures)} out of {len(operations)} operation(s) on bucket '{bucket_id}':\n"
                     + "\n".join(messages),
                     response=response,
-                    failures=failures,
                 )
+                error.failures = failures
+                raise error
         hf_raise_for_status(response)
 
     @validate_hf_hub_args
