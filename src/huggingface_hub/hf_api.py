@@ -14854,7 +14854,7 @@ class HfApi:
             "POST", f"{self.endpoint}/api/buckets/{bucket_id}/batch", headers=headers, content=data
         )
         # Failed operations are listed in the body of a 200 (partial failure) or a 422 (all failed)
-        if response.is_success or response.status_code == 422:
+        if response.status_code in (200, 422:
             failures = response.json().get("failed", [])
             if failures:
                 messages = [f"  - {f['path']}: {f['error']}" for f in failures[:_BUCKET_BATCH_MAX_LISTED_FAILURES]]
