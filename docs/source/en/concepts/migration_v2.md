@@ -20,3 +20,7 @@ Use this same import when creating custom clients for [`set_client_factory`] or 
 
 The `oauth` extra now requires `authlib>=1.8.0` for `httpx2` support.
 
+For more context, see the [`httpx2` project](https://github.com/pydantic/httpx2), the
+[`httpx2` documentation](https://pydantic.dev/docs/httpx2/), the upstream
+[transition guide from `httpx` to `httpx2`](https://httpx2.pydantic.dev/migration/), and the
+[`huggingface_hub` transition plan](https://github.com/huggingface/huggingface_hub/issues/4802).
