@@ -2408,7 +2408,7 @@ Or create a webhook that triggers a Job instead:
 >>> hf webhooks create --job-id 687f911eaea852de79c4a50a --watch user:julien-c
 ```
 
-The `--watch` option uses the format `type:name` where type is one of `model`, `dataset`, `space`, `org`, or `user`. It can be repeated to watch multiple items. Use `--domain` to filter events to `repo` or `discussions`, and `--secret` to set a signing secret.
+The `--watch` option uses the format `type:name` where type is one of `model`, `dataset`, `space`, `bucket`, `org`, or `user`. It can be repeated to watch multiple items. Use `--domain` to filter events to `repo` or `discussions`, and `--secret` to set a signing secret.
 
 ### Update a webhook
 
