@@ -102,7 +102,6 @@ class InferenceEndpointStatus(str, Enum):
 
 class InferenceEndpointType(str, Enum):
     PUBlIC = "public"
-    PROTECTED = "protected"  # deprecated, use AUTHENTICATED instead
     AUTHENTICATED = "authenticated"
     PRIVATE = "private"
 

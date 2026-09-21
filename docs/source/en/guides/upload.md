@@ -146,9 +146,6 @@ or from the terminal:
 hf upload HuggingFaceM4/Docmatix --repo-type=dataset /path/to/local/docmatix
 ```
 
-> [!WARNING]
-> The legacy [`upload_large_folder`] method and `hf upload-large-folder` command are **deprecated** and will be removed in a future release. Use [`upload_folder`] / `hf upload` instead.
-
 ### Tips and tricks for large uploads
 
 There are some limitations to be aware of when dealing with a large amount of data in your repo. Given the time it takes to stream the data, getting an upload/push to fail at the end of the process or encountering a degraded experience, be it on hf.co or when working locally, can be very annoying.

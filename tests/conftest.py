@@ -1,10 +1,8 @@
 import os
-from contextlib import ExitStack
 from typing import Generator, Protocol
 
 import pytest
 from _pytest.fixtures import SubRequest
-from _pytest.skipping import evaluate_skip_marks
 
 import huggingface_hub
 from huggingface_hub import HfApi, RepoUrl, constants
@@ -142,30 +140,6 @@ def production_endpoint_marker(request: SubRequest, monkeypatch: pytest.MonkeyPa
         return
     monkeypatch.setattr(constants, "ENDPOINT", ENDPOINT_PRODUCTION)
     monkeypatch.setattr(constants, "HUGGINGFACE_CO_URL_TEMPLATE", ENDPOINT_PRODUCTION_URL_SCHEME)
-
-
-@pytest.fixture(autouse=True)
-def expect_deprecation_marker(request: SubRequest) -> Generator[None, None, None]:
-    """Assert that a test marked `@pytest.mark.deprecated(...)` emits the expected `FutureWarning`s.
-
-    Each argument is a function name; the test must emit a `FutureWarning` mentioning it (the suite runs
-    with `-Werror::FutureWarning`, so an unraised warning fails the test). Example:
-    ```py
-    @pytest.mark.deprecated("duplicate_space", "duplicate_repo")
-    def test_duplicate_space(...): ...
-    ```
-    """
-    function_names = [name for marker in request.node.iter_markers("deprecated") for name in marker.args]
-    # If the test is statically skipped (`@pytest.mark.skip`/`skipif`), its body never runs and no
-    # warning is emitted; entering `pytest.warns` would then fail the item at teardown instead of
-    # reporting it as skipped. `evaluate_skip_marks` returns a truthy result only when it will skip.
-    if not function_names or evaluate_skip_marks(request.node):
-        yield
-        return
-    with ExitStack() as stack:
-        for function_name in function_names:
-            stack.enter_context(pytest.warns(FutureWarning, match=rf".*'{function_name}'.*"))
-        yield
 
 
 @pytest.fixture(autouse=True)

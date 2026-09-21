@@ -15,10 +15,8 @@
 
 import inspect
 import re
-import warnings
 from functools import wraps
 from itertools import chain
-from typing import Any
 
 from huggingface_hub.errors import HFValidationError
 
@@ -48,7 +46,6 @@ def validate_hf_hub_args(fn: CallableT) -> CallableT:
     Validators:
         - [`~utils.validate_repo_id`]: `repo_id` must be `"repo_name"`
           or `"namespace/repo_name"`. Namespace is a username or an organization.
-        - [`~utils.smoothly_deprecate_legacy_arguments`]: Ignore `proxies` when downloading files (should be set globally).
 
     Example:
     ```py
@@ -83,8 +80,6 @@ def validate_hf_hub_args(fn: CallableT) -> CallableT:
         ):
             if arg_name in ["repo_id", "from_id", "to_id"]:
                 validate_repo_id(arg_value)
-
-        kwargs = smoothly_deprecate_legacy_arguments(fn_name=fn.__name__, kwargs=kwargs)
 
         return fn(*args, **kwargs)
 
@@ -147,65 +142,3 @@ def validate_repo_id(repo_id: str | None) -> None:
 
     if repo_id.endswith(".git"):
         raise HFValidationError(f"Repo_id cannot end by '.git': '{repo_id}'.")
-
-
-def smoothly_deprecate_legacy_arguments(fn_name: str, kwargs: dict[str, Any]) -> dict[str, Any]:
-    """Smoothly deprecate legacy arguments in the `huggingface_hub` codebase.
-
-    This function ignores some deprecated arguments from the kwargs and warns the user they are ignored.
-    The goal is to avoid breaking existing code while guiding the user to the new way of doing things.
-
-    List of deprecated arguments:
-        - `proxies`:
-            To set up proxies, user must either use the HTTP_PROXY environment variable or configure the `httpx.Client`
-            manually using the [`set_client_factory`] function.
-
-            In huggingface_hub 0.x, `proxies` was a dictionary directly passed to `requests.request`.
-            In huggingface_hub 1.x, we migrated to `httpx` which does not support `proxies` the same way.
-            In particular, it is not possible to configure proxies on a per-request basis. The solution is to configure
-            it globally using the [`set_client_factory`] function or using the HTTP_PROXY environment variable.
-
-            For more details, see:
-            - https://www.python-httpx.org/advanced/proxies/
-            - https://www.python-httpx.org/compatibility/#proxy-keys.
-
-        - `resume_download`: deprecated without replacement. `huggingface_hub` always resumes downloads whenever possible.
-        - `force_filename`: deprecated without replacement. Filename is always the same as on the Hub.
-        - `local_dir_use_symlinks`: deprecated without replacement. Downloading to a local directory does not use symlinks anymore.
-    """
-    new_kwargs = kwargs.copy()  # do not mutate input !
-
-    # proxies
-    proxies = new_kwargs.pop("proxies", None)  # remove from kwargs
-    if proxies is not None:
-        warnings.warn(
-            f"The `proxies` argument is ignored in `{fn_name}`. To set up proxies, use the HTTP_PROXY / HTTPS_PROXY"
-            " environment variables or configure the `httpx.Client` manually using `huggingface_hub.set_client_factory`."
-            " See https://www.python-httpx.org/advanced/proxies/ for more details."
-        )
-
-    # resume_download
-    resume_download = new_kwargs.pop("resume_download", None)  # remove from kwargs
-    if resume_download is not None:
-        warnings.warn(
-            f"The `resume_download` argument is deprecated and ignored in `{fn_name}`. Downloads always resume"
-            " whenever possible."
-        )
-
-    # force_filename
-    force_filename = new_kwargs.pop("force_filename", None)  # remove from kwargs
-    if force_filename is not None:
-        warnings.warn(
-            f"The `force_filename` argument is deprecated and ignored in `{fn_name}`. Filename is always the same "
-            "as on the Hub."
-        )
-
-    # local_dir_use_symlinks
-    local_dir_use_symlinks = new_kwargs.pop("local_dir_use_symlinks", None)  # remove from kwargs
-    if local_dir_use_symlinks is not None:
-        warnings.warn(
-            f"The `local_dir_use_symlinks` argument is deprecated and ignored in `{fn_name}`. Downloading to a local"
-            " directory does not use symlinks anymore."
-        )
-
-    return new_kwargs

@@ -321,9 +321,3 @@ validated.
 #### repo_id
 
 [[autodoc]] utils.validate_repo_id
-
-#### smoothly_deprecate_legacy_arguments
-
-Not exactly a validator, but ran as well.
-
-[[autodoc]] utils._validators.smoothly_deprecate_legacy_arguments
