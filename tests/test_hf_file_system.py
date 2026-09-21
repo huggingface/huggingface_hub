@@ -335,6 +335,17 @@ class _HfFileSystemBaseROTests(_HfFileSystemBaseTests):
             temp_file.seek(0)
             assert temp_file.read() == b"dummy text data"
 
+    def test_get_file_without_lpath(self):
+        # `lpath` can be omitted when `outfile` is provided (mirrors fsspec's `get_file` signature)
+        with tempfile.TemporaryFile() as temp_file:
+            self.hffs.get_file(self.text_file, outfile=temp_file)
+            temp_file.seek(0)
+            assert temp_file.read() == b"dummy text data"
+
+        # ...but `lpath` and `outfile` cannot both be omitted
+        with pytest.raises(ValueError, match="Either `lpath` or `outfile` must be provided"):
+            self.hffs.get_file(self.text_file)
+
     def test_get_file_with_temporary_folder(self):
         # Test passing a file path works
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:

@@ -1077,7 +1077,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
             url = url.replace("/resolve/", "/tree/", 1)
         return url
 
-    def get_file(self, rpath, lpath, callback=_DEFAULT_CALLBACK, outfile=None, **kwargs) -> None:
+    def get_file(self, rpath, lpath=None, callback=_DEFAULT_CALLBACK, outfile=None, **kwargs) -> None:
         """
         Copy single remote file to local.
 
@@ -1087,8 +1087,8 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         Args:
             rpath (`str`):
                 Remote path to download from.
-            lpath (`str`):
-                Local path to download to.
+            lpath (`str`, *optional*):
+                Local path to download to. Can be omitted if `outfile` is provided.
             callback (`Callback`, *optional*):
                 Optional callback to track download progress. Defaults to no callback.
             outfile (`IO`, *optional*):
@@ -1107,10 +1107,12 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
             return super().get_file(rpath, lpath, callback=callback, outfile=outfile, **kwargs)
 
         # Taken from https://github.com/fsspec/filesystem_spec/blob/47b445ae4c284a82dd15e0287b1ffc410e8fc470/fsspec/spec.py#L883
+        # (lpath can be None only when outfile is provided, as in fsspec's `get_file` since 2026.9.0)
         if isfilelike(lpath):
             outfile = lpath
         elif self.isdir(rpath):
-            os.makedirs(lpath, exist_ok=True)
+            if lpath is not None:
+                os.makedirs(lpath, exist_ok=True)
             return None
 
         if isinstance(lpath, (str, Path)):  # otherwise, let's assume it's a file-like object
@@ -1119,6 +1121,8 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         # Open file if not already open
         close_file = False
         if outfile is None:
+            if lpath is None:
+                raise ValueError("Either `lpath` or `outfile` must be provided.")
             outfile = open(lpath, "wb")
             close_file = True
         initial_pos = outfile.tell()
