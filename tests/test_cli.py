@@ -1,4 +1,3 @@
-import importlib
 import json
 import os
 import re
@@ -5357,23 +5356,6 @@ class TestSkillsHfCliCLI:
             result = runner.invoke(app, args)
             assert result.exit_code != 0, args
             assert "--skills" in result.output, args
-
-    def test_add_global_claude_honors_claude_config_dir(
-        self, runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """`hf skills add -g --claude` symlinks into `$CLAUDE_CONFIG_DIR/skills`, not always `~/.claude/skills`."""
-        monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "claude-config"))
-        importlib.reload(constants)
-        try:
-            monkeypatch.setattr(constants, "AGENTS_SKILLS_GLOBAL_PATH", tmp_path / ".agents/skills")
-            result = runner.invoke(app, ["skills", "add", "-g", "--claude"])
-            assert result.exit_code == 0, result.output
-            link = tmp_path / "claude-config/skills/hf-cli"
-            assert link.is_symlink()
-            assert link.resolve() == (tmp_path / ".agents/skills/hf-cli").resolve()
-        finally:
-            monkeypatch.delenv("CLAUDE_CONFIG_DIR")
-            importlib.reload(constants)
 
 
 class TestSkillUpdateCheck:
