@@ -211,14 +211,11 @@ class MCPClient:
         await session.initialize()
 
         # List available tools, following `nextCursor` since servers may paginate tools/list
-        tools: list[mcp_types.Tool] = []
-        cursor: str | None = None
-        while True:
-            response = await session.list_tools(cursor=cursor)
+        response = await session.list_tools()
+        tools: list[mcp_types.Tool] = list(response.tools)
+        while response.nextCursor:
+            response = await session.list_tools(cursor=response.nextCursor)
             tools.extend(response.tools)
-            cursor = response.nextCursor
-            if not cursor:
-                break
         logger.debug("Connected to server with tools:", [tool.name for tool in tools])
 
         # Filter tools based on allowed_tools configuration
