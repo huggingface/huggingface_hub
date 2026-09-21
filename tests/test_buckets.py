@@ -12,12 +12,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import json
 import warnings
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
-import httpx
 import pytest
 
 from huggingface_hub import HfApi
@@ -644,18 +642,19 @@ def test_execute_plan_rejects_path_traversal(tmp_path):
     assert outside.exists()  # not deleted
 
 
-@pytest.mark.parametrize("status_code", [200, 422])
-def test_batch_bucket_files_raises_on_failed_operations(mocker, status_code: int):
-    body = {"success": False, "processed": 2, "succeeded": 1, "failed": [{"path": "a.txt", "error": "boom"}]}
-    response = httpx.Response(
-        status_code,
-        content=json.dumps(body).encode(),
-        request=httpx.Request("POST", f"{ENDPOINT_STAGING}/api/buckets/user/bucket/batch"),
-    )
-    mocker.patch("huggingface_hub.hf_api.http_backoff", return_value=response)
-    api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
+def test_batch_bucket_files_raises_on_failed_operations(api: HfApi, bucket_write: str):
+    api.batch_bucket_files(bucket_write, add=[(b"content", "file.txt")])
+    xet_hash = next(iter(api.list_bucket_tree(bucket_write))).xet_hash
 
-    with pytest.raises(BucketBatchError, match=r"1 out of 2 operation\(s\)[\s\S]*a\.txt: boom") as exc_info:
-        api.batch_bucket_files("user/bucket", delete=["a.txt", "b.txt"])
+    with pytest.raises(BucketBatchError) as exc_info:
+        api.batch_bucket_files(
+            bucket_write,
+            copy=[("bucket", bucket_write, xet_hash, "copy.txt"), ("bucket", bucket_write, "0" * 64, "bogus.txt")],
+        )
+    assert exc_info.value.response.status_code == 200
+    assert [failure["path"] for failure in exc_info.value.failures] == ["bogus.txt"]
+    assert {file.path for file in api.list_bucket_tree(bucket_write)} == {"file.txt", "copy.txt"}
 
-    assert exc_info.value.failures == [{"path": "a.txt", "error": "boom"}]
+    with pytest.raises(BucketBatchError) as exc_info:
+        api.batch_bucket_files(bucket_write, copy=[("bucket", bucket_write, "0" * 64, "bogus.txt")])
+    assert exc_info.value.response.status_code == 422
