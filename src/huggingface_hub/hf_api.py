@@ -14348,7 +14348,7 @@ class HfApi:
         *,
         token: str | bool | None = None,
     ) -> None:
-        from ._buckets import BucketFile, _BucketCopyFile
+        from ._buckets import BucketFile
 
         destination_bucket_id = destination.id
         destination_path = destination.path_in_repo
@@ -14368,8 +14368,8 @@ class HfApi:
                 )
                 destination_is_directory = destination_exists_as_directory or destination_str.endswith("/")
 
-        all_adds: list[tuple[str, str]] = []
-        all_copies: list[_BucketCopyFile] = []
+        all_adds: list[tuple[str | Path | bytes, str]] = []
+        all_copies: list[tuple[str, str, str, str]] = []
         pending_downloads: list[tuple[str, str]] = []
 
         def _resolve_target_path(src_file_path: str, src_root_path: str | None, is_single_file: bool) -> str:
@@ -14383,21 +14383,9 @@ class HfApi:
                 merge_contents,
             )
 
-        def _build_copy_op(
-            target_path: str, xet_hash: str, size: int, source_repo_type: str, source_repo_id: str
-        ) -> _BucketCopyFile:
-            """Server-side copy by xet hash — no data transfer needed."""
-            return _BucketCopyFile(
-                destination=target_path,
-                xet_hash=xet_hash,
-                source_repo_type=source_repo_type,
-                source_repo_id=source_repo_id,
-                size=size,
-            )
-
         def _add_repo_file(file: RepoFile, target_path: str) -> None:
             if file.xet_hash is not None:
-                all_copies.append(_build_copy_op(target_path, file.xet_hash, file.size, source.type, source.id))
+                all_copies.append((source.type, source.id, file.xet_hash, target_path))
             else:
                 pending_downloads.append((file.path, target_path))
 
@@ -14408,9 +14396,7 @@ class HfApi:
             if source_path_info:
                 source_file = source_path_info[0]
                 target_path = _resolve_target_path(source_file.path, None, is_single_file=True)
-                all_copies.append(
-                    _build_copy_op(target_path, source_file.xet_hash, source_file.size, "bucket", source.id)
-                )
+                all_copies.append(("bucket", source.id, source_file.xet_hash, target_path))
             else:
                 for item in self.list_bucket_tree(source.id, prefix=source_path or None, recursive=True, token=token):
                     if not isinstance(item, BucketFile):
@@ -14418,7 +14404,7 @@ class HfApi:
                     if source_path and not (item.path == source_path or item.path.startswith(source_path + "/")):
                         continue
                     target_path = _resolve_target_path(item.path, source_path or None, is_single_file=False)
-                    all_copies.append(_build_copy_op(target_path, item.xet_hash, item.size, "bucket", source.id))
+                    all_copies.append(("bucket", source.id, item.xet_hash, target_path))
         else:
             for file, target_path in self._iter_repo_files_for_copy(
                 source,
@@ -14458,13 +14444,7 @@ class HfApi:
 
             hf_thread_map(_download_and_collect, pending_downloads, desc="Downloading text files for copy")
 
-        # Send copies first (no upload needed), then adds (may need upload)
-        if all_copies:
-            for copy_chunk in chunk_iterable(all_copies, chunk_size=_BUCKET_BATCH_ADD_CHUNK_SIZE):
-                self._batch_bucket_files(destination_bucket_id, copy=list(copy_chunk), token=token)
-        if all_adds:
-            for add_chunk in chunk_iterable(all_adds, chunk_size=_BUCKET_BATCH_ADD_CHUNK_SIZE):
-                self._batch_bucket_files(destination_bucket_id, add=list(add_chunk), token=token)
+        self.batch_bucket_files(destination_bucket_id, add=all_adds, copy=all_copies, token=token)
 
     def _iter_repo_files_for_copy(
         self,
@@ -14635,8 +14615,8 @@ class HfApi:
 
         Raises:
             [`~errors.BucketBatchError`]:
-                If the server reports that some operations failed. The other operations of the batch may have
-                been applied.
+                If the server reports that some operations failed. The error is raised once every operation has
+                been sent, so the other operations of the batch have been applied.
 
         Example:
             ```python
@@ -14689,20 +14669,36 @@ class HfApi:
         else:
             progress = None
 
+        # A failing chunk must not stop the others: collect the errors and raise once everything has been sent
+        errors: list[BucketBatchError] = []
+
+        def _send_chunk(**operations: Any) -> None:
+            try:
+                self._batch_bucket_files(bucket_id, token=token, **operations)
+            except BucketBatchError as error:
+                logger.warning(str(error))
+                errors.append(error)
+
         try:
             for copy_chunk in chunk_iterable(copy, chunk_size=_BUCKET_BATCH_ADD_CHUNK_SIZE):
-                self._batch_bucket_files(bucket_id, copy=list(copy_chunk), token=token)
+                _send_chunk(copy=list(copy_chunk))
 
             for add_chunk in chunk_iterable(add, chunk_size=_BUCKET_BATCH_ADD_CHUNK_SIZE):
-                self._batch_bucket_files(bucket_id, add=list(add_chunk), token=token, _progress=progress)
+                _send_chunk(add=list(add_chunk), _progress=progress)
 
             for delete_chunk in chunk_iterable(delete, chunk_size=_BUCKET_BATCH_DELETE_CHUNK_SIZE):
-                self._batch_bucket_files(bucket_id, delete=list(delete_chunk), token=token)
+                _send_chunk(delete=list(delete_chunk))
         finally:
             if progress is not None:
                 progress.close()
 
-        return
+        if errors:
+            raise _bucket_batch_error(
+                bucket_id,
+                [failure for error in errors for failure in error.failures],
+                sent=len(add) + len(copy) + len(delete),
+                response=errors[-1].response,
+            )
 
     def _batch_bucket_files(
         self,
@@ -14857,16 +14853,7 @@ class HfApi:
         if response.status_code in (200, 422):
             failures = response.json().get("failed", [])
             if failures:
-                messages = [f"  - {f['path']}: {f['error']}" for f in failures[:_BUCKET_BATCH_MAX_LISTED_FAILURES]]
-                if len(failures) > _BUCKET_BATCH_MAX_LISTED_FAILURES:
-                    messages.append(f"  - ... and {len(failures) - _BUCKET_BATCH_MAX_LISTED_FAILURES} more")
-                error = BucketBatchError(
-                    f"Failed to apply {len(failures)} out of {len(operations)} operation(s) on bucket '{bucket_id}':\n"
-                    + "\n".join(messages),
-                    response=response,
-                )
-                error.failures = failures
-                raise error
+                raise _bucket_batch_error(bucket_id, failures, sent=len(operations), response=response)
         hf_raise_for_status(response)
 
     @validate_hf_hub_args
@@ -15181,6 +15168,20 @@ class HfApi:
             quiet=quiet,
             token=token,
         )
+
+
+def _bucket_batch_error(
+    bucket_id: str, failures: list[dict[str, str]], *, sent: int, response: httpx.Response
+) -> BucketBatchError:
+    messages = [f"  - {f['path']}: {f['error']}" for f in failures[:_BUCKET_BATCH_MAX_LISTED_FAILURES]]
+    if len(failures) > _BUCKET_BATCH_MAX_LISTED_FAILURES:
+        messages.append(f"  - ... and {len(failures) - _BUCKET_BATCH_MAX_LISTED_FAILURES} more")
+    error = BucketBatchError(
+        f"Failed to apply {len(failures)} out of {sent} operation(s) on bucket '{bucket_id}':\n" + "\n".join(messages),
+        response=response,
+    )
+    error.failures = failures
+    return error
 
 
 def _parse_revision_from_pr_url(pr_url: str) -> str:

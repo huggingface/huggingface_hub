@@ -658,3 +658,17 @@ def test_batch_bucket_files_raises_on_failed_operations(api: HfApi, bucket_write
     with pytest.raises(BucketBatchError) as exc_info:
         api.batch_bucket_files(bucket_write, copy=[("bucket", bucket_write, "0" * 64, "bogus.txt")])
     assert exc_info.value.response.status_code == 422
+
+
+def test_batch_bucket_files_sends_all_chunks_before_raising(api: HfApi, bucket_write: str, mocker):
+    api.batch_bucket_files(bucket_write, add=[(b"content", "file.txt")])
+    xet_hash = next(iter(api.list_bucket_tree(bucket_write))).xet_hash
+    mocker.patch("huggingface_hub.hf_api._BUCKET_BATCH_ADD_CHUNK_SIZE", 1)
+
+    with pytest.raises(BucketBatchError) as exc_info:
+        api.batch_bucket_files(
+            bucket_write,
+            copy=[("bucket", bucket_write, "0" * 64, "bogus.txt"), ("bucket", bucket_write, xet_hash, "copy.txt")],
+        )
+    assert [failure["path"] for failure in exc_info.value.failures] == ["bogus.txt"]
+    assert {file.path for file in api.list_bucket_tree(bucket_write)} == {"file.txt", "copy.txt"}
