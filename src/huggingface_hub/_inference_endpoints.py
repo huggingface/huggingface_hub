@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Optional
 from huggingface_hub.errors import InferenceEndpointError, InferenceEndpointTimeoutError
 
 from .utils import get_session, logging, parse_datetime
+from .utils._headers import get_token_to_send
 
 
 if TYPE_CHECKING:
@@ -206,6 +207,8 @@ class InferenceEndpoint:
             api = HfApi()
         if token is None:
             token = api.token
+        if token is True:
+            token = get_token_to_send(token)
 
         # All other fields are populated in __post_init__
         return cls(raw=raw, namespace=namespace, _token=token, _api=api)
