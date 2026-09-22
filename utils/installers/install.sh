@@ -404,8 +404,8 @@ install_skill() {
     fi
 
     log_info "Installing the hf-cli skill for AI agents..."
-    if ! "$BIN_DIR/hf" skills add hf-cli --global --claude --force; then
-        log_warning "Failed to install the hf-cli skill. Install it later with: hf skills add -g --claude"
+    if ! "$BIN_DIR/hf" skills add hf-cli --global --force; then
+        log_warning "Failed to install the hf-cli skill. Install it later with: hf skills add -g"
         return
     fi
     log_info "The hf-cli skill was installed automatically so AI agents know how to use the hf CLI."

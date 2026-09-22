@@ -13,10 +13,8 @@ The `huggingface_hub` Python package comes with a built-in CLI called `hf`. This
 > [!TIP]
 > Using the `hf` CLI with AI agents? Install the Skill and check out the [Hugging Face CLI for AI Agents](https://huggingface.co/docs/hub/agents-cli) guide.
 > ```bash
-> # for Codex, Cursor, OpenCode, Pi and other agents that load skills from `.agents/skills`
+> # works with Claude Code, Codex, Cursor, OpenCode, Pi and any agent that loads skills from `.agents/skills`
 > hf skills add
-> # includes the above + Claude Code
-> hf skills add --claude
 > ```
 > The standalone installer installs it for you (see below), and `hf update` refreshes it.
 
