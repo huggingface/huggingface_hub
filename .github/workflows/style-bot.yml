@@ -1,11 +1,14 @@
 name: Style Bot
 
+# Summoned by a review rather than a plain comment. The review payload carries
+# the commit it was submitted on, so the workflow never has to ask the API which
+# commit to trust — and so cannot be handed a different one by a later push.
 on:
-  issue_comment:
-    types: [created]
+  pull_request_review:
+    types: [submitted]
 
 permissions:
-  contents: write
+  contents: read
   pull-requests: write
 
 jobs:
