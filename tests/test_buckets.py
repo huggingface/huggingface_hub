@@ -21,7 +21,7 @@ import pytest
 from huggingface_hub import HfApi
 from huggingface_hub._buckets import BucketFile, BucketInfo, SyncOperation, SyncPlan, _execute_plan
 from huggingface_hub._jobs_api import _derive_job_volume_name
-from huggingface_hub.errors import BucketNotFoundError, EntryNotFoundError, HfHubHTTPError
+from huggingface_hub.errors import BucketBatchError, BucketNotFoundError, EntryNotFoundError, HfHubHTTPError
 
 from .testing_constants import ENDPOINT_STAGING, ENTERPRISE_ORG, ENTERPRISE_TOKEN, OTHER_TOKEN, TOKEN, USER
 from .testing_utils import repo_name
@@ -640,3 +640,25 @@ def test_execute_plan_rejects_path_traversal(tmp_path):
     with pytest.raises(ValueError, match="Invalid filename"):
         _execute_plan(plan, api)
     assert outside.exists()  # not deleted
+
+
+def test_batch_bucket_files_raises_on_failed_operations(api: HfApi, bucket_write: str, mocker):
+    api.batch_bucket_files(bucket_write, add=[(b"content", "file.txt")])
+    xet_hash = next(iter(api.list_bucket_tree(bucket_write))).xet_hash
+    bogus_copy = ("bucket", bucket_write, "0" * 64, "bogus.txt")
+
+    with pytest.raises(BucketBatchError) as exc_info:
+        api.batch_bucket_files(bucket_write, copy=[("bucket", bucket_write, xet_hash, "copy.txt"), bogus_copy])
+    assert exc_info.value.response.status_code == 200
+    assert [failure["path"] for failure in exc_info.value.failures] == ["bogus.txt"]
+    assert {file.path for file in api.list_bucket_tree(bucket_write)} == {"file.txt", "copy.txt"}
+
+    with pytest.raises(BucketBatchError) as exc_info:
+        api.batch_bucket_files(bucket_write, copy=[bogus_copy])
+    assert exc_info.value.response.status_code == 422
+
+    mocker.patch("huggingface_hub.hf_api._BUCKET_BATCH_ADD_CHUNK_SIZE", 1)  # one request per operation
+    with pytest.raises(BucketBatchError) as exc_info:
+        api.batch_bucket_files(bucket_write, copy=[bogus_copy, ("bucket", bucket_write, xet_hash, "copy2.txt")])
+    assert [failure["path"] for failure in exc_info.value.failures] == ["bogus.txt"]
+    assert {file.path for file in api.list_bucket_tree(bucket_write)} == {"file.txt", "copy.txt", "copy2.txt"}
