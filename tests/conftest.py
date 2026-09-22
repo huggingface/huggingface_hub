@@ -101,8 +101,7 @@ def disable_symlinks_on_windows_ci(monkeypatch: pytest.MonkeyPatch) -> None:
 
     if os.name == "nt" and os.environ.get("DISABLE_SYMLINKS_IN_WINDOWS_TESTS"):
         monkeypatch.setattr(
-            huggingface_hub.file_download,
-            "_are_symlinks_supported_in_dir",
+            "huggingface_hub.file_download._are_symlinks_supported_in_dir",
             FakeSymlinkDict(),
         )
 
