@@ -3,41 +3,60 @@
 # - https://github.com/huggingface/diffusers/pull/10274
 # - https://github.com/huggingface/diffusers/pull/10931
 # - https://github.com/huggingface/diffusers/pull/10908
-
+# - https://github.com/huggingface/huggingface_hub/pull/4183
+# - https://github.com/huggingface/huggingface_hub/pull/4964
+#
+# Security model:
+# - The commit comes from the review payload (`review.commit_id`), frozen by GitHub
+#   when the review is submitted. Nothing pushed afterwards can change it.
+# - Checkout and execution always use that SHA. The mutable PR branch name is never
+#   used as a git ref for fetch/checkout (that was the TOCTOU: check one object,
+#   execute another).
+# - Tooling is installed from this repository's default branch, not from the PR.
+#   `pip install` is never run against the pull request, so a modified setup.py or
+#   pyproject.toml has no path to execution.
+# - `make` is invoked from a copy of the trusted Makefile placed in the
+#   reviewed tree. The contributor's Makefile is never executed.
+# - The contributor's tree is fetched into `pr-repo/` and treated as data plus the
+#   sources that style/quality scripts may import. Pull requests that modify
+#   setup.py, pyproject.toml, setup.cfg or utils/ are refused.
 
 name: Style Bot Action
 
 on:
-    workflow_call:
-      inputs:
-        style_command_type:
-          required: false
-          type: string
-          description: "Which style command to run (options: 'default' (make style && make quality), 'quality_only', 'style_only')"
-          default: "default"
-        python_quality_dependencies:
-          required: true
-          type: string
-          description: "Python package extras to install for quality checks (e.g. '[quality]')"
-        python_version:
-          required: false
-          type: string
-          description: "Python version to run code formatter"
-          default: "3.10"
-      secrets:
-        app_id:
-          required: true
-          description: "GitHub App ID used to generate a short-lived token"
-        app_private_key:
-          required: true
-          description: "GitHub App private key used to generate a short-lived token"
+  workflow_call:
+    inputs:
+      style_command_type:
+        required: false
+        type: string
+        description: "Which style command to run (options: 'default' (style and quality), 'quality_only', 'style_only')"
+        default: "default"
+      python_quality_dependencies:
+        required: true
+        type: string
+        description: "Python package extras to install for quality checks (e.g. '[quality]')"
+      python_version:
+        required: false
+        type: string
+        description: "Python version to run code formatter"
+        default: "3.10"
+    secrets:
+      app_id:
+        required: true
+        description: "GitHub App ID used to generate a short-lived token"
+      app_private_key:
+        required: true
+        description: "GitHub App private key used to generate a short-lived token"
+
+permissions:
+  contents: read
 
 jobs:
   check-permissions:
     if: >
-      (github.event_name == 'issue_comment' && 
-       contains(github.event.comment.body, '@bot /style') &&
-       github.event.issue.pull_request != null)
+      github.event_name == 'pull_request_review' &&
+      startsWith(github.event.review.body, '@bot /style') &&
+      contains(fromJSON('["MEMBER", "OWNER", "COLLABORATOR"]'), github.event.review.author_association)
     runs-on: ubuntu-latest
     outputs:
       is_authorized: ${{ steps.check_user_permission.outputs.has_permission }}
@@ -47,16 +66,15 @@ jobs:
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3  # v9.0.0
         with:
           script: |
-
-            comment_user = context.payload.comment.user.login;
+            const reviewer = context.payload.review.user.login;
             const { data: permission } = await github.rest.repos.getCollaboratorPermissionLevel({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              username: comment_user
+              username: reviewer,
             });
-            
+
             const authorized = ['admin', 'maintain', 'push', 'write'].includes(permission.permission);
-            console.log(`User ${comment_user} has permission level: ${permission.permission}, authorized: ${authorized} (only users with at least write access are allowed to run this action)`);
+            console.log(`User ${reviewer} has permission level: ${permission.permission}, authorized: ${authorized} (only users with at least write access are allowed to run this action)`);
             core.setOutput('has_permission', authorized);
 
   run-style-bot:
@@ -64,151 +82,134 @@ jobs:
     if: needs.check-permissions.outputs.is_authorized == 'true'
     runs-on: ubuntu-latest
     permissions:
-      pull-requests: read
       contents: read
+      pull-requests: read
     outputs:
+      reviewedSha: ${{ steps.pr_info.outputs.reviewedSha }}
       headRepoFullName: ${{ steps.pr_info.outputs.headRepoFullName }}
       headRef: ${{ steps.pr_info.outputs.headRef }}
-      headSha: ${{ steps.pr_info.outputs.headSha }}
       prNumber: ${{ steps.pr_info.outputs.prNumber }}
+      changes_detected: ${{ steps.run_style.outputs.changes_detected }}
     steps:
-      - name: Extract PR details
+      # The SHA comes from the review payload, which GitHub froze when the review
+      # was submitted. `pr.head.sha` cannot give the same guarantee: it is read
+      # during the run, so a push landing just before that read is served as if
+      # it had been reviewed.
+      - name: Take the reviewed commit from the event payload
         id: pr_info
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3  # v9.0.0
         with:
           script: |
-            const prNumber = context.payload.issue.number;
-            console.log(`PR number from env: "${prNumber}"`);
-            
-            const { data: pr } = await github.rest.pulls.get({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: prNumber
-            });
-            
-            // Set outputs for use in subsequent steps
-            core.setOutput('headRepoFullName', pr.head.repo.full_name);
-            core.setOutput('headRef', pr.head.ref);
-            core.setOutput('headSha', pr.head.sha);
-            core.setOutput('baseRef', pr.base.ref);
-            core.setOutput('prNumber', prNumber);
-
-            console.log('PR Details:', {
-              number: prNumber,
-              headRepo: pr.head.repo.full_name,
-              headRef: pr.head.ref,
-              headSha: pr.head.sha,
-              baseRef: pr.base.ref
-            });
-        
-      - name: Check out PR branch
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-        with:
-          repository: ${{ steps.pr_info.outputs.headRepoFullName }}
-          ref: ${{ steps.pr_info.outputs.headSha }}
-          fetch-depth: 0
-          persist-credentials: false
-
-      - name: Verify checked-out SHA
-        env:
-          HEAD_SHA: ${{ steps.pr_info.outputs.headSha }}
-        run: |
-            if [ "$(git rev-parse HEAD)" != "$HEAD_SHA" ]; then
-              echo "❌ Checked-out SHA does not match expected HEAD SHA! Abort!";
-              exit 1;
-            fi
-
-      - name: Verify PR head SHA is unchanged before running untrusted code
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3  # v9.0.0
-        env:
-          EXPECTED_HEAD_SHA: ${{ steps.pr_info.outputs.headSha }}
-        with:
-          script: |
-            const prNumber = context.payload.issue.number;
-            const { data: pr } = await github.rest.pulls.get({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: prNumber
-            });
-            if (pr.head.sha !== process.env.EXPECTED_HEAD_SHA) {
-              core.setFailed(
-                `❌ PR head changed during the workflow bootstrap. Expected ${process.env.EXPECTED_HEAD_SHA}, got ${pr.head.sha}. Aborting.`
-              );
-            }
-
-      - name: Check commit was pushed before the triggering comment
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3  # v9.0.0
-        env:
-          HEAD_SHA: ${{ steps.pr_info.outputs.headSha }}
-          HEAD_REPO_FULL_NAME: ${{ steps.pr_info.outputs.headRepoFullName }}
-          COMMENT_DATE: ${{ github.event.comment.created_at }}
-        with:
-          script: |
-            const headSha = process.env.HEAD_SHA;
-            const [headOwner, headRepo] = process.env.HEAD_REPO_FULL_NAME.split('/');
-            const commentTimestamp = new Date(process.env.COMMENT_DATE).getTime();
-
-            // pushedDate is set server-side by GitHub when the push is received —
-            // unlike committer.date which is part of the git object and forgeable via GIT_COMMITTER_DATE.
-            const query = `
-              query($owner: String!, $repo: String!, $sha: GitObjectID!) {
-                repository(owner: $owner, name: $repo) {
-                  object(oid: $sha) {
-                    ... on Commit {
-                      pushedDate
-                    }
-                  }
-                }
-              }
-            `;
-            const result = await github.graphql(query, { owner: headOwner, repo: headRepo, sha: headSha });
-
-            const pushedDate = result.repository.object?.pushedDate;
-            if (!pushedDate) {
-              // pushedDate is null for commits created via GitHub API or web UI (merge, squash, etc.)
-              // SHA pinning + re-validation already protect against mid-workflow injection, so we skip
-              // the timestamp check rather than blocking legitimate runs.
-              core.warning(`⚠️ pushedDate unavailable for commit ${headSha} (likely created via API/web UI). Skipping timestamp check.`);
+            const pr = context.payload.pull_request;
+            const reviewedSha = context.payload.review.commit_id;
+            if (!reviewedSha || !/^[0-9a-f]{40}$/.test(reviewedSha)) {
+              core.setFailed(`❌ review.commit_id is missing or not a full SHA: ${reviewedSha}`);
               return;
             }
+            core.setOutput('reviewedSha', reviewedSha);
+            core.setOutput('headRepoFullName', pr.head.repo.full_name);
+            core.setOutput('headRef', pr.head.ref);
+            core.setOutput('prNumber', String(pr.number));
 
-            const pushTimestamp = new Date(pushedDate).getTime();
-            console.log(`Push timestamp (server-side): ${pushedDate}, Comment date: ${process.env.COMMENT_DATE}`);
-            if (pushTimestamp >= commentTimestamp) {
-              core.setFailed(`❌ Commit ${headSha} was pushed at or after the @bot /style comment. Aborting.`);
-            } else {
-              console.log('✅ Push timestamp check passed.');
-            }
+            console.log('PR Details:', {
+              number: pr.number,
+              headRepo: pr.head.repo.full_name,
+              headRef: pr.head.ref,
+              reviewedSha,
+            });
+
+      # The workspace holds this repository: trusted code, trusted Makefile, trusted tooling.
+      - name: Check out the base repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
         with:
           python-version: ${{ inputs.python_version }}
 
-      - name: Install dependencies
+      - name: Install tooling from the base repository
         env:
           python_quality_dependencies: ${{ inputs.python_quality_dependencies }}
         run: |
           python -m pip install --upgrade pip
           pip install .$python_quality_dependencies
 
+      # Pin the checkout to the reviewed SHA. Do not fetch or check out the
+      # mutable branch name — that was the TOCTOU: check one object, execute
+      # another.
+      - name: Fetch the reviewed commit into an isolated directory
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          repository: ${{ steps.pr_info.outputs.headRepoFullName }}
+          ref: ${{ steps.pr_info.outputs.reviewedSha }}
+          persist-credentials: false
+          path: pr-repo
+          fetch-depth: 0
+
+      - name: Verify checked-out SHA
+        env:
+          REVIEWED_SHA: ${{ steps.pr_info.outputs.reviewedSha }}
+        run: |
+          actual="$(git -C pr-repo rev-parse HEAD)"
+          if [ "$actual" != "$REVIEWED_SHA" ]; then
+            echo "❌ Checked-out SHA ($actual) does not match the reviewed commit ($REVIEWED_SHA)! Abort!"
+            exit 1
+          fi
+
+      # What is refused is what the style commands themselves read or run from
+      # the pull request tree. The contributor Makefile is never invoked, so it
+      # is not in this list.
+      - name: Refuse pull requests that modify tooling entrypoints
+        id: check_entrypoints
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3  # v9.0.0
+        env:
+          PR_NUMBER: ${{ steps.pr_info.outputs.prNumber }}
+        with:
+          script: |
+            const ENTRYPOINTS = [/^setup\.py$/, /^pyproject\.toml$/, /^setup\.cfg$/, /^utils\//];
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: parseInt(process.env.PR_NUMBER, 10),
+            });
+            const hits = files.map(f => f.filename).filter(n => ENTRYPOINTS.some(re => re.test(n)));
+            if (hits.length) {
+              core.setFailed(
+                `Pull request modifies tooling entrypoints (${hits.join(', ')}); please run style checks locally.`
+              );
+            }
+
+      # Copy the trusted Makefile into the reviewed tree and invoke that copy.
+      # Downstream reusable-workflow consumers keep their own style/quality
+      # targets, but the contributor's Makefile is never executed. Utils
+      # scripts may import the package under src/; that is the remaining path by
+      # which pull-request code runs. This job holds no credential and only
+      # `contents: read`.
       - name: Run style command
         id: run_style
         env:
-            STYLECOMMANDTYPE : ${{ inputs.style_command_type }}
+          STYLECOMMANDTYPE: ${{ inputs.style_command_type }}
         run: |
+          cp "$GITHUB_WORKSPACE/Makefile" pr-repo/.style-bot.Makefile
+          cd pr-repo
+          export PYTHONPATH="$PWD/src${PYTHONPATH:+:$PYTHONPATH}"
+
+          run_make() {
+            make -f .style-bot.Makefile "$1"
+          }
+
           case "$STYLECOMMANDTYPE" in
             "default")
-              echo "Running default style and quality checks"
-              make style && make quality
+              run_make style && run_make quality
               ;;
             "quality_only")
-              echo "Running quality checks only"
-              make quality
+              run_make quality
               ;;
             "style_only")
-              echo "Running style checks only"
-              make style
+              run_make style
               ;;
             *)
               echo "Invalid style_command_type: $STYLECOMMANDTYPE"
@@ -217,20 +218,26 @@ jobs:
               ;;
           esac
 
+          rm -f .style-bot.Makefile
+
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "changes_detected=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changes_detected=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Export style fixes as patch artifact
+        if: steps.run_style.outputs.changes_detected == 'true'
         env:
           STYLE_BOT_OUTPUT_DIR: ${{ runner.temp }}/style-bot-output
         run: |
           mkdir -p "$STYLE_BOT_OUTPUT_DIR"
-          if [ -n "$(git status --porcelain)" ]; then
-            git add -A
-            git diff --cached --binary > "$STYLE_BOT_OUTPUT_DIR/style-fixes.patch"
-            echo "changes_present=true" > "$STYLE_BOT_OUTPUT_DIR/metadata.env"
-          else
-            echo "changes_present=false" > "$STYLE_BOT_OUTPUT_DIR/metadata.env"
-          fi
+          cd pr-repo
+          git add -A
+          git diff --cached --binary > "$STYLE_BOT_OUTPUT_DIR/style-fixes.patch"
 
       - name: Upload style fixes artifact
+        if: steps.run_style.outputs.changes_detected == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
           name: style-bot-output-${{ github.run_id }}
@@ -238,10 +245,8 @@ jobs:
           if-no-files-found: error
 
   push-style-fixes:
-    needs:
-      - check-permissions
-      - run-style-bot
-    if: needs.check-permissions.outputs.is_authorized == 'true' && needs.run-style-bot.result == 'success'
+    needs: [check-permissions, run-style-bot]
+    if: needs.run-style-bot.result == 'success' && needs.run-style-bot.outputs.changes_detected == 'true'
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
@@ -256,39 +261,39 @@ jobs:
           owner: ${{ github.repository_owner }}
           repositories: ${{ github.event.repository.name }}
 
-      - name: Re-validate PR head SHA before trusted steps
+      - name: Refuse to push if the branch moved since the review
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3  # v9.0.0
         env:
-          EXPECTED_HEAD_SHA: ${{ needs.run-style-bot.outputs.headSha }}
+          REVIEWED_SHA: ${{ needs.run-style-bot.outputs.reviewedSha }}
+          PR_NUMBER: ${{ needs.run-style-bot.outputs.prNumber }}
         with:
           script: |
-            const prNumber = context.payload.issue.number;
             const { data: pr } = await github.rest.pulls.get({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              pull_number: prNumber
+              pull_number: parseInt(process.env.PR_NUMBER, 10),
             });
-            if (pr.head.sha !== process.env.EXPECTED_HEAD_SHA) {
+            if (pr.head.sha !== process.env.REVIEWED_SHA) {
               core.setFailed(
-                `❌ PR head changed after the untrusted style run. Expected ${process.env.EXPECTED_HEAD_SHA}, got ${pr.head.sha}. Aborting.`
+                `❌ Branch moved since the review. Reviewed ${process.env.REVIEWED_SHA}, head is now ${pr.head.sha}. Aborting.`
               );
             }
 
-      - name: Check out reviewed PR SHA
+      - name: Check out the reviewed commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           repository: ${{ needs.run-style-bot.outputs.headRepoFullName }}
-          ref: ${{ needs.run-style-bot.outputs.headSha }}
+          ref: ${{ needs.run-style-bot.outputs.reviewedSha }}
           fetch-depth: 0
           token: ${{ steps.generate_token.outputs.token }}
           persist-credentials: false
 
       - name: Verify checked-out SHA
         env:
-          HEAD_SHA: ${{ needs.run-style-bot.outputs.headSha }}
+          REVIEWED_SHA: ${{ needs.run-style-bot.outputs.reviewedSha }}
         run: |
-          if [ "$(git rev-parse HEAD)" != "$HEAD_SHA" ]; then
-            echo "❌ Checked-out SHA does not match expected HEAD SHA! Abort!"
+          if [ "$(git rev-parse HEAD)" != "$REVIEWED_SHA" ]; then
+            echo "❌ Checked-out SHA does not match the reviewed commit! Abort!"
             exit 1
           fi
 
@@ -301,6 +306,8 @@ jobs:
       - name: Comment on PR with workflow run link
         id: init_comment
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3  # v9.0.0
+        env:
+          prNumber: ${{ needs.run-style-bot.outputs.prNumber }}
         with:
           script: |
             const prNumber = parseInt(process.env.prNumber, 10);
@@ -312,71 +319,37 @@ jobs:
               issue_number: prNumber,
               body: `Style fix is beginning .... [View the workflow run here](${runUrl}).`
             });
-            core.setOutput('comment_id', botComment.id);
-        env:
-          prNumber: ${{ needs.run-style-bot.outputs.prNumber }}
+            core.setOutput('comment_id', String(botComment.id));
 
-      - name: Apply style fixes patch
-        id: apply_patch
-        env:
-          STYLE_BOT_OUTPUT_DIR: ${{ runner.temp }}/style-bot-output
-        run: |
-          if grep -qx 'changes_present=true' "$STYLE_BOT_OUTPUT_DIR/metadata.env"; then
-            git apply --binary "$STYLE_BOT_OUTPUT_DIR/style-fixes.patch"
-            echo "changes_present=true" >> $GITHUB_OUTPUT
-          else
-            echo "No changes to apply."
-            echo "changes_present=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Commit and push changes
-        id: commit_and_push
+      - name: Apply style fixes and push
         env:
           HEADREPOFULLNAME: ${{ needs.run-style-bot.outputs.headRepoFullName }}
           HEADREF: ${{ needs.run-style-bot.outputs.headRef }}
+          REVIEWED_SHA: ${{ needs.run-style-bot.outputs.reviewedSha }}
           GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
+          STYLE_BOT_OUTPUT_DIR: ${{ runner.temp }}/style-bot-output
         run: |
-          echo "HEADREPOFULLNAME: $HEADREPOFULLNAME, HEADREF: $HEADREF"
-          # Configure git with the Actions bot user
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          # Make sure your 'origin' remote is set to the contributor's fork
-          git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/$HEADREPOFULLNAME.git"
-
-          # If there are changes after running style/quality, commit them
-          if [ "${{ steps.apply_patch.outputs.changes_present }}" = "true" ] && [ -n "$(git status --porcelain)" ]; then
-            git add .
-            git commit -m "Apply style fixes"
-            # Push to the original contributor's forked branch
-            git -c lfs.locksverify=false push origin HEAD:$HEADREF
-            echo "changes_pushed=true" >> $GITHUB_OUTPUT
-          else
-            echo "No changes to commit."
-            echo "changes_pushed=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Prepare final comment message
-        id: prepare_final_comment
-        run: |
-          if [ "${{ steps.commit_and_push.outputs.changes_pushed }}" = 'true' ]; then
-            echo "final_comment=Style bot fixed some files and pushed the changes." >> $GITHUB_OUTPUT
-          else
-            echo "final_comment=Style fix runs successfully without any file modified." >> $GITHUB_OUTPUT
-          fi
+          git apply --binary "$STYLE_BOT_OUTPUT_DIR/style-fixes.patch"
+          git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${HEADREPOFULLNAME}.git"
+          git add -A
+          git commit -m "Apply style fixes"
+          # Push to the branch name (the only place a name is required) but refuse
+          # to overwrite if the remote moved off the reviewed SHA.
+          git -c lfs.locksverify=false push \
+            --force-with-lease="refs/heads/${HEADREF}:${REVIEWED_SHA}" \
+            origin "HEAD:refs/heads/${HEADREF}"
 
       - name: Comment on PR
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3  # v9.0.0
+        env:
+          COMMENT_ID: ${{ steps.init_comment.outputs.comment_id }}
         with:
           script: |
-            const prNumber = parseInt(process.env.prNumber, 10);
-            const runUrl = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`
-
             await github.rest.issues.updateComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              comment_id: ${{ steps.init_comment.outputs.comment_id }},
-              body: `${{ steps.prepare_final_comment.outputs.final_comment }}`
+              comment_id: parseInt(process.env.COMMENT_ID, 10),
+              body: 'Style bot fixed some files and pushed the changes.',
             });
-        env:
-          prNumber: ${{ needs.run-style-bot.outputs.prNumber }}
