@@ -12792,7 +12792,7 @@ class HfApi:
             labels (`dict[str, str]`):
                 New labels to set on the job. Replaces all existing labels.
                 Both keys and values must be max 100 characters and contain only
-                alphanumeric characters, dots, dashes, and underscores.
+                alphanumeric characters, dashes, and underscores.
 
             namespace (`str`, *optional*):
                 The namespace where the Job is running. Defaults to the current user's namespace.
@@ -13396,7 +13396,7 @@ class HfApi:
             labels (`dict[str, str]`):
                 New labels to set on the scheduled job. Replaces all existing labels.
                 Both keys and values must be max 100 characters and contain only
-                alphanumeric characters, dots, dashes, and underscores.
+                alphanumeric characters, dashes, and underscores.
 
             namespace (`str`, *optional*):
                 The namespace where the scheduled Job is. Defaults to the current user's namespace.
