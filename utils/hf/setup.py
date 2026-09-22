@@ -29,9 +29,6 @@ setup(
     url="https://github.com/huggingface/huggingface_hub",
     packages=["hf"],  # dummy package to raise ImportError on import
     entry_points={"console_scripts": ["hf=huggingface_hub.cli.hf:main"]},
-    # Must stay in sync with `python_requires` in the root setup.py: `hf` is only a console script importing
-    # `huggingface_hub`, and it pins `huggingface_hub=={version}`. Allowing an interpreter the hub dropped makes
-    # that pin unresolvable. Enforced by `tests/test_hf_cli_packaging.py`.
     python_requires=">=3.10.0",
     install_requires=install_requires,
     classifiers=[],
