@@ -4298,7 +4298,8 @@ Install a Hugging Face skill for an AI assistant.
 The default `hf-cli` skill is generated locally from the installed CLI version;
 other skills are downloaded from the Hugging Face marketplace.
 Default location is in the current directory (.agents/skills) or user-level (~/.agents/skills).
-If `--claude` is specified, the skill is also symlinked into Claude's legacy skills directory.
+If `--claude` is specified, the skill is also symlinked into Claude's legacy skills directory
+(`.claude/skills` or `~/.claude/skills`, honoring `CLAUDE_CONFIG_DIR` when set).
 
 **Usage**:
 
