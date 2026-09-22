@@ -318,6 +318,14 @@ def test_get_client_ready():
     assert async_client.token == "my-token"
 
 
+@patch("huggingface_hub.utils._headers.get_token", return_value="my-token")
+def test_get_client_ready_with_token_true(_mock_get_token: Mock):
+    endpoint = InferenceEndpoint.from_raw(MOCK_RUNNING, namespace="foo", token=True)
+
+    assert endpoint.client.token == "my-token"
+    assert endpoint.async_client.token == "my-token"
+
+
 @patch("huggingface_hub.hf_api.HfApi.get_inference_endpoint")
 def test_fetch(mock_get: Mock):
     endpoint = InferenceEndpoint.from_raw(MOCK_INITIALIZING, namespace="foo")

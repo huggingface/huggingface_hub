@@ -989,17 +989,6 @@ class TestOpenAICompatibility(TestBase):
         client = InferenceClient()
         assert client.token is None
 
-    def test_token_initialization_with_token_true(self, mocker):
-        # Test with token=True and token is set with get_token()
-        mocker.patch("huggingface_hub.inference._client.get_token", return_value="my-token")
-        client = InferenceClient(token=True)
-        assert client.token == "my-token"
-
-    def test_token_initialization_cannot_be_token_false(self):
-        # Test with token=False raises error
-        with pytest.raises(ValueError, match="Cannot use `token=False` to disable authentication"):
-            InferenceClient(token=False)
-
 
 @pytest.mark.parametrize(
     "stop_signal",
@@ -1140,17 +1129,10 @@ def test_pass_url_as_base_url():
     assert request.url == "http://localhost:8082/v1/"
 
 
-def test_cannot_pass_token_false():
-    """Regression test for #2853.
-
-    It is no longer possible to pass `token=False` to the InferenceClient constructor.
-    This was a legacy behavior, broken since 0.28.x release as passing token=False does not prevent the token from being
-    used. Better to drop this feature altogether and raise an error if `token=False` is passed.
-
-    See https://github.com/huggingface/huggingface_hub/pull/2853.
-    """
-    with pytest.raises(ValueError):
-        InferenceClient(token=False)
+@pytest.mark.parametrize("token", [True, False])
+def test_inference_client_rejects_bool_token(token):
+    with pytest.raises(TypeError, match="must be a string or `None`"):
+        InferenceClient(token=token)
 
 
 class TestBillToOrganization:
