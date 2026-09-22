@@ -967,14 +967,6 @@ def jobs_ps(
     ] = 100,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
-    filter: Annotated[
-        list[str] | None,
-        Option(
-            "-f",
-            "--filter",
-            help="(Deprecated) Use `--status` and `--label` instead.",
-        ),
-    ] = None,
 ) -> None:
     """List Jobs.
 
@@ -982,12 +974,6 @@ def jobs_ps(
     labels. A Job must match every filter to be listed.
     """
     api = get_hf_api(token=token)
-
-    if filter:
-        out.warning(
-            f"Ignoring filter '{filter}'."
-            " `-f`/`--filter` is deprecated and will be removed in a future release. Use `--status`/`--label`."
-        )
 
     if all and status:
         raise CLIError("`-a`/`--all` cannot be combined with `--status`.")
@@ -1573,14 +1559,6 @@ def scheduled_ps(
     ] = None,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
-    filter: Annotated[
-        list[str] | None,
-        Option(
-            "-f",
-            "--filter",
-            help="(Deprecated) Use `--status` and `--label` instead.",
-        ),
-    ] = None,
 ) -> None:
     """List scheduled Jobs.
 
@@ -1588,12 +1566,6 @@ def scheduled_ps(
     A scheduled Job must match every filter to be listed.
     """
     api = get_hf_api(token=token)
-
-    if filter:
-        out.warning(
-            f"Ignoring filter '{filter}'."
-            " `-f`/`--filter` is deprecated and will be removed in a future release. Use `--status`/`--label`."
-        )
 
     if all and status:
         raise CLIError("`-a`/`--all` cannot be combined with `--status`.")

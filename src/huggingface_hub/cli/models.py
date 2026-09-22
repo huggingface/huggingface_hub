@@ -14,7 +14,7 @@
 """Contains commands to interact with models on the Hugging Face Hub."""
 
 import enum
-from typing import Annotated, get_args
+from typing import Annotated, cast, get_args
 
 import click
 
@@ -200,7 +200,7 @@ def models_ls(
             apps=apps,
             num_parameters=num_parameters,
             inference="warm" if warm else None,
-            inference_provider=inference_provider,
+            inference_provider=cast(list[PROVIDER_T] | None, inference_provider),
             sort=sort_key,
             limit=limit,
             expand=expand,  # type: ignore
