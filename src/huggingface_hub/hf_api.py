@@ -597,13 +597,14 @@ class WebhookWatchedItem:
     """Data structure containing information about the items watched by a webhook.
 
     Attributes:
-        type (`Literal["dataset", "model", "org", "space", "user"]`):
-            Type of the item to be watched. Can be one of `["dataset", "model", "org", "space", "user"]`.
+        type (`Literal["bucket", "dataset", "model", "org", "space", "user"]`):
+            Type of the item to be watched. Can be one of `["bucket", "dataset", "model", "org", "space", "user"]`.
         name (`str`):
-            Name of the item to be watched. Can be the username, organization name, model name, dataset name or space name.
+            Name of the item to be watched. Can be the username, organization name, model name, dataset name, space name
+            or bucket name.
     """
 
-    type: Literal["dataset", "model", "org", "space", "user"]
+    type: Literal["bucket", "dataset", "model", "org", "space", "user"]
     name: str
 
 
@@ -11265,7 +11266,7 @@ class HfApi:
                 ID of the source Job to trigger with the webhook payload in the environment variable WEBHOOK_PAYLOAD.
                 Additional environment variables are available for convenience: WEBHOOK_REPO_ID, WEBHOOK_REPO_TYPE and WEBHOOK_SECRET.
             watched (`list[WebhookWatchedItem]`):
-                List of [`WebhookWatchedItem`] to be watched by the webhook. It can be users, orgs, models, datasets or spaces.
+                List of [`WebhookWatchedItem`] to be watched by the webhook. It can be users, orgs, models, datasets, spaces or buckets.
                 Watched items can also be provided as plain dictionaries.
             domains (`list[Literal["repo", "discussion"]]`, optional):
                 List of domains to watch. It can be "repo", "discussion" or both.
@@ -12793,7 +12794,7 @@ class HfApi:
             labels (`dict[str, str]`):
                 New labels to set on the job. Replaces all existing labels.
                 Both keys and values must be max 100 characters and contain only
-                alphanumeric characters, dots, dashes, and underscores.
+                alphanumeric characters, dashes, and underscores.
 
             namespace (`str`, *optional*):
                 The namespace where the Job is running. Defaults to the current user's namespace.
@@ -13397,7 +13398,7 @@ class HfApi:
             labels (`dict[str, str]`):
                 New labels to set on the scheduled job. Replaces all existing labels.
                 Both keys and values must be max 100 characters and contain only
-                alphanumeric characters, dots, dashes, and underscores.
+                alphanumeric characters, dashes, and underscores.
 
             namespace (`str`, *optional*):
                 The namespace where the scheduled Job is. Defaults to the current user's namespace.

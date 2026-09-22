@@ -5380,14 +5380,14 @@ class TestSkillUpdateCheck:
     def test_hints_to_add_when_not_installed(self, capsys: pytest.CaptureFixture) -> None:
         with patch.object(_skills, "__version__", "1.0.0"):
             _skills.check_skill_update()
-        assert "hf skills add -g --claude" in capsys.readouterr().err
+        assert "hf skills add -g" in capsys.readouterr().err
 
     def test_hints_to_update_when_generated_by_another_version(
         self, tmp_path: Path, capsys: pytest.CaptureFixture
     ) -> None:
         self._write_global_skill(tmp_path, "Generated with `huggingface_hub v0.0.1`.")
         _skills.check_skill_update()
-        assert "hf skills update hf-cli -g --claude" in capsys.readouterr().err
+        assert "hf skills update hf-cli -g" in capsys.readouterr().err
 
     def test_silent_when_up_to_date_and_throttled_afterwards(
         self, tmp_path: Path, capsys: pytest.CaptureFixture
