@@ -5344,6 +5344,19 @@ class TestSkillsHfCliCLI:
         runner.invoke(app, ["skills", "update", "--dest", str(dest)])
         assert skill_file.read_text(encoding="utf-8") == build_skill_md()
 
+    def test_add_installs_for_claude_code_too(
+        self, runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """No flag needed: the skill lands in `.agents/skills` and is exposed in `.claude/skills` as well."""
+        monkeypatch.setattr(constants, "AGENTS_SKILLS_GLOBAL_PATH", tmp_path / ".agents/skills")
+        monkeypatch.setattr(constants, "CLAUDE_SKILLS_GLOBAL_PATH", tmp_path / ".claude/skills")
+
+        result = runner.invoke(app, ["skills", "add", "-g"])
+
+        assert result.exit_code == 0, result.output
+        for root in (".agents/skills", ".claude/skills"):
+            assert (tmp_path / root / "hf-cli" / "SKILL.md").read_text(encoding="utf-8") == build_skill_md()
+
     def test_skills_flag_prints_the_skill(self, runner: CliRunner) -> None:
         """`hf --skills` is a top-level alias for `hf skills preview`."""
         result = runner.invoke(app, ["--skills"])
@@ -5380,14 +5393,14 @@ class TestSkillUpdateCheck:
     def test_hints_to_add_when_not_installed(self, capsys: pytest.CaptureFixture) -> None:
         with patch.object(_skills, "__version__", "1.0.0"):
             _skills.check_skill_update()
-        assert "hf skills add -g --claude" in capsys.readouterr().err
+        assert "hf skills add -g" in capsys.readouterr().err
 
     def test_hints_to_update_when_generated_by_another_version(
         self, tmp_path: Path, capsys: pytest.CaptureFixture
     ) -> None:
         self._write_global_skill(tmp_path, "Generated with `huggingface_hub v0.0.1`.")
         _skills.check_skill_update()
-        assert "hf skills update hf-cli -g --claude" in capsys.readouterr().err
+        assert "hf skills update hf-cli -g" in capsys.readouterr().err
 
     def test_silent_when_up_to_date_and_throttled_afterwards(
         self, tmp_path: Path, capsys: pytest.CaptureFixture

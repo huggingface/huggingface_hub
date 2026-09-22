@@ -102,10 +102,8 @@ The `huggingface_hub` library allows you to interact with the [Hugging Face Hub]
 The `hf` CLI is designed for people and coding agents alike: the same commands adapt their output when run by an agent. If you use Claude Code, Codex, Cursor, or another coding agent, install the `hf` CLI Skill — a command reference generated from your installed CLI:
 
 ```bash
-# for Codex, Cursor, OpenCode, Pi and other agents that load skills from `.agents/skills`
+# works with Claude Code, Codex, Cursor, OpenCode, Pi and any agent that loads skills from `.agents/skills`
 hf skills add
-# includes the above + Claude Code
-hf skills add --claude
 ```
 
 Learn more in the [Hugging Face CLI for AI agents guide](https://huggingface.co/docs/hub/agents-cli) and the [announcement blog post](https://huggingface.co/blog/hf-cli-for-agents).
