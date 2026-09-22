@@ -349,9 +349,9 @@ function Install-Skill {
 
     Write-Log "Installing the hf-cli skill for AI agents..."
     $hfExecutable = Join-Path $BIN_DIR "hf.exe"
-    & $hfExecutable skills add hf-cli --global --claude --force
+    & $hfExecutable skills add hf-cli --global --force
     if (-not $?) {
-        Write-Log "Failed to install the hf-cli skill. Install it later with: hf skills add -g --claude" "WARNING"
+        Write-Log "Failed to install the hf-cli skill. Install it later with: hf skills add -g" "WARNING"
         return
     }
     Write-Log "The hf-cli skill was installed automatically so AI agents know how to use the hf CLI."
