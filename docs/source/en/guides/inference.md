@@ -387,6 +387,54 @@ print(completion.choices[0].message)
 > [!TIP]
 > Please refer to the providers' documentation to verify which models are supported by them for Structured Outputs and JSON Mode.
 
+### Using a Pydantic model
+
+With [Pydantic v2](https://docs.pydantic.dev/latest/), you can generate the JSON schema from a model and validate the response with the same model. Install Pydantic separately with `pip install "pydantic>=2,<3"`. Pass the schema dictionary to `response_format`, not the Pydantic class itself.
+
+```python
+from pydantic import BaseModel, ConfigDict
+from huggingface_hub import InferenceClient
+
+class Book(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str
+    authors: list[str]
+
+client = InferenceClient(provider="cerebras")
+completion = client.chat_completion(
+    model="Qwen/Qwen3-32B",
+    messages=[
+        {"role": "user", "content": "Extract the book: The Great Gatsby by F. Scott Fitzgerald."},
+    ],
+    response_format={
+        "type": "json_schema",
+        "json_schema": {"name": "book", "schema": Book.model_json_schema(), "strict": True},
+    },
+)
+
+content = completion.choices[0].message.content
+if content is None:
+    raise ValueError("The model did not return text to validate.")
+book = Book.model_validate_json(content)
+print(book.name)
+```
+
+`extra="forbid"` adds `additionalProperties: false` to the schema. The fields have no defaults, so both are required. Provider support for JSON Schema varies; check which schema features your chosen provider and model accept. `model_validate_json` raises a Pydantic `ValidationError` if the returned text is not valid JSON or does not match the model, for example after a truncated response.
+
+For [`InferenceClient.text_generation`], pass the same schema through `grammar` instead. The following example reuses `Book` and requires a running TGI endpoint with JSON grammar support at `http://localhost:8080`:
+
+```python
+client = InferenceClient(model="http://localhost:8080")
+text = client.text_generation(
+    "Extract the book: The Great Gatsby by F. Scott Fitzgerald.",
+    grammar={"type": "json", "value": Book.model_json_schema()},
+    max_new_tokens=100,
+    return_full_text=False,
+)
+book = Book.model_validate_json(text)
+print(book.authors)
+```
+
 ## Async client
 
 An async version of the client is also provided, based on `asyncio` and `httpx`. All async API endpoints are available via [`AsyncInferenceClient`]. Its initialization and APIs are strictly the same as the sync-only version.
