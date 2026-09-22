@@ -4313,6 +4313,7 @@ $ hf skills add [OPTIONS] [NAME]
 
 **Options**:
 
+* `--claude`: (Deprecated) No longer needed: skills are always installed for Claude Code too.
 * `-g, --global`: Install globally (user-level) instead of in the current project directory.
 * `--dest PATH`: Install into a custom destination (path to skills directory).
 * `--force`: Overwrite existing skills in the destination.
@@ -4383,6 +4384,7 @@ $ hf skills update [OPTIONS] [NAME]
 
 **Options**:
 
+* `--claude`: (Deprecated) No longer needed: skills are always installed for Claude Code too.
 * `-g, --global`: Use global skills directories instead of the current project.
 * `--dest PATH`: Update skills in a custom skills directory.
 * `--help`: Show this message and exit.

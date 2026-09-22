@@ -331,7 +331,8 @@ def _install_to(skills_dir: Path, skill_name: str, force: bool) -> Path:
 
 
 _CLAUDE_FLAG_DEPRECATED = (
-    "`--claude` is deprecated and has no effect: skills are always installed for Claude Code too."
+    "`--claude` is deprecated and will be removed in a future release:"
+    " skills are always installed for Claude Code too."
 )
 
 
@@ -428,7 +429,10 @@ def skills_add(
         str,
         Argument(help="Marketplace skill name.", show_default=False),
     ] = DEFAULT_SKILL_ID,
-    claude: Annotated[bool, Option("--claude", hidden=True)] = False,
+    claude: Annotated[
+        bool,
+        Option("--claude", help="(Deprecated) No longer needed: skills are always installed for Claude Code too."),
+    ] = False,
     global_: Annotated[
         bool,
         Option(
@@ -492,7 +496,10 @@ def skills_update(
         str | None,
         Argument(help="Optional installed skill name to update.", show_default=False),
     ] = None,
-    claude: Annotated[bool, Option("--claude", hidden=True)] = False,
+    claude: Annotated[
+        bool,
+        Option("--claude", help="(Deprecated) No longer needed: skills are always installed for Claude Code too."),
+    ] = False,
     global_: Annotated[
         bool,
         Option(
