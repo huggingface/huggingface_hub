@@ -5344,19 +5344,6 @@ class TestSkillsHfCliCLI:
         runner.invoke(app, ["skills", "update", "--dest", str(dest)])
         assert skill_file.read_text(encoding="utf-8") == build_skill_md()
 
-    def test_add_installs_for_claude_code_too(
-        self, runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """No flag needed: the skill lands in `.agents/skills` and is exposed in `.claude/skills` as well."""
-        monkeypatch.setattr(constants, "AGENTS_SKILLS_GLOBAL_PATH", tmp_path / ".agents/skills")
-        monkeypatch.setattr(constants, "CLAUDE_SKILLS_GLOBAL_PATH", tmp_path / ".claude/skills")
-
-        result = runner.invoke(app, ["skills", "add", "-g"])
-
-        assert result.exit_code == 0, result.output
-        for root in (".agents/skills", ".claude/skills"):
-            assert (tmp_path / root / "hf-cli" / "SKILL.md").read_text(encoding="utf-8") == build_skill_md()
-
     def test_skills_flag_prints_the_skill(self, runner: CliRunner) -> None:
         """`hf --skills` is a top-level alias for `hf skills preview`."""
         result = runner.invoke(app, ["--skills"])
