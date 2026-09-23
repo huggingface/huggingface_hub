@@ -58,6 +58,7 @@ on:
           - minor-release
           - patch-release
 
+
 permissions: {}
 
 jobs:
@@ -1269,6 +1270,7 @@ jobs:
   # 9. SLACK — final status update
   # ============================================================
   slack-complete:
+    permissions: {}
     needs: [prepare, publish-pypi, publish-hf-cli, release-notes, slack-message, archive-release-notes, test-downstream, post-release, sync-hf-cli-skill, notify-prs]
     if: ${{ always() && needs.prepare.outputs.message_ts }}
     runs-on: ubuntu-latest
