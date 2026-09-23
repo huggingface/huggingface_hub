@@ -17,8 +17,12 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions: {}
+
 jobs:
   check-imports:
+    permissions:
+      contents: read
     # Catch missing dependencies: install only base requirements and verify all public imports work.
     runs-on: ubuntu-latest
     steps:
@@ -38,6 +42,8 @@ jobs:
           python utils/check_imports.py
 
   build-ubuntu:
+    permissions:
+      contents: read
     runs-on:
       group: aws-general-8-plus
     # A healthy full-suite job takes ~20min. Anything much longer means something is stuck: fail fast instead of
@@ -157,6 +163,8 @@ jobs:
           verbose: true
 
   build-windows:
+    permissions:
+      contents: read
     # (almost) Duplicate config compared to `build-ubuntu` but running on Windows.
     # Please make sure to keep it updated as well.
     runs-on: windows-latest

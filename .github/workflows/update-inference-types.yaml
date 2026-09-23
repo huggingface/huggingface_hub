@@ -9,8 +9,12 @@ concurrency:
   group: update-inference-types
   cancel-in-progress: true
 
+permissions: {}
+
 jobs:
   pull_request:
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     steps:
       # Setup Python
