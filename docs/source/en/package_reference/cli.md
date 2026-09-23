@@ -2541,6 +2541,9 @@ $ hf jobs run [OPTIONS] IMAGE COMMAND...
 * `--resource-group-id TEXT`: The ID of the resource group to create the Job in. Used to control access to resources within an organization and for cost attribution/spending-limit features.
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--format [agent|auto|human|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
+* `--json`: JSON output. Equivalent to '--format json'.
+* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
 * `--help`: Show this message and exit.
 
 Examples
@@ -2768,6 +2771,9 @@ $ hf jobs scheduled run [OPTIONS] SCHEDULE IMAGE COMMAND...
 * `--resource-group-id TEXT`: The ID of the resource group to create the Job in. Used to control access to resources within an organization and for cost attribution/spending-limit features.
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--format [agent|auto|human|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
+* `--json`: JSON output. Equivalent to '--format json'.
+* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
 * `--help`: Show this message and exit.
 
 Examples
@@ -2889,6 +2895,9 @@ $ hf jobs scheduled uv run [OPTIONS] SCHEDULE SCRIPT [SCRIPT_ARGS]...
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--with TEXT`: Run with the given packages installed
 * `-p, --python TEXT`: The Python interpreter to use for the run environment
+* `--format [agent|auto|human|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
+* `--json`: JSON output. Equivalent to '--format json'.
+* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
 * `--help`: Show this message and exit.
 
 Examples
@@ -3020,6 +3029,9 @@ $ hf jobs uv run [OPTIONS] SCRIPT [SCRIPT_ARGS]...
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--with TEXT`: Run with the given packages installed
 * `-p, --python TEXT`: The Python interpreter to use for the run environment
+* `--format [agent|auto|human|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
+* `--json`: JSON output. Equivalent to '--format json'.
+* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
 * `--help`: Show this message and exit.
 
 Examples
@@ -4312,7 +4324,8 @@ Install a Hugging Face skill for an AI assistant.
 The default `hf-cli` skill is generated locally from the installed CLI version;
 other skills are downloaded from the Hugging Face marketplace.
 Default location is in the current directory (.agents/skills) or user-level (~/.agents/skills).
-If `--claude` is specified, the skill is also symlinked into Claude's legacy skills directory.
+The skill is also symlinked into Claude Code's skills directory (`.claude/skills` or `~/.claude/skills`,
+honoring `CLAUDE_CONFIG_DIR` when set), unless `--dest` is used.
 
 **Usage**:
 
@@ -4326,7 +4339,7 @@ $ hf skills add [OPTIONS] [NAME]
 
 **Options**:
 
-* `--claude`: Install for Claude.
+* `--claude`: (Deprecated) No longer needed: skills are always installed for Claude Code too.
 * `-g, --global`: Install globally (user-level) instead of in the current project directory.
 * `--dest PATH`: Install into a custom destination (path to skills directory).
 * `--force`: Overwrite existing skills in the destination.
@@ -4336,8 +4349,7 @@ Examples
   $ hf skills add
   $ hf skills add huggingface-gradio --dest=~/my-skills
   $ hf skills add --global
-  $ hf skills add --claude
-  $ hf skills add huggingface-gradio --claude --global
+  $ hf skills add huggingface-gradio --global
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -4398,7 +4410,7 @@ $ hf skills update [OPTIONS] [NAME]
 
 **Options**:
 
-* `--claude`: Update skills installed for Claude.
+* `--claude`: (Deprecated) No longer needed: skills are always installed for Claude Code too.
 * `-g, --global`: Use global skills directories instead of the current project.
 * `--dest PATH`: Update skills in a custom skills directory.
 * `--help`: Show this message and exit.
@@ -4407,7 +4419,7 @@ Examples
   $ hf skills update
   $ hf skills update hf-cli
   $ hf skills update huggingface-gradio --dest=~/my-skills
-  $ hf skills update --claude
+  $ hf skills update -g
 
 Learn more
   Use `hf <command> --help` for more information about a command.

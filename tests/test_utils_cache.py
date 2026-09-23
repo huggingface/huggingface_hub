@@ -180,7 +180,7 @@ class TestValidCacheUtils:
 
         # 2 REFS in the repo: "main" and "refs/pr/1"
         # We could have added a tag as well
-        REF_1_NAME = "refs\\pr\\1"  # Windows-specific
+        REF_1_NAME = "refs/pr/1"
         assert set(repo_a.refs.keys()) == {"main", REF_1_NAME}
         assert repo_a.refs["main"].commit_hash == REPO_A_MAIN_HASH
         assert repo_a.refs[REF_1_NAME].commit_hash == REPO_A_PR_1_HASH

@@ -78,10 +78,10 @@ _CACHED_NO_EXIST_T = Any
 HEADER_FILENAME_PATTERN = re.compile(r'filename="(?P<filename>.*?)";')
 
 # Regex to check if the revision IS directly a commit_hash
-REGEX_COMMIT_HASH = re.compile(r"^[0-9a-f]{40}$")
+REGEX_COMMIT_HASH = re.compile(r"[0-9a-f]{40}")
 
 # Regex to check if the file etag IS a valid sha256
-REGEX_SHA256 = re.compile(r"^[0-9a-f]{64}$")
+REGEX_SHA256 = re.compile(r"[0-9a-f]{64}")
 
 _are_symlinks_supported_in_dir: dict[str, bool] = {}
 
@@ -354,7 +354,8 @@ def http_get(
         url (`str`):
             The URL of the file to download.
         temp_file (`BinaryIO`):
-            The file-like object where to save the file.
+            The file-like object where to save the file. Content is written from the object's current position, so the
+            caller may hand over a file that already contains data of its own (see [`HfFileSystem.get_file`]).
         resume_size (`int`, *optional*):
             The number of bytes already downloaded. If set to 0 (default), the whole file is download. If set to a
             positive number, the download will resume at the given position.
@@ -402,7 +403,9 @@ def http_get(
             # If we requested a Range but got 200 back, the server ignored our Range header
             # (e.g. CloudFront with Accept-Encoding: gzip). Reset file to avoid corruption.
             if resume_size > 0 and response.status_code == 200:
-                temp_file.seek(0)
+                # Rewind to where this download started, which is not necessarily the start of the file: the caller
+                # may have handed over a file object that already contains data of its own.
+                temp_file.seek(max(temp_file.tell() - resume_size, 0))
                 temp_file.truncate()
                 if _tqdm_bar is not None:
                     # When the progress bar is reused across retries, its counter has already been advanced by `resume_size`
@@ -482,10 +485,12 @@ def http_get(
                 _tqdm_bar=progress,
             )
 
-    if expected_size is not None and expected_size != temp_file.tell():
+    # Compare against the bytes downloaded by this call rather than the absolute file position: the two differ
+    # whenever the caller passed a file object that was not positioned at 0.
+    if expected_size is not None and expected_size != new_resume_size:
         raise OSError(
             consistency_error_message.format(
-                actual_size=temp_file.tell(),
+                actual_size=new_resume_size,
             )
         )
 
@@ -1092,7 +1097,7 @@ def _hf_hub_download_to_cache_dir(
     relative_filename = os.path.join(*filename.split("/"))
 
     # if user provides a commit_hash and they already have the file on disk, shortcut everything.
-    if REGEX_COMMIT_HASH.match(revision):
+    if REGEX_COMMIT_HASH.fullmatch(revision):
         pointer_path = _get_pointer_path(storage_folder, revision, relative_filename)
         if os.path.exists(pointer_path):
             if dry_run:
@@ -1138,7 +1143,7 @@ def _hf_hub_download_to_cache_dir(
         # Couldn't make a HEAD call => let's try to find a local file
         if not force_download:
             commit_hash = None
-            if REGEX_COMMIT_HASH.match(revision):
+            if REGEX_COMMIT_HASH.fullmatch(revision):
                 commit_hash = revision
             else:
                 ref_path = os.path.join(storage_folder, "refs", revision)
@@ -1336,7 +1341,7 @@ def _hf_hub_download_to_local_dir(
 
     # Local file exists + metadata exists + commit_hash matches => return file
     if (
-        REGEX_COMMIT_HASH.match(revision)
+        REGEX_COMMIT_HASH.fullmatch(revision)
         and paths.file_path.is_file()
         and local_metadata is not None
         and local_metadata.commit_hash == revision
@@ -1440,7 +1445,7 @@ def _hf_hub_download_to_local_dir(
         # => means it's an LFS file (large)
         # => let's compute local hash and compare
         # => if match, update metadata and return file
-        if local_metadata is None and REGEX_SHA256.match(etag) is not None:
+        if local_metadata is None and REGEX_SHA256.fullmatch(etag) is not None:
             with open(paths.file_path, "rb") as f:
                 file_hash = sha_fileobj(f).hex()
             if file_hash == etag:
@@ -1729,7 +1734,7 @@ def _get_metadata_or_catch_error(
         )
 
     # Skip the per-file HEAD call when the file metadata can be rebuilt from a tree listing cached on disk.
-    if tree_cache_folder is not None and REGEX_COMMIT_HASH.match(revision):
+    if tree_cache_folder is not None and REGEX_COMMIT_HASH.fullmatch(revision):
         tree_metadata = _xet_file_metadata_from_tree_cache(
             tree_cache_folder=tree_cache_folder,
             repo_id=repo_id,
@@ -1994,7 +1999,9 @@ def _download_to_tmp_and_move(
     # process, a broken lock costs only duplicated bandwidth: each process downloads the full
     # file and atomically renames it to the final destination.
     # See https://github.com/huggingface/huggingface_hub/pull/4228.
+    # Re-check the length on Windows: the suffix can push a path just under the limit above MAX_PATH.
     tmp_path = incomplete_path.with_name(f"{incomplete_path.stem}.{uuid.uuid4().hex[:8]}.incomplete")
+    tmp_path = Path(as_extended_path(tmp_path))
     try:
         with tmp_path.open("wb") as f:
             logger.debug(f"Downloading '{filename}' to '{tmp_path}'")

@@ -891,7 +891,7 @@ def _scan_cached_repo(repo_path: Path) -> CachedRepoInfo:
             if ref_path.is_dir() or ref_path.name in FILES_TO_IGNORE:
                 continue
 
-            ref_name = str(ref_path.relative_to(refs_path))
+            ref_name = ref_path.relative_to(refs_path).as_posix()
             with ref_path.open() as f:
                 commit_hash = f.read()
 

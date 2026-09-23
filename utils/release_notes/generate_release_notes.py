@@ -42,7 +42,7 @@ def bump_version(tag: str, bump_type: str = "patch") -> str:
     Returns:
         Bumped version (e.g., "v2.0.0", "v1.4.0", or "v1.3.8")
     """
-    match = re.match(r"v?(\d+)\.(\d+)\.(\d+)", tag)
+    match = re.search(r"^v?(\d+)\.(\d+)\.(\d+)", tag)
     if not match:
         raise ValueError(f"Invalid version tag format: {tag}")
 
