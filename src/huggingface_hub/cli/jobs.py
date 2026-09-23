@@ -229,6 +229,8 @@ def _resolve_uv_job_config(
         env_map = {**script_env, **env_map}
 
         secrets_map = parse_env_map(secrets, secrets_file)
+        if source.remote:
+            _check_remote_script_access(header, secrets_map=secrets_map, volume=volume, from_script=from_script)
         script_secrets = _resolve_script_secrets(header.secrets, secrets_map, dry_run=dry_run)
         from_script.update(f"secrets.{key}" for key in script_secrets)
         secrets_map = {**script_secrets, **secrets_map}
@@ -280,6 +282,31 @@ def _resolve_uv_job_config(
                 ),
             )
         yield config
+
+
+def _check_remote_script_access(
+    header: UvScriptHeader,
+    *,
+    secrets_map: dict[str, str | None],
+    volume: list[str] | None,
+    from_script: Collection[str],
+) -> None:
+    """Refuse a URL script whose table requests access to the caller's account or machine on its own.
+
+    Secrets, volumes, namespace and network group must be visible in the command that launches someone else's script.
+    """
+    _, script_volume_specs = _merge_volume_specs(volume or [], header.volumes)
+    flags = [f"--secrets {name}" for name in header.secrets if name not in secrets_map]
+    flags += [f"-v {spec}" for spec in script_volume_specs]
+    if "namespace" in from_script:
+        flags.append(f"--namespace {header.namespace}")
+    if "network_group" in from_script:
+        flags.append(f"--network-group {header.network_group}")
+    if flags:
+        raise CLIError(
+            f"This script is downloaded from a URL, so its [{TABLE_NAME}] table cannot request secrets, volumes, a"
+            f" namespace or a network group on its own. If you trust the script, pass them explicitly: {' '.join(flags)}"
+        )
 
 
 def _resolve_script_secrets(
