@@ -280,11 +280,12 @@ This cache is used when uploading content to the Hub. The directory is flat, com
 ```sh
 <CACHE_DIR>
 ├─ xet
-│  ├─ shard-cache
-│  │  ├─ 1fe4ffd5cf0c3375f1ef9aec5016cf773ccc5ca294293d3f92d92771dacfc15d.mdb
-│  │  ├─ 906ee184dc1cd0615164a89ed64e8147b3fdccd1163d80d794c66814b3b09992.mdb
-│  │  ├─ ceeeb7ea4cf6c0a8d395a2cf9c08871211fbbd17b9b5dc1005811845307e6b8f.mdb
-│  │  ├─ e8535155b1b11ebd894c908e91a1e14e3461dddd1392695ddc90ae54a548d8b2.mdb
+│  ├─ environment_identifier
+│  │  ├─ shard-cache
+│  │  │  ├─ 1fe4ffd5cf0c3375f1ef9aec5016cf773ccc5ca294293d3f92d92771dacfc15d.mdb
+│  │  │  ├─ 906ee184dc1cd0615164a89ed64e8147b3fdccd1163d80d794c66814b3b09992.mdb
+│  │  │  ├─ ceeeb7ea4cf6c0a8d395a2cf9c08871211fbbd17b9b5dc1005811845307e6b8f.mdb
+│  │  │  ├─ e8535155b1b11ebd894c908e91a1e14e3461dddd1392695ddc90ae54a548d8b2.mdb
 ```
 
 The `shard-cache` contains shards that are:
@@ -305,11 +306,12 @@ So that you do not have to restart from the beginning, the `staging` directory a
 ```
 <CACHE_DIR>
 ├─ xet
-│  ├─ staging
-│  │  ├─ shard-session
-│  │  │  ├─ 906ee184dc1cd0615164a89ed64e8147b3fdccd1163d80d794c66814b3b09992.mdb
-│  │  │  ├─ xorb-metadata
-│  │  │  │  ├─ 1fe4ffd5cf0c3375f1ef9aec5016cf773ccc5ca294293d3f92d92771dacfc15d.mdb
+│  ├─ environment_identifier
+│  │  ├─ staging
+│  │  │  ├─ shard-session
+│  │  │  │  ├─ 906ee184dc1cd0615164a89ed64e8147b3fdccd1163d80d794c66814b3b09992.mdb
+│  │  │  │  ├─ xorb-metadata
+│  │  │  │  │  ├─ 1fe4ffd5cf0c3375f1ef9aec5016cf773ccc5ca294293d3f92d92771dacfc15d.mdb
 ```
 
 As files are processed and chunks successfully uploaded, their metadata is stored in `xorb-metadata` as a shard. Upon resuming an upload session, each file is processed again and the shards in this directory are consulted. Any content that was successfully uploaded is skipped, and any new content is uploaded (and its metadata saved). 
@@ -329,16 +331,17 @@ Example `xet` cache directory tree:
 ```sh
 <CACHE_DIR>
 ├─ xet
-│  ├─ shard-cache
-│  │  ├─ 1fe4ffd5cf0c3375f1ef9aec5016cf773ccc5ca294293d3f92d92771dacfc15d.mdb
-│  │  ├─ 906ee184dc1cd0615164a89ed64e8147b3fdccd1163d80d794c66814b3b09992.mdb
-│  │  ├─ ceeeb7ea4cf6c0a8d395a2cf9c08871211fbbd17b9b5dc1005811845307e6b8f.mdb
-│  │  ├─ e8535155b1b11ebd894c908e91a1e14e3461dddd1392695ddc90ae54a548d8b2.mdb
-│  ├─ staging
-│  │  ├─ shard-session
+│  ├─ environment_identifier
+│  │  ├─ shard-cache
+│  │  │  ├─ 1fe4ffd5cf0c3375f1ef9aec5016cf773ccc5ca294293d3f92d92771dacfc15d.mdb
 │  │  │  ├─ 906ee184dc1cd0615164a89ed64e8147b3fdccd1163d80d794c66814b3b09992.mdb
-│  │  │  ├─ xorb-metadata
-│  │  │  │  ├─ 1fe4ffd5cf0c3375f1ef9aec5016cf773ccc5ca294293d3f92d92771dacfc15d.mdb
+│  │  │  ├─ ceeeb7ea4cf6c0a8d395a2cf9c08871211fbbd17b9b5dc1005811845307e6b8f.mdb
+│  │  │  ├─ e8535155b1b11ebd894c908e91a1e14e3461dddd1392695ddc90ae54a548d8b2.mdb
+│  │  ├─ staging
+│  │  │  ├─ shard-session
+│  │  │  │  ├─ 906ee184dc1cd0615164a89ed64e8147b3fdccd1163d80d794c66814b3b09992.mdb
+│  │  │  │  ├─ xorb-metadata
+│  │  │  │  │  ├─ 1fe4ffd5cf0c3375f1ef9aec5016cf773ccc5ca294293d3f92d92771dacfc15d.mdb
 ```
 
 To learn more about Xet Storage, see this [section](https://huggingface.co/docs/hub/xet/index).
