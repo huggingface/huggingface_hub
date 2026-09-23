@@ -36,6 +36,8 @@ jobs:
       - name: Install dependencies
         run: uv pip install "huggingface_hub[dev] @ ."
       - name: Test style bot workflow guards
+        env:
+          STYLE_BOT_DOCKER_TESTS: "1"
         run: .venv/bin/python .github/scripts/test_style_bot.py
       - run: .venv/bin/ruff check tests src # linter
       - run: .venv/bin/ruff format --check tests src # formatter

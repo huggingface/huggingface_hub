@@ -20,11 +20,8 @@ import re
 import tempfile
 from pathlib import Path
 
+from helpers import read_literal_assignment
 from ruff.__main__ import find_ruff_bin
-
-from huggingface_hub import _SUBMOD_ATTRS as ROOT_SUBMOD_ATTRS
-from huggingface_hub.utils import _SUBMOD_ATTRS as UTILS_SUBMOD_ATTRS
-from huggingface_hub.utils import _SUBMODULES as UTILS_SUBMODULES
 
 
 REPO_ROOT = Path(__file__).parents[1]
@@ -64,38 +61,41 @@ def _format_with_ruff(content: str) -> str:
 
 
 def _generate_root_init(content: str) -> str:
+    root_submod_attrs = read_literal_assignment(content, "_SUBMOD_ATTRS")
     content_before_static_checks = content.split(IF_TYPE_CHECKING_LINE)[0]
     if SUBMOD_ATTRS_PATTERN.search(content_before_static_checks) is None:
         raise ValueError(f"_SUBMOD_ATTRS dictionary not found in {ROOT_INIT_PATH}")
 
     content_before_static_checks = SUBMOD_ATTRS_PATTERN.sub(
-        _format_mapping(ROOT_SUBMOD_ATTRS), content_before_static_checks
+        _format_mapping(root_submod_attrs), content_before_static_checks
     )
     static_imports = [
         f"    from .{module} import {attr}  # noqa: F401"
-        for module, attributes in ROOT_SUBMOD_ATTRS.items()
+        for module, attributes in root_submod_attrs.items()
         for attr in attributes
     ]
     return _format_with_ruff(content_before_static_checks + IF_TYPE_CHECKING_LINE + "\n".join(static_imports) + "\n")
 
 
 def _generate_utils_init(content: str) -> str:
+    utils_submod_attrs = read_literal_assignment(content, "_SUBMOD_ATTRS")
+    utils_submodules = read_literal_assignment(content, "_SUBMODULES")
     content_before_static_checks = content.split(IF_TYPE_CHECKING_LINE)[0]
     if SUBMOD_ATTRS_PATTERN.search(content_before_static_checks) is None:
         raise ValueError(f"_SUBMOD_ATTRS dictionary not found in {UTILS_INIT_PATH}")
     if SUBMODULES_PATTERN.search(content_before_static_checks) is None:
         raise ValueError(f"_SUBMODULES set not found in {UTILS_INIT_PATH}")
 
-    content_before_static_checks = SUBMODULES_PATTERN.sub(_format_set(UTILS_SUBMODULES), content_before_static_checks)
+    content_before_static_checks = SUBMODULES_PATTERN.sub(_format_set(utils_submodules), content_before_static_checks)
     content_before_static_checks = SUBMOD_ATTRS_PATTERN.sub(
-        _format_mapping(UTILS_SUBMOD_ATTRS), content_before_static_checks
+        _format_mapping(utils_submod_attrs), content_before_static_checks
     )
 
     static_imports = ["    import httpx as httpx  # noqa: F401"]
-    for module in sorted(UTILS_SUBMODULES):
+    for module in sorted(utils_submodules):
         imported_module = "tqdm" if module == "_tqdm" else module
         static_imports.append(f"    from . import {imported_module} as {module}  # noqa: F401")
-    for module, attributes in UTILS_SUBMOD_ATTRS.items():
+    for module, attributes in utils_submod_attrs.items():
         module_path = module if module.startswith("huggingface_hub.") else f".{module}"
         static_imports.extend(f"    from {module_path} import {attr}  # noqa: F401" for attr in attributes)
 

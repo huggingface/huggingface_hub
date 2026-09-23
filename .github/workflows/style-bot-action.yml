@@ -18,8 +18,8 @@
 #   pyproject.toml has no path to execution.
 # - `make` uses the trusted top-level Makefile. Protected tooling paths must
 #   match the trusted checkout, including file modes and the entire utils/ tree.
-# - Style/quality scripts can still import the authorized PR sources. This code
-#   runs in a separate read-only job without the App's write token/private key.
+# - Imports of PR sources run inside a non-root container without networking,
+#   runner credentials or writable access to tooling and Git metadata.
 # - The publisher independently checks the authorized SHA and PR destination.
 
 name: Style Bot Action
@@ -119,6 +119,7 @@ jobs:
     needs: check-permissions
     if: needs.check-permissions.outputs.is_authorized == 'true' && needs.check-permissions.outputs.approvedSha != ''
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: read
       pull-requests: read
@@ -152,17 +153,32 @@ jobs:
           ref: ${{ github.sha }}
           persist-credentials: false
 
-      - name: Set up Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
-        with:
-          python-version: ${{ inputs.python_version }}
-
-      - name: Install tooling from the base repository
+      - name: Build tooling from the base repository
+        id: build_tools
+        shell: bash
         env:
-          python_quality_dependencies: ${{ inputs.python_quality_dependencies }}
+          PYTHON_QUALITY_DEPENDENCIES: ${{ inputs.python_quality_dependencies }}
+          PYTHON_VERSION: ${{ inputs.python_version }}
         run: |
-          python -m pip install --upgrade pip
-          pip install ".$python_quality_dependencies"
+          build_context="$(mktemp -d)"
+          trap 'rm -rf "$build_context"' EXIT
+          mkdir "$build_context/source"
+          git archive HEAD | tar -x -C "$build_context/source"
+          cat > "$build_context/Dockerfile" <<'DOCKERFILE'
+          ARG PYTHON_VERSION
+          FROM python:${PYTHON_VERSION}-slim-bookworm
+          RUN apt-get update && apt-get install --no-install-recommends -y make git \
+              && rm -rf /var/lib/apt/lists/*
+          COPY source /opt/style-bot/source
+          ARG PYTHON_QUALITY_DEPENDENCIES
+          RUN python -m pip install --no-cache-dir "/opt/style-bot/source${PYTHON_QUALITY_DEPENDENCIES}"
+          WORKDIR /work
+          DOCKERFILE
+          docker build --iidfile "$build_context/image-id" \
+            --build-arg "PYTHON_VERSION=$PYTHON_VERSION" \
+            --build-arg "PYTHON_QUALITY_DEPENDENCIES=$PYTHON_QUALITY_DEPENDENCIES" \
+            "$build_context"
+          echo "image_id=$(cat "$build_context/image-id")" >> "$GITHUB_OUTPUT"
 
       # Pin the checkout to the reviewed SHA. Do not fetch or check out the
       # mutable branch name: that was the TOCTOU, check one object, execute
@@ -200,46 +216,48 @@ jobs:
           fi
           echo "entrypoints_modified=false" >> "$GITHUB_OUTPUT"
 
-      # Copy the trusted Makefile into the reviewed tree and invoke that copy.
-      # Downstream reusable-workflow consumers keep their own style/quality
-      # targets. These commands can import PR sources, so this job is untrusted.
-      # A fresh filename avoids following a contributor-controlled symlink.
+      # Only the PR worktree is writable inside the container. Do not expose
+      # runner env/files, Git metadata, credentials or the Docker socket.
+      # Consumers retain their own trusted Makefile's style/quality targets.
       - name: Run style command
         id: run_style
         shell: bash
         env:
           STYLECOMMANDTYPE: ${{ inputs.style_command_type }}
+          STYLE_BOT_IMAGE: ${{ steps.build_tools.outputs.image_id }}
         run: |
-          trusted_makefile="$(mktemp "$GITHUB_WORKSPACE/pr-repo/.style-bot.Makefile.XXXXXX")"
-          trap 'rm -f "$trusted_makefile"' EXIT
-          cp "$GITHUB_WORKSPACE/Makefile" "$trusted_makefile"
+          container="style-bot-$(openssl rand -hex 16)"
+          trap 'docker rm -f "$container" >/dev/null 2>&1 || true' EXIT
+          # Do not interpret workflow commands printed by contributor code.
+          log_token="$(openssl rand -hex 32)"
+          echo "::stop-commands::$log_token"
+          status=0
+          docker run --rm --init --name "$container" \
+            --network none --read-only --cap-drop ALL \
+            --security-opt no-new-privileges --pids-limit 256 --memory 4g --cpus 2 \
+            --user "$(id -u):$(id -g)" \
+            --tmpfs /tmp:rw,nosuid,nodev,size=512m,mode=1777 \
+            --mount "type=bind,src=$GITHUB_WORKSPACE/pr-repo,dst=/work" \
+            --mount "type=bind,src=$GITHUB_WORKSPACE/pr-repo/.git,dst=/work/.git,readonly" \
+            --mount "type=bind,src=$GITHUB_WORKSPACE/Makefile,dst=/opt/style-bot/Makefile,readonly" \
+            --env HOME=/tmp --env PYTHONPATH=/work/src \
+            --env PYTHONDONTWRITEBYTECODE=1 --env HF_HUB_DISABLE_TELEMETRY=1 \
+            "$STYLE_BOT_IMAGE" timeout 10m bash -euo pipefail -c '
+              case "$1" in
+                default)
+                  make -f /opt/style-bot/Makefile style
+                  make -f /opt/style-bot/Makefile quality
+                  ;;
+                quality_only) make -f /opt/style-bot/Makefile quality ;;
+                style_only) make -f /opt/style-bot/Makefile style ;;
+                *) echo "Invalid style_command_type: $1"; exit 1 ;;
+              esac
+            ' bash "$STYLECOMMANDTYPE" || status=$?
+          printf '\n::%s::\n' "$log_token"
+          if [ "$status" -ne 0 ]; then
+            exit "$status"
+          fi
           cd pr-repo
-          export PYTHONPATH="$PWD/src${PYTHONPATH:+:$PYTHONPATH}"
-
-          run_make() {
-            make -f "$trusted_makefile" "$1"
-          }
-
-          case "$STYLECOMMANDTYPE" in
-            "default")
-              run_make style
-              run_make quality
-              ;;
-            "quality_only")
-              run_make quality
-              ;;
-            "style_only")
-              run_make style
-              ;;
-            *)
-              echo "Invalid style_command_type: $STYLECOMMANDTYPE"
-              echo "Valid options are: 'default', 'quality_only', 'style_only'"
-              exit 1
-              ;;
-          esac
-
-          rm -f "$trusted_makefile"
-
           if [ -n "$(git status --porcelain)" ]; then
             echo "changes_detected=true" >> "$GITHUB_OUTPUT"
           else
@@ -300,22 +318,14 @@ jobs:
             core.setOutput('headRepoFullName', pr.head.repo.full_name);
             core.setOutput('headRef', pr.head.ref);
 
-      - name: Generate bot token
-        id: generate_token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1  # v1
-        with:
-          app-id: ${{ secrets.app_id }}
-          private-key: ${{ secrets.app_private_key }}
-          owner: ${{ github.repository_owner }}
-          repositories: ${{ github.event.repository.name }}
-
       - name: Check out the reviewed commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
-          repository: ${{ steps.validate_pr.outputs.headRepoFullName }}
+          # Fork PR commits are reachable through the base repository. Only a
+          # read token is needed while handling the untrusted patch.
+          repository: ${{ github.repository }}
           ref: ${{ needs.check-permissions.outputs.approvedSha }}
           fetch-depth: 0
-          token: ${{ steps.generate_token.outputs.token }}
           persist-credentials: false
 
       - name: Verify checked-out SHA
@@ -333,20 +343,53 @@ jobs:
           name: style-bot-output-${{ github.run_id }}
           path: ${{ runner.temp }}/style-bot-output
 
-      - name: Apply style fixes and push
+      - name: Validate and apply style fixes
+        env:
+          STYLE_BOT_OUTPUT_DIR: ${{ runner.temp }}/style-bot-output
+        run: |
+          # Treat worker output as untrusted data before minting a write token.
+          # --index rejects patches that do not apply to this exact checkout.
+          git -c core.hooksPath=/dev/null apply --index --binary "$STYLE_BOT_OUTPUT_DIR/style-fixes.patch"
+          python3 -I - <<'PYTHON'
+          import subprocess
+
+          changes = subprocess.check_output([
+              "git", "diff", "--cached", "--raw", "-z", "--no-renames", "--no-abbrev"
+          ]).split(b"\0")
+          for index in range(0, len(changes) - 1, 2):
+              metadata, path = changes[index:index + 2]
+              old_mode, new_mode, *_ = metadata.lstrip(b":").split()
+              parts = path.split(b"/")
+              if (
+                  any(part.lower().startswith(b".git") for part in parts)
+                  or parts[0] in (b"utils", b"setup.py", b"setup.cfg", b"pyproject.toml", b"Makefile")
+                  or old_mode not in (b"000000", b"100644", b"100755")
+                  or new_mode not in (b"000000", b"100644", b"100755")
+                  or (old_mode != b"000000" and new_mode != b"000000" and old_mode != new_mode)
+              ):
+                  raise SystemExit(f"Refusing patch for protected path or file mode: {path!r}")
+          PYTHON
+
+      - name: Generate bot token
+        id: generate_token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1  # v1
+        with:
+          app-id: ${{ secrets.app_id }}
+          private-key: ${{ secrets.app_private_key }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+
+      - name: Push validated style fixes
         env:
           HEADREPOFULLNAME: ${{ steps.validate_pr.outputs.headRepoFullName }}
           HEADREF: ${{ steps.validate_pr.outputs.headRef }}
           APPROVED_SHA: ${{ needs.check-permissions.outputs.approvedSha }}
           GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
-          STYLE_BOT_OUTPUT_DIR: ${{ runner.temp }}/style-bot-output
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git apply --binary "$STYLE_BOT_OUTPUT_DIR/style-fixes.patch"
           git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${HEADREPOFULLNAME}.git"
-          git add -A
-          git commit -m "Apply style fixes"
+          git -c core.hooksPath=/dev/null commit -m "Apply style fixes"
           # Push to the branch name (the only place a name is required) but refuse
           # to overwrite if the remote moved off the reviewed SHA.
           git -c lfs.locksverify=false push \
