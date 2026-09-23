@@ -347,20 +347,16 @@ def _create_symlink(agent_skills_dir: Path, skill_name: str, central_skill_path:
     return link_path
 
 
-def _resolve_update_roots(
-    *,
-    claude: bool,
-    global_: bool,
-    dest: Path | None,
-) -> list[Path]:
+def _resolve_update_roots(*, global_: bool, dest: Path | None) -> list[Path]:
     if dest is not None:
-        if claude or global_:
-            raise CLIError("--dest cannot be combined with --claude or --global.")
+        if global_:
+            raise CLIError("--dest cannot be combined with --global.")
         return [dest.expanduser().resolve()]
 
-    roots: list[Path] = [constants.AGENTS_SKILLS_GLOBAL_PATH if global_ else constants.AGENTS_SKILLS_LOCAL_PATH]
-    if claude:
-        roots.append(constants.CLAUDE_SKILLS_GLOBAL_PATH if global_ else constants.CLAUDE_SKILLS_LOCAL_PATH)
+    if global_:
+        roots = [constants.AGENTS_SKILLS_GLOBAL_PATH, constants.CLAUDE_SKILLS_GLOBAL_PATH]
+    else:
+        roots = [constants.AGENTS_SKILLS_LOCAL_PATH, constants.CLAUDE_SKILLS_LOCAL_PATH]
     return [root.expanduser().resolve() for root in roots]
 
 
@@ -419,8 +415,7 @@ def skills_list(
         "hf skills add",
         "hf skills add huggingface-gradio --dest=~/my-skills",
         "hf skills add --global",
-        "hf skills add --claude",
-        "hf skills add huggingface-gradio --claude --global",
+        "hf skills add huggingface-gradio --global",
     ],
 )
 def skills_add(
@@ -428,7 +423,6 @@ def skills_add(
         str,
         Argument(help="Marketplace skill name.", show_default=False),
     ] = DEFAULT_SKILL_ID,
-    claude: Annotated[bool, Option("--claude", help="Install for Claude.")] = False,
     global_: Annotated[
         bool,
         Option(
@@ -456,24 +450,24 @@ def skills_add(
     The default `hf-cli` skill is generated locally from the installed CLI version;
     other skills are downloaded from the Hugging Face marketplace.
     Default location is in the current directory (.agents/skills) or user-level (~/.agents/skills).
-    If `--claude` is specified, the skill is also symlinked into Claude's legacy skills directory.
+    The skill is also symlinked into Claude Code's skills directory (`.claude/skills` or `~/.claude/skills`,
+    honoring `CLAUDE_CONFIG_DIR` when set), unless `--dest` is used.
     """
     if dest is not None:
-        if claude or global_:
-            raise CLIError("--dest cannot be combined with --claude or --global.")
+        if global_:
+            raise CLIError("--dest cannot be combined with --global.")
         skill_dest = _install_to(dest, name, force)
         print(f"Installed '{name}' to {skill_dest}")
         return
 
-    # Install to central location
+    # Install to central location, then expose it to Claude Code which only reads `.claude/skills`
     central_path = constants.AGENTS_SKILLS_GLOBAL_PATH if global_ else constants.AGENTS_SKILLS_LOCAL_PATH
     central_skill_path = _install_to(central_path, name, force)
     print(f"Installed '{name}' to central location: {central_skill_path}")
 
-    if claude:
-        agent_target = constants.CLAUDE_SKILLS_GLOBAL_PATH if global_ else constants.CLAUDE_SKILLS_LOCAL_PATH
-        link_path = _create_symlink(agent_target, name, central_skill_path, force)
-        print(f"Created symlink: {link_path}" if link_path.is_symlink() else f"Copied '{name}' to {link_path}")
+    claude_path = constants.CLAUDE_SKILLS_GLOBAL_PATH if global_ else constants.CLAUDE_SKILLS_LOCAL_PATH
+    link_path = _create_symlink(claude_path, name, central_skill_path, force)
+    print(f"Created symlink: {link_path}" if link_path.is_symlink() else f"Copied '{name}' to {link_path}")
 
 
 @skills_cli.command(
@@ -482,7 +476,7 @@ def skills_add(
         "hf skills update",
         "hf skills update hf-cli",
         "hf skills update huggingface-gradio --dest=~/my-skills",
-        "hf skills update --claude",
+        "hf skills update -g",
     ],
 )
 def skills_update(
@@ -490,7 +484,6 @@ def skills_update(
         str | None,
         Argument(help="Optional installed skill name to update.", show_default=False),
     ] = None,
-    claude: Annotated[bool, Option("--claude", help="Update skills installed for Claude.")] = False,
     global_: Annotated[
         bool,
         Option(
@@ -507,7 +500,7 @@ def skills_update(
     ] = None,
 ) -> None:
     """Update installed Hugging Face marketplace skills."""
-    roots = _resolve_update_roots(claude=claude, global_=global_, dest=dest)
+    roots = _resolve_update_roots(global_=global_, dest=dest)
 
     results = _skills.update_skills(roots, selector=name, hf_cli_content=build_skill_md())
     if not results:

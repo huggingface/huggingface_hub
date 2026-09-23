@@ -13,10 +13,8 @@ The `huggingface_hub` Python package comes with a built-in CLI called `hf`. This
 > [!TIP]
 > Using the `hf` CLI with AI agents? Install the Skill and check out the [Hugging Face CLI for AI Agents](https://huggingface.co/docs/hub/agents-cli) guide.
 > ```bash
-> # for Codex, Cursor, OpenCode, Pi and other agents that load skills from `.agents/skills`
+> # works with Claude Code, Codex, Cursor, OpenCode, Pi and any agent that loads skills from `.agents/skills`
 > hf skills add
-> # includes the above + Claude Code
-> hf skills add --claude
 > ```
 > The standalone installer installs it for you (see below), and `hf update` refreshes it.
 
@@ -2390,7 +2388,7 @@ Or create a webhook that triggers a Job instead:
 >>> hf webhooks create --job-id 687f911eaea852de79c4a50a --watch user:julien-c
 ```
 
-The `--watch` option uses the format `type:name` where type is one of `model`, `dataset`, `space`, `org`, or `user`. It can be repeated to watch multiple items. Use `--domain` to filter events to `repo` or `discussions`, and `--secret` to set a signing secret.
+The `--watch` option uses the format `type:name` where type is one of `model`, `dataset`, `space`, `bucket`, `org`, or `user`. It can be repeated to watch multiple items. Use `--domain` to filter events to `repo` or `discussions`, and `--secret` to set a signing secret.
 
 ### Update a webhook
 
