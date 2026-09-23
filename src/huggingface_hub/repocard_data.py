@@ -1,4 +1,5 @@
 import copy
+import json
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any
@@ -709,11 +710,31 @@ def eval_results_to_model_index(model_name: str, eval_results: list[EvalResult])
         ```
     """
 
-    # Metrics are reported on a unique task-and-dataset basis.
-    # Here, we make a map of those pairs and the associated EvalResults.
+    # Metrics are grouped into a single model-index result when they share the same
+    # task, dataset AND every other result-level field (dataset name, args, split,
+    # revision, task name and source). `unique_identifier` only covers a subset of
+    # those fields, so grouping on it would merge results that differ in e.g.
+    # `dataset_args` or `source` and silently keep only the first result's values
+    # (the rest are copied from `results[0]` below). Group on the full result-level
+    # identity instead so no metadata is dropped.
+    def _result_group_key(eval_result: EvalResult) -> tuple:
+        return (
+            eval_result.task_type,
+            eval_result.task_name,
+            eval_result.dataset_type,
+            eval_result.dataset_name,
+            eval_result.dataset_config,
+            eval_result.dataset_split,
+            eval_result.dataset_revision,
+            # `dataset_args` may be an unhashable dict; serialize it to a stable string.
+            json.dumps(eval_result.dataset_args, sort_keys=True) if eval_result.dataset_args is not None else None,
+            eval_result.source_name,
+            eval_result.source_url,
+        )
+
     task_and_ds_types_map: dict[Any, list[EvalResult]] = defaultdict(list)
     for eval_result in eval_results:
-        task_and_ds_types_map[eval_result.unique_identifier].append(eval_result)
+        task_and_ds_types_map[_result_group_key(eval_result)].append(eval_result)
 
     # Use the map from above to generate the model index data.
     model_index_data: list[dict[str, Any]] = []

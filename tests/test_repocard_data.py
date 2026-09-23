@@ -107,6 +107,63 @@ class TestModelCardData:
 
         assert model_index == expected_results["model-index"]
 
+    def test_eval_results_to_model_index_preserves_distinct_result_metadata(self):
+        # Regression test: two eval results that share the same task/dataset identifier
+        # (task_type, dataset_type, config, split, revision) but differ in other
+        # result-level fields (dataset_args, source) must produce two separate
+        # model-index results instead of being merged into one, which silently
+        # dropped all but the first result's dataset_args/source/task_name.
+        eval_results = [
+            EvalResult(
+                task_type="tt",
+                dataset_type="dt",
+                dataset_name="D",
+                metric_type="acc",
+                metric_value=0.1,
+                dataset_args={"num_few_shot": 0},
+                source_name="Source A",
+                source_url="https://example.com/a",
+            ),
+            EvalResult(
+                task_type="tt",
+                dataset_type="dt",
+                dataset_name="D",
+                metric_type="acc",
+                metric_value=0.2,
+                dataset_args={"num_few_shot": 5},
+                source_name="Source B",
+                source_url="https://example.com/b",
+            ),
+        ]
+
+        model_index = eval_results_to_model_index("my-cool-model", eval_results)
+
+        # Two distinct results, not one merged block.
+        results = model_index[0]["results"]
+        assert len(results) == 2
+        args = sorted(r["dataset"]["args"]["num_few_shot"] for r in results)
+        assert args == [0, 5]
+        sources = sorted(r["source"]["url"] for r in results)
+        assert sources == ["https://example.com/a", "https://example.com/b"]
+
+        # And the conversion round-trips without losing metadata.
+        _, round_tripped = model_index_to_eval_results(model_index)
+        assert sorted((r.dataset_args["num_few_shot"], r.source_url) for r in round_tripped) == [
+            (0, "https://example.com/a"),
+            (5, "https://example.com/b"),
+        ]
+
+    def test_eval_results_to_model_index_groups_metrics_sharing_metadata(self):
+        # Metrics that share every result-level field are still grouped into a single
+        # result block with multiple metrics.
+        eval_results = [
+            EvalResult(task_type="tt", dataset_type="dt", dataset_name="D", metric_type="acc", metric_value=0.9),
+            EvalResult(task_type="tt", dataset_type="dt", dataset_name="D", metric_type="f1", metric_value=0.8),
+        ]
+        model_index = eval_results_to_model_index("my-cool-model", eval_results)
+        assert len(model_index[0]["results"]) == 1
+        assert len(model_index[0]["results"][0]["metrics"]) == 2
+
     def test_model_index_to_eval_results(self):
         model_index = [
             {
