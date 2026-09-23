@@ -1,8 +1,8 @@
-"""Offline regression tests for the reusable style bot's actual YAML steps.
+"""Regression tests for the reusable style bot's actual YAML steps.
 
-Run with Python, PyYAML, Node, Bash and Git installed. No GitHub credentials or
-GitHub API calls are replaced with local fixtures. Set STYLE_BOT_DOCKER_TESTS=1
-to build the tooling image and exercise the actual container isolation as well.
+Run with Python, PyYAML, Node, Bash and Git installed. No GitHub credentials are
+required; API calls use local fixtures. Set STYLE_BOT_DOCKER_TESTS=1 to build the
+tooling image and exercise the actual container isolation as well.
 """
 
 import json
