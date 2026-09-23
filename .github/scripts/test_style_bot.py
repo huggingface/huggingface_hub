@@ -1,13 +1,15 @@
 """Offline regression tests for the reusable style bot's actual YAML steps.
 
 Run with Python, PyYAML, Node, Bash and Git installed. No GitHub credentials or
-network calls are used; JavaScript API calls are replaced with local fixtures.
+GitHub API calls are replaced with local fixtures. Set STYLE_BOT_DOCKER_TESTS=1
+to build the tooling image and exercise the actual container isolation as well.
 """
 
 import json
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -17,6 +19,7 @@ import yaml
 
 WORKFLOWS = Path(__file__).resolve().parents[1] / "workflows"
 WORKFLOW = yaml.safe_load((WORKFLOWS / "style-bot-action.yml").read_text())
+REPOSITORY = WORKFLOWS.parents[1]
 SHA = "a" * 40
 
 
@@ -25,6 +28,36 @@ def step(job, name):
 
 
 class StyleBotTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.image = os.environ.get("STYLE_BOT_TEST_IMAGE")
+        if not cls.image and os.environ.get("STYLE_BOT_DOCKER_TESTS") == "1":
+            with tempfile.TemporaryDirectory(prefix="style-bot-build-") as temporary:
+                output = Path(temporary) / "outputs"
+                result = subprocess.run(
+                    [
+                        "bash",
+                        "-e",
+                        "-o",
+                        "pipefail",
+                        "-c",
+                        step("run-style-bot", "Build tooling from the base repository")["run"],
+                    ],
+                    cwd=REPOSITORY,
+                    env=os.environ
+                    | {
+                        "PYTHON_VERSION": "3.10",
+                        "PYTHON_QUALITY_DEPENDENCIES": "[quality]",
+                        "GITHUB_OUTPUT": str(output),
+                    },
+                    capture_output=True,
+                    text=True,
+                )
+                if result.returncode:
+                    raise RuntimeError(result.stdout + result.stderr)
+                cls.image = output.read_text().strip().removeprefix("image_id=")
+                cls.addClassCleanup(subprocess.run, ["docker", "image", "rm", cls.image], capture_output=True)
+
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory(prefix="style-bot-test-")
         self.addCleanup(self.temporary.cleanup)
@@ -47,6 +80,10 @@ class StyleBotTests(unittest.TestCase):
             "GITHUB_REPOSITORY": "base/repo",
             "GITHUB_RUN_ID": "123",
         }
+        if "DOCKER_HOST" in os.environ:
+            self.environment["DOCKER_HOST"] = os.environ["DOCKER_HOST"]
+        if self.image:
+            self.environment["STYLE_BOT_IMAGE"] = self.image
         self.git(self.root, "init", "-q", "-b", "main")
         (self.root / ".gitignore").write_text("pr-repo/\n")
         for name in ("setup.py", "setup.cfg", "pyproject.toml"):
@@ -156,7 +193,9 @@ const github = {rest: {
         publisher = WORKFLOW["jobs"]["push-style-fixes"]
         checkout = step("push-style-fixes", "Check out the reviewed commit")["with"]
         self.assertEqual(checkout["ref"], "${{ needs.check-permissions.outputs.approvedSha }}")
-        self.assertEqual(checkout["repository"], "${{ steps.validate_pr.outputs.headRepoFullName }}")
+        self.assertEqual(checkout["repository"], "${{ github.repository }}")
+        names = [item["name"] for item in publisher["steps"]]
+        self.assertLess(names.index("Validate and apply style fixes"), names.index("Generate bot token"))
         for item in publisher["steps"]:
             self.assertNotIn("needs.run-style-bot.outputs", json.dumps(item))
 
@@ -202,6 +241,8 @@ const github = {rest: {
         self.assertIn("entrypoints_modified=true", outputs)
 
     def test_all_modes_propagate_failures_and_use_the_trusted_makefile(self):
+        if not self.image:
+            self.skipTest("Set STYLE_BOT_DOCKER_TESTS=1 to test the real container")
         (self.pr / "Makefile").write_text("$(error Contributor Makefile must not run)\n")
         self.commit(self.pr)
         for mode in ("default", "style_only", "quality_only"):
@@ -228,6 +269,8 @@ const github = {rest: {
                     self.assertEqual(list(self.pr.glob(".style-bot.Makefile.*")), [])
 
     def test_clean_tree_and_existing_makefile_symlink(self):
+        if not self.image:
+            self.skipTest("Set STYLE_BOT_DOCKER_TESTS=1 to test the real container")
         (self.pr / ".style-bot.Makefile").symlink_to("utils/check.py")
         self.commit(self.pr)
         before = (self.pr / "utils" / "check.py").read_text()
@@ -270,12 +313,17 @@ const github = {rest: {
                     self.git(self.pr, "push", "-q", str(remote), "HEAD:refs/heads/main")
                 result, _ = self.shell(
                     "push-style-fixes",
-                    "Apply style fixes and push",
+                    "Validate and apply style fixes",
+                    STYLE_BOT_OUTPUT_DIR=str(artifact),
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+                result, _ = self.shell(
+                    "push-style-fixes",
+                    "Push validated style fixes",
                     HEADREPOFULLNAME=f"fixture/fork-{branch_moved}",
                     HEADREF="main",
                     APPROVED_SHA=approved,
                     GITHUB_TOKEN="dummy",
-                    STYLE_BOT_OUTPUT_DIR=str(artifact),
                     GIT_ALLOW_PROTOCOL="file",
                 )
                 self.assertEqual(result.returncode != 0, branch_moved, result.stderr)
@@ -285,6 +333,120 @@ const github = {rest: {
                 else:
                     self.assertEqual(self.git(remote, "show", "main:formatted.txt"), "style fix")
                     self.assertEqual(self.git(remote, "rev-parse", "main^"), approved)
+
+    def test_publisher_rejects_protected_paths_and_symlinks_in_worker_patch(self):
+        original = self.git(self.root, "rev-parse", "HEAD")
+        artifact = Path(self.temporary.name) / "patch"
+        artifact.mkdir()
+        for name, symlink in [
+            ("src/normal.py", False),
+            (".github/workflows/injected.yml", False),
+            (".gitattributes", False),
+            ("utils/check.py", False),
+            ("setup.py", False),
+            ("Makefile", False),
+            ("src/link", True),
+        ]:
+            with self.subTest(name=name):
+                self.git(self.root, "reset", "--hard", original)
+                target = self.root / name
+                target.parent.mkdir(parents=True, exist_ok=True)
+                if symlink:
+                    target.symlink_to("/tmp/outside")
+                else:
+                    target.write_text("# worker output\n")
+                self.git(self.root, "add", "--", name)
+                patch = subprocess.check_output(
+                    ["git", "-C", str(self.root), "diff", "--cached", "--binary"], env=self.environment
+                )
+                (artifact / "style-fixes.patch").write_bytes(patch)
+                self.git(self.root, "reset", "--hard", original)
+                result, _ = self.shell(
+                    "push-style-fixes", "Validate and apply style fixes", STYLE_BOT_OUTPUT_DIR=str(artifact)
+                )
+                self.assertEqual(result.returncode == 0, name == "src/normal.py", result.stderr)
+
+    def test_imported_pr_code_cannot_access_runner_or_modify_tooling(self):
+        if not self.image:
+            self.skipTest("Set STYLE_BOT_DOCKER_TESTS=1 to test the real container")
+        marker = Path(self.temporary.name) / "runner-only-marker"
+        marker.write_text("inert runner marker")
+        script = """
+import json
+import os
+import socket
+from pathlib import Path
+
+blocked = []
+for filename in ('.git/config', '/opt/style-bot/Makefile', '/opt/style-bot/source/setup.py'):
+    try:
+        with open(filename, 'a') as stream:
+            stream.write('inert marker')
+    except OSError:
+        blocked.append(filename)
+try:
+    socket.create_connection(('192.0.2.1', 80), timeout=1)
+    network_blocked = False
+except OSError:
+    network_blocked = True
+Path('container-result.json').write_text(json.dumps({
+    'blocked': blocked,
+    'network_blocked': network_blocked,
+    'uid': os.getuid(),
+    'interfaces_up': sorted(
+        path.name for path in Path('/sys/class/net').iterdir()
+        if path.is_dir() and int((path / 'flags').read_text(), 16) & 1
+    ),
+    'runner_env': sorted(key for key in os.environ if key.startswith(('GITHUB_', 'ACTIONS_', 'RUNNER_'))),
+    'docker_socket': Path('/var/run/docker.sock').exists(),
+    'process_status': Path('/proc/self/status').read_text(),
+    'runner_marker': Path(RUNNER_MARKER).exists(),
+}))
+""".replace("RUNNER_MARKER", repr(str(marker)))
+        (self.pr / "src").mkdir()
+        (self.pr / "src" / "canary.py").write_text(script)
+        (self.root / "Makefile").write_text('style:\n\tpython -c "import canary"\nquality:\n\t@true\n')
+        self.commit(self.pr)
+        before = (self.pr / ".git/config").read_bytes()
+        result, outputs = self.shell("run-style-bot", "Run style command", STYLECOMMANDTYPE="default")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        proof = json.loads((self.pr / "container-result.json").read_text())
+        self.assertEqual(len(proof["blocked"]), 3)
+        self.assertTrue(proof["network_blocked"])
+        self.assertNotEqual(proof["uid"], 0)
+        self.assertEqual(proof["interfaces_up"], ["lo"])
+        self.assertEqual(proof["runner_env"], [])
+        self.assertFalse(proof["docker_socket"])
+        self.assertFalse(proof["runner_marker"])
+        self.assertIn("CapEff:\t0000000000000000", proof["process_status"])
+        self.assertIn("NoNewPrivs:\t1", proof["process_status"])
+        self.assertEqual((self.pr / ".git/config").read_bytes(), before)
+        self.assertEqual(marker.read_text(), "inert runner marker")
+        self.assertIn("changes_detected=true", outputs)
+
+    def test_real_hub_tree_in_all_three_container_modes(self):
+        if not self.image:
+            self.skipTest("Set STYLE_BOT_DOCKER_TESTS=1 to test the real container")
+        archive = subprocess.check_output(["git", "archive", "HEAD"], cwd=REPOSITORY)
+        subprocess.run(["tar", "-x", "-C", str(self.pr)], input=archive, check=True)
+        shutil.copyfile(REPOSITORY / "Makefile", self.root / "Makefile")
+        original = self.commit(self.pr)
+        for mode in ("style_only", "default", "quality_only"):
+            with self.subTest(mode=mode):
+                self.git(self.pr, "reset", "--hard", original)
+                if mode != "quality_only":
+                    (self.pr / "src/huggingface_hub/_style_bot_smoke.py").write_text(
+                        "def add(left: int,right:int)->int:\n return left+right\n"
+                    )
+                    self.commit(self.pr)
+                result, outputs = self.shell("run-style-bot", "Run style command", STYLECOMMANDTYPE=mode)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertIn(f"changes_detected={str(mode != 'quality_only').lower()}", outputs)
+                if mode != "quality_only":
+                    self.assertEqual(
+                        (self.pr / "src/huggingface_hub/_style_bot_smoke.py").read_text(),
+                        "def add(left: int, right: int) -> int:\n    return left + right\n",
+                    )
 
     def test_reporting_requires_successful_publication_and_keeps_the_run_link(self):
         cases = [
@@ -305,6 +467,58 @@ const github = {rest: {
                 self.assertIn(expected, body)
                 self.assertIn("https://github.example.invalid/base/repo/actions/runs/123", body)
                 self.assertEqual("pushed the changes" in body, overrides.get("PUSH_RESULT") == "success")
+
+
+class StaticMetadataTests(unittest.TestCase):
+    def test_static_checks_do_not_import_the_pr_package(self):
+        with tempfile.TemporaryDirectory(prefix="style-bot-static-") as temporary:
+            root = Path(temporary)
+            (root / "utils").mkdir()
+            for name in ("helpers.py", "check_static_imports.py", "check_all_variable.py"):
+                shutil.copyfile(REPOSITORY / "utils" / name, root / "utils" / name)
+            shutil.copyfile(REPOSITORY / "pyproject.toml", root / "pyproject.toml")
+            marker = root / "import-executed"
+            for relative in ("src/huggingface_hub/__init__.py", "src/huggingface_hub/utils/__init__.py"):
+                target = root / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                content = (REPOSITORY / relative).read_text()
+                boundary = "\nif TYPE_CHECKING:  # pragma: no cover\n"
+                canary = f"\n__import__('pathlib').Path({str(marker)!r}).write_text('inert marker')\n"
+                target.write_text(content.replace(boundary, canary + boundary))
+            environment = {
+                "PATH": os.environ["PATH"],
+                "HOME": temporary,
+                "PYTHONPATH": str(root / "src"),
+            }
+            for script in ("check_static_imports.py", "check_all_variable.py"):
+                for arguments in (["--update"], []):
+                    with self.subTest(script=script, arguments=arguments):
+                        result = subprocess.run(
+                            [sys.executable, str(root / "utils" / script), *arguments],
+                            cwd=root,
+                            env=environment,
+                            text=True,
+                            capture_output=True,
+                        )
+                        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                        self.assertFalse(marker.exists())
+
+            # The mapping itself must be a literal. Evaluating a call to obtain
+            # it would reintroduce execution even without an import statement.
+            (root / "src/huggingface_hub/__init__.py").write_text(
+                f"_SUBMOD_ATTRS = __import__('pathlib').Path({str(marker)!r}).write_text('inert marker')\n"
+            )
+            for script in ("check_static_imports.py", "check_all_variable.py"):
+                with self.subTest(script=script, nonliteral=True):
+                    result = subprocess.run(
+                        [sys.executable, str(root / "utils" / script), "--update"],
+                        cwd=root,
+                        env=environment,
+                        text=True,
+                        capture_output=True,
+                    )
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertFalse(marker.exists())
 
 
 if __name__ == "__main__":
