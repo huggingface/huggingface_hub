@@ -4,5 +4,7 @@
     title: Dosya indirme
   - local: guides/upload
     title: Dosya yükleme
+  - local: guides/search
+    title: Arama
   - local: guides/manage-cache
     title: Önbellek
