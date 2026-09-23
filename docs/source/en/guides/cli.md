@@ -2229,8 +2229,6 @@ Values from the script are *defaults*: an explicit flag always wins, and `env`, 
 
 `secrets` only lists secret *names*: values always come from the environment of whoever runs the script, never from the script itself (`HF_TOKEN` also resolves from `hf auth login`). A secret that is requested but not set locally is an error, rather than a Job silently receiving an empty value. With `--dry-run` it is shown as `<not set>` instead, so that the configuration of a script whose secrets are not provisioned yet remains visible.
 
-A script downloaded from a URL was written by someone else, so its table cannot request `secrets`, `volumes`, `namespace` or `network_group` on its own: they give the Job access to your account, your local files or your other Jobs. The CLI refuses to launch it and prints the flags to pass if you trust the script (e.g. `--secrets HF_TOKEN`), so that everything the Job gets access to is visible in the command.
-
 Every run echoes the configuration it submits, marking the values that come from the script. Use `--dry-run` to print it without launching anything:
 
 ```bash
