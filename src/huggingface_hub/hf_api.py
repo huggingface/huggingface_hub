@@ -9401,6 +9401,8 @@ class HfApi:
         region: str,
         vendor: str,
         account_id: str | None = None,
+        private_link_account_id: str | None = None,
+        private_link_region: str | None = None,
         min_replica: int = 1,
         max_replica: int = 1,
         scaling_metric: InferenceEndpointScalingMetric | None = None,
@@ -9446,7 +9448,14 @@ class HfApi:
             vendor (`str`):
                 The cloud provider or vendor where the Inference Endpoint will be hosted (e.g. `"aws"`).
             account_id (`str`, *optional*):
-                The account ID used to link a VPC to a private Inference Endpoint (if applicable).
+                Deprecated and ignored. Use `private_link_account_id` and `private_link_region` to configure
+                AWS PrivateLink.
+            private_link_account_id (`str`, *optional*):
+                The AWS account ID allowed to reach the Inference Endpoint through AWS PrivateLink. Requires
+                `private_link_region`.
+            private_link_region (`str`, *optional*):
+                The AWS region of the PrivateLink entry point (`"us-east-1"` or `"eu-west-1"`), where the VPC
+                endpoint of `private_link_account_id` will connect. Independent of the compute `region` and `vendor`.
             min_replica (`int`, *optional*):
                 The minimum number of replicas (instances) to keep running for the Inference Endpoint. To enable
                 scaling to zero, set this value to 0 and adjust `scale_to_zero_timeout` accordingly. Defaults to 1.
@@ -9588,6 +9597,13 @@ class HfApi:
             ```
 
         """
+        if account_id is not None:
+            warnings.warn(
+                "`account_id` has been ignored. Use `private_link_account_id` and `private_link_region` to configure"
+                " AWS PrivateLink.",
+                FutureWarning,
+            )
+
         namespace = namespace or self._get_namespace(token=token)
 
         if type == InferenceEndpointType.PROTECTED:
@@ -9612,7 +9628,6 @@ class HfApi:
             )
 
         payload: dict = {
-            "accountId": account_id,
             "compute": {
                 "accelerator": accelerator,
                 "instanceSize": instance_size,
@@ -9636,6 +9651,13 @@ class HfApi:
             },
             "type": type,
         }
+        if private_link_account_id is not None:
+            if private_link_region is None:
+                raise ValueError(
+                    "`private_link_region` is required with `private_link_account_id`: the AWS region of the"
+                    " PrivateLink entry point, 'us-east-1' or 'eu-west-1'."
+                )
+            payload["privateService"] = {"accountId": private_link_account_id, "region": private_link_region}
         if scaling_metric:
             payload["compute"]["scaling"]["measure"] = {scaling_metric: scaling_threshold}  # type: ignore
         model_payload: dict[str, Any] = payload["model"]

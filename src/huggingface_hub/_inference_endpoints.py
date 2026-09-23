@@ -157,7 +157,7 @@ class InferenceEndpoint:
         >>> endpoint.status
         'running'
         >>> endpoint.url
-        'https://my-text-to-image.region.vendor.endpoints.huggingface.cloud'
+        'https://68a0f3b5c6ee5c9dcc0e0a01.endpoints.huggingface.cloud'
 
         # Run inference
         >>> endpoint.client.text_to_image(...)
