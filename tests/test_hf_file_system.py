@@ -360,6 +360,18 @@ class _HfFileSystemBaseROTests(_HfFileSystemBaseTests):
             with open(temp_file, "rb") as f:
                 assert f.read() == b"dummy text data"
 
+    def test_get_file_with_bare_filename(self):
+        # Test passing a bare filename works => downloads to the current working directory
+        cwd = os.getcwd()
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
+            os.chdir(temp_dir)
+            try:
+                self.hffs.get_file(self.text_file, "temp_file.txt")
+                with open(os.path.join(temp_dir, "temp_file.txt"), "rb") as f:
+                    assert f.read() == b"dummy text data"
+            finally:
+                os.chdir(cwd)
+
     def test_get_file_with_kwargs(self):
         # If custom kwargs are passed, the function should still work but defaults to base implementation
         with patch.object(hf_file_system, "http_get") as mock:
