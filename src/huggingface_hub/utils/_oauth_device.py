@@ -26,7 +26,7 @@ import time
 from collections.abc import Callable
 from typing import TypedDict, cast
 
-import httpx
+import httpx2
 
 from .. import constants
 from ..errors import DeviceCodeError, OAuthErrorCode
@@ -69,7 +69,7 @@ def request_device_code() -> DeviceCodeInfo:
             timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT,
         )
         hf_raise_for_status(response)
-    except httpx.HTTPError as e:
+    except httpx2.HTTPError as e:
         raise DeviceCodeError(f"Failed to request device code from {constants.ENDPOINT}/oauth/device: {e}") from e
     info = response.json()
     # `interval` is optional per RFC 8628 (5s is the spec-mandated fallback); `expires_in` is
@@ -119,7 +119,7 @@ def poll_device_token(
             )
             if response.status_code < 500:
                 data = response.json()
-        except (httpx.HTTPError, ValueError):
+        except (httpx2.HTTPError, ValueError):
             pass
 
         if data is not None:
@@ -175,7 +175,7 @@ def refresh_access_token(refresh_token: str) -> OAuthTokenResponse:
             # request would otherwise block every Hub call in the process.
             timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT,
         )
-    except httpx.HTTPError as e:
+    except httpx2.HTTPError as e:
         raise DeviceCodeError(f"Failed to refresh access token: {e}") from e
     data = _parse_token_response(response)
     if "access_token" in data:
@@ -187,7 +187,7 @@ def refresh_access_token(refresh_token: str) -> OAuthTokenResponse:
     )
 
 
-def _parse_token_response(response: httpx.Response) -> dict:
+def _parse_token_response(response: httpx2.Response) -> dict:
     try:
         return response.json()
     except ValueError as e:

@@ -26,7 +26,7 @@ import warnings
 from contextlib import AsyncExitStack
 from typing import TYPE_CHECKING, Any, AsyncIterable, Literal, Optional, Union, overload
 
-import httpx
+import httpx2
 
 from huggingface_hub import constants
 from huggingface_hub.errors import BadRequestError, HfHubHTTPError, InferenceTimeoutError
@@ -212,7 +212,7 @@ class AsyncInferenceClient:
         self.timeout = timeout
 
         self.exit_stack = AsyncExitStack()
-        self._async_client: Optional[httpx.AsyncClient] = None
+        self._async_client: Optional[httpx2.AsyncClient] = None
 
     def __repr__(self):
         return f"<InferenceClient(model='{self.model if self.model else ''}', timeout={self.timeout})>"
