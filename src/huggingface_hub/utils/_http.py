@@ -23,10 +23,12 @@ import time
 import uuid
 from collections.abc import Callable, Generator, Mapping
 from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
+from functools import wraps
 from shlex import quote
 from typing import Any, TypeVar
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import httpx
 
@@ -46,7 +48,7 @@ from ..errors import (
 )
 from . import logging
 from ._lfs import SliceFileObj
-from ._typing import HTTP_METHOD_T
+from ._typing import HTTP_METHOD_T, CallableT
 
 
 logger = logging.get_logger(__name__)
@@ -247,6 +249,27 @@ def _parse_job_id_from_url(url: str) -> str | None:
     return match.group(1) if match else None
 
 
+_IS_DOWNLOAD_CALL: ContextVar[bool] = ContextVar("_IS_DOWNLOAD_CALL", default=False)
+
+
+def flag_as_download_call(fn: CallableT) -> CallableT:
+    """Decorator to tag all HTTP calls made by `fn` with the `X-HF-Download-Counter` header.
+
+    Applied on `hf_hub_download`, `snapshot_download`, etc. so that every call they make through [`get_session`]
+    is flagged as part of a download, no matter how deep in the call stack it happens.
+    """
+
+    @wraps(fn)
+    def _inner(*args, **kwargs):
+        token = _IS_DOWNLOAD_CALL.set(True)
+        try:
+            return fn(*args, **kwargs)
+        finally:
+            _IS_DOWNLOAD_CALL.reset(token)
+
+    return _inner  # type: ignore
+
+
 def hf_request_event_hook(request: httpx.Request) -> None:
     """
     Event hook that will be used to make HTTP requests to the Hugging Face Hub.
@@ -254,12 +277,16 @@ def hf_request_event_hook(request: httpx.Request) -> None:
     What it does:
     - Block requests if offline mode is enabled
     - Add a request ID to the request headers
+    - Flag the request as part of a download, if applicable
     - Log the request if debug mode is enabled
     """
     if constants.is_offline_mode():
         raise OfflineModeIsEnabled(
             f"Cannot reach {request.url}: offline mode is enabled. To disable it, please unset the `HF_HUB_OFFLINE` environment variable."
         )
+
+    if _IS_DOWNLOAD_CALL.get():
+        request.headers[constants.X_HF_DOWNLOAD_COUNTER] = "1"
 
     # Add random request ID => easier for server-side debugging
     if X_AMZN_TRACE_ID not in request.headers:
@@ -376,7 +403,8 @@ def get_session() -> httpx.Client:
     global _GLOBAL_CLIENT
     if _GLOBAL_CLIENT is None:
         with _CLIENT_LOCK:
-            _GLOBAL_CLIENT = _GLOBAL_CLIENT_FACTORY()
+            if _GLOBAL_CLIENT is None:
+                _GLOBAL_CLIENT = _GLOBAL_CLIENT_FACTORY()
     return _GLOBAL_CLIENT
 
 
@@ -691,14 +719,18 @@ def http_stream_backoff(
     )
 
 
-def _httpx_follow_relative_redirects_with_backoff(
+_MAX_REDIRECTS = 20  # same bound as httpx's default max_redirects
+
+
+def _httpx_follow_hub_redirects_with_backoff(
     method: HTTP_METHOD_T, url: str, *, retry_on_errors: bool = False, **httpx_kwargs
 ) -> httpx.Response:
-    """Perform an HTTP request with backoff and follow relative redirects only.
+    """Perform an HTTP request with backoff, following redirects that stay on the Hub.
 
     Used to fetch HEAD /resolve on repo or bucket files.
 
-    This is useful to follow a redirection to a renamed repository without following redirection to a CDN.
+    Redirects to the same host or another Hub host are followed. Redirects to any other host (CDN, storage
+    bucket) are not: the file metadata is on the redirect response itself and the auth header must not leave the Hub.
 
     A backoff mechanism retries the HTTP call on errors (429, 5xx, timeout, network errors).
 
@@ -718,7 +750,7 @@ def _httpx_follow_relative_redirects_with_backoff(
         {} if retry_on_errors else {"retry_on_exceptions": (), "retry_on_status_codes": ()}
     )
 
-    while True:
+    for _ in range(_MAX_REDIRECTS):
         response = http_backoff(
             method=method,
             url=url,
@@ -728,18 +760,24 @@ def _httpx_follow_relative_redirects_with_backoff(
         )
         hf_raise_for_status(response)
 
-        # Check if response is a relative redirect
-        if 300 <= response.status_code <= 399:
-            parsed_target = urlparse(response.headers["Location"])
-            if parsed_target.netloc == "":
-                # Relative redirect -> update URL and retry
-                url = urlparse(url)._replace(path=parsed_target.path).geturl()
-                continue
+        if not response.has_redirect_location:
+            return response
 
-        # Break if no relative redirect
-        break
+        target = urljoin(url, response.headers["Location"])
+        if not _is_same_or_hub_host(url, target):
+            # Redirect to a CDN or storage host (signed URL): the file metadata is carried by this very response,
+            # and the authorization header must not be forwarded off the Hub => stop here.
+            return response
 
-    return response
+        url = target
+
+    raise httpx.TooManyRedirects(f"Exceeded {_MAX_REDIRECTS} redirects while resolving '{url}'.")
+
+
+def _is_same_or_hub_host(url: str, target: str) -> bool:
+    """Whether `target` is served by the same host as `url`, or by a known Hub host."""
+    target_host = (urlparse(target).hostname or "").lower()
+    return target_host == (urlparse(url).hostname or "").lower() or target_host in constants.HF_URL_HOSTS
 
 
 def fix_hf_endpoint_in_url(url: str, endpoint: str | None) -> str:
@@ -1125,7 +1163,7 @@ def _curlify(request: httpx.Request) -> str:
 
 
 # Regex to parse HTTP Range header
-RANGE_REGEX = re.compile(r"^\s*bytes\s*=\s*(\d*)\s*-\s*(\d*)\s*$", re.IGNORECASE)
+RANGE_REGEX = re.compile(r"\s*bytes\s*=\s*(\d*)\s*-\s*(\d*)\s*", re.IGNORECASE)
 
 
 def _adjust_range_header(original_range: str | None, resume_size: int) -> str | None:
@@ -1138,7 +1176,7 @@ def _adjust_range_header(original_range: str | None, resume_size: int) -> str | 
     if "," in original_range:
         raise ValueError(f"Multiple ranges detected - {original_range!r}, not supported yet.")
 
-    match = RANGE_REGEX.match(original_range)
+    match = RANGE_REGEX.fullmatch(original_range)
     if not match:
         raise RuntimeError(f"Invalid range format - {original_range!r}.")
     start, end = match.groups()

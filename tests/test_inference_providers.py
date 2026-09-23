@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from pytest import LogCaptureFixture
 
+from huggingface_hub import constants
 from huggingface_hub.hf_api import InferenceProviderMapping
 from huggingface_hub.inference._common import RequestParameters
 from huggingface_hub.inference._providers import PROVIDERS, get_provider_helper
@@ -516,8 +517,47 @@ class TestFalAIProvider:
 
     def test_text_to_video_payload(self):
         helper = FalAITextToVideoTask()
-        payload = helper._prepare_payload_as_dict("a cat walking", {"num_frames": 16}, "username/repo_name")
+        payload = helper._prepare_payload_as_dict(
+            "a cat walking",
+            {"num_frames": 16},
+            InferenceProviderMapping(
+                provider="fal-ai",
+                hf_model_id="username/repo_name",
+                providerId="username/repo_name",
+                task="text-to-video",
+                status="live",
+            ),
+        )
         assert payload == {"prompt": "a cat walking", "num_frames": 16}
+
+    def test_text_to_video_payload_with_lora(self):
+        helper = FalAITextToVideoTask()
+        payload = helper._prepare_payload_as_dict(
+            "a cat walking",
+            {},
+            InferenceProviderMapping(
+                provider="fal-ai",
+                hf_model_id="username/repo_name",
+                providerId="provider-id/text-to-video/lora",
+                task="text-to-video",
+                status="live",
+                adapter="lora",
+                adapterWeightsPath="pytorch_lora_weights.safetensors",
+            ),
+        )
+        assert payload == {
+            "prompt": "a cat walking",
+            "loras": [
+                {
+                    "path": constants.HUGGINGFACE_CO_URL_TEMPLATE.format(
+                        repo_id="username/repo_name",
+                        revision="main",
+                        filename="pytorch_lora_weights.safetensors",
+                    ),
+                    "scale": 1,
+                }
+            ],
+        }
 
     def test_text_to_video_response(self, mocker):
         helper = FalAITextToVideoTask()
@@ -1094,7 +1134,7 @@ class TestHFInferenceProvider:
     @pytest.mark.parametrize(
         "pipeline_tag,tags,task,should_raise",
         [
-            # text-generation + no conversational tag -> only text-generation allowed
+            # text-generation -> both tasks allowed, regardless of tags
             (
                 "text-generation",
                 [],
@@ -1105,9 +1145,8 @@ class TestHFInferenceProvider:
                 "text-generation",
                 [],
                 "conversational",
-                True,
+                False,
             ),
-            # text-generation + conversational tag -> both tasks allowed
             (
                 "text-generation",
                 ["conversational"],
@@ -1120,7 +1159,7 @@ class TestHFInferenceProvider:
                 "conversational",
                 False,
             ),
-            # image-text-to-text + conversational tag -> only conversational allowed
+            # image-text-to-text -> only conversational allowed, regardless of tags
             (
                 "image-text-to-text",
                 ["conversational"],
@@ -1137,7 +1176,7 @@ class TestHFInferenceProvider:
                 "image-text-to-text",
                 [],
                 "conversational",
-                True,
+                False,
             ),
             # text2text-generation only allowed for text-generation task
             (

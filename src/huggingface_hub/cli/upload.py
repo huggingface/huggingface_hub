@@ -270,7 +270,7 @@ def _resolve_upload_paths(
             raise ValueError("Cannot set --include when local_path contains a wildcard.")
         if path_in_repo is not None and path_in_repo != ".":
             raise ValueError("Cannot set path_in_repo when local_path contains a wildcard.")
-        return ".", local_path, ["."]  # will be adjusted below; placeholder for type
+        return ".", ".", [local_path]
 
     if local_path is None and os.path.isfile(repo_name):
         return repo_name, repo_name, resolved_include

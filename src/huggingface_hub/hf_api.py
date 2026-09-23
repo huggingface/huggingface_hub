@@ -29,41 +29,14 @@ from functools import wraps
 from itertools import islice
 from pathlib import Path
 from secrets import token_hex
-from typing import TYPE_CHECKING, Any, BinaryIO, Literal, TypeVar, overload
+from typing import TYPE_CHECKING, Any, BinaryIO, Literal, TypeVar, cast, overload
 from urllib.parse import quote
 
 import httpcore
 import httpx
-from tqdm.auto import tqdm as base_tqdm
+from tqdm import tqdm as base_tqdm
 
 from . import constants
-from ._buckets import (
-    BucketFile,
-    BucketFileMetadata,
-    BucketFolder,
-    BucketInfo,
-    BucketUrl,
-    SyncPlan,
-    _BucketAddFile,
-    _BucketCopyFile,
-    _BucketDeleteFile,
-    _parse_bucket_uri,
-    sync_bucket_internal,
-)
-from ._commit_api import (
-    DUPLICATE_LFS_BATCH_SIZE,
-    CommitOperation,
-    CommitOperationAdd,
-    CommitOperationCopy,
-    CommitOperationDelete,
-    _CopySource,
-    _fetch_files_to_copy,
-    _fetch_upload_modes,
-    _send_commit,
-    _upload_files,
-    _warn_on_overwriting_operations,
-)
-from ._dataset_viewer import DatasetParquetEntry
 from ._eval_results import EvalResultEntry, parse_eval_result_entries
 from ._inference_endpoints import (
     InferenceEndpoint,
@@ -74,6 +47,7 @@ from ._inference_endpoints import (
     _set_parallelism_in_image,
 )
 from ._jobs_api import (
+    DEFAULT_UV_IMAGE,
     TERMINAL_JOB_STAGES,
     JobHardware,
     JobHardwareInfo,
@@ -98,8 +72,6 @@ from ._space_api import (
     SpaceVariable,
     Volume,
 )
-from ._upload_large_folder import upload_large_folder_internal
-from ._upload_pipeline import pipelined_upload
 from .community import (
     Discussion,
     DiscussionComment,
@@ -110,6 +82,7 @@ from .community import (
 )
 from .errors import (
     BadRequestError,
+    BucketBatchError,
     EntryNotFoundError,
     FileDuplicationError,
     GatedRepoError,
@@ -122,15 +95,6 @@ from .errors import (
     RevisionNotFoundError,
     RevisionResolutionError,
 )
-from .file_download import (
-    REGEX_COMMIT_HASH,
-    DryRunFileInfo,
-    HfFileMetadata,
-    _cache_commit_hash_for_specific_revision,
-    get_hf_file_metadata,
-    hf_hub_url,
-    repo_folder_name,
-)
 from .repocard_data import DatasetCardData, ModelCardData, SpaceCardData
 from .utils import (
     DEFAULT_IGNORE_PATTERNS,
@@ -140,7 +104,6 @@ from .utils import (
     SafetensorsParsingError,
     SafetensorsRepoMetadata,
     TensorInfo,
-    are_progress_bars_disabled,
     build_hf_headers,
     chunk_iterable,
     experimental,
@@ -149,30 +112,41 @@ from .utils import (
     get_session,
     get_token,
     hf_raise_for_status,
-    hf_thread_map,
     http_backoff,
     logging,
     paginate,
     parse_datetime,
     parse_hf_uri,
     parse_xet_file_data_from_response,
-    silent_tqdm,
     validate_hf_hub_args,
 )
-from .utils import tqdm as hf_tqdm
 from .utils._auth import _get_token_from_environment, _get_token_from_file, _get_token_from_google_colab
 from .utils._deprecation import _deprecate_arguments, _deprecate_method
-from .utils._http import _httpx_follow_relative_redirects_with_backoff
+from .utils._http import _httpx_follow_hub_redirects_with_backoff, flag_as_download_call
 from .utils._runtime import is_xet_available
 from .utils._typing import CallableT
-from .utils._verification import collect_local_files, resolve_local_root, verify_maps
 from .utils.endpoint_helpers import _is_emission_within_threshold
 
 
 if TYPE_CHECKING:
+    from ._buckets import (
+        BucketFile,
+        BucketFileMetadata,
+        BucketFolder,
+        BucketInfo,
+        BucketUrl,
+        SyncPlan,
+        _BucketAddFile,
+        _BucketCopyFile,
+        _BucketDeleteFile,
+    )
+    from ._commit_api import CommitOperation, CommitOperationAdd, CommitOperationCopy, CommitOperationDelete
+    from ._dataset_viewer import DatasetParquetEntry
+    from .file_download import DryRunFileInfo, HfFileMetadata
     from .inference._providers import PROVIDER_T
     from .utils._verification import FolderVerification
     from .utils._xet_progress_reporting import XetUploadProgressReporter
+
 
 R = TypeVar("R")  # Return type
 CollectionItemType_T = Literal["model", "dataset", "space", "paper", "collection", "bucket"]
@@ -266,7 +240,7 @@ DailyPapersSort_T = Literal["publishedAt", "trending"]
 REPO_REGIONS = Literal["us", "eu"]
 
 USERNAME_PLACEHOLDER = "hf_user"
-_REGEX_DISCUSSION_URL = re.compile(r".*/discussions/(\d+)$")
+_REGEX_DISCUSSION_URL = re.compile(r".*/discussions/(\d+)")
 _REGEX_HTTP_PROTOCOL = re.compile(r"https?://")
 
 _CREATE_COMMIT_NO_REPO_ERROR_MESSAGE = (
@@ -281,6 +255,7 @@ _AUTH_CHECK_NO_REPO_ERROR_MESSAGE = (
 _BUCKET_PATHS_INFO_BATCH_SIZE = 1000
 _BUCKET_BATCH_ADD_CHUNK_SIZE = 1000
 _BUCKET_BATCH_DELETE_CHUNK_SIZE = 1000
+_BUCKET_BATCH_MAX_LISTED_FAILURES = 10  # in the error message; the full list is on `BucketBatchError.failures`
 
 # Regex used to match special revisions with "/" in them (see #1710)
 SPECIAL_REFS_REVISION_REGEX = re.compile(
@@ -556,8 +531,19 @@ class CommitInfo(str):
     pr_revision: str | None = field(init=False)
     pr_num: int | None = field(init=False)
 
-    def __new__(cls, *args, commit_url: str, **kwargs):
+    def __new__(cls, commit_url: str, *args, **kwargs):
         return str.__new__(cls, commit_url)
+
+    def __reduce__(self):
+        # without this, pickle/copy rebuild the instance from its string value only, losing the attributes
+        return self.__class__, (
+            self.commit_url,
+            self.commit_message,
+            self.commit_description,
+            self.oid,
+            self._endpoint,
+            self.pr_url,
+        )
 
     def __post_init__(self):
         """Populate pr-related fields after initialization.
@@ -611,13 +597,14 @@ class WebhookWatchedItem:
     """Data structure containing information about the items watched by a webhook.
 
     Attributes:
-        type (`Literal["dataset", "model", "org", "space", "user"]`):
-            Type of the item to be watched. Can be one of `["dataset", "model", "org", "space", "user"]`.
+        type (`Literal["bucket", "dataset", "model", "org", "space", "user"]`):
+            Type of the item to be watched. Can be one of `["bucket", "dataset", "model", "org", "space", "user"]`.
         name (`str`):
-            Name of the item to be watched. Can be the username, organization name, model name, dataset name or space name.
+            Name of the item to be watched. Can be the username, organization name, model name, dataset name, space name
+            or bucket name.
     """
 
-    type: Literal["dataset", "model", "org", "space", "user"]
+    type: Literal["bucket", "dataset", "model", "org", "space", "user"]
     name: str
 
 
@@ -2677,8 +2664,6 @@ class HfApi:
                 A string or list of strings that can be used to identify datasets on
                 the Hub by the size of the dataset such as `100K<n<1M` or
                 `1M<n<10M`.
-            tags (`str` or `List`, *optional*):
-                Deprecated. Pass tags in `filter` to filter datasets by tags.
             task_categories (`str` or `List`, *optional*):
                 A string or list of strings that can be used to identify datasets on
                 the Hub by the designed task, such as `audio_classification` or
@@ -2733,7 +2718,7 @@ class HfApi:
         ... )
 
         # List FiftyOne datasets (identified by the tag "fiftyone" in dataset card)
-        >>> api.list_datasets(tags="fiftyone")
+        >>> api.list_datasets(filter="fiftyone")
         ```
 
         Example usage with the `search` argument:
@@ -2866,6 +2851,9 @@ class HfApi:
             DatasetParquetEntry(config='default', split='train', url='https://huggingface.co/...', size=5038)
             ```
         """
+
+        from ._dataset_viewer import DatasetParquetEntry
+
         if self.endpoint != constants._HF_DEFAULT_ENDPOINT:
             raise ValueError(
                 "The Dataset Viewer is only available on the Hugging Face Hub"
@@ -3662,6 +3650,7 @@ class HfApi:
         )
 
     @validate_hf_hub_args
+    @flag_as_download_call
     def resolve_revision(
         self,
         repo_id: str,
@@ -3696,7 +3685,8 @@ class HfApi:
                 `None` or `"model"` if it is a model. Default is `None`.
             revision (`str`, *optional*):
                 The revision to resolve. Can be a branch name, a tag, a PR ref or a commit hash. Defaults to the
-                default branch. If a [`ResolvedRevision`] is passed, it is returned as is.
+                default branch. If a [`ResolvedRevision`] is passed, it is returned as is - unless it was resolved
+                against another repo, in which case the revision it initially requested is resolved again.
             cache_dir (`str`, `Path`, *optional*):
                 Path to the folder where cached files are stored. Defaults to the value of `HF_HUB_CACHE`.
             local_files_only (`bool`, *optional*, defaults to `False`):
@@ -3730,13 +3720,21 @@ class HfApi:
             >>> weights = hf_hub_download("openai-community/gpt2", "model.safetensors", revision=revision)
             ```
         """
-        if isinstance(revision, ResolvedRevision):
-            return revision
-        if revision is not None and REGEX_COMMIT_HASH.match(revision):
-            return ResolvedRevision(resolved=revision, initial=revision)
+
+        from .file_download import REGEX_COMMIT_HASH, _cache_commit_hash_for_specific_revision, repo_folder_name
 
         if repo_type is None:
             repo_type = constants.REPO_TYPE_MODEL
+
+        if isinstance(revision, ResolvedRevision):
+            # A commit hash means nothing outside of the repo it was resolved for. `_repo_id=None` means the repo is
+            # unknown (instance built by hand), in which case it is assumed to fit any repo.
+            if revision._repo_id is None or (revision._repo_id, revision._repo_type) == (repo_id, repo_type):
+                return revision  # already resolved for this repo => nothing to do
+            revision = revision.initial  # resolved for another repo => resolve what was initially requested
+        if revision is not None and REGEX_COMMIT_HASH.fullmatch(revision):
+            return ResolvedRevision(resolved=revision, initial=revision, repo_id=repo_id, repo_type=repo_type)
+
         if cache_dir is None:
             cache_dir = constants.HF_HUB_CACHE
         storage_folder = str(
@@ -3754,7 +3752,7 @@ class HfApi:
                     )
                 except OSError as e:
                     logger.warning(f"Ignored error while caching commit hash for '{repo_id}': {e}.")
-                return ResolvedRevision(resolved=sha, initial=revision)
+                return ResolvedRevision(resolved=sha, initial=revision, repo_id=repo_id, repo_type=repo_type)
             except httpx.ProxyError:
                 # Actually raise on proxy error: a misconfigured proxy is not an unreachable Hub
                 raise
@@ -3770,7 +3768,9 @@ class HfApi:
         if ref_path.is_file():
             if error is not None:
                 logger.warning(f"Could not reach the Hub ({error}). Using cached commit hash for '{repo_id}'.")
-            return ResolvedRevision(resolved=ref_path.read_text().strip(), initial=revision)
+            return ResolvedRevision(
+                resolved=ref_path.read_text().strip(), initial=revision, repo_id=repo_id, repo_type=repo_type
+            )
 
         reason = (
             "'local_files_only=True' is set"
@@ -3918,6 +3918,9 @@ class HfApi:
             False
             ```
         """
+
+        from .file_download import get_hf_file_metadata, hf_hub_url
+
         url = hf_hub_url(
             repo_id=repo_id, repo_type=repo_type, revision=revision, filename=filename, endpoint=self.endpoint
         )
@@ -4143,6 +4146,8 @@ class HfApi:
                 If revision is not found (error 404) on the repo.
 
         """
+
+        from .utils._verification import collect_local_files, resolve_local_root, verify_maps
 
         if repo_type is None:
             repo_type = constants.REPO_TYPE_MODEL
@@ -5197,6 +5202,15 @@ class HfApi:
                 If repository is not found (error 404): wrong repo_id/repo_type, private
                 but not authenticated or repo does not exist.
         """
+
+        from ._commit_api import (
+            CommitOperationAdd,
+            CommitOperationCopy,
+            _fetch_files_to_copy,
+            _send_commit,
+            _warn_on_overwriting_operations,
+        )
+
         if parent_commit is not None and not constants.REGEX_COMMIT_OID.fullmatch(parent_commit):
             raise ValueError(
                 f"`parent_commit` is not a valid commit OID. It must match the following regex: {constants.REGEX_COMMIT_OID}"
@@ -5447,6 +5461,9 @@ class HfApi:
         >>> create_commit(repo_id, operations=operations, commit_message="Commit all shards")
         ```
         """
+
+        from ._commit_api import _fetch_upload_modes, _upload_files
+
         repo_type = repo_type if repo_type is not None else constants.REPO_TYPE_MODEL
         if repo_type not in constants.REPO_TYPES:
             raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
@@ -5567,6 +5584,9 @@ class HfApi:
             repo_type (`str`, *optional*):
                 The type of the destination repository (e.g. `"model"` -default-, `"dataset"` or `"space"`).
         """
+
+        from ._commit_api import DUPLICATE_LFS_BATCH_SIZE, _CopySource
+
         repo_type = repo_type if repo_type is not None else constants.REPO_TYPE_MODEL
         if repo_type not in constants.REPO_TYPES:
             raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
@@ -5787,6 +5807,9 @@ class HfApi:
         ... )
         ```
         """
+
+        from ._commit_api import CommitOperationAdd
+
         if repo_type not in constants.REPO_TYPES:
             raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
 
@@ -6050,6 +6073,8 @@ class HfApi:
         commit_message = commit_message or "Upload folder using huggingface_hub"
 
         if is_xet_available():
+            from ._upload_pipeline import pipelined_upload
+
             # Streamed multi-commit pipeline: uploads and commits overlap, large folders are
             # committed in adaptive batches, interrupted uploads resume by re-running.
             return pipelined_upload(
@@ -6155,6 +6180,9 @@ class HfApi:
         >       If the file to download cannot be found.
 
         """
+
+        from ._commit_api import CommitOperationDelete
+
         commit_message = (
             commit_message if commit_message is not None else f"Delete {path_in_repo} with huggingface_hub"
         )
@@ -6306,6 +6334,9 @@ class HfApi:
                 Specifying `parent_commit` ensures the repo has not changed before committing the changes, and can be
                 especially useful if the repo is updated / committed to concurrently.
         """
+
+        from ._commit_api import CommitOperationDelete
+
         return self.create_commit(
             repo_id=repo_id,
             repo_type=repo_type,
@@ -6438,6 +6469,8 @@ class HfApi:
             FutureWarning,
             stacklevel=2,
         )
+        from ._upload_large_folder import upload_large_folder_internal
+
         return upload_large_folder_internal(
             self,
             repo_id=repo_id,
@@ -6476,6 +6509,9 @@ class HfApi:
         Returns:
             A [`HfFileMetadata`] object containing metadata such as location, etag, size and commit_hash.
         """
+
+        from .file_download import get_hf_file_metadata
+
         if token is None:
             # Cannot do `token = token or self.token` as token can be `False`.
             token = self.token
@@ -6666,7 +6702,7 @@ class HfApi:
             token=token,
             headers=self.headers,
             local_files_only=local_files_only,
-            tqdm_class=tqdm_class,
+            tqdm_class=cast(Any, tqdm_class),
             dry_run=dry_run,
         )
 
@@ -6828,7 +6864,7 @@ class HfApi:
             allow_patterns=allow_patterns,
             ignore_patterns=ignore_patterns,
             max_workers=max_workers,
-            tqdm_class=tqdm_class,
+            tqdm_class=cast(Any, tqdm_class),
             headers=self.headers,
             dry_run=dry_run,
         )
@@ -6965,6 +7001,9 @@ class HfApi:
                     timeout=timeout,
                 )
 
+            from .utils import hf_thread_map
+            from .utils import tqdm as hf_tqdm
+
             hf_thread_map(
                 _parse,
                 set(weight_map.values()),
@@ -7031,6 +7070,9 @@ class HfApi:
             [`SafetensorsParsingError`]:
                 If a safetensors file header couldn't be parsed correctly.
         """
+
+        from .file_download import hf_hub_url
+
         url = hf_hub_url(
             repo_id=repo_id, filename=filename, repo_type=repo_type, revision=revision, endpoint=self.endpoint
         )
@@ -9367,6 +9409,8 @@ class HfApi:
         revision: str | None = None,
         task: str | None = None,
         custom_image: dict | None = None,
+        container_registry_username: str | None = None,
+        container_registry_password: str | None = None,
         container_command: list[str] | None = None,
         container_args: list[str] | None = None,
         env: dict[str, str] | None = None,
@@ -9427,6 +9471,11 @@ class HfApi:
                 `llamacpp`, `hfServe`, ...), which is forwarded as-is, or a flat dict describing a custom
                 container (e.g. `{"url": ..., "port": ...}`), which is sent as `{"custom": ...}` (see examples).
                 Defaults to the Hugging Face managed image.
+            container_registry_username (`str`, *optional*):
+                Username used to authenticate with the registry hosting a custom container image.
+            container_registry_password (`str`, *optional*):
+                Password used to authenticate with the registry hosting a custom container image. Requires
+                `container_registry_username`. Omitted from the API payload when not provided.
             container_command (`list[str]`, *optional*):
                 Override the container entrypoint command (maps to `model.command` in the API payload). Works with
                 both managed engine images (e.g. vLLM, SGLang) and custom images.
@@ -9548,7 +9597,19 @@ class HfApi:
                 FutureWarning,
             )
 
-        image = _build_endpoint_image_payload(custom_image) if custom_image is not None else {"huggingface": {}}
+        image: dict[str, Any]
+        if custom_image is None:
+            if container_registry_password is not None and container_registry_username is None:
+                raise ValueError("`container_registry_password` requires `container_registry_username`.")
+            if container_registry_username is not None:
+                raise ValueError("`custom_image` is required when setting container registry credentials.")
+            image = {"huggingface": {}}
+        else:
+            image = _build_endpoint_image_payload(
+                custom_image,
+                container_registry_username=container_registry_username,
+                container_registry_password=container_registry_password,
+            )
 
         payload: dict = {
             "accountId": account_id,
@@ -11205,7 +11266,7 @@ class HfApi:
                 ID of the source Job to trigger with the webhook payload in the environment variable WEBHOOK_PAYLOAD.
                 Additional environment variables are available for convenience: WEBHOOK_REPO_ID, WEBHOOK_REPO_TYPE and WEBHOOK_SECRET.
             watched (`list[WebhookWatchedItem]`):
-                List of [`WebhookWatchedItem`] to be watched by the webhook. It can be users, orgs, models, datasets or spaces.
+                List of [`WebhookWatchedItem`] to be watched by the webhook. It can be users, orgs, models, datasets, spaces or buckets.
                 Watched items can also be provided as plain dictionaries.
             domains (`list[Literal["repo", "discussion"]]`, optional):
                 List of domains to watch. It can be "repo", "discussion" or both.
@@ -11581,6 +11642,9 @@ class HfApi:
         Note: `.gitattributes` file is essential to make a repo work properly on the Hub. This file will always be
               kept even if it matches the `delete_patterns` constraints.
         """
+
+        from ._commit_api import CommitOperationDelete
+
         if delete_patterns is None:
             # If no delete patterns, no need to list and filter remote files
             return []
@@ -11618,6 +11682,8 @@ class HfApi:
         Files not matching the `allow_patterns` (allowlist) and `ignore_patterns` (denylist)
         constraints are discarded.
         """
+
+        from ._commit_api import CommitOperationAdd
 
         folder_path = Path(folder_path).expanduser().resolve()
         if not folder_path.is_dir():
@@ -12113,6 +12179,8 @@ class HfApi:
         volumes: list[Volume] | None = None,
         expose: list[int] | None = None,
         ssh: bool = False,
+        network_group: str | None = None,
+        network_aliases: list[str] | None = None,
         resource_group_id: str | None = None,
         namespace: str | None = None,
         token: bool | str | None = None,
@@ -12165,6 +12233,17 @@ class HfApi:
                 (e.g. `ssh <job_id>@ssh.hf.jobs`, or `hf jobs ssh <job_id>` from the CLI). Connecting requires
                 write access to the job's namespace and an SSH public key registered on the Hub
                 (https://huggingface.co/settings/keys). Defaults to False.
+
+            network_group (`str`, *optional*):
+                Name of a network group to join. Jobs in the same namespace and resource group sharing a group are
+                placed together and can reach each other on every port. Inside each member,
+                `HF_NETWORK_GROUP_HOSTNAME` resolves to every member of the group. Lowercase alphanumerics and dashes,
+                46 characters max.
+
+            network_aliases (`list[str]`, *optional*):
+                Aliases this job claims in its network group. Members reach the jobs claiming an alias at
+                `${HF_NETWORK_GROUP_PREFIX}<alias>`. Several jobs may claim the same alias. Lowercase alphanumerics
+                and dashes, 34 characters max, unique within the job. Requires `network_group`.
 
             resource_group_id (`str`, *optional*):
                 The ID of the resource group to create the Job in. Used to control access to resources within an
@@ -12224,6 +12303,8 @@ class HfApi:
             volumes=volumes,
             expose=expose,
             ssh=ssh,
+            network_group=network_group,
+            network_aliases=network_aliases,
             resource_group_id=resource_group_id,
         )
         response = get_session().post(
@@ -12713,7 +12794,7 @@ class HfApi:
             labels (`dict[str, str]`):
                 New labels to set on the job. Replaces all existing labels.
                 Both keys and values must be max 100 characters and contain only
-                alphanumeric characters, dots, dashes, and underscores.
+                alphanumeric characters, dashes, and underscores.
 
             namespace (`str`, *optional*):
                 The namespace where the Job is running. Defaults to the current user's namespace.
@@ -12754,12 +12835,19 @@ class HfApi:
         volumes: list[Volume] | None = None,
         expose: list[int] | None = None,
         ssh: bool = False,
+        network_group: str | None = None,
+        network_aliases: list[str] | None = None,
         resource_group_id: str | None = None,
         namespace: str | None = None,
         token: bool | str | None = None,
     ) -> JobInfo:
         """
         Run a UV script Job on Hugging Face infrastructure.
+
+        > [!WARNING]
+        > Unlike `hf jobs uv run`, this method ignores the optional `[tool.hf-jobs]` table a UV script can
+        > carry in its PEP 723 header (see the [Jobs guide](../guides/jobs#ship-the-launch-config-with-the-script)):
+        > the launch configuration has to be passed explicitly here.
 
         Args:
             script (`str`):
@@ -12814,6 +12902,17 @@ class HfApi:
                 write access to the job's namespace and an SSH public key registered on the Hub
                 (https://huggingface.co/settings/keys). Defaults to False.
 
+            network_group (`str`, *optional*):
+                Name of a network group to join. Jobs in the same namespace and resource group sharing a group are
+                placed together and can reach each other on every port. Inside each member,
+                `HF_NETWORK_GROUP_HOSTNAME` resolves to every member of the group. Lowercase alphanumerics and dashes,
+                46 characters max.
+
+            network_aliases (`list[str]`, *optional*):
+                Aliases this job claims in its network group. Members reach the jobs claiming an alias at
+                `${HF_NETWORK_GROUP_PREFIX}<alias>`. Several jobs may claim the same alias. Lowercase alphanumerics
+                and dashes, 34 characters max, unique within the job. Requires `network_group`.
+
             resource_group_id (`str`, *optional*):
                 The ID of the resource group to create the Job in. Used to control access to resources within an
                 organization and for cost attribution/spending-limit features. If not provided, the Job is created
@@ -12866,7 +12965,7 @@ class HfApi:
             >>> run_uv_job(script, script_args=script_args, volumes=[checkpoints_bucket])
             ```
         """
-        image = image or "ghcr.io/astral-sh/uv:python3.12-bookworm"
+        image = image or DEFAULT_UV_IMAGE
         env = env or {}
         secrets = secrets or {}
 
@@ -12900,6 +12999,8 @@ class HfApi:
             volumes=volumes,
             expose=expose,
             ssh=ssh,
+            network_group=network_group,
+            network_aliases=network_aliases,
             resource_group_id=resource_group_id,
             namespace=namespace,
             token=token,
@@ -13055,6 +13156,7 @@ class HfApi:
     def list_scheduled_jobs(
         self,
         *,
+        labels: dict[str, str] | None = None,
         timeout: int | None = None,
         namespace: str | None = None,
         token: bool | str | None = None,
@@ -13063,6 +13165,10 @@ class HfApi:
         List scheduled compute Jobs on Hugging Face infrastructure.
 
         Args:
+            labels (`dict[str, str]`, *optional*):
+                Only return scheduled Jobs that have all the given `key=value` labels, e.g.
+                `{"env": "prod", "team": "ml"}`.
+
             timeout (`float`, *optional*):
                 Whether to set a timeout for the request to the Hub.
 
@@ -13073,16 +13179,33 @@ class HfApi:
                 A valid user access token. If not provided, the locally saved token will be used, which is the
                 recommended authentication method. Set to `False` to disable authentication.
                 Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+
+        Returns:
+            `list[ScheduledJobInfo]`: a list of [`ScheduledJobInfo`] objects.
         """
         if namespace is None:
             namespace = self.whoami(token=token)["name"]
+        params: dict[str, Any] = {}
+        if labels:
+            # The endpoint only supports a single `label` filter server-side. Send the first one to keep the
+            # payload small, then filter the remaining ones client-side.
+            key, value = next(iter(labels.items()))
+            params["label"] = f"{key}={value}"
         response = get_session().get(
             f"{self.endpoint}/api/scheduled-jobs/{namespace}",
             headers=self._build_hf_headers(token=token),
+            params=params or None,
             timeout=timeout,
         )
         hf_raise_for_status(response)
-        return [ScheduledJobInfo(**scheduled_job_info) for scheduled_job_info in response.json()]
+        scheduled_jobs = [ScheduledJobInfo(**scheduled_job_info) for scheduled_job_info in response.json()]
+        if labels:
+            scheduled_jobs = [
+                scheduled_job
+                for scheduled_job in scheduled_jobs
+                if all((scheduled_job.job_spec.labels or {}).get(key) == value for key, value in labels.items())
+            ]
+        return scheduled_jobs
 
     def inspect_scheduled_job(
         self,
@@ -13275,7 +13398,7 @@ class HfApi:
             labels (`dict[str, str]`):
                 New labels to set on the scheduled job. Replaces all existing labels.
                 Both keys and values must be max 100 characters and contain only
-                alphanumeric characters, dots, dashes, and underscores.
+                alphanumeric characters, dashes, and underscores.
 
             namespace (`str`, *optional*):
                 The namespace where the scheduled Job is. Defaults to the current user's namespace.
@@ -13324,6 +13447,11 @@ class HfApi:
     ) -> ScheduledJobInfo:
         """
         Run a UV script Job on Hugging Face infrastructure.
+
+        > [!WARNING]
+        > Unlike `hf jobs uv run`, this method ignores the optional `[tool.hf-jobs]` table a UV script can
+        > carry in its PEP 723 header (see the [Jobs guide](../guides/jobs#ship-the-launch-config-with-the-script)):
+        > the launch configuration has to be passed explicitly here.
 
         Args:
             script (`str`):
@@ -13424,7 +13552,7 @@ class HfApi:
             >>> create_scheduled_uv_job(script, script_args=script_args, dependencies=["lighteval"], flavor="a10g-small", schedule="@weekly")
             ```
         """
-        image = image or "ghcr.io/astral-sh/uv:python3.12-bookworm"
+        image = image or DEFAULT_UV_IMAGE
         if name is None and not (labels and "name" in labels):
             name = _default_job_name_from_script(script, script_args or [])
 
@@ -13740,6 +13868,8 @@ class HfApi:
             BucketUrl(...)
             ```
         """
+        from ._buckets import BucketUrl, _parse_bucket_uri
+
         payload: dict[str, Any] = {}
         if private is not None:
             payload["private"] = private
@@ -13821,6 +13951,8 @@ class HfApi:
             12
             ```
         """
+        from ._buckets import BucketInfo
+
         response = get_session().get(
             f"{self.endpoint}/api/buckets/{bucket_id}",
             headers=self._build_hf_headers(token=token),
@@ -13865,6 +13997,8 @@ class HfApi:
             ...     print(bucket)
             ```
         """
+        from ._buckets import BucketInfo
+
         if namespace is None:
             namespace = "me"
         params: dict[str, Any] = {}
@@ -13975,6 +14109,51 @@ class HfApi:
         hf_raise_for_status(response)
 
     @validate_hf_hub_args
+    def update_bucket_settings(
+        self,
+        bucket_id: str,
+        *,
+        private: bool,
+        token: bool | str | None = None,
+    ) -> None:
+        """Update the settings of a bucket on the Hub.
+
+        Currently, the only supported setting is the bucket's visibility.
+
+        Args:
+            bucket_id (`str`):
+                The ID of the bucket (e.g. `"username/my-bucket"`).
+            private (`bool`):
+                Whether to make the bucket private.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Raises:
+            [`~errors.BucketNotFoundError`]: If the bucket cannot be found. This may be because it doesn't exist,
+            or because it is set to `private` and you do not have access.
+
+        Example:
+            ```python
+            >>> from huggingface_hub import update_bucket_settings
+
+            >>> # Make a bucket public
+            >>> update_bucket_settings(bucket_id="Wauplin/first-bucket", private=False)
+
+            >>> # Make it private again
+            >>> update_bucket_settings(bucket_id="Wauplin/first-bucket", private=True)
+            ```
+        """
+        response = get_session().put(
+            f"{self.endpoint}/api/buckets/{bucket_id}/settings",
+            headers=self._build_hf_headers(token=token),
+            json={"private": private},
+        )
+        hf_raise_for_status(response)
+
+    @validate_hf_hub_args
     def list_bucket_tree(
         self,
         bucket_id: str,
@@ -14013,6 +14192,8 @@ class HfApi:
             ...     print(file_info.path)
             ```
         """
+        from ._buckets import BucketFile, BucketFolder
+
         encoded_prefix = "/" + quote(prefix, safe="") if prefix else ""
         params = {}
         if recursive is not None:
@@ -14066,6 +14247,8 @@ class HfApi:
         BucketFile(type='file', path='checkpoints/model.safetensors', size=2408828, xet_hash='3ed0e9fefe788ddd61d1e26eba67057e9740a064b009256fbafadf6bb95785ca', mtime=datetime.datetime(2024, 9, 25, 15, 31, 2, 346000, tzinfo=datetime.timezone.utc))
         ```
         """
+        from ._buckets import BucketFile
+
         headers = self._build_hf_headers(token=token)
 
         for batch in chunk_iterable(paths, chunk_size=_BUCKET_PATHS_INFO_BATCH_SIZE):
@@ -14166,6 +14349,8 @@ class HfApi:
         *,
         token: str | bool | None = None,
     ) -> None:
+        from ._buckets import BucketFile
+
         destination_bucket_id = destination.id
         destination_path = destination.path_in_repo
         destination_is_directory = False
@@ -14184,8 +14369,8 @@ class HfApi:
                 )
                 destination_is_directory = destination_exists_as_directory or destination_str.endswith("/")
 
-        all_adds: list[tuple[str, str]] = []
-        all_copies: list[_BucketCopyFile] = []
+        all_adds: list[tuple[str | Path | bytes, str]] = []
+        all_copies: list[tuple[str, str, str, str]] = []
         pending_downloads: list[tuple[str, str]] = []
 
         def _resolve_target_path(src_file_path: str, src_root_path: str | None, is_single_file: bool) -> str:
@@ -14199,21 +14384,9 @@ class HfApi:
                 merge_contents,
             )
 
-        def _build_copy_op(
-            target_path: str, xet_hash: str, size: int, source_repo_type: str, source_repo_id: str
-        ) -> _BucketCopyFile:
-            """Server-side copy by xet hash — no data transfer needed."""
-            return _BucketCopyFile(
-                destination=target_path,
-                xet_hash=xet_hash,
-                source_repo_type=source_repo_type,
-                source_repo_id=source_repo_id,
-                size=size,
-            )
-
         def _add_repo_file(file: RepoFile, target_path: str) -> None:
             if file.xet_hash is not None:
-                all_copies.append(_build_copy_op(target_path, file.xet_hash, file.size, source.type, source.id))
+                all_copies.append((source.type, source.id, file.xet_hash, target_path))
             else:
                 pending_downloads.append((file.path, target_path))
 
@@ -14224,9 +14397,7 @@ class HfApi:
             if source_path_info:
                 source_file = source_path_info[0]
                 target_path = _resolve_target_path(source_file.path, None, is_single_file=True)
-                all_copies.append(
-                    _build_copy_op(target_path, source_file.xet_hash, source_file.size, "bucket", source.id)
-                )
+                all_copies.append(("bucket", source.id, source_file.xet_hash, target_path))
             else:
                 for item in self.list_bucket_tree(source.id, prefix=source_path or None, recursive=True, token=token):
                     if not isinstance(item, BucketFile):
@@ -14234,7 +14405,7 @@ class HfApi:
                     if source_path and not (item.path == source_path or item.path.startswith(source_path + "/")):
                         continue
                     target_path = _resolve_target_path(item.path, source_path or None, is_single_file=False)
-                    all_copies.append(_build_copy_op(target_path, item.xet_hash, item.size, "bucket", source.id))
+                    all_copies.append(("bucket", source.id, item.xet_hash, target_path))
         else:
             for file, target_path in self._iter_repo_files_for_copy(
                 source,
@@ -14256,6 +14427,7 @@ class HfApi:
                 raise EntryNotFoundError(f"No files found at '{source_str}' in {source.type} '{source.id}'.")
 
         if pending_downloads:
+            from .utils import silent_tqdm
 
             def _download_and_collect(item: tuple[str, str]) -> None:
                 file_path, target_path = item
@@ -14269,15 +14441,11 @@ class HfApi:
                 )
                 all_adds.append((local_path, target_path))
 
+            from .utils import hf_thread_map
+
             hf_thread_map(_download_and_collect, pending_downloads, desc="Downloading text files for copy")
 
-        # Send copies first (no upload needed), then adds (may need upload)
-        if all_copies:
-            for copy_chunk in chunk_iterable(all_copies, chunk_size=_BUCKET_BATCH_ADD_CHUNK_SIZE):
-                self._batch_bucket_files(destination_bucket_id, copy=list(copy_chunk), token=token)
-        if all_adds:
-            for add_chunk in chunk_iterable(all_adds, chunk_size=_BUCKET_BATCH_ADD_CHUNK_SIZE):
-                self._batch_bucket_files(destination_bucket_id, add=list(add_chunk), token=token)
+        self.batch_bucket_files(destination_bucket_id, add=all_adds, copy=all_copies, token=token)
 
     def _iter_repo_files_for_copy(
         self,
@@ -14338,6 +14506,9 @@ class HfApi:
         *,
         token: str | bool | None = None,
     ) -> None:
+
+        from ._commit_api import CommitOperationCopy
+
         destination_path = destination.path_in_repo
         destination_is_directory = False
         destination_exists_as_directory = False
@@ -14443,6 +14614,11 @@ class HfApi:
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
 
+        Raises:
+            [`~errors.BucketBatchError`]:
+                If the server reports that some operations failed. The error is raised once every operation has
+                been sent, so the other operations of the batch have been applied.
+
         Example:
             ```python
             >>> from huggingface_hub import batch_bucket_files
@@ -14486,6 +14662,7 @@ class HfApi:
             return
 
         # Large batch: chunk copies first (no upload), then adds, then deletes
+        from .utils import are_progress_bars_disabled
         from .utils._xet_progress_reporting import XetUploadProgressReporter
 
         if add and not are_progress_bars_disabled():
@@ -14493,20 +14670,36 @@ class HfApi:
         else:
             progress = None
 
+        # A failing chunk must not stop the others: collect the errors and raise once everything has been sent
+        errors: list[BucketBatchError] = []
+
+        def _send_chunk(**operations: Any) -> None:
+            try:
+                self._batch_bucket_files(bucket_id, token=token, **operations)
+            except BucketBatchError as error:
+                logger.warning(str(error))
+                errors.append(error)
+
         try:
             for copy_chunk in chunk_iterable(copy, chunk_size=_BUCKET_BATCH_ADD_CHUNK_SIZE):
-                self._batch_bucket_files(bucket_id, copy=list(copy_chunk), token=token)
+                _send_chunk(copy=list(copy_chunk))
 
             for add_chunk in chunk_iterable(add, chunk_size=_BUCKET_BATCH_ADD_CHUNK_SIZE):
-                self._batch_bucket_files(bucket_id, add=list(add_chunk), token=token, _progress=progress)
+                _send_chunk(add=list(add_chunk), _progress=progress)
 
             for delete_chunk in chunk_iterable(delete, chunk_size=_BUCKET_BATCH_DELETE_CHUNK_SIZE):
-                self._batch_bucket_files(bucket_id, delete=list(delete_chunk), token=token)
+                _send_chunk(delete=list(delete_chunk))
         finally:
             if progress is not None:
                 progress.close()
 
-        return
+        if errors:
+            raise _bucket_batch_error(
+                bucket_id,
+                [failure for error in errors for failure in error.failures],
+                sent=len(add) + len(copy) + len(delete),
+                response=errors[-1].response,
+            )
 
     def _batch_bucket_files(
         self,
@@ -14519,6 +14712,8 @@ class HfApi:
         _progress: XetUploadProgressReporter | None = None,
     ):
         """Internal method: process a single batch of bucket file operations (upload to XET + call /batch)."""
+        from ._buckets import _BucketAddFile, _BucketCopyFile, _BucketDeleteFile
+
         # Convert public API inputs to internal operation objects
         operations: list[_BucketAddFile | _BucketCopyFile | _BucketDeleteFile] = []
         if add:
@@ -14554,6 +14749,7 @@ class HfApi:
 
         from hf_xet import SKIP_SHA256
 
+        from .utils import are_progress_bars_disabled
         from .utils._xet import (
             XetTokenType,
             abort_xet_session,
@@ -14633,6 +14829,7 @@ class HfApi:
                         "type": "copyFile",
                         "path": op.destination,
                         "xetHash": op.xet_hash,
+                        "mtime": op.mtime,
                         "sourceRepoType": op.source_repo_type,
                         "sourceRepoId": op.source_repo_id,
                     }
@@ -14653,6 +14850,11 @@ class HfApi:
         response = http_backoff(
             "POST", f"{self.endpoint}/api/buckets/{bucket_id}/batch", headers=headers, content=data
         )
+        # Failed operations are listed in the body of a 200 (partial failure) or a 422 (all failed)
+        if response.status_code in (200, 422):
+            failures = response.json().get("failed", [])
+            if failures:
+                raise _bucket_batch_error(bucket_id, failures, sent=len(operations), response=response)
         hf_raise_for_status(response)
 
     @validate_hf_hub_args
@@ -14690,10 +14892,15 @@ class HfApi:
             42000
             ```
         """
-        response = _httpx_follow_relative_redirects_with_backoff(
+        from ._buckets import BucketFileMetadata
+
+        headers = self._build_hf_headers(token=token)
+        headers["Accept-Encoding"] = "identity"  # prevent compression so the size matches the file
+
+        response = _httpx_follow_hub_redirects_with_backoff(
             "HEAD",
             f"{self.endpoint}/buckets/{bucket_id}/resolve/{quote(remote_path, safe='')}",
-            headers=self._build_hf_headers(token=token),
+            headers=headers,
             retry_on_errors=True,
         )
 
@@ -14701,7 +14908,9 @@ class HfApi:
         if xet_file_data is None:
             raise ValueError(f"Could not parse xet file data for '{remote_path}' in bucket '{bucket_id}'.")
 
-        size = response.headers.get("Content-Length")
+        size = response.headers.get(constants.HUGGINGFACE_HEADER_X_LINKED_SIZE) or (
+            None if response.is_redirect else response.headers.get("Content-Length")
+        )
         if size is None:
             raise ValueError(f"Could not get size for '{remote_path}' in bucket '{bucket_id}'.")
 
@@ -14762,6 +14971,7 @@ class HfApi:
         """
         from hf_xet import XetFileInfo  # type: ignore[no-redef]
 
+        from ._buckets import BucketFile
         from .utils._xet import abort_xet_session, get_xet_session, xet_headers_without_auth
 
         headers = self._build_hf_headers(token=token)
@@ -14938,6 +15148,8 @@ class HfApi:
             >>> api.sync_bucket(apply="sync-plan.jsonl")
             ```
         """
+        from ._buckets import sync_bucket_internal
+
         return sync_bucket_internal(
             source=source,
             dest=dest,
@@ -14959,6 +15171,20 @@ class HfApi:
         )
 
 
+def _bucket_batch_error(
+    bucket_id: str, failures: list[dict[str, str]], *, sent: int, response: httpx.Response
+) -> BucketBatchError:
+    messages = [f"  - {f['path']}: {f['error']}" for f in failures[:_BUCKET_BATCH_MAX_LISTED_FAILURES]]
+    if len(failures) > _BUCKET_BATCH_MAX_LISTED_FAILURES:
+        messages.append(f"  - ... and {len(failures) - _BUCKET_BATCH_MAX_LISTED_FAILURES} more")
+    error = BucketBatchError(
+        f"Failed to apply {len(failures)} out of {sent} operation(s) on bucket '{bucket_id}':\n" + "\n".join(messages),
+        response=response,
+    )
+    error.failures = failures
+    return error
+
+
 def _parse_revision_from_pr_url(pr_url: str) -> str:
     """Safely parse revision number from a PR url.
 
@@ -14968,7 +15194,7 @@ def _parse_revision_from_pr_url(pr_url: str) -> str:
     "refs/pr/2"
     ```
     """
-    re_match = re.match(_REGEX_DISCUSSION_URL, pr_url)
+    re_match = _REGEX_DISCUSSION_URL.fullmatch(pr_url)
     if re_match is None:
         raise RuntimeError(f"Unexpected response from the hub, expected a Pull Request URL but got: '{pr_url}'")
     return f"refs/pr/{re_match[1]}"
@@ -15317,6 +15543,7 @@ bucket_info = api.bucket_info
 list_buckets = api.list_buckets
 delete_bucket = api.delete_bucket
 move_bucket = api.move_bucket
+update_bucket_settings = api.update_bucket_settings
 list_bucket_tree = api.list_bucket_tree
 get_bucket_paths_info = api.get_bucket_paths_info
 copy_files = api.copy_files

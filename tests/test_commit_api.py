@@ -39,7 +39,17 @@ class TestCommitOperationPathInRepo:
         "/file.txt": "file.txt",
         "./file.txt": "file.txt",
     }
-    invalid_values = [".", "..", "../file.txt"]
+    invalid_values = [
+        ".",
+        "..",
+        "../file.txt",
+        # a ".." segment anywhere in the path is rejected, whether or not it would
+        # resolve back inside the repo root
+        "a/../file.txt",
+        "a/b/../../c/file.txt",
+        "a/../../file.txt",
+        "a/b/../../../file.txt",
+    ]
 
     def test_path_in_repo_valid(self) -> None:
         for input, expected in self.valid_values.items():

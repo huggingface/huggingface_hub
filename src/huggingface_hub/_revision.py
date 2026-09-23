@@ -11,6 +11,10 @@ class ResolvedRevision(str):
     Instances are built by [`HfApi.resolve_revision`], which also caches the `revision` -> `commit hash` mapping
     in the local cache (`refs/` folder).
 
+    A commit hash only means something for the repo it was resolved against, so an instance also remembers that
+    repo. Re-resolving it for another repo is not an error: the revision initially requested is resolved again
+    (see [`HfApi.resolve_revision`]).
+
     Attributes:
         initial (`str` or `None`):
             The revision initially requested by the user. If `None`, the string value defaults to `"main"`.
@@ -32,16 +36,27 @@ class ResolvedRevision(str):
 
     initial: str | None
     resolved: str
+    _repo_id: str | None
+    _repo_type: str
 
-    def __new__(cls, resolved: str, initial: str | None = None) -> "ResolvedRevision":
+    def __new__(
+        cls,
+        resolved: str,
+        initial: str | None = None,
+        repo_id: str | None = None,
+        repo_type: str | None = None,
+    ) -> "ResolvedRevision":
         revision = super().__new__(cls, initial if initial is not None else constants.DEFAULT_REVISION)
         revision.initial = initial
         revision.resolved = resolved
+        # The repo `resolved` belongs to. `None` means unknown, in which case it is assumed to fit any repo.
+        revision._repo_id = repo_id
+        revision._repo_type = repo_type or constants.REPO_TYPE_MODEL
         return revision
 
     def __reduce__(self):
-        # without this, pickle/copy rebuild the instance from its string value only, losing `initial` and `resolved`
-        return self.__class__, (self.resolved, self.initial)
+        # without this, pickle/copy rebuild the instance from its string value only, losing the attributes
+        return self.__class__, (self.resolved, self.initial, self._repo_id, self._repo_type)
 
     def __repr__(self) -> str:
         return f"ResolvedRevision(initial={self.initial!r}, resolved={self.resolved!r})"

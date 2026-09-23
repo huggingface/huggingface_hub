@@ -314,6 +314,14 @@ class AsyncInferenceClient:
                 if len(error.response.text) > 0:
                     msg += f"{os.linesep}{error.response.text}{os.linesep}"
                 error.args = (msg,) + error.args[1:]
+            if error.response.status_code == 504 and not stream and request_parameters.task == "conversational":
+                msg = str(error.args[0])
+                msg += (
+                    f"{os.linesep}Note: the request timed out before the model finished generating."
+                    " If you are generating long outputs (e.g. long reasoning traces), pass `stream=True`"
+                    " to receive tokens as they are generated and avoid hitting this timeout."
+                )
+                error.args = (msg,) + error.args[1:]
             raise
 
     async def audio_classification(
@@ -3172,8 +3180,6 @@ class AsyncInferenceClient:
                 The input text to classify.
             candidate_labels (`list[str]`):
                 The set of possible class labels to classify the text into.
-            labels (`list[str]`, *optional*):
-                (deprecated) List of strings. Each string is the verbalization of a possible label for the input text.
             multi_label (`bool`, *optional*):
                 Whether multiple candidate labels can be true. If false, the scores are normalized such that the sum of
                 the label likelihoods for each sequence is 1. If true, the labels are considered independent and
@@ -3231,7 +3237,7 @@ class AsyncInferenceClient:
         >>> client = AsyncInferenceClient()
         >>> await client.zero_shot_classification(
         ...    text="I really like our dinner and I'm very happy. I don't like the weather though.",
-        ...    labels=["positive", "negative", "pessimistic", "optimistic"],
+        ...    candidate_labels=["positive", "negative", "pessimistic", "optimistic"],
         ...    multi_label=True,
         ...    hypothesis_template="This text is {} towards the weather"
         ... )
@@ -3267,8 +3273,6 @@ class AsyncInferenceClient:
         *,
         model: str | None = None,
         hypothesis_template: str | None = None,
-        # deprecated argument
-        labels: list[str] = None,  # type: ignore
     ) -> list[ZeroShotImageClassificationOutputElement]:
         """
         Provide input image and text labels to predict text labels for the image.
@@ -3278,8 +3282,6 @@ class AsyncInferenceClient:
                 The input image to caption. It can be raw bytes, an image file, a URL to an online image, or a PIL Image.
             candidate_labels (`list[str]`):
                 The candidate labels for this image
-            labels (`list[str]`, *optional*):
-                (deprecated) List of string possible labels. There must be at least 2 labels.
             model (`str`, *optional*):
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. This parameter overrides the model defined at the instance level. If not provided, the default recommended zero-shot image classification model will be used.
@@ -3304,7 +3306,7 @@ class AsyncInferenceClient:
 
         >>> await client.zero_shot_image_classification(
         ...     "https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Cute_dog.jpg/320px-Cute_dog.jpg",
-        ...     labels=["dog", "cat", "horse"],
+        ...     candidate_labels=["dog", "cat", "horse"],
         ... )
         [ZeroShotImageClassificationOutputElement(label='dog', score=0.956),...]
         ```
