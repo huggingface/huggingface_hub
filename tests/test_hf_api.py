@@ -4603,6 +4603,43 @@ def test_create_inference_endpoint_custom_image_payload(
     assert payload["model"]["image"] == expected_image_payload
 
 
+def test_create_inference_endpoint_private_link_payload(mocker):
+    mock_session = mocker.patch("huggingface_hub.hf_api.get_session").return_value
+    mock_session.post.return_value.json.return_value = {
+        "name": "private-endpoint",
+        "model": {"repository": "gpt2", "framework": "pytorch", "revision": None, "task": None},
+        "status": {
+            "state": "pending",
+            "createdAt": "2025-03-07T15:30:13.949Z",
+            "updatedAt": "2025-03-07T15:30:13.949Z",
+        },
+        "healthRoute": "/health",
+        "type": "authenticated",
+    }
+    kwargs = {
+        "name": "private-endpoint",
+        "repository": "gpt2",
+        "framework": "pytorch",
+        "accelerator": "cpu",
+        "instance_size": "x2",
+        "instance_type": "intel-icl",
+        "region": "us-east-1",
+        "vendor": "aws",
+        "namespace": "Wauplin",
+    }
+    api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
+
+    with pytest.raises(TypeError, match="account_id"):
+        api.create_inference_endpoint(**kwargs, account_id="123456789012")
+    with pytest.raises(ValueError, match="private_link_region"):
+        api.create_inference_endpoint(**kwargs, private_link_account_id="123456789012")
+
+    api.create_inference_endpoint(**kwargs, private_link_account_id="123456789012", private_link_region="eu-west-1")
+    payload = mock_session.post.call_args.kwargs["json"]
+    assert payload["privateService"] == {"accountId": "123456789012", "region": "eu-west-1"}
+    assert "accountId" not in payload
+
+
 @pytest.mark.parametrize(
     "custom_image, registry_credentials, match",
     [

@@ -32,8 +32,12 @@ on:
           required: true
           description: "GitHub App private key used to generate a short-lived token"
 
+permissions: {}
+
 jobs:
   check-permissions:
+    permissions:
+      contents: read
     if: >
       (github.event_name == 'issue_comment' && 
        contains(github.event.comment.body, '@bot /style') &&
