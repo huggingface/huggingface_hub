@@ -230,7 +230,9 @@ def _resolve_uv_job_config(
 
         secrets_map = parse_env_map(secrets, secrets_file)
         if source.remote:
-            _check_remote_script_access(header, secrets_map=secrets_map, volume=volume, from_script=from_script)
+            _check_remote_script_access(
+                header, secrets=secrets, secrets_map=secrets_map, volume=volume, from_script=from_script
+            )
         script_secrets = _resolve_script_secrets(header.secrets, secrets_map, dry_run=dry_run)
         from_script.update(f"secrets.{key}" for key in script_secrets)
         secrets_map = {**script_secrets, **secrets_map}
@@ -287,6 +289,7 @@ def _resolve_uv_job_config(
 def _check_remote_script_access(
     header: UvScriptHeader,
     *,
+    secrets: list[str] | None,
     secrets_map: dict[str, str | None],
     volume: list[str] | None,
     from_script: Collection[str],
@@ -295,8 +298,10 @@ def _check_remote_script_access(
 
     Secrets, volumes, namespace and network group must be visible in the command that launches someone else's script.
     """
+    # A bare `--secrets NAME` counts even when NAME is unset locally (`parse_env_map` drops it).
+    passed_secrets = {*secrets_map, *(secret.split("=", 1)[0].strip() for secret in secrets or [])}
     _, script_volume_specs = _merge_volume_specs(volume or [], header.volumes)
-    flags = [f"--secrets {name}" for name in header.secrets if name not in secrets_map]
+    flags = [f"--secrets {name}" for name in header.secrets if name not in passed_secrets]
     flags += [f"-v {spec}" for spec in script_volume_specs]
     if "namespace" in from_script:
         flags.append(f"--namespace {header.namespace}")
