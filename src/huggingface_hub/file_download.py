@@ -1999,7 +1999,9 @@ def _download_to_tmp_and_move(
     # process, a broken lock costs only duplicated bandwidth: each process downloads the full
     # file and atomically renames it to the final destination.
     # See https://github.com/huggingface/huggingface_hub/pull/4228.
+    # Re-check the length on Windows: the suffix can push a path just under the limit above MAX_PATH.
     tmp_path = incomplete_path.with_name(f"{incomplete_path.stem}.{uuid.uuid4().hex[:8]}.incomplete")
+    tmp_path = Path(as_extended_path(tmp_path))
     try:
         with tmp_path.open("wb") as f:
             logger.debug(f"Downloading '{filename}' to '{tmp_path}'")

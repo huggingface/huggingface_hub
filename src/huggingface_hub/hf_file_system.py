@@ -1117,7 +1117,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
                 os.makedirs(lpath, exist_ok=True)
                 return None
             else:
-                os.makedirs(os.path.dirname(lpath), exist_ok=True)
+                os.makedirs(os.path.dirname(lpath) or os.curdir, exist_ok=True)
                 outfile = open(lpath, "wb")
                 close_file = True
         initial_pos = outfile.tell()
