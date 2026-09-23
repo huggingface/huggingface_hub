@@ -7,19 +7,20 @@
 # - https://github.com/huggingface/huggingface_hub/pull/4964
 #
 # Security model:
-# - The commit comes from the review payload (`review.commit_id`), frozen by GitHub
-#   when the review is submitted. Nothing pushed afterwards can change it.
+# - A maintainer authorizes an exact commit with `@bot /style <full commit SHA>`.
+#   The SHA comes from the comment event, never from a mutable API head lookup.
+# - issue_comment runs trusted workflow definitions and supports fork PRs.
 # - Checkout and execution always use that SHA. The mutable PR branch name is never
 #   used as a git ref for fetch/checkout (that was the TOCTOU: check one object,
 #   execute another).
 # - Tooling is installed from this repository's default branch, not from the PR.
 #   `pip install` is never run against the pull request, so a modified setup.py or
 #   pyproject.toml has no path to execution.
-# - `make` is invoked from a copy of the trusted Makefile placed in the
-#   reviewed tree. The contributor's Makefile is never executed.
-# - The contributor's tree is fetched into `pr-repo/` and treated as data plus the
-#   sources that style/quality scripts may import. Pull requests that modify
-#   setup.py, pyproject.toml, setup.cfg or utils/ are refused.
+# - `make` uses the trusted top-level Makefile. Protected tooling paths must
+#   match the trusted checkout, including file modes and the entire utils/ tree.
+# - Style/quality scripts can still import the authorized PR sources. This code
+#   runs in a separate read-only job without the App's write token/private key.
+# - The publisher independently checks the authorized SHA and PR destination.
 
 name: Style Bot Action
 
@@ -54,19 +55,22 @@ permissions:
 jobs:
   check-permissions:
     if: >
-      github.event_name == 'pull_request_review' &&
-      startsWith(github.event.review.body, '@bot /style') &&
-      contains(fromJSON('["MEMBER", "OWNER", "COLLABORATOR"]'), github.event.review.author_association)
+      github.event_name == 'issue_comment' &&
+      github.event.action == 'created' &&
+      github.event.issue.pull_request != null &&
+      startsWith(github.event.comment.body, '@bot /style') &&
+      contains(fromJSON('["MEMBER", "OWNER", "COLLABORATOR"]'), github.event.comment.author_association)
     runs-on: ubuntu-latest
     outputs:
       is_authorized: ${{ steps.check_user_permission.outputs.has_permission }}
+      approvedSha: ${{ steps.check_user_permission.outputs.approvedSha }}
     steps:
       - name: Check user permission
         id: check_user_permission
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3  # v9.0.0
         with:
           script: |
-            const reviewer = context.payload.review.user.login;
+            const reviewer = context.payload.comment.user.login;
             const { data: permission } = await github.rest.repos.getCollaboratorPermissionLevel({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -76,6 +80,12 @@ jobs:
             const authorized = ['admin', 'maintain', 'push', 'write'].includes(permission.permission);
             console.log(`User ${reviewer} has permission level: ${permission.permission}, authorized: ${authorized} (only users with at least write access are allowed to run this action)`);
             core.setOutput('has_permission', authorized);
+            if (authorized) {
+              const command = context.payload.comment.body.trim().match(/^@bot \/style[ \t]+([0-9a-fA-F]{40})$/);
+              if (command) {
+                core.setOutput('approvedSha', command[1].toLowerCase());
+              }
+            }
 
   init-comment:
     needs: check-permissions
@@ -89,64 +99,57 @@ jobs:
       - name: Comment on PR with workflow run link
         id: init_comment
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3  # v9.0.0
+        env:
+          APPROVED_SHA: ${{ needs.check-permissions.outputs.approvedSha }}
         with:
           script: |
             const runUrl = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
             const { data: botComment } = await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: context.payload.pull_request.number,
-              body: `Style fix is beginning .... [View the workflow run here](${runUrl}).`
+              issue_number: context.payload.issue.number,
+              body: process.env.APPROVED_SHA
+                ? `Style checks are starting for \`${process.env.APPROVED_SHA}\`. [View workflow run](${runUrl}).`
+                : 'Please review the commit, then post `@bot /style <full 40-character commit SHA>`. '
+                  + 'A command without an explicit SHA does not authorize execution.',
             });
             core.setOutput('comment_id', botComment.id);
 
   run-style-bot:
     needs: check-permissions
-    if: needs.check-permissions.outputs.is_authorized == 'true'
+    if: needs.check-permissions.outputs.is_authorized == 'true' && needs.check-permissions.outputs.approvedSha != ''
     runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: read
     outputs:
-      reviewedSha: ${{ steps.pr_info.outputs.reviewedSha }}
-      headRepoFullName: ${{ steps.pr_info.outputs.headRepoFullName }}
-      headRef: ${{ steps.pr_info.outputs.headRef }}
-      prNumber: ${{ steps.pr_info.outputs.prNumber }}
       changes_detected: ${{ steps.run_style.outputs.changes_detected }}
       entrypoints_modified: ${{ steps.check_entrypoints.outputs.entrypoints_modified }}
     steps:
-      # The SHA comes from the review payload, which GitHub froze when the review
-      # was submitted. `pr.head.sha` cannot give the same guarantee: it is read
-      # during the run, so a push landing just before that read is served as if
-      # it had been reviewed.
-      - name: Take the reviewed commit from the event payload
+      # The API can reject the authorized commit, but cannot replace it.
+      - name: Validate the authorized commit against the PR
         id: pr_info
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3  # v9.0.0
+        env:
+          APPROVED_SHA: ${{ needs.check-permissions.outputs.approvedSha }}
         with:
           script: |
-            const pr = context.payload.pull_request;
-            const reviewedSha = context.payload.review.commit_id;
-            if (!reviewedSha || !/^[0-9a-f]{40}$/.test(reviewedSha)) {
-              core.setFailed(`❌ review.commit_id is missing or not a full SHA: ${reviewedSha}`);
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.issue.number,
+            });
+            if (pr.state !== 'open' || !pr.head.repo || pr.head.sha !== process.env.APPROVED_SHA) {
+              core.setFailed('The PR is closed, its fork is unavailable, or its head differs from the authorized SHA. Review the current commit and post a new command.');
               return;
             }
-            core.setOutput('reviewedSha', reviewedSha);
             core.setOutput('headRepoFullName', pr.head.repo.full_name);
-            core.setOutput('headRef', pr.head.ref);
-            core.setOutput('prNumber', String(pr.number));
-
-            console.log('PR Details:', {
-              number: pr.number,
-              headRepo: pr.head.repo.full_name,
-              headRef: pr.head.ref,
-              reviewedSha,
-            });
 
       # The workspace holds this repository: trusted code, trusted Makefile, trusted tooling.
       - name: Check out the base repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
-          ref: ${{ github.event.repository.default_branch }}
+          ref: ${{ github.sha }}
           persist-credentials: false
 
       - name: Set up Python
@@ -159,76 +162,68 @@ jobs:
           python_quality_dependencies: ${{ inputs.python_quality_dependencies }}
         run: |
           python -m pip install --upgrade pip
-          pip install .$python_quality_dependencies
+          pip install ".$python_quality_dependencies"
 
       # Pin the checkout to the reviewed SHA. Do not fetch or check out the
-      # mutable branch name — that was the TOCTOU: check one object, execute
+      # mutable branch name: that was the TOCTOU, check one object, execute
       # another.
       - name: Fetch the reviewed commit into an isolated directory
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           repository: ${{ steps.pr_info.outputs.headRepoFullName }}
-          ref: ${{ steps.pr_info.outputs.reviewedSha }}
+          ref: ${{ needs.check-permissions.outputs.approvedSha }}
           persist-credentials: false
           path: pr-repo
           fetch-depth: 0
 
       - name: Verify checked-out SHA
         env:
-          REVIEWED_SHA: ${{ steps.pr_info.outputs.reviewedSha }}
+          APPROVED_SHA: ${{ needs.check-permissions.outputs.approvedSha }}
         run: |
           actual="$(git -C pr-repo rev-parse HEAD)"
-          if [ "$actual" != "$REVIEWED_SHA" ]; then
-            echo "❌ Checked-out SHA ($actual) does not match the reviewed commit ($REVIEWED_SHA)! Abort!"
+          if [ "$actual" != "$APPROVED_SHA" ]; then
+            echo "❌ Checked-out SHA ($actual) does not match the authorized commit ($APPROVED_SHA)! Abort!"
             exit 1
           fi
 
-      # What is refused is what the style commands themselves read or run from
-      # the pull request tree. The contributor Makefile is never invoked, so it
-      # is not in this list.
+      # Compare Git objects, not the live PR file list. ls-tree includes modes,
+      # deleted/renamed paths and the complete utils tree without pagination.
       - name: Refuse pull requests that modify tooling entrypoints
         id: check_entrypoints
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3  # v9.0.0
-        env:
-          PR_NUMBER: ${{ steps.pr_info.outputs.prNumber }}
-        with:
-          script: |
-            const ENTRYPOINTS = [/^setup\.py$/, /^pyproject\.toml$/, /^setup\.cfg$/, /^utils\//];
-            const files = await github.paginate(github.rest.pulls.listFiles, {
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: parseInt(process.env.PR_NUMBER, 10),
-            });
-            const hits = files.map(f => f.filename).filter(n => ENTRYPOINTS.some(re => re.test(n)));
-            core.setOutput('entrypoints_modified', hits.length ? 'true' : 'false');
-            if (hits.length) {
-              core.setFailed(
-                `Pull request modifies tooling entrypoints (${hits.join(', ')}); please run style checks locally.`
-              );
-            }
+        run: |
+          trusted="$(git ls-tree HEAD -- setup.py pyproject.toml setup.cfg utils)"
+          approved="$(git -C pr-repo ls-tree HEAD -- setup.py pyproject.toml setup.cfg utils)"
+          if [ "$trusted" != "$approved" ]; then
+            echo "entrypoints_modified=true" >> "$GITHUB_OUTPUT"
+            echo "::error::Tooling entrypoints differ from the trusted base. Run style checks locally."
+            exit 1
+          fi
+          echo "entrypoints_modified=false" >> "$GITHUB_OUTPUT"
 
       # Copy the trusted Makefile into the reviewed tree and invoke that copy.
       # Downstream reusable-workflow consumers keep their own style/quality
-      # targets, but the contributor's Makefile is never executed. Utils
-      # scripts may import the package under src/; that is the remaining path by
-      # which pull-request code runs. This job holds no credential and only
-      # `contents: read`.
+      # targets. These commands can import PR sources, so this job is untrusted.
+      # A fresh filename avoids following a contributor-controlled symlink.
       - name: Run style command
         id: run_style
+        shell: bash
         env:
           STYLECOMMANDTYPE: ${{ inputs.style_command_type }}
         run: |
-          cp "$GITHUB_WORKSPACE/Makefile" pr-repo/.style-bot.Makefile
+          trusted_makefile="$(mktemp "$GITHUB_WORKSPACE/pr-repo/.style-bot.Makefile.XXXXXX")"
+          trap 'rm -f "$trusted_makefile"' EXIT
+          cp "$GITHUB_WORKSPACE/Makefile" "$trusted_makefile"
           cd pr-repo
           export PYTHONPATH="$PWD/src${PYTHONPATH:+:$PYTHONPATH}"
 
           run_make() {
-            make -f .style-bot.Makefile "$1"
+            make -f "$trusted_makefile" "$1"
           }
 
           case "$STYLECOMMANDTYPE" in
             "default")
-              run_make style && run_make quality
+              run_make style
+              run_make quality
               ;;
             "quality_only")
               run_make quality
@@ -243,7 +238,7 @@ jobs:
               ;;
           esac
 
-          rm -f .style-bot.Makefile
+          rm -f "$trusted_makefile"
 
           if [ -n "$(git status --porcelain)" ]; then
             echo "changes_detected=true" >> "$GITHUB_OUTPUT"
@@ -274,9 +269,37 @@ jobs:
     if: needs.run-style-bot.result == 'success' && needs.run-style-bot.outputs.changes_detected == 'true'
     runs-on: ubuntu-latest
     permissions:
-      pull-requests: write
+      pull-requests: read
       contents: read
+    outputs:
+      branch_moved: ${{ steps.validate_pr.outputs.branch_moved }}
     steps:
+      # Re-derive the destination here; the worker ran PR code and its outputs
+      # must not authorize a SHA, repository or branch for the App token.
+      - name: Validate the PR before publishing
+        id: validate_pr
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3  # v9.0.0
+        env:
+          APPROVED_SHA: ${{ needs.check-permissions.outputs.approvedSha }}
+        with:
+          script: |
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.issue.number,
+            });
+            if (pr.state !== 'open' || !pr.head.repo) {
+              core.setFailed('The PR is closed or its fork is unavailable. Aborting.');
+              return;
+            }
+            if (pr.head.sha !== process.env.APPROVED_SHA) {
+              core.setOutput('branch_moved', 'true');
+              core.setFailed('The PR head differs from the authorized commit. Aborting.');
+              return;
+            }
+            core.setOutput('headRepoFullName', pr.head.repo.full_name);
+            core.setOutput('headRef', pr.head.ref);
+
       - name: Generate bot token
         id: generate_token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1  # v1
@@ -286,38 +309,20 @@ jobs:
           owner: ${{ github.repository_owner }}
           repositories: ${{ github.event.repository.name }}
 
-      - name: Refuse to push if the branch moved since the review
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3  # v9.0.0
-        env:
-          REVIEWED_SHA: ${{ needs.run-style-bot.outputs.reviewedSha }}
-          PR_NUMBER: ${{ needs.run-style-bot.outputs.prNumber }}
-        with:
-          script: |
-            const { data: pr } = await github.rest.pulls.get({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: parseInt(process.env.PR_NUMBER, 10),
-            });
-            if (pr.head.sha !== process.env.REVIEWED_SHA) {
-              core.setFailed(
-                `❌ Branch moved since the review. Reviewed ${process.env.REVIEWED_SHA}, head is now ${pr.head.sha}. Aborting.`
-              );
-            }
-
       - name: Check out the reviewed commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
-          repository: ${{ needs.run-style-bot.outputs.headRepoFullName }}
-          ref: ${{ needs.run-style-bot.outputs.reviewedSha }}
+          repository: ${{ steps.validate_pr.outputs.headRepoFullName }}
+          ref: ${{ needs.check-permissions.outputs.approvedSha }}
           fetch-depth: 0
           token: ${{ steps.generate_token.outputs.token }}
           persist-credentials: false
 
       - name: Verify checked-out SHA
         env:
-          REVIEWED_SHA: ${{ needs.run-style-bot.outputs.reviewedSha }}
+          APPROVED_SHA: ${{ needs.check-permissions.outputs.approvedSha }}
         run: |
-          if [ "$(git rev-parse HEAD)" != "$REVIEWED_SHA" ]; then
+          if [ "$(git rev-parse HEAD)" != "$APPROVED_SHA" ]; then
             echo "❌ Checked-out SHA does not match the reviewed commit! Abort!"
             exit 1
           fi
@@ -330,9 +335,9 @@ jobs:
 
       - name: Apply style fixes and push
         env:
-          HEADREPOFULLNAME: ${{ needs.run-style-bot.outputs.headRepoFullName }}
-          HEADREF: ${{ needs.run-style-bot.outputs.headRef }}
-          REVIEWED_SHA: ${{ needs.run-style-bot.outputs.reviewedSha }}
+          HEADREPOFULLNAME: ${{ steps.validate_pr.outputs.headRepoFullName }}
+          HEADREF: ${{ steps.validate_pr.outputs.headRef }}
+          APPROVED_SHA: ${{ needs.check-permissions.outputs.approvedSha }}
           GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
           STYLE_BOT_OUTPUT_DIR: ${{ runner.temp }}/style-bot-output
         run: |
@@ -345,12 +350,12 @@ jobs:
           # Push to the branch name (the only place a name is required) but refuse
           # to overwrite if the remote moved off the reviewed SHA.
           git -c lfs.locksverify=false push \
-            --force-with-lease="refs/heads/${HEADREF}:${REVIEWED_SHA}" \
+            --force-with-lease="refs/heads/${HEADREF}:${APPROVED_SHA}" \
             origin "HEAD:refs/heads/${HEADREF}"
 
   finalize-comment:
-    needs: [init-comment, run-style-bot, push-style-fixes]
-    if: always() && needs.init-comment.result == 'success'
+    needs: [check-permissions, init-comment, run-style-bot, push-style-fixes]
+    if: always() && needs.init-comment.result == 'success' && needs.check-permissions.outputs.approvedSha != ''
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
@@ -363,26 +368,31 @@ jobs:
           CHANGES_DETECTED: ${{ needs.run-style-bot.outputs.changes_detected }}
           STYLE_RESULT: ${{ needs.run-style-bot.result }}
           PUSH_RESULT: ${{ needs.push-style-fixes.result }}
+          BRANCH_MOVED: ${{ needs.push-style-fixes.outputs.branch_moved }}
         with:
           script: |
-            const { ENTRYPOINTS_MODIFIED, CHANGES_DETECTED, STYLE_RESULT, PUSH_RESULT } = process.env;
+            const { ENTRYPOINTS_MODIFIED, CHANGES_DETECTED, STYLE_RESULT, PUSH_RESULT, BRANCH_MOVED } = process.env;
+            const runUrl = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
             let body;
             if (ENTRYPOINTS_MODIFIED === 'true') {
-              body = 'This pull request modifies `setup.py`, `pyproject.toml`, `setup.cfg` or a file under `utils/`. '
-                   + 'The style bot runs those, so it will not run them from a pull request — please run `make style` locally and push the result.';
+              body = 'The authorized commit has different `setup.py`, `pyproject.toml`, `setup.cfg` or `utils/` contents or modes from the trusted base. '
+                   + 'Please run `make style` locally and push the result.';
+            } else if (STYLE_RESULT === 'cancelled' || PUSH_RESULT === 'cancelled') {
+              body = 'The style bot was cancelled. Check the run and PR commits before retrying.';
             } else if (STYLE_RESULT !== 'success') {
-              body = 'Style fix failed before it could run. See the workflow run linked above.';
-            } else if (PUSH_RESULT === 'failure') {
-              body = 'Style fixes were produced but not pushed: the branch moved after the review this run was based on. '
-                   + 'Submit a new review with `@bot /style` to run against the current commit.';
+              body = 'Style checks did not complete successfully. See the workflow run for the cause.';
+            } else if (BRANCH_MOVED === 'true') {
+              body = 'Style fixes were not pushed because the branch moved. Review the current commit and post `@bot /style <full commit SHA>`.';
             } else if (CHANGES_DETECTED === 'true') {
-              body = 'Style bot fixed some files and pushed the changes.';
+              body = PUSH_RESULT === 'success'
+                ? 'Style bot fixed some files and pushed the changes.'
+                : 'Style fixes were produced, but publication did not complete successfully. See the workflow run for the cause.';
             } else {
-              body = 'Style fix runs successfully without any file modified.';
+              body = 'Style checks completed successfully without modifying any files.';
             }
             await github.rest.issues.updateComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               comment_id: parseInt(process.env.COMMENT_ID, 10),
-              body,
+              body: `${body}\n\n[View workflow run](${runUrl}).`,
             });
