@@ -9398,6 +9398,7 @@ class HfApi:
         instance_type: str,
         region: str,
         vendor: str,
+        account_id: str | None = None,
         private_link_account_id: str | None = None,
         private_link_region: str | None = None,
         min_replica: int = 1,
@@ -9444,6 +9445,9 @@ class HfApi:
                 The cloud region in which the Inference Endpoint will be created (e.g. `"us-east-1"`).
             vendor (`str`):
                 The cloud provider or vendor where the Inference Endpoint will be hosted (e.g. `"aws"`).
+            account_id (`str`, *optional*):
+                Deprecated and ignored. Use `private_link_account_id` and `private_link_region` to configure
+                AWS PrivateLink.
             private_link_account_id (`str`, *optional*):
                 The AWS account ID allowed to reach the Inference Endpoint through AWS PrivateLink. Requires
                 `private_link_region`.
@@ -9591,6 +9595,13 @@ class HfApi:
             ```
 
         """
+        if account_id is not None:
+            warnings.warn(
+                "`account_id` has been ignored. Use `private_link_account_id` and `private_link_region` to configure"
+                " AWS PrivateLink.",
+                FutureWarning,
+            )
+
         namespace = namespace or self._get_namespace(token=token)
 
         if type == InferenceEndpointType.PROTECTED:
