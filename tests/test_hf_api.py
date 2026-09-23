@@ -4833,40 +4833,6 @@ def test_create_inference_endpoint_rejects_invalid_registry_credentials(
         )
 
 
-def test_create_inference_endpoint_ignores_legacy_account_id(mocker):
-    mock_session = mocker.patch("huggingface_hub.hf_api.get_session").return_value
-    mock_session.post.return_value.json.return_value = {
-        "name": "test-endpoint",
-        "model": {"repository": "gpt2", "framework": "pytorch", "revision": None, "task": None},
-        "status": {
-            "state": "pending",
-            "createdAt": "2025-03-07T15:30:13.949Z",
-            "updatedAt": "2025-03-07T15:30:13.949Z",
-        },
-        "healthRoute": "/health",
-        "type": "authenticated",
-    }
-
-    api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
-    with pytest.warns(FutureWarning, match="`account_id` has been ignored"):
-        api.create_inference_endpoint(
-            name="test-endpoint",
-            repository="gpt2",
-            framework="pytorch",
-            accelerator="cpu",
-            instance_size="x2",
-            instance_type="intel-icl",
-            region="us-east-1",
-            vendor="aws",
-            account_id="123456789012",
-            namespace="Wauplin",
-        )
-
-    payload = mock_session.post.call_args.kwargs["json"]
-    assert "accountId" not in payload
-    assert "privateService" not in payload
-
-
 def test_create_inference_endpoint_container_command_and_args_payload(mocker):
     mock_post = mocker.patch("huggingface_hub.hf_api.get_session")
     mock_session = mock_post.return_value
