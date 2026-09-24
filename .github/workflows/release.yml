@@ -482,11 +482,15 @@ jobs:
 
       - name: Install OpenCode
         if: ${{ endsWith(inputs.release_type, '-prerelease') && steps.check_draft.outputs.skip != 'true' }}
-        run: curl -fsSL https://opencode.ai/install | bash -s -- --version ${{ vars.OPENCODE_VERSION }}
+        env:
+          OPENCODE_VERSION: ${{ vars.OPENCODE_VERSION }}
+        run: curl -fsSL https://opencode.ai/install | bash -s -- --version "$OPENCODE_VERSION"
 
       - name: Verify OpenCode checksum
         if: ${{ endsWith(inputs.release_type, '-prerelease') && steps.check_draft.outputs.skip != 'true' }}
-        run: echo "${{ vars.OPENCODE_SHA256 }}  $(which opencode)" | sha256sum -c -
+        env:
+          OPENCODE_SHA256: ${{ vars.OPENCODE_SHA256 }}
+        run: echo "$OPENCODE_SHA256  $(which opencode)" | sha256sum -c -
 
       - name: Generate release notes with OpenCode
         if: ${{ endsWith(inputs.release_type, '-prerelease') && steps.check_draft.outputs.skip != 'true' }}
@@ -633,10 +637,14 @@ jobs:
         run: pip install PyGithub
 
       - name: Install OpenCode
-        run: curl -fsSL https://opencode.ai/install | bash -s -- --version ${{ vars.OPENCODE_VERSION }}
+        env:
+          OPENCODE_VERSION: ${{ vars.OPENCODE_VERSION }}
+        run: curl -fsSL https://opencode.ai/install | bash -s -- --version "$OPENCODE_VERSION"
 
       - name: Verify OpenCode checksum
-        run: echo "${{ vars.OPENCODE_SHA256 }}  $(which opencode)" | sha256sum -c -
+        env:
+          OPENCODE_SHA256: ${{ vars.OPENCODE_SHA256 }}
+        run: echo "$OPENCODE_SHA256  $(which opencode)" | sha256sum -c -
 
       - name: Fetch release notes from GitHub
         id: fetch
@@ -1303,14 +1311,22 @@ jobs:
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           SLACK_CHANNEL_ID: ${{ vars.SLACK_CHANNEL_ID }}
+          MESSAGE_TS_INPUT: ${{ needs.prepare.outputs.message_ts }}
+          TAG_INPUT: ${{ needs.prepare.outputs.tag }}
+          BRANCH_INPUT: ${{ needs.prepare.outputs.branch }}
+          RELEASE_TYPE_INPUT: ${{ inputs.release_type }}
+          ACTOR_INPUT: ${{ github.actor }}
+          SERVER_URL: ${{ github.server_url }}
+          REPOSITORY: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
         run: |
-          MESSAGE_TS="${{ needs.prepare.outputs.message_ts }}"
-          TAG="${{ needs.prepare.outputs.tag }}"
-          BRANCH="${{ needs.prepare.outputs.branch }}"
-          RELEASE_TYPE="${{ inputs.release_type }}"
-          ACTOR="${{ github.actor }}"
-          ACTOR_URL="${{ github.server_url }}/${{ github.actor }}"
-          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          MESSAGE_TS="$MESSAGE_TS_INPUT"
+          TAG="$TAG_INPUT"
+          BRANCH="$BRANCH_INPUT"
+          RELEASE_TYPE="$RELEASE_TYPE_INPUT"
+          ACTOR="$ACTOR_INPUT"
+          ACTOR_URL="${SERVER_URL}/${ACTOR_INPUT}"
+          RUN_URL="${SERVER_URL}/${REPOSITORY}/actions/runs/${RUN_ID}"
 
           # Check if any job failed or was cancelled (including prepare itself,
           # which can fail after posting the Slack message, e.g. during git push)
