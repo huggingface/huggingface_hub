@@ -28,9 +28,6 @@ from ._typing import CallableT
 REPO_ID_REGEX = re.compile(
     r"""
     (\b[\w\-.]{1,96}\b/)? # optional namespace (username or organization)
-                         # Same length bound as the name below. Without one a
-                         # namespace of any length passed, so "a"*100 was
-                         # rejected but "a"*100 + "/name" was not.
     \b               # starts with a word boundary
     [\w\-.]{1,96}    # repo_name: alphanumeric + . _ -
     \b               # ends with a word boundary
