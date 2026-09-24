@@ -186,7 +186,7 @@ def parse_size_to_int(size_as_str: str) -> int:
     Supported units are "TB", "GB", "MB", "KB".
 
     Args:
-        size_as_str (`str`): The size to convert. Will be directly returned if an `int`.
+        size_as_str (`str`): The size to convert.
 
     Example:
 

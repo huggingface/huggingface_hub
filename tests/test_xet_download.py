@@ -15,6 +15,7 @@ from huggingface_hub.file_download import (
     xet_get,
 )
 from huggingface_hub.utils import XetFileData
+from huggingface_hub.utils._xet import XetConnectionInfo
 
 from .testing_constants import (
     DUMMY_XET_FILE,
@@ -238,16 +239,23 @@ class TestXetFileDownload:
         mock_session = MagicMock()
         mock_session.new_file_download_group.return_value = mock_group
 
+        mock_connection_info = XetConnectionInfo(
+            access_token="mock_token", expiration_unix_epoch=9999999999, endpoint="https://cas.example"
+        )
+
         with self._patch_xet_file_metadata(with_xet_data=True):
             with patch("huggingface_hub.utils._xet.get_xet_session", return_value=mock_session):
-                with patch("huggingface_hub.file_download._create_symlink"):
-                    hf_hub_download(
-                        DUMMY_XET_MODEL_ID,
-                        filename=DUMMY_XET_FILE,
-                        cache_dir=tmp_path,
-                        force_download=True,
-                        headers=headers,
-                    )
+                with patch(
+                    "huggingface_hub.utils._xet.refresh_xet_connection_info", return_value=mock_connection_info
+                ):
+                    with patch("huggingface_hub.file_download._create_symlink"):
+                        hf_hub_download(
+                            DUMMY_XET_MODEL_ID,
+                            filename=DUMMY_XET_FILE,
+                            cache_dir=tmp_path,
+                            force_download=True,
+                            headers=headers,
+                        )
 
         mock_group.__enter__.return_value.start_download_file.assert_called_once()
         kwargs = mock_session.new_file_download_group.call_args.kwargs

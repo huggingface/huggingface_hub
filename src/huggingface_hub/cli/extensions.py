@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import Annotated, Literal
 
 import click
-import httpx
+import httpx2
 
 from huggingface_hub.errors import CLIError, CLIExtensionInstallError, ConfirmationError
 from huggingface_hub.utils import get_session, logging
@@ -375,11 +375,8 @@ def _auto_install_official_extension(short_name: str) -> Path | None:
         out.confirm(f"'{short_name}' is an official Hugging Face extension ({owner}/{repo_name}). Install it?")
     except ConfirmationError:
         return None
-    try:
-        manifest = _install_extension(owner=owner, repo_name=repo_name, short_name=short_name)
-        return Path(manifest.executable_path).expanduser()
-    except Exception:
-        return None
+    manifest = _install_extension(owner=owner, repo_name=repo_name, short_name=short_name)
+    return Path(manifest.executable_path).expanduser()
 
 
 def _load_installed_extension_for_update(name: str) -> ExtensionManifest:
@@ -435,6 +432,11 @@ def _install_extension(
             binary = None
 
         if binary is not None:
+            if os.name == "nt":
+                raise CLIError(
+                    f"'{owner}/{repo_name}' is a shell-script extension, which is not supported on Windows. "
+                    "Only Python extensions can be installed on Windows."
+                )
             executable_path = _install_binary_extension(
                 extension_dir=extension_dir, short_name=short_name, binary=binary
             )
@@ -500,8 +502,7 @@ def _fetch_latest_commit_sha(*, owner: str, repo_name: str) -> str:
 
 
 def _fetch_remote_binary(*, owner: str, repo_name: str, short_name: str) -> bytes:
-    executable_name = _get_executable_name(short_name)
-    raw_url = f"https://raw.githubusercontent.com/{owner}/{repo_name}/HEAD/{executable_name}"
+    raw_url = f"https://raw.githubusercontent.com/{owner}/{repo_name}/HEAD/hf-{short_name}"
     response = _github_request("GET", raw_url)
     return response.content
 
@@ -619,7 +620,7 @@ def _get_extension_dir(short_name: str) -> Path:
 
 def _github_request(
     method: str, url: str, *, params: dict | None = None, headers: dict | None = None
-) -> httpx.Response:
+) -> httpx2.Response:
     """Perform a GitHub request.
 
     Shared by every GitHub/Raw fetch in this module so the timeout, redirect and rate-limit policy are
@@ -648,7 +649,7 @@ def _github_request(
     return response
 
 
-def _rate_limit_message(headers: httpx.Headers) -> str:
+def _rate_limit_message(headers: httpx2.Headers) -> str:
     """Message for a GitHub rate-limit rejection, built from the response headers.
 
     The cap itself is deliberately not quoted: it depends on the endpoint (60/hour on the core API,
@@ -683,8 +684,8 @@ def _github_repo_exists(*, owner: str, repo_name: str) -> bool:
     """
     try:
         _github_request("HEAD", f"https://github.com/{owner}/{repo_name}")
-    except httpx.HTTPError as error:
-        if isinstance(error, httpx.HTTPStatusError) and error.response.status_code == 404:
+    except httpx2.HTTPError as error:
+        if isinstance(error, httpx2.HTTPStatusError) and error.response.status_code == 404:
             return False
         raise CLIError(f"Could not reach GitHub to check whether '{owner}/{repo_name}' exists: {error}") from error
     return True

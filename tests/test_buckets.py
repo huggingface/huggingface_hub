@@ -13,13 +13,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import warnings
+from datetime import datetime, timezone
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from huggingface_hub import HfApi
-from huggingface_hub._buckets import BucketFile, BucketInfo
+from huggingface_hub._buckets import BucketFile, BucketInfo, SyncOperation, SyncPlan, _execute_plan
 from huggingface_hub._jobs_api import _derive_job_volume_name
-from huggingface_hub.errors import BucketNotFoundError, EntryNotFoundError, HfHubHTTPError
+from huggingface_hub.errors import BucketBatchError, BucketNotFoundError, EntryNotFoundError, HfHubHTTPError
 
 from .testing_constants import ENDPOINT_STAGING, ENTERPRISE_ORG, ENTERPRISE_TOKEN, OTHER_TOKEN, TOKEN, USER
 from .testing_utils import repo_name
@@ -244,6 +246,16 @@ def test_move_bucket_rename(api: HfApi, bucket_write: str):
     api.delete_bucket(new_bucket_id)
 
 
+def test_update_bucket_settings(api: HfApi, bucket_write: str):
+    assert api.bucket_info(bucket_write).private is False
+
+    api.update_bucket_settings(bucket_write, private=True)
+    assert api.bucket_info(bucket_write).private is True
+
+    api.update_bucket_settings(bucket_write, private=False)
+    assert api.bucket_info(bucket_write).private is False
+
+
 def test_list_bucket_tree_on_public_bucket(api: HfApi, bucket_read: str):
     tree = list(api.list_bucket_tree(bucket_read))
     assert len(tree) == 4
@@ -314,10 +326,15 @@ def test_download_bucket_files_raises_on_missing_when_requested(api: HfApi, buck
 def test_copy_files_bucket_to_same_bucket_file(api: HfApi, bucket_write: str, tmp_path):
     api.batch_bucket_files(bucket_write, add=[(b"bucket-content", "source.txt")])
 
-    api.copy_files(
-        f"hf://buckets/{bucket_write}/source.txt",
-        f"hf://buckets/{bucket_write}/copied.txt",
-    )
+    mtime = 1700000000.123
+    with patch("huggingface_hub._buckets.time.time", return_value=mtime):
+        api.copy_files(
+            f"hf://buckets/{bucket_write}/source.txt",
+            f"hf://buckets/{bucket_write}/copied.txt",
+        )
+
+    copied = next(entry for entry in api.list_bucket_tree(bucket_write) if entry.path == "copied.txt")
+    assert copied.mtime == datetime.fromtimestamp(mtime, tz=timezone.utc)
 
     output_path = tmp_path / "copied.txt"
     api.download_bucket_files(bucket_write, [("copied.txt", str(output_path))])
@@ -531,7 +548,7 @@ def test_copy_files_folder_to_bucket_root(api: HfApi, bucket_write: str, bucket_
 )
 def test_bucket_add_file_content_type(source, destination, expected_content_type, tmp_path):
     """Test that _BucketAddFile resolves content_type correctly."""
-    from huggingface_hub.hf_api import _BucketAddFile
+    from huggingface_hub._buckets import _BucketAddFile
 
     # If source is a str path, create a temp file so os.path.getmtime works
     if isinstance(source, str):
@@ -605,3 +622,43 @@ def test_sync_job_volume_empty_dir_uploads_placeholder(api: HfApi, tmp_path):
         if isinstance(entry, BucketFile)
     }
     assert files == {f"{volume.path}/.keep"}
+
+
+def test_execute_plan_rejects_path_traversal(tmp_path):
+    # A crafted plan must not touch files outside the destination via a traversing op path.
+    dest = tmp_path / "dest"
+    dest.mkdir()
+    outside = tmp_path / "outside.txt"
+    outside.write_text("keep me")
+    api = MagicMock()
+    plan = SyncPlan(
+        source="hf://buckets/user/bucket",
+        dest=str(dest),
+        timestamp="2026-01-01T00:00:00+00:00",
+        operations=[SyncOperation(action="delete", path="../outside.txt", size=7)],
+    )
+    with pytest.raises(ValueError, match="Invalid filename"):
+        _execute_plan(plan, api)
+    assert outside.exists()  # not deleted
+
+
+def test_batch_bucket_files_raises_on_failed_operations(api: HfApi, bucket_write: str, mocker):
+    api.batch_bucket_files(bucket_write, add=[(b"content", "file.txt")])
+    xet_hash = next(iter(api.list_bucket_tree(bucket_write))).xet_hash
+    bogus_copy = ("bucket", bucket_write, "0" * 64, "bogus.txt")
+
+    with pytest.raises(BucketBatchError) as exc_info:
+        api.batch_bucket_files(bucket_write, copy=[("bucket", bucket_write, xet_hash, "copy.txt"), bogus_copy])
+    assert exc_info.value.response.status_code == 200
+    assert [failure["path"] for failure in exc_info.value.failures] == ["bogus.txt"]
+    assert {file.path for file in api.list_bucket_tree(bucket_write)} == {"file.txt", "copy.txt"}
+
+    with pytest.raises(BucketBatchError) as exc_info:
+        api.batch_bucket_files(bucket_write, copy=[bogus_copy])
+    assert exc_info.value.response.status_code == 422
+
+    mocker.patch("huggingface_hub.hf_api._BUCKET_BATCH_ADD_CHUNK_SIZE", 1)  # one request per operation
+    with pytest.raises(BucketBatchError) as exc_info:
+        api.batch_bucket_files(bucket_write, copy=[bogus_copy, ("bucket", bucket_write, xet_hash, "copy2.txt")])
+    assert [failure["path"] for failure in exc_info.value.failures] == ["bogus.txt"]
+    assert {file.path for file in api.list_bucket_tree(bucket_write)} == {"file.txt", "copy.txt", "copy2.txt"}

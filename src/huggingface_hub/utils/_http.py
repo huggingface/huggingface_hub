@@ -23,12 +23,14 @@ import time
 import uuid
 from collections.abc import Callable, Generator, Mapping
 from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
+from functools import wraps
 from shlex import quote
 from typing import Any, TypeVar
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
-import httpx
+import httpx2
 
 from huggingface_hub.errors import OfflineModeIsEnabled
 
@@ -46,7 +48,7 @@ from ..errors import (
 )
 from . import logging
 from ._lfs import SliceFileObj
-from ._typing import HTTP_METHOD_T
+from ._typing import HTTP_METHOD_T, CallableT
 
 
 logger = logging.get_logger(__name__)
@@ -247,19 +249,44 @@ def _parse_job_id_from_url(url: str) -> str | None:
     return match.group(1) if match else None
 
 
-def hf_request_event_hook(request: httpx.Request) -> None:
+_IS_DOWNLOAD_CALL: ContextVar[bool] = ContextVar("_IS_DOWNLOAD_CALL", default=False)
+
+
+def flag_as_download_call(fn: CallableT) -> CallableT:
+    """Decorator to tag all HTTP calls made by `fn` with the `X-HF-Download-Counter` header.
+
+    Applied on `hf_hub_download`, `snapshot_download`, etc. so that every call they make through [`get_session`]
+    is flagged as part of a download, no matter how deep in the call stack it happens.
+    """
+
+    @wraps(fn)
+    def _inner(*args, **kwargs):
+        token = _IS_DOWNLOAD_CALL.set(True)
+        try:
+            return fn(*args, **kwargs)
+        finally:
+            _IS_DOWNLOAD_CALL.reset(token)
+
+    return _inner  # type: ignore
+
+
+def hf_request_event_hook(request: httpx2.Request) -> str | None:
     """
     Event hook that will be used to make HTTP requests to the Hugging Face Hub.
 
     What it does:
     - Block requests if offline mode is enabled
     - Add a request ID to the request headers
+    - Flag the request as part of a download, if applicable
     - Log the request if debug mode is enabled
     """
     if constants.is_offline_mode():
         raise OfflineModeIsEnabled(
             f"Cannot reach {request.url}: offline mode is enabled. To disable it, please unset the `HF_HUB_OFFLINE` environment variable."
         )
+
+    if _IS_DOWNLOAD_CALL.get():
+        request.headers[constants.X_HF_DOWNLOAD_COUNTER] = "1"
 
     # Add random request ID => easier for server-side debugging
     if X_AMZN_TRACE_ID not in request.headers:
@@ -280,14 +307,14 @@ def hf_request_event_hook(request: httpx.Request) -> None:
     return request_id
 
 
-async def async_hf_request_event_hook(request: httpx.Request) -> None:
+async def async_hf_request_event_hook(request: httpx2.Request) -> str | None:
     """
     Async version of `hf_request_event_hook`.
     """
     return hf_request_event_hook(request)
 
 
-async def async_hf_response_event_hook(response: httpx.Response) -> None:
+async def async_hf_response_event_hook(response: httpx2.Response) -> None:
     if response.status_code >= 400:
         # If response will raise, read content from stream to have it available when raising the exception
         # If content-length is not set or is too large, skip reading the content to avoid OOM
@@ -301,47 +328,47 @@ async def async_hf_response_event_hook(response: httpx.Response) -> None:
                 await response.aread()
 
 
-def default_client_factory() -> httpx.Client:
+def default_client_factory() -> httpx2.Client:
     """
-    Factory function to create a `httpx.Client` with the default transport.
+    Factory function to create a `httpx2.Client` with the default transport.
     """
-    return httpx.Client(
+    return httpx2.Client(
         event_hooks={"request": [hf_request_event_hook]},
         follow_redirects=True,
         timeout=None,
     )
 
 
-def default_async_client_factory() -> httpx.AsyncClient:
+def default_async_client_factory() -> httpx2.AsyncClient:
     """
-    Factory function to create a `httpx.AsyncClient` with the default transport.
+    Factory function to create a `httpx2.AsyncClient` with the default transport.
     """
-    return httpx.AsyncClient(
+    return httpx2.AsyncClient(
         event_hooks={"request": [async_hf_request_event_hook], "response": [async_hf_response_event_hook]},
         follow_redirects=True,
         timeout=None,
     )
 
 
-CLIENT_FACTORY_T = Callable[[], httpx.Client]
-ASYNC_CLIENT_FACTORY_T = Callable[[], httpx.AsyncClient]
+CLIENT_FACTORY_T = Callable[[], httpx2.Client]
+ASYNC_CLIENT_FACTORY_T = Callable[[], httpx2.AsyncClient]
 
 _CLIENT_LOCK = threading.Lock()
 _GLOBAL_CLIENT_FACTORY: CLIENT_FACTORY_T = default_client_factory
 _GLOBAL_ASYNC_CLIENT_FACTORY: ASYNC_CLIENT_FACTORY_T = default_async_client_factory
-_GLOBAL_CLIENT: httpx.Client | None = None
+_GLOBAL_CLIENT: httpx2.Client | None = None
 
 
 def set_client_factory(client_factory: CLIENT_FACTORY_T) -> None:
     """
     Set the HTTP client factory to be used by `huggingface_hub`.
 
-    The client factory is a method that returns a `httpx.Client` object. On the first call to [`get_session`] the client factory
-    will be used to create a new `httpx.Client` object that will be shared between all calls made by `huggingface_hub`.
+    The client factory is a method that returns a `httpx2.Client` object. On the first call to [`get_session`] the client factory
+    will be used to create a new `httpx2.Client` object that will be shared between all calls made by `huggingface_hub`.
 
     This can be useful if you are running your scripts in a specific environment requiring custom configuration (e.g. custom proxy or certifications).
 
-    Use [`get_session`] to get a correctly configured `httpx.Client`.
+    Use [`get_session`] to get a correctly configured `httpx2.Client`.
     """
     global _GLOBAL_CLIENT_FACTORY
     with _CLIENT_LOCK:
@@ -353,41 +380,42 @@ def set_async_client_factory(async_client_factory: ASYNC_CLIENT_FACTORY_T) -> No
     """
     Set the HTTP async client factory to be used by `huggingface_hub`.
 
-    The async client factory is a method that returns a `httpx.AsyncClient` object.
+    The async client factory is a method that returns a `httpx2.AsyncClient` object.
     This can be useful if you are running your scripts in a specific environment requiring custom configuration (e.g. custom proxy or certifications).
-    Use [`get_async_client`] to get a correctly configured `httpx.AsyncClient`.
+    Use [`get_async_client`] to get a correctly configured `httpx2.AsyncClient`.
 
     > [!WARNING]
-    > Contrary to the `httpx.Client` that is shared between all calls made by `huggingface_hub`, the `httpx.AsyncClient` is not shared.
+    > Contrary to the `httpx2.Client` that is shared between all calls made by `huggingface_hub`, the `httpx2.AsyncClient` is not shared.
     > It is recommended to use an async context manager to ensure the client is properly closed when the context is exited.
     """
     global _GLOBAL_ASYNC_CLIENT_FACTORY
     _GLOBAL_ASYNC_CLIENT_FACTORY = async_client_factory
 
 
-def get_session() -> httpx.Client:
+def get_session() -> httpx2.Client:
     """
-    Get a `httpx.Client` object, using the transport factory from the user.
+    Get a `httpx2.Client` object, using the transport factory from the user.
 
     This client is shared between all calls made by `huggingface_hub`. Therefore you should not close it manually.
 
-    Use [`set_client_factory`] to customize the `httpx.Client`.
+    Use [`set_client_factory`] to customize the `httpx2.Client`.
     """
     global _GLOBAL_CLIENT
     if _GLOBAL_CLIENT is None:
         with _CLIENT_LOCK:
-            _GLOBAL_CLIENT = _GLOBAL_CLIENT_FACTORY()
+            if _GLOBAL_CLIENT is None:
+                _GLOBAL_CLIENT = _GLOBAL_CLIENT_FACTORY()
     return _GLOBAL_CLIENT
 
 
-def get_async_session() -> httpx.AsyncClient:
+def get_async_session() -> httpx2.AsyncClient:
     """
-    Return a `httpx.AsyncClient` object, using the transport factory from the user.
+    Return a `httpx2.AsyncClient` object, using the transport factory from the user.
 
-    Use [`set_async_client_factory`] to customize the `httpx.AsyncClient`.
+    Use [`set_async_client_factory`] to customize the `httpx2.AsyncClient`.
 
     > [!WARNING]
-    > Contrary to the `httpx.Client` that is shared between all calls made by `huggingface_hub`, the `httpx.AsyncClient` is not shared.
+    > Contrary to the `httpx2.Client` that is shared between all calls made by `huggingface_hub`, the `httpx2.AsyncClient` is not shared.
     > It is recommended to use an async context manager to ensure the client is properly closed when the context is exited.
     """
     return _GLOBAL_ASYNC_CLIENT_FACTORY()
@@ -395,7 +423,7 @@ def get_async_session() -> httpx.AsyncClient:
 
 def close_session() -> None:
     """
-    Close the global `httpx.Client` used by `huggingface_hub`.
+    Close the global `httpx2.Client` used by `huggingface_hub`.
 
     If a Client is closed, it will be recreated on the next call to [`get_session`].
 
@@ -421,9 +449,9 @@ if hasattr(os, "register_at_fork"):
 
 
 _DEFAULT_RETRY_ON_EXCEPTIONS: tuple[type[Exception], ...] = (
-    httpx.TimeoutException,
-    httpx.NetworkError,
-    httpx.RemoteProtocolError,
+    httpx2.TimeoutException,
+    httpx2.NetworkError,
+    httpx2.RemoteProtocolError,
 )
 _DEFAULT_RETRY_ON_STATUS_CODES: tuple[int, ...] = (408, 429, 500, 502, 503, 504)
 
@@ -439,7 +467,7 @@ def _http_backoff_base(
     retry_on_status_codes: int | tuple[int, ...] = _DEFAULT_RETRY_ON_STATUS_CODES,
     stream: bool = False,
     **kwargs,
-) -> Generator[httpx.Response, None, None]:
+) -> Generator[httpx2.Response, None, None]:
     """Internal implementation of HTTP backoff logic shared between `http_backoff` and `http_stream_backoff`."""
     if isinstance(retry_on_exceptions, type):  # Tuple from single exception type
         retry_on_exceptions = (retry_on_exceptions,)
@@ -462,7 +490,7 @@ def _http_backoff_base(
         nb_tries += 1
         ratelimit_reset = None
         # Fetched on each attempt: a previous attempt may have closed the shared client (see `close_session` below),
-        # and closed `httpx.Client` objects cannot be reused.
+        # and closed `httpx2.Client` objects cannot be reused.
         client = get_session()
         try:
             # If `data` is used and is a file object (or any IO), set back cursor to
@@ -471,7 +499,7 @@ def _http_backoff_base(
                 kwargs["data"].seek(io_obj_initial_pos)
 
             # Perform request and handle response
-            def _should_retry(response: httpx.Response) -> bool:
+            def _should_retry(response: httpx2.Response) -> bool:
                 """Handle response and return True if should retry, False if should return/yield."""
                 nonlocal ratelimit_reset
 
@@ -512,8 +540,8 @@ def _http_backoff_base(
         except retry_on_exceptions as err:
             logger.warning(f"'{err}' thrown while requesting {method} {url}")
 
-            if isinstance(err, httpx.ConnectError):
-                close_session()  # In case of SSLError it's best to close the shared httpx.Client objects
+            if isinstance(err, httpx2.ConnectError):
+                close_session()  # In case of SSLError it's best to close the shared httpx2.Client objects
 
             if nb_tries > max_retries:
                 raise err
@@ -541,8 +569,8 @@ def http_backoff(
     retry_on_exceptions: type[Exception] | tuple[type[Exception], ...] = _DEFAULT_RETRY_ON_EXCEPTIONS,
     retry_on_status_codes: int | tuple[int, ...] = _DEFAULT_RETRY_ON_STATUS_CODES,
     **kwargs,
-) -> httpx.Response:
-    """Wrapper around httpx to retry calls on an endpoint, with exponential backoff.
+) -> httpx2.Response:
+    """Wrapper around httpx2 to retry calls on an endpoint, with exponential backoff.
 
     Endpoint call is retried on exceptions (ex: connection timeout, proxy error,...)
     and/or on specific status codes (ex: service unavailable). If the call failed more
@@ -567,18 +595,18 @@ def http_backoff(
             Maximum duration (in seconds) to wait before retrying.
         retry_on_exceptions (`type[Exception]` or `tuple[type[Exception]]`, *optional*):
             Define which exceptions must be caught to retry the request. Can be a single type or a tuple of types.
-            By default, retry on `httpx.TimeoutException`, `httpx.NetworkError` and `httpx.RemoteProtocolError`.
+            By default, retry on `httpx2.TimeoutException`, `httpx2.NetworkError` and `httpx2.RemoteProtocolError`.
         retry_on_status_codes (`int` or `tuple[int]`, *optional*, defaults to `(429, 500, 502, 503, 504)`):
             Define on which status codes the request must be retried. By default, retries
             on rate limit (429) and server errors (5xx).
         **kwargs (`dict`, *optional*):
-            kwargs to pass to `httpx.request`.
+            kwargs to pass to `httpx2.request`.
 
     Example:
     ```
     >>> from huggingface_hub.utils import http_backoff
 
-    # Same usage as "httpx.request".
+    # Same usage as "httpx2.request".
     >>> response = http_backoff("GET", "https://www.google.com")
     >>> response.raise_for_status()
 
@@ -622,8 +650,8 @@ def http_stream_backoff(
     retry_on_exceptions: type[Exception] | tuple[type[Exception], ...] = _DEFAULT_RETRY_ON_EXCEPTIONS,
     retry_on_status_codes: int | tuple[int, ...] = _DEFAULT_RETRY_ON_STATUS_CODES,
     **kwargs,
-) -> Generator[httpx.Response, None, None]:
-    """Wrapper around httpx to retry calls on an endpoint, with exponential backoff.
+) -> Generator[httpx2.Response, None, None]:
+    """Wrapper around httpx2 to retry calls on an endpoint, with exponential backoff.
 
     Endpoint call is retried on exceptions (ex: connection timeout, proxy error,...)
     and/or on specific status codes (ex: service unavailable). If the call failed more
@@ -648,18 +676,18 @@ def http_stream_backoff(
             Maximum duration (in seconds) to wait before retrying.
         retry_on_exceptions (`type[Exception]` or `tuple[type[Exception]]`, *optional*):
             Define which exceptions must be caught to retry the request. Can be a single type or a tuple of types.
-            By default, retry on `httpx.TimeoutException`, `httpx.NetworkError` and `httpx.RemoteProtocolError`.
+            By default, retry on `httpx2.TimeoutException`, `httpx2.NetworkError` and `httpx2.RemoteProtocolError`.
         retry_on_status_codes (`int` or `tuple[int]`, *optional*, defaults to `(429, 500, 502, 503, 504)`):
             Define on which status codes the request must be retried. By default, retries
             on rate limit (429) and server errors (5xx).
         **kwargs (`dict`, *optional*):
-            kwargs to pass to `httpx.request`.
+            kwargs to pass to `httpx2.request`.
 
     Example:
     ```
     >>> from huggingface_hub.utils import http_stream_backoff
 
-    # Same usage as "httpx.stream".
+    # Same usage as "httpx2.stream".
     >>> with http_stream_backoff("GET", "https://www.google.com") as response:
     ...     for chunk in response.iter_bytes():
     ...         print(chunk)
@@ -670,7 +698,7 @@ def http_stream_backoff(
     ```
 
     > [!WARNING]
-    > When using `httpx` it is possible to stream data by passing an iterator to the
+    > When using `httpx2` it is possible to stream data by passing an iterator to the
     > `data` argument. On http backoff this is a problem as the iterator is not reset
     > after a failed call. This issue is mitigated for file objects or any IO streams
     > by saving the initial position of the cursor (with `data.tell()`) and resetting the
@@ -691,14 +719,18 @@ def http_stream_backoff(
     )
 
 
-def _httpx_follow_relative_redirects_with_backoff(
-    method: HTTP_METHOD_T, url: str, *, retry_on_errors: bool = False, **httpx_kwargs
-) -> httpx.Response:
-    """Perform an HTTP request with backoff and follow relative redirects only.
+_MAX_REDIRECTS = 20  # same bound as httpx2's default max_redirects
+
+
+def _httpx2_follow_hub_redirects_with_backoff(
+    method: HTTP_METHOD_T, url: str, *, retry_on_errors: bool = False, **httpx2_kwargs
+) -> httpx2.Response:
+    """Perform an HTTP request with backoff, following redirects that stay on the Hub.
 
     Used to fetch HEAD /resolve on repo or bucket files.
 
-    This is useful to follow a redirection to a renamed repository without following redirection to a CDN.
+    Redirects to the same host or another Hub host are followed. Redirects to any other host (CDN, storage
+    bucket) are not: the file metadata is on the redirect response itself and the auth header must not leave the Hub.
 
     A backoff mechanism retries the HTTP call on errors (429, 5xx, timeout, network errors).
 
@@ -710,36 +742,42 @@ def _httpx_follow_relative_redirects_with_backoff(
         retry_on_errors (`bool`, *optional*, defaults to `False`):
             Whether to retry on errors. If False, no retry is performed (fast fallback to local cache).
             If True, uses default retry behavior (429, 5xx, timeout, network errors).
-        **httpx_kwargs (`dict`, *optional*):
-            Params to pass to `httpx.request`.
+        **httpx2_kwargs (`dict`, *optional*):
+            Params to pass to `httpx2.request`.
     """
     # if `retry_on_errors=False`, disable all retries for fast fallback to cache
     no_retry_kwargs: dict[str, Any] = (
         {} if retry_on_errors else {"retry_on_exceptions": (), "retry_on_status_codes": ()}
     )
 
-    while True:
+    for _ in range(_MAX_REDIRECTS):
         response = http_backoff(
             method=method,
             url=url,
-            **httpx_kwargs,
+            **httpx2_kwargs,
             follow_redirects=False,
             **no_retry_kwargs,
         )
         hf_raise_for_status(response)
 
-        # Check if response is a relative redirect
-        if 300 <= response.status_code <= 399:
-            parsed_target = urlparse(response.headers["Location"])
-            if parsed_target.netloc == "":
-                # Relative redirect -> update URL and retry
-                url = urlparse(url)._replace(path=parsed_target.path).geturl()
-                continue
+        if not response.has_redirect_location:
+            return response
 
-        # Break if no relative redirect
-        break
+        target = urljoin(url, response.headers["Location"])
+        if not _is_same_or_hub_host(url, target):
+            # Redirect to a CDN or storage host (signed URL): the file metadata is carried by this very response,
+            # and the authorization header must not be forwarded off the Hub => stop here.
+            return response
 
-    return response
+        url = target
+
+    raise httpx2.TooManyRedirects(f"Exceeded {_MAX_REDIRECTS} redirects while resolving '{url}'.")
+
+
+def _is_same_or_hub_host(url: str, target: str) -> bool:
+    """Whether `target` is served by the same host as `url`, or by a known Hub host."""
+    target_host = (urlparse(target).hostname or "").lower()
+    return target_host == (urlparse(url).hostname or "").lower() or target_host in constants.HF_URL_HOSTS
 
 
 def fix_hf_endpoint_in_url(url: str, endpoint: str | None) -> str:
@@ -755,7 +793,7 @@ def fix_hf_endpoint_in_url(url: str, endpoint: str | None) -> str:
     return url
 
 
-def hf_raise_for_status(response: httpx.Response, endpoint_name: str | None = None) -> None:
+def hf_raise_for_status(response: httpx2.Response, endpoint_name: str | None = None) -> None:
     """
     Internal version of `response.raise_for_status()` that will refine a potential HTTPError.
     Raised exception will be an instance of [`~errors.HfHubHTTPError`].
@@ -796,7 +834,7 @@ def hf_raise_for_status(response: httpx.Response, endpoint_name: str | None = No
 
     try:
         response.raise_for_status()
-    except httpx.HTTPStatusError as e:
+    except httpx2.HTTPStatusError as e:
         if response.status_code // 100 == 3:
             return  # Do not raise on redirects to stay consistent with `requests`
 
@@ -931,7 +969,7 @@ def hf_raise_for_status(response: httpx.Response, endpoint_name: str | None = No
 _WARNED_TOPICS = set()
 
 
-def _warn_on_warning_headers(response: httpx.Response) -> None:
+def _warn_on_warning_headers(response: httpx2.Response) -> None:
     """
     Emit warnings if warning headers are present in the HTTP response.
 
@@ -941,7 +979,7 @@ def _warn_on_warning_headers(response: httpx.Response) -> None:
     headers can be present in a single response.
 
     Args:
-        response (`httpx.Response`):
+        response (`httpx2.Response`):
             The HTTP response to check for warning headers.
     """
     server_warnings = response.headers.get_list("X-HF-Warning")
@@ -959,7 +997,7 @@ _HfHubHTTPErrorT = TypeVar("_HfHubHTTPErrorT", bound=HfHubHTTPError)
 
 
 def _format(
-    error_type: type[_HfHubHTTPErrorT], custom_message: str, response: httpx.Response, **attrs: Any
+    error_type: type[_HfHubHTTPErrorT], custom_message: str, response: httpx2.Response, **attrs: Any
 ) -> _HfHubHTTPErrorT:
     server_errors = []
 
@@ -973,7 +1011,7 @@ def _format(
         # Case errors are returned in a JSON format
         try:
             data = response.json()
-        except httpx.ResponseNotRead:
+        except httpx2.ResponseNotRead:
             try:
                 response.read()  # In case of streaming response, we need to read the response first
                 data = response.json()
@@ -982,7 +1020,7 @@ def _format(
                 # In practice if user is using the default async client from `get_async_client`, the stream will have
                 # already been read in the async event hook `async_hf_response_event_hook`.
                 #
-                # Here, we are skipping reading the response to avoid RuntimeError but it happens only if async + stream + used httpx.AsyncClient directly.
+                # Here, we are skipping reading the response to avoid RuntimeError but it happens only if async + stream + used httpx2.AsyncClient directly.
                 data = {}
 
         error = data.get("error")
@@ -1082,8 +1120,8 @@ def _redact_sensitive_body(body: str) -> str:
     return body
 
 
-def _curlify(request: httpx.Request) -> str:
-    """Convert a `httpx.Request` into a curl command (str).
+def _curlify(request: httpx2.Request) -> str:
+    """Convert a `httpx2.Request` into a curl command (str).
 
     Used for debug purposes only.
 
@@ -1107,7 +1145,7 @@ def _curlify(request: httpx.Request) -> str:
             if len(body) > 1000:
                 body = f"{body[:1000]} ... [truncated]"
             body = _redact_sensitive_body(body)
-    except httpx.RequestNotRead:
+    except httpx2.RequestNotRead:
         body = "<streaming body>"
     if body is not None:
         parts += [("-d", body.replace("\n", ""))]
@@ -1125,7 +1163,7 @@ def _curlify(request: httpx.Request) -> str:
 
 
 # Regex to parse HTTP Range header
-RANGE_REGEX = re.compile(r"^\s*bytes\s*=\s*(\d*)\s*-\s*(\d*)\s*$", re.IGNORECASE)
+RANGE_REGEX = re.compile(r"\s*bytes\s*=\s*(\d*)\s*-\s*(\d*)\s*", re.IGNORECASE)
 
 
 def _adjust_range_header(original_range: str | None, resume_size: int) -> str | None:
@@ -1138,7 +1176,7 @@ def _adjust_range_header(original_range: str | None, resume_size: int) -> str | 
     if "," in original_range:
         raise ValueError(f"Multiple ranges detected - {original_range!r}, not supported yet.")
 
-    match = RANGE_REGEX.match(original_range)
+    match = RANGE_REGEX.fullmatch(original_range)
     if not match:
         raise RuntimeError(f"Invalid range format - {original_range!r}.")
     start, end = match.groups()

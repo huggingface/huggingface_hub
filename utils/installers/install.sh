@@ -210,7 +210,7 @@ ensure_python() {
                 chosen="$candidate"
                 break
             else
-                log_warning "$candidate detected ($version_output) but Python 3.10+ is required."
+                log_warning "$candidate ($(command -v "$candidate")) is $version_output but Python 3.10+ is required."
             fi
         fi
     done
@@ -219,7 +219,20 @@ ensure_python() {
         log_error "Python 3.10+ is required but was not found."
         case "$(detect_os)" in
             macos)
-                log_info "On macOS: brew install python (or download Python 3.10+ from python.org)"
+                # A suitable Python is often already installed but shadowed by an older one earlier in PATH.
+                local shadowed="" location
+                for location in /opt/homebrew/bin/python3 /usr/local/bin/python3; do
+                    if [ -x "$location" ] && python_version_supported "$location"; then
+                        shadowed="$location"
+                        break
+                    fi
+                done
+                if [ -n "$shadowed" ]; then
+                    log_info "Found $shadowed ($("$shadowed" --version 2>&1)), but an older Python earlier in your PATH shadows it."
+                    log_info "Put $(dirname "$shadowed") earlier in your PATH and re-run the installer."
+                else
+                    log_info "On macOS: brew install python (or download Python 3.10+ from python.org)"
+                fi
                 ;;
             linux)
                 if command_exists apt-get || command_exists apt; then
@@ -391,8 +404,8 @@ install_skill() {
     fi
 
     log_info "Installing the hf-cli skill for AI agents..."
-    if ! "$BIN_DIR/hf" skills add hf-cli --global --claude --force; then
-        log_warning "Failed to install the hf-cli skill. Install it later with: hf skills add -g --claude"
+    if ! "$BIN_DIR/hf" skills add hf-cli --global --force; then
+        log_warning "Failed to install the hf-cli skill. Install it later with: hf skills add -g"
         return
     fi
     log_info "The hf-cli skill was installed automatically so AI agents know how to use the hf CLI."

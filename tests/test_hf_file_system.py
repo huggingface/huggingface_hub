@@ -335,6 +335,23 @@ class _HfFileSystemBaseROTests(_HfFileSystemBaseTests):
             temp_file.seek(0)
             assert temp_file.read() == b"dummy text data"
 
+    def test_get_file_without_lpath(self):
+        with tempfile.TemporaryFile() as temp_file:
+            self.hffs.get_file(self.text_file, outfile=temp_file)
+            temp_file.seek(0)
+            assert temp_file.read() == b"dummy text data"
+
+    def test_get_file_outfile_takes_precedence_over_filelike_lpath(self):
+        with tempfile.TemporaryFile() as lpath, tempfile.TemporaryFile() as outfile:
+            self.hffs.get_file(self.text_file, lpath, outfile=outfile)
+            outfile.seek(0)
+            assert outfile.read() == b"dummy text data"
+            assert lpath.tell() == 0
+
+    def test_get_file_without_lpath_and_outfile_raises(self):
+        with pytest.raises(ValueError, match="Either `lpath` or `outfile` must be provided"):
+            self.hffs.get_file(self.text_file)
+
     def test_get_file_with_temporary_folder(self):
         # Test passing a file path works
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
@@ -342,6 +359,18 @@ class _HfFileSystemBaseROTests(_HfFileSystemBaseTests):
             self.hffs.get_file(self.text_file, temp_file)
             with open(temp_file, "rb") as f:
                 assert f.read() == b"dummy text data"
+
+    def test_get_file_with_bare_filename(self):
+        # Test passing a bare filename works => downloads to the current working directory
+        cwd = os.getcwd()
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
+            os.chdir(temp_dir)
+            try:
+                self.hffs.get_file(self.text_file, "temp_file.txt")
+                with open(os.path.join(temp_dir, "temp_file.txt"), "rb") as f:
+                    assert f.read() == b"dummy text data"
+            finally:
+                os.chdir(cwd)
 
     def test_get_file_with_kwargs(self):
         # If custom kwargs are passed, the function should still work but defaults to base implementation

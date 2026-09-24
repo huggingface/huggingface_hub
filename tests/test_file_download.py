@@ -21,12 +21,12 @@ from pathlib import Path
 from typing import Iterable
 from unittest.mock import Mock, patch
 
-import httpx
+import httpx2
 import pytest
 
 from huggingface_hub import HfApi, constants
 from huggingface_hub._local_folder import write_download_metadata
-from huggingface_hub.errors import EntryNotFoundError, GatedRepoError, LocalEntryNotFoundError
+from huggingface_hub.errors import EntryNotFoundError, FileMetadataError, GatedRepoError, LocalEntryNotFoundError
 from huggingface_hub.file_download import (
     _CACHED_NO_EXIST,
     HfFileMetadata,
@@ -68,6 +68,52 @@ DATASET_ID = SAMPLE_DATASET_IDENTIFIER
 DATASET_REVISION_ID_ONE_SPECIFIC_COMMIT = "e25d55a1c4933f987c46cc75d8ffadd67f257c61"
 # One particular commit for DATASET_ID
 DATASET_SAMPLE_PY_FILE = "custom_squad.py"
+
+
+@pytest.mark.parametrize("use_local_dir", [False, True])
+@pytest.mark.parametrize("xet_mode", ["no_metadata", "disabled", "not_installed", "enabled"])
+def test_download_without_head_content_length(tmp_path: Path, use_local_dir: bool, xet_mode: str) -> None:
+    content = b"content"
+
+    def _mock_head(*, url: str, **kwargs) -> httpx2.Response:
+        headers = {constants.HUGGINGFACE_HEADER_X_REPO_COMMIT: "a" * 40, "ETag": '"etag"'}
+        if xet_mode != "no_metadata":
+            headers[constants.HUGGINGFACE_HEADER_X_XET_HASH] = "b" * 64
+            headers[constants.HUGGINGFACE_HEADER_X_XET_REFRESH_ROUTE] = "https://huggingface.co/xet-refresh"
+        return httpx2.Response(
+            200,
+            headers=headers,
+            request=httpx2.Request("HEAD", url),
+        )
+
+    @contextmanager
+    def _mock_get(*args, **kwargs):
+        yield httpx2.Response(
+            200,
+            headers={"Content-Length": str(len(content))},
+            content=content,
+            request=httpx2.Request("GET", "https://huggingface.co/user/repo/resolve/main/file.txt"),
+        )
+
+    download_kwargs = {"cache_dir": tmp_path / "cache"}
+    if use_local_dir:
+        download_kwargs["local_dir"] = tmp_path / "local"
+
+    with (
+        patch("huggingface_hub.file_download._httpx2_follow_hub_redirects_with_backoff", side_effect=_mock_head),
+        patch("huggingface_hub.file_download.http_stream_backoff", side_effect=_mock_get) as mock_get,
+        patch("huggingface_hub.constants.HF_HUB_DISABLE_XET", xet_mode == "disabled"),
+        patch("huggingface_hub.utils._runtime.is_package_available", return_value=xet_mode != "not_installed"),
+    ):
+        if xet_mode == "enabled":
+            with pytest.raises(LocalEntryNotFoundError) as exc:
+                hf_hub_download("user/repo", "file.txt", **download_kwargs)
+            assert isinstance(exc.value.__cause__, FileMetadataError)
+            mock_get.assert_not_called()
+            return
+        path = hf_hub_download("user/repo", "file.txt", **download_kwargs)
+
+    assert Path(path).read_bytes() == content
 
 
 class TestDiskUsageWarning:
@@ -1049,21 +1095,27 @@ class TestHfHubDownloadRelativePaths:
 
 
 class TestHttpGet:
+    def test_http_get_validates_content_length_when_expected_size_is_missing(self):
+        with pytest.raises(OSError, match="file should be of size 100 but has size 50"):
+            self._http_get_with_mocked_responses(
+                [self._mock_response(headers={"Content-Length": "100"}, iter_bytes=iter([b"A" * 50]))]
+            )
+
     def test_http_get_with_ssl_and_timeout_error(self, caplog):
         def _iter_content_1() -> Iterable[bytes]:
             yield b"0" * 10
             yield b"0" * 10
-            raise httpx.ConnectError("Fake ConnectError")
+            raise httpx2.ConnectError("Fake ConnectError")
 
         def _iter_content_2() -> Iterable[bytes]:
             yield b"0" * 10
-            raise httpx.TimeoutException("Fake TimeoutException")
+            raise httpx2.TimeoutException("Fake TimeoutException")
 
         def _iter_content_3() -> Iterable[bytes]:
             yield b"0" * 10
             yield b"0" * 10
             yield b"0" * 10
-            raise httpx.ConnectError("Fake ConnectionError")
+            raise httpx2.ConnectError("Fake ConnectionError")
 
         def _iter_content_4() -> Iterable[bytes]:
             yield b"0" * 10
@@ -1140,17 +1192,17 @@ class TestHttpGet:
         def _iter_content_1() -> Iterable[bytes]:
             yield b"0" * 10
             yield b"0" * 10
-            raise httpx.ConnectError("Fake ConnectError")
+            raise httpx2.ConnectError("Fake ConnectError")
 
         def _iter_content_2() -> Iterable[bytes]:
             yield b"0" * 10
-            raise httpx.TimeoutException("Fake TimeoutException")
+            raise httpx2.TimeoutException("Fake TimeoutException")
 
         def _iter_content_3() -> Iterable[bytes]:
             yield b"0" * 10
             yield b"0" * 10
             yield b"0" * 10
-            raise httpx.ConnectError("Fake ConnectionError")
+            raise httpx2.ConnectError("Fake ConnectionError")
 
         def _iter_content_4() -> Iterable[bytes]:
             yield b"0" * 10
@@ -1198,7 +1250,7 @@ class TestHttpGet:
 
         def _iter_content_1() -> Iterable[bytes]:
             yield b"A" * 30
-            raise httpx.TimeoutException("Fake timeout")
+            raise httpx2.TimeoutException("Fake timeout")
 
         def _iter_content_2() -> Iterable[bytes]:
             # Server ignores Range, returns full content
@@ -1307,7 +1359,7 @@ class TestHttpGet:
 
         def _fail_after(data: bytes):
             yield data
-            raise httpx.TimeoutException("timeout")
+            raise httpx2.TimeoutException("timeout")
 
         temp_file = self._http_get_with_mocked_responses(
             [
@@ -1341,7 +1393,7 @@ class TestHttpGet:
 
         def _fail_after(data: bytes):
             yield data
-            raise httpx.TimeoutException("timeout")
+            raise httpx2.TimeoutException("timeout")
 
         temp_file = self._http_get_with_mocked_responses(
             [
@@ -1459,20 +1511,20 @@ class TestNormalizeEtag:
     @pytest.mark.production
     def test_resolve_endpoint_on_regular_file(self):
         url = "https://huggingface.co/gpt2/resolve/e7da7f221d5bf496a48136c0cd264e630fe9fcc8/README.md"
-        response = httpx.head(url, headers=build_hf_headers(user_agent="is_ci/true"))
+        response = httpx2.head(url, headers=build_hf_headers(user_agent="is_ci/true"))
         assert self._get_etag_and_normalize(response) == "a16a55fda99d2f2e7b69cce5cf93ff4ad3049930"
 
     @pytest.mark.production
     def test_resolve_endpoint_on_lfs_file(self):
         url = "https://huggingface.co/gpt2/resolve/e7da7f221d5bf496a48136c0cd264e630fe9fcc8/pytorch_model.bin"
-        response = httpx.head(url, headers=build_hf_headers(user_agent="is_ci/true"))
+        response = httpx2.head(url, headers=build_hf_headers(user_agent="is_ci/true"))
         assert (
             self._get_etag_and_normalize(response)
             == "7c5d3f4b8b76583b422fcb9189ad6c89d5d97a094541ce8932dce3ecabde1421"
         )
 
     @staticmethod
-    def _get_etag_and_normalize(response: httpx.Response) -> str:
+    def _get_etag_and_normalize(response: httpx2.Response) -> str:
         return _normalize_etag(
             response.headers.get(constants.HUGGINGFACE_HEADER_X_LINKED_ETAG) or response.headers.get("ETag")
         )

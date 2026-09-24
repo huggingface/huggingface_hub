@@ -68,6 +68,11 @@ class ANSI:
     _reset = "\u001b[0m"
     _underline = "\u001b[4m"
     _yellow = "\u001b[33m"
+    _enabled: bool | None = None  # None: fall back to agent detection (callers outside the `hf` CLI)
+
+    @classmethod
+    def set_enabled(cls, enabled: bool) -> None:
+        cls._enabled = enabled
 
     @classmethod
     def blue(cls, s: str) -> str:
@@ -99,10 +104,11 @@ class ANSI:
 
     @classmethod
     def _format(cls, s: str, code: str) -> str:
-        if os.environ.get("NO_COLOR") or is_agent():
+        if os.environ.get("NO_COLOR"):
             # See https://no-color.org/
             return s
-        return f"{code}{s}{cls._reset}"
+        enabled = cls._enabled if cls._enabled is not None else not is_agent()
+        return f"{code}{s}{cls._reset}" if enabled else s
 
 
 def select_choice(prompt: str, choices: list[str]) -> int:

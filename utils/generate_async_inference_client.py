@@ -143,7 +143,7 @@ def _add_imports(code: str) -> str:
             + "from contextlib import AsyncExitStack\n"
             + "from typing import Set\n"
             + "import asyncio\n"
-            + "import httpx\n"
+            + "import httpx2\n"
         ),
         string=code,
         count=1,
@@ -197,6 +197,14 @@ ASYNC_INNER_POST_CODE = """
                 msg = str(error.args[0])
                 if len(error.response.text) > 0:
                     msg += f"{os.linesep}{error.response.text}{os.linesep}"
+                error.args = (msg,) + error.args[1:]
+            if error.response.status_code == 504 and not stream and request_parameters.task == "conversational":
+                msg = str(error.args[0])
+                msg += (
+                    f"{os.linesep}Note: the request timed out before the model finished generating."
+                    " If you are generating long outputs (e.g. long reasoning traces), pass `stream=True`"
+                    " to receive tokens as they are generated and avoid hitting this timeout."
+                )
                 error.args = (msg,) + error.args[1:]
             raise
             """
@@ -260,7 +268,7 @@ ENTER_EXIT_STACK_ASYNC_CODE = """
 def _remove_enter_exit_stack(code: str) -> str:
     code = code.replace(
         "exit_stack = ExitStack()",
-        "exit_stack = AsyncExitStack()\n        self._async_client: Optional[httpx.AsyncClient] = None",
+        "exit_stack = AsyncExitStack()\n        self._async_client: Optional[httpx2.AsyncClient] = None",
     )
     code = code.replace(ENTER_EXIT_STACK_SYNC_CODE, ENTER_EXIT_STACK_ASYNC_CODE)
     return code

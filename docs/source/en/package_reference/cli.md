@@ -17,6 +17,7 @@ $ hf [OPTIONS] [COMMAND] [ARGS]...
 
 **Options**:
 
+* `--skills`: Print the `hf-cli` SKILL.md to stdout (alias for `hf skills preview`).
 * `--install-completion`: Install completion for the current shell.
 * `--show-completion`: Show completion for the current shell, to copy it or customize the installation.
 * `--help`: Show this message and exit.
@@ -27,26 +28,25 @@ $ hf [OPTIONS] [COMMAND] [ARGS]...
 * `buckets`: Commands to interact with buckets.
 * `cache`: Manage local cache directory.
 * `collections`: Interact with collections on the Hub.
-* `cp`: Copy files between local paths,...
+* `cp`: Copy files between local paths, repositories, and buckets.
 * `datasets`: Interact with datasets on the Hub.
-* `discussions`: Manage discussions and pull requests on...
+* `discussions`: Manage discussions and pull requests on the Hub.
 * `download`: Download files from the Hub.
 * `endpoints`: Manage Hugging Face Inference Endpoints.
 * `env`: Print information about the environment.
 * `extensions`: Manage hf CLI extensions. [alias: ext]
 * `jobs`: Run and manage Jobs on the Hub.
-* `lfs-enable-largefiles`: Configure your repository to enable upload...
-* `lfs-multipart-upload`: Internal git-lfs custom transfer agent for...
+* `lfs-enable-largefiles`: Configure your repository to enable upload of files > 5GB.
+* `lfs-multipart-upload`: Internal git-lfs custom transfer agent for multipart uploads.
 * `models`: Interact with models on the Hub.
 * `papers`: Interact with papers on the Hub.
-* `repos`: Manage repos on the Hub. [alias: repo]
-* `sandbox`: Run and manage sandboxes on Hugging Face...
+* `repos`: Manage repos on the Hub.
+* `sandbox`: Run and manage experimental sandboxes on Hugging Face Jobs.
 * `skills`: Manage skills for AI assistants.
 * `spaces`: Interact with spaces on the Hub.
-* `sync`: Sync files between local directory and a...
+* `sync`: Sync files between local directory and a bucket.
 * `update`: Update the `hf` CLI to the latest version.
 * `upload`: Upload a file or a folder to the Hub.
-* `upload-large-folder`: [Deprecated] Upload a large folder to the...
 * `version`: Print information about the hf version.
 * `webhooks`: Manage webhooks on the Hub.
 
@@ -67,11 +67,11 @@ $ hf auth [OPTIONS] COMMAND [ARGS]...
 **Commands**:
 
 * `list`: List all stored access tokens. [alias: ls]
-* `login`: Login from your browser, or using a token...
+* `login`: Login from your browser, or using a token from huggingface.co/settings/tokens.
 * `logout`: Logout from a specific token.
 * `switch`: Switch between access tokens.
 * `token`: Print the current access token to stdout.
-* `whoami`: Find out which huggingface.co account you...
+* `whoami`: Find out which huggingface.co account you are logged in as.
 
 ### `hf auth list`
 
@@ -234,14 +234,15 @@ $ hf buckets [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
-* `cp`: Copy files between local paths,...
+* `cp`: Copy files between local paths, repositories, and buckets.
 * `create`: Create a new bucket.
 * `delete`: Delete a bucket.
 * `info`: Get info about a bucket.
 * `list`: List buckets or files in a bucket. [alias: ls]
-* `move`: Move (rename) a bucket to a new name or...
+* `move`: Move (rename) a bucket to a new name or namespace.
 * `remove`: Remove files from a bucket. [alias: rm]
-* `sync`: Sync files between local directory and a...
+* `settings`: Update bucket settings (visibility).
+* `sync`: Sync files between local directory and a bucket.
 
 ### `hf buckets cp`
 
@@ -492,6 +493,37 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
+### `hf buckets settings`
+
+Update bucket settings (visibility).
+
+**Usage**:
+
+```console
+$ hf buckets settings [OPTIONS] BUCKET_ID
+```
+
+**Arguments**:
+
+* `BUCKET_ID`: Bucket ID: namespace/bucket_name or hf://buckets/namespace/bucket_name  [required]
+
+**Options**:
+
+* `--private`: Make the bucket private.
+* `--public`: Make the bucket public.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf buckets settings user/my-bucket --private
+  $ hf buckets settings user/my-bucket --public
+  $ hf buckets settings hf://buckets/user/my-bucket --private
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
 ### `hf buckets sync`
 
 Sync files between local directory and a bucket.
@@ -556,9 +588,9 @@ $ hf cache [OPTIONS] COMMAND [ARGS]...
 **Commands**:
 
 * `list`: List cached repositories or revisions. [alias: ls]
-* `prune`: Remove detached revisions and incomplete...
-* `rm`: Remove cached repositories or revisions.
-* `verify`: Verify checksums for a single repo...
+* `prune`: Remove detached revisions and incomplete downloads from the cache.
+* `rm`: Remove cached repositories, revisions or files.
+* `verify`: Verify checksums for a single repo revision from cache or a local directory.
 
 ### `hf cache list`
 
@@ -619,7 +651,7 @@ Learn more
 
 ### `hf cache rm`
 
-Remove cached repositories or revisions.
+Remove cached repositories, revisions or files.
 
 **Usage**:
 
@@ -629,7 +661,7 @@ $ hf cache rm [OPTIONS] TARGETS...
 
 **Arguments**:
 
-* `TARGETS...`: One or more repo IDs (e.g. model/bert-base-uncased), repo-level hf:// URIs, or revision hashes to delete.  [required]
+* `TARGETS...`: One or more repo IDs (e.g. model/bert-base-uncased), hf:// URIs (repo or file), or revision hashes to delete.  [required]
 
 **Options**:
 
@@ -641,6 +673,7 @@ $ hf cache rm [OPTIONS] TARGETS...
 Examples
   $ hf cache rm model/gpt2
   $ hf cache rm hf://models/openai-community/gpt2
+  $ hf cache rm hf://models/openai-community/gpt2/model.safetensors
   $ hf cache rm <revision_hash>
   $ hf cache rm model/gpt2 --dry-run
   $ hf cache rm model/gpt2 --yes
@@ -672,7 +705,7 @@ $ hf cache verify [OPTIONS] REPO_ID
 
 **Options**:
 
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
 * `--cache-dir TEXT`: Cache directory to use when verifying files from cache (defaults to Hugging Face cache).
 * `--local-dir TEXT`: If set, verify files under this directory instead of the cache.
@@ -1012,12 +1045,12 @@ $ hf datasets [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
-* `card`: Get the dataset card (README) for a...
+* `card`: Get the dataset card (README) for a dataset on the Hub.
 * `info`: Get info about a dataset on the Hub.
 * `leaderboard`: List model scores from a dataset leaderboard.
-* `list`: List datasets on the Hub, or files in a... [alias: ls]
-* `parquet`: List parquet file URLs available for a...
-* `sql`: Execute a raw SQL query with DuckDB...
+* `list`: List datasets on the Hub, or files in a dataset repo. [alias: ls]
+* `parquet`: List parquet file URLs available for a dataset.
+* `sql`: Execute a raw SQL query with DuckDB against dataset parquet URLs.
 
 ### `hf datasets card`
 
@@ -1235,9 +1268,9 @@ $ hf discussions [OPTIONS] COMMAND [ARGS]...
 
 * `close`: Close a discussion or pull request.
 * `comment`: Comment on a discussion or pull request.
-* `create`: Create a new discussion or pull request on...
+* `create`: Create a new discussion or pull request on a repo.
 * `diff`: Show the diff of a pull request.
-* `edit`: Edit an existing comment on a discussion...
+* `edit`: Edit an existing comment on a discussion or pull request.
 * `info`: Get info about a discussion or pull request.
 * `list`: List discussions and pull requests on a repo. [alias: ls]
 * `merge`: Merge a pull request.
@@ -1263,7 +1296,7 @@ $ hf discussions close [OPTIONS] REPO_ID NUM
 
 * `--comment TEXT`: An optional comment to post when closing.
 * `-y, --yes`: Skip confirmation prompt.
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -1295,7 +1328,7 @@ $ hf discussions comment [OPTIONS] REPO_ID NUM
 
 * `--body TEXT`: The comment text (supports Markdown).
 * `--body-file PATH`: Read the comment from a file. Use '-' for stdin.
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -1328,7 +1361,7 @@ $ hf discussions create [OPTIONS] REPO_ID
 * `--body TEXT`: The description (supports Markdown).
 * `--body-file PATH`: Read the description from a file. Use '-' for stdin.
 * `--pull-request, --pr`: Create a pull request instead of a discussion.
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -1360,7 +1393,7 @@ $ hf discussions diff [OPTIONS] REPO_ID NUM
 
 **Options**:
 
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -1392,7 +1425,7 @@ $ hf discussions edit [OPTIONS] REPO_ID NUM COMMENT_ID
 
 * `--body TEXT`: The new comment text (supports Markdown).
 * `--body-file PATH`: Read the new comment from a file. Use '-' for stdin.
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -1422,7 +1455,7 @@ $ hf discussions info [OPTIONS] REPO_ID NUM
 
 **Options**:
 
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -1455,7 +1488,7 @@ $ hf discussions list [OPTIONS] REPO_ID
 * `-k, --kind [all|discussion|pull_request]`: Filter by kind (discussion, pull_request, all).  [default: all]
 * `--author TEXT`: Filter by author or organization.
 * `--limit INTEGER`: Limit the number of results.  [default: 30]
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -1489,7 +1522,7 @@ $ hf discussions merge [OPTIONS] REPO_ID NUM
 
 * `--comment TEXT`: An optional comment to post when merging.
 * `-y, --yes`: Skip confirmation prompt.
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -1520,7 +1553,7 @@ $ hf discussions rename [OPTIONS] REPO_ID NUM NEW_TITLE
 
 **Options**:
 
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -1551,7 +1584,7 @@ $ hf discussions reopen [OPTIONS] REPO_ID NUM
 
 * `--comment TEXT`: An optional comment to post when reopening.
 * `-y, --yes`: Skip confirmation prompt.
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -1581,7 +1614,7 @@ $ hf download [OPTIONS] REPO_ID [FILENAMES]...
 
 **Options**:
 
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: (model)]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: (model)]
 * `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
 * `--include TEXT`: Glob patterns to include from files to download. eg: *.json
 * `--exclude TEXT`: Glob patterns to exclude from files to download.
@@ -1622,12 +1655,12 @@ $ hf endpoints [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
-* `catalog`: Interact with the Inference Endpoints...
+* `catalog`: Interact with the Inference Endpoints catalog.
 * `delete`: Delete an Inference Endpoint permanently.
-* `deploy`: Deploy an Inference Endpoint from a Hub...
+* `deploy`: Deploy an Inference Endpoint from a Hub repository.
 * `describe`: Get information about an existing endpoint.
-* `hardware`: List the hardware available to deploy an...
-* `list`: Lists all Inference Endpoints for the... [alias: ls]
+* `hardware`: List the hardware available to deploy an Inference Endpoint on.
+* `list`: Lists all Inference Endpoints for the given namespace. [alias: ls]
 * `list-catalog`: List available Catalog models.
 * `pause`: Pause an Inference Endpoint.
 * `resume`: Resume an Inference Endpoint.
@@ -1650,7 +1683,7 @@ $ hf endpoints catalog [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
-* `deploy`: Deploy an Inference Endpoint from the...
+* `deploy`: Deploy an Inference Endpoint from the Model Catalog.
 * `list`: List available Catalog models. [alias: ls]
 
 #### `hf endpoints catalog deploy`
@@ -1771,15 +1804,17 @@ $ hf endpoints deploy [OPTIONS] NAME
 * `--engine [custom|hf-serve|llamacpp|sglang|tei|tgi|tgi-neuron|vllm|vllm-neuron]`: Managed engine image to run --custom-image with (e.g. 'vllm'). Defaults to an arbitrary container.
 * `--health-route TEXT`: Health check route exposed by the container (e.g. '/health'). Requires --custom-image.
 * `--port INTEGER`: Port the container listens on (e.g. 30000). Requires --custom-image.
+* `--container-registry-username TEXT`: Username used to authenticate with the registry hosting --custom-image.
+* `--container-registry-password TEXT`: Optional password used to authenticate with the registry hosting --custom-image.
 * `--tensor-parallel-size INTEGER`: Number of accelerators to shard a single model copy across (vLLM and SGLang engines only).
 * `--data-parallel-size INTEGER`: Number of model copies to run, one per accelerator (vLLM engine only).
 * `--container-command TEXT`: Override the container entrypoint, as a quoted string split into tokens (e.g. "python -m sglang.launch_server").
 * `--container-args TEXT`: Arguments appended to the container entrypoint, as a quoted string split into tokens (e.g. "--tp 8 --reasoning-parser qwen3").
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
-* `--env-file TEXT`: Read in a file of environment variables.
-* `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
-* `--secrets-file TEXT`: Read in a file of secret environment variables.
-* `--type [public|protected|authenticated|private]`: Endpoint access type. Defaults to 'authenticated' (token-gated, publicly reachable).
+* `--env-file TEXT`: Read in a file of environment variables. Use `-` to read them from stdin.
+* `-s, --secrets TEXT`: Set secret environment variables. Prefer `--secrets SECRET` to read the value from your environment (e.g. `--secrets HF_TOKEN` to pass your Hugging Face token); `--secrets SECRET=value` puts the value in your shell history.
+* `--secrets-file TEXT`: Read in a file of secret environment variables. Use `-` to read them from stdin.
+* `--type [public|authenticated|private]`: Endpoint access type. Defaults to 'authenticated' (token-gated, publicly reachable).
 * `--help`: Show this message and exit.
 
 Examples
@@ -2063,11 +2098,11 @@ $ hf extensions [OPTIONS] COMMAND [ARGS]...
 **Commands**:
 
 * `exec`: Execute an installed extension.
-* `install`: Install an extension from a public GitHub...
+* `install`: Install an extension from a public GitHub repository.
 * `list`: List installed extension commands. [alias: ls]
 * `remove`: Remove an installed extension. [alias: rm]
-* `search`: Search extensions available on GitHub...
-* `update`: Update installed extension(s) to their...
+* `search`: Search extensions available on GitHub (tagged with 'hf-extension' topic).
+* `update`: Update installed extension(s) to their latest version.
 
 ### `hf extensions exec`
 
@@ -2244,16 +2279,16 @@ $ hf jobs [OPTIONS] COMMAND [ARGS]...
 
 * `cancel`: Cancel a Job
 * `hardware`: List available hardware options for Jobs
-* `inspect`: Display detailed information on one or...
+* `inspect`: Display detailed information on one or more Jobs
 * `labels`: Update labels on a Job.
 * `list`: List Jobs. [alias: ls, ps]
 * `logs`: Fetch the logs of a Job.
 * `run`: Run a Job.
 * `scheduled`: Create and manage scheduled Jobs on the Hub.
 * `ssh`: SSH into a running Job.
-* `stats`: Fetch the resource usage statistics and...
-* `uv`: Run UV scripts (Python with inline...
-* `wait`: Wait for one or more Jobs to reach a...
+* `stats`: Fetch the resource usage statistics and metrics of Jobs
+* `uv`: Run UV scripts (Python with inline dependencies) on HF infrastructure.
+* `wait`: Wait for one or more Jobs to reach a terminal state.
 
 ### `hf jobs cancel`
 
@@ -2349,7 +2384,7 @@ $ hf jobs labels [OPTIONS] JOB_ID
 
 **Options**:
 
-* `--name TEXT`: Name the Job. Stored as the `name` label. Names do not have to be unique. Defaults to the image or script name plus a short hash of the command.
+* `--name TEXT`: Name the Job. Stored as the `name` label. Names do not have to be unique. Defaults to the image or script name plus a short hash of the resolved launch configuration.
 * `-l, --label TEXT`: Set labels. E.g. --label KEY=VALUE or --label LABEL
 * `--clear`: Remove all labels from the job.
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
@@ -2388,7 +2423,6 @@ $ hf jobs list | ls | ps [OPTIONS]
 * `--limit INTEGER`: Maximum number of Jobs to display. Set to 0 to show all (no limit).  [default: 100]
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `-f, --filter TEXT`: (Deprecated) Use `--status` and `--label` instead.
 * `--help`: Show this message and exit.
 
 Examples
@@ -2462,20 +2496,26 @@ $ hf jobs run [OPTIONS] IMAGE COMMAND...
 **Options**:
 
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
-* `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
-* `--name TEXT`: Name the Job. Stored as the `name` label. Names do not have to be unique. Defaults to the image or script name plus a short hash of the command.
+* `-s, --secrets TEXT`: Set secret environment variables. Prefer `--secrets SECRET` to read the value from your environment (e.g. `--secrets HF_TOKEN` to pass your Hugging Face token); `--secrets SECRET=value` puts the value in your shell history.
+* `--name TEXT`: Name the Job. Stored as the `name` label. Names do not have to be unique. Defaults to the image or script name plus a short hash of the resolved launch configuration.
 * `-l, --label TEXT`: Set labels. E.g. --label KEY=VALUE or --label LABEL
 * `-v, --volume TEXT`: Mount one or more volumes. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro|:rw] or LOCAL_DIR:/MOUNT_PATH[:ro|:rw]. TYPE is one of: models, datasets, spaces, buckets. TYPE defaults to models if omitted. models, datasets and spaces are always mounted read-only. buckets are read+write by default. A local directory source is first synced to a bucket and mounted read-only by default. E.g. -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro or -v ./inputs:/inputs
-* `--env-file TEXT`: Read in a file of environment variables.
-* `--secrets-file TEXT`: Read in a file of secret environment variables.
+* `--env-file TEXT`: Read in a file of environment variables. Use `-` to read them from stdin.
+* `--secrets-file TEXT`: Read in a file of secret environment variables. Use `-` to read them from stdin.
 * `--flavor [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|rtx-pro-6000|rtx-pro-6000x2|rtx-pro-6000x4|rtx-pro-6000x8]`: Flavor for the hardware. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.
 * `--timeout TEXT`: Max duration: int with s (seconds, default), m (minutes), h (hours) or d (days).
 * `-d, --detach`: Run the Job in the background and print the Job ID.
+* `--dry-run`: Print the resolved Job configuration without submitting the Job.
 * `--expose INTEGER`: Expose a container port through the jobs proxy. Repeat the flag for multiple ports (e.g. `--expose 8000 --expose 8001`). Each exposed port is reachable on the public jobs domain; access requires an HF token with read access to the job's namespace.
 * `--ssh`: Make the job's container reachable over SSH. Connect with `hf jobs ssh <job_id>`. Requires an SSH public key registered on https://huggingface.co/settings/keys.
+* `--network-group TEXT`: Join a network group. Jobs in the same namespace and resource group sharing a group are placed together and reach each other on every port. Inside each member, `$HF_NETWORK_GROUP_HOSTNAME` resolves to every member. Lowercase alphanumerics and dashes, 46 characters max.
+* `--network-alias TEXT`: Claim an alias in the network group. Members reach the jobs claiming it at `${HF_NETWORK_GROUP_PREFIX}<alias>`. Repeat the flag for several aliases. Lowercase alphanumerics and dashes, 34 characters max, unique within the job. Requires `--network-group`.
 * `--resource-group-id TEXT`: The ID of the resource group to create the Job in. Used to control access to resources within an organization and for cost attribution/spending-limit features.
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--format [agent|auto|human|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
+* `--json`: JSON output. Equivalent to '--format json'.
+* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
 * `--help`: Show this message and exit.
 
 Examples
@@ -2507,13 +2547,13 @@ $ hf jobs scheduled [OPTIONS] COMMAND [ARGS]...
 **Commands**:
 
 * `delete`: Delete a scheduled Job.
-* `inspect`: Display detailed information on one or...
+* `inspect`: Display detailed information on one or more scheduled Jobs
 * `labels`: Update labels on a scheduled Job.
-* `list`: List scheduled Jobs [alias: ls, ps]
+* `list`: List scheduled Jobs. [alias: ls, ps]
 * `resume`: Resume (unpause) a scheduled Job.
 * `run`: Schedule a Job.
 * `suspend`: Suspend (pause) a scheduled Job.
-* `trigger`: Trigger a scheduled Job to run immediately...
+* `trigger`: Trigger a scheduled Job to run immediately (does not change the schedule).
 * `uv`: Schedule UV scripts on HF infrastructure.
 
 #### `hf jobs scheduled delete`
@@ -2588,7 +2628,7 @@ $ hf jobs scheduled labels [OPTIONS] SCHEDULED_JOB_ID
 
 **Options**:
 
-* `--name TEXT`: Name the Job. Stored as the `name` label. Names do not have to be unique. Defaults to the image or script name plus a short hash of the command.
+* `--name TEXT`: Name the Job. Stored as the `name` label. Names do not have to be unique. Defaults to the image or script name plus a short hash of the resolved launch configuration.
 * `-l, --label TEXT`: Set labels. E.g. --label KEY=VALUE or --label LABEL
 * `--clear`: Remove all labels from the scheduled job.
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
@@ -2607,7 +2647,10 @@ Learn more
 
 #### `hf jobs scheduled list | ls | ps`
 
-List scheduled Jobs
+List scheduled Jobs.
+
+Use `--status` to filter by status (`active` or `suspended`) and `--label` to filter by `key=value` labels.
+A scheduled Job must match every filter to be listed.
 
 **Usage**:
 
@@ -2617,14 +2660,20 @@ $ hf jobs scheduled list | ls | ps [OPTIONS]
 
 **Options**:
 
-* `-a, --all`: Show all scheduled Jobs (default hides suspended)
+* `-a, --all`: Show all scheduled Jobs (default hides suspended). Cannot be combined with --status.
+* `--status [active|suspended]`: Only show scheduled Jobs with the given status. Comma-separated or repeated, e.g. `--status suspended`.
+* `-l, --label TEXT`: Only show scheduled Jobs with the given `key=value` label. Repeat to require several labels, e.g. `--label env=prod --label team=ml`.
+* `--name TEXT`: Only show scheduled Jobs with the given name (shortcut for `--label name=NAME`).
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `-f, --filter TEXT`: Filter output based on conditions provided (format: key=value)
 * `--help`: Show this message and exit.
 
 Examples
   $ hf jobs scheduled ls
+  $ hf jobs scheduled ls -a
+  $ hf jobs scheduled ls --status suspended
+  $ hf jobs scheduled ls --name daily-script
+  $ hf jobs scheduled ls --label env=prod --label team=ml
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -2680,18 +2729,22 @@ $ hf jobs scheduled run [OPTIONS] SCHEDULE IMAGE COMMAND...
 * `--suspend / --no-suspend`: Suspend (pause) the scheduled Job
 * `--concurrency / --no-concurrency`: Allow multiple instances of this Job to run concurrently
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
-* `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
-* `--name TEXT`: Name the Job. Stored as the `name` label. Names do not have to be unique. Defaults to the image or script name plus a short hash of the command.
+* `-s, --secrets TEXT`: Set secret environment variables. Prefer `--secrets SECRET` to read the value from your environment (e.g. `--secrets HF_TOKEN` to pass your Hugging Face token); `--secrets SECRET=value` puts the value in your shell history.
+* `--name TEXT`: Name the Job. Stored as the `name` label. Names do not have to be unique. Defaults to the image or script name plus a short hash of the resolved launch configuration.
 * `-l, --label TEXT`: Set labels. E.g. --label KEY=VALUE or --label LABEL
 * `-v, --volume TEXT`: Mount one or more volumes. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro|:rw] or LOCAL_DIR:/MOUNT_PATH[:ro|:rw]. TYPE is one of: models, datasets, spaces, buckets. TYPE defaults to models if omitted. models, datasets and spaces are always mounted read-only. buckets are read+write by default. A local directory source is first synced to a bucket and mounted read-only by default. E.g. -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro or -v ./inputs:/inputs
-* `--env-file TEXT`: Read in a file of environment variables.
-* `--secrets-file TEXT`: Read in a file of secret environment variables.
+* `--env-file TEXT`: Read in a file of environment variables. Use `-` to read them from stdin.
+* `--secrets-file TEXT`: Read in a file of secret environment variables. Use `-` to read them from stdin.
 * `--flavor [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|rtx-pro-6000|rtx-pro-6000x2|rtx-pro-6000x4|rtx-pro-6000x8]`: Flavor for the hardware. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.
 * `--timeout TEXT`: Max duration: int with s (seconds, default), m (minutes), h (hours) or d (days).
+* `--dry-run`: Print the resolved Job configuration without submitting the Job.
 * `--expose INTEGER`: Expose a container port through the jobs proxy. Repeat the flag for multiple ports (e.g. `--expose 8000 --expose 8001`). Each exposed port is reachable on the public jobs domain; access requires an HF token with read access to the job's namespace.
 * `--resource-group-id TEXT`: The ID of the resource group to create the Job in. Used to control access to resources within an organization and for cost attribution/spending-limit features.
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--format [agent|auto|human|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
+* `--json`: JSON output. Equivalent to '--format json'.
+* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
 * `--help`: Show this message and exit.
 
 Examples
@@ -2774,7 +2827,7 @@ $ hf jobs scheduled uv [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
-* `run`: Run a UV script (local file or URL) on HF...
+* `run`: Run a UV script (local file or URL) on HF infrastructure
 
 ##### `hf jobs scheduled uv run`
 
@@ -2799,19 +2852,23 @@ $ hf jobs scheduled uv run [OPTIONS] SCHEDULE SCRIPT [SCRIPT_ARGS]...
 * `--image TEXT`: Use a custom Docker image with `uv` installed.
 * `--flavor [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|rtx-pro-6000|rtx-pro-6000x2|rtx-pro-6000x4|rtx-pro-6000x8]`: Flavor for the hardware. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
-* `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
-* `--name TEXT`: Name the Job. Stored as the `name` label. Names do not have to be unique. Defaults to the image or script name plus a short hash of the command.
+* `-s, --secrets TEXT`: Set secret environment variables. Prefer `--secrets SECRET` to read the value from your environment (e.g. `--secrets HF_TOKEN` to pass your Hugging Face token); `--secrets SECRET=value` puts the value in your shell history.
+* `--name TEXT`: Name the Job. Stored as the `name` label. Names do not have to be unique. Defaults to the image or script name plus a short hash of the resolved launch configuration.
 * `-l, --label TEXT`: Set labels. E.g. --label KEY=VALUE or --label LABEL
 * `-v, --volume TEXT`: Mount one or more volumes. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro|:rw] or LOCAL_DIR:/MOUNT_PATH[:ro|:rw]. TYPE is one of: models, datasets, spaces, buckets. TYPE defaults to models if omitted. models, datasets and spaces are always mounted read-only. buckets are read+write by default. A local directory source is first synced to a bucket and mounted read-only by default. E.g. -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro or -v ./inputs:/inputs
-* `--env-file TEXT`: Read in a file of environment variables.
-* `--secrets-file TEXT`: Read in a file of secret environment variables.
+* `--env-file TEXT`: Read in a file of environment variables. Use `-` to read them from stdin.
+* `--secrets-file TEXT`: Read in a file of secret environment variables. Use `-` to read them from stdin.
 * `--timeout TEXT`: Max duration: int with s (seconds, default), m (minutes), h (hours) or d (days).
+* `--dry-run`: Print the resolved Job configuration without submitting the Job.
 * `--expose INTEGER`: Expose a container port through the jobs proxy. Repeat the flag for multiple ports (e.g. `--expose 8000 --expose 8001`). Each exposed port is reachable on the public jobs domain; access requires an HF token with read access to the job's namespace.
 * `--resource-group-id TEXT`: The ID of the resource group to create the Job in. Used to control access to resources within an organization and for cost attribution/spending-limit features.
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--with TEXT`: Run with the given packages installed
 * `-p, --python TEXT`: The Python interpreter to use for the run environment
+* `--format [agent|auto|human|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
+* `--json`: JSON output. Equivalent to '--format json'.
+* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
 * `--help`: Show this message and exit.
 
 Examples
@@ -2903,7 +2960,7 @@ $ hf jobs uv [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
-* `run`: Run a UV script (local file or URL) on HF...
+* `run`: Run a UV script (local file or URL) on HF infrastructure
 
 #### `hf jobs uv run`
 
@@ -2925,29 +2982,36 @@ $ hf jobs uv run [OPTIONS] SCRIPT [SCRIPT_ARGS]...
 * `--image TEXT`: Use a custom Docker image with `uv` installed.
 * `--flavor [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|rtx-pro-6000|rtx-pro-6000x2|rtx-pro-6000x4|rtx-pro-6000x8]`: Flavor for the hardware. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
-* `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
-* `--name TEXT`: Name the Job. Stored as the `name` label. Names do not have to be unique. Defaults to the image or script name plus a short hash of the command.
+* `-s, --secrets TEXT`: Set secret environment variables. Prefer `--secrets SECRET` to read the value from your environment (e.g. `--secrets HF_TOKEN` to pass your Hugging Face token); `--secrets SECRET=value` puts the value in your shell history.
+* `--name TEXT`: Name the Job. Stored as the `name` label. Names do not have to be unique. Defaults to the image or script name plus a short hash of the resolved launch configuration.
 * `-l, --label TEXT`: Set labels. E.g. --label KEY=VALUE or --label LABEL
 * `-v, --volume TEXT`: Mount one or more volumes. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro|:rw] or LOCAL_DIR:/MOUNT_PATH[:ro|:rw]. TYPE is one of: models, datasets, spaces, buckets. TYPE defaults to models if omitted. models, datasets and spaces are always mounted read-only. buckets are read+write by default. A local directory source is first synced to a bucket and mounted read-only by default. E.g. -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro or -v ./inputs:/inputs
-* `--env-file TEXT`: Read in a file of environment variables.
-* `--secrets-file TEXT`: Read in a file of secret environment variables.
+* `--env-file TEXT`: Read in a file of environment variables. Use `-` to read them from stdin.
+* `--secrets-file TEXT`: Read in a file of secret environment variables. Use `-` to read them from stdin.
 * `--timeout TEXT`: Max duration: int with s (seconds, default), m (minutes), h (hours) or d (days).
 * `-d, --detach`: Run the Job in the background and print the Job ID.
+* `--dry-run`: Print the resolved Job configuration without submitting the Job.
 * `--expose INTEGER`: Expose a container port through the jobs proxy. Repeat the flag for multiple ports (e.g. `--expose 8000 --expose 8001`). Each exposed port is reachable on the public jobs domain; access requires an HF token with read access to the job's namespace.
 * `--ssh`: Make the job's container reachable over SSH. Connect with `hf jobs ssh <job_id>`. Requires an SSH public key registered on https://huggingface.co/settings/keys.
+* `--network-group TEXT`: Join a network group. Jobs in the same namespace and resource group sharing a group are placed together and reach each other on every port. Inside each member, `$HF_NETWORK_GROUP_HOSTNAME` resolves to every member. Lowercase alphanumerics and dashes, 46 characters max.
+* `--network-alias TEXT`: Claim an alias in the network group. Members reach the jobs claiming it at `${HF_NETWORK_GROUP_PREFIX}<alias>`. Repeat the flag for several aliases. Lowercase alphanumerics and dashes, 34 characters max, unique within the job. Requires `--network-group`.
 * `--resource-group-id TEXT`: The ID of the resource group to create the Job in. Used to control access to resources within an organization and for cost attribution/spending-limit features.
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--with TEXT`: Run with the given packages installed
 * `-p, --python TEXT`: The Python interpreter to use for the run environment
+* `--format [agent|auto|human|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
+* `--json`: JSON output. Equivalent to '--format json'.
+* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
 * `--help`: Show this message and exit.
 
 Examples
   $ hf jobs uv run --name my-script my_script.py
   $ hf jobs uv run --detach my_script.py
-  $ hf jobs uv run ml_training.py --flavor a10g-small
+  $ hf jobs uv run --flavor a10g-small ml_training.py
   $ hf jobs uv run --with transformers train.py
   $ hf jobs uv run -v hf://org/my-model:/data -v hf://buckets/org/b:/mnt script.py
+  $ hf jobs uv run --dry-run script.py
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -3044,9 +3108,9 @@ $ hf models [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
-* `card`: Get the model card (README) for a model on...
+* `card`: Get the model card (README) for a model on the Hub.
 * `info`: Get info about a model on the Hub.
-* `list`: List models on the Hub, or files in a... [alias: ls]
+* `list`: List models on the Hub, or files in a model repo. [alias: ls]
 
 ### `hf models card`
 
@@ -3307,12 +3371,12 @@ Learn more
 
 ## `hf repos`
 
-Manage repos on the Hub. [alias: repo]
+Manage repos on the Hub.
 
 **Usage**:
 
 ```console
-$ hf repos [OPTIONS] [COMMAND] [ARGS]...
+$ hf repos [OPTIONS] COMMAND [ARGS]...
 ```
 
 **Options**:
@@ -3322,13 +3386,13 @@ $ hf repos [OPTIONS] [COMMAND] [ARGS]...
 **Commands**:
 
 * `branch`: Manage branches for a repo on the Hub.
-* `cp`: Copy files between local paths,...
+* `cp`: Copy files between local paths, repositories, and buckets.
 * `create`: Create a new repo on the Hub.
 * `delete`: Delete a repo from the Hub.
 * `delete-files`: Delete files from a repo on the Hub.
-* `duplicate`: Duplicate a repo on the Hub (model,...
-* `list`: List all repos (models, datasets, spaces,... [alias: ls]
-* `move`: Move a repository from a namespace to...
+* `duplicate`: Duplicate a repo on the Hub (model, dataset, or Space).
+* `list`: List all repos (models, datasets, spaces, buckets) with storage info. [alias: ls]
+* `move`: Move a repository from a namespace to another namespace.
 * `settings`: Update the settings of a repository.
 * `tag`: Manage tags for a repo on the Hub.
 
@@ -3370,7 +3434,7 @@ $ hf repos branch create [OPTIONS] REPO_ID BRANCH
 
 * `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--exist-ok / --no-exist-ok`: If set to True, do not raise an error if branch already exists.  [default: no-exist-ok]
 * `--help`: Show this message and exit.
 
@@ -3401,7 +3465,7 @@ $ hf repos branch delete [OPTIONS] REPO_ID BRANCH
 **Options**:
 
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--help`: Show this message and exit.
 
 Examples
@@ -3470,7 +3534,7 @@ $ hf repos create [OPTIONS] REPO_ID
 
 **Options**:
 
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--sdk, --space-sdk TEXT`: Hugging Face Spaces SDK type. Required when --type is set to 'space'.
 * `--template TEXT`: Create a Space from an official template. Pass a template repo id (e.g. 'SpacesExamples/jupyterlab') or its short name (e.g. 'JupyterLab'). List available templates with `hf spaces templates`. Spaces only.
 * `--private / --no-private`: Whether to create a private repo if repo doesn't exist on the Hub. Ignored if the repo already exists.
@@ -3481,12 +3545,11 @@ $ hf repos create [OPTIONS] REPO_ID
 * `--resource-group-id TEXT`: Resource group in which to create the repo. Resource groups is only available for Enterprise Hub organizations.
 * `--region [us|eu]`: Cloud region in which to create the repo. Can be one of 'us' or 'eu'. Requires Team plan or above.
 * `--flavor [cpu-basic|cpu-upgrade|zero-a10g|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8]`: Space hardware flavor (e.g. 'cpu-basic', 't4-medium', 'l4x4'). Only for Spaces.
-* `--storage [small|medium|large]`: (Deprecated, use volumes instead) Space persistent storage tier ('small', 'medium', or 'large'). Only for Spaces.
 * `--sleep-time INTEGER`: Seconds of inactivity before the Space is put to sleep. Use -1 to disable. Only for Spaces.
-* `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
-* `--secrets-file TEXT`: Read in a file of secret environment variables.
+* `-s, --secrets TEXT`: Set secret environment variables. Prefer `--secrets SECRET` to read the value from your environment (e.g. `--secrets HF_TOKEN` to pass your Hugging Face token); `--secrets SECRET=value` puts the value in your shell history.
+* `--secrets-file TEXT`: Read in a file of secret environment variables. Use `-` to read them from stdin.
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
-* `--env-file TEXT`: Read in a file of environment variables.
+* `--env-file TEXT`: Read in a file of environment variables. Use `-` to read them from stdin.
 * `-v, --volume TEXT`: Mount one or more volumes. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. TYPE is one of: models, datasets, spaces, buckets. TYPE defaults to models if omitted. models, datasets and spaces are always mounted read-only. buckets are read+write by default. E.g. -v hf://org/m:/data or -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro
 * `--help`: Show this message and exit.
 
@@ -3519,7 +3582,7 @@ $ hf repos delete [OPTIONS] REPO_ID
 
 **Options**:
 
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--missing-ok / --no-missing-ok`: If set to True, do not raise an error if repo does not exist.  [default: no-missing-ok]
 * `-y, --yes`: Answer Yes to prompt automatically.
@@ -3550,7 +3613,7 @@ $ hf repos delete-files [OPTIONS] REPO_ID PATTERNS...
 
 **Options**:
 
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
 * `--commit-message TEXT`: The summary / title / first line of the generated commit.
 * `--commit-description TEXT`: The description of the generated commit.
@@ -3585,19 +3648,18 @@ $ hf repos duplicate [OPTIONS] FROM_ID [TO_ID]
 
 **Options**:
 
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--private / --no-private`: Whether to create a private repo if repo doesn't exist on the Hub. Ignored if the repo already exists.
 * `--public`: Whether to make the repo public. Ignored if the repo already exists.
 * `--protected`: Whether to make the Space protected (Spaces only). Ignored if the repo already exists.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--exist-ok / --no-exist-ok`: Do not raise an error if repo already exists.  [default: no-exist-ok]
 * `--flavor [cpu-basic|cpu-upgrade|zero-a10g|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8]`: Space hardware flavor (e.g. 'cpu-basic', 't4-medium', 'l4x4'). Only for Spaces.
-* `--storage [small|medium|large]`: (Deprecated, use volumes instead) Space persistent storage tier ('small', 'medium', or 'large'). Only for Spaces.
 * `--sleep-time INTEGER`: Seconds of inactivity before the Space is put to sleep. Use -1 to disable. Only for Spaces.
-* `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
-* `--secrets-file TEXT`: Read in a file of secret environment variables.
+* `-s, --secrets TEXT`: Set secret environment variables. Prefer `--secrets SECRET` to read the value from your environment (e.g. `--secrets HF_TOKEN` to pass your Hugging Face token); `--secrets SECRET=value` puts the value in your shell history.
+* `--secrets-file TEXT`: Read in a file of secret environment variables. Use `-` to read them from stdin.
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
-* `--env-file TEXT`: Read in a file of environment variables.
+* `--env-file TEXT`: Read in a file of environment variables. Use `-` to read them from stdin.
 * `-v, --volume TEXT`: Mount one or more volumes. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. TYPE is one of: models, datasets, spaces, buckets. TYPE defaults to models if omitted. models, datasets and spaces are always mounted read-only. buckets are read+write by default. E.g. -v hf://org/m:/data or -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro
 * `--help`: Show this message and exit.
 
@@ -3659,7 +3721,7 @@ $ hf repos move [OPTIONS] FROM_ID TO_ID
 **Options**:
 
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--help`: Show this message and exit.
 
 Examples
@@ -3691,7 +3753,7 @@ $ hf repos settings [OPTIONS] REPO_ID
 * `--public`: Whether to make the repo public. Ignored if the repo already exists.
 * `--protected`: Whether to make the Space protected (Spaces only). Ignored if the repo already exists.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--help`: Show this message and exit.
 
 Examples
@@ -3744,7 +3806,7 @@ $ hf repos tag create [OPTIONS] REPO_ID TAG
 * `-m, --message TEXT`: The description of the tag to create.
 * `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--help`: Show this message and exit.
 
 Examples
@@ -3775,7 +3837,7 @@ $ hf repos tag delete [OPTIONS] REPO_ID TAG
 
 * `-y, --yes`: Answer Yes to prompt automatically
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--help`: Show this message and exit.
 
 Examples
@@ -3803,7 +3865,7 @@ $ hf repos tag list [OPTIONS] REPO_ID
 **Options**:
 
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--help`: Show this message and exit.
 
 Examples
@@ -3816,7 +3878,7 @@ Learn more
 
 ## `hf sandbox`
 
-Run and manage sandboxes on Hugging Face Jobs.
+Run and manage experimental sandboxes on Hugging Face Jobs.
 
 **Usage**:
 
@@ -3830,13 +3892,13 @@ $ hf sandbox [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
-* `cp`: Copy a file between the local machine and...
-* `create`: Create a sandbox: a dedicated VM by...
+* `cp`: Copy a file between the local machine and a sandbox (docker-style).
+* `create`: Create a sandbox: a dedicated VM by default, or a cheap shared one with `--pool`.
 * `exec`: Run a command in a sandbox, streaming output.
-* `kill`: Terminate a sandbox, a whole shared host,...
-* `pool`: Warm pools of host VMs and spawn cheap...
-* `process`: List and stop background processes running...
-* `spawn`: Start a long-running command in the...
+* `kill`: Terminate a sandbox, a whole shared host, or everything (--all).
+* `pool`: Warm host VM pools and spawn experimental shared sandboxes for workloads within the same trust boundary.
+* `process`: List and stop background processes running in a sandbox.
+* `spawn`: Start a long-running command in the background and return its pid (don't wait).
 
 ### `hf sandbox cp`
 
@@ -3893,9 +3955,10 @@ $ hf sandbox create [OPTIONS] [IMAGE]
 * `--flavor [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|rtx-pro-6000|rtx-pro-6000x2|rtx-pro-6000x4|rtx-pro-6000x8]`: Flavor for the hardware. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.
 * `--idle-timeout TEXT`: Auto-terminate the sandbox after this much inactivity (e.g. '10m'). Defaults to 10m.
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
-* `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
-* `--env-file TEXT`: Read in a file of environment variables.
-* `--secrets-file TEXT`: Read in a file of secret environment variables.
+* `-s, --secrets TEXT`: Set secret environment variables. Prefer `--secrets SECRET` to read the value from your environment (e.g. `--secrets HF_TOKEN` to pass your Hugging Face token); `--secrets SECRET=value` puts the value in your shell history.
+* `-l, --label TEXT`: Set labels. E.g. --label KEY=VALUE or --label LABEL
+* `--env-file TEXT`: Read in a file of environment variables. Use `-` to read them from stdin.
+* `--secrets-file TEXT`: Read in a file of secret environment variables. Use `-` to read them from stdin.
 * `-v, --volume TEXT`: Mount one or more volumes. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. TYPE is one of: models, datasets, spaces, buckets. TYPE defaults to models if omitted. models, datasets and spaces are always mounted read-only. buckets are read+write by default. E.g. -v hf://org/m:/data or -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--forward-hf-token`: Inject your HF token as HF_TOKEN in the sandbox.
@@ -3906,6 +3969,7 @@ Examples
   $ hf sandbox create
   $ hf sandbox create ubuntu:24.04
   $ hf sandbox create --flavor a10g-small
+  $ hf sandbox create --label controller-run=run-42
   $ hf sandbox create --pool pool-ab12cd34ef56 --env LOG_LEVEL=debug
 
 Learn more
@@ -3935,7 +3999,7 @@ $ hf sandbox exec [OPTIONS] SANDBOX_ID COMMAND...
 
 * `-w, --workdir TEXT`: Working directory.
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
-* `--env-file TEXT`: Read in a file of environment variables.
+* `--env-file TEXT`: Read in a file of environment variables. Use `-` to read them from stdin.
 * `--timeout FLOAT`: Kill the command after this many seconds.
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
@@ -3984,7 +4048,7 @@ Learn more
 
 ### `hf sandbox pool`
 
-Warm pools of host VMs and spawn cheap shared sandboxes from them.
+Warm host VM pools and spawn experimental shared sandboxes for workloads within the same trust boundary.
 
 **Usage**:
 
@@ -3998,9 +4062,9 @@ $ hf sandbox pool [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
-* `create`: Warm a pool: boot one host VM now, tagged...
-* `delete`: Terminate every host VM of a pool (and... [alias: rm]
-* `ls`: List running sandbox pools (grouped from... [alias: list]
+* `create`: Warm a pool: boot one host VM now, tagged so it can be found later by its pool id.
+* `delete`: Terminate every host VM of a pool (and therefore all its sandboxes). [alias: rm]
+* `ls`: List running sandbox pools (grouped from their host VMs). [alias: list]
 
 #### `hf sandbox pool create`
 
@@ -4105,8 +4169,8 @@ $ hf sandbox process [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
-* `kill`: Stop a background process running in a...
-* `ls`: List the background processes running in a... [alias: list]
+* `kill`: Stop a background process running in a sandbox.
+* `ls`: List the background processes running in a sandbox (started with `hf sandbox spawn`). [alias: list]
 
 #### `hf sandbox process kill`
 
@@ -4187,7 +4251,7 @@ $ hf sandbox spawn [OPTIONS] SANDBOX_ID COMMAND...
 
 * `-w, --workdir TEXT`: Working directory.
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
-* `--env-file TEXT`: Read in a file of environment variables.
+* `--env-file TEXT`: Read in a file of environment variables. Use `-` to read them from stdin.
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
@@ -4217,10 +4281,10 @@ $ hf skills [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
-* `add`: Install a Hugging Face skill for an AI...
-* `list`: List available skills from the Hugging... [alias: ls]
-* `preview`: Print the generated `hf-cli` SKILL.md to...
-* `update`: Update installed Hugging Face marketplace...
+* `add`: Install a Hugging Face skill for an AI assistant.
+* `list`: List available skills from the Hugging Face marketplace. [alias: ls]
+* `preview`: Print the generated `hf-cli` SKILL.md to stdout.
+* `update`: Update installed Hugging Face marketplace skills.
 
 ### `hf skills add`
 
@@ -4229,7 +4293,8 @@ Install a Hugging Face skill for an AI assistant.
 The default `hf-cli` skill is generated locally from the installed CLI version;
 other skills are downloaded from the Hugging Face marketplace.
 Default location is in the current directory (.agents/skills) or user-level (~/.agents/skills).
-If `--claude` is specified, the skill is also symlinked into Claude's legacy skills directory.
+The skill is also symlinked into Claude Code's skills directory (`.claude/skills` or `~/.claude/skills`,
+honoring `CLAUDE_CONFIG_DIR` when set), unless `--dest` is used.
 
 **Usage**:
 
@@ -4243,7 +4308,6 @@ $ hf skills add [OPTIONS] [NAME]
 
 **Options**:
 
-* `--claude`: Install for Claude.
 * `-g, --global`: Install globally (user-level) instead of in the current project directory.
 * `--dest PATH`: Install into a custom destination (path to skills directory).
 * `--force`: Overwrite existing skills in the destination.
@@ -4253,8 +4317,7 @@ Examples
   $ hf skills add
   $ hf skills add huggingface-gradio --dest=~/my-skills
   $ hf skills add --global
-  $ hf skills add --claude
-  $ hf skills add huggingface-gradio --claude --global
+  $ hf skills add huggingface-gradio --global
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -4315,7 +4378,6 @@ $ hf skills update [OPTIONS] [NAME]
 
 **Options**:
 
-* `--claude`: Update skills installed for Claude.
 * `-g, --global`: Use global skills directories instead of the current project.
 * `--dest PATH`: Update skills in a custom skills directory.
 * `--help`: Show this message and exit.
@@ -4324,7 +4386,7 @@ Examples
   $ hf skills update
   $ hf skills update hf-cli
   $ hf skills update huggingface-gradio --dest=~/my-skills
-  $ hf skills update --claude
+  $ hf skills update -g
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -4347,21 +4409,21 @@ $ hf spaces [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
-* `card`: Get the Space card (README) for a Space on...
+* `card`: Get the Space card (README) for a Space on the Hub.
 * `dev-mode`: Enable or disable dev mode on a Space.
 * `hardware`: List available hardware options for Spaces.
-* `hot-reload`: Hot-reload any Python file of a Space...
+* `hot-reload`: Hot-reload any Python file of a Space without a full rebuild + restart.
 * `info`: Get info about a space on the Hub.
-* `list`: List spaces on the Hub, or files in a... [alias: ls]
+* `list`: List spaces on the Hub, or files in a space repo. [alias: ls]
 * `logs`: Fetch the run or build logs of a Space.
 * `pause`: Pause a Space.
 * `restart`: Restart a Space.
-* `search`: Search spaces on the Hub using semantic...
+* `search`: Search spaces on the Hub using semantic search.
 * `secrets`: Manage secrets for a Space on the Hub.
 * `settings`: Update the settings of a Space.
 * `ssh`: SSH into a Space's Dev Mode container.
 * `templates`: List the available Space templates.
-* `variables`: Manage environment variables for a Space...
+* `variables`: Manage environment variables for a Space on the Hub.
 * `volumes`: Manage volumes for a Space on the Hub.
 * `wait`: Wait for a Space to finish building/starting.
 
@@ -4738,8 +4800,8 @@ $ hf spaces secrets add [OPTIONS] SPACE_ID
 
 **Options**:
 
-* `-s, --secrets TEXT`: Set secret environment variables. E.g. --secrets SECRET=value or `--secrets HF_TOKEN` to pass your Hugging Face token.
-* `--secrets-file TEXT`: Read in a file of secret environment variables.
+* `-s, --secrets TEXT`: Set secret environment variables. Prefer `--secrets SECRET` to read the value from your environment (e.g. `--secrets HF_TOKEN` to pass your Hugging Face token); `--secrets SECRET=value` puts the value in your shell history.
+* `--secrets-file TEXT`: Read in a file of secret environment variables. Use `-` to read them from stdin.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -4919,7 +4981,7 @@ $ hf spaces variables [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
-* `add`: Add or update environment variables for a...
+* `add`: Add or update environment variables for a Space.
 * `delete`: Remove an environment variable from a Space.
 * `list`: List environment variables for a Space. [alias: ls]
 
@@ -4940,7 +5002,7 @@ $ hf spaces variables add [OPTIONS] SPACE_ID
 **Options**:
 
 * `-e, --env TEXT`: Set environment variables. E.g. --env ENV=value
-* `--env-file TEXT`: Read in a file of environment variables.
+* `--env-file TEXT`: Read in a file of environment variables. Use `-` to read them from stdin.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -5213,7 +5275,7 @@ $ hf upload [OPTIONS] REPO_ID [LOCAL_PATH] [PATH_IN_REPO]
 
 **Options**:
 
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: (model)]
+* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: (model)]
 * `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
 * `--private / --no-private`: Whether to create a private repo if repo doesn't exist on the Hub. Ignored if the repo already exists.
 * `--include TEXT`: Glob patterns to match files to upload.
@@ -5232,43 +5294,6 @@ Examples
   $ hf upload Wauplin/my-cool-dataset ./data /train --repo-type=dataset
   $ hf upload Wauplin/my-cool-model ./models . --commit-message="Epoch 34/50" --commit-description="Val accuracy: 68%"
   $ hf upload bigcode/the-stack . . --repo-type dataset --create-pr
-
-Learn more
-  Use `hf <command> --help` for more information about a command.
-  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
-
-
-## `hf upload-large-folder`
-
-[Deprecated] Upload a large folder to the Hub. Use `hf upload` instead.
-
-**Usage**:
-
-```console
-$ hf upload-large-folder [OPTIONS] REPO_ID LOCAL_PATH
-```
-
-**Arguments**:
-
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
-* `LOCAL_PATH`: Local path to the folder to upload.  [required]
-
-**Options**:
-
-* `--type, --repo-type [model|dataset|space]`: The type of repository (model, dataset, or space).  [default: model]
-* `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
-* `--private / --no-private`: Whether to create a private repo if repo doesn't exist on the Hub. Ignored if the repo already exists.
-* `--include TEXT`: Glob patterns to match files to upload.
-* `--exclude TEXT`: Glob patterns to exclude from files to upload.
-* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--num-workers INTEGER`: Number of workers to use to hash, upload and commit files.
-* `--no-report / --no-no-report`: Whether to disable regular status report.  [default: no-no-report]
-* `--no-bars / --no-no-bars`: Whether to disable progress bars.  [default: no-no-bars]
-* `--help`: Show this message and exit.
-
-Examples
-  $ hf upload-large-folder Wauplin/my-cool-model ./large_model_dir
-  $ hf upload-large-folder Wauplin/my-cool-model ./large_model_dir --revision v1.0
 
 Learn more
   Use `hf <command> --help` for more information about a command.

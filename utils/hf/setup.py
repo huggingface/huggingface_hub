@@ -29,7 +29,7 @@ setup(
     url="https://github.com/huggingface/huggingface_hub",
     packages=["hf"],  # dummy package to raise ImportError on import
     entry_points={"console_scripts": ["hf=huggingface_hub.cli.hf:main"]},
-    python_requires=">=3.9.0",
+    python_requires=">=3.10.0",
     install_requires=install_requires,
     classifiers=[],
 )

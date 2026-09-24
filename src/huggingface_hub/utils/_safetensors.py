@@ -7,7 +7,7 @@ from typing import Literal
 
 FILENAME_T = str
 TENSOR_NAME_T = str
-DTYPE_T = Literal["F64", "F32", "F16", "BF16", "I64", "I32", "I16", "I8", "U8", "BOOL"]
+DTYPE_T = Literal["F64", "F32", "F16", "BF16", "I64", "I32", "I16", "I8", "U8", "U3", "BOOL"]
 
 
 @dataclass
@@ -18,7 +18,7 @@ class TensorInfo:
 
     Attributes:
         dtype (`str`):
-            The data type of the tensor ("F64", "F32", "F16", "BF16", "I64", "I32", "I16", "I8", "U8", "BOOL").
+            The data type of the tensor ("F64", "F32", "F16", "BF16", "I64", "I32", "I16", "I8", "U8", "U3", "BOOL").
         shape (`list[int]`):
             The shape of the tensor.
         data_offsets (`tuple[int, int]`):

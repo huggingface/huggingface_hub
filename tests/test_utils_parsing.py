@@ -86,6 +86,14 @@ def test_parse_duration_invalid(value):
         (1000, "17 minutes ago"),
         (4000, "1 hour ago"),
         (8000, "2 hours ago"),
+        # Unit boundaries must roll over to the next unit, not show e.g.
+        # "60 seconds ago" / "60 minutes ago" / "24 hours ago".
+        (59, "59 seconds ago"),
+        (60, "1 minute ago"),
+        (59 * 60, "59 minutes ago"),
+        (60 * 60, "1 hour ago"),
+        (23 * 60 * 60, "23 hours ago"),
+        (24 * 60 * 60, "1 day ago"),
     ],
 )
 def test_format_timesince(value, expected):

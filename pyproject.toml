@@ -45,7 +45,7 @@ markers = [
     "no_xet: test must run without `hf_xet`; skipped if `hf_xet` is installed",
     "inference: inference test (client, providers, types); runs in the dedicated 'Inference only' CI job",
     "production: test runs against the production Hub endpoint (patches `ENDPOINT` and the download URL template, like the former `with_production_testing` decorator)",
-    "deprecated: test is expected to emit a `FutureWarning` mentioning the given function name(s), e.g. `@pytest.mark.deprecated('duplicate_space')`",
+    "deprecated: test is expected to emit a `FutureWarning` mentioning the given function name(s), e.g. `@pytest.mark.deprecated('some_deprecated_method')`",
     "git_lfs: test requires git-lfs; skipped unless the `RUN_GIT_LFS_TESTS` environment variable is truthy",
 ]
 # The defined variables will be added to the environment before any tests are
@@ -83,7 +83,10 @@ line-length = 119
 # Ignored rules:
 # "E501" -> line length violation
 lint.ignore = ["E501"]
-lint.select = ["E", "F", "I", "W"]
+lint.select = ["E", "F", "I", "TID251", "W"]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"re.match".msg = "`re.match` is soft-deprecated (it only anchors the prefix). Use `re.fullmatch` for a whole-string match, or `re.search` with an explicit `^` anchor for a prefix match."
 
 [tool.ruff.lint.isort]
 known-first-party = ["huggingface_hub"]
