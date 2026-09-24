@@ -1,4 +1,9 @@
+from types import SimpleNamespace
+from unittest.mock import patch
+
+import huggingface_hub.utils._xet_progress_reporting as xet_progress
 from huggingface_hub.utils._xet_progress_reporting import (
+    XetUploadProgressReporter,
     _finish_transfer_bar,
     _format_speed_postfix,
     _set_aggregate_rate_postfix,
@@ -32,6 +37,71 @@ class _RateBar:
 
     def set_postfix_str(self, postfix: str, refresh: bool = False) -> None:
         self.postfix = postfix
+
+
+class _PositionBar:
+    @staticmethod
+    def format_sizeof(value):
+        return str(value)
+
+    def __init__(self, *args, **kwargs):
+        self.pos = -kwargs["position"]
+        self.n = kwargs.get("initial", 0)
+        self.total = kwargs.get("total", 0)
+        self.cleared = False
+
+    def clear(self):
+        self.cleared = True
+
+    def refresh(self):
+        pass
+
+    def update(self, n):
+        self.n += n
+
+    def set_description(self, *args, **kwargs):
+        pass
+
+    def set_postfix_str(self, *args, **kwargs):
+        pass
+
+    def close(self):
+        pass
+
+
+def test_validating_bar_starts_with_shards_and_moves_before_next_file_bar():
+    def report(total_shards):
+        return SimpleNamespace(
+            total_bytes=20,
+            total_bytes_completed=10,
+            total_bytes_completion_rate=None,
+            total_transfer_bytes=20,
+            total_transfer_bytes_completed=10,
+            total_transfer_bytes_completion_rate=None,
+            shard=SimpleNamespace(
+                total_shards=total_shards,
+                total_shards_completed=0,
+                total_shard_validation_entries=0,
+                total_shard_validation_entries_completed=0,
+            ),
+        )
+
+    def item(name):
+        return SimpleNamespace(item_name=name, bytes_completed=5, total_bytes=10)
+
+    with patch.object(xet_progress, "tqdm", _PositionBar):
+        reporter = XetUploadProgressReporter(n_lines=2)
+        reporter.per_file_progress = True
+        reporter.update_progress(report(0), {"a": item("a")})
+        assert reporter.validating_bar is None
+
+        reporter.update_progress(report(1), {"a": item("a")})
+        assert reporter.validating_bar.pos == -3
+
+        reporter.update_progress(report(1), {"a": item("a"), "b": item("b")})
+        assert reporter.validating_bar.cleared
+        assert reporter.validating_bar.pos == -4
+        assert reporter.current_bars[1].pos == -3
 
 
 class TestXetProgressBarHelpers:

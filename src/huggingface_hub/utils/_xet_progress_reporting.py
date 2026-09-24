@@ -234,7 +234,7 @@ class XetUploadProgressReporter:
         # Single Validating bar created lazily on the first shard event.
         # Covers shard upload / validation / sync without exposing "shard" jargon.
         # Positioned dynamically after the active per-file bars (see _validating_bar_position).
-        self.validating_bar: "tqdm | None" = None
+        self.validating_bar: tqdm | None = None
 
         self.known_items: set[str] = set()
         self.completed_items: set[str] = set()
@@ -332,6 +332,11 @@ class XetUploadProgressReporter:
                 in_final_bar_mode = False
 
             if bar is None:
+                # Move Validating before creating a file bar in its current row.
+                if self.validating_bar is not None and self.validating_bar.pos == -(_NUM_OVERVIEW_BARS + bar_idx):
+                    self.validating_bar.clear()
+                    self.validating_bar.pos -= 1
+                    self.validating_bar.refresh()
                 self.current_bars[bar_idx] = tqdm(
                     desc=self.format_desc(name, True),
                     position=_NUM_OVERVIEW_BARS + bar_idx,
@@ -393,7 +398,7 @@ class XetUploadProgressReporter:
         # counts when entries are absent (e.g. V1 synthetic Result with no Validating frames).
         # Set absolute n/total for the current commit; reset_for_next_commit restarts at 0%.
         shard = getattr(group_report, "shard", None)
-        if shard is not None:
+        if shard is not None and shard.total_shards > 0:
             if self.validating_bar is None:
                 self._init_validating_bar()
 
@@ -410,7 +415,7 @@ class XetUploadProgressReporter:
             self.validating_bar.total = total_n or None
             self.validating_bar.n = done_n
             # Keep Validating snug under the active file bars as more slots fill in.
-            self.validating_bar.pos = self._validating_bar_position()
+            self.validating_bar.pos = -self._validating_bar_position()
             self.validating_bar.refresh()
 
     def close(self):

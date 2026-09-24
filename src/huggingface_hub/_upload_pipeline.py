@@ -229,7 +229,7 @@ class _LiveDisplay:
                         self._xet_done.add(item.item_name)
 
                 shard = getattr(group_report, "shard", None)
-                if shard is not None:
+                if shard is not None and shard.total_shards > 0:
                     self._shard_active = True
 
                     v = shard.total_shard_validation_entries_completed
