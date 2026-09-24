@@ -355,16 +355,16 @@ class FilterMatcher:
         """
         # First check filter rules from file (in order)
         for sign, pattern in self.filter_rules:
-            if fnmatch.fnmatch(path, pattern):
+            if fnmatch.fnmatchcase(path, pattern):
                 return sign == "+"
 
         # Then check CLI patterns
         for pattern in self.exclude_patterns:
-            if fnmatch.fnmatch(path, pattern):
+            if fnmatch.fnmatchcase(path, pattern):
                 return False
 
         for pattern in self.include_patterns:
-            if fnmatch.fnmatch(path, pattern):
+            if fnmatch.fnmatchcase(path, pattern):
                 return True
 
         # If include patterns were specified but none matched, exclude

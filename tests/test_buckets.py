@@ -19,7 +19,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from huggingface_hub import HfApi
-from huggingface_hub._buckets import BucketFile, BucketInfo, SyncOperation, SyncPlan, _execute_plan
+from huggingface_hub._buckets import BucketFile, BucketInfo, FilterMatcher, SyncOperation, SyncPlan, _execute_plan
 from huggingface_hub._jobs_api import _derive_job_volume_name
 from huggingface_hub.errors import BucketBatchError, BucketNotFoundError, EntryNotFoundError, HfHubHTTPError
 
@@ -640,6 +640,15 @@ def test_execute_plan_rejects_path_traversal(tmp_path):
     with pytest.raises(ValueError, match="Invalid filename"):
         _execute_plan(plan, api)
     assert outside.exists()  # not deleted
+
+
+def test_filter_matcher_is_case_sensitive():
+    # Bucket paths are case-sensitive, so matching must not depend on the OS (fnmatch ignores case on Windows).
+    assert FilterMatcher(exclude_patterns=["*.LOG"]).matches("debug.log")
+    assert not FilterMatcher(exclude_patterns=["*.log"]).matches("debug.log")
+    assert not FilterMatcher(include_patterns=["Data/*"]).matches("data/x.bin")
+    assert FilterMatcher(include_patterns=["data/*"]).matches("data/x.bin")
+    assert FilterMatcher(filter_rules=[("-", "*.TMP")]).matches("a.tmp")
 
 
 def test_batch_bucket_files_raises_on_failed_operations(api: HfApi, bucket_write: str, mocker):
