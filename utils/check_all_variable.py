@@ -20,7 +20,7 @@ import re
 from pathlib import Path
 from typing import NoReturn
 
-from huggingface_hub import _SUBMOD_ATTRS
+from helpers import read_literal_assignment
 
 
 INIT_FILE_PATH = Path(__file__).parents[1] / "src" / "huggingface_hub" / "__init__.py"
@@ -62,9 +62,10 @@ def parse_all_definition(content: str) -> list[str]:
 def check_static_all(update: bool) -> NoReturn:
     """Check if __all__ is aligned with _SUBMOD_ATTRS or update it."""
     content = INIT_FILE_PATH.read_text()
-    new_all = format_all_definition(_SUBMOD_ATTRS)
+    submod_attrs = read_literal_assignment(content, "_SUBMOD_ATTRS")
+    new_all = format_all_definition(submod_attrs)
 
-    expected_items = sorted(attr for attrs in _SUBMOD_ATTRS.values() for attr in attrs)
+    expected_items = sorted(attr for attrs in submod_attrs.values() for attr in attrs)
 
     current_items = list(parse_all_definition(content))
 

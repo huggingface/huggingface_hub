@@ -14,11 +14,29 @@
 # limitations under the License.
 """Contains helpers used by the scripts in `./utils`."""
 
+import ast
 import subprocess
 import tempfile
 from pathlib import Path
 
 from ruff.__main__ import find_ruff_bin
+
+
+def read_literal_assignment(content: str, name: str):
+    """Read a module-level literal without importing or executing the source."""
+    values = []
+    for statement in ast.parse(content).body:
+        if isinstance(statement, ast.Assign):
+            targets = statement.targets
+        elif isinstance(statement, ast.AnnAssign):
+            targets = [statement.target]
+        else:
+            continue
+        if any(isinstance(target, ast.Name) and target.id == name for target in targets):
+            values.append(statement.value)
+    if len(values) != 1:
+        raise ValueError(f"Expected exactly one literal assignment to {name}.")
+    return ast.literal_eval(values[0])
 
 
 def check_and_update_file_content(file: Path, expected_content: str, update: bool):
