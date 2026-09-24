@@ -103,6 +103,7 @@ from .utils import (
     SafetensorsParsingError,
     SafetensorsRepoMetadata,
     TensorInfo,
+    are_progress_bars_disabled,
     build_hf_headers,
     chunk_iterable,
     experimental,
@@ -14048,7 +14049,6 @@ class HfApi:
         *,
         token: str | bool | None = None,
     ) -> None:
-
         from ._commit_api import CommitOperationCopy
 
         destination_path = destination.path_in_repo
@@ -14374,7 +14374,6 @@ class HfApi:
                         "mtime": op.mtime,
                         "sourceRepoType": op.source_repo_type,
                         "sourceRepoId": op.source_repo_id,
-                        "mtime": op.mtime,
                     }
                 else:
                     payload = {
