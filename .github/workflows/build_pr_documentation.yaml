@@ -15,3 +15,4 @@ jobs:
       pr_number: ${{ github.event.number }}
       package: huggingface_hub
       languages: cn de fr en hi ko or ta
+      pre_command: uv pip install 'httpx2>=2.0.0'

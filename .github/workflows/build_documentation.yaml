@@ -14,5 +14,6 @@ jobs:
       commit_sha: ${{ github.sha }}
       package: huggingface_hub
       languages: cn de fr en hi ko or ta
+      pre_command: uv pip install 'httpx2>=2.0.0'
     secrets:
       hf_token: ${{ secrets.HF_DOC_BUILD_PUSH }}
