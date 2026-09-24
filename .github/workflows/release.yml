@@ -1,8 +1,9 @@
 # Unified release workflow for huggingface_hub.
 #
-# This workflow handles the full release lifecycle through a single workflow_dispatch trigger. It supports three release
-# types: "minor-prerelease" to publish a release candidate, "minor-release" to publish the final version, and
-# "patch-release" to publish a bugfix on an existing release branch.
+# This workflow handles the full release lifecycle through a single workflow_dispatch trigger. It supports five release
+# types: "minor-prerelease" to publish a release candidate, "minor-release" to publish the final version,
+# "major-prerelease" / "major-release" to do the same for the next major version, and "patch-release" to publish a
+# bugfix on an existing release branch.
 #
 # For a typical minor release, the process is as follows. First, trigger a "minor-prerelease" run from main. This creates
 # a release branch (e.g., v1.6-release), bumps the version to an RC (e.g., 1.6.0.rc0), publishes it to PyPI, creates a
@@ -12,9 +13,14 @@
 # the version to the final release (e.g., 1.6.0), publishes to PyPI, updates the existing draft release
 # to point to the final tag, and opens a PR to bump main to the next dev version (e.g., 1.7.0.dev0).
 #
+# A major release follows the exact same process using "major-prerelease" and "major-release". The only difference is the
+# version: with main at 1.33.0.dev0, a "major-prerelease" run creates the v2.0-release branch and publishes 2.0.0.rc0,
+# and the "major-release" run publishes 2.0.0 and bumps main to 2.1.0.dev0. If main has already been bumped to the next
+# major version (e.g. 2.0.0.dev0), use "minor-prerelease" / "minor-release" instead.
+#
 # For a patch release, cherry-pick fixes to the release branch first, then trigger a "patch-release" run. This increments
 # the patch version (e.g., 1.6.1), publishes to PyPI, and creates a GitHub release. Patch releases are NOT marked as
-# "latest release" on GitHub — only minor releases get that label, so that the latest minor version stays highlighted.
+# "latest release" on GitHub — only minor and major releases get that label, so that the latest minor version stays highlighted.
 #
 # The workflow uses GITHUB_TOKEN for most git operations (branch creation, tag push) and a GitHub App token
 # (huggingface-hub-bot) for PR creation in the post-release job. If a publish job fails, re-run it from the
@@ -57,6 +63,8 @@ on:
           - minor-prerelease
           - minor-release
           - patch-release
+          - major-prerelease
+          - major-release
 
 
 permissions: {}
@@ -107,12 +115,26 @@ jobs:
         run: |
           set -euo pipefail
 
-          case "$RELEASE_TYPE" in
-            minor-prerelease)
-              # Read dev version from __init__.py: "1.6.0.dev0" → "1.6.0"
-              DEV_VERSION=$(grep -oP '__version__ = "\K[^"]+' src/huggingface_hub/__init__.py)
-              BASE_VERSION=$(echo "$DEV_VERSION" | sed 's/\.dev0//')
+          # Read dev version from __init__.py: "1.6.0.dev0"
+          DEV_VERSION=$(grep -oP '__version__ = "\K[^"]+' src/huggingface_hub/__init__.py)
 
+          # Target version (without RC suffix) for minor/major releases: "1.6.0.dev0" → "1.6.0" (minor) or "2.0.0" (major)
+          case "$RELEASE_TYPE" in
+            minor-prerelease|minor-release)
+              BASE_VERSION="${DEV_VERSION%.dev0}"
+              ;;
+            major-prerelease|major-release)
+              IFS='.' read -r DEV_MAJOR DEV_MINOR DEV_PATCH _ <<< "$DEV_VERSION"
+              if [[ "$DEV_MINOR" == "0" && "$DEV_PATCH" == "0" ]]; then
+                echo "::error::main is already at ${DEV_VERSION}. Use minor-prerelease / minor-release instead."
+                exit 1
+              fi
+              BASE_VERSION="$((DEV_MAJOR + 1)).0.0"
+              ;;
+          esac
+
+          case "$RELEASE_TYPE" in
+            minor-prerelease|major-prerelease)
               # Find existing RC tags for this base version to determine next RC number
               LATEST_RC=$(git tag --sort=-v:refname | grep "^v${BASE_VERSION}\.rc" | head -1 || echo "")
               if [[ -n "$LATEST_RC" ]]; then
@@ -124,10 +146,8 @@ jobs:
 
               VERSION="${BASE_VERSION}.rc${RC_NUM}"
               ;;
-            minor-release)
-              # Read dev version from __init__.py to scope the RC lookup to this minor version
-              DEV_VERSION=$(grep -oP '__version__ = "\K[^"]+' src/huggingface_hub/__init__.py)
-              BASE_VERSION=$(echo "$DEV_VERSION" | sed 's/\.dev0//')
+            minor-release|major-release)
+              # Promote the latest RC of this base version
               LATEST_RC=$(git tag --sort=-v:refname | grep -E "^v${BASE_VERSION}\.rc[0-9]+$" | head -1 || echo "")
               if [[ -z "$LATEST_RC" ]]; then
                 echo "::error::No RC tag found for v${BASE_VERSION}. Run a prerelease first."
@@ -169,7 +189,7 @@ jobs:
           else
             # Prerelease or release: PRs since the last stable release
             SINCE_TAG=$(git tag --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1 || echo "")
-            BUMP_TYPE="minor"
+            BUMP_TYPE="${RELEASE_TYPE%%-*}"  # "minor" or "major"
           fi
 
           # Validate: tag must not already exist
@@ -216,6 +236,8 @@ jobs:
             minor-prerelease) TYPE_EMOJI="🏗️" TYPE_LABEL="Pre-release" ;;
             minor-release)    TYPE_EMOJI="🚢" TYPE_LABEL="Release" ;;
             patch-release)    TYPE_EMOJI="🐛" TYPE_LABEL="Patch" ;;
+            major-prerelease) TYPE_EMOJI="🏗️" TYPE_LABEL="Major pre-release" ;;
+            major-release)    TYPE_EMOJI="🚀" TYPE_LABEL="Major release" ;;
           esac
 
           TEXT="${TYPE_EMOJI} *${TYPE_LABEL} \`${TAG}\` started*"$'\n'">Branch: \`${BRANCH}\` • Triggered by <${ACTOR_URL}|@${ACTOR}> • <${RUN_URL}|View run>"
@@ -238,8 +260,8 @@ jobs:
           BRANCH="${{ steps.version.outputs.branch }}"
           RELEASE_TYPE="${{ inputs.release_type }}"
 
-          if [[ "$RELEASE_TYPE" == "minor-prerelease" ]]; then
-            # For minor-prerelease: create branch from main if it doesn't exist, or reuse existing
+          if [[ "$RELEASE_TYPE" == *-prerelease ]]; then
+            # For prereleases: create branch from main if it doesn't exist, or reuse existing
             if git ls-remote --heads origin "$BRANCH" | grep -q "$BRANCH"; then
               echo "Branch $BRANCH already exists, checking out..."
               git fetch origin "$BRANCH"
@@ -403,10 +425,10 @@ jobs:
   #
   # Strategy per release type (one GitHub release per minor version):
   #   - patch-release:    create a new draft release with GitHub auto-generated notes.
-  #   - minor-prerelease: if no draft release exists for this minor version, generate
+  #   - minor-prerelease / major-prerelease: if no draft release exists for this minor version, generate
   #                        notes using the AI script and create a draft prerelease.
   #                        Subsequent prereleases for the same minor are no-ops.
-  #   - minor-release:    find the existing draft prerelease and update its tag/title
+  #   - minor-release / major-release: find the existing draft prerelease and update its tag/title
   #                        to the final version (removing prerelease flag).
   # ============================================================
   release-notes:
@@ -433,7 +455,7 @@ jobs:
 
       # --- Prerelease: generate notes only if no draft exists for this minor ---
       - name: Check for existing draft release
-        if: ${{ inputs.release_type == 'minor-prerelease' }}
+        if: ${{ endsWith(inputs.release_type, '-prerelease') }}
         id: check_draft
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -451,23 +473,23 @@ jobs:
           fi
 
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
-        if: ${{ inputs.release_type == 'minor-prerelease' && steps.check_draft.outputs.skip != 'true' }}
+        if: ${{ endsWith(inputs.release_type, '-prerelease') && steps.check_draft.outputs.skip != 'true' }}
         with:
           python-version: "3.12"
       - name: Install dependencies
-        if: ${{ inputs.release_type == 'minor-prerelease' && steps.check_draft.outputs.skip != 'true' }}
+        if: ${{ endsWith(inputs.release_type, '-prerelease') && steps.check_draft.outputs.skip != 'true' }}
         run: pip install PyGithub
 
       - name: Install OpenCode
-        if: ${{ inputs.release_type == 'minor-prerelease' && steps.check_draft.outputs.skip != 'true' }}
+        if: ${{ endsWith(inputs.release_type, '-prerelease') && steps.check_draft.outputs.skip != 'true' }}
         run: curl -fsSL https://opencode.ai/install | bash -s -- --version ${{ vars.OPENCODE_VERSION }}
 
       - name: Verify OpenCode checksum
-        if: ${{ inputs.release_type == 'minor-prerelease' && steps.check_draft.outputs.skip != 'true' }}
+        if: ${{ endsWith(inputs.release_type, '-prerelease') && steps.check_draft.outputs.skip != 'true' }}
         run: echo "${{ vars.OPENCODE_SHA256 }}  $(which opencode)" | sha256sum -c -
 
       - name: Generate release notes with OpenCode
-        if: ${{ inputs.release_type == 'minor-prerelease' && steps.check_draft.outputs.skip != 'true' }}
+        if: ${{ endsWith(inputs.release_type, '-prerelease') && steps.check_draft.outputs.skip != 'true' }}
         env:
           HF_TOKEN: ${{ secrets.RELEASE_NOTES_HF_TOKEN }}
           GITHUB_TOKEN_RELEASE_NOTES: ${{ secrets.GITHUB_TOKEN }}
@@ -478,7 +500,7 @@ jobs:
             --${{ needs.prepare.outputs.bump_type }}
 
       - name: Create draft GitHub release (prerelease)
-        if: ${{ inputs.release_type == 'minor-prerelease' && steps.check_draft.outputs.skip != 'true' }}
+        if: ${{ endsWith(inputs.release_type, '-prerelease') && steps.check_draft.outputs.skip != 'true' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -510,7 +532,7 @@ jobs:
       # Collecting both every week lets us compare the model output against the human
       # edits and improve the generation prompt over time.
       - name: Upload raw release notes to bucket
-        if: ${{ inputs.release_type == 'minor-prerelease' && steps.check_draft.outputs.skip != 'true' }}
+        if: ${{ endsWith(inputs.release_type, '-prerelease') && steps.check_draft.outputs.skip != 'true' }}
         env:
           HF_TOKEN: ${{ secrets.RELEASE_BUCKET_HF_TOKEN }}
         run: |
@@ -539,7 +561,7 @@ jobs:
 
       # --- Minor release: update existing draft to point to the final tag ---
       - name: Promote draft release to final version
-        if: ${{ inputs.release_type == 'minor-release' }}
+        if: ${{ inputs.release_type == 'minor-release' || inputs.release_type == 'major-release' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -731,7 +753,7 @@ jobs:
     needs: [prepare, release-notes]
     # Use !cancelled() so this job runs even if release-notes failed (we fetch the draft directly from GitHub).
     # This also allows re-running this job after manually editing the draft release notes.
-    if: ${{ !cancelled() && needs.prepare.result == 'success' && inputs.release_type == 'minor-release' }}
+    if: ${{ !cancelled() && needs.prepare.result == 'success' && (inputs.release_type == 'minor-release' || inputs.release_type == 'major-release') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -960,7 +982,7 @@ jobs:
     permissions:
       contents: read   # write operations use app token
     needs: [prepare, publish-pypi]
-    if: ${{ inputs.release_type == 'minor-release' }}
+    if: ${{ inputs.release_type == 'minor-release' || inputs.release_type == 'major-release' }}
     runs-on: ubuntu-latest
     steps:
       - name: Create GitHub App token
@@ -993,8 +1015,9 @@ jobs:
 
           # Guard: skip if main already has an equal or higher version
           CURRENT_VERSION=$(grep -oP '__version__ = "\K[^"]+' src/huggingface_hub/__init__.py)
+          CURRENT_MAJOR=$(echo "$CURRENT_VERSION" | cut -d. -f1)
           CURRENT_MINOR=$(echo "$CURRENT_VERSION" | cut -d. -f2)
-          if [[ "$CURRENT_MINOR" -ge "$NEXT_MINOR" ]]; then
+          if [[ "$CURRENT_MAJOR" -gt "$MAJOR" || ( "$CURRENT_MAJOR" -eq "$MAJOR" && "$CURRENT_MINOR" -ge "$NEXT_MINOR" ) ]]; then
             echo "::warning::main is already at ${CURRENT_VERSION} (>= ${DEV_VERSION}). Skipping version bump."
             exit 0
           fi
@@ -1156,7 +1179,7 @@ jobs:
     permissions:
       contents: read   # write operations use app token
     needs: [prepare, publish-pypi]
-    if: ${{ inputs.release_type != 'minor-prerelease' }}
+    if: ${{ !endsWith(inputs.release_type, '-prerelease') }}
     runs-on: ubuntu-latest
     steps:
       - name: Create GitHub App token
@@ -1313,6 +1336,8 @@ jobs:
             minor-prerelease) TYPE_LABEL="Pre-release" ;;
             minor-release)    TYPE_LABEL="Release" ;;
             patch-release)    TYPE_LABEL="Patch" ;;
+            major-prerelease) TYPE_LABEL="Major pre-release" ;;
+            major-release)    TYPE_LABEL="Major release" ;;
           esac
 
           if [[ "$FAILED" == "true" ]]; then
