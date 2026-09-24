@@ -258,6 +258,7 @@ _SUBMOD_ATTRS = {
         "disable_webhook",
         "download_bucket_files",
         "duplicate_repo",
+        "edit_bucket_file",
         "edit_discussion_comment",
         "enable_space_dev_mode",
         "enable_webhook",
@@ -992,6 +993,7 @@ __all__ = [
     "download_bucket_files",
     "dump_environment_info",
     "duplicate_repo",
+    "edit_bucket_file",
     "edit_discussion_comment",
     "enable_space_dev_mode",
     "enable_webhook",
@@ -1452,6 +1454,7 @@ if TYPE_CHECKING:  # pragma: no cover
         disable_webhook,  # noqa: F401
         download_bucket_files,  # noqa: F401
         duplicate_repo,  # noqa: F401
+        edit_bucket_file,  # noqa: F401
         edit_discussion_comment,  # noqa: F401
         enable_space_dev_mode,  # noqa: F401
         enable_webhook,  # noqa: F401

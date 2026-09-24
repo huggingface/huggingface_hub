@@ -9,6 +9,18 @@ from .testing_utils import repo_name
 
 pytestmark = pytest.mark.xet
 
+try:
+    from hf_xet import XetSession
+
+    HAS_XET_RANGE_UPLOAD = hasattr(XetSession, "new_range_upload")
+except ImportError:
+    HAS_XET_RANGE_UPLOAD = False
+
+# Append and edit modes rely on xet range uploads, only available in recent versions of `hf_xet`.
+requires_xet_range_upload = pytest.mark.skipif(
+    not HAS_XET_RANGE_UPLOAD, reason="Append/edit modes require a version of hf_xet supporting range uploads."
+)
+
 
 class TestHfFileSystemBucketRO(_HfFileSystemBucketChecks, _HfFileSystemBaseROTests):
     __test__ = True
@@ -83,19 +95,41 @@ class TestHfFileSystemBucketRW(_HfFileSystemBucketChecks, _HfFileSystemBaseRWTes
         yield
         self.api.delete_bucket(self.bucket_id)
 
+    @requires_xet_range_upload
     def test_append_file(self):
-        with self.hffs.open(self.text_file, "a") as f:
-            f.write(" appended text")
+        with self.hffs.open(self.text_file, "ab") as f:
+            f.write(b" appended text")
 
         with self.hffs.open(self.text_file, "r") as f:
             assert f.read() == "dummy text data appended text"
 
+    @requires_xet_range_upload
     def test_edit_file(self):
-        with self.hffs.open(self.text_file, "e") as f:
-            f.insert(0, "this is ")
-            f.edit((8, 13), "a fantastic")
+        with self.hffs.open(self.text_file, "eb") as f:
+            f.insert(0, b"this is ")
+            f.edit((8, 13), b"a fantastic")
             f.delete(24, 5)
-            f.append("!")
+            f.append(b"!")
 
         with self.hffs.open(self.text_file, "r") as f:
             assert f.read() == "this is a fantastic text!"
+
+    @requires_xet_range_upload
+    def test_edit_file_truncate_and_seek(self):
+        with self.hffs.open(self.text_file, "eb") as f:
+            f.seek(6)
+            f.truncate()  # truncate at current location
+
+        with self.hffs.open(self.text_file, "r") as f:
+            assert f.read() == "dummy "
+
+        with pytest.raises(ValueError):
+            with self.hffs.open(self.text_file, "eb") as f:
+                f.seek(1000)  # past end of file
+
+    def test_edit_modes_are_binary_only(self):
+        with pytest.raises(NotImplementedError, match="Only binary modes"):
+            self.hffs.open(self.text_file, "a")
+
+        with pytest.raises(NotImplementedError, match="Only binary modes"):
+            self.hffs.open(self.text_file, "e")

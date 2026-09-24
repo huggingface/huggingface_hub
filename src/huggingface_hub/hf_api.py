@@ -14717,9 +14717,7 @@ class HfApi:
         *,
         bucket_id: str,
         remote_path: str,
-        edit: list[tuple[tuple[int, int], bytes]] | None = None,
-        insert: list[tuple[int, bytes]] | None = None,
-        delete: list[tuple[int, int]] | None = None,
+        edits: list[tuple[int, int, bytes]],
         token: bool | str | None = None,
     ) -> None:
         """Edit an existing file in a bucket in-place, only re-uploading the parts the caller actually rewrites.
@@ -14731,27 +14729,39 @@ class HfApi:
                 The ID of the bucket (e.g. `"username/my-bucket"`).
             remote_path (`str`):
                 The file to edit.
-            edit (`list[tuple[tuple[int, int], bytes]]`, *optional*):
-                List edits to apply, in the form `((start, end), data)`.
-                Ranges [`start`, `end`] are replaced with `data`, which can
-                be of any size (not necessarily the size of the replaced range).
-            insert (`list[tuple[int, bytes]]`, *optional*):
-                List of inserts to apply, in the form `(loc, data)`.
-                The content of `data` is inserted at location `loc`, and shifts
-                the rest of the file.
-            delete (`list[tuple[int, bytes]]`, *optional*):
-                List of deletes to apply, in the form `(loc, length)`.
-                The range [`loc`, `loc + length`) is deleted.
+            edits (`list[tuple[int, int, bytes]]`):
+                List of edits to apply, in the form `(start, end, data)`.
+                The range [`start`, `end`) is replaced with `data`, which can be of any
+                size (not necessarily the size of the replaced range). Both an insert and
+                a delete are special cases of an edit:
+                - edit: `(0, 16, b"new data")` replaces the first 16 bytes.
+                - insert: `(32, 32, b"new data")` inserts data at location 32 and shifts the rest of the file.
+                - delete: `(64, 80, b"")` deletes the bytes from location 64 to 80.
+                All the locations refer to the file as it currently is on the Hub, meaning the
+                edits apply at the same time: they must not overlap and their order doesn't matter.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Example:
+            ```python
+            >>> from huggingface_hub import HfApi
+            >>> api = HfApi()
+            >>> api.edit_bucket_file(
+            ...     bucket_id="username/my-bucket",
+            ...     remote_path="file.bin",
+            ...     edits=[
+            ...         (0, 16, b"updated data"),  # edit the first 16 bytes
+            ...         (32, 32, b"inserted data"),  # insert data at location 32
+            ...         (64, 80, b""),  # delete the bytes from 64 to 80
+            ...     ],
+            ... )
+            ```
         """
-        if edit:
-            edit = [
-                ((start, end), data) for (start, end), data in edit if start < end or (start == end and len(data) > 0)
-            ]
-        if insert:
-            insert = [(loc, data) for loc, data in insert if len(data) > 0]
-        if delete:
-            delete = [(loc, length) for loc, length in delete if length > 0]
-        if not (edit or insert or delete):
+        edits = [(start, end, data) for start, end, data in edits if start != end or data]
+        if not edits:
             return
         from .utils._xet_progress_reporting import XetUploadProgressReporter
 
@@ -14764,9 +14774,8 @@ class HfApi:
         self._edit_bucket_file(
             bucket_id=bucket_id,
             remote_path=remote_path,
-            edit=edit,
-            insert=insert,
-            delete=delete,
+            edits=edits,
+            token=token,
             _progress=_progress,
             _file_hash=file_metadata.xet_file_data.file_hash,
             _file_size=file_metadata.size,
@@ -14777,16 +14786,14 @@ class HfApi:
         *,
         bucket_id: str,
         remote_path: str,
-        edit: list[tuple[tuple[int, int], bytes]] | None = None,
-        insert: list[tuple[int, bytes]] | None = None,
-        delete: list[tuple[int, int]] | None = None,
+        edits: list[tuple[int, int, bytes]],
         token: bool | str | None = None,
         _progress: XetUploadProgressReporter | None = None,
         _file_hash: str | None = None,
         _file_size: int | None = None,
     ) -> str:
         """
-        Internal method: process a single batch of bucket file mutate operations (upload to XET + call /batch).
+        Internal method: process a single batch of bucket file edits (upload to XET + call /batch).
         Returns the new file's xet hash.
         """
         from .utils._xet import (
@@ -14835,20 +14842,15 @@ class HfApi:
                 custom_headers=xet_headers,
                 progress_callback=progress_callback,
             )
-            logger.debug(
-                f"About to commit to a file on the hub: {len(edit or [])} edit(s), {len(insert or [])} insert(s) and"
-                f" {len(delete or [])} deletion(s)."
-            )
+            logger.debug(f"About to commit to a file on the hub: {len(edits)} edit(s).")
             try:
-                if edit:
-                    for (start, end), data in edit:
+                for start, end, data in edits:
+                    if not data:
+                        commit.delete(start, end)
+                    elif start == end:
+                        commit.insert(start, len(data)).write(data)
+                    else:
                         commit.edit((start, end), len(data)).write(data)
-                if insert:
-                    for loc, data in insert:
-                        commit.insert(loc, len(data)).write(data)
-                if delete:
-                    for loc, length in delete:
-                        commit.delete(loc, loc + length)
                 report = commit.commit()
             except KeyboardInterrupt:
                 commit.abort()
@@ -14867,23 +14869,28 @@ class HfApi:
                 progress.close()
 
         # Update the Hub file reference with the new hash and size
-        if report is not None and report.file_info is not None:
-            from huggingface_hub._buckets import _BucketCopyFile
+        # TODO: pass the previous xet hash as a precondition (like `parent_commit` in `create_commit`) once the
+        # Hub supports it, to avoid silently overwriting the file of a concurrent editor.
+        if report is None or report.file_info is None:
+            # Nothing was committed (e.g. empty list of edits): the file is unchanged
+            return file_hash
 
-            # Use _BucketCopyFile to update the file reference.
-            # We copy from the same bucket (self-referential) to update the file hash.
-            self._batch_bucket_files(
-                bucket_id=bucket_id,
-                copy=[
-                    _BucketCopyFile(
-                        destination=remote_path,
-                        xet_hash=report.file_info.hash,
-                        source_repo_type="bucket",
-                        source_repo_id=bucket_id,
-                    )
-                ],
-                token=token,
-            )
+        from huggingface_hub._buckets import _BucketCopyFile
+
+        # Use _BucketCopyFile to update the file reference.
+        # We copy from the same bucket (self-referential) to update the file hash.
+        self._batch_bucket_files(
+            bucket_id=bucket_id,
+            copy=[
+                _BucketCopyFile(
+                    destination=remote_path,
+                    xet_hash=report.file_info.hash,
+                    source_repo_type="bucket",
+                    source_repo_id=bucket_id,
+                )
+            ],
+            token=token,
+        )
         return report.file_info.hash
 
 
@@ -15263,3 +15270,4 @@ batch_bucket_files = api.batch_bucket_files
 get_bucket_file_metadata = api.get_bucket_file_metadata
 download_bucket_files = api.download_bucket_files
 sync_bucket = api.sync_bucket
+edit_bucket_file = api.edit_bucket_file

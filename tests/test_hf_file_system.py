@@ -445,10 +445,10 @@ class _HfFileSystemBaseRWTests(_HfFileSystemBaseTests):
             for _ in range(8):
                 assert f.read(len(data)) == data
 
-    @pytest.mark.skip("Not implemented yet")
+    @pytest.mark.skip("Appending is only supported for Storage Buckets")
     def test_append_file(self):
-        with self.hffs.open(self.text_file, "a") as f:
-            f.write(" appended text")
+        with self.hffs.open(self.text_file, "ab") as f:
+            f.write(b" appended text")
 
         with self.hffs.open(self.text_file, "r") as f:
             assert f.read() == "dummy text data appended text"
@@ -681,6 +681,14 @@ class TestHfFileSystemRepositoryRW(_HfFileSystemRepositoryChecks, _HfFileSystemB
     def test_remove_file_with_revision(self):
         self.hffs.rm_file(self.hf_path + "@refs/pr/1" + "/data/binary_data_for_pr.bin")
         assert self.hffs.glob(self.hf_path + "@refs/pr/1" + "/data/*") == []
+
+    def test_append_and_edit_not_supported_for_repos(self):
+        # Append and edit modes are only available for Storage Buckets (see tests/test_buckets_hf_file_system.py)
+        with pytest.raises(NotImplementedError, match="Only binary modes"):
+            self.hffs.open(self.text_file, "a")
+
+        with pytest.raises(ValueError, match="only available for Storage Buckets"):
+            self.hffs.open(self.text_file, "ab")
 
     def test_remove_directory_with_revision(self):
         self.hffs.rm(self.hf_path + "/data", recursive=True)
