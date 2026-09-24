@@ -37,11 +37,14 @@ class TestRepoIdValidator:
         "foo",
         "foo/bar",
         "Foo-BAR_foo.bar123",
+        "a" * 96,  # Longest allowed name
+        "a" * 96 + "/" + "b" * 96,  # Longest allowed namespace and name
         None,
     )
     NOT_VALID_VALUES = (
         Path("foo/bar"),  # Must be a string
         "a" * 100,  # Too long
+        "a" * 100 + "/bar",  # Too long, in the namespace part
         "datasets/foo/bar",  # Repo_type forbidden in repo_id
         ".repo_id",  # Cannot start with .
         "repo_id.",  # Cannot end with .

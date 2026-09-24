@@ -27,7 +27,7 @@ from ._typing import CallableT
 
 REPO_ID_REGEX = re.compile(
     r"""
-    (\b[\w\-.]+\b/)? # optional namespace (username or organization)
+    (\b[\w\-.]{1,96}\b/)? # optional namespace (username or organization)
     \b               # starts with a word boundary
     [\w\-.]{1,96}    # repo_name: alphanumeric + . _ -
     \b               # ends with a word boundary

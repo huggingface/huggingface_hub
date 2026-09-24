@@ -4629,8 +4629,9 @@ def test_create_inference_endpoint_private_link_payload(mocker):
     }
     api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
 
-    with pytest.raises(TypeError, match="account_id"):
+    with pytest.warns(FutureWarning, match="account_id"):
         api.create_inference_endpoint(**kwargs, account_id="123456789012")
+    assert "accountId" not in mock_session.post.call_args.kwargs["json"]
     with pytest.raises(ValueError, match="private_link_region"):
         api.create_inference_endpoint(**kwargs, private_link_account_id="123456789012")
 
