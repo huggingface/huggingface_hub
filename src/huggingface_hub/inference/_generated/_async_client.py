@@ -26,7 +26,7 @@ import warnings
 from contextlib import AsyncExitStack
 from typing import TYPE_CHECKING, Any, AsyncIterable, Literal, Optional, Union, overload
 
-import httpx
+import httpx2
 
 from huggingface_hub import constants
 from huggingface_hub.errors import BadRequestError, HfHubHTTPError, InferenceTimeoutError
@@ -95,7 +95,6 @@ from huggingface_hub.utils import (
     hf_raise_for_status,
     validate_hf_hub_args,
 )
-from huggingface_hub.utils._auth import get_token
 
 from .._common import _async_yield_from
 
@@ -183,20 +182,7 @@ class AsyncInferenceClient:
             )
         token = token if token is not None else api_key
         if isinstance(token, bool):
-            # Legacy behavior: previously it was possible to pass `token=False` to disable authentication. This is not
-            # supported anymore as authentication is required. Better to explicitly raise here rather than risking
-            # sending the locally saved token without the user knowing about it.
-            if token is False:
-                raise ValueError(
-                    "Cannot use `token=False` to disable authentication as authentication is required to run Inference."
-                )
-            warnings.warn(
-                "Using `token=True` to automatically use the locally saved token is deprecated and will be removed in a future release. "
-                "Please use `token=None` instead (default).",
-                DeprecationWarning,
-            )
-            token = get_token()
-
+            raise TypeError("`token` must be a string or `None`.")
         self.model: str | None = base_url or model
         self.token: str | None = token
 
@@ -226,7 +212,7 @@ class AsyncInferenceClient:
         self.timeout = timeout
 
         self.exit_stack = AsyncExitStack()
-        self._async_client: Optional[httpx.AsyncClient] = None
+        self._async_client: Optional[httpx2.AsyncClient] = None
 
     def __repr__(self):
         return f"<InferenceClient(model='{self.model if self.model else ''}', timeout={self.timeout})>"
@@ -2020,7 +2006,6 @@ class AsyncInferenceClient:
         return_full_text: bool | None = None,
         seed: int | None = None,
         stop: list[str] | None = None,
-        stop_sequences: list[str] | None = None,  # Deprecated, use `stop` instead
         temperature: float | None = None,
         top_k: int | None = None,
         top_n_tokens: int | None = None,
@@ -2050,7 +2035,6 @@ class AsyncInferenceClient:
         return_full_text: bool | None = None,
         seed: int | None = None,
         stop: list[str] | None = None,
-        stop_sequences: list[str] | None = None,  # Deprecated, use `stop` instead
         temperature: float | None = None,
         top_k: int | None = None,
         top_n_tokens: int | None = None,
@@ -2080,7 +2064,6 @@ class AsyncInferenceClient:
         return_full_text: bool | None = None,  # Manual default value
         seed: int | None = None,
         stop: list[str] | None = None,
-        stop_sequences: list[str] | None = None,  # Deprecated, use `stop` instead
         temperature: float | None = None,
         top_k: int | None = None,
         top_n_tokens: int | None = None,
@@ -2110,7 +2093,6 @@ class AsyncInferenceClient:
         return_full_text: bool | None = None,
         seed: int | None = None,
         stop: list[str] | None = None,
-        stop_sequences: list[str] | None = None,  # Deprecated, use `stop` instead
         temperature: float | None = None,
         top_k: int | None = None,
         top_n_tokens: int | None = None,
@@ -2140,7 +2122,6 @@ class AsyncInferenceClient:
         return_full_text: bool | None = None,
         seed: int | None = None,
         stop: list[str] | None = None,
-        stop_sequences: list[str] | None = None,  # Deprecated, use `stop` instead
         temperature: float | None = None,
         top_k: int | None = None,
         top_n_tokens: int | None = None,
@@ -2169,7 +2150,6 @@ class AsyncInferenceClient:
         return_full_text: bool | None = None,
         seed: int | None = None,
         stop: list[str] | None = None,
-        stop_sequences: list[str] | None = None,  # Deprecated, use `stop` instead
         temperature: float | None = None,
         top_k: int | None = None,
         top_n_tokens: int | None = None,
@@ -2224,8 +2204,6 @@ class AsyncInferenceClient:
                 Random sampling seed
             stop (`list[str]`, *optional*):
                 Stop generating tokens if a member of `stop` is generated.
-            stop_sequences (`list[str]`, *optional*):
-                Deprecated argument. Use `stop` instead.
             temperature (`float`, *optional*):
                 The value used to module the logits distribution.
             top_n_tokens (`int`, *optional*):
@@ -2369,15 +2347,6 @@ class AsyncInferenceClient:
                 " the output from the server will be truncated."
             )
             decoder_input_details = False
-
-        if stop_sequences is not None:
-            warnings.warn(
-                "`stop_sequences` is a deprecated argument for `text_generation` task"
-                " and will be removed in version '0.28.0'. Use `stop` instead.",
-                FutureWarning,
-            )
-        if stop is None:
-            stop = stop_sequences  # use deprecated arg if provided
 
         # Build payload
         parameters = {

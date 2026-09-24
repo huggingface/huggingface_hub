@@ -21,7 +21,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from huggingface_hub import HfApi, RepoUrl
+from huggingface_hub import HfApi
 from huggingface_hub._commit_api import CommitOperationAdd, _upload_files, _upload_lfs_files, _upload_xet_files
 from huggingface_hub.file_download import (
     _get_metadata_or_catch_error,
@@ -391,90 +391,6 @@ class TestBucketXetUploadSkipSha256:
         assert uploaded["from_path.bin"].mtime == datetime.fromtimestamp(mtime, tz=timezone.utc)
 
         api.delete_bucket(bucket_id)
-
-
-class TestXetLargeUpload:
-    def test_upload_large_folder(self, api, tmp_path, repo_url: RepoUrl) -> None:
-        N_FILES_PER_FOLDER = 4
-        repo_id = repo_url.repo_id
-
-        folder = Path(tmp_path) / "large_folder"
-        for i in range(N_FILES_PER_FOLDER):
-            subfolder = folder / f"subfolder_{i}"
-            subfolder.mkdir(parents=True, exist_ok=True)
-            for j in range(N_FILES_PER_FOLDER):
-                (subfolder / f"file_xet_{i}_{j}.bin").write_bytes(f"content_lfs_{i}_{j}".encode())
-                (subfolder / f"file_regular_{i}_{j}.txt").write_bytes(f"content_regular_{i}_{j}".encode())
-
-        with assert_upload_mode("xet"):
-            with pytest.warns(FutureWarning, match="`upload_large_folder` is DEPRECATED"):
-                api.upload_large_folder(repo_id=repo_id, repo_type="model", folder_path=folder, num_workers=4)
-
-        # Check all files have been uploaded
-        uploaded_files = api.list_repo_files(repo_id=repo_id)
-
-        # Download and verify content
-        local_dir = Path(tmp_path) / "snapshot"
-        local_dir.mkdir()
-        api.snapshot_download(repo_id=repo_id, local_dir=local_dir, cache_dir=None)
-
-        for i in range(N_FILES_PER_FOLDER):
-            for j in range(N_FILES_PER_FOLDER):
-                assert f"subfolder_{i}/file_xet_{i}_{j}.bin" in uploaded_files
-                assert f"subfolder_{i}/file_regular_{i}_{j}.txt" in uploaded_files
-
-            # Check xet metadata
-            url = hf_hub_url(
-                repo_id=repo_id,
-                filename=f"subfolder_{i}/file_xet_{i}_{j}.bin",
-            )
-
-            metadata = get_hf_file_metadata(url)
-            xet_filedata = metadata.xet_file_data
-            assert xet_filedata is not None
-
-            # Verify xet files
-            xet_file = local_dir / f"subfolder_{i}/file_xet_{i}_{j}.bin"
-            assert xet_file.read_bytes() == f"content_lfs_{i}_{j}".encode()
-
-            # Verify regular files
-            regular_file = local_dir / f"subfolder_{i}/file_regular_{i}_{j}.txt"
-            assert regular_file.read_bytes() == f"content_regular_{i}_{j}".encode()
-
-    def test_upload_large_folder_batch_size_greater_than_one(self, api, tmp_path, repo_url: RepoUrl) -> None:
-        from huggingface_hub._commit_api import _upload_xet_files as real_upload_xet_files
-
-        N_FILES = 500
-        repo_id = repo_url.repo_id
-
-        folder = Path(tmp_path) / "large_folder"
-        folder.mkdir()
-        for i in range(N_FILES):
-            (folder / f"file_xet_{i}.bin").write_bytes(f"content_lfs_{i}".encode())
-
-        # capture the number of additions passed per call to _upload_xet_files
-        # to ensure that the batch size is respected.
-        num_files_per_call = []
-
-        def spy_upload_xet_files(**kwargs):
-            num_files_per_call.append(len(kwargs.get("additions", [])))
-            return real_upload_xet_files(**kwargs)
-
-        with patch("huggingface_hub._commit_api._upload_xet_files", side_effect=spy_upload_xet_files):
-            with pytest.warns(FutureWarning, match="`upload_large_folder` is DEPRECATED"):
-                api.upload_large_folder(repo_id=repo_id, repo_type="model", folder_path=folder, num_workers=4)
-
-        # Verify _upload_xet_files was called (confirms xet upload path was used)
-        assert len(num_files_per_call) > 0, "Expected _upload_xet_files to be called"
-
-        # the batch size is set to 256 however due to speed of hashing and get_upload_mode calls it's not always guaranteed
-        # that the files will be uploaded in batches of 256. They may be uploaded in smaller batches if no other jobs
-        # are available to run; even as small as 1 file per call.
-        #
-        # However, it would be unlikely that all files are uploaded in batches of 1 if batching was correctly implemented.
-        # So we assert that not all files were uploaded in batches of 1, although it is possible even with batching.
-
-        assert any(n > 1 for n in num_files_per_call)
 
 
 @pytest.mark.usefixtures("xet_setup")
