@@ -374,16 +374,20 @@ class _HfFileSystemBaseROTests(_HfFileSystemBaseTests):
 
     def test_get_file_with_kwargs(self):
         # If custom kwargs are passed, the function should still work but defaults to base implementation
-        with patch.object(hf_file_system, "http_get") as mock:
+        with (
+            patch.object(hf_file_system, "http_get") as http_mock,
+            patch.object(hf_file_system, "xet_get") as xet_mock,
+        ):
             with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
                 temp_file = os.path.join(temp_dir, "temp_file.txt")
                 self.hffs.get_file(self.text_file, temp_file, custom_kwarg=123)
-            mock.assert_not_called()
+            http_mock.assert_not_called()
+            xet_mock.assert_not_called()
 
             with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
                 temp_file = os.path.join(temp_dir, "temp_file.txt")
                 self.hffs.get_file(self.text_file, temp_file)
-            mock.assert_called_once()
+            assert http_mock.call_count + xet_mock.call_count == 1
 
     def test_get_file_on_folder(self):
         # Test it works with custom kwargs
@@ -606,6 +610,18 @@ class TestHfFileSystemRepositoryRO(_HfFileSystemRepositoryChecks, _HfFileSystemB
     def test_read_file_with_revision(self):
         with self.hffs.open(self.hf_path + "/data/binary_data_for_pr.bin", "rb", revision="refs/pr/1") as f:
             assert f.read() == b"dummy binary data on pr"
+
+    @pytest.mark.xet
+    def test_get_file_with_xet(self):
+        with (
+            patch.object(hf_file_system, "xet_get", wraps=hf_file_system.xet_get) as xet_mock,
+            tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir,
+        ):
+            self.hffs.get_file(self.hf_path + "/data/binary_data.bin", f"{temp_dir}/main.bin")
+            self.hffs.get_file(self.hf_path + "@refs/pr/1/data/binary_data_for_pr.bin", f"{temp_dir}/pr.bin")
+            assert Path(temp_dir, "main.bin").read_bytes() == b"dummy binary data"
+            assert Path(temp_dir, "pr.bin").read_bytes() == b"dummy binary data on pr"
+        assert xet_mock.call_count == 2
 
     def test_list_data_directory_with_revision(self):
         files = self.hffs.ls(self.hf_path + "@refs%2Fpr%2F1" + "/data")
