@@ -10794,6 +10794,7 @@ class HfApi:
         watched: list[dict | WebhookWatchedItem],
         domains: list[constants.WEBHOOK_DOMAIN_T] | None = None,
         secret: str | None = None,
+        secrets: dict[str, str] | None = None,
         token: bool | str | None = None,
     ) -> WebhookInfo:
         """Create a new webhook.
@@ -10814,6 +10815,9 @@ class HfApi:
                 List of domains to watch. It can be "repo", "discussion" or both.
             secret (`str`, optional):
                 A secret to sign the payload with.
+            secrets (`dict[str, str]`, optional):
+                Secret environment variables for the Job triggered by the webhook (e.g. `{"HF_TOKEN": "hf_***"}`).
+                Only valid with `job_id`. The source Job's secrets are not copied to the webhook, so pass them here.
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved token, which is the recommended
                 method for authentication (see https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -10897,6 +10901,10 @@ class HfApi:
             post_webhooks_json["jobSourceId"] = job_id
         else:
             raise ValueError("Missing argument for webhook: `url` or `job_id`.")
+        if secrets is not None:
+            if job_id is None:
+                raise ValueError("`secrets` can only be set together with `job_id`.")
+            post_webhooks_json["secrets"] = secrets
 
         response = get_session().post(
             f"{constants.ENDPOINT}/api/settings/webhooks",
@@ -10925,9 +10933,11 @@ class HfApi:
         webhook_id: str,
         *,
         url: str | None = None,
+        job_id: str | None = None,
         watched: list[dict | WebhookWatchedItem] | None = None,
         domains: list[constants.WEBHOOK_DOMAIN_T] | None = None,
         secret: str | None = None,
+        secrets: dict[str, str] | None = None,
         token: bool | str | None = None,
     ) -> WebhookInfo:
         """Update an existing webhook.
@@ -10937,6 +10947,8 @@ class HfApi:
                 The unique identifier of the webhook to be updated.
             url (`str`, optional):
                 The URL to which the payload will be sent.
+            job_id (`str`, optional):
+                ID of the source Job to trigger with the webhook payload. Required when setting `secrets`.
             watched (`list[WebhookWatchedItem]`, optional):
                 List of items to watch. It can be users, orgs, models, datasets, or spaces.
                 Refer to [`WebhookWatchedItem`] for more details. Watched items can also be provided as plain dictionaries.
@@ -10944,6 +10956,9 @@ class HfApi:
                 The domains to watch. This can include "repo", "discussion", or both.
             secret (`str`, optional):
                 A secret to sign the payload with, providing an additional layer of security.
+            secrets (`dict[str, str]`, optional):
+                Secret environment variables for the Job triggered by the webhook. Listed keys replace the stored
+                value, an empty string removes that secret, and omitted keys keep their stored value. Requires `job_id`.
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved token, which is the recommended
                 method for authentication (see https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
@@ -10979,12 +10994,20 @@ class HfApi:
         watched_dicts = [asdict(item) if isinstance(item, WebhookWatchedItem) else item for item in watched]
 
         update_json: dict = {"watched": watched_dicts}
+        if url is not None and job_id is not None:
+            raise ValueError("Set `url` or `job_id` but not both.")
         if url is not None:
             update_json["url"] = url
+        if job_id is not None:
+            update_json["jobSourceId"] = job_id
         if domains is not None:
             update_json["domains"] = domains
         if secret is not None:
             update_json["secret"] = secret
+        if secrets is not None:
+            if job_id is None:
+                raise ValueError("`secrets` can only be set together with `job_id`.")
+            update_json["secrets"] = secrets
 
         response = get_session().post(
             f"{constants.ENDPOINT}/api/settings/webhooks/{webhook_id}",
