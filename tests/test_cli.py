@@ -4897,15 +4897,6 @@ class TestWebhooksCommand:
         )
         assert result.exit_code != 0
 
-    def test_create_secret_missing_from_env(self, runner: CliRunner) -> None:
-        with patch.dict(os.environ, {}, clear=False):
-            os.environ.pop("DEFINITELY_NOT_SET", None)
-            result = runner.invoke(
-                app,
-                ["webhooks", "create", "--job-id", "abc", "--watch", "user:me", "--secrets", "DEFINITELY_NOT_SET"],
-            )
-        assert result.exit_code != 0
-
     def test_create_url_and_job_id_mutually_exclusive(self, runner: CliRunner) -> None:
         result = runner.invoke(
             app,

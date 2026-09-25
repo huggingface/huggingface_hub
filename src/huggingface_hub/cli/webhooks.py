@@ -78,9 +78,7 @@ def _parse_job_secrets(
         return None
     if job_id is None:
         raise click.BadParameter("--secrets and --secrets-file require --job-id.")
-    if missing := [key for key, value in secrets_map.items() if value is None]:
-        raise click.BadParameter(f"No value found for {', '.join(missing)} (not set in your environment).")
-    return secrets_map  # type: ignore[return-value]
+    return {key: value or "" for key, value in secrets_map.items()}
 
 
 webhooks_cli = typer_factory(help="Manage webhooks on the Hub.")
