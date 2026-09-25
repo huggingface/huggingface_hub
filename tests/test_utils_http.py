@@ -774,10 +774,79 @@ class TestParseRepoInfoFromUrl:
             "user/repo",
         )
 
+    def test_api_model_with_query_params(self):
+        assert _parse_repo_info_from_url("https://huggingface.co/api/models/user/repo?blobs=true") == (
+            "model",
+            "user/repo",
+        )
+
+    def test_api_model_without_namespace_with_query_params(self):
+        assert _parse_repo_info_from_url("https://huggingface.co/api/models/bert-base-uncased?blobs=true") == (
+            "model",
+            "bert-base-uncased",
+        )
+
+    def test_api_dataset_with_query_params(self):
+        assert _parse_repo_info_from_url("https://huggingface.co/api/datasets/my-org/my-dataset?expand=true") == (
+            "dataset",
+            "my-org/my-dataset",
+        )
+
+    def test_download_model_with_namespace(self):
+        assert _parse_repo_info_from_url("https://huggingface.co/openai-community/gpt2/resolve/main/config.json") == (
+            "model",
+            "openai-community/gpt2",
+        )
+
+    def test_download_model_without_namespace(self):
+        assert _parse_repo_info_from_url("https://huggingface.co/bert-base-cased/resolve/main/config.json") == (
+            "model",
+            "bert-base-cased",
+        )
+
+    def test_download_dataset_with_namespace(self):
+        assert _parse_repo_info_from_url("https://huggingface.co/datasets/nyu-mll/glue/resolve/main/data.csv") == (
+            "dataset",
+            "nyu-mll/glue",
+        )
+
+    def test_download_dataset_without_namespace(self):
+        assert _parse_repo_info_from_url("https://huggingface.co/datasets/squad/resolve/main/train.json") == (
+            "dataset",
+            "squad",
+        )
+
+    def test_download_space_with_namespace(self):
+        assert _parse_repo_info_from_url("https://huggingface.co/spaces/gradio/hello_world/resolve/main/app.py") == (
+            "space",
+            "gradio/hello_world",
+        )
+
+    def test_download_model_raw_and_blob_subpaths(self):
+        assert _parse_repo_info_from_url("https://huggingface.co/user/repo/raw/main/README.md") == (
+            "model",
+            "user/repo",
+        )
+        assert _parse_repo_info_from_url("https://huggingface.co/user/repo/blob/main/README.md") == (
+            "model",
+            "user/repo",
+        )
+
+    def test_download_model_with_query_params(self):
+        assert _parse_repo_info_from_url(
+            "https://huggingface.co/openai-community/gpt2/resolve/main/nope.txt?download=true"
+        ) == ("model", "openai-community/gpt2")
+
 
 class TestParseBucketIdFromUrl:
     def test_bucket_url(self):
         assert _parse_bucket_id_from_url("https://huggingface.co/api/buckets/namespace/name") == "namespace/name"
+
+    def test_bucket_url_with_query_params(self):
+        assert (
+            _parse_bucket_id_from_url("https://huggingface.co/api/buckets/namespace/name?prefix=foo&limit=100")
+            == "namespace/name"
+        )
 
     def test_bucket_url_with_subpath(self):
         assert (

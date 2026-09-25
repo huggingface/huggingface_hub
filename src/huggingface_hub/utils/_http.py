@@ -28,7 +28,7 @@ from dataclasses import dataclass
 from functools import wraps
 from shlex import quote
 from typing import Any, TypeVar
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin, urlparse, urlsplit
 
 import httpx2
 
@@ -175,7 +175,7 @@ X_AMZ_CF_ID = "x-amz-cf-id"
 REPO_API_REGEX = re.compile(
     r"""
         # staging or production endpoint
-        ^https://[^/]+
+        ^https?://[^/]+
         (
             # on /api/repo_type/repo_id
             /api/(models|datasets|spaces)/(.+)
@@ -199,53 +199,85 @@ BUCKET_API_REGEX = re.compile(
 
 # Regex to extract the job_id from a (scheduled) job API URL.
 # Matches /api/jobs/{namespace}/{job_id}[/...] and /api/scheduled-jobs/{namespace}/{job_id}[/...].
-_JOB_ID_FROM_URL_REGEX = re.compile(r"^https?://[^/]+/api/(?:scheduled-jobs|jobs)/[^/]+/([^/?]+)")
+_JOB_ID_FROM_URL_REGEX = re.compile(r"^/api/(?:scheduled-jobs|jobs)/[^/]+/([^/?]+)")
 
-# Regex to extract repo_type and repo_id from API URLs.
+# Regex to extract repo_type and repo_id from API URLs: /api/(models|datasets|spaces)/{repo_id}[/...]
 # Captures: group(1) = repo_type plural (models/datasets/spaces), group(2) = first path segment, group(3) = optional second segment.
-_REPO_ID_FROM_URL_REGEX = re.compile(r"^https?://[^/]+/api/(models|datasets|spaces)/([^/]+)(?:/([^/]+))?")
+_API_REPO_URL_REGEX = re.compile(r"^/api/(models|datasets|spaces)/([^/]+)(?:/([^/]+))?")
+
+# Regex to extract repo_type and repo_id from content/download URLs: [/(datasets|spaces)]/{repo_id}/(resolve|raw|blob)/...
+_CONTENT_REPO_URL_REGEX = re.compile(r"^/(?:(datasets|spaces)/)?([^/]+)(?:/([^/]+))?/(?:resolve|raw|blob)/")
 
 # Regex to extract bucket_id (namespace/name) from bucket API URLs.
-_BUCKET_ID_FROM_URL_REGEX = re.compile(r"^https?://[^/]+/api/buckets/([^/]+/[^/]+)")
+_BUCKET_ID_FROM_URL_REGEX = re.compile(r"^/api/buckets/([^/]+/[^/]+)")
 
 # Sub-paths that follow a repo_id in API URLs (not part of the repo name).
 _REPO_URL_SUBPATHS = {"resolve", "tree", "blob", "raw", "refs", "commit", "discussions", "settings", "revision"}
 
 
 def _parse_repo_info_from_url(url: str) -> tuple[str | None, str | None]:
-    """Extract (repo_type, repo_id) from an API URL.
+    """Extract (repo_type, repo_id) from an API URL or download URL.
 
     Returns canonical repo_type values: "model", "dataset", "space" (or None).
 
     Examples:
         >>> _parse_repo_info_from_url("https://huggingface.co/api/models/user/repo")
         ("model", "user/repo")
+        >>> _parse_repo_info_from_url("https://huggingface.co/api/models/user/repo?blobs=true")
+        ("model", "user/repo")
         >>> _parse_repo_info_from_url("https://huggingface.co/api/datasets/user/repo/resolve/main/data.csv")
         ("dataset", "user/repo")
         >>> _parse_repo_info_from_url("https://huggingface.co/api/models/bert-base-cased/resolve/main/config.json")
         ("model", "bert-base-cased")
+        >>> _parse_repo_info_from_url("https://huggingface.co/openai-community/gpt2/resolve/main/config.json")
+        ("model", "openai-community/gpt2")
+        >>> _parse_repo_info_from_url("https://huggingface.co/datasets/nyu-mll/glue/resolve/main/data.csv")
+        ("dataset", "nyu-mll/glue")
     """
-    match = _REPO_ID_FROM_URL_REGEX.search(url)
-    if not match:
-        return None, None
-    repo_type = constants.REPO_TYPES_MAPPING.get(match.group(1))
-    first, second = match.group(2), match.group(3)
-    if second and second not in _REPO_URL_SUBPATHS:
-        repo_id = f"{first}/{second}"
-    else:
-        repo_id = first
-    return repo_type, repo_id
+    path = urlsplit(url).path
+
+    # 1. API URLs: /api/(models|datasets|spaces)/{repo_id}[/...]
+    match = _API_REPO_URL_REGEX.search(path)
+    if match:
+        repo_type = constants.REPO_TYPES_MAPPING.get(match.group(1))
+        first, second = match.group(2), match.group(3)
+        if second and second not in _REPO_URL_SUBPATHS:
+            repo_id = f"{first}/{second}"
+        else:
+            repo_id = first
+        return repo_type, repo_id
+
+    # 2. Content/download URLs: [/(datasets|spaces)]/{repo_id}/(resolve|raw|blob)/...
+    match = _CONTENT_REPO_URL_REGEX.search(path)
+    if match:
+        type_prefix, first, second = match.group(1), match.group(2), match.group(3)
+        if type_prefix == "datasets":
+            repo_type = "dataset"
+        elif type_prefix == "spaces":
+            repo_type = "space"
+        else:
+            repo_type = "model"
+
+        if second and second not in _REPO_URL_SUBPATHS:
+            repo_id = f"{first}/{second}"
+        else:
+            repo_id = first
+        return repo_type, repo_id
+
+    return None, None
 
 
 def _parse_bucket_id_from_url(url: str) -> str | None:
     """Extract bucket_id (namespace/name) from a bucket API URL."""
-    match = _BUCKET_ID_FROM_URL_REGEX.search(url)
+    path = urlsplit(url).path
+    match = _BUCKET_ID_FROM_URL_REGEX.search(path)
     return match.group(1) if match else None
 
 
 def _parse_job_id_from_url(url: str) -> str | None:
     """Extract the job_id from a (scheduled) job API URL, if present."""
-    match = _JOB_ID_FROM_URL_REGEX.search(url)
+    path = urlsplit(url).path
+    match = _JOB_ID_FROM_URL_REGEX.search(path)
     return match.group(1) if match else None
 
 
