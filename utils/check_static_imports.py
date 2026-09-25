@@ -91,7 +91,7 @@ def _generate_utils_init(content: str) -> str:
         _format_mapping(UTILS_SUBMOD_ATTRS), content_before_static_checks
     )
 
-    static_imports = ["    import httpx as httpx  # noqa: F401"]
+    static_imports = ["    import httpx2 as httpx  # noqa: F401"]
     for module in sorted(UTILS_SUBMODULES):
         imported_module = "tqdm" if module == "_tqdm" else module
         static_imports.append(f"    from . import {imported_module} as {module}  # noqa: F401")

@@ -100,12 +100,6 @@ _LAZY_COMMANDS: list[tuple[str, str, str, dict[str, Any]]] = [
     ("cp", "_cp", "make_cp", {"examples_attribute": "CP_EXAMPLES", "is_factory": True}),
     ("download", "download", "download", {"examples_attribute": "DOWNLOAD_EXAMPLES"}),
     ("upload", "upload", "upload", {"examples_attribute": "UPLOAD_EXAMPLES"}),
-    (
-        "upload-large-folder",
-        "upload_large_folder",
-        "upload_large_folder",
-        {"examples_attribute": "UPLOAD_LARGE_FOLDER_EXAMPLES"},
-    ),
     ("env", "system", "env", {"topic": "help"}),
     ("update", "system", "update", {"topic": "help"}),
     ("version", "system", "version", {"topic": "help"}),
@@ -124,14 +118,13 @@ _LAZY_GROUPS: list[tuple[str, str, str, dict[str, Any]]] = [
     ("jobs", "jobs", "jobs_cli", {}),
     ("models", "models", "models_cli", {}),
     ("papers", "papers", "papers_cli", {}),
-    ("repos | repo", "repos", "repos_cli", {}),
+    ("repos", "repos", "repos_cli", {}),
     ("sandbox", "sandbox", "sandbox_cli", {}),
     ("skills", "skills", "skills_cli", {}),
     ("spaces", "spaces", "spaces_cli", {}),
     ("webhooks", "webhooks", "webhooks_cli", {}),
     ("endpoints", "inference_endpoints", "ie_cli", {}),
     ("extensions | ext", "extensions", "extensions_cli", {}),
-    ("repo-files", "repo_files", "repo_files_cli", {"hidden": True}),
 ]
 
 for name, module, attribute, extras in _LAZY_COMMANDS:

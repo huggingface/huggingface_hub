@@ -26,7 +26,7 @@ from secrets import token_hex
 from typing import Any, BinaryIO, Callable, Iterator, List, Literal, overload
 from urllib.parse import urlparse
 
-import httpx
+import httpx2
 
 from . import constants
 from ._sandbox_cache import (
@@ -402,7 +402,7 @@ class SandboxFiles:
     def _parallel(self, items: List[Any], fn: Callable[[Any], Any]) -> List[Any]:
         """Run `fn(item)` over items concurrently.
 
-        All workers share the sandbox's `httpx.Client`, which is thread-safe and pools
+        All workers share the sandbox's `httpx2.Client`, which is thread-safe and pools
         connections, so parallel transfers fan out over several streams at once.
         """
         workers = min(self.PARALLEL_MAX_WORKERS, len(items))
@@ -534,7 +534,7 @@ def _exec_payload(cmd: str | List[str], shell: bool | None) -> dict[str, Any]:
     return payload
 
 
-def _iter_events(response: httpx.Response) -> Iterator[dict]:
+def _iter_events(response: httpx2.Response) -> Iterator[dict]:
     """Iterate NDJSON events from a streaming response, skipping keepalive pings."""
     for line in response.iter_lines():
         if not line:
@@ -544,7 +544,7 @@ def _iter_events(response: httpx.Response) -> Iterator[dict]:
             yield event
 
 
-def _raise_for_status(response: httpx.Response) -> None:
+def _raise_for_status(response: httpx2.Response) -> None:
     """Read the error body and raise a SandboxError (works for streaming responses too)."""
     response.read()  # no-op for buffered responses, reads the body for streaming ones
     try:
@@ -554,7 +554,7 @@ def _raise_for_status(response: httpx.Response) -> None:
     raise SandboxError(f"Sandbox API error ({response.status_code}): {message}", status_code=response.status_code)
 
 
-def _check_server_protocol(response: httpx.Response, job_id: str) -> None:
+def _check_server_protocol(response: httpx2.Response, job_id: str) -> None:
     """Refuse a server whose wire contract this client cannot drive.
 
     Permissive in one direction only. A *newer* server is accepted: it declares its own
@@ -580,7 +580,7 @@ def _check_server_protocol(response: httpx.Response, job_id: str) -> None:
     )
 
 
-class _SandboxAuth(httpx.Auth):
+class _SandboxAuth(httpx2.Auth):
     """Attach the *current* HF bearer to every request.
 
     The bearer used to be captured once when the transport was built. A sandbox
@@ -606,7 +606,7 @@ class _SandboxAuth(httpx.Auth):
 class _SandboxServer:
     """HTTP transport to one `sbx-server` instance — a dedicated job or a shared host.
 
-    Owns the `httpx.Client`, the base URL and the auth headers.
+    Owns the `httpx2.Client`, the base URL and the auth headers.
     In dedicated mode a server is paired 1:1 with its [`Sandbox`
     In pool mode one server (one host job) is shared by many sandboxes, and `live`/`capacity` track packing.
     """
@@ -645,12 +645,12 @@ class _SandboxServer:
         # started by another process -- or another member of the namespace -- and
         # may be serving their sandboxes.
         self.owned = False
-        # httpx.Client is thread-safe, so a single client serves both sequential requests
+        # httpx2.Client is thread-safe, so a single client serves both sequential requests
         # and the concurrent workers used for parallel file transfers / many sandboxes.
-        self._client = httpx.Client(
+        self._client = httpx2.Client(
             headers={"X-Sandbox-Token": sandbox_token},
             auth=_SandboxAuth(api),
-            limits=httpx.Limits(max_connections=max_connections, max_keepalive_connections=max_connections),
+            limits=httpx2.Limits(max_connections=max_connections, max_keepalive_connections=max_connections),
             # Every request on this client carries the HF bearer and a sandbox token, and there
             # is no redirect in this protocol -- the Jobs proxy serves the in-job server
             # directly. Following one would hand both credentials to a destination that the
@@ -698,9 +698,9 @@ class _SandboxServer:
             kwargs["headers"] = {**kwargs.get("headers", {}), "X-Sandbox-Token": sandbox_token}
         return kwargs
 
-    def request(self, method: str, path: str, *, sandbox_token: str | None = None, **kwargs) -> httpx.Response:
+    def request(self, method: str, path: str, *, sandbox_token: str | None = None, **kwargs) -> httpx2.Response:
         """Request to the in-job server. Raises SandboxError on API errors."""
-        timeout = kwargs.pop("timeout", httpx.Timeout(60.0, connect=10.0))
+        timeout = kwargs.pop("timeout", httpx2.Timeout(60.0, connect=10.0))
         kwargs = self._with_token(kwargs, sandbox_token)
         response = self._client.request(method, self.base_url + path, timeout=timeout, **kwargs)
         if response.status_code >= 400:
@@ -710,9 +710,9 @@ class _SandboxServer:
     @contextmanager
     def stream(
         self, method: str, path: str, *, sandbox_token: str | None = None, **kwargs
-    ) -> Iterator[httpx.Response]:
+    ) -> Iterator[httpx2.Response]:
         """Streaming request to the in-job server. Raises SandboxError on API errors."""
-        timeout = kwargs.pop("timeout", httpx.Timeout(70.0, connect=10.0))  # server pings every 15s
+        timeout = kwargs.pop("timeout", httpx2.Timeout(70.0, connect=10.0))  # server pings every 15s
         kwargs = self._with_token(kwargs, sandbox_token)
         with self._client.stream(method, self.base_url + path, timeout=timeout, **kwargs) as response:
             if response.status_code >= 400:
@@ -745,11 +745,11 @@ class _SandboxServer:
         last_job_check = 0.0
         while time.time() < deadline:
             try:
-                response = self._client.get(self.base_url + "/health", timeout=httpx.Timeout(5.0))
+                response = self._client.get(self.base_url + "/health", timeout=httpx2.Timeout(5.0))
                 if response.status_code == 200:
                     _check_server_protocol(response, self.job_id)
                     return
-            except httpx.RequestError:
+            except httpx2.RequestError:
                 pass
             if time.time() - last_job_check > 2.0:
                 last_job_check = time.time()
@@ -1301,11 +1301,11 @@ class Sandbox:
 
     # ------------------------------------------------------------------ internals
 
-    def _request(self, method: str, resource: str, **kwargs) -> httpx.Response:
+    def _request(self, method: str, resource: str, **kwargs) -> httpx2.Response:
         return self._server.request(method, self._base_path + resource, sandbox_token=self._sandbox_token, **kwargs)
 
     @contextmanager
-    def _stream(self, method: str, resource: str, **kwargs) -> Iterator[httpx.Response]:
+    def _stream(self, method: str, resource: str, **kwargs) -> Iterator[httpx2.Response]:
         with self._server.stream(
             method, self._base_path + resource, sandbox_token=self._sandbox_token, **kwargs
         ) as response:
@@ -1998,7 +1998,7 @@ class SandboxPool:
                 env = _host_env(self._api, job, namespace=self._namespace)
                 server.capacity = int(env.get("SBX_CAPACITY", self.sandboxes_per_host))
                 server.live = len(server.request("GET", "/v1/sandboxes").json())
-            except (SandboxError, httpx.HTTPError, HfHubHTTPError) as e:
+            except (SandboxError, httpx2.HTTPError, HfHubHTTPError) as e:
                 # Host died (e.g. deleted between list_jobs and inspect_job), is still starting
                 # up, or is unreachable: skip it, closing the client if one was opened.
                 logger.debug(f"Skipping host {job.id} during discovery: {e}")
@@ -2158,7 +2158,7 @@ class SandboxPool:
             body["env"] = env
         try:
             data = host.request("POST", "/v1/sandboxes", json=body).json()
-        except (SandboxError, httpx.HTTPError) as e:
+        except (SandboxError, httpx2.HTTPError) as e:
             if host.verified:
                 raise  # a host we booted/discovered this session failing is a real error
             logger.debug(f"Dropping unreachable cached host {host.job_id}: {e}")
@@ -2280,7 +2280,7 @@ class SandboxPool:
                 reason = f"its job exposes {exposed!r}, not the cached URL"
             else:
                 return True
-        except httpx.HTTPStatusError as e:
+        except httpx2.HTTPStatusError as e:
             if e.response.status_code != 404:
                 raise SandboxError(f"Could not confirm cached host {ch.job_id}; retry later.") from e
             reason = "its job no longer exists"

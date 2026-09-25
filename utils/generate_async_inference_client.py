@@ -143,7 +143,7 @@ def _add_imports(code: str) -> str:
             + "from contextlib import AsyncExitStack\n"
             + "from typing import Set\n"
             + "import asyncio\n"
-            + "import httpx\n"
+            + "import httpx2\n"
         ),
         string=code,
         count=1,
@@ -268,7 +268,7 @@ ENTER_EXIT_STACK_ASYNC_CODE = """
 def _remove_enter_exit_stack(code: str) -> str:
     code = code.replace(
         "exit_stack = ExitStack()",
-        "exit_stack = AsyncExitStack()\n        self._async_client: Optional[httpx.AsyncClient] = None",
+        "exit_stack = AsyncExitStack()\n        self._async_client: Optional[httpx2.AsyncClient] = None",
     )
     code = code.replace(ENTER_EXIT_STACK_SYNC_CODE, ENTER_EXIT_STACK_ASYNC_CODE)
     return code

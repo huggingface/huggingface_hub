@@ -30,7 +30,7 @@ from urllib.parse import urlparse
 
 import pytest
 
-from huggingface_hub import HfApi, SpaceHardware, SpaceStage, SpaceStorage, constants
+from huggingface_hub import HfApi, SpaceHardware, SpaceStage, constants
 from huggingface_hub._commit_api import (
     CommitOperationAdd,
     CommitOperationCopy,
@@ -72,7 +72,6 @@ from huggingface_hub.hf_api import (
     User,
     WebhookInfo,
     WebhookWatchedItem,
-    repo_type_and_id_from_hf_id,
 )
 from huggingface_hub.repocard_data import DatasetCardData, ModelCardData
 from huggingface_hub.utils import (
@@ -2888,47 +2887,6 @@ class TestHfLargefiles:
             assert Path(filepath).stat().st_size == 18685041
 
 
-class TestParseHFUrl:
-    def test_repo_type_and_id_from_hf_id_on_correct_values(self):
-        possible_values = {
-            "hub": {
-                "https://huggingface.co/id": [None, None, "id"],
-                "https://huggingface.co/user/id": [None, "user", "id"],
-                "https://huggingface.co/datasets/user/id": ["dataset", "user", "id"],
-                "https://huggingface.co/spaces/user/id": ["space", "user", "id"],
-                "user/id": [None, "user", "id"],
-                "dataset/user/id": ["dataset", "user", "id"],
-                "space/user/id": ["space", "user", "id"],
-                "id": [None, None, "id"],
-                "hf://id": [None, None, "id"],
-                "hf://user/id": [None, "user", "id"],
-                "hf://model/user/name": ["model", "user", "name"],  # 's' is optional
-                "hf://models/user/name": ["model", "user", "name"],
-            },
-            "self-hosted": {
-                "http://localhost:8080/hf/user/id": [None, "user", "id"],
-                "http://localhost:8080/hf/datasets/user/id": ["dataset", "user", "id"],
-                "http://localhost:8080/hf/models/user/id": ["model", "user", "id"],
-            },
-        }
-
-        for key, value in possible_values.items():
-            hub_url = ENDPOINT_PRODUCTION if key == "hub" else "http://localhost:8080/hf"
-            for key, value in value.items():
-                assert repo_type_and_id_from_hf_id(key, hub_url=hub_url) == tuple(value)
-
-    def test_repo_type_and_id_from_hf_id_on_wrong_values(self):
-        for hub_id in [
-            "https://unknown-endpoint.co/id",
-            "https://huggingface.co/datasets/user/id@revision",  # @ forbidden
-            "datasets/user/id/subpath",
-            "hffs://model/user/name",
-            "spaeces/user/id",  # with typo in repo type
-        ]:
-            with pytest.raises(ValueError):
-                repo_type_and_id_from_hf_id(hub_id, hub_url=ENDPOINT_PRODUCTION)
-
-
 class TestHfApiDiscussions:
     @pytest.fixture(autouse=True)
     def _repo(self, api: HfApi):
@@ -3582,26 +3540,6 @@ class TestSpaceAPIMocked:
             },
         )
 
-    @pytest.mark.deprecated("create_repo")
-    def test_create_space_with_storage(self) -> None:
-        self.api.create_repo(
-            self.repo_id,
-            repo_type="space",
-            space_sdk="gradio",
-            space_storage=SpaceStorage.LARGE,
-        )
-        self.post_mock.assert_called_once_with(
-            f"{self.api.endpoint}/api/repos/create",
-            headers=self.api._build_hf_headers(),
-            json={
-                "name": self.repo_id,
-                "organization": None,
-                "type": "space",
-                "sdk": "gradio",
-                "storageTier": "large",
-            },
-        )
-
     def test_protected_visibility_is_only_supported_for_spaces(self) -> None:
         with pytest.raises(
             ValueError, match=r"Only Spaces can be 'protected'. Please set visibility to 'public' or 'private'."
@@ -3649,44 +3587,6 @@ class TestSpaceAPIMocked:
             },
         )
 
-    @pytest.mark.deprecated("duplicate_space", "duplicate_repo")
-    def test_duplicate_space(self) -> None:
-        self.api.duplicate_space(
-            self.repo_id,
-            to_id=f"{USER}/new_repo_id",
-            private=True,
-            hardware=SpaceHardware.T4_MEDIUM,
-            storage=SpaceStorage.LARGE,
-            sleep_time=123,
-            secrets=[
-                {"key": "Testsecret", "value": "Testvalue", "description": "Testdescription"},
-                {"key": "Testsecret2", "value": "Testvalue"},
-            ],
-            variables=[
-                {"key": "Testvariable", "value": "Testvalue", "description": "Testdescription"},
-                {"key": "Testvariable2", "value": "Testvalue"},
-            ],
-        )
-        self.post_mock.assert_called_once_with(
-            f"{self.api.endpoint}/api/spaces/{self.repo_id}/duplicate",
-            headers=self.api._build_hf_headers(),
-            json={
-                "repository": f"{USER}/new_repo_id",
-                "visibility": "private",
-                "hardware": "t4-medium",
-                "storageTier": "large",
-                "sleepTimeSeconds": 123,
-                "secrets": [
-                    {"key": "Testsecret", "value": "Testvalue", "description": "Testdescription"},
-                    {"key": "Testsecret2", "value": "Testvalue"},
-                ],
-                "variables": [
-                    {"key": "Testvariable", "value": "Testvalue", "description": "Testdescription"},
-                    {"key": "Testvariable2", "value": "Testvalue"},
-                ],
-            },
-        )
-
     def test_request_space_hardware_no_sleep_time(self) -> None:
         self.api.request_space_hardware(self.repo_id, SpaceHardware.T4_MEDIUM)
         self.post_mock.assert_called_once_with(
@@ -3715,25 +3615,6 @@ class TestSpaceAPIMocked:
         self.post_mock.return_value.json.return_value["hardware"]["requested"] = "cpu-basic"
         with pytest.warns(UserWarning):
             self.api.set_space_sleep_time(self.repo_id, sleep_time=123)
-
-    @pytest.mark.deprecated("request_space_storage")
-    def test_request_space_storage(self) -> None:
-        runtime = self.api.request_space_storage(self.repo_id, SpaceStorage.LARGE)
-        self.post_mock.assert_called_once_with(
-            f"{self.api.endpoint}/api/spaces/{self.repo_id}/storage",
-            headers=self.api._build_hf_headers(),
-            json={"tier": "large"},
-        )
-        assert runtime.storage == SpaceStorage.LARGE
-
-    @pytest.mark.deprecated("delete_space_storage")
-    def test_delete_space_storage(self) -> None:
-        runtime = self.api.delete_space_storage(self.repo_id)
-        self.delete_mock.assert_called_once_with(
-            f"{self.api.endpoint}/api/spaces/{self.repo_id}/storage",
-            headers=self.api._build_hf_headers(),
-        )
-        assert runtime.storage is None
 
     def test_restart_space_factory_reboot(self) -> None:
         self.api.restart_space(self.repo_id, factory_reboot=True)
@@ -3999,51 +3880,6 @@ class TestRepoUrl:
         assert info.repo_url.endpoint == "http://localhost:5564"
         assert info.repo_url.repo_id == "Wauplin/dummy"
         assert info.repo_url.repo_type == "model"
-
-
-class TestHfApiDuplicateSpace:
-    @pytest.mark.deprecated("duplicate_space")
-    @pytest.mark.skip("Duplicating Space doesn't work on staging.")
-    def test_duplicate_space_success(self, api: HfApi) -> None:
-        """Check `duplicate_space` works."""
-        from_repo_name = repo_name()
-        from_repo_id = api.create_repo(
-            repo_id=from_repo_name,
-            repo_type="space",
-            space_sdk="static",
-            token=OTHER_TOKEN,
-        ).repo_id
-        api.upload_file(
-            path_or_fileobj=b"data",
-            path_in_repo="temp/new_file.md",
-            repo_id=from_repo_id,
-            repo_type="space",
-            token=OTHER_TOKEN,
-        )
-
-        to_repo_id = api.duplicate_space(from_repo_id).repo_id
-
-        assert to_repo_id == f"{USER}/{from_repo_name}"
-        assert api.list_repo_files(repo_id=from_repo_id, repo_type="space") == [
-            ".gitattributes",
-            "README.md",
-            "index.html",
-            "style.css",
-            "temp/new_file.md",
-        ]
-        assert api.list_repo_files(repo_id=to_repo_id, repo_type="space") == api.list_repo_files(
-            repo_id=from_repo_id, repo_type="space"
-        )
-
-        api.delete_repo(repo_id=from_repo_id, repo_type="space", token=OTHER_TOKEN)
-        api.delete_repo(repo_id=to_repo_id, repo_type="space")
-
-    @pytest.mark.deprecated("duplicate_space")
-    def test_duplicate_space_from_missing_repo(self, api: HfApi) -> None:
-        """Check `duplicate_space` fails when the from_repo doesn't exist."""
-
-        with pytest.raises(RepositoryNotFoundError):
-            api.duplicate_space(f"{OTHER_USER}/repo_that_does_not_exist")
 
 
 class TestCollectionAPI:
@@ -4560,35 +4396,6 @@ class TestExpandPropertyType:
             raise ValueError(msg)
 
 
-class TestLargeUpload:
-    def test_upload_large_folder(self, api: HfApi, repo_factory: RepoFactory) -> None:
-        repo_url = repo_factory("dataset")
-        N_FILES_PER_FOLDER = 4
-
-        with SoftTemporaryDirectory() as tmpdir:
-            folder = Path(tmpdir) / "large_folder"
-            # Create 16 LFS files + 16 regular files
-            for i in range(N_FILES_PER_FOLDER):
-                subfolder = folder / f"subfolder_{i}"
-                subfolder.mkdir(parents=True, exist_ok=True)
-                for j in range(N_FILES_PER_FOLDER):
-                    (subfolder / f"file_lfs_{i}_{j}.bin").write_bytes(f"content_lfs_{i}_{j}".encode())
-                    (subfolder / f"file_regular_{i}_{j}.txt").write_bytes(f"content_regular_{i}_{j}".encode())
-
-            # Upload the folder
-            with pytest.warns(FutureWarning, match="`upload_large_folder` is DEPRECATED"):
-                api.upload_large_folder(
-                    repo_id=repo_url.repo_id, repo_type=repo_url.repo_type, folder_path=folder, num_workers=4
-                )
-
-        # Check all files have been uploaded
-        uploaded_files = api.list_repo_files(repo_url.repo_id, repo_type=repo_url.repo_type)
-        for i in range(N_FILES_PER_FOLDER):
-            for j in range(N_FILES_PER_FOLDER):
-                assert f"subfolder_{i}/file_lfs_{i}_{j}.bin" in uploaded_files
-                assert f"subfolder_{i}/file_regular_{i}_{j}.txt" in uploaded_files
-
-
 class TestHfApiAuthCheck:
     def test_auth_check_success(self, api: HfApi, repo_factory: RepoFactory) -> None:
         repo_url = repo_factory("dataset")
@@ -4794,6 +4601,44 @@ def test_create_inference_endpoint_custom_image_payload(
 
     payload = mock_session.post.call_args[1]["json"]
     assert payload["model"]["image"] == expected_image_payload
+
+
+def test_create_inference_endpoint_private_link_payload(mocker):
+    mock_session = mocker.patch("huggingface_hub.hf_api.get_session").return_value
+    mock_session.post.return_value.json.return_value = {
+        "name": "private-endpoint",
+        "model": {"repository": "gpt2", "framework": "pytorch", "revision": None, "task": None},
+        "status": {
+            "state": "pending",
+            "createdAt": "2025-03-07T15:30:13.949Z",
+            "updatedAt": "2025-03-07T15:30:13.949Z",
+        },
+        "healthRoute": "/health",
+        "type": "authenticated",
+    }
+    kwargs = {
+        "name": "private-endpoint",
+        "repository": "gpt2",
+        "framework": "pytorch",
+        "accelerator": "cpu",
+        "instance_size": "x2",
+        "instance_type": "intel-icl",
+        "region": "us-east-1",
+        "vendor": "aws",
+        "namespace": "Wauplin",
+    }
+    api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
+
+    with pytest.warns(FutureWarning, match="account_id"):
+        api.create_inference_endpoint(**kwargs, account_id="123456789012")
+    assert "accountId" not in mock_session.post.call_args.kwargs["json"]
+    with pytest.raises(ValueError, match="private_link_region"):
+        api.create_inference_endpoint(**kwargs, private_link_account_id="123456789012")
+
+    api.create_inference_endpoint(**kwargs, private_link_account_id="123456789012", private_link_region="eu-west-1")
+    payload = mock_session.post.call_args.kwargs["json"]
+    assert payload["privateService"] == {"accountId": "123456789012", "region": "eu-west-1"}
+    assert "accountId" not in payload
 
 
 @pytest.mark.parametrize(

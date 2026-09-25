@@ -72,12 +72,11 @@ Main commands:
   jobs                 Run and manage Jobs on the Hub.
   models               Interact with models on the Hub.
   papers               Interact with papers on the Hub.
-  repo                 Manage repos on the Hub.
+  repos                Manage repos on the Hub.
   skills               Manage skills for AI assistants.
   spaces               Interact with spaces on the Hub.
   sync                 Sync files between local directory and a bucket.
   upload               Upload a file or a folder to the Hub.
-  upload-large-folder  [Deprecated] Use 'hf upload' instead.
 
 Help commands:
   env      Print information about the environment.
@@ -433,7 +432,7 @@ By default, the `hf download` command will be verbose. It will print details suc
 On machines with slow connections, you might encounter timeout issues like this one:
 
 ```bash
-`httpx.TimeoutException: (TimeoutException("HTTPSConnectionPool(host='cdn-lfs-us-1.huggingface.co', port=443): Read timed out. (read timeout=10)"), '(Request ID: a33d910c-84c6-4514-8362-c705e2039d38)')`
+`httpx2.TimeoutException: (TimeoutException("HTTPSConnectionPool(host='cdn-lfs-us-1.huggingface.co', port=443): Read timed out. (read timeout=10)"), '(Request ID: a33d910c-84c6-4514-8362-c705e2039d38)')`
 ```
 
 To mitigate this issue, you can set the `HF_HUB_DOWNLOAD_TIMEOUT` environment variable to a higher value (default is 10):
@@ -600,19 +599,6 @@ By default, the `hf upload` command will be verbose. It will print details such 
 ```bash
 >>> hf upload Wauplin/my-cool-model ./models . --quiet
 https://huggingface.co/Wauplin/my-cool-model/tree/main
-```
-
-## hf upload-large-folder
-
-> [!WARNING]
-> `hf upload-large-folder` is deprecated and will be removed in a future release. Use [`hf upload`](#hf-upload) instead. It now handles very large folders out of the box and resumes automatically on re-run.
-
-```bash
-# Upload a large folder to a model repository
->>> hf upload Wauplin/my-cool-model ./large_model_dir
-
-# Upload a dataset
->>> hf upload Wauplin/my-cool-dataset ./large_data_dir --repo-type dataset
 ```
 
 ## hf buckets
@@ -1792,7 +1778,7 @@ Copy-and-paste the text below in your GitHub issue.
 - Configured git credential helpers: store
 - Installation method: unknown
 - Torch: N/A
-- httpx: 0.28.1
+- httpx2: 2.0.0
 - hf_xet: 1.1.10
 - gradio: 5.41.1
 - tensorboard: N/A
@@ -2113,10 +2099,6 @@ By default `hf jobs ps` displays at most 100 Jobs to avoid bloating the terminal
 # Show all Jobs (no limit)
 >>> hf jobs ps -a --limit 0
 ```
-
-> [!WARNING]
-> `-f`/`--filter` is deprecated in favor of `--status` and `--label`. Matching is exact: glob patterns (`data-*`) and negation (`key!=value`) are not supported, and filtering by `id`, `image` or `command` is not available.
-
 
 ### SSH into a Job
 

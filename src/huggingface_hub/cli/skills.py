@@ -330,12 +330,6 @@ def _install_to(skills_dir: Path, skill_name: str, force: bool) -> Path:
         raise CLIError(f"{exc}\nRe-run with --force to overwrite.") from exc
 
 
-_CLAUDE_FLAG_DEPRECATED = (
-    "`--claude` is deprecated and will be removed in a future release:"
-    " skills are always installed for Claude Code too."
-)
-
-
 def _create_symlink(agent_skills_dir: Path, skill_name: str, central_skill_path: Path, force: bool) -> Path:
     """Create a relative symlink from agent directory to the central skill location."""
     agent_skills_dir = agent_skills_dir.expanduser().resolve()
@@ -429,10 +423,6 @@ def skills_add(
         str,
         Argument(help="Marketplace skill name.", show_default=False),
     ] = DEFAULT_SKILL_ID,
-    claude: Annotated[
-        bool,
-        Option("--claude", help="(Deprecated) No longer needed: skills are always installed for Claude Code too."),
-    ] = False,
     global_: Annotated[
         bool,
         Option(
@@ -463,8 +453,6 @@ def skills_add(
     The skill is also symlinked into Claude Code's skills directory (`.claude/skills` or `~/.claude/skills`,
     honoring `CLAUDE_CONFIG_DIR` when set), unless `--dest` is used.
     """
-    if claude:
-        out.warning(_CLAUDE_FLAG_DEPRECATED)
     if dest is not None:
         if global_:
             raise CLIError("--dest cannot be combined with --global.")
@@ -496,10 +484,6 @@ def skills_update(
         str | None,
         Argument(help="Optional installed skill name to update.", show_default=False),
     ] = None,
-    claude: Annotated[
-        bool,
-        Option("--claude", help="(Deprecated) No longer needed: skills are always installed for Claude Code too."),
-    ] = False,
     global_: Annotated[
         bool,
         Option(
@@ -516,8 +500,6 @@ def skills_update(
     ] = None,
 ) -> None:
     """Update installed Hugging Face marketplace skills."""
-    if claude:
-        out.warning(_CLAUDE_FLAG_DEPRECATED)
     roots = _resolve_update_roots(global_=global_, dest=dest)
 
     results = _skills.update_skills(roots, selector=name, hf_cli_content=build_skill_md())
