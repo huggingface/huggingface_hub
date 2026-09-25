@@ -1518,10 +1518,10 @@ class HfFileSystemEditFile(fsspec.spec.AbstractBufferedFile):
 
     It is obtained with the binary open modes "ab" and "eb" (see [`HfFileSystem.open`]).
 
-    Edits are kept in an internal buffer and only sent to the Hub when the buffer
-    is at least `block_size` bytes large AND the oldest edit in the buffer is older
-    than `send_interval` seconds (10 seconds by default). Sending happens in a
-    background thread and can be forced with `f.flush(force=True)`.
+    Edits are kept in an internal buffer and sent to the Hub in batches: either as soon as
+    the buffer is at least `block_size` bytes large, or once `send_interval` seconds (10
+    seconds by default) have elapsed since the oldest unflushed edit. Sending happens in a
+    background thread, and can be forced synchronously with `f.flush(force=True)`.
 
     Examples:
 
@@ -1621,10 +1621,6 @@ class HfFileSystemEditFile(fsspec.spec.AbstractBufferedFile):
         return super().__del__()
 
     def _fetch_range(self, start: int, end: int) -> bytes:
-        if self.task is not None and not self.task.done():
-            raise NotImplementedError(
-                "Attempted to read a file while blocks are being sent but this is not implemented. Use f.flush(force=True) to send blocks first."
-            )
         ranges_contents: list[bytes] = []
         offset = 0
         for range_ in self.ranges:
@@ -1633,6 +1629,11 @@ class HfFileSystemEditFile(fsspec.spec.AbstractBufferedFile):
                     range_.start + max(0, start - offset), range_.stop + min(0, end - offset - len(range_))
                 )
                 if range_to_fetch.start < range_to_fetch.stop:
+                    if self.task is not None and not self.task.done():
+                        # the kept ranges point to the file version currently being sent: wait for it
+                        # before fetching bytes from it, otherwise we would read stale content.
+                        while self.task is not None and not self.task.done():
+                            time.sleep(0.05)
                     headers = {
                         "range": f"bytes={range_to_fetch.start}-{range_to_fetch.stop - 1}",
                         **self.fs._api._build_hf_headers(token=self.fs.token),
@@ -1652,6 +1653,12 @@ class HfFileSystemEditFile(fsspec.spec.AbstractBufferedFile):
         if self.task is not None:
             while not self.task.done():
                 time.sleep(0.1)
+            # Re-raise a failed background send: the corresponding edits are not buffered anymore,
+            # so they would be lost silently otherwise. The task is dropped so that the failure
+            # is raised only once.
+            exception, self.task = self.task.exception(), None
+            if exception is not None:
+                raise exception
         if defer:
             # the buffered data is copied to make sure it is not mutated while being sent in the background
             ranges = [range_ if isinstance(range_, range) else bytes(range_) for range_ in self.ranges]
@@ -1940,14 +1947,14 @@ class HfFileSystemEditFile(fsspec.spec.AbstractBufferedFile):
         Write buffered data to backend store.
 
         As most `fsspec` file objects, a regular `flush()` call might not send anything:
-        the buffered edits are sent to the Hub only once the buffer is at least `blocksize`
-        bytes large AND the oldest edit in the buffer is older than `send_interval` seconds.
-        Use `f.flush(force=True)` to persist the buffered edits right now.
+        the buffered edits are sent to the Hub either once the buffer is at least
+        `blocksize` bytes large, or once `send_interval` seconds have elapsed since the
+        oldest unflushed edit. Use `f.flush(force=True)` to persist the buffered edits
+        right now.
 
         Args:
             force (`bool`):
-                Send the buffer even if it is smaller than blocksize and even if the
-                oldest edit happened less than `send_interval` seconds ago.
+                Send the buffer even if none of the sending conditions above are met.
 
                 If a previous send wasn't finished, it waits for it to finish
                 before flushing.
@@ -1958,11 +1965,13 @@ class HfFileSystemEditFile(fsspec.spec.AbstractBufferedFile):
 
         if self.closed:
             raise ValueError("Flush on closed file")
-        if force or (
-            self.buffer_size >= self.blocksize
-            and self.oldest_update_time
-            and (time.time() - self.oldest_update_time) > self.send_interval
-            and (self.task is None or self.task.done())
+        if not force and self.task is not None and not self.task.done():
+            # a send is already in flight in the background: keep buffering instead of stacking another one
+            return False
+        if (
+            force
+            or self.buffer_size >= self.blocksize
+            or (self.oldest_update_time and (time.time() - self.oldest_update_time) > self.send_interval)
         ):
             self._upload_ranges(defer=defer)
             return True
