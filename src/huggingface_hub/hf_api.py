@@ -103,6 +103,7 @@ from .utils import (
     SafetensorsParsingError,
     SafetensorsRepoMetadata,
     TensorInfo,
+    are_progress_bars_disabled,
     build_hf_headers,
     chunk_iterable,
     experimental,
@@ -14076,7 +14077,6 @@ class HfApi:
         *,
         token: str | bool | None = None,
     ) -> None:
-
         from ._commit_api import CommitOperationCopy
 
         destination_path = destination.path_in_repo
@@ -14740,6 +14740,187 @@ class HfApi:
             token=token,
         )
 
+    def edit_bucket_file(
+        self,
+        *,
+        bucket_id: str,
+        remote_path: str,
+        edits: list[tuple[int, int, bytes]],
+        token: bool | str | None = None,
+    ) -> None:
+        """Edit an existing file in a bucket in-place, only re-uploading the parts the caller actually rewrites.
+
+        See [`HfFileSystemEditFile`] to use this feature with a file-like API.
+
+        Args:
+            bucket_id (`str`):
+                The ID of the bucket (e.g. `"username/my-bucket"`).
+            remote_path (`str`):
+                The file to edit.
+            edits (`list[tuple[int, int, bytes]]`):
+                List of edits to apply, in the form `(start, end, data)`.
+                The range [`start`, `end`) is replaced with `data`, which can be of any
+                size (not necessarily the size of the replaced range). Both an insert and
+                a delete are special cases of an edit:
+                - edit: `(0, 16, b"new data")` replaces the first 16 bytes.
+                - insert: `(32, 32, b"new data")` inserts data at location 32 and shifts the rest of the file.
+                - delete: `(64, 80, b"")` deletes the bytes from location 64 to 80.
+                All the locations refer to the file as it currently is on the Hub, meaning the
+                edits apply at the same time: they must not overlap and their order doesn't matter.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Example:
+            ```python
+            >>> from huggingface_hub import HfApi
+            >>> api = HfApi()
+            >>> api.edit_bucket_file(
+            ...     bucket_id="username/my-bucket",
+            ...     remote_path="file.bin",
+            ...     edits=[
+            ...         (0, 16, b"updated data"),  # edit the first 16 bytes
+            ...         (32, 32, b"inserted data"),  # insert data at location 32
+            ...         (64, 80, b""),  # delete the bytes from 64 to 80
+            ...     ],
+            ... )
+            ```
+        """
+        edits = [(start, end, data) for start, end, data in edits if start != end or data]
+        if not edits:
+            return
+        from .utils._xet_progress_reporting import XetUploadProgressReporter
+
+        if not are_progress_bars_disabled():
+            _progress = XetUploadProgressReporter(total_files=1)
+        else:
+            _progress = None
+
+        file_metadata = self.get_bucket_file_metadata(bucket_id=bucket_id, remote_path=remote_path, token=token)
+        self._edit_bucket_file(
+            bucket_id=bucket_id,
+            remote_path=remote_path,
+            edits=edits,
+            token=token,
+            _progress=_progress,
+            _file_hash=file_metadata.xet_file_data.file_hash,
+            _file_size=file_metadata.size,
+        )
+
+    def _edit_bucket_file(
+        self,
+        *,
+        bucket_id: str,
+        remote_path: str,
+        edits: list[tuple[int, int, bytes]],
+        token: bool | str | None = None,
+        _progress: XetUploadProgressReporter | None = None,
+        _file_hash: str | None = None,
+        _file_size: int | None = None,
+    ) -> str:
+        """
+        Internal method: process a single batch of bucket file edits (upload to XET + call /batch).
+        Returns the new file's xet hash.
+        """
+        from .utils._xet import (
+            XetTokenType,
+            abort_xet_session,
+            get_xet_session,
+            xet_connection_info_refresh_url,
+            xet_headers_without_auth,
+        )
+        from .utils._xet_progress_reporting import XetUploadProgressReporter
+
+        owns_progress = _progress is None
+        if _progress is not None:
+            progress = _progress
+            progress.reset_for_next_commit()
+            progress_callback = progress.update_progress
+        elif not are_progress_bars_disabled():
+            progress = XetUploadProgressReporter(total_files=1)
+            progress_callback = progress.update_progress
+        else:
+            progress, progress_callback = None, None
+
+        if _file_hash is None or _file_size is None:
+            file_metadata = self.get_bucket_file_metadata(bucket_id=bucket_id, remote_path=remote_path, token=token)
+            file_hash = file_metadata.xet_file_data.file_hash
+            file_size = file_metadata.size
+        else:
+            file_hash = _file_hash
+            file_size = _file_size
+
+        headers = self._build_hf_headers(token=token)
+        refresh_url = xet_connection_info_refresh_url(
+            token_type=XetTokenType.WRITE,
+            repo_id=bucket_id,
+            repo_type="bucket",
+            endpoint=self.endpoint,
+        )
+        xet_headers = xet_headers_without_auth(headers)
+
+        try:
+            commit = get_xet_session().new_range_upload(
+                file_hash,
+                file_size,
+                token_refresh_url=refresh_url,
+                token_refresh_headers=headers,
+                custom_headers=xet_headers,
+                progress_callback=progress_callback,
+            )
+            logger.debug(f"About to commit to a file on the hub: {len(edits)} edit(s).")
+            try:
+                for start, end, data in edits:
+                    if not data:
+                        commit.delete(start, end)
+                    elif start == end:
+                        commit.insert(start, len(data)).write(data)
+                    else:
+                        commit.edit((start, end), len(data)).write(data)
+                report = commit.commit()
+            except KeyboardInterrupt:
+                commit.abort()
+                raise
+            finally:
+                # Clean up the commit resources
+                try:
+                    commit.close()
+                except Exception:
+                    pass
+        except KeyboardInterrupt:
+            abort_xet_session()
+            raise
+        finally:
+            if owns_progress and progress is not None:
+                progress.close()
+
+        # Update the Hub file reference with the new hash and size
+        # TODO: pass the previous xet hash as a precondition (like `parent_commit` in `create_commit`) once the
+        # Hub supports it, to avoid silently overwriting the file of a concurrent editor.
+        if report is None or report.file_info is None:
+            # Nothing was committed (e.g. empty list of edits): the file is unchanged
+            return file_hash
+
+        from huggingface_hub._buckets import _BucketCopyFile
+
+        # Use _BucketCopyFile to update the file reference.
+        # We copy from the same bucket (self-referential) to update the file hash.
+        self._batch_bucket_files(
+            bucket_id=bucket_id,
+            copy=[
+                _BucketCopyFile(
+                    destination=remote_path,
+                    xet_hash=report.file_info.hash,
+                    source_repo_type="bucket",
+                    source_repo_id=bucket_id,
+                )
+            ],
+            token=token,
+        )
+        return report.file_info.hash
+
 
 def _bucket_batch_error(
     bucket_id: str, failures: list[dict[str, str]], *, sent: int, response: httpx2.Response
@@ -15117,3 +15298,4 @@ batch_bucket_files = api.batch_bucket_files
 get_bucket_file_metadata = api.get_bucket_file_metadata
 download_bucket_files = api.download_bucket_files
 sync_bucket = api.sync_bucket
+edit_bucket_file = api.edit_bucket_file
