@@ -243,6 +243,17 @@ def _resolve_uv_job_config(
         volume_specs, script_volume_specs = _merge_volume_specs(volume or [], header.volumes)
         from_script.update(f"volumes.{spec}" for spec in script_volume_specs)
 
+        # Access the script asks for must be confirmed, or passed as flags to stay visible in the command.
+        access_flags = [f"--secrets {name}" for name in script_secrets]
+        access_flags += [f"-v {spec}" for spec in script_volume_specs]
+        if "namespace" in from_script:
+            access_flags.append(f"--namespace {namespace}")
+        if "network_group" in from_script:
+            access_flags.append(f"--network-group {network_group}")
+        if access_flags and not dry_run:
+            flags = " ".join(access_flags)
+            out.confirm(f"The script's [{TABLE_NAME}] table requests {flags}. Continue?", confirm_param=flags)
+
         config = _UvJobConfig(
             script=source.script,
             script_args=script_args or [],
@@ -314,10 +325,10 @@ def _resolve_script_secrets(
             f" Export them locally (e.g. `export {missing[0]}=...`) or pass them explicitly"
             f" (e.g. `--secrets {missing[0]}=...`)."
         )
-    if resolved:
+    if resolved and dry_run:  # a real run asks for confirmation instead
         out.warning(
             f"The script's [{TABLE_NAME}] table requests {', '.join(resolved)}: the value(s) from your local"
-            f" environment {'would be' if dry_run else 'will be'} sent to the Job."
+            " environment would be sent to the Job."
         )
     return {**resolved, **dict.fromkeys(missing)}
 
