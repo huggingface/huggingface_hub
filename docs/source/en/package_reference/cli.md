@@ -5343,6 +5343,7 @@ $ hf webhooks [OPTIONS] COMMAND [ARGS]...
 Create a new webhook.
 
 Provide either --url (to ping a remote server) or --job-id (to trigger a Job), but not both.
+The source Job's secrets are not copied to the webhook: pass them again with --secrets / --secrets-file.
 
 **Usage**:
 
@@ -5357,6 +5358,8 @@ $ hf webhooks create [OPTIONS]
 * `--job-id TEXT`: ID of a Job to trigger (from job.id) instead of pinging a URL. Mutually exclusive with --url.
 * `--domain [repo|discussions]`: Domain to watch: 'repo' or 'discussions'. Repeatable. Defaults to all domains.
 * `--secret TEXT`: Optional secret used to sign webhook payloads.
+* `-s, --secrets TEXT`: Set secret environment variables. Prefer `--secrets SECRET` to read the value from your environment (e.g. `--secrets HF_TOKEN` to pass your Hugging Face token); `--secrets SECRET=value` puts the value in your shell history.
+* `--secrets-file TEXT`: Read in a file of secret environment variables. Use `-` to read them from stdin.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -5364,6 +5367,7 @@ Examples
   $ hf webhooks create --url https://example.com/hook --watch model:bert-base-uncased
   $ hf webhooks create --url https://example.com/hook --watch org:HuggingFace --watch model:gpt2 --domain repo
   $ hf webhooks create --job-id 687f911eaea852de79c4a50a --watch user:julien-c
+  $ hf webhooks create --job-id 687f911eaea852de79c4a50a --watch bucket:my-org/my-bucket --secrets HF_TOKEN
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -5509,6 +5513,8 @@ Learn more
 
 Update an existing webhook. Only provided options are changed.
 
+Job secrets passed with --secrets replace stored values with the same name; others are kept.
+
 **Usage**:
 
 ```console
@@ -5522,9 +5528,12 @@ $ hf webhooks update [OPTIONS] WEBHOOK_ID
 **Options**:
 
 * `--url TEXT`: New URL to send webhook payloads to.
+* `--job-id TEXT`: ID of the source Job to trigger (can be the current one). Required with --secrets / --secrets-file.
 * `--watch TEXT`: New list of items to watch, in 'type:name' format. Repeatable. Replaces the entire existing watched list.
 * `--domain [repo|discussions]`: New list of domains to watch: 'repo' or 'discussions'. Repeatable.
 * `--secret TEXT`: New secret used to sign webhook payloads.
+* `-s, --secrets TEXT`: Set secret environment variables. Prefer `--secrets SECRET` to read the value from your environment (e.g. `--secrets HF_TOKEN` to pass your Hugging Face token); `--secrets SECRET=value` puts the value in your shell history.
+* `--secrets-file TEXT`: Read in a file of secret environment variables. Use `-` to read them from stdin.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -5532,6 +5541,7 @@ Examples
   $ hf webhooks update abc123 --url https://new-url.com/hook
   $ hf webhooks update abc123 --watch model:gpt2 --domain repo
   $ hf webhooks update abc123 --secret newsecret
+  $ hf webhooks update abc123 --job-id 687f911eaea852de79c4a50a --secrets HF_TOKEN
 
 Learn more
   Use `hf <command> --help` for more information about a command.

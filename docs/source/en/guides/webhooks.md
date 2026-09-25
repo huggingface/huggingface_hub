@@ -44,6 +44,7 @@ webhook = create_webhook(
 ```
 
 The webhook triggers the Job with the webhook payload in the environment variable `WEBHOOK_PAYLOAD`.
+The source Job's secrets are not copied to the webhook. If the triggered Job needs secrets (e.g. `HF_TOKEN`), pass them with `secrets={"HF_TOKEN": "hf_***"}`. With [`update_webhook`], you must pass `job_id` together with `secrets`. Listed secrets replace the stored values, an empty string removes a secret, and all other secrets are kept.
 For more information on Hugging Face Jobs, available hardware (CPU, GPU) and UV scripts, see the [Jobs documentation](./jobs).
 
 ### Listing Webhooks
@@ -118,6 +119,9 @@ All of the above operations are also available from the `hf` command-line interf
 
 # Create a webhook that triggers a Job
 >>> hf webhooks create --job-id <job_id> --watch user:julien-c
+
+# Create a webhook that triggers a Job with your HF token as a secret
+>>> hf webhooks create --job-id <job_id> --watch bucket:my-org/my-bucket --secrets HF_TOKEN
 
 # Update an existing webhook
 >>> hf webhooks update <webhook_id> --url https://new-url.com/hook
