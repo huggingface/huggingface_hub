@@ -32,8 +32,8 @@ from secrets import token_hex
 from typing import TYPE_CHECKING, Any, BinaryIO, Literal, TypeVar, cast, overload
 from urllib.parse import quote
 
-import httpcore
-import httpx
+import httpcore2
+import httpx2
 from tqdm import tqdm as base_tqdm
 
 from . import constants
@@ -67,7 +67,6 @@ from ._space_api import (
     SpaceRuntime,
     SpaceSearchResult,
     SpaceSecret,
-    SpaceStorage,
     SpaceTemplate,
     SpaceVariable,
     Volume,
@@ -121,8 +120,7 @@ from .utils import (
     validate_hf_hub_args,
 )
 from .utils._auth import _get_token_from_environment, _get_token_from_file, _get_token_from_google_colab
-from .utils._deprecation import _deprecate_arguments, _deprecate_method
-from .utils._http import _httpx_follow_hub_redirects_with_backoff, flag_as_download_call
+from .utils._http import _httpx2_follow_hub_redirects_with_backoff, flag_as_download_call
 from .utils._runtime import is_xet_available
 from .utils._typing import CallableT
 from .utils.endpoint_helpers import _is_emission_within_threshold
@@ -287,144 +285,6 @@ def _resolve_repo_visibility(
     if visibility == "protected" and repo_type != constants.REPO_TYPE_SPACE:
         raise ValueError("Only Spaces can be 'protected'. Please set visibility to 'public' or 'private'.")
     return visibility
-
-
-def repo_type_and_id_from_hf_id(hf_id: str, hub_url: str | None = None) -> tuple[str | None, str | None, str]:
-    """
-    Returns the repo type and ID from a huggingface.co URL linking to a
-    repository
-
-    > [!WARNING]
-    > Deprecated: prefer [`parse_hf_uri`], which parses both `hf://` URIs and Hugging Face web URLs into a structured [`HfUri`].
-    > See https://huggingface.co/docs/huggingface_hub/package_reference/hf_uris for more details.
-
-    Args:
-        hf_id (`str`):
-            An URL or ID of a repository on the HF hub. Accepted values are:
-
-            - https://huggingface.co/<repo_type>/<namespace>/<repo_id>
-            - https://huggingface.co/<namespace>/<repo_id>
-            - hf://<repo_type>/<namespace>/<repo_id>
-            - hf://<namespace>/<repo_id>
-            - <repo_type>/<namespace>/<repo_id>
-            - <namespace>/<repo_id>
-            - <repo_id>
-        hub_url (`str`, *optional*):
-            The URL of the HuggingFace Hub, defaults to https://huggingface.co
-
-    Returns:
-        A tuple with three items: repo_type (`str` or `None`), namespace (`str` or
-        `None`) and repo_id (`str`).
-
-    Raises:
-        [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-            If URL cannot be parsed.
-        [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-            If `repo_type` is unknown.
-    """
-    input_hf_id = hf_id
-
-    # Get the hub_url (with or without protocol)
-    full_hub_url = hub_url if hub_url is not None else constants.ENDPOINT
-    hub_url_without_protocol = _REGEX_HTTP_PROTOCOL.sub("", full_hub_url)
-
-    # Check if hf_id is a URL containing the hub_url (check both with and without protocol)
-    hf_id_without_protocol = _REGEX_HTTP_PROTOCOL.sub("", hf_id)
-    is_hf_url = hub_url_without_protocol in hf_id_without_protocol and "@" not in hf_id
-
-    HFFS_PREFIX = "hf://"
-    if hf_id.startswith(HFFS_PREFIX):  # Remove "hf://" prefix if exists
-        hf_id = hf_id[len(HFFS_PREFIX) :]
-
-    # If it's a URL, strip the endpoint prefix to get the path
-    if is_hf_url:
-        # Remove protocol if present
-        hf_id_normalized = _REGEX_HTTP_PROTOCOL.sub("", hf_id)
-
-        # Remove the hub_url prefix to get the relative path
-        if hf_id_normalized.startswith(hub_url_without_protocol):
-            # Strip the hub URL and any leading slashes
-            hf_id = hf_id_normalized[len(hub_url_without_protocol) :].lstrip("/")
-
-    url_segments = hf_id.split("/")
-    is_hf_id = len(url_segments) <= 3
-
-    namespace: str | None
-    if is_hf_url:
-        # For URLs, we need to extract repo_type, namespace, repo_id
-        # Expected format after stripping endpoint: [repo_type]/namespace/repo_id or namespace/repo_id
-
-        if len(url_segments) >= 3:
-            # Check if first segment is a repo type
-            if url_segments[0] in constants.REPO_TYPES_MAPPING:
-                repo_type = constants.REPO_TYPES_MAPPING[url_segments[0]]
-                namespace = url_segments[1]
-                repo_id = url_segments[2]
-            elif url_segments[0] == "buckets":
-                # Special case for buckets
-                repo_type = "bucket"
-                namespace = url_segments[1]
-                repo_id = url_segments[2]
-            else:
-                # First segment is namespace
-                namespace = url_segments[0]
-                repo_id = url_segments[1]
-                repo_type = None
-        elif len(url_segments) == 2:
-            namespace = url_segments[0]
-            repo_id = url_segments[1]
-
-            # Check if namespace is actually a repo type mapping
-            if namespace in constants.REPO_TYPES_MAPPING:
-                # Mean canonical dataset or model
-                repo_type = constants.REPO_TYPES_MAPPING[namespace]
-                namespace = None
-            elif namespace == "buckets":
-                # Special case for buckets
-                repo_type = "bucket"
-                namespace = None
-            else:
-                repo_type = None
-        else:
-            # Single segment
-            repo_id = url_segments[0]
-            namespace = None
-            repo_type = None
-    elif is_hf_id:
-        if len(url_segments) == 3:
-            # Passed <repo_type>/<user>/<model_id> or <repo_type>/<org>/<model_id>
-            repo_type, namespace, repo_id = url_segments[-3:]
-        elif len(url_segments) == 2:
-            if url_segments[0] in constants.REPO_TYPES_MAPPING:
-                # Passed '<model_id>' or 'datasets/<dataset_id>' for a canonical model or dataset
-                repo_type = constants.REPO_TYPES_MAPPING[url_segments[0]]
-                namespace = None
-                repo_id = hf_id.split("/")[-1]
-            elif url_segments[0] == "buckets":
-                # Special case for buckets
-                repo_type = "bucket"
-                namespace = None
-                repo_id = hf_id.split("/")[-1]
-            else:
-                # Passed <user>/<model_id> or <org>/<model_id>
-                namespace, repo_id = hf_id.split("/")[-2:]
-                repo_type = None
-        else:
-            # Passed <model_id>
-            repo_id = url_segments[0]
-            namespace, repo_type = None, None
-    else:
-        raise ValueError(f"Unable to retrieve user and repo ID from the passed HF ID: {hf_id}")
-
-    # Check if repo type is known (mapping "spaces" => "space" + empty value => `None`)
-    if repo_type in constants.REPO_TYPES_MAPPING:
-        repo_type = constants.REPO_TYPES_MAPPING[repo_type]  # type: ignore
-    if repo_type == "":
-        repo_type = None
-    if repo_type not in constants.REPO_TYPES_WITH_KERNEL and repo_type != "bucket":
-        raise ValueError(f"Unknown `repo_type`: '{repo_type}' ('{input_hf_id}')")
-
-    return repo_type, namespace, repo_id
 
 
 @dataclass
@@ -2405,7 +2265,6 @@ class HfApi:
         hf_raise_for_status(r)
         return r.json()
 
-    @_deprecate_arguments(version="2.0", deprecated_args=["model_name"], custom_message="Use `search` instead.")
     @validate_hf_hub_args
     def list_models(
         self,
@@ -2417,7 +2276,6 @@ class HfApi:
         gated: bool | None = None,
         inference: Literal["warm"] | None = None,
         inference_provider: Literal["all"] | PROVIDER_T | list[PROVIDER_T] | None = None,
-        model_name: str | None = None,
         trained_dataset: str | list[str] | None = None,
         search: str | None = None,
         pipeline_tag: str | None = None,
@@ -2494,9 +2352,6 @@ class HfApi:
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
-            model_name (`str`, *optional*):
-                (deprecated). Use `search` instead.
-
         Returns:
             `Iterable[ModelInfo]`: an iterable of [`huggingface_hub.hf_api.ModelInfo`] objects.
 
@@ -2566,13 +2421,8 @@ class HfApi:
             params["pipeline_tag"] = pipeline_tag
         if num_parameters is not None:
             params["num_parameters"] = num_parameters
-        search_list = []
-        if model_name:  # deprecated
-            search_list.append(model_name)
         if search:
-            search_list.append(search)
-        if len(search_list) > 0:
-            params["search"] = search_list
+            params["search"] = search
         if sort is not None:
             params["sort"] = (
                 "lastModified"
@@ -3753,10 +3603,10 @@ class HfApi:
                 except OSError as e:
                     logger.warning(f"Ignored error while caching commit hash for '{repo_id}': {e}.")
                 return ResolvedRevision(resolved=sha, initial=revision, repo_id=repo_id, repo_type=repo_type)
-            except httpx.ProxyError:
+            except httpx2.ProxyError:
                 # Actually raise on proxy error: a misconfigured proxy is not an unreachable Hub
                 raise
-            except (httpx.TransportError, OfflineModeIsEnabled) as e:
+            except (httpx2.TransportError, OfflineModeIsEnabled) as e:
                 # Hub cannot be reached (offline mode, connection error, timeout, ...) => fallback on cache
                 error = e
             except HfHubHTTPError as e:
@@ -4644,11 +4494,6 @@ class HfApi:
         hf_raise_for_status(r)
         return [SpaceTemplate(item) for item in r.json()["templates"]]
 
-    @_deprecate_arguments(
-        version="2.0",
-        deprecated_args={"space_storage"},
-        custom_message="Use `space_volumes` to mount volumes on a Space.",
-    )
     @validate_hf_hub_args
     def create_repo(
         self,
@@ -4663,7 +4508,6 @@ class HfApi:
         region: REPO_REGIONS | None = None,
         space_sdk: str | None = None,
         space_hardware: SpaceHardware | None = None,
-        space_storage: SpaceStorage | None = None,
         space_sleep_time: int | None = None,
         space_secrets: list[dict[str, str]] | None = None,
         space_variables: list[dict[str, str]] | None = None,
@@ -4705,8 +4549,6 @@ class HfApi:
                 Choice of SDK to use if repo_type is "space". Can be "streamlit", "gradio", "docker", or "static".
             space_hardware (`SpaceHardware` or `str`, *optional*):
                 Choice of Hardware if repo_type is "space". See [`SpaceHardware`] for a complete list.
-            space_storage (`SpaceStorage` or `str`, *optional*):
-                <Deprecated, use `set_space_volumes` instead> Choice of persistent storage tier. Example: `"small"`. See [`SpaceStorage`] for a complete list.
             space_sleep_time (`int`, *optional*):
                 Number of seconds of inactivity to wait before a Space is put to sleep. Set to `-1` if you don't want
                 your Space to sleep (default behavior for upgraded hardware). For free hardware, you can't configure
@@ -4797,7 +4639,6 @@ class HfApi:
         space_args: list[tuple[str, str, Any]] = [
             # input arg, payload key, value
             ("space_hardware", "hardware", space_hardware),
-            ("space_storage", "storageTier", space_storage),
             ("space_sleep_time", "sleepTimeSeconds", space_sleep_time),
             ("space_secrets", "secrets", space_secrets),
             ("space_variables", "variables", space_variables),
@@ -5484,7 +5325,7 @@ class HfApi:
         new_additions = [addition for addition in additions if not addition._is_uploaded]
 
         # Check which new files are LFS
-        # For some items, we might have already fetched the upload mode (in case of upload_large_folder)
+        # For some items, we might have already fetched the upload mode.
         additions_no_upload_mode = [addition for addition in new_additions if addition._upload_mode is None]
         if len(additions_no_upload_mode) > 0:
             try:
@@ -6351,140 +6192,6 @@ class HfApi:
             parent_commit=parent_commit,
         )
 
-    def upload_large_folder(
-        self,
-        repo_id: str,
-        folder_path: str | Path,
-        *,
-        repo_type: str,  # Repo type is required!
-        revision: str | None = None,
-        private: bool | None = None,
-        allow_patterns: list[str] | str | None = None,
-        ignore_patterns: list[str] | str | None = None,
-        num_workers: int | None = None,
-        print_report: bool = True,
-        print_report_every: int = 60,
-    ) -> None:
-        """Upload a large folder to the Hub in the most resilient way possible.
-
-        > [!WARNING]
-        > `upload_large_folder` is deprecated and will be removed in a future release. [`upload_folder`] is now multi-commits
-        > by default and resilient to interruptions so it is the recommended way to upload large folders.
-
-        Several workers are started to upload files in an optimized way. Before being committed to a repo, files must be
-        hashed and be pre-uploaded if they are LFS files. Workers will perform these tasks for each file in the folder.
-        At each step, some metadata information about the upload process is saved in the folder under `.cache/.huggingface/`
-        to be able to resume the process if interrupted. The whole process might result in several commits.
-
-        Args:
-            repo_id (`str`):
-                The repository to which the file will be uploaded.
-                E.g. `"HuggingFaceTB/smollm-corpus"`.
-            folder_path (`str` or `Path`):
-                Path to the folder to upload on the local file system.
-            repo_type (`str`):
-                Type of the repository. Must be one of `"model"`, `"dataset"` or `"space"`.
-                Unlike in all other `HfApi` methods, `repo_type` is explicitly required here. This is to avoid
-                any mistake when uploading a large folder to the Hub, and therefore prevent from having to re-upload
-                everything.
-            revision (`str`, `optional`):
-                The branch to commit to. If not provided, the `main` branch will be used.
-            private (`bool`, `optional`):
-                Whether the repository should be private.
-                If `None` (default), the repo will be public unless the organization's default is private.
-            allow_patterns (`list[str]` or `str`, *optional*):
-                If provided, only files matching at least one pattern are uploaded.
-            ignore_patterns (`list[str]` or `str`, *optional*):
-                If provided, files matching any of the patterns are not uploaded.
-            num_workers (`int`, *optional*):
-                Number of workers to start. Defaults to half of CPU cores (minimum 1).
-                A higher number of workers may speed up the process if your machine allows it. However, on machines with a
-                slower connection, it is recommended to keep the number of workers low to ensure better resumability.
-                Indeed, partially uploaded files will have to be completely re-uploaded if the process is interrupted.
-            print_report (`bool`, *optional*):
-                Whether to print a report of the upload progress. Defaults to True.
-                Report is printed to `sys.stdout` every X seconds (60 by defaults) and overwrites the previous report.
-            print_report_every (`int`, *optional*):
-                Frequency at which the report is printed. Defaults to 60 seconds.
-
-        > [!TIP]
-        > A few things to keep in mind:
-        >     - Repository limits still apply: https://huggingface.co/docs/hub/repositories-recommendations
-        >     - Do not start several processes in parallel.
-        >     - You can interrupt and resume the process at any time.
-        >     - Do not upload the same folder to several repositories. If you need to do so, you must delete the local `.cache/.huggingface/` folder first.
-
-        > [!WARNING]
-        > While being much more robust to upload large folders, `upload_large_folder` is more limited than [`upload_folder`] feature-wise. In practice:
-        >     - you cannot set a custom `path_in_repo`. If you want to upload to a subfolder, you need to set the proper structure locally.
-        >     - you cannot set a custom `commit_message` and `commit_description` since multiple commits are created.
-        >     - you cannot delete from the repo while uploading. Please make a separate commit first.
-        >     - you cannot create a PR directly. Please create a PR first (from the UI or using [`create_pull_request`]) and then commit to it by passing `revision`.
-
-        **Technical details:**
-
-        `upload_large_folder` process is as follow:
-            1. (Check parameters and setup.)
-            2. Create repo if missing.
-            3. List local files to upload.
-            4. Run validation checks and display warnings if repository limits might be exceeded:
-                - Warns if the total number of files exceeds 100k (recommended limit).
-                - Warns if any folder contains more than 10k files (recommended limit).
-                - Warns about files larger than 20GB (recommended) or 50GB (hard limit).
-            5. Start workers. Workers can perform the following tasks:
-                - Hash a file.
-                - Get upload mode (regular or LFS) for a list of files.
-                - Pre-upload an LFS file.
-                - Commit a bunch of files.
-            Once a worker finishes a task, it will move on to the next task based on the priority list (see below) until
-            all files are uploaded and committed.
-            6. While workers are up, regularly print a report to sys.stdout.
-
-        Order of priority:
-            1. Commit if more than 5 minutes since last commit attempt (and at least 1 file).
-            2. Commit if at least 150 files are ready to commit.
-            3. Get upload mode if at least 10 files have been hashed.
-            4. Pre-upload LFS file if at least 1 file and no worker is pre-uploading.
-            5. Hash file if at least 1 file and no worker is hashing.
-            6. Get upload mode if at least 1 file and no worker is getting upload mode.
-            7. Pre-upload LFS file if at least 1 file.
-            8. Hash file if at least 1 file to hash.
-            9. Get upload mode if at least 1 file to get upload mode.
-            10. Commit if at least 1 file to commit and at least 1 min since last commit attempt.
-            11. Commit if at least 1 file to commit and all other queues are empty.
-
-        Special rules:
-            - Only one worker can commit at a time.
-            - If no tasks are available, the worker waits for 10 seconds before checking again.
-        """
-        warnings.warn(
-            "\n"
-            "================================================================================\n"
-            "`upload_large_folder` is DEPRECATED and will be removed in a future release.\n"
-            "\n"
-            "Use `upload_folder` instead:\n"
-            "\n"
-            f'    api.upload_folder(repo_id="{repo_id}", repo_type="{repo_type}", folder_path="{folder_path}")\n'
-            "================================================================================\n",
-            FutureWarning,
-            stacklevel=2,
-        )
-        from ._upload_large_folder import upload_large_folder_internal
-
-        return upload_large_folder_internal(
-            self,
-            repo_id=repo_id,
-            folder_path=folder_path,
-            repo_type=repo_type,
-            revision=revision,
-            private=private,
-            allow_patterns=allow_patterns,
-            ignore_patterns=ignore_patterns,
-            num_workers=num_workers,
-            print_report=print_report,
-            print_report_every=print_report_every,
-        )
-
     @validate_hf_hub_args
     def get_hf_file_metadata(
         self,
@@ -6639,7 +6346,7 @@ class HfApi:
                 the local cache.
             etag_timeout (`float`, *optional*, defaults to `10`):
                 When fetching ETag, how many seconds to wait for the server to send
-                data before giving up which is passed to `httpx.request`.
+                data before giving up which is passed to `httpx2.request`.
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -6795,7 +6502,7 @@ class HfApi:
                 If provided, the downloaded files will be placed under this directory.
             etag_timeout (`float`, *optional*, defaults to `10`):
                 When fetching ETag, how many seconds to wait for the server to send
-                data before giving up which is passed to `httpx.request`.
+                data before giving up which is passed to `httpx2.request`.
             force_download (`bool`, *optional*, defaults to `False`):
                 Whether the file should be downloaded even if it already exists in the local cache.
             token (`bool` or `str`, *optional*):
@@ -7737,7 +7444,7 @@ class HfApi:
         body: dict | None = None,
         token: bool | str | None = None,
         repo_type: str | None = None,
-    ) -> httpx.Response:
+    ) -> httpx2.Response:
         """Internal utility to POST changes to a Discussion or Pull Request"""
         if not isinstance(discussion_num, int) or discussion_num <= 0:
             raise ValueError("Invalid discussion_num, must be a positive integer")
@@ -8702,13 +8409,13 @@ class HfApi:
             except HfHubHTTPError:
                 # Permanent HTTP error (404/403/...). Never retry — fail fast.
                 raise
-            except httpx.DecodingError:
+            except httpx2.DecodingError:
                 # Response ended prematurely.
                 break
             except KeyboardInterrupt:
                 break
-            except (httpx.HTTPError, httpcore.TimeoutException) as err:
-                is_no_new_line_timeout = isinstance(err, (httpx.ReadTimeout, httpcore.ReadTimeout))
+            except (httpx2.HTTPError, httpcore2.TimeoutException) as err:
+                is_no_new_line_timeout = isinstance(err, (httpx2.ReadTimeout, httpcore2.ReadTimeout))
                 if is_no_new_line_timeout and not follow:
                     break  # no-follow: timeout means the buffer is drained
                 if on_iteration_end is not None:
@@ -8884,11 +8591,6 @@ class HfApi:
                 raise TimeoutError(f"Space '{repo_id}' is still in stage '{runtime.stage}' after {timeout} seconds.")
             time.sleep(poll_interval if remaining is None else min(poll_interval, remaining))
 
-    @_deprecate_arguments(
-        version="2.0",
-        deprecated_args={"space_storage"},
-        custom_message="Use `space_volumes` to mount volumes on a Space.",
-    )
     @validate_hf_hub_args
     def duplicate_repo(
         self,
@@ -8901,7 +8603,6 @@ class HfApi:
         token: bool | str | None = None,
         exist_ok: bool = False,
         space_hardware: SpaceHardware | None = None,
-        space_storage: SpaceStorage | None = None,
         space_sleep_time: int | None = None,
         space_secrets: list[dict[str, str]] | None = None,
         space_variables: list[dict[str, str]] | None = None,
@@ -8937,9 +8638,6 @@ class HfApi:
             space_hardware (`SpaceHardware` or `str`, *optional*):
                 Choice of Hardware if repo_type is "space". Example: `"t4-medium"`. See
                 [`SpaceHardware`] for a complete list.
-            space_storage (`SpaceStorage` or `str`, *optional*):
-                <Deprecated, use `set_space_volumes` instead> Choice of persistent storage tier if repo_type is "space". Example:
-                `"small"`. See [`SpaceStorage`] for a complete list.
             space_sleep_time (`int`, *optional*):
                 Number of seconds of inactivity to wait before a Space is put to sleep.
                 Set to `-1` if you don't want your Space to sleep (default behavior for
@@ -9032,7 +8730,6 @@ class HfApi:
         space_args: list[tuple[str, str, Any]] = [
             # input arg, payload key, value
             ("space_hardware", "hardware", space_hardware),
-            ("space_storage", "storageTier", space_storage),
             ("space_sleep_time", "sleepTimeSeconds", space_sleep_time),
             ("space_secrets", "secrets", space_secrets),
             ("space_variables", "variables", space_variables),
@@ -9069,177 +8766,6 @@ class HfApi:
                 raise
 
         return RepoUrl(r.json()["url"], endpoint=self.endpoint)
-
-    @_deprecate_method(version="2.0", message="Use `duplicate_repo` instead.")
-    @validate_hf_hub_args
-    def duplicate_space(
-        self,
-        from_id: str,
-        to_id: str | None = None,
-        *,
-        private: bool | None = None,
-        visibility: RepoVisibility_T | None = None,
-        token: bool | str | None = None,
-        exist_ok: bool = False,
-        hardware: SpaceHardware | None = None,
-        storage: SpaceStorage | None = None,
-        sleep_time: int | None = None,
-        secrets: list[dict[str, str]] | None = None,
-        variables: list[dict[str, str]] | None = None,
-    ) -> RepoUrl:
-        """Duplicate a Space.
-
-        Programmatically duplicate a Space. The new Space will be created in your account and will be in the same state
-        as the original Space (running or paused). You can duplicate a Space no matter the current state of a Space.
-
-        Args:
-            from_id (`str`):
-                ID of the Space to duplicate. Example: `"pharma/CLIP-Interrogator"`.
-            to_id (`str`, *optional*):
-                ID of the new Space. Example: `"dog/CLIP-Interrogator"`. If not provided, the new Space will have the same
-                name as the original Space, but in your account.
-            private (`bool`, *optional*):
-                Whether the new Space should be private or not. Defaults to the same privacy as the original Space. Cannot be passed together with `visibility`.
-            visibility (`Literal["public", "private", "protected"]`, *optional*):
-                Visibility of the new Space. Can be `"public"`, `"private"`, or `"protected"`. Defaults to the same
-                visibility as the original Space.
-            token (`bool` or `str`, *optional*):
-                A valid user access token (string). Defaults to the locally saved
-                token, which is the recommended method for authentication (see
-                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
-                To disable authentication, pass `False`.
-            exist_ok (`bool`, *optional*, defaults to `False`):
-                If `True`, do not raise an error if repo already exists.
-            hardware (`SpaceHardware` or `str`, *optional*):
-                Choice of Hardware. Example: `"t4-medium"`. See [`SpaceHardware`] for a complete list.
-            storage (`SpaceStorage` or `str`, *optional*):
-                Choice of persistent storage tier. Example: `"small"`. See [`SpaceStorage`] for a complete list.
-            sleep_time (`int`, *optional*):
-                Number of seconds of inactivity to wait before a Space is put to sleep. Set to `-1` if you don't want
-                your Space to sleep (default behavior for upgraded hardware). For free hardware, you can't configure
-                the sleep time (value is fixed to 48 hours of inactivity).
-                See https://huggingface.co/docs/hub/spaces-gpus#sleep-time for more details.
-            secrets (`list[dict[str, str]]`, *optional*):
-                A list of secret keys to set in your Space. Each item is in the form `{"key": ..., "value": ..., "description": ...}` where description is optional.
-                For more details, see https://huggingface.co/docs/hub/spaces-overview#managing-secrets.
-            variables (`list[dict[str, str]]`, *optional*):
-                A list of public environment variables to set in your Space. Each item is in the form `{"key": ..., "value": ..., "description": ...}` where description is optional.
-                For more details, see https://huggingface.co/docs/hub/spaces-overview#managing-secrets-and-environment-variables.
-
-        Returns:
-            [`RepoUrl`]: URL to the newly created repo. Value is a subclass of `str` containing
-            attributes like `endpoint`, `repo_type` and `repo_id`.
-
-        Raises:
-            [`~utils.RepositoryNotFoundError`]:
-              If one of `from_id` or `to_id` cannot be found. This may be because it doesn't exist,
-              or because it is set to `private` and you do not have access.
-            [`HfHubHTTPError`]:
-              If the HuggingFace API returned an error
-
-        Example:
-        ```python
-        >>> from huggingface_hub import duplicate_space
-
-        # Duplicate a Space to your account
-        >>> duplicate_space("multimodalart/dreambooth-training")
-        RepoUrl('https://huggingface.co/spaces/nateraw/dreambooth-training',...)
-
-        # Can set custom destination id and visibility flag.
-        >>> duplicate_space("multimodalart/dreambooth-training", to_id="my-dreambooth", visibility="private")
-        RepoUrl('https://huggingface.co/spaces/nateraw/my-dreambooth',...)
-        ```
-
-        > [!WARNING]
-        > `duplicate_space` is deprecated and will be removed in version 2.0. Use [`~HfApi.duplicate_repo`] instead.
-        """
-        kwargs: dict[str, Any] = {}
-        if to_id is not None:
-            kwargs["to_id"] = to_id
-        return self.duplicate_repo(
-            from_id=from_id,
-            repo_type="space",
-            private=private,
-            visibility=visibility,
-            token=token,
-            exist_ok=exist_ok,
-            space_hardware=hardware,
-            space_storage=storage,
-            space_sleep_time=sleep_time,
-            space_secrets=secrets,
-            space_variables=variables,
-            **kwargs,
-        )
-
-    @_deprecate_method(version="2.0", message="Use `set_space_volumes` instead.")
-    @validate_hf_hub_args
-    def request_space_storage(
-        self,
-        repo_id: str,
-        storage: SpaceStorage,
-        *,
-        token: bool | str | None = None,
-    ) -> SpaceRuntime:
-        """Request persistent storage for a Space.
-
-        > [!WARNING]
-        > `request_space_storage` is deprecated and will be removed in version 2.0. Use [`set_space_volumes`] instead.
-
-        Args:
-            repo_id (`str`):
-                ID of the Space to update. Example: `"open-llm-leaderboard/open_llm_leaderboard"`.
-            storage (`str` or [`SpaceStorage`]):
-               Storage tier. Either 'small', 'medium', or 'large'.
-            token (`bool` or `str`, *optional*):
-                A valid user access token (string). Defaults to the locally saved
-                token, which is the recommended method for authentication (see
-                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
-                To disable authentication, pass `False`.
-        Returns:
-            [`SpaceRuntime`]: Runtime information about a Space including Space stage and hardware.
-        """
-        payload: dict[str, SpaceStorage] = {"tier": storage}
-        r = get_session().post(
-            f"{self.endpoint}/api/spaces/{repo_id}/storage",
-            headers=self._build_hf_headers(token=token),
-            json=payload,
-        )
-        hf_raise_for_status(r)
-        return SpaceRuntime(r.json())
-
-    @_deprecate_method(version="2.0", message="Use `delete_space_volumes` instead.")
-    @validate_hf_hub_args
-    def delete_space_storage(
-        self,
-        repo_id: str,
-        *,
-        token: bool | str | None = None,
-    ) -> SpaceRuntime:
-        """Delete persistent storage for a Space.
-
-        > [!WARNING]
-        > `delete_space_storage` is deprecated and will be removed in version 2.0. Use [`delete_space_volumes`] instead.
-
-        Args:
-            repo_id (`str`):
-                ID of the Space to update. Example: `"open-llm-leaderboard/open_llm_leaderboard"`.
-            token (`bool` or `str`, *optional*):
-                A valid user access token (string). Defaults to the locally saved
-                token, which is the recommended method for authentication (see
-                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
-                To disable authentication, pass `False`.
-        Returns:
-            [`SpaceRuntime`]: Runtime information about a Space including Space stage and hardware.
-        Raises:
-            [`BadRequestError`]
-                If space has no persistent storage.
-        """
-        r = get_session().delete(
-            f"{self.endpoint}/api/spaces/{repo_id}/storage",
-            headers=self._build_hf_headers(token=token),
-        )
-        hf_raise_for_status(r)
-        return SpaceRuntime(r.json())
 
     @validate_hf_hub_args
     def set_space_volumes(
@@ -9497,8 +9023,7 @@ class HfApi:
                 Secret values to inject in the container environment.
             type ([`InferenceEndpointType]`, *optional*):
                 The type of the Inference Endpoint, which can be `"authenticated"` (default), `"public"` or
-                `"private"`. `"protected"` is deprecated in favor of `"authenticated"` and will be removed in a
-                future release.
+                `"private"`.
             domain (`str`, *optional*):
                 The custom domain for the Inference Endpoint deployment, if setup the inference endpoint will be available at this domain (e.g. `"my-new-domain.cool-website.woof"`).
             path (`str`, *optional*):
@@ -9597,6 +9122,8 @@ class HfApi:
             ```
 
         """
+        if type == "protected":
+            raise ValueError("`type='protected'` is no longer supported. Use `type='authenticated'` instead.")
         if account_id is not None:
             warnings.warn(
                 "`account_id` has been ignored. Use `private_link_account_id` and `private_link_region` to configure"
@@ -9605,13 +9132,6 @@ class HfApi:
             )
 
         namespace = namespace or self._get_namespace(token=token)
-
-        if type == InferenceEndpointType.PROTECTED:
-            warnings.warn(
-                "`type='protected'` is deprecated and will be removed in a future release. "
-                "Use `type='authenticated'` instead.",
-                FutureWarning,
-            )
 
         image: dict[str, Any]
         if custom_image is None:
@@ -12509,8 +12029,8 @@ class HfApi:
         # - there is one "metric" event every second, like this:
         # event: metric
         # data: {"cpu_usage_pct":0,"cpu_millicores":3500,"memory_used_bytes":1417216,"memory_total_bytes":15032385536,"rx_bps":0,"tx_bps":0,"gpus":{"d901cd7f":{"utilization":0,"memory_used_bytes":0,"memory_total_bytes":22836000000}},"replica":"j6qz9"}
-        # - the stream doesn't end when the job finishes, so we rely on timeouts (httpx.NetworkError with Timeout as cause)
-        # - httpx.ReadTimeout can happen if the job is marked as running but the hardware is not available yet, that we can ignore
+        # - the stream doesn't end when the job finishes, so we rely on timeouts (httpx2.NetworkError with Timeout as cause)
+        # - httpx2.ReadTimeout can happen if the job is marked as running but the hardware is not available yet, that we can ignore
         # - it returns an internal error 500 if the job has already finished, we simply ignore it
         # - ChunkedEncodingError can happen in case of stopped logging in the middle of streaming
         # - there is a ": keep-alive" every 30 seconds
@@ -14919,7 +14439,7 @@ class HfApi:
         headers = self._build_hf_headers(token=token)
         headers["Accept-Encoding"] = "identity"  # prevent compression so the size matches the file
 
-        response = _httpx_follow_hub_redirects_with_backoff(
+        response = _httpx2_follow_hub_redirects_with_backoff(
             "HEAD",
             f"{self.endpoint}/buckets/{bucket_id}/resolve/{quote(remote_path, safe='')}",
             headers=headers,
@@ -15194,7 +14714,7 @@ class HfApi:
 
 
 def _bucket_batch_error(
-    bucket_id: str, failures: list[dict[str, str]], *, sent: int, response: httpx.Response
+    bucket_id: str, failures: list[dict[str, str]], *, sent: int, response: httpx2.Response
 ) -> BucketBatchError:
     messages = [f"  - {f['path']}: {f['error']}" for f in failures[:_BUCKET_BATCH_MAX_LISTED_FAILURES]]
     if len(failures) > _BUCKET_BATCH_MAX_LISTED_FAILURES:
@@ -15424,7 +14944,6 @@ upload_folder = api.upload_folder
 delete_file = api.delete_file
 delete_folder = api.delete_folder
 delete_files = api.delete_files
-upload_large_folder = api.upload_large_folder
 preupload_lfs_files = api.preupload_lfs_files
 create_branch = api.create_branch
 delete_branch = api.delete_branch
@@ -15475,9 +14994,6 @@ set_space_sleep_time = api.set_space_sleep_time
 pause_space = api.pause_space
 restart_space = api.restart_space
 duplicate_repo = api.duplicate_repo
-duplicate_space = api.duplicate_space
-request_space_storage = api.request_space_storage
-delete_space_storage = api.delete_space_storage
 set_space_volumes = api.set_space_volumes
 delete_space_volumes = api.delete_space_volumes
 enable_space_dev_mode = api.enable_space_dev_mode

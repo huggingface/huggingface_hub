@@ -123,12 +123,12 @@ Other helpers: `stat`, `exists`, `mkdir`, `delete`.
 Start a server in the sandbox (in the background), then reach it from the outside with [`Sandbox.proxy_url_for`] — the request is forwarded by the in-job sandbox server to your inner server, so there's no extra public port to expose. It works for plain HTTP, Server-Sent Events and WebSocket. Pair the URL with [`Sandbox.proxy_headers`] for auth (your WebSocket/HTTP client must send them):
 
 ```python
->>> import httpx
+>>> import httpx2
 >>> with Sandbox.create() as sbx:
 ...     sbx.files.write("app.py", "...")  # a server exposing e.g. /hello and /ws
 ...     sbx.run("uvicorn app:app --host 127.0.0.1 --port 8000", background=True)
 ...     # plain HTTP
-...     r = httpx.get(sbx.proxy_url_for(8000, "/hello"), headers=sbx.proxy_headers)
+...     r = httpx2.get(sbx.proxy_url_for(8000, "/hello"), headers=sbx.proxy_headers)
 ...     # WebSocket: ask for a wss:// URL
 ...     ws_url = sbx.proxy_url_for(8000, "/ws", scheme="wss://")
 ```

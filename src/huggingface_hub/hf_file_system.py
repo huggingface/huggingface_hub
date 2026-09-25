@@ -13,7 +13,7 @@ from typing import Any, NoReturn, Union
 from urllib.parse import quote, unquote
 
 import fsspec
-import httpx
+import httpx2
 from fsspec.callbacks import _DEFAULT_CALLBACK, NoOpCallback, TqdmCallback
 from fsspec.config import apply_config
 from fsspec.utils import isfilelike
@@ -1312,7 +1312,7 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
         super().__init__(
             fs, self.resolved_path.unresolve(), mode=mode, block_size=block_size, cache_type=cache_type, **kwargs
         )
-        self.response: httpx.Response | None = None
+        self.response: httpx2.Response | None = None
         self.fs: HfFileSystem
         self._exit_stack = ExitStack()
         # streaming state

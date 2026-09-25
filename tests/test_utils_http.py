@@ -7,9 +7,9 @@ from unittest.mock import Mock, call, patch
 from urllib.parse import urlparse
 from uuid import UUID
 
-import httpx
+import httpx2
 import pytest
-from httpx import ConnectTimeout, HTTPError
+from httpx2 import ConnectTimeout, HTTPError
 
 from huggingface_hub import constants
 from huggingface_hub.constants import ENDPOINT
@@ -42,6 +42,18 @@ from .testing_constants import ENDPOINT_STAGING
 
 
 URL = "https://www.google.com"
+
+
+def test_httpx_compatibility_export():
+    from huggingface_hub.utils import httpx
+
+    assert httpx is httpx2
+    with default_client_factory() as client:
+        assert isinstance(client, httpx.Client)
+    response = httpx.Response(404, request=httpx.Request("GET", "https://huggingface.co/missing"))
+    with pytest.raises(httpx.HTTPError) as exc:
+        hf_raise_for_status(response)
+    assert isinstance(exc.value, HfHubHTTPError)
 
 
 class TestHttpBackoff:
@@ -207,14 +219,14 @@ class TestConfigureSession:
         set_client_factory(default_client_factory)
 
     @staticmethod
-    def _factory() -> httpx.Client:
-        client = httpx.Client()
+    def _factory() -> httpx2.Client:
+        client = httpx2.Client()
         client.headers.update({"x-test-header": "4"})
         return client
 
     def test_default_configuration(self) -> None:
         client = get_session()
-        # Check httpx.Client default configuration
+        # Check httpx2.Client default configuration
         assert client.follow_redirects
         assert client.timeout is not None
 
@@ -260,7 +272,7 @@ class TestConfigureSession:
         for th in threads:
             th.join()
 
-        # Check all clients are the same instance (httpx is thread-safe)
+        # Check all clients are the same instance (httpx2 is thread-safe)
         for i in range(N):
             assert main_client is clients[i]
             for j in range(N):
@@ -272,9 +284,9 @@ class TestConfigureSession:
         barrier = threading.Barrier(N)
         clients = [None] * N
 
-        def _factory() -> httpx.Client:
+        def _factory() -> httpx2.Client:
             created.append(None)
-            return httpx.Client()
+            return httpx2.Client()
 
         def _get_session_in_thread(index: int) -> None:
             barrier.wait()
@@ -385,7 +397,7 @@ def test_adjust_range_header():
 def test_proxy_env_is_used(monkeypatch):
     """Regression test for https://github.com/huggingface/transformers/issues/41301.
 
-    Test is hacky and uses httpx internal attributes, but it works.
+    Test is hacky and uses httpx2 internal attributes, but it works.
     We just need to test that proxies from env vars are used when creating the client.
     """
     monkeypatch.setenv("HTTP_PROXY", "http://proxy.example1.com:8080")
@@ -473,9 +485,9 @@ def fake_server():
 
     for _ in range(1000):  # up to 10 seconds
         try:
-            if httpx.get(f"{url}/health", timeout=0.01).status_code == 200:
+            if httpx2.get(f"{url}/health", timeout=0.01).status_code == 200:
                 break
-        except httpx.HTTPError:
+        except httpx2.HTTPError:
             pass
         time.sleep(0.01)
     else:
@@ -486,7 +498,7 @@ def fake_server():
     server.shutdown()
 
 
-def _check_raise_status(response: httpx.Response):
+def _check_raise_status(response: httpx2.Response):
     """Common assertions for 500 error tests."""
     with pytest.raises(HfHubHTTPError) as exc_info:
         hf_raise_for_status(response)
@@ -578,14 +590,14 @@ def test_parse_delay_seconds(headers, expected):
 
 class TestBucketNotFoundError:
     def _make_response(self, url: str, error_code: str = "RepoNotFound"):
-        request = Mock(spec=httpx.Request)
+        request = Mock(spec=httpx2.Request)
         request.url = url
-        response = Mock(spec=httpx.Response)
+        response = Mock(spec=httpx2.Response)
         response.status_code = 404
         response.url = url
         response.request = request
-        response.headers = httpx.Headers({"X-Error-Code": error_code, "X-Error-Message": "Repository not found"})
-        response.raise_for_status.side_effect = httpx.HTTPStatusError("404", request=request, response=response)
+        response.headers = httpx2.Headers({"X-Error-Code": error_code, "X-Error-Message": "Repository not found"})
+        response.raise_for_status.side_effect = httpx2.HTTPStatusError("404", request=request, response=response)
         response.json.return_value = {"error": "Repository not found"}
         return response
 
@@ -613,16 +625,16 @@ class TestBucketNotFoundError:
 class TestRateLimitErrorMessage:
     def test_429_with_ratelimit_headers(self):
         """Test 429 error includes rate limit info when headers present."""
-        response = Mock(spec=httpx.Response)
+        response = Mock(spec=httpx2.Response)
         response.status_code = 429
         response.url = "https://huggingface.co/api/models/username/reponame"
-        response.headers = httpx.Headers(
+        response.headers = httpx2.Headers(
             {
                 "ratelimit": '"api";r=0;t=55',
                 "ratelimit-policy": '"fixed window";"api";q=500;w=300',
             }
         )
-        response.raise_for_status.side_effect = httpx.HTTPStatusError("429", request=Mock(), response=response)
+        response.raise_for_status.side_effect = httpx2.HTTPStatusError("429", request=Mock(), response=response)
         response.json.return_value = {}
 
         with pytest.raises(HfHubHTTPError) as exc_info:
@@ -637,16 +649,16 @@ class TestRateLimitErrorMessage:
 
     def test_429_with_non_exhausted_ratelimit_headers(self):
         """Test 429 error ignores rate limit headers when the window is not exhausted."""
-        response = Mock(spec=httpx.Response)
+        response = Mock(spec=httpx2.Response)
         response.status_code = 429
         response.url = "https://huggingface.co/api/repos/create"
-        response.headers = httpx.Headers(
+        response.headers = httpx2.Headers(
             {
                 "ratelimit": '"api";r=99794;t=241',
                 "ratelimit-policy": '"fixed window";"api";q=100000;w=300',
             }
         )
-        response.raise_for_status.side_effect = httpx.HTTPStatusError("429", request=Mock(), response=response)
+        response.raise_for_status.side_effect = httpx2.HTTPStatusError("429", request=Mock(), response=response)
         response.json.return_value = {
             "error": "You have exceeded the rate limit for repository creation (300 per day)."
         }
@@ -662,11 +674,11 @@ class TestRateLimitErrorMessage:
 
     def test_429_without_ratelimit_headers(self):
         """Test 429 error fallback when headers missing."""
-        response = Mock(spec=httpx.Response)
+        response = Mock(spec=httpx2.Response)
         response.status_code = 429
         response.url = "https://huggingface.co/api/models"
-        response.headers = httpx.Headers({})
-        response.raise_for_status.side_effect = httpx.HTTPStatusError("429", request=Mock(), response=response)
+        response.headers = httpx2.Headers({})
+        response.raise_for_status.side_effect = httpx2.HTTPStatusError("429", request=Mock(), response=response)
         response.json.return_value = {}
 
         with pytest.raises(HfHubHTTPError) as exc_info:
@@ -679,8 +691,8 @@ class TestRateLimitErrorMessage:
 class TestWarnOnWarningHeaders:
     def test_warn_on_warning_headers(self, caplog):
         # Request #1 (multiple warnings)
-        response = Mock(spec=httpx.Response)
-        response.headers = httpx.Headers(
+        response = Mock(spec=httpx2.Response)
+        response.headers = httpx2.Headers(
             [
                 ("X-HF-Warning", "Topic1; This is the first warning message."),
                 ("X-HF-Warning", "Topic2; This is the second warning message."),
@@ -708,7 +720,7 @@ class TestWarnOnWarningHeaders:
         assert len(warnings) == 0  # No new warnings should be added
 
         # Request #3 (single warning with new topic, should warn)
-        response.headers = httpx.Headers({"X-HF-Warning": "Topic4; Another warning."})
+        response.headers = httpx2.Headers({"X-HF-Warning": "Topic4; Another warning."})
         caplog.clear()
         with caplog.at_level("WARNING"):
             _warn_on_warning_headers(response)
@@ -791,15 +803,15 @@ class TestNoReferenceCycleInRaise:
 
     def test_no_refcycle(self):
         url = "https://huggingface.co/api/models/user/repo"
-        request = Mock(spec=httpx.Request)
-        request.url = httpx.URL(url)
-        response = Mock(spec=httpx.Response)
+        request = Mock(spec=httpx2.Request)
+        request.url = httpx2.URL(url)
+        response = Mock(spec=httpx2.Response)
         response.status_code = 404
         response.url = url
-        response.headers = httpx.Headers({"X-Error-Code": "RepoNotFound"})
+        response.headers = httpx2.Headers({"X-Error-Code": "RepoNotFound"})
         response.json.return_value = {}
         response.request = request
-        response.raise_for_status.side_effect = httpx.HTTPStatusError("404", request=request, response=response)
+        response.raise_for_status.side_effect = httpx2.HTTPStatusError("404", request=request, response=response)
 
         ref = None
         try:
