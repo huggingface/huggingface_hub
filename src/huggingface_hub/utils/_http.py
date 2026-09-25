@@ -784,10 +784,25 @@ def _httpx2_follow_hub_redirects_with_backoff(
     raise httpx2.TooManyRedirects(f"Exceeded {_MAX_REDIRECTS} redirects while resolving '{url}'.")
 
 
+_DEFAULT_PORTS = {"http": 80, "https": 443}
+
+
+def _url_origin(url: str) -> tuple[str, str, int]:
+    """Origin of a url: (scheme, hostname, port), with the scheme's default port if not explicit."""
+    parsed = urlparse(url)
+    return (parsed.scheme, (parsed.hostname or "").lower(), parsed.port or _DEFAULT_PORTS.get(parsed.scheme, 0))
+
+
 def _is_same_or_hub_host(url: str, target: str) -> bool:
-    """Whether `target` is served by the same host as `url`, or by a known Hub host."""
-    target_host = (urlparse(target).hostname or "").lower()
-    return target_host == (urlparse(url).hostname or "").lower() or target_host in constants.HF_URL_HOSTS
+    """Whether `target` is served by the same origin as `url`, or by a known Hub host on a standard port."""
+    if _url_origin(url) == _url_origin(target):
+        return True
+    target_parsed = urlparse(target)
+    # Hub hosts are known by hostname only => trust them only on their scheme's standard port.
+    return (target_parsed.hostname or "").lower() in constants.HF_URL_HOSTS and target_parsed.port in (
+        None,
+        _DEFAULT_PORTS.get(target_parsed.scheme),
+    )
 
 
 def fix_hf_endpoint_in_url(url: str, endpoint: str | None) -> str:
