@@ -69,9 +69,6 @@ class UvScript:
     header: UvScriptHeader | None = None
     """Parsed `[tool.hf-jobs]` table, or `None` if the script has none."""
 
-    remote: bool = False
-    """Whether the script was downloaded from a URL."""
-
 
 @contextmanager
 def load_uv_script(script: str) -> Generator[UvScript, None, None]:
@@ -91,9 +88,7 @@ def load_uv_script(script: str) -> Generator[UvScript, None, None]:
         with SoftTemporaryDirectory(prefix="hf-jobs-uv-") as tmp_dir:
             local_path = _download_script(script, Path(tmp_dir))
             yield UvScript(
-                script=str(local_path),
-                header=parse_uv_script_header(local_path.read_text(encoding="utf-8")),
-                remote=True,
+                script=str(local_path), header=parse_uv_script_header(local_path.read_text(encoding="utf-8"))
             )
         return
     path = Path(script)

@@ -229,10 +229,6 @@ def _resolve_uv_job_config(
         env_map = {**script_env, **env_map}
 
         secrets_map = parse_env_map(secrets, secrets_file)
-        if source.remote:
-            _check_remote_script_access(
-                header, secrets=secrets, secrets_map=secrets_map, volume=volume, from_script=from_script
-            )
         script_secrets = _resolve_script_secrets(header.secrets, secrets_map, dry_run=dry_run)
         from_script.update(f"secrets.{key}" for key in script_secrets)
         secrets_map = {**script_secrets, **secrets_map}
@@ -246,6 +242,17 @@ def _resolve_uv_job_config(
 
         volume_specs, script_volume_specs = _merge_volume_specs(volume or [], header.volumes)
         from_script.update(f"volumes.{spec}" for spec in script_volume_specs)
+
+        # Access the script asks for must be confirmed, or passed as flags to stay visible in the command.
+        access_flags = [f"--secrets {name}" for name in script_secrets]
+        access_flags += [f"-v {spec}" for spec in script_volume_specs]
+        if "namespace" in from_script:
+            access_flags.append(f"--namespace {namespace}")
+        if "network_group" in from_script:
+            access_flags.append(f"--network-group {network_group}")
+        if access_flags and not dry_run:
+            flags = " ".join(access_flags)
+            out.confirm(f"The script's [{TABLE_NAME}] table requests {flags}. Continue?", confirm_param=flags)
 
         config = _UvJobConfig(
             script=source.script,
@@ -286,34 +293,6 @@ def _resolve_uv_job_config(
         yield config
 
 
-def _check_remote_script_access(
-    header: UvScriptHeader,
-    *,
-    secrets: list[str] | None,
-    secrets_map: dict[str, str | None],
-    volume: list[str] | None,
-    from_script: Collection[str],
-) -> None:
-    """Refuse a URL script whose table requests access to the caller's account or machine on its own.
-
-    Secrets, volumes, namespace and network group must be visible in the command that launches someone else's script.
-    """
-    # A bare `--secrets NAME` counts even when NAME is unset locally (`parse_env_map` drops it).
-    passed_secrets = {*secrets_map, *(secret.split("=", 1)[0].strip() for secret in secrets or [])}
-    _, script_volume_specs = _merge_volume_specs(volume or [], header.volumes)
-    flags = [f"--secrets {name}" for name in header.secrets if name not in passed_secrets]
-    flags += [f"-v {spec}" for spec in script_volume_specs]
-    if "namespace" in from_script:
-        flags.append(f"--namespace {header.namespace}")
-    if "network_group" in from_script:
-        flags.append(f"--network-group {header.network_group}")
-    if flags:
-        raise CLIError(
-            f"This script is downloaded from a URL, so its [{TABLE_NAME}] table cannot request secrets, volumes, a"
-            f" namespace or a network group on its own. If you trust the script, pass them explicitly: {' '.join(flags)}"
-        )
-
-
 def _resolve_script_secrets(
     names: list[str], cli_secrets: dict[str, str | None], *, dry_run: bool = False
 ) -> dict[str, str | None]:
@@ -346,10 +325,10 @@ def _resolve_script_secrets(
             f" Export them locally (e.g. `export {missing[0]}=...`) or pass them explicitly"
             f" (e.g. `--secrets {missing[0]}=...`)."
         )
-    if resolved:
+    if resolved and dry_run:  # a real run asks for confirmation instead
         out.warning(
             f"The script's [{TABLE_NAME}] table requests {', '.join(resolved)}: the value(s) from your local"
-            f" environment {'would be' if dry_run else 'will be'} sent to the Job."
+            " environment would be sent to the Job."
         )
     return {**resolved, **dict.fromkeys(missing)}
 

@@ -4203,6 +4203,7 @@ print("hello")
                     "hf://datasets/org/other:/input",
                 ],
                 # fmt: on
+                input="y\n",
             )
         assert result.exit_code == 0
         assert "MY_SECRET=*** (from script)" in result.output
@@ -4230,7 +4231,7 @@ print("hello")
         ):
             api = api_cls.return_value
             api.run_uv_job.return_value = job
-            result = runner.invoke(app, ["jobs", "uv", "run", "--detach", script])
+            result = runner.invoke(app, ["jobs", "uv", "run", "--detach", script], input="y\n")
         assert result.exit_code == 0
         assert "ocr-net (from script)" in result.output
         kwargs = api.run_uv_job.call_args.kwargs
@@ -4238,7 +4239,7 @@ print("hello")
         assert kwargs["network_aliases"] == ["worker", "gpu"]
 
         with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
-            result = runner.invoke(app, ["jobs", "scheduled", "uv", "run", "@daily", script])
+            result = runner.invoke(app, ["jobs", "scheduled", "uv", "run", "@daily", script], input="y\n")
         assert result.exit_code == 1
         assert "do not support network groups" in str(result.exception)
         api_cls.return_value.create_scheduled_uv_job.assert_not_called()
