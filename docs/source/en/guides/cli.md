@@ -2388,6 +2388,12 @@ Or create a webhook that triggers a Job instead:
 >>> hf webhooks create --job-id 687f911eaea852de79c4a50a --watch user:julien-c
 ```
 
+The source Job's secrets are not copied to the webhook. Use `--secrets` or `--secrets-file` (same syntax as `hf jobs run`) to pass them to the triggered Job. For example, `--secrets HF_TOKEN` passes your local Hugging Face token:
+
+```bash
+>>> hf webhooks create --job-id 687f911eaea852de79c4a50a --watch bucket:my-org/my-bucket --secrets HF_TOKEN
+```
+
 The `--watch` option uses the format `type:name` where type is one of `model`, `dataset`, `space`, `bucket`, `org`, or `user`. It can be repeated to watch multiple items. Use `--domain` to filter events to `repo` or `discussions`, and `--secret` to set a signing secret.
 
 ### Update a webhook
@@ -2398,6 +2404,12 @@ The `--watch` option uses the format `type:name` where type is one of `model`, `
 ```
 
 Only the provided options are changed. Note that `--watch` replaces the entire watched list when specified.
+
+To update the secrets of a Job-triggered webhook, pass `--job-id` together with `--secrets`. Listed secrets replace the stored values and all other secrets are kept:
+
+```bash
+>>> hf webhooks update wh-abc123 --job-id 687f911eaea852de79c4a50a --secrets HF_TOKEN
+```
 
 ### Enable / disable a webhook
 

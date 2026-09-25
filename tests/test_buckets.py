@@ -19,7 +19,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from huggingface_hub import HfApi
-from huggingface_hub._buckets import BucketFile, BucketInfo, SyncOperation, SyncPlan, _execute_plan
+from huggingface_hub._buckets import BucketFile, BucketInfo, FilterMatcher, SyncOperation, SyncPlan, _execute_plan
 from huggingface_hub._jobs_api import _derive_job_volume_name
 from huggingface_hub.errors import BucketBatchError, BucketNotFoundError, EntryNotFoundError, HfHubHTTPError
 
@@ -640,6 +640,23 @@ def test_execute_plan_rejects_path_traversal(tmp_path):
     with pytest.raises(ValueError, match="Invalid filename"):
         _execute_plan(plan, api)
     assert outside.exists()  # not deleted
+
+
+@pytest.mark.parametrize(
+    "kwargs, path, expected",
+    [
+        # Case-sensitive on every platform (fnmatch.fnmatch ignores case on Windows)
+        ({"exclude_patterns": ["*.LOG"]}, "debug.log", True),
+        ({"exclude_patterns": ["*.log"]}, "debug.log", False),
+        ({"include_patterns": ["Data/*"]}, "data/x.bin", False),
+        ({"filter_rules": [("-", "*.TMP")]}, "a.tmp", True),
+        # Backslashes in patterns are treated as path separators
+        ({"include_patterns": ["data\\*"]}, "data/x.bin", True),
+        ({"filter_rules": [("-", "logs\\*")]}, "logs/a.txt", False),
+    ],
+)
+def test_filter_matcher(kwargs, path, expected):
+    assert FilterMatcher(**kwargs).matches(path) is expected
 
 
 def test_batch_bucket_files_raises_on_failed_operations(api: HfApi, bucket_write: str, mocker):
