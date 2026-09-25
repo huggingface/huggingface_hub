@@ -258,10 +258,7 @@ def _parse_repo_info_from_url(url: str) -> tuple[str | None, str | None]:
         else:
             repo_type = "model"
 
-        if second and second not in _REPO_URL_SUBPATHS:
-            repo_id = f"{first}/{second}"
-        else:
-            repo_id = first
+        repo_id = f"{first}/{second}" if second else first
         return repo_type, repo_id
 
     return None, None

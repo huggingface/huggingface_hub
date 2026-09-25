@@ -837,6 +837,20 @@ class TestParseRepoInfoFromUrl:
             "https://huggingface.co/openai-community/gpt2/resolve/main/nope.txt?download=true"
         ) == ("model", "openai-community/gpt2")
 
+    def test_download_repo_with_reserved_word_name(self):
+        assert _parse_repo_info_from_url("https://huggingface.co/user/tree/resolve/main/config.json") == (
+            "model",
+            "user/tree",
+        )
+        assert _parse_repo_info_from_url("https://huggingface.co/user/settings/resolve/main/config.json") == (
+            "model",
+            "user/settings",
+        )
+        assert _parse_repo_info_from_url("https://huggingface.co/datasets/user/tree/resolve/main/data.csv") == (
+            "dataset",
+            "user/tree",
+        )
+
 
 class TestParseBucketIdFromUrl:
     def test_bucket_url(self):
