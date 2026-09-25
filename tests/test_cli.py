@@ -4811,6 +4811,7 @@ class TestWebhooksCommand:
             watched=[WebhookWatchedItem(type="model", name="bert-base-uncased")],
             domains=None,
             secret=None,
+            secrets=None,
         )
 
     def test_create_with_domain_and_secret(self, runner: CliRunner) -> None:
@@ -4841,6 +4842,7 @@ class TestWebhooksCommand:
             watched=[WebhookWatchedItem(type="org", name="HuggingFace")],
             domains=["repo"],
             secret="mysecret",
+            secrets=None,
         )
 
     def test_create_with_job_id(self, runner: CliRunner) -> None:
@@ -4862,7 +4864,38 @@ class TestWebhooksCommand:
             watched=[WebhookWatchedItem(type="user", name="julien-c")],
             domains=None,
             secret=None,
+            secrets=None,
         )
+
+    def test_create_with_job_secrets(self, runner: CliRunner) -> None:
+        webhook = self._make_webhook(url=None)
+        with (
+            patch("huggingface_hub.cli.webhooks.get_hf_api") as api_cls,
+            patch.dict(os.environ, {"MY_SECRET": "s3cr3t"}),
+        ):
+            api_cls.return_value.create_webhook.return_value = webhook
+            result = runner.invoke(
+                app,
+                [
+                    "webhooks",
+                    "create",
+                    "--job-id",
+                    "687f911eaea852de79c4a50a",
+                    "--watch",
+                    "bucket:my-org/my-bucket",
+                    "--secrets",
+                    "MY_SECRET",
+                ],
+            )
+        assert result.exit_code == 0, result.output
+        assert api_cls.return_value.create_webhook.call_args.kwargs["secrets"] == {"MY_SECRET": "s3cr3t"}
+
+    def test_create_secrets_require_job_id(self, runner: CliRunner) -> None:
+        result = runner.invoke(
+            app,
+            ["webhooks", "create", "--url", "https://example.com/hook", "--watch", "user:me", "--secrets", "A=b"],
+        )
+        assert result.exit_code != 0
 
     def test_create_url_and_job_id_mutually_exclusive(self, runner: CliRunner) -> None:
         result = runner.invoke(
@@ -4906,10 +4939,29 @@ class TestWebhooksCommand:
         api_cls.return_value.update_webhook.assert_called_once_with(
             "wh-abc123",
             url="https://new.example.com/hook",
+            job_id=None,
             watched=None,
             domains=None,
             secret=None,
+            secrets=None,
         )
+
+    def test_update_with_job_secrets(self, runner: CliRunner) -> None:
+        webhook = self._make_webhook(url=None)
+        with patch("huggingface_hub.cli.webhooks.get_hf_api") as api_cls:
+            api_cls.return_value.update_webhook.return_value = webhook
+            result = runner.invoke(
+                app,
+                ["webhooks", "update", "wh-abc123", "--job-id", "687f911eaea852de79c4a50a", "--secrets", "A=b"],
+            )
+        assert result.exit_code == 0, result.output
+        kwargs = api_cls.return_value.update_webhook.call_args.kwargs
+        assert kwargs["job_id"] == "687f911eaea852de79c4a50a"
+        assert kwargs["secrets"] == {"A": "b"}
+
+    def test_update_secrets_require_job_id(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["webhooks", "update", "wh-abc123", "--secrets", "A=b"])
+        assert result.exit_code != 0
 
     def test_enable(self, runner: CliRunner) -> None:
         webhook = self._make_webhook(disabled=False)

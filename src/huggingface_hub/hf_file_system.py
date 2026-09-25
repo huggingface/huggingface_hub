@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from functools import partial
 from itertools import chain
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 from typing import Any, Literal, NoReturn, Union, overload
 from urllib.parse import quote, unquote
 
@@ -33,9 +33,11 @@ from .errors import (
     RepositoryNotFoundError,
     RevisionNotFoundError,
 )
-from .file_download import hf_hub_url, http_get
+from .file_download import hf_hub_url, http_get, xet_get
 from .hf_api import SPECIAL_REFS_REVISION_REGEX, HfApi, LastCommitInfo, RepoFile, RepoFolder
-from .utils import HFValidationError, hf_raise_for_status, http_backoff, http_stream_backoff, parse_hf_uri
+from .utils import HFValidationError, XetFileData, hf_raise_for_status, http_backoff, http_stream_backoff, parse_hf_uri
+from .utils._runtime import is_xet_available
+from .utils._xet import XetTokenType, xet_connection_info_refresh_url
 from .utils.insecure_hashlib import md5
 
 
@@ -1192,6 +1194,27 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
             url = url.replace("/resolve/", "/tree/", 1)
         return url
 
+    def _get_xet_file_data(
+        self, resolved_path: HfFileSystemResolvedRepositoryPath | HfFileSystemResolvedBucketPath, info: dict[str, Any]
+    ) -> XetFileData | None:
+        """Build the Xet metadata of a file from its `info()` entry, or return None if it can't be downloaded with Xet."""
+        if not is_xet_available() or (xet_hash := info.get("xet_hash")) is None:
+            return None
+        if isinstance(resolved_path, HfFileSystemResolvedBucketPath):
+            repo_id, repo_type, revision = resolved_path.bucket_id, "bucket", None
+        else:
+            # Special refs (e.g. "refs/pr/1") must be quoted in the token route
+            repo_id, repo_type = resolved_path.repo_id, resolved_path.repo_type
+            revision = quote(resolved_path.revision, safe="")
+        refresh_route = xet_connection_info_refresh_url(
+            token_type=XetTokenType.READ,
+            repo_id=repo_id,
+            repo_type=repo_type,
+            revision=revision,
+            endpoint=self.endpoint,
+        )
+        return XetFileData(file_hash=xet_hash, refresh_route=refresh_route)
+
     def get_file(self, rpath, lpath=None, callback=_DEFAULT_CALLBACK, outfile=None, **kwargs) -> None:
         """
         Copy single remote file to local.
@@ -1221,6 +1244,8 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
             # and let's not handle custom kwargs
             return super().get_file(rpath, lpath, callback=callback, outfile=outfile, **kwargs)
 
+        info = self.info(rpath, revision=revision)
+
         # Adapted from https://github.com/fsspec/filesystem_spec/blob/0f76baaae4a227b085b18e8469e6cc1792a95ade/fsspec/spec.py#L975
         close_file = False
         if outfile is None:
@@ -1233,12 +1258,24 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
                 return None
             else:
                 os.makedirs(os.path.dirname(lpath) or os.curdir, exist_ok=True)
+                if (xet_file_data := self._get_xet_file_data(resolve_remote_path, info)) is not None:
+                    # hf_xet writes the file to disk directly
+                    callback.set_size(info["size"])
+                    xet_get(
+                        incomplete_path=Path(lpath),
+                        xet_file_data=xet_file_data,
+                        headers=self._api._build_hf_headers(),
+                        expected_size=info["size"],
+                        displayed_filename=rpath,
+                        _tqdm_bar=callback.tqdm if isinstance(callback, TqdmCallback) else None,
+                    )
+                    return None
                 outfile = open(lpath, "wb")
                 close_file = True
         initial_pos = outfile.tell()
 
         # Custom implementation of `get_file` to use `http_get`.
-        expected_size = self.info(rpath, revision=revision)["size"]
+        expected_size = info["size"]
         callback.set_size(expected_size)
         try:
             http_get(
