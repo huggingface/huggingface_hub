@@ -203,17 +203,23 @@ _JOB_ID_FROM_URL_REGEX = re.compile(r"^https?://[^/]+/api/(?:scheduled-jobs|jobs
 
 # Regex to extract repo_type and repo_id from API URLs.
 # Captures: group(1) = repo_type plural (models/datasets/spaces), group(2) = first path segment, group(3) = optional second segment.
-_REPO_ID_FROM_URL_REGEX = re.compile(r"^https?://[^/]+/api/(models|datasets|spaces)/([^/]+)(?:/([^/]+))?")
+_REPO_ID_FROM_URL_REGEX = re.compile(r"^https?://[^/]+/api/(models|datasets|spaces)/([^/?]+)(?:/([^/?]+))?")
+
+# Regex to extract repo_type and repo_id from download URLs: /[{repo_type}s/]{repo_id}/resolve/...
+# Captures: group(1) = optional repo_type plural (datasets/spaces/kernels), group(2) = repo_id.
+_REPO_ID_FROM_RESOLVE_URL_REGEX = re.compile(
+    r"^https?://[^/]+/(?:(datasets|spaces|kernels)/)?([^/?]+(?:/[^/?]+)?)/resolve/"
+)
 
 # Regex to extract bucket_id (namespace/name) from bucket API URLs.
-_BUCKET_ID_FROM_URL_REGEX = re.compile(r"^https?://[^/]+/api/buckets/([^/]+/[^/]+)")
+_BUCKET_ID_FROM_URL_REGEX = re.compile(r"^https?://[^/]+/api/buckets/([^/?]+/[^/?]+)")
 
 # Sub-paths that follow a repo_id in API URLs (not part of the repo name).
 _REPO_URL_SUBPATHS = {"resolve", "tree", "blob", "raw", "refs", "commit", "discussions", "settings", "revision"}
 
 
 def _parse_repo_info_from_url(url: str) -> tuple[str | None, str | None]:
-    """Extract (repo_type, repo_id) from an API URL.
+    """Extract (repo_type, repo_id) from an API URL or a download URL.
 
     Returns canonical repo_type values: "model", "dataset", "space" (or None).
 
@@ -224,7 +230,11 @@ def _parse_repo_info_from_url(url: str) -> tuple[str | None, str | None]:
         ("dataset", "user/repo")
         >>> _parse_repo_info_from_url("https://huggingface.co/api/models/bert-base-cased/resolve/main/config.json")
         ("model", "bert-base-cased")
+        >>> _parse_repo_info_from_url("https://huggingface.co/datasets/user/repo/resolve/main/data.csv")
+        ("dataset", "user/repo")
     """
+    if match := _REPO_ID_FROM_RESOLVE_URL_REGEX.search(url):
+        return constants.REPO_TYPES_MAPPING[match.group(1) or "models"], match.group(2)
     match = _REPO_ID_FROM_URL_REGEX.search(url)
     if not match:
         return None, None
