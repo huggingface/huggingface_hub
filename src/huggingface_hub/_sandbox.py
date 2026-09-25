@@ -603,6 +603,14 @@ class _SandboxAuth(httpx2.Auth):
         yield request
 
 
+def _require_scoped_token(token: Any) -> str:
+    if not isinstance(token, str) or not token:
+        raise SandboxError(
+            "The pool host returned no valid sandbox-scoped token; recycle it with an updated sbx-server."
+        )
+    return token
+
+
 class _SandboxServer:
     """HTTP transport to one `sbx-server` instance — a dedicated job or a shared host.
 
@@ -719,19 +727,10 @@ class _SandboxServer:
                 _raise_for_status(response)
             yield response
 
-    def sandbox_token(self, local_id: str) -> str | None:
-        """Recover a pooled sandbox's capability token, using the host credential.
-
-        Keeps reconnection stateless: `Sandbox.connect` can reattach to a sandbox
-        it never created. Returns `None` when the host runs a server that predates
-        per-sandbox tokens, in which case the caller falls back to the host token.
-        """
-        try:
-            return self.request("GET", f"/v1/sandboxes/{local_id}/token").json()["token"]
-        except SandboxError as e:
-            if e.status_code == 404:
-                return None  # older sbx-server: no such route
-            raise
+    def sandbox_token(self, local_id: str) -> str:
+        """Recover a pooled sandbox's capability using the host management credential."""
+        data = self.request("GET", f"/v1/sandboxes/{local_id}/token").json()
+        return _require_scoped_token(data.get("token"))
 
     def close(self) -> None:
         self._client.close()
@@ -812,10 +811,9 @@ class Sandbox:
         # Capability token for this sandbox alone (pool mode). Sent instead of the
         # host credential on every per-sandbox call, so a pooled sandbox's
         # operations -- and the headers handed to a port-proxy client -- confer no
-        # authority over its siblings or over the pool. None in dedicated mode
-        # (where the job is the sandbox, so the job token is already scoped to it)
-        # and on hosts running a server that predates per-sandbox tokens.
-        self._sandbox_token = sandbox_token
+        # authority over its siblings or over the pool. A dedicated job is already
+        # one sandbox, so its job credential is the appropriate token.
+        self._sandbox_token = server._sandbox_token if local_id is None else _require_scoped_token(sandbox_token)
         # None in dedicated mode; the host-local sandbox id in shared mode.
         self._local_id = local_id
         # Path prefix for all in-server operations: dedicated routes live under
@@ -1293,7 +1291,7 @@ class Sandbox:
         """
         return {
             "Authorization": f"Bearer {_effective_token(self._server._api)}",
-            "X-Sandbox-Token": self._sandbox_token or self._server._sandbox_token,
+            "X-Sandbox-Token": self._sandbox_token,
         }
 
     def __repr__(self) -> str:
@@ -2177,8 +2175,6 @@ class SandboxPool:
             local_id=item["id"],
             owns_sandbox=True,
             owns_server=False,
-            # Absent on hosts running a server that predates per-sandbox tokens;
-            # those keep using the host credential.
             sandbox_token=item.get("token"),
         )
         sandbox._on_kill = self._on_sandbox_killed
