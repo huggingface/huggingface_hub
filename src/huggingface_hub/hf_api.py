@@ -39,6 +39,7 @@ from tqdm import tqdm as base_tqdm
 from . import constants
 from ._eval_results import EvalResultEntry, parse_eval_result_entries
 from ._inference_endpoints import (
+    InferenceCatalogModel,
     InferenceEndpoint,
     InferenceEndpointHardware,
     InferenceEndpointScalingMetric,
@@ -9216,27 +9217,41 @@ class HfApi:
     @validate_hf_hub_args
     def create_inference_endpoint_from_catalog(
         self,
-        repo_id: str,
+        repo_id: str | None = None,
         *,
+        recipe_id: str | None = None,
         name: str | None = None,
         accelerator: Literal["cpu", "gpu", "neuron"] | str | None = None,
+        gguf_file: str | None = None,
         token: bool | str | None = None,
         namespace: str | None = None,
     ) -> InferenceEndpoint:
-        """Create a new Inference Endpoint from a model in the Hugging Face Inference Catalog.
+        """Create a new Inference Endpoint from the Hugging Face Inference Catalog.
 
         The goal of the Inference Catalog is to provide a curated list of models that are optimized for inference
         and for which default configurations have been tested. See https://endpoints.huggingface.co/catalog for a list
         of available models in the catalog.
 
+        Each catalog model is deployed through a *recipe*: a hardware and engine combination that has been tested for
+        it. Pass `repo_id` to deploy the default recipe of a model, optionally narrowed down with `accelerator` and
+        `gguf_file`, or pass `recipe_id` to deploy an exact recipe listed by [`list_inference_catalog`].
+
         Args:
-            repo_id (`str`):
-                The ID of the model in the catalog to deploy as an Inference Endpoint.
+            repo_id (`str`, *optional*):
+                The ID of the model in the catalog to deploy as an Inference Endpoint. Mutually exclusive with
+                `recipe_id`.
+            recipe_id (`str`, *optional*):
+                The ID of the catalog recipe to deploy (see [`InferenceCatalogRecipe`]). Mutually exclusive with
+                `repo_id`.
             name (`str`, *optional*):
                 The unique name for the new Inference Endpoint. If not provided, a random name will be generated.
             accelerator (`str`, *optional*):
                 The hardware accelerator to be used for inference. Possible values include `"cpu"`, `"gpu"`, and
-                `"neuron"`. If not provided, the server will use a default appropriate for the model.
+                `"neuron"`. If not provided, the server will use a default appropriate for the model. Only valid
+                with `repo_id`.
+            gguf_file (`str`, *optional*):
+                The GGUF file to deploy, for models that have one recipe per quant (e.g.
+                `"Qwen2.5-Coder-32B-Instruct-Q4_K_M.gguf"`). Only valid with `repo_id`.
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -9255,54 +9270,105 @@ class HfApi:
             raise ValueError(
                 "Cannot use `token=False` with `create_inference_endpoint_from_catalog` as it requires authentication."
             )
-        token = token or self.token or get_token()
-        payload: dict = {
-            "namespace": namespace or self._get_namespace(token=token),
-            "repoId": repo_id,
-        }
-        if name is not None:
-            payload["endpointName"] = name
-        if accelerator is not None:
-            payload["accelerator"] = accelerator
+        if (repo_id is None) == (recipe_id is None):
+            raise ValueError("Provide exactly one of `repo_id` or `recipe_id`.")
+        if recipe_id is not None and (accelerator is not None or gguf_file is not None):
+            # `accelerator` and `gguf_file` pick a recipe among the ones of a model. A `recipe_id` already is one, so
+            # the server would silently ignore them.
+            raise ValueError(
+                "`accelerator` and `gguf_file` cannot be used with `recipe_id`, which already is a recipe."
+            )
 
-        response = get_session().post(
-            f"{constants.INFERENCE_CATALOG_ENDPOINT}/deploy",
-            headers=self._build_hf_headers(token=token),
-            json=payload,
-        )
+        token = token or self.token or get_token()
+        namespace = namespace or self._get_namespace(token=token)
+        payload: dict = {"namespace": namespace}
+        if name is not None:
+            payload["config"] = {"name": name}
+
+        if recipe_id is not None:
+            url = f"{constants.INFERENCE_CATALOG_ENDPOINT}/recipe/{recipe_id}/deploy"
+        else:
+            url = f"{constants.INFERENCE_CATALOG_ENDPOINT}/model/{repo_id}/deploy"
+            if accelerator is not None:
+                payload["accelerator"] = accelerator
+            if gguf_file is not None:
+                payload["ggufFile"] = gguf_file
+
+        response = get_session().post(url, headers=self._build_hf_headers(token=token), json=payload)
         hf_raise_for_status(response)
-        data = response.json()["endpoint"]
-        return InferenceEndpoint.from_raw(data, namespace=data["name"], token=token)
+        return InferenceEndpoint.from_raw(response.json()["endpoint"], namespace=namespace, token=token)
 
     @experimental
     @validate_hf_hub_args
-    def list_inference_catalog(self, *, token: bool | str | None = None) -> list[str]:
+    def list_inference_catalog(
+        self,
+        *,
+        accelerator: Literal["cpu", "gpu", "neuron"] | str | None = None,
+        engine: Literal["llamacpp", "sglang", "tei", "vllm"] | str | None = None,
+        license: str | None = None,
+        task: str | None = None,
+        search: str | None = None,
+        limit: int | None = None,
+        token: bool | str | None = None,
+    ) -> list[InferenceCatalogModel]:
         """List models available in the Hugging Face Inference Catalog.
 
         The goal of the Inference Catalog is to provide a curated list of models that are optimized for inference
         and for which default configurations have been tested. See https://endpoints.huggingface.co/catalog for a list
         of available models in the catalog.
 
-        Use [`create_inference_endpoint_from_catalog`] to deploy a model from the catalog.
+        Use [`create_inference_endpoint_from_catalog`] to deploy a model or a recipe from the catalog.
 
         Args:
+            accelerator (`str`, *optional*):
+                Only return models that have a recipe for this accelerator (`"cpu"`, `"gpu"` or `"neuron"`).
+            engine (`str`, *optional*):
+                Only return models that have a recipe for this inference engine (e.g. `"vllm"`, `"llamacpp"`,
+                `"tei"`, `"sglang"`).
+            license (`str`, *optional*):
+                Only return models under this license (e.g. `"Apache 2.0"`).
+            task (`str`, *optional*):
+                Only return models for this task (e.g. `"text-generation"`).
+            search (`str`, *optional*):
+                Only return models matching this search query.
+            limit (`int`, *optional*):
+                The maximum number of models to return.
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
 
         Returns:
-            List[`str`]: A list of model IDs available in the catalog.
+            `list[InferenceCatalogModel]`: The models available in the catalog, each with its tested recipes.
+
+        Example:
+        ```python
+        >>> from huggingface_hub import HfApi
+        >>> api = HfApi()
+        >>> catalog = api.list_inference_catalog(task="text-generation", accelerator="neuron")
+        >>> [(model.repo_id, [recipe.id for recipe in model.recipes]) for model in catalog]
+        [('meta-llama/Llama-3.1-8B-Instruct', ['sizzling-biryani-g4xsi1ac', 'artisanal-quinoa-yz9ynamx']), ...]
+        ```
+
         > [!WARNING]
         > `list_inference_catalog` is experimental. Its API is subject to change in the future. Please provide feedback
         > if you have any suggestions or requests.
         """
+        params = {
+            "accelerator": accelerator,
+            "engine": engine,
+            "license": license,
+            "task": task,
+            "search": search,
+            "limit": limit,
+        }
         response = get_session().get(
-            f"{constants.INFERENCE_CATALOG_ENDPOINT}/repo-list",
+            f"{constants.INFERENCE_CATALOG_ENDPOINT}/list",
             headers=self._build_hf_headers(token=token),
+            params={key: value for key, value in params.items() if value is not None},
         )
         hf_raise_for_status(response)
-        return response.json()["models"]
+        return [InferenceCatalogModel.from_raw(item) for item in response.json()["items"]]
 
     def get_inference_endpoint(
         self, name: str, *, namespace: str | None = None, token: bool | str | None = None
