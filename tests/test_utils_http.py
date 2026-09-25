@@ -774,10 +774,32 @@ class TestParseRepoInfoFromUrl:
             "user/repo",
         )
 
+    @pytest.mark.parametrize(
+        "url, expected",
+        [
+            # API URLs with query params
+            ("https://huggingface.co/api/models/user/repo?blobs=true", ("model", "user/repo")),
+            ("https://huggingface.co/api/models/bert-base-cased?expand=sha", ("model", "bert-base-cased")),
+            # Download URLs
+            ("https://huggingface.co/user/repo/resolve/main/config.json", ("model", "user/repo")),
+            ("https://huggingface.co/bert-base-cased/resolve/main/config.json", ("model", "bert-base-cased")),
+            ("https://huggingface.co/datasets/user/repo/resolve/main/data.csv", ("dataset", "user/repo")),
+            ("https://huggingface.co/spaces/user/repo/resolve/main/app.py", ("space", "user/repo")),
+            ("https://huggingface.co/user/repo/resolve/main/file.txt?download=true", ("model", "user/repo")),
+        ],
+    )
+    def test_query_params_and_download_urls(self, url, expected):
+        assert _parse_repo_info_from_url(url) == expected
+
 
 class TestParseBucketIdFromUrl:
     def test_bucket_url(self):
         assert _parse_bucket_id_from_url("https://huggingface.co/api/buckets/namespace/name") == "namespace/name"
+
+    def test_bucket_url_with_query_params(self):
+        assert (
+            _parse_bucket_id_from_url("https://huggingface.co/api/buckets/namespace/name?limit=10") == "namespace/name"
+        )
 
     def test_bucket_url_with_subpath(self):
         assert (

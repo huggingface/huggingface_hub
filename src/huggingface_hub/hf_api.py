@@ -13929,8 +13929,13 @@ class HfApi:
             if dest_path_info:
                 destination_is_directory = False
             else:
+                # The server matches `prefix` lexically (listing "logs" also returns "logs.json" or "logs_backup/")
+                # => only count entries that are `destination_path` itself or below it.
                 destination_exists_as_directory = any(
-                    self.list_bucket_tree(destination_bucket_id, prefix=destination_path, recursive=False, token=token)
+                    item.path == destination_path or item.path.startswith(f"{destination_path}/")
+                    for item in self.list_bucket_tree(
+                        destination_bucket_id, prefix=destination_path, recursive=False, token=token
+                    )
                 )
                 destination_is_directory = destination_exists_as_directory or destination_str.endswith("/")
 
