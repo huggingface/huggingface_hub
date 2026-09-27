@@ -883,6 +883,12 @@ class TestModelCard:
         model_card.data.license = "test"
         assert model_card.content == "---\nlicense: test\ndatasets:\n- foo\n- bar\n---\n\nHello\n"
 
+    def test_model_card_scalar_tags_in_frontmatter(self):
+        content = "---\ntags: text-classification\nlanguage: en\n---\nbody"
+        model_card = ModelCard(content)
+        assert model_card.data.tags == ["text-classification"]
+        assert "tags:\n- text-classification" in str(model_card)
+
 
 class TestDatasetCard:
     def test_load_datasetcard_from_file(self):

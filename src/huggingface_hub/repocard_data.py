@@ -346,7 +346,7 @@ class ModelCardData(CardData):
         metrics: list[str] | None = None,
         model_name: str | None = None,
         pipeline_tag: str | None = None,
-        tags: list[str] | None = None,
+        tags: str | list[str] | None = None,
         ignore_metadata_errors: bool = False,
         **kwargs,
     ):
@@ -540,7 +540,7 @@ class SpaceCardData(CardData):
         duplicated_from: str | None = None,
         models: list[str] | None = None,
         datasets: list[str] | None = None,
-        tags: list[str] | None = None,
+        tags: str | list[str] | None = None,
         ignore_metadata_errors: bool = False,
         **kwargs,
     ):
@@ -767,9 +767,11 @@ def eval_results_to_model_index(model_name: str, eval_results: list[EvalResult])
     return _remove_none(model_index)
 
 
-def _to_unique_list(tags: list[str] | None) -> list[str] | None:
+def _to_unique_list(tags: str | list[str] | None) -> list[str] | None:
     if tags is None:
         return tags
+    if isinstance(tags, str):
+        tags = [tags]
     unique_tags = []  # make tags unique + keep order explicitly
     for tag in tags:
         if tag not in unique_tags:
