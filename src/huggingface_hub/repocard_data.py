@@ -308,8 +308,8 @@ class ModelCardData(CardData):
             then the repo name is used as a default. Defaults to None.
         pipeline_tag (`str`, *optional*):
             The pipeline tag associated with the model. Example: "text-classification".
-        tags (`list[str]`, *optional*):
-            List of tags to add to your model that can be used when filtering on the Hugging
+        tags (`str` or `list[str]`, *optional*):
+            List of tags (or single tag) to add to your model that can be used when filtering on the Hugging
             Face Hub. Defaults to None.
         ignore_metadata_errors (`str`):
             If True, errors while parsing the metadata section will be ignored. Some information might be lost during
@@ -505,8 +505,8 @@ class SpaceCardData(CardData):
             List of models related to this Space. Should be a dataset ID found on https://hf.co/models.
         datasets (`list[str]`, *optional*):
             List of datasets related to this Space. Should be a dataset ID found on https://hf.co/datasets.
-        tags (`list[str]`, *optional*):
-            List of tags to add to your Space that can be used when filtering on the Hub.
+        tags (`str` or `list[str]`, *optional*):
+            List of tags (or single tag) to add to your Space that can be used when filtering on the Hub.
         ignore_metadata_errors (`str`):
             If True, errors while parsing the metadata section will be ignored. Some information might be lost during
             the process. Use it at your own risk.
