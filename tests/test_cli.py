@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import subprocess
 import sys
 import warnings
 from contextlib import contextmanager
@@ -2512,6 +2513,24 @@ class TestDatasetsSqlCommand:
         for item in payload:
             assert isinstance(item["sector"], str)
             assert isinstance(item["count"], int)
+
+
+class TestDuckDBCliRelationEncoding:
+    def test_execute_uses_utf8_for_duckdb_subprocess(self) -> None:
+        """DuckDB's stdin/stdout are UTF-8 on every platform; the subprocess must not
+        use the locale encoding (mojibake or UnicodeDecodeError on Windows cp1252).
+
+        Regression test for https://github.com/huggingface/huggingface_hub/issues/5019.
+        """
+        from huggingface_hub._dataset_viewer import _DuckDBCliRelation
+
+        relation = _DuckDBCliRelation(binary_path="duckdb", query="SELECT chr(233) AS city", setup_statements=[])
+        completed = subprocess.CompletedProcess(args=[], returncode=0, stdout='[{"city": "é"}]', stderr="")
+        with patch("huggingface_hub._dataset_viewer.subprocess.run", return_value=completed) as mock_run:
+            rows = relation.execute()
+
+        assert rows == [{"city": "é"}]
+        assert mock_run.call_args.kwargs["encoding"] == "utf-8"
 
 
 class TestSpacesLsCommand:
