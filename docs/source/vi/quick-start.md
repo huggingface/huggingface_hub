@@ -62,7 +62,7 @@ Cách đơn giản nhất để xác thực là dùng lệnh login:
 hf auth login
 ```
 
-Nếu bạn đã đăng nhập, lệnh sẽ kết thúc ngay. Nếu chưa, bạn sẽ được yêu cầu xác thực qua trình duyệt: mở URL được in ra, nhập mã ngắn, chấp thuận yêu cầu; sau đó token truy cập sẽ được lấy và lưu trong thư mục HF_HOME (mặc định là ~/.cache/huggingface/token). Token sẽ hết hạn sau một thời gian nhưng được tự động làm mới nếu bạn tiếp tục sử dụng. Mọi script hoặc thư viện tương tác với Hub đều dùng token này khi gửi yêu cầu. Ngoài ra, bạn có thể dán [User Access Token](https://huggingface.co/docs/hub/security-tokens) được tạo từ trang [Settings](https://huggingface.co/settings/tokens).
+Nếu bạn đã đăng nhập, lệnh sẽ kết thúc ngay; để buộc đăng nhập lại, hãy chạy `hf auth login --force`. Nếu chưa, bạn sẽ được yêu cầu xác thực qua trình duyệt: mở URL được in ra, nhập mã ngắn, chấp thuận yêu cầu; sau đó token truy cập sẽ được lấy và lưu trong thư mục HF_HOME (mặc định là ~/.cache/huggingface/token). Token sẽ hết hạn sau một thời gian nhưng được tự động làm mới nếu bạn tiếp tục sử dụng. Mọi script hoặc thư viện tương tác với Hub đều dùng token này khi gửi yêu cầu. Ngoài ra, bạn có thể dán [User Access Token](https://huggingface.co/docs/hub/security-tokens) được tạo từ trang [Settings](https://huggingface.co/settings/tokens).
 
 > [!TIP]
 > User Access Token có thể được cấp quyền read hoặc write. Khi cần tạo hoặc chỉnh sửa repo, hãy dùng token có quyền write. Nếu không, nên tạo token chỉ có quyền read để giảm rủi ro khi token vô tình bị lộ.
