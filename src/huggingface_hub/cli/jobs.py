@@ -1132,8 +1132,12 @@ def jobs_expose(
     clear: Annotated[bool, Option("--clear", help="Close all exposed ports.")] = False,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
+    format: FormatOpt = None,
+    json_output: JsonOpt = False,
+    quiet: QuietOpt = False,
 ) -> None:
     """Replace exposed ports on a running Job."""
+    set_output_format(format, json_output, quiet)
     if clear and (expose or expose_public):
         raise CLIError("`--clear` cannot be combined with `--expose` or `--expose-public`.")
     if not clear and not expose:
