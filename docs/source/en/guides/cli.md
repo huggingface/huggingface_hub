@@ -2282,6 +2282,9 @@ Manage scheduled jobs using
 # Resume a scheduled job
 >>> hf jobs scheduled resume <scheduled_job_id>
 
+# Change future run times (Mondays at 9:00)
+>>> hf jobs scheduled reschedule <scheduled_job_id> "0 9 * * 1"
+
 # Trigger a scheduled job to run right now (does not change the schedule)
 >>> hf jobs scheduled trigger <scheduled_job_id>
 

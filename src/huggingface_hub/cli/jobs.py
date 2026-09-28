@@ -1716,6 +1716,21 @@ def scheduled_resume(
     out.result("Scheduled Job resumed", id=scheduled_job_id)
 
 
+@scheduled_app.command("reschedule", examples=['hf jobs scheduled reschedule <id> "0 9 * * 1"'])
+def scheduled_reschedule(
+    scheduled_job_id: ScheduledJobIdArg,
+    schedule: ScheduleArg,
+    namespace: NamespaceOpt = None,
+    token: TokenOpt = None,
+) -> None:
+    """Change when a scheduled Job runs."""
+    scheduled_job_id, namespace = _parse_namespace_from_job_id(scheduled_job_id, namespace)
+    api = get_hf_api(token=token)
+    job = api.update_scheduled_job_schedule(scheduled_job_id=scheduled_job_id, schedule=schedule, namespace=namespace)
+    out.result("Scheduled Job rescheduled", id=job.id, schedule=job.schedule)
+    out.hint(f"Use `hf jobs scheduled inspect {job.owner.name}/{job.id}` to see its next run.")
+
+
 @scheduled_app.command("trigger", examples=["hf jobs scheduled trigger <id>"])
 def scheduled_trigger(
     scheduled_job_id: ScheduledJobIdArg,

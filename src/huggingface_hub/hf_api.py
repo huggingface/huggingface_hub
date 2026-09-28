@@ -12901,6 +12901,39 @@ class HfApi:
         )
         hf_raise_for_status(response)
 
+    def update_scheduled_job_schedule(
+        self,
+        *,
+        scheduled_job_id: str,
+        schedule: str,
+        namespace: str | None = None,
+        token: bool | str | None = None,
+    ) -> ScheduledJobInfo:
+        """Change when an existing scheduled Job runs.
+
+        Args:
+            scheduled_job_id (`str`):
+                ID of the scheduled Job.
+            schedule (`str`):
+                New CRON expression (for example, `"0 9 * * 1"`) or preset such as `"@daily"`.
+            namespace (`str`, *optional*):
+                Namespace of the scheduled Job. Defaults to the current user's namespace.
+            token (`bool` or `str`, *optional*):
+                User access token. Defaults to the locally saved token.
+
+        Returns:
+            [`ScheduledJobInfo`]: The updated scheduled Job.
+        """
+        if namespace is None:
+            namespace = self.whoami(token=token)["name"]
+        response = get_session().post(
+            f"{self.endpoint}/api/scheduled-jobs/{namespace}/{scheduled_job_id}/schedule",
+            json={"schedule": schedule},
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+        return ScheduledJobInfo(**response.json())
+
     def trigger_scheduled_job(
         self,
         *,
@@ -15099,6 +15132,7 @@ delete_scheduled_job = api.delete_scheduled_job
 suspend_scheduled_job = api.suspend_scheduled_job
 resume_scheduled_job = api.resume_scheduled_job
 trigger_scheduled_job = api.trigger_scheduled_job
+update_scheduled_job_schedule = api.update_scheduled_job_schedule
 update_scheduled_job_labels = api.update_scheduled_job_labels
 create_scheduled_uv_job = api.create_scheduled_uv_job
 sync_job_volume = api.sync_job_volume
