@@ -80,10 +80,9 @@ The client uses the narrow one automatically: `pool.create()` receives it in the
 
 What this means for a leak: a **pooled sandbox token** compromises that sandbox. A **host token** compromises the host — every sandbox on it, current and future, plus its management routes — so treat it as the pool's admin credential. Members of your namespace hold a different HF token and cannot derive yours, but see [Known limitations](#known-limitations) for how a token can be *delivered* to the wrong place.
 
-> [!NOTE]
-> During the rollout the host server still accepts the host token on per-sandbox routes, so
-> clients that predate per-sandbox tokens keep working. That is a management credential
-> reaching the sandboxes it created; a sandbox credential can never reach a sibling.
+The client requires a non-empty sandbox-scoped token for pooled operations and refuses
+hosts that do not provide one. It never substitutes the host-management credential.
+Upgrade the client and recycle older pool hosts before using this API.
 
 ## Dedicated sandboxes (`Sandbox.create`)
 
@@ -236,7 +235,7 @@ Two things to keep in mind. Treat `$HF_HOME` as sensitive: an entry is still a r
 ### Isolation and resource gaps
 
 - **Host discovery is not attestation.** The default `adopt_hosts="own"` checks initiator, image, flavor, command, and exposed URL. It does not attest the running binary or make a mutable image trustworthy. Only use `adopt_hosts="namespace"` with namespace members you trust.
-- **Host credentials remain powerful.** They manage the pool and recover each sandbox's token. The server also accepts them on scoped routes during the compatibility window (`SBX_COMPAT_HOST_TOKEN=0` disables that fallback).
+- **Host credentials remain powerful.** They manage the pool and recover each sandbox's token. They are never substituted for missing scoped tokens by this client. Server 0.6.0 still accepts them on scoped routes; use `SBX_COMPAT_HOST_TOKEN=0` on those hosts or upgrade to the server that removes that compatibility mode.
 - **Shared channels remain.** Outbound TCP, loopback access to the control server, UDP, kernel IPC, and readable process-list metadata are not isolated. System directories and selected device nodes remain accessible. GPU pool isolation is untested; use dedicated mode for GPU.
 - **Limits are not aggregate quotas.** Per-process rlimits and bounded output queues reduce resource amplification. They do not partition CPU shares, total memory, disk space, inodes, or network capacity between sandboxes. Directory pagination bounds responses but still materializes the directory on the server. API file writes are not a disk quota, and dedicated-mode writes to special files can block.
 - **Confinement can be explicitly weakened.** Host mode requires Landlock ABI 6 by default and refuses a failed ruleset. Lowering `SBX_MIN_LANDLOCK_ABI` or using the server's `--allow-unconfined` development flag accepts fewer guarantees; inspect authenticated `/health` for the effective ABI and features.
