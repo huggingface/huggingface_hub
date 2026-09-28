@@ -237,6 +237,8 @@ class JobInfo:
         network (`JobNetwork` or `None`):
             Network group the Job joined and the aliases it claims, e.g. `JobNetwork(group="train", aliases=["master"])`.
             `None` when the Job was started without `network_group=`.
+        retry (`int` or `None`):
+            Number of retries configured for the Job (`attempts - 1`).
 
     Example:
 
@@ -275,6 +277,7 @@ class JobInfo:
     owner: JobOwner
     initiator: JobInitiator | None
     network: JobNetwork | None
+    retry: int | None
 
     # Inferred fields
     endpoint: str
@@ -315,6 +318,7 @@ class JobInfo:
         )
         network = kwargs.get("network")
         self.network = JobNetwork(**network) if network else None
+        self.retry = kwargs.get("retry")
 
         # Inferred fields
         self.endpoint = kwargs.get("endpoint", constants.ENDPOINT)
@@ -335,6 +339,7 @@ class JobSpec:
     arch: str | None
     labels: dict[str, str] | None
     volumes: list[Volume] | None
+    retry: int | None
 
     def __init__(self, **kwargs) -> None:
         self.docker_image = kwargs.get("dockerImage") or kwargs.get("docker_image")
@@ -350,6 +355,7 @@ class JobSpec:
         self.labels = kwargs.get("labels")
         volumes = kwargs.get("volumes")
         self.volumes = [Volume(**v) for v in volumes] if volumes else None
+        self.retry = kwargs.get("retry")
 
 
 @dataclass
@@ -622,7 +628,10 @@ def _create_job_spec(
     network_group: str | None = None,
     network_aliases: list[str] | None = None,
     resource_group_id: str | None = None,
+    attempts: int | None = None,
 ) -> dict[str, Any]:
+    if attempts is not None and (isinstance(attempts, bool) or not isinstance(attempts, int) or attempts < 1):
+        raise ValueError("`attempts` must be a positive integer.")
     if network_aliases and not network_group:
         raise ValueError("`network_aliases` requires `network_group`.")
     if name is not None:
@@ -647,6 +656,8 @@ def _create_job_spec(
             job_spec["timeoutSeconds"] = int(float(timeout[:-1]) * time_units_factors[timeout[-1]])
         else:
             job_spec["timeoutSeconds"] = int(timeout)
+    if attempts is not None:
+        job_spec["attempts"] = attempts
     # labels are optional
     if labels:
         job_spec["labels"] = labels

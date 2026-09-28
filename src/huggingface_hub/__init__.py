@@ -337,6 +337,7 @@ _SUBMOD_ATTRS = {
         "repo_exists",
         "repo_info",
         "request_space_hardware",
+        "rerun_job",
         "resolve_revision",
         "restart_space",
         "resume_inference_endpoint",
@@ -1103,6 +1104,7 @@ __all__ = [
     "repo_exists",
     "repo_info",
     "request_space_hardware",
+    "rerun_job",
     "resolve_revision",
     "restart_space",
     "resume_inference_endpoint",
@@ -1531,6 +1533,7 @@ if TYPE_CHECKING:  # pragma: no cover
         repo_exists,  # noqa: F401
         repo_info,  # noqa: F401
         request_space_hardware,  # noqa: F401
+        rerun_job,  # noqa: F401
         resolve_revision,  # noqa: F401
         restart_space,  # noqa: F401
         resume_inference_endpoint,  # noqa: F401

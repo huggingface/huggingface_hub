@@ -109,6 +109,22 @@ https://huggingface.co/jobs/lhoestq/687f911eaea852de79c4a50a
 
 Jobs run in the background. The next section guides you through [`inspect_job`] to know a jobs' status, [`fetch_job_logs`] to view the logs and [`fetch_job_metrics`] to monitor resources usage.
 
+## Retry and rerun a Job
+
+Use `attempts` to retry a failed Job. The number includes the initial attempt, so `attempts=3` allows up to two retries. It also works with `run_uv_job`, `create_scheduled_job`, and `create_scheduled_uv_job`.
+
+```python
+>>> from huggingface_hub import rerun_job, run_job
+>>> job = run_job(image="python:3.12", command=["python", "train.py"], attempts=3)
+>>> job.retry
+2
+
+# Start a new Job with the same spec, including its retry setting
+>>> new_job = rerun_job(job_id=job.id)
+```
+
+`rerun_job` starts a separate Job with a new ID. It works for completed or failed Jobs and reuses the saved spec, including secrets and hardware settings. You can also run `hf jobs rerun <job_id>`.
+
 ## Check Job status
 
 ```python

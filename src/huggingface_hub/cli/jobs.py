@@ -181,6 +181,7 @@ def _resolve_uv_job_config(
     secrets: list[str] | None,
     secrets_file: str | None,
     timeout: str | None,
+    attempts: int | None,
     name: str | None,
     label: list[str] | None,
     volume: list[str] | None,
@@ -276,7 +277,12 @@ def _resolve_uv_job_config(
                     volume_specs=config.volume_specs,
                     network_group=config.network_group,
                     network_aliases=config.network_aliases,
-                    extra=[config.image or DEFAULT_UV_IMAGE, config.python or "", *(dependencies or [])],
+                    extra=[
+                        config.image or DEFAULT_UV_IMAGE,
+                        config.python or "",
+                        *(dependencies or []),
+                        *([str(attempts)] if attempts is not None else []),
+                    ],
                 ),
             )
         yield config
@@ -460,6 +466,11 @@ TimeoutOpt = Annotated[
     Option(
         help="Max duration: int with s (seconds, default), m (minutes), h (hours) or d (days).",
     ),
+]
+
+AttemptsOpt = Annotated[
+    int | None,
+    Option("--attempts", min=1, help="Maximum attempts, including the first run. Defaults to 1."),
 ]
 
 DetachOpt = Annotated[
@@ -660,6 +671,7 @@ def jobs_run(
     secrets_file: SecretsFileOpt = None,
     flavor: FlavorOpt = None,
     timeout: TimeoutOpt = None,
+    attempts: AttemptsOpt = None,
     detach: DetachOpt = False,
     dry_run: DryRunOpt = False,
     expose: ExposeOpt = None,
@@ -686,6 +698,7 @@ def jobs_run(
             config_parts=_name_hash_parts(
                 flavor=flavor,
                 timeout=timeout,
+                extra=[str(attempts)] if attempts is not None else None,
                 namespace=namespace,
                 env=env_map,
                 secrets=secrets_map,
@@ -704,6 +717,7 @@ def jobs_run(
             "command": shlex.join(command),
             "flavor": flavor or JobHardware.CPU_BASIC.value,
             "timeout": timeout,
+            "attempts": attempts,
             "env": env_map,
             "secrets": secrets_map,
             "volumes": volume or [],
@@ -728,6 +742,7 @@ def jobs_run(
         volumes=volumes,
         flavor=flavor,
         timeout=timeout,
+        attempts=attempts,
         expose=expose,
         ssh=ssh,
         network_group=network_group,
@@ -1099,6 +1114,20 @@ def jobs_inspect(
     out.table([_surface_name(_dataclass_to_dict(job), labels=job.labels) for job in jobs], id_key="id")
 
 
+@jobs_cli.command("rerun", examples=["hf jobs rerun <job_id>"])
+def jobs_rerun(
+    job_id: JobIdArg,
+    namespace: NamespaceOpt = None,
+    token: TokenOpt = None,
+) -> None:
+    """Run a new Job with an existing Job's spec."""
+    job_id, namespace = _parse_namespace_from_job_id(job_id, namespace)
+    api = get_hf_api(token=token)
+    job = api.rerun_job(job_id=job_id, namespace=namespace)
+    out.result("Job started", id=job.id, url=job.url)
+    out.hint(f"Use `hf jobs logs -f {job.owner.name}/{job.id}` to stream logs.")
+
+
 @jobs_cli.command("cancel", examples=["hf jobs cancel <job_id>"])
 def jobs_cancel(
     job_id: JobIdArg,
@@ -1287,6 +1316,7 @@ def jobs_uv_run(
     env_file: EnvFileOpt = None,
     secrets_file: SecretsFileOpt = None,
     timeout: TimeoutOpt = None,
+    attempts: AttemptsOpt = None,
     detach: DetachOpt = False,
     dry_run: DryRunOpt = False,
     expose: ExposeOpt = None,
@@ -1318,6 +1348,7 @@ def jobs_uv_run(
         secrets=secrets,
         secrets_file=secrets_file,
         timeout=timeout,
+        attempts=attempts,
         name=name,
         label=label,
         volume=volume,
@@ -1335,6 +1366,7 @@ def jobs_uv_run(
                 "flavor": config.flavor or JobHardware.CPU_BASIC.value,
                 "python": config.python,
                 "timeout": config.timeout,
+                "attempts": attempts,
                 "env": config.env,
                 "secrets": config.secrets,
                 "volumes": config.volume_specs,
@@ -1363,6 +1395,7 @@ def jobs_uv_run(
             volumes=config.volumes,
             flavor=config.flavor,
             timeout=config.timeout,
+            attempts=attempts,
             expose=expose,
             ssh=ssh,
             network_group=config.network_group,
@@ -1430,6 +1463,7 @@ def scheduled_run(
     secrets_file: SecretsFileOpt = None,
     flavor: FlavorOpt = None,
     timeout: TimeoutOpt = None,
+    attempts: AttemptsOpt = None,
     dry_run: DryRunOpt = False,
     expose: ExposeOpt = None,
     resource_group_id: ResourceGroupIdOpt = None,
@@ -1452,6 +1486,7 @@ def scheduled_run(
             config_parts=_name_hash_parts(
                 flavor=flavor,
                 timeout=timeout,
+                extra=[str(attempts)] if attempts is not None else None,
                 namespace=namespace,
                 env=env_map,
                 secrets=secrets_map,
@@ -1471,6 +1506,7 @@ def scheduled_run(
             "command": shlex.join(command),
             "flavor": flavor or JobHardware.CPU_BASIC.value,
             "timeout": timeout,
+            "attempts": attempts,
             "env": env_map,
             "secrets": secrets_map,
             "volumes": volume or [],
@@ -1495,6 +1531,7 @@ def scheduled_run(
         volumes=volumes,
         flavor=flavor,
         timeout=timeout,
+        attempts=attempts,
         expose=expose,
         resource_group_id=resource_group_id,
         namespace=namespace,
@@ -1799,6 +1836,7 @@ def scheduled_uv_run(
     env_file: EnvFileOpt = None,
     secrets_file: SecretsFileOpt = None,
     timeout: TimeoutOpt = None,
+    attempts: AttemptsOpt = None,
     dry_run: DryRunOpt = False,
     expose: ExposeOpt = None,
     resource_group_id: ResourceGroupIdOpt = None,
@@ -1826,6 +1864,7 @@ def scheduled_uv_run(
         secrets=secrets,
         secrets_file=secrets_file,
         timeout=timeout,
+        attempts=attempts,
         name=name,
         label=label,
         volume=volume,
@@ -1852,6 +1891,7 @@ def scheduled_uv_run(
                 "flavor": config.flavor or JobHardware.CPU_BASIC.value,
                 "python": config.python,
                 "timeout": config.timeout,
+                "attempts": attempts,
                 "env": config.env,
                 "secrets": config.secrets,
                 "volumes": config.volume_specs,
@@ -1880,6 +1920,7 @@ def scheduled_uv_run(
             volumes=config.volumes,
             flavor=config.flavor,
             timeout=config.timeout,
+            attempts=attempts,
             expose=expose,
             resource_group_id=resource_group_id,
             namespace=config.namespace,
