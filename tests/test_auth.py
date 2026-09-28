@@ -108,6 +108,18 @@ class TestSaveToken:
         assert _read_stored_tokens_full()["oauth_token"]["refresh_token"] == "rt_with_%_inside"
 
 
+class TestUnicodeTokenNames:
+    def test_unicode_token_name_does_not_wipe_existing_tokens(self):
+        _save_token(TOKEN, "work")
+        _save_token(OTHER_TOKEN, "🤗 laptop")
+        assert get_stored_tokens() == {"work": TOKEN, "🤗 laptop": OTHER_TOKEN}
+
+    def test_read_undecodable_file_never_raises(self):
+        with open(constants.HF_STORED_TOKENS_PATH, "wb") as f:
+            f.write(b"\xff\xfe\xfa\xfb")
+        assert _read_stored_tokens_full() == {}
+
+
 class TestSetActiveToken:
     def test_set_active_token_success(self):
         _save_token(TOKEN, "test_token")
