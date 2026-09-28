@@ -308,8 +308,8 @@ class ModelCardData(CardData):
             then the repo name is used as a default. Defaults to None.
         pipeline_tag (`str`, *optional*):
             The pipeline tag associated with the model. Example: "text-classification".
-        tags (`str` or `list[str]`, *optional*):
-            List of tags (or single tag) to add to your model that can be used when filtering on the Hugging
+        tags (`list[str]`, *optional*):
+            List of tags to add to your model that can be used when filtering on the Hugging
             Face Hub. Defaults to None.
         ignore_metadata_errors (`str`):
             If True, errors while parsing the metadata section will be ignored. Some information might be lost during
@@ -346,7 +346,7 @@ class ModelCardData(CardData):
         metrics: list[str] | None = None,
         model_name: str | None = None,
         pipeline_tag: str | None = None,
-        tags: str | list[str] | None = None,
+        tags: list[str] | None = None,
         ignore_metadata_errors: bool = False,
         **kwargs,
     ):
@@ -505,8 +505,8 @@ class SpaceCardData(CardData):
             List of models related to this Space. Should be a dataset ID found on https://hf.co/models.
         datasets (`list[str]`, *optional*):
             List of datasets related to this Space. Should be a dataset ID found on https://hf.co/datasets.
-        tags (`str` or `list[str]`, *optional*):
-            List of tags (or single tag) to add to your Space that can be used when filtering on the Hub.
+        tags (`list[str]`, *optional*):
+            List of tags to add to your Space that can be used when filtering on the Hub.
         ignore_metadata_errors (`str`):
             If True, errors while parsing the metadata section will be ignored. Some information might be lost during
             the process. Use it at your own risk.
@@ -540,7 +540,7 @@ class SpaceCardData(CardData):
         duplicated_from: str | None = None,
         models: list[str] | None = None,
         datasets: list[str] | None = None,
-        tags: str | list[str] | None = None,
+        tags: list[str] | None = None,
         ignore_metadata_errors: bool = False,
         **kwargs,
     ):
@@ -767,7 +767,7 @@ def eval_results_to_model_index(model_name: str, eval_results: list[EvalResult])
     return _remove_none(model_index)
 
 
-def _to_unique_list(tags: str | list[str] | None) -> list[str] | None:
+def _to_unique_list(tags: list[str] | None) -> list[str] | None:
     if tags is None:
         return tags
     if isinstance(tags, str):

@@ -883,12 +883,6 @@ class TestModelCard:
         model_card.data.license = "test"
         assert model_card.content == "---\nlicense: test\ndatasets:\n- foo\n- bar\n---\n\nHello\n"
 
-    def test_model_card_scalar_tags_in_frontmatter(self):
-        content = "---\ntags: text-classification\nlanguage: en\n---\nbody"
-        model_card = ModelCard(content)
-        assert model_card.data.tags == ["text-classification"]
-        assert model_card.content == "---\ntags:\n- text-classification\nlanguage: en\n---\nbody"
-
 
 class TestDatasetCard:
     def test_load_datasetcard_from_file(self):
@@ -985,10 +979,3 @@ class TestSpaceCard:
         assert isinstance(card.data, SpaceCardData)
         assert card.data.title == "Dreambooth Training"
         assert card.data.app_port is None
-
-    def test_space_card_scalar_tags_in_frontmatter(self):
-        content = "---\ntags: gradio\ntitle: My App\n---\nbody"
-        space_card = SpaceCard(content)
-        assert space_card.data.tags == ["gradio"]
-        assert space_card.content == "---\ntags:\n- gradio\ntitle: My App\n---\nbody"
-

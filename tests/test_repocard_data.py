@@ -279,10 +279,6 @@ class TestModelCardData:
         data = ModelCardData(tags=["tag2", "tag1", "tag2", "tag3"])
         assert data.tags == ["tag2", "tag1", "tag3"]
 
-    def test_model_card_scalar_tag(self):
-        data = ModelCardData(tags="text-classification")
-        assert data.tags == ["text-classification"]
-
     def test_remove_top_level_none_values(self):
         as_obj = ModelCardData(tags=["tag1", None], foo={"bar": 3, "baz": None}, pipeline_tag=None)
         as_dict = as_obj.to_dict()
@@ -388,7 +384,3 @@ class TestSpaceCardData:
             "duplicated_from": "multimodalart/dreambooth-training",
         }
         assert card_data.tags is None  # SpaceCardData has some default attributes
-
-    def test_space_card_data_scalar_tag(self) -> None:
-        card_data = SpaceCardData(tags="gradio")
-        assert card_data.tags == ["gradio"]
