@@ -24,7 +24,6 @@ from huggingface_hub import __version__, constants
 from ..utils import dump_environment_info, installation_method
 from ._cli_utils import _fetch_latest_pypi_version, run_update
 from ._output import out
-from ._skills import DEFAULT_SKILL_ID, _installed_hf_cli_dirs
 
 
 def env() -> None:
@@ -39,6 +38,8 @@ def version() -> None:
 
 def update() -> None:
     """Update the `hf` CLI to the latest version."""
+    from ._skills import DEFAULT_SKILL_ID, _installed_hf_cli_dirs
+
     out.text(f"Current version: {__version__}")
     out.text("Checking for updates to latest version...")
     latest_version = _fetch_latest_pypi_version("huggingface_hub")
@@ -70,14 +71,14 @@ def update() -> None:
         raise click.exceptions.Exit(code=returncode)
 
     if not skill_installed:
-        out.hint("Run `hf skills add -g --claude` to teach your AI agents how to use the `hf` CLI.")
+        out.hint("Run `hf skills add -g` to teach your AI agents how to use the `hf` CLI.")
         return
 
     # Refresh the globally installed skill so agents see the new command surface. Runs in a
     # subprocess: the skill is generated from the CLI code, which has just been replaced on disk
     # while this process still runs the previous version.
     out.text(f"Updating the `{DEFAULT_SKILL_ID}` skill...")
-    subprocess.call([*_hf_argv(), "skills", "update", DEFAULT_SKILL_ID, "-g", "--claude"])
+    subprocess.call([*_hf_argv(), "skills", "update", DEFAULT_SKILL_ID, "-g"])
 
 
 def _hf_argv() -> list[str]:

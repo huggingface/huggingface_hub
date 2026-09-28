@@ -18,7 +18,7 @@ import time
 from dataclasses import asdict
 from unittest.mock import patch
 
-import httpx
+import httpx2
 import pytest
 import starlette.datastructures
 from fastapi import FastAPI, Request
@@ -98,7 +98,7 @@ def test_oauth_workflow(client: TestClient):
     # Make call to HF Hub
     assert location.startswith("https://hub-ci.huggingface.co/oauth/authorize")
     location_authorize = location
-    response_authorize = httpx.get(
+    response_authorize = httpx2.get(
         location_authorize, headers={"cookie": "token=huggingface-hub.js-cookie"}, follow_redirects=False
     )
     assert response_authorize.status_code == 303

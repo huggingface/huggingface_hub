@@ -20,11 +20,13 @@ as `hf repos cp` and `hf buckets cp`).
 """
 
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from click.testing import CliRunner, Result
 
 from huggingface_hub import HfApi
+from huggingface_hub._buckets import BucketFile, BucketFolder
 from huggingface_hub._commit_api import CommitOperationCopy
 from huggingface_hub.cli.hf import app
 from huggingface_hub.errors import EntryNotFoundError
@@ -238,6 +240,55 @@ _RESOLVE_DEFAULTS = {
 )
 def test_resolve_copy_target_path(kwargs, expected):
     assert _resolve_copy_target_path(**{**_RESOLVE_DEFAULTS, **kwargs}) == expected
+
+
+def _fake_bucket_file(path: str) -> BucketFile:
+    return BucketFile(type="file", path=path, size=1, xetHash=f"hash-{path}")
+
+
+@pytest.mark.parametrize(
+    "destination_tree, source, expected",
+    [
+        # Only lexical siblings of "logs" exist => "logs" does not exist => file is copied *as* "logs"
+        (["logs.json", "logs_backup/"], "hf://buckets/user/src/a.txt", ["logs"]),
+        # Only lexical siblings of "logs" exist => folder copy uses rename semantics (no nesting)
+        (["logs.json", "logs_backup/"], "hf://buckets/user/src/data", ["logs/x.txt", "logs/y.txt"]),
+        # "logs/" really exists => file is copied into it
+        (["logs/", "logs.json"], "hf://buckets/user/src/a.txt", ["logs/a.txt"]),
+        # "logs/" really exists => folder is nested inside it (cp -r semantics)
+        (["logs/", "logs.json"], "hf://buckets/user/src/data", ["logs/data/x.txt", "logs/data/y.txt"]),
+    ],
+)
+def test_copy_files_to_bucket_ignores_lexical_siblings_of_destination(
+    destination_tree: list[str], source: str, expected: list[str]
+) -> None:
+    """The Hub matches `prefix` lexically: "logs.json" must not make a missing "logs" look like a directory."""
+    src_files = {"a.txt": _fake_bucket_file("a.txt")}
+    src_tree = [_fake_bucket_file("data/x.txt"), _fake_bucket_file("data/y.txt")]
+    dst_tree = [
+        BucketFolder(type="directory", path=path.rstrip("/"), uploaded_at=None)
+        if path.endswith("/")
+        else _fake_bucket_file(path)
+        for path in destination_tree
+    ]
+
+    def fake_get_bucket_paths_info(bucket_id, paths, token=None):
+        return [src_files[p] for p in paths if p in src_files] if bucket_id == "user/src" else []
+
+    def fake_list_bucket_tree(bucket_id, prefix=None, recursive=False, token=None):
+        tree = src_tree if bucket_id == "user/src" else dst_tree
+        return iter([item for item in tree if not prefix or item.path.startswith(prefix)])
+
+    api = HfApi()
+    with (
+        patch.object(api, "get_bucket_paths_info", side_effect=fake_get_bucket_paths_info),
+        patch.object(api, "list_bucket_tree", side_effect=fake_list_bucket_tree),
+        patch.object(api, "batch_bucket_files") as mock_batch,
+    ):
+        api.copy_files(source, "hf://buckets/user/dst/logs")
+
+    copied_paths = [target_path for _, _, _, target_path in mock_batch.call_args.kwargs["copy"]]
+    assert sorted(copied_paths) == expected
 
 
 # =============================================================================

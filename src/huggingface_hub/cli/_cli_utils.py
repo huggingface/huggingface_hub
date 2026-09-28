@@ -15,6 +15,7 @@
 
 import difflib
 import importlib.metadata
+import logging
 import os
 import re
 import shlex
@@ -28,29 +29,29 @@ from typing import TYPE_CHECKING, Annotated, Any, Literal, TypeVar, cast
 
 import click
 
-from huggingface_hub import Volume, __version__, constants
+from huggingface_hub import __version__, constants
 from huggingface_hub.errors import CLIError
-from huggingface_hub.utils import (
-    get_session,
-    hf_raise_for_status,
-    installation_method,
-    logging,
-    parse_hf_mount,
-)
 from huggingface_hub.utils._dotenv import load_dotenv
 
-from ._framework import Argument, HfCommand, HfGroup, Option
+from ._framework import Argument, HfCommand, HfGroup, Option, build_command
 from ._help_formatter import StyledContext
 from ._output import OutputFormat, out
 
 
-logger = logging.get_logger()
+logger = logging.getLogger(__name__)
 
 # Arbitrary default limit for models/datasets/spaces list commands.
 REPO_LIST_DEFAULT_LIMIT = 30
 
 if TYPE_CHECKING:
+    from huggingface_hub import Volume
     from huggingface_hub.hf_api import HfApi
+
+
+def installation_method() -> str:
+    from huggingface_hub.utils import installation_method as _installation_method
+
+    return _installation_method()
 
 
 def get_hf_api(token: str | None = None) -> "HfApi":
@@ -153,6 +154,13 @@ class HFCliTyperGroup(HfGroup):
     def resolve_command(self, ctx: click.Context, args: list[str]) -> tuple:
         cmd_name = args[0] if args and not args[0].startswith("-") else None
         cmd = self.get_command(ctx, cmd_name) if cmd_name else None
+
+        if isinstance(cmd, (LazyHfCommand, LazyHfGroup)):
+            loaded_cmd = cmd.materialize()
+            for registered_name, registered_cmd in self.commands.items():
+                if registered_cmd is cmd:
+                    self.commands[registered_name] = loaded_cmd
+            cmd = loaded_cmd
 
         if cmd is not None:
             self._rewrite_repo_type_prefix(cmd, args)
@@ -373,13 +381,14 @@ class HFCliTyperGroup(HfGroup):
         return super().command(name, cls=HFCliCommand(topic, examples), epilog=epilog, **kwargs)
 
 
+_FORMAT_HELP = "Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal."
+_JSON_HELP = "JSON output. Equivalent to '--format json'."
+_QUIET_HELP = "Quiet output (one ID per line). Equivalent to '--format quiet'."
+
 _FORMATTING_OPTIONS_HELP_RECORDS: list[tuple[str, str]] = [
-    (
-        "--format [auto|human|agent|json|quiet]",
-        "Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.",
-    ),
-    ("--json", "JSON output. Equivalent to '--format json'."),
-    ("-q, --quiet", "Quiet output (one ID per line). Equivalent to '--format quiet'."),
+    ("--format [auto|human|agent|json|quiet]", _FORMAT_HELP),
+    ("--json", _JSON_HELP),
+    ("-q, --quiet", _QUIET_HELP),
     ("--no-truncate", "Do not truncate scalar values in human tables (list/dict columns stay shortened)."),
 ]
 
@@ -387,6 +396,27 @@ _FORMATTING_OPTIONS_HELP_RECORDS: list[tuple[str, str]] = [
 def _format_formatting_options_section(formatter: click.HelpFormatter) -> None:
     with formatter.section("Formatting options"):
         formatter.write_dl(_FORMATTING_OPTIONS_HELP_RECORDS)
+
+
+# Formatting options for pass-through commands (`ignore_unknown_options=True`, e.g. `hf jobs run`), which
+# `_consume_format_flags_for_leaf` leaves untouched. Such commands must declare the flags explicitly (so click
+# parses them instead of forwarding them to the container command) and apply them with `set_output_format()`.
+FormatOpt = Annotated[OutputFormat | None, Option("--format", help=_FORMAT_HELP)]
+JsonOpt = Annotated[bool, Option("--json", help=_JSON_HELP)]
+QuietOpt = Annotated[bool, Option("-q", "--quiet", help=_QUIET_HELP)]
+
+
+def set_output_format(format: OutputFormat | None, json: bool, quiet: bool) -> None:
+    """Apply the formatting flags declared by a pass-through command to the `out` singleton."""
+    flags = [flag for flag, given in (("--format", format is not None), ("--json", json), ("-q", quiet)) if given]
+    if len(flags) > 1:
+        raise click.UsageError(f"'{flags[0]}' and '{flags[1]}' are mutually exclusive.")
+    if format is not None:
+        out.set_mode(format)
+    elif json:
+        out.set_mode(OutputFormat.json)
+    elif quiet:
+        out.set_mode(OutputFormat.quiet)
 
 
 def _has_local_formatting_option(cmd: click.Command) -> bool:
@@ -620,6 +650,86 @@ def HFCliCommand(topic: TOPIC_T, examples: list[str] | None = None) -> type[HfCo
     )
 
 
+class LazyHfCommand(click.Command):
+    """A lightweight command placeholder that imports its implementation when selected."""
+
+    def __init__(
+        self,
+        name: str,
+        *,
+        module: str,
+        attribute: str,
+        is_factory: bool = False,
+        topic: TOPIC_T = "main",
+        examples_attribute: str | None = None,
+        hidden: bool = False,
+    ) -> None:
+        super().__init__(name=name, hidden=hidden)
+        self.module = module
+        self.attribute = attribute
+        self.is_factory = is_factory
+        self.topic = topic
+        self.examples: list[str] = []
+        self.examples_attribute = examples_attribute
+        self._loaded: click.Command | None = None
+
+    def materialize(self) -> click.Command:
+        if self._loaded is None:
+            module = importlib.import_module(self.module)
+            callback = getattr(module, self.attribute)
+            examples = getattr(module, self.examples_attribute) if self.examples_attribute is not None else []
+            if self.is_factory:
+                callback = callback()
+            if isinstance(callback, click.Command):
+                command = callback
+                command.name = self.name
+                command.hidden = self.hidden
+            else:
+                epilog = generate_epilog(examples) if examples else None
+                command = build_command(
+                    callback,
+                    name=self.name,
+                    cls=HFCliCommand(self.topic, examples),
+                    epilog=epilog,
+                    hidden=self.hidden,
+                )
+            self.examples = getattr(command, "examples", examples)
+            self._loaded = command
+        return self._loaded
+
+    def get_short_help_str(self, limit: int = 45) -> str:
+        return self.materialize().get_short_help_str(limit)
+
+
+class LazyHfGroup(click.Group):
+    """A lightweight group placeholder that imports its implementation when selected or inspected."""
+
+    def __init__(self, name: str, *, module: str, attribute: str, hidden: bool = False) -> None:
+        super().__init__(name=name, hidden=hidden)
+        self.module = module
+        self.attribute = attribute
+        self._loaded: click.Group | None = None
+
+    def materialize(self) -> click.Group:
+        if self._loaded is None:
+            group = getattr(importlib.import_module(self.module), self.attribute)
+            if not isinstance(group, click.Group):
+                raise TypeError(f"{self.module}.{self.attribute} is not a Click group")
+            group.name = self.name
+            group.hidden = self.hidden
+            self._loaded = group
+        return self._loaded
+
+    def list_commands(self, ctx: click.Context) -> list[str]:
+        return self.materialize().list_commands(ctx)
+
+    def get_command(self, ctx: click.Context, cmd_name: str) -> click.Command | None:
+        return self.materialize().get_command(ctx, cmd_name)
+
+    def get_short_help_str(self, limit: int = 45) -> str:
+        return self.materialize().get_short_help_str(limit)
+
+
 def typer_factory(help: str, epilog: str | None = None, cls: type[HFCliTyperGroup] | None = None) -> "HFCliTyperGroup":
     """Create a CLI command group with consistent settings.
 
@@ -679,6 +789,7 @@ class RepoType(str, Enum):
     model = "model"
     dataset = "dataset"
     space = "space"
+    kernel = "kernel"
 
 
 RepoIdArg = Annotated[
@@ -694,7 +805,7 @@ RepoTypeOpt = Annotated[
     Option(
         "--type",
         "--repo-type",
-        help="The type of repository (model, dataset, or space).",
+        help="The type of repository (model, dataset, space, or kernel).",
     ),
 ]
 
@@ -706,7 +817,7 @@ RepoTypeOptionalOpt = Annotated[
     Option(
         "--type",
         "--repo-type",
-        help="The type of repository (model, dataset, or space).",
+        help="The type of repository (model, dataset, space, or kernel).",
         show_default="model",
     ),
 ]
@@ -923,6 +1034,9 @@ def parse_volumes(volumes: list[str] | None) -> "list[Volume] | None":
     if not volumes:
         return None
 
+    from huggingface_hub import Volume
+    from huggingface_hub.utils import parse_hf_mount
+
     result: list[Volume] = []
     for raw_spec in volumes:
         mount = parse_hf_mount(raw_spec)
@@ -1062,6 +1176,8 @@ def _check_cli_update(library: Literal["huggingface_hub", "transformers"]) -> No
 def _fetch_latest_pypi_version(library: str) -> str | None:
     """Fetch the latest version of a library from PyPI. Returns None if the request fails."""
     try:
+        from huggingface_hub.utils import get_session, hf_raise_for_status
+
         response = get_session().get(f"https://pypi.org/pypi/{library}/json", timeout=2)
         hf_raise_for_status(response)
         return response.json()["info"]["version"]
@@ -1073,6 +1189,8 @@ def _fetch_latest_pypi_version(library: str) -> str | None:
 def _fetch_latest_brew_version() -> str | None:
     """Fetch the latest version of the `hf` formula from the Homebrew registry. Returns None if the request fails."""
     try:
+        from huggingface_hub.utils import get_session, hf_raise_for_status
+
         response = get_session().get("https://formulae.brew.sh/api/formula/hf.json", timeout=2)
         hf_raise_for_status(response)
         return response.json()["versions"]["stable"]

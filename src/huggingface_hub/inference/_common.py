@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, BinaryIO, Literal, NoReturn, Union, overload
 
-import httpx
+import httpx2
 
 from huggingface_hub.errors import (
     GenerationError,
@@ -350,7 +350,7 @@ def _format_chat_completion_stream_output(
     return ChatCompletionStreamOutput.parse_obj_as_instance(json_payload)
 
 
-async def _async_yield_from(client: httpx.AsyncClient, response: httpx.Response) -> AsyncIterable[str]:
+async def _async_yield_from(client: httpx2.AsyncClient, response: httpx2.Response) -> AsyncIterable[str]:
     async for line in response.aiter_lines():
         yield line.strip()
 

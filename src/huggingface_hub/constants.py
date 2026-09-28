@@ -95,6 +95,8 @@ HUGGINGFACE_HEADER_X_REPO_COMMIT = "X-Repo-Commit"
 HUGGINGFACE_HEADER_X_LINKED_ETAG = "X-Linked-Etag"
 HUGGINGFACE_HEADER_X_LINKED_SIZE = "X-Linked-Size"
 HUGGINGFACE_HEADER_X_BILL_TO = "X-HF-Bill-To"
+# Header sent on every HTTP call made while downloading files from the Hub (see `flag_as_download_call`).
+X_HF_DOWNLOAD_COUNTER = "X-HF-Download-Counter"
 
 INFERENCE_ENDPOINT = os.environ.get("HF_INFERENCE_ENDPOINT", "https://api-inference.huggingface.co")
 
@@ -225,10 +227,11 @@ AGENT_HARNESSES_PATH = os.path.join(HF_HOME, ".agent_harnesses.json")
 
 # Skills directories for AI agents: `.agents/skills` is read by most agents, `.claude/skills` by Claude Code.
 # Local = current project, global = user-level (see `hf skills add`).
+# Claude Code's user-level directory defaults to `~/.claude` but can be relocated with `CLAUDE_CONFIG_DIR`.
 AGENTS_SKILLS_LOCAL_PATH = Path(".agents/skills")
 AGENTS_SKILLS_GLOBAL_PATH = Path("~/.agents/skills")
 CLAUDE_SKILLS_LOCAL_PATH = Path(".claude/skills")
-CLAUDE_SKILLS_GLOBAL_PATH = Path("~/.claude/skills")
+CLAUDE_SKILLS_GLOBAL_PATH = Path(os.environ.get("CLAUDE_CONFIG_DIR") or "~/.claude") / "skills"
 
 # Set to skip the CLI update check (PyPI query + "new version available" warning at startup).
 HF_HUB_DISABLE_UPDATE_CHECK = _is_true(os.environ.get("HF_HUB_DISABLE_UPDATE_CHECK"))
@@ -338,6 +341,9 @@ HUGGINGFACE_HEADER_LINK_XET_AUTH_KEY = "xet-auth"
 default_xet_cache_path = os.path.join(HF_HOME, "xet")
 HF_XET_CACHE = os.getenv("HF_XET_CACHE", default_xet_cache_path)
 HF_HUB_DISABLE_XET: bool = _is_true(os.environ.get("HF_HUB_DISABLE_XET"))
+
+# Disable the cache-wide shared blob store (see `huggingface_hub.utils._shared_blobs`).
+HF_HUB_DISABLE_SHARED_BLOBS: bool = _is_true(os.environ.get("HF_HUB_DISABLE_SHARED_BLOBS"))
 
 # Bucket hosting the static sandbox server binary (see huggingface_hub.Sandbox)
 SANDBOX_SERVER_BUCKET: str = "huggingface/sbx-server"

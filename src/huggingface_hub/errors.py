@@ -3,7 +3,7 @@
 from enum import Enum
 from pathlib import Path
 
-from httpx import HTTPError, Response
+from httpx2 import HTTPError, Response
 
 
 # CACHE ERRORS
@@ -101,7 +101,7 @@ class HfHubHTTPError(HTTPError, OSError):
 
     Example:
     ```py
-        import httpx
+        import httpx2
         from huggingface_hub.utils import get_session, hf_raise_for_status, HfHubHTTPError
 
         response = get_session().post(...)
@@ -278,6 +278,18 @@ class BucketNotFoundError(HfHubHTTPError):
     """
 
     bucket_id: str | None = None
+
+
+class BucketBatchError(HfHubHTTPError):
+    """
+    Raised when the server reports that some operations of a bucket batch failed.
+
+    Attributes:
+        failures (`list[dict[str, str]]`):
+            The failed operations as listed by the server, e.g. `[{"path": "config.json", "error": "..."}]`.
+    """
+
+    failures: list[dict[str, str]] = []
 
 
 # JOB ERRORS
@@ -496,7 +508,7 @@ class BadRequestError(HfHubHTTPError, ValueError):
     Example:
 
     ```py
-    >>> resp = httpx.post("hf.co/api/check", ...)
+    >>> resp = httpx2.post("hf.co/api/check", ...)
     >>> hf_raise_for_status(resp, endpoint_name="check")
     huggingface_hub.errors.BadRequestError: Bad request for check endpoint: {details} (Request ID: XXX)
     ```

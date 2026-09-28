@@ -11,7 +11,7 @@ from typing import Generator, Optional
 from unittest.mock import ANY, Mock, patch
 
 import click
-import httpx
+import httpx2
 import pytest
 from click.testing import CliRunner, Result
 
@@ -51,12 +51,14 @@ def runner() -> CliRunner:
     return CliRunner()
 
 
-def _make_revision(commit_hash: str, *, refs: Optional[set[str]] = None) -> CachedRevisionInfo:
+def _make_revision(
+    commit_hash: str, *, refs: set[str] | None = None, files: frozenset[CachedFileInfo] = frozenset()
+) -> CachedRevisionInfo:
     return CachedRevisionInfo(
         commit_hash=commit_hash,
         snapshot_path=Path(f"/tmp/{commit_hash}"),
         size_on_disk=0,
-        files=frozenset(),
+        files=files,
         refs=frozenset(refs or set()),
         last_modified=0.0,
     )
@@ -223,23 +225,55 @@ class TestCacheCommand:
         hf_cache_info.delete_revisions.assert_called_once_with(revision.commit_hash)
         strategy.execute.assert_called_once_with()
 
+    @pytest.mark.parametrize("target", ["hf://models/user/model/config.json", " hf://models/user/model/config.json "])
+    def test_rm_file_uri_executes_strategy(self, runner: CliRunner, target: str) -> None:
+        commit_hash = "c" * 40
+        file = CachedFileInfo(
+            file_name="config.json",
+            file_path=Path(f"/tmp/{commit_hash}/config.json"),
+            blob_path=Path("/tmp/blobs/abc"),
+            size_on_disk=0,
+            blob_last_accessed=0.0,
+            blob_last_modified=0.0,
+        )
+        revision = _make_revision(commit_hash, files=frozenset({file}))
+        repo = _make_repo("user/model", revisions=[revision])
+
+        strategy = Mock()
+        strategy.expected_freed_size_str = "0B"
+
+        hf_cache_info = Mock()
+        hf_cache_info.delete_files.return_value = strategy
+
+        with (
+            patch("huggingface_hub.cli.cache.scan_cache_dir", return_value=hf_cache_info),
+            patch("huggingface_hub.cli.cache.build_cache_index", return_value=({"model/user/model": repo}, {})),
+        ):
+            result = runner.invoke(app, ["cache", "rm", target, "--yes"])
+
+        assert result.exit_code == 0
+        assert f"model/user/model@{commit_hash}/config.json" in result.output
+        hf_cache_info.delete_files.assert_called_once_with(file)
+        strategy.execute.assert_called_once_with()
+
     @pytest.mark.parametrize(
-        "target",
+        "targets, message",
         [
-            "hf://models/openai-community/gpt2@main",
-            "hf://models/openai-community/gpt2/config.json",
+            (["hf://models/openai-community/gpt2@main"], "Revisions in hf:// URIs are not supported"),
+            (["hf://models/openai-community/gpt2@main/config.json"], "Revisions in hf:// URIs are not supported"),
+            (["hf://models/openai-community/gpt2/config.json", "model/openai-community/gpt2"], "cannot be mixed"),
         ],
     )
-    def test_rm_hf_uri_rejects_revisions_and_paths(self, runner: CliRunner, target: str) -> None:
+    def test_rm_hf_uri_rejects_invalid_targets(self, runner: CliRunner, targets: list[str], message: str) -> None:
         with (
             patch("huggingface_hub.cli.cache.scan_cache_dir"),
             patch("huggingface_hub.cli.cache.build_cache_index", return_value=({}, {})),
         ):
-            result = runner.invoke(app, ["cache", "rm", target])
+            result = runner.invoke(app, ["cache", "rm", *targets])
 
         assert result.exit_code == 1
         assert isinstance(result.exception, CLIError)
-        assert "Only repo-level hf:// URIs are supported" in str(result.exception)
+        assert message in str(result.exception)
 
     def test_rm_hf_uri_rejects_buckets(self, runner: CliRunner) -> None:
         with (
@@ -298,6 +332,7 @@ class TestCacheCommand:
 
         hf_cache_info.incomplete_files = frozenset()
         hf_cache_info.incomplete_size_on_disk = 0
+        hf_cache_info.cache_dir = None
 
         with (
             patch("huggingface_hub.cli.cache.scan_cache_dir", return_value=hf_cache_info),
@@ -1414,7 +1449,7 @@ class TestTagCommands:
             api = api_cls.return_value
             result = runner.invoke(
                 app,
-                ["repo", "tag", "create", DUMMY_MODEL_ID, "1.0", "-m", "My tag message"],
+                ["repos", "tag", "create", DUMMY_MODEL_ID, "1.0", "-m", "My tag message"],
             )
         assert result.exit_code == 0
         api_cls.assert_called_once_with(token=None)
@@ -1432,7 +1467,7 @@ class TestTagCommands:
             result = runner.invoke(
                 app,
                 [
-                    "repo",
+                    "repos",
                     "tag",
                     "create",
                     DUMMY_MODEL_ID,
@@ -1462,7 +1497,7 @@ class TestTagCommands:
         with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
             api = api_cls.return_value
             api.list_repo_refs.return_value = refs
-            result = runner.invoke(app, ["repo", "tag", "list", DUMMY_MODEL_ID])
+            result = runner.invoke(app, ["repos", "tag", "list", DUMMY_MODEL_ID])
         assert result.exit_code == 0
         api_cls.assert_called_once_with(token=None)
         api.list_repo_refs.assert_called_once_with(repo_id=DUMMY_MODEL_ID, repo_type="model")
@@ -1472,7 +1507,7 @@ class TestTagCommands:
             api = api_cls.return_value
             result = runner.invoke(
                 app,
-                ["repo", "tag", "delete", DUMMY_MODEL_ID, "1.0"],
+                ["repos", "tag", "delete", DUMMY_MODEL_ID, "1.0"],
                 input="y\n",
             )
         assert result.exit_code == 0
@@ -1484,7 +1519,7 @@ class TestBranchCommands:
     def test_branch_create_basic(self, runner: CliRunner) -> None:
         with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
             api = api_cls.return_value
-            result = runner.invoke(app, ["repo", "branch", "create", DUMMY_MODEL_ID, "dev"])
+            result = runner.invoke(app, ["repos", "branch", "create", DUMMY_MODEL_ID, "dev"])
         assert result.exit_code == 0
         api_cls.assert_called_once_with(token=None)
         api.create_branch.assert_called_once_with(
@@ -1501,7 +1536,7 @@ class TestBranchCommands:
             result = runner.invoke(
                 app,
                 [
-                    "repo",
+                    "repos",
                     "branch",
                     "create",
                     DUMMY_MODEL_ID,
@@ -1528,7 +1563,7 @@ class TestBranchCommands:
     def test_branch_delete_basic(self, runner: CliRunner) -> None:
         with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
             api = api_cls.return_value
-            result = runner.invoke(app, ["repo", "branch", "delete", DUMMY_MODEL_ID, "dev"])
+            result = runner.invoke(app, ["repos", "branch", "delete", DUMMY_MODEL_ID, "dev"])
         assert result.exit_code == 0
         api_cls.assert_called_once_with(token=None)
         api.delete_branch.assert_called_once_with(
@@ -1543,7 +1578,7 @@ class TestBranchCommands:
             result = runner.invoke(
                 app,
                 [
-                    "repo",
+                    "repos",
                     "branch",
                     "delete",
                     DUMMY_MODEL_ID,
@@ -1583,8 +1618,6 @@ class TestRepoCreateCommand:
                     "gradio",
                     "--flavor",
                     "t4-medium",
-                    "--storage",
-                    "small",
                     "--sleep-time",
                     "3600",
                     "--secrets",
@@ -1609,7 +1642,6 @@ class TestRepoCreateCommand:
             region=None,
             space_sdk="gradio",
             space_hardware="t4-medium",
-            space_storage="small",
             space_sleep_time=3600,
             space_secrets=[{"key": "HF_TOKEN", "value": "secret_val"}],
             space_variables=[{"key": "THEME", "value": "dark"}, {"key": "DEBUG", "value": "1"}],
@@ -1633,7 +1665,6 @@ class TestRepoCreateCommand:
             region=None,
             space_sdk=None,
             space_hardware=None,
-            space_storage=None,
             space_sleep_time=None,
             space_secrets=None,
             space_variables=None,
@@ -1658,7 +1689,6 @@ class TestRepoDuplicateCommand:
             token=None,
             exist_ok=False,
             space_hardware=None,
-            space_storage=None,
             space_sleep_time=None,
             space_secrets=None,
             space_variables=None,
@@ -1693,7 +1723,6 @@ class TestRepoDuplicateCommand:
             token="my-token",
             exist_ok=True,
             space_hardware=None,
-            space_storage=None,
             space_sleep_time=None,
             space_secrets=None,
             space_variables=None,
@@ -1718,8 +1747,6 @@ class TestRepoDuplicateCommand:
                     "space",
                     "--flavor",
                     "l4x4",
-                    "--storage",
-                    "small",
                     "--volume",
                     "hf://org/gpt2:/model",
                     "--sleep-time",
@@ -1740,7 +1767,6 @@ class TestRepoDuplicateCommand:
             token=None,
             exist_ok=False,
             space_hardware="l4x4",
-            space_storage="small",
             space_sleep_time=3600,
             space_secrets=[{"key": "HF_TOKEN", "value": "hf_secret123"}],
             space_variables=[{"key": "THEME", "value": "dark"}],
@@ -1778,7 +1804,6 @@ class TestRepoDuplicateCommand:
             token=None,
             exist_ok=False,
             space_hardware=None,
-            space_storage=None,
             space_sleep_time=None,
             space_secrets=[{"key": "MY_SECRET", "value": "env_value"}],
             space_variables=None,
@@ -1790,7 +1815,7 @@ class TestRepoMoveCommand:
     def test_repo_move_basic(self, runner: CliRunner) -> None:
         with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
             api = api_cls.return_value
-            result = runner.invoke(app, ["repo", "move", DUMMY_MODEL_ID, "new-id"])
+            result = runner.invoke(app, ["repos", "move", DUMMY_MODEL_ID, "new-id"])
         assert result.exit_code == 0
         api_cls.assert_called_once_with(token=None)
         api.move_repo.assert_called_once_with(
@@ -1805,7 +1830,7 @@ class TestRepoMoveCommand:
             result = runner.invoke(
                 app,
                 [
-                    "repo",
+                    "repos",
                     "move",
                     DUMMY_MODEL_ID,
                     "new-id",
@@ -1828,7 +1853,7 @@ class TestRepoSettingsCommand:
     def test_repo_settings_basic(self, runner: CliRunner) -> None:
         with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
             api = api_cls.return_value
-            result = runner.invoke(app, ["repo", "settings", DUMMY_MODEL_ID])
+            result = runner.invoke(app, ["repos", "settings", DUMMY_MODEL_ID])
         assert result.exit_code == 0
         api_cls.assert_called_once_with(token=None)
         api.update_repo_settings.assert_called_once_with(
@@ -1844,7 +1869,7 @@ class TestRepoSettingsCommand:
             result = runner.invoke(
                 app,
                 [
-                    "repo",
+                    "repos",
                     "settings",
                     DUMMY_MODEL_ID,
                     "--gated",
@@ -1895,7 +1920,7 @@ class TestRepoDeleteCommand:
     def test_repo_delete_basic(self, runner: CliRunner) -> None:
         with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
             api = api_cls.return_value
-            result = runner.invoke(app, ["repo", "delete", DUMMY_MODEL_ID, "--yes"])
+            result = runner.invoke(app, ["repos", "delete", DUMMY_MODEL_ID, "--yes"])
         assert result.exit_code == 0
         api_cls.assert_called_once_with(token=None)
         api.delete_repo.assert_called_once_with(
@@ -1910,7 +1935,7 @@ class TestRepoDeleteCommand:
             result = runner.invoke(
                 app,
                 [
-                    "repo",
+                    "repos",
                     "delete",
                     DUMMY_MODEL_ID,
                     "--repo-type",
@@ -3221,7 +3246,7 @@ class TestRepoDeleteFilesCommand:
         "cli_args, expected_kwargs",
         [
             (
-                ["repo", "delete-files", DUMMY_MODEL_ID, "*"],
+                ["repos", "delete-files", DUMMY_MODEL_ID, "*"],
                 {
                     "delete_patterns": ["*"],
                     "repo_id": DUMMY_MODEL_ID,
@@ -3233,7 +3258,7 @@ class TestRepoDeleteFilesCommand:
                 },
             ),
             (
-                ["repo", "delete-files", DUMMY_MODEL_ID, "file.txt"],
+                ["repos", "delete-files", DUMMY_MODEL_ID, "file.txt"],
                 {
                     "delete_patterns": ["file.txt"],
                     "repo_id": DUMMY_MODEL_ID,
@@ -3245,7 +3270,7 @@ class TestRepoDeleteFilesCommand:
                 },
             ),
             (
-                ["repo", "delete-files", DUMMY_MODEL_ID, "folder/"],
+                ["repos", "delete-files", DUMMY_MODEL_ID, "folder/"],
                 {
                     "delete_patterns": ["folder/"],
                     "repo_id": DUMMY_MODEL_ID,
@@ -3257,7 +3282,7 @@ class TestRepoDeleteFilesCommand:
                 },
             ),
             (
-                ["repo", "delete-files", DUMMY_MODEL_ID, "file1.txt", "folder/", "file2.txt"],
+                ["repos", "delete-files", DUMMY_MODEL_ID, "file1.txt", "folder/", "file2.txt"],
                 {
                     "delete_patterns": [
                         "file1.txt",
@@ -3274,7 +3299,7 @@ class TestRepoDeleteFilesCommand:
             ),
             (
                 [
-                    "repo",
+                    "repos",
                     "delete-files",
                     DUMMY_MODEL_ID,
                     "file.txt *",
@@ -3297,7 +3322,7 @@ class TestRepoDeleteFilesCommand:
             ),
             (
                 [
-                    "repo",
+                    "repos",
                     "delete-files",
                     DUMMY_MODEL_ID,
                     "file.txt *",
@@ -3329,31 +3354,6 @@ class TestRepoDeleteFilesCommand:
             result = runner.invoke(app, cli_args)
         assert result.exit_code == 0
         api.delete_files.assert_called_once_with(**expected_kwargs)
-
-
-class TestRepoFilesCommand:
-    """Tests for legacy `hf repo-files delete` (deprecated, kept for backward compatibility)."""
-
-    def test_legacy_delete_still_works(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.repo_files.get_hf_api") as api_cls:
-            api = api_cls.return_value
-            result = runner.invoke(app, ["repo-files", "delete", DUMMY_MODEL_ID, "file.txt"])
-        assert result.exit_code == 0
-        api.delete_files.assert_called_once_with(
-            delete_patterns=["file.txt"],
-            repo_id=DUMMY_MODEL_ID,
-            repo_type="model",
-            revision=None,
-            commit_message=None,
-            commit_description=None,
-            create_pr=False,
-        )
-
-    def test_legacy_delete_emits_deprecation_warning(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.repo_files.get_hf_api"):
-            result = runner.invoke(app, ["repo-files", "delete", DUMMY_MODEL_ID, "file.txt"])
-        assert result.exit_code == 0
-        assert "hf repos delete-files" in result.output
 
 
 class TestJobsCommand:
@@ -4811,6 +4811,7 @@ class TestWebhooksCommand:
             watched=[WebhookWatchedItem(type="model", name="bert-base-uncased")],
             domains=None,
             secret=None,
+            secrets=None,
         )
 
     def test_create_with_domain_and_secret(self, runner: CliRunner) -> None:
@@ -4841,6 +4842,7 @@ class TestWebhooksCommand:
             watched=[WebhookWatchedItem(type="org", name="HuggingFace")],
             domains=["repo"],
             secret="mysecret",
+            secrets=None,
         )
 
     def test_create_with_job_id(self, runner: CliRunner) -> None:
@@ -4862,7 +4864,38 @@ class TestWebhooksCommand:
             watched=[WebhookWatchedItem(type="user", name="julien-c")],
             domains=None,
             secret=None,
+            secrets=None,
         )
+
+    def test_create_with_job_secrets(self, runner: CliRunner) -> None:
+        webhook = self._make_webhook(url=None)
+        with (
+            patch("huggingface_hub.cli.webhooks.get_hf_api") as api_cls,
+            patch.dict(os.environ, {"MY_SECRET": "s3cr3t"}),
+        ):
+            api_cls.return_value.create_webhook.return_value = webhook
+            result = runner.invoke(
+                app,
+                [
+                    "webhooks",
+                    "create",
+                    "--job-id",
+                    "687f911eaea852de79c4a50a",
+                    "--watch",
+                    "bucket:my-org/my-bucket",
+                    "--secrets",
+                    "MY_SECRET",
+                ],
+            )
+        assert result.exit_code == 0, result.output
+        assert api_cls.return_value.create_webhook.call_args.kwargs["secrets"] == {"MY_SECRET": "s3cr3t"}
+
+    def test_create_secrets_require_job_id(self, runner: CliRunner) -> None:
+        result = runner.invoke(
+            app,
+            ["webhooks", "create", "--url", "https://example.com/hook", "--watch", "user:me", "--secrets", "A=b"],
+        )
+        assert result.exit_code != 0
 
     def test_create_url_and_job_id_mutually_exclusive(self, runner: CliRunner) -> None:
         result = runner.invoke(
@@ -4906,10 +4939,29 @@ class TestWebhooksCommand:
         api_cls.return_value.update_webhook.assert_called_once_with(
             "wh-abc123",
             url="https://new.example.com/hook",
+            job_id=None,
             watched=None,
             domains=None,
             secret=None,
+            secrets=None,
         )
+
+    def test_update_with_job_secrets(self, runner: CliRunner) -> None:
+        webhook = self._make_webhook(url=None)
+        with patch("huggingface_hub.cli.webhooks.get_hf_api") as api_cls:
+            api_cls.return_value.update_webhook.return_value = webhook
+            result = runner.invoke(
+                app,
+                ["webhooks", "update", "wh-abc123", "--job-id", "687f911eaea852de79c4a50a", "--secrets", "A=b"],
+            )
+        assert result.exit_code == 0, result.output
+        kwargs = api_cls.return_value.update_webhook.call_args.kwargs
+        assert kwargs["job_id"] == "687f911eaea852de79c4a50a"
+        assert kwargs["secrets"] == {"A": "b"}
+
+    def test_update_secrets_require_job_id(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["webhooks", "update", "wh-abc123", "--secrets", "A=b"])
+        assert result.exit_code != 0
 
     def test_enable(self, runner: CliRunner) -> None:
         webhook = self._make_webhook(disabled=False)
@@ -5309,6 +5361,39 @@ class TestSkillsHfCliCLI:
         runner.invoke(app, ["skills", "update", "--dest", str(dest)])
         assert skill_file.read_text(encoding="utf-8") == build_skill_md()
 
+    def test_local_add_and_update_hint_global(
+        self, runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(constants, "AGENTS_SKILLS_GLOBAL_PATH", tmp_path / "global/.agents/skills")
+        monkeypatch.setattr(constants, "CLAUDE_SKILLS_GLOBAL_PATH", tmp_path / "global/.claude/skills")
+        monkeypatch.setattr(constants, "AGENTS_SKILLS_LOCAL_PATH", tmp_path / "local/.agents/skills")
+        monkeypatch.setattr(constants, "CLAUDE_SKILLS_LOCAL_PATH", tmp_path / "local/.claude/skills")
+
+        result = runner.invoke(app, ["skills", "add"])
+        assert result.exit_code == 0, result.output
+        assert "hf skills add hf-cli --global" in result.stderr
+
+        result = runner.invoke(app, ["skills", "update"])
+        assert result.exit_code == 0, result.output
+        assert "hf skills update --global" in result.stderr
+
+        result = runner.invoke(app, ["skills", "add", "--global"])
+        assert result.exit_code == 0, result.output
+        assert "--global" not in result.stderr
+
+    def test_skills_flag_prints_the_skill(self, runner: CliRunner) -> None:
+        """`hf --skills` is a top-level alias for `hf skills preview`."""
+        result = runner.invoke(app, ["--skills"])
+        assert result.exit_code == 0, result.output
+        assert result.stdout == build_skill_md() + "\n"
+
+    def test_skills_flag_available_top_level_only(self, runner: CliRunner) -> None:
+        """The alias is a top-level flag: commands and subgroups must not accept it."""
+        for args in (["skills", "preview", "--skills"], ["repos", "--skills"]):
+            result = runner.invoke(app, args)
+            assert result.exit_code != 0, args
+            assert "--skills" in result.output, args
+
 
 class TestSkillUpdateCheck:
     """The daily `hf-cli` skill check only prints hints, it never installs nor updates."""
@@ -5332,14 +5417,14 @@ class TestSkillUpdateCheck:
     def test_hints_to_add_when_not_installed(self, capsys: pytest.CaptureFixture) -> None:
         with patch.object(_skills, "__version__", "1.0.0"):
             _skills.check_skill_update()
-        assert "hf skills add -g --claude" in capsys.readouterr().err
+        assert "hf skills add -g" in capsys.readouterr().err
 
     def test_hints_to_update_when_generated_by_another_version(
         self, tmp_path: Path, capsys: pytest.CaptureFixture
     ) -> None:
         self._write_global_skill(tmp_path, "Generated with `huggingface_hub v0.0.1`.")
         _skills.check_skill_update()
-        assert "hf skills update hf-cli -g --claude" in capsys.readouterr().err
+        assert "hf skills update hf-cli -g" in capsys.readouterr().err
 
     def test_silent_when_up_to_date_and_throttled_afterwards(
         self, tmp_path: Path, capsys: pytest.CaptureFixture
@@ -5358,6 +5443,7 @@ class TestSkillUpdateCheck:
         [
             (["hf", "version"], 1),
             (["hf", "skills", "add"], 0),  # the user is already managing skills
+            (["hf", "--skills"], 0),  # `hf --skills` is an alias for `hf skills preview`
             (["hf", "update"], 0),  # `hf update` handles the skill itself
         ],
     )
@@ -5452,14 +5538,14 @@ class _FakeGitHubSession:
     Patterns are matched as substrings of the URL; anything unmatched 404s.
     """
 
-    def __init__(self, responses: dict[str, httpx.Response] | None = None) -> None:
+    def __init__(self, responses: dict[str, httpx2.Response] | None = None) -> None:
         self.urls: list[str] = []
         self.responses = responses or {}
 
-    def request(self, method: str, url: str, **kwargs) -> httpx.Response:
+    def request(self, method: str, url: str, **kwargs) -> httpx2.Response:
         self.urls.append(url)
-        response = next((r for pattern, r in self.responses.items() if pattern in url), httpx.Response(404))
-        response.request = httpx.Request(method, url)
+        response = next((r for pattern, r in self.responses.items() if pattern in url), httpx2.Response(404))
+        response.request = httpx2.Request(method, url)
         return response
 
     def __getattr__(self, method: str):
@@ -5524,9 +5610,9 @@ class TestExtensionsGitHubAccess:
         # Shell-script extensions ship neither manifest.json nor pyproject.toml, so the repo's "About"
         # field is their only description. It is served by github.com, off the REST API quota.
         github.responses = {
-            BINARY_URL: httpx.Response(200, content=b"#!/bin/sh"),
-            REPO_PAGE_URL: httpx.Response(200, text=f'<meta name="description" content="{about}">'),
-            COMMITS_URL: httpx.Response(200, text="a" * 40),
+            BINARY_URL: httpx2.Response(200, content=b"#!/bin/sh"),
+            REPO_PAGE_URL: httpx2.Response(200, text=f'<meta name="description" content="{about}">'),
+            COMMITS_URL: httpx2.Response(200, text="a" * 40),
         }
         manifest = extensions._install_extension(owner="huggingface", repo_name="hf-demo", short_name="demo")
 
@@ -5543,9 +5629,9 @@ class TestExtensionsGitHubAccess:
     def test_install_completes_when_the_api_quota_is_exhausted(self, github: _FakeGitHubSession) -> None:
         # The extension itself comes from the CDN, so only the optional version marker is lost.
         github.responses = {
-            BINARY_URL: httpx.Response(200, content=b"#!/bin/sh"),
-            "HEAD/manifest.json": httpx.Response(200, json={"description": "Demo extension"}),
-            "api.github.com": httpx.Response(403, headers={"x-ratelimit-remaining": "0"}),
+            BINARY_URL: httpx2.Response(200, content=b"#!/bin/sh"),
+            "HEAD/manifest.json": httpx2.Response(200, json={"description": "Demo extension"}),
+            "api.github.com": httpx2.Response(403, headers={"x-ratelimit-remaining": "0"}),
         }
         manifest = extensions._install_extension(owner="huggingface", repo_name="hf-demo", short_name="demo")
 
@@ -5556,8 +5642,8 @@ class TestExtensionsGitHubAccess:
     def test_unreachable_github_is_not_reported_as_a_missing_repo(
         self, github: _FakeGitHubSession, runner: CliRunner
     ) -> None:
-        # Only a 404 means "missing"; anything else must not escape as a raw httpx traceback either.
-        github.responses = {REPO_PAGE_URL: httpx.Response(500)}
+        # Only a 404 means "missing"; anything else must not escape as a raw httpx2 traceback either.
+        github.responses = {REPO_PAGE_URL: httpx2.Response(500)}
         result = runner.invoke(app, ["extensions", "install", "huggingface/hf-demo"])
 
         assert isinstance(result.exception, CLIError)
@@ -5571,7 +5657,7 @@ class TestExtensionsGitHubAccess:
         # A secondary limit: GitHub asks for a back-off and rides the *primary* window's reset
         # timestamp alongside it, on a quota that is not exhausted. The back-off is what applies.
         github.responses = {
-            "api.github.com": httpx.Response(
+            "api.github.com": httpx2.Response(
                 429,
                 headers={"x-ratelimit-remaining": "53", "x-ratelimit-reset": "1786500000", "retry-after": "60"},
             )

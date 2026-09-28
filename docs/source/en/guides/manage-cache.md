@@ -4,7 +4,7 @@ rendered properly in your Markdown viewer.
 
 # Understand caching
 
-`huggingface_hub` utilizes the local disk as two caches, which avoid re-downloading items again. The first cache is a file-based cache, which caches individual files downloaded from the Hub and ensures that the same file is not downloaded again when a repo gets updated. The second cache is a chunk cache, where each chunk represents a byte range from a file and ensures that chunks that are shared across files are only downloaded once.
+`huggingface_hub` uses a local file-based cache to store individual files downloaded from the Hub and avoid downloading unchanged files again when a repo gets updated. In addition, `hf_xet` stores a shard cache and staging data to optimize uploads (see [Xet caching](#xet-caching)).
 
 > [!TIP]
 > This guide covers the Python-specific cache management tools provided by `huggingface_hub`. For a language-agnostic overview of how the Hugging Face Hub cache system works, see the [Hub documentation on local caching](https://huggingface.co/docs/hub/local-cache).
@@ -22,11 +22,12 @@ The caching system is designed as follows:
 ├─ <MODELS>
 ├─ <DATASETS>
 ├─ <SPACES>
+├─ <KERNELS>
 ```
 
 The default `<CACHE_DIR>` is `~/.cache/huggingface/hub`. However, it is customizable with the `cache_dir` argument on all methods, or by specifying either `HF_HOME` or `HF_HUB_CACHE` environment variable.
 
-Models, datasets and spaces share a common root. Each of these repositories contains the
+Models, datasets, spaces and kernels share a common root. Each of these repositories contains the
 repository type, the namespace (organization or username) if it exists and the
 repository name:
 
@@ -203,6 +204,20 @@ When symlinks are not supported, a warning message is displayed to the user to a
 them they are using a degraded version of the cache-system. This warning can be disabled
 by setting the `HF_HUB_DISABLE_SYMLINKS_WARNING` environment variable to true.
 
+### Shared blobs across repos
+
+By default, Xet files are also deduplicated across repos. A Xet file downloaded through `hf_xet` is stored once at `<CACHE_DIR>/blobs/<prefix>/<xet_hash>`, and the repo's `blobs/<etag>` entry is a relative symlink to it. When another repo needs the same file, it gets a symlink instead of a download: no bytes are transferred and no extra space is used. The snapshot layout does not change. A marker file identifies the store, so a `blobs` directory that was not created by `huggingface_hub` is never touched.
+
+Each shared file has a `<xet_hash>.refs` manifest listing the repo blobs that use it. `hf cache rm` reads it to check only the shared files affected by a deletion, and `hf cache prune` removes shared files that no cached repo uses anymore. The manifest is only a hint: every entry is checked against the filesystem, and a file with missing or unreadable metadata is kept. Cleanup prefers leaving reclaimable data behind over breaking a valid cache entry.
+
+Per-repo sizes stay logical, so a shared file is counted for every repo that uses it. The cache-wide `size_on_disk` is physical: each shared file is counted once, including files no repo uses anymore.
+
+Older clients (`huggingface_hub`, `huggingface.js`, `hf-hub`, `llama.cpp`, and anything that follows symlinks) keep reading and downloading normally, in the same repo folders. Two limitations:
+- Their cache deletion tools may delete a shared file still used by other repos. Affected files are re-downloaded on next use. Use an up-to-date `huggingface_hub` for `hf cache rm`, `hf cache prune`, and programmatic deletion.
+- Their cache scanners may report the top-level `blobs` directory as an unknown entry.
+
+The store requires the symlink-based cache layout and is disabled by `HF_HUB_DISABLE_XET=1`. Any failure to share a file, such as an unsupported filesystem, a permission error, or a pre-existing unmarked `blobs` directory, silently falls back to regular repo-local storage. Set [`HF_HUB_DISABLE_SHARED_BLOBS=1`](../package_reference/environment_variables#hfhubdisablesharedblobs) to opt out entirely.
+
 ## Pin a revision (advanced)
 
 > [!TIP]
@@ -247,71 +262,48 @@ A commit hash only means something for the repo it was resolved against, and dow
 >>> config = hf_hub_download("openai-community/gpt2-medium", "config.json", revision=other_revision)
 ```
 
-## Chunk-based caching (Xet)
+## Xet caching
 
-To provide more efficient file transfers, `hf_xet` adds a `xet` directory to the existing `huggingface_hub` cache, creating additional caching layer to enable chunk-based deduplication. This cache holds chunks (immutable byte ranges of files ~64KB in size) and shards (a data structure that maps files to chunks). For more information on the Xet Storage system, see this [section](https://huggingface.co/docs/hub/xet/index).
+To provide more efficient uploads, `hf_xet` adds a `xet` directory to the existing `huggingface_hub` cache. It stores shards (a data structure that maps files to chunks) and staging data used for upload deduplication and resumption. For more information on the Xet Storage system, see this [section](https://huggingface.co/docs/hub/xet/index).
 
-The `xet` directory, located at `~/.cache/huggingface/xet` by default, contains two caches, utilized for uploads and downloads. It has the following structure:
+`hf_xet` no longer uses a local chunk cache for downloads. Setting `HF_XET_CHUNK_CACHE_SIZE_BYTES` does not enable one. Downloaded files are still cached in the [file-based cache](#file-based-caching).
+
+The `xet` directory, located at `~/.cache/huggingface/xet` by default, can be configured with [`HF_XET_CACHE`](../package_reference/environment_variables#hfxetcache). It has the following structure:
 
 ```bash
 <CACHE_DIR>
 ├─ xet
 │  ├─ environment_identifier
-│  │  ├─ chunk_cache
-│  │  ├─ shard_cache
+│  │  ├─ shard-cache
 │  │  ├─ staging
 ```
 
 The `environment_identifier` directory is an encoded string (it may appear on your machine as `https___cas_serv-tGqkUaZf_CBPHQ6h`). This is used during development allowing for local and production versions of the cache to exist alongside each other simultaneously. It is also used when downloading from repositories that reside in different [storage regions](https://huggingface.co/docs/hub/storage-regions). You may see multiple such entries in the `xet` directory, each corresponding to a different environment, but their internal structure is the same. 
 
 The internal directories serve the following purposes:
-* `chunk-cache` contains cached data chunks that are used to speed up downloads.
 * `shard-cache` contains cached shards that are utilized on the upload path. 
 * `staging` is a workspace designed to support resumable uploads.
 
 These are documented below.
 
-Note that the `xet` caching system, like the rest of `hf_xet` is fully integrated with `huggingface_hub`.  If you use the existing APIs for interacting with cached assets, there is no need to update your workflow. The `xet` caches are built as an optimization layer on top of the existing `hf_xet` chunk-based deduplication and `huggingface_hub` cache system. 
+The shard cache and staging data are managed by `hf_xet` as an optimization layer for uploads. To manage downloaded files, use the `huggingface_hub` file-based cache APIs.
 
-
-### `chunk_cache`
-
-This cache is used on the download path. The cache directory structure is based on a base-64 encoded hash from the content-addressed store (CAS) that backs each Xet-enabled repository. A CAS hash serves as the key to lookup the offsets of where the data is stored. Note: as of `hf_xet` 1.2.0 the chunk_cache is disabled by default. To enable it, set the `HF_XET_CHUNK_CACHE_SIZE_BYTES` environment variable to the appropriate size prior to launching the Python process.
-
-At the topmost level, the first two letters of the base 64 encoded CAS hash are used to create a subdirectory in the `chunk_cache` (keys that share these first two letters are grouped here).  The inner levels are comprised of subdirectories with the full key as the directory name. At the base are the cache items which are ranges of blocks that contain the cached chunks.
-
-```bash
-<CACHE_DIR>
-├─ xet
-│  ├─ chunk_cache
-│  │  ├─ A1
-│  │  │  ├─ A1GerURLUcISVivdseeoY1PnYifYkOaCCJ7V5Q9fjgxkZWZhdWx0
-│  │  │  │  ├─ AAAAAAEAAAA5DQAAAAAAAIhRLjDI3SS5jYs4ysNKZiJy9XFI8CN7Ww0UyEA9KPD9
-│  │  │  │  ├─ AQAAAAIAAABzngAAAAAAAPNqPjd5Zby5aBvabF7Z1itCx0ryMwoCnuQcDwq79jlB
-
-```
-
-When requesting a file, the first thing `hf_xet` does is communicate with Xet storage’s content addressed store (CAS) for reconstruction information. The reconstruction information contains information about the CAS keys required to download the file in its entirety. 
-
-Before executing the requests for the CAS keys, the `chunk_cache` is consulted. If a key in the cache matches a CAS key, then there is no reason to issue a request for that content. `hf_xet` uses the chunks stored in the directory instead.
-
-As the `chunk_cache` is purely an optimization, not a guarantee, `hf_xet` utilizes a computationally efficient eviction policy. When the `chunk_cache` is full (see `Limits and Limitations` below), `hf_xet` implements a random eviction policy when selecting an eviction candidate. This significantly reduces the overhead of managing a robust caching system (e.g., LRU) while still providing most of the benefits of caching chunks. 
-
-### `shard_cache`
+### `shard-cache`
 
 This cache is used when uploading content to the Hub. The directory is flat, comprising only of shard files, each using an ID for the shard name. 
 
 ```sh
 <CACHE_DIR>
 ├─ xet
-│  ├─ shard_cache
-│  │  ├─ 1fe4ffd5cf0c3375f1ef9aec5016cf773ccc5ca294293d3f92d92771dacfc15d.mdb
-│  │  ├─ 906ee184dc1cd0615164a89ed64e8147b3fdccd1163d80d794c66814b3b09992.mdb
-│  │  ├─ ceeeb7ea4cf6c0a8d395a2cf9c08871211fbbd17b9b5dc1005811845307e6b8f.mdb
-│  │  ├─ e8535155b1b11ebd894c908e91a1e14e3461dddd1392695ddc90ae54a548d8b2.mdb
+│  ├─ environment_identifier
+│  │  ├─ shard-cache
+│  │  │  ├─ 1fe4ffd5cf0c3375f1ef9aec5016cf773ccc5ca294293d3f92d92771dacfc15d.mdb
+│  │  │  ├─ 906ee184dc1cd0615164a89ed64e8147b3fdccd1163d80d794c66814b3b09992.mdb
+│  │  │  ├─ ceeeb7ea4cf6c0a8d395a2cf9c08871211fbbd17b9b5dc1005811845307e6b8f.mdb
+│  │  │  ├─ e8535155b1b11ebd894c908e91a1e14e3461dddd1392695ddc90ae54a548d8b2.mdb
 ```
 
-The `shard_cache` contains shards that are: 
+The `shard-cache` contains shards that are:
 
 - Locally generated and successfully uploaded to the CAS
 - Downloaded from CAS as part of the global deduplication algorithm
@@ -329,11 +321,12 @@ So that you do not have to restart from the beginning, the `staging` directory a
 ```
 <CACHE_DIR>
 ├─ xet
-│  ├─ staging
-│  │  ├─ shard-session
-│  │  │  ├─ 906ee184dc1cd0615164a89ed64e8147b3fdccd1163d80d794c66814b3b09992.mdb
-│  │  │  ├─ xorb-metadata
-│  │  │  │  ├─ 1fe4ffd5cf0c3375f1ef9aec5016cf773ccc5ca294293d3f92d92771dacfc15d.mdb
+│  ├─ environment_identifier
+│  │  ├─ staging
+│  │  │  ├─ shard-session
+│  │  │  │  ├─ 906ee184dc1cd0615164a89ed64e8147b3fdccd1163d80d794c66814b3b09992.mdb
+│  │  │  │  ├─ xorb-metadata
+│  │  │  │  │  ├─ 1fe4ffd5cf0c3375f1ef9aec5016cf773ccc5ca294293d3f92d92771dacfc15d.mdb
 ```
 
 As files are processed and chunks successfully uploaded, their metadata is stored in `xorb-metadata` as a shard. Upon resuming an upload session, each file is processed again and the shards in this directory are consulted. Any content that was successfully uploaded is skipped, and any new content is uploaded (and its metadata saved). 
@@ -342,32 +335,28 @@ Meanwhile, `shard-session` stores file and chunk information for processed files
 
 ### Limits and Limitations
 
-The `chunk_cache` is limited to 10GB in size while the `shard_cache` has a soft limit of 4GB.  By design, both caches are without high-level APIs, although their size is configurable through the `HF_XET_CHUNK_CACHE_SIZE_BYTES` and `HF_XET_SHARD_CACHE_SIZE_LIMIT` environment variables. 
+The `shard-cache` has a soft limit of 16GB, configurable through the [`HF_XET_SHARD_CACHE_SIZE_LIMIT`](../package_reference/environment_variables#hfxetshardcachesizelimit) environment variable. There is no high-level API for managing this cache.
 
-These caches are used primarily to facilitate the reconstruction (download) or upload of a file. To interact with the assets themselves, it’s recommended that you use the [`huggingface_hub` cache system APIs](https://huggingface.co/docs/huggingface_hub/guides/manage-cache).
+The shard cache and staging data are used to optimize uploads. To interact with the assets themselves, it’s recommended that you use the [`huggingface_hub` cache system APIs](https://huggingface.co/docs/huggingface_hub/guides/manage-cache).
 
-If you need to reclaim the space utilized by either cache or need to debug any potential cache-related issues, simply remove the `xet` cache entirely by running `rm -rf ~/<cache_dir>/xet` where `<cache_dir>` is the location of your Hugging Face cache, typically `~/.cache/huggingface` 
+If you need to reclaim the space utilized by Xet or need to debug any potential cache-related issues, simply remove the `xet` cache entirely by running `rm -rf ~/<cache_dir>/xet` where `<cache_dir>` is the location of your Hugging Face cache, typically `~/.cache/huggingface`
 
-Example full `xet`cache directory tree:
+Example `xet` cache directory tree:
 
 ```sh
 <CACHE_DIR>
 ├─ xet
-│  ├─ chunk_cache
-│  │  ├─ L1
-│  │  │  ├─ L1GerURLUcISVivdseeoY1PnYifYkOaCCJ7V5Q9fjgxkZWZhdWx0
-│  │  │  │  ├─ AAAAAAEAAAA5DQAAAAAAAIhRLjDI3SS5jYs4ysNKZiJy9XFI8CN7Ww0UyEA9KPD9
-│  │  │  │  ├─ AQAAAAIAAABzngAAAAAAAPNqPjd5Zby5aBvabF7Z1itCx0ryMwoCnuQcDwq79jlB
-│  ├─ shard_cache
-│  │  ├─ 1fe4ffd5cf0c3375f1ef9aec5016cf773ccc5ca294293d3f92d92771dacfc15d.mdb
-│  │  ├─ 906ee184dc1cd0615164a89ed64e8147b3fdccd1163d80d794c66814b3b09992.mdb
-│  │  ├─ ceeeb7ea4cf6c0a8d395a2cf9c08871211fbbd17b9b5dc1005811845307e6b8f.mdb
-│  │  ├─ e8535155b1b11ebd894c908e91a1e14e3461dddd1392695ddc90ae54a548d8b2.mdb
-│  ├─ staging
-│  │  ├─ shard-session
+│  ├─ environment_identifier
+│  │  ├─ shard-cache
+│  │  │  ├─ 1fe4ffd5cf0c3375f1ef9aec5016cf773ccc5ca294293d3f92d92771dacfc15d.mdb
 │  │  │  ├─ 906ee184dc1cd0615164a89ed64e8147b3fdccd1163d80d794c66814b3b09992.mdb
-│  │  │  ├─ xorb-metadata
-│  │  │  │  ├─ 1fe4ffd5cf0c3375f1ef9aec5016cf773ccc5ca294293d3f92d92771dacfc15d.mdb
+│  │  │  ├─ ceeeb7ea4cf6c0a8d395a2cf9c08871211fbbd17b9b5dc1005811845307e6b8f.mdb
+│  │  │  ├─ e8535155b1b11ebd894c908e91a1e14e3461dddd1392695ddc90ae54a548d8b2.mdb
+│  │  ├─ staging
+│  │  │  ├─ shard-session
+│  │  │  │  ├─ 906ee184dc1cd0615164a89ed64e8147b3fdccd1163d80d794c66814b3b09992.mdb
+│  │  │  │  ├─ xorb-metadata
+│  │  │  │  │  ├─ 1fe4ffd5cf0c3375f1ef9aec5016cf773ccc5ca294293d3f92d92771dacfc15d.mdb
 ```
 
 To learn more about Xet Storage, see this [section](https://huggingface.co/docs/hub/xet/index).
@@ -579,8 +568,8 @@ Verify a specific cached revision:
 Scanning your cache is interesting but what you really want to do next is usually to
 delete some portions to free up some space on your drive. This is possible using the
 `hf cache rm` and `hf cache prune` CLI commands. One can also programmatically use the
-[`~HFCacheInfo.delete_revisions`] helper from the [`HFCacheInfo`] object returned when
-scanning the cache.
+[`~HFCacheInfo.delete_revisions`] and [`~HFCacheInfo.delete_files`] helpers from the
+[`HFCacheInfo`] object returned when scanning the cache.
 
 **Delete strategy**
 
@@ -597,6 +586,10 @@ The strategy to delete revisions is the following:
 - blobs files that are targeted only by revisions to be deleted are deleted as well.
 - if a revision is linked to 1 or more `refs`, references are deleted.
 - if all revisions from a repo are deleted, the entire cached repository is deleted.
+
+Deleting individual files with [`~HFCacheInfo.delete_files`] follows the same logic: the
+snapshot entries are removed, and their blobs are deleted only if no other cached file
+references them. Refs and snapshot folders are kept.
 
 > [!TIP]
 > Revision hashes are unique across all repositories. `hf cache rm` therefore accepts either
@@ -646,12 +639,23 @@ About to delete 1 repo(s) and 1 revision(s) totalling 1.1G.
 Dry run: no files were deleted.
 ```
 
+To remove a single file instead of a whole repository, for example one GGUF quantization,
+pass an `hf://` file URI. The file is removed from every cached revision of the repo, and
+its blob is deleted only if no other cached file still references it. The revision stays
+usable, and a deleted file is downloaded again the next time it is needed. Paths must match
+exactly: folders and glob patterns are not supported.
+
+```text
+➜ hf cache rm hf://models/unsloth/gemma-3-27b-it-GGUF/gemma-3-27b-it-Q4_K_M.gguf --dry-run
+About to delete 1 file(s) totalling 16.5G.
+  - model/unsloth/gemma-3-27b-it-GGUF@3f4b5c1d2e6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c/gemma-3-27b-it-Q4_K_M.gguf
+Dry run: no files were deleted.
+```
+
 When working outside the default cache location, pair the command with
 `--cache-dir PATH`.
 
-To clean up cache garbage in bulk, run `hf cache prune`. It automatically deletes both
-revisions that are no longer referenced by a branch or tag and any leftover `.incomplete`
-files from interrupted downloads:
+To clean up cache garbage in bulk, run `hf cache prune`. It automatically deletes revisions that are no longer referenced by a branch or tag, leftover `.incomplete` files from interrupted downloads, and shared blobs that no cached repo references anymore:
 
 ```text
 ➜ hf cache prune

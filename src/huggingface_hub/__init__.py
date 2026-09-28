@@ -46,7 +46,7 @@ import sys
 from typing import TYPE_CHECKING
 
 
-__version__ = "1.32.0.dev0"
+__version__ = "2.1.0.dev0"
 
 # Alphabetical order of definitions is ensured in tests
 # WARNING: any comment added in this dictionary definition will be lost when
@@ -60,6 +60,12 @@ _SUBMOD_ATTRS = {
         "BucketUrl",
         "SyncOperation",
         "SyncPlan",
+    ],
+    "_commit_api": [
+        "CommitOperation",
+        "CommitOperationAdd",
+        "CommitOperationCopy",
+        "CommitOperationDelete",
     ],
     "_commit_scheduler": [
         "CommitScheduler",
@@ -188,10 +194,6 @@ _SUBMOD_ATTRS = {
         "Collection",
         "CollectionItem",
         "CommitInfo",
-        "CommitOperation",
-        "CommitOperationAdd",
-        "CommitOperationCopy",
-        "CommitOperationDelete",
         "DatasetInfo",
         "DatasetLeaderboardEntry",
         "GitCommitInfo",
@@ -248,7 +250,6 @@ _SUBMOD_ATTRS = {
         "delete_repo",
         "delete_scheduled_job",
         "delete_space_secret",
-        "delete_space_storage",
         "delete_space_variable",
         "delete_space_volumes",
         "delete_tag",
@@ -257,7 +258,6 @@ _SUBMOD_ATTRS = {
         "disable_webhook",
         "download_bucket_files",
         "duplicate_repo",
-        "duplicate_space",
         "edit_discussion_comment",
         "enable_space_dev_mode",
         "enable_webhook",
@@ -336,9 +336,7 @@ _SUBMOD_ATTRS = {
         "rename_discussion",
         "repo_exists",
         "repo_info",
-        "repo_type_and_id_from_hf_id",
         "request_space_hardware",
-        "request_space_storage",
         "resolve_revision",
         "restart_space",
         "resume_inference_endpoint",
@@ -369,7 +367,6 @@ _SUBMOD_ATTRS = {
         "update_webhook",
         "upload_file",
         "upload_folder",
-        "upload_large_folder",
         "verify_repo_checksums",
         "wait_for_job",
         "wait_for_space",
@@ -986,7 +983,6 @@ __all__ = [
     "delete_repo",
     "delete_scheduled_job",
     "delete_space_secret",
-    "delete_space_storage",
     "delete_space_variable",
     "delete_space_volumes",
     "delete_tag",
@@ -996,7 +992,6 @@ __all__ = [
     "download_bucket_files",
     "dump_environment_info",
     "duplicate_repo",
-    "duplicate_space",
     "edit_discussion_comment",
     "enable_space_dev_mode",
     "enable_webhook",
@@ -1107,9 +1102,7 @@ __all__ = [
     "rename_discussion",
     "repo_exists",
     "repo_info",
-    "repo_type_and_id_from_hf_id",
     "request_space_hardware",
-    "request_space_storage",
     "resolve_revision",
     "restart_space",
     "resume_inference_endpoint",
@@ -1150,7 +1143,6 @@ __all__ = [
     "update_webhook",
     "upload_file",
     "upload_folder",
-    "upload_large_folder",
     "verify_repo_checksums",
     "wait_for_job",
     "wait_for_space",
@@ -1268,6 +1260,12 @@ if TYPE_CHECKING:  # pragma: no cover
         BucketUrl,  # noqa: F401
         SyncOperation,  # noqa: F401
         SyncPlan,  # noqa: F401
+    )
+    from ._commit_api import (
+        CommitOperation,  # noqa: F401
+        CommitOperationAdd,  # noqa: F401
+        CommitOperationCopy,  # noqa: F401
+        CommitOperationDelete,  # noqa: F401
     )
     from ._commit_scheduler import CommitScheduler  # noqa: F401
     from ._eval_results import (
@@ -1390,10 +1388,6 @@ if TYPE_CHECKING:  # pragma: no cover
         Collection,  # noqa: F401
         CollectionItem,  # noqa: F401
         CommitInfo,  # noqa: F401
-        CommitOperation,  # noqa: F401
-        CommitOperationAdd,  # noqa: F401
-        CommitOperationCopy,  # noqa: F401
-        CommitOperationDelete,  # noqa: F401
         DatasetInfo,  # noqa: F401
         DatasetLeaderboardEntry,  # noqa: F401
         GitCommitInfo,  # noqa: F401
@@ -1450,7 +1444,6 @@ if TYPE_CHECKING:  # pragma: no cover
         delete_repo,  # noqa: F401
         delete_scheduled_job,  # noqa: F401
         delete_space_secret,  # noqa: F401
-        delete_space_storage,  # noqa: F401
         delete_space_variable,  # noqa: F401
         delete_space_volumes,  # noqa: F401
         delete_tag,  # noqa: F401
@@ -1459,7 +1452,6 @@ if TYPE_CHECKING:  # pragma: no cover
         disable_webhook,  # noqa: F401
         download_bucket_files,  # noqa: F401
         duplicate_repo,  # noqa: F401
-        duplicate_space,  # noqa: F401
         edit_discussion_comment,  # noqa: F401
         enable_space_dev_mode,  # noqa: F401
         enable_webhook,  # noqa: F401
@@ -1538,9 +1530,7 @@ if TYPE_CHECKING:  # pragma: no cover
         rename_discussion,  # noqa: F401
         repo_exists,  # noqa: F401
         repo_info,  # noqa: F401
-        repo_type_and_id_from_hf_id,  # noqa: F401
         request_space_hardware,  # noqa: F401
-        request_space_storage,  # noqa: F401
         resolve_revision,  # noqa: F401
         restart_space,  # noqa: F401
         resume_inference_endpoint,  # noqa: F401
@@ -1571,7 +1561,6 @@ if TYPE_CHECKING:  # pragma: no cover
         update_webhook,  # noqa: F401
         upload_file,  # noqa: F401
         upload_folder,  # noqa: F401
-        upload_large_folder,  # noqa: F401
         verify_repo_checksums,  # noqa: F401
         wait_for_job,  # noqa: F401
         wait_for_space,  # noqa: F401

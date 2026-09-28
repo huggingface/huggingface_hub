@@ -59,10 +59,10 @@ _MAX_TIMESTAMP = 4_000_000_000  # epoch seconds, some time in 2096
 _MAX_STR = 2048
 # Job ids are backend-assigned; the id also feeds a URL and an `inspect_job` call, so keep it
 # to characters that cannot change the meaning of either.
-_JOB_ID_RE = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
+_JOB_ID_RE = re.compile(r"[A-Za-z0-9._-]{1,128}")
 # Nonces are minted by `token_hex(16)`; the bounds are loose so that changing that length
 # would not quietly turn every cache entry into a miss.
-_NONCE_RE = re.compile(r"^[0-9a-fA-F]{16,128}$")
+_NONCE_RE = re.compile(r"[0-9a-fA-F]{16,128}")
 
 
 def _digest(*parts: str) -> str:
@@ -336,13 +336,13 @@ def _cache_rejection(cache: PoolCache, *, pool_id: str, context: CacheContext) -
     if not isinstance(cache.hosts, list):
         return "its hosts are not a list"
     for host in cache.hosts:
-        if not _JOB_ID_RE.match(host.job_id if isinstance(host.job_id, str) else ""):
+        if not _JOB_ID_RE.fullmatch(host.job_id if isinstance(host.job_id, str) else ""):
             return f"host {host.job_id!r} is not a plausible job id"
-        if not _JOB_ID_RE.match(host.owner if isinstance(host.owner, str) else ""):
+        if not _JOB_ID_RE.fullmatch(host.owner if isinstance(host.owner, str) else ""):
             return f"host {host.job_id} names a non-namespace owner: {host.owner!r}"
         if not _is_text(host.base_url):
             return f"host {host.job_id} has no URL"
-        if not isinstance(host.nonce, str) or not _NONCE_RE.match(host.nonce):
+        if not isinstance(host.nonce, str) or not _NONCE_RE.fullmatch(host.nonce):
             return f"host {host.job_id} has no usable nonce"
         if not _is_count(host.capacity) or not _is_count(host.live):
             return f"host {host.job_id} has a non-numeric capacity/live count"

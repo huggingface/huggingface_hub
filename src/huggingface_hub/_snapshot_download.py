@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 from typing import Literal, overload
 
-import httpx
+import httpx2
 from tqdm.auto import tqdm as base_tqdm
 
 from . import constants
@@ -27,6 +27,7 @@ from .file_download import (
 )
 from .hf_api import HfApi, RepoFile
 from .utils import OfflineModeIsEnabled, filter_repo_objects, logging, validate_hf_hub_args
+from .utils._http import flag_as_download_call
 from .utils._paths import as_extended_path
 from .utils._xet_progress_reporting import (
     XET_BYTES_BAR_FORMAT,
@@ -118,6 +119,7 @@ def snapshot_download(
 
 
 @validate_hf_hub_args
+@flag_as_download_call
 def snapshot_download(
     repo_id: str,
     *,
@@ -176,7 +178,7 @@ def snapshot_download(
             The user-agent info in the form of a dictionary or a string.
         etag_timeout (`float`, *optional*, defaults to `10`):
             When fetching ETag, how many seconds to wait for the server to send
-            data before giving up, which is passed to `httpx.request`.
+            data before giving up, which is passed to `httpx2.request`.
         force_download (`bool`, *optional*, defaults to `False`):
             Whether the file should be downloaded even if it already exists in the local cache.
         token (`str`, `bool`, *optional*):
@@ -264,7 +266,7 @@ def snapshot_download(
     commit_hash: str | None = None
     if isinstance(revision, ResolvedRevision):
         commit_hash = revision.resolved
-    elif REGEX_COMMIT_HASH.match(revision):
+    elif REGEX_COMMIT_HASH.fullmatch(revision):
         commit_hash = revision
 
     api_call_error: Exception | None = None
@@ -275,10 +277,10 @@ def snapshot_download(
             repo_info = api.repo_info(repo_id=repo_id, repo_type=repo_type, revision=revision)
             assert repo_info.sha is not None, "Repo info returned from server must have a revision sha."
             commit_hash = repo_info.sha
-        except httpx.ProxyError:
+        except httpx2.ProxyError:
             # Actually raise on proxy error
             raise
-        except (httpx.ConnectError, httpx.TimeoutException, OfflineModeIsEnabled) as error:
+        except (httpx2.ConnectError, httpx2.TimeoutException, OfflineModeIsEnabled) as error:
             # Internet connection is down
             # => will try to use local files only
             api_call_error = error
@@ -536,7 +538,7 @@ def snapshot_download(
     )
 
     _finish_transfer_bar(transfer_progress)
-    transfer_progress.set_description("Download complete")
+    transfer_progress.set_description_str("Download complete")
     reconstruct_progress.set_description("Reconstruction complete")
 
     if dry_run:
@@ -661,7 +663,7 @@ def get_cached_repo_tree(
     # or it's a branch/tag name recorded in `refs/` by a previous download.
     if isinstance(revision, ResolvedRevision):
         commit_hash = revision.resolved
-    elif REGEX_COMMIT_HASH.match(revision):
+    elif REGEX_COMMIT_HASH.fullmatch(revision):
         commit_hash = revision
     else:
         ref_path = os.path.join(storage_folder, "refs", revision)

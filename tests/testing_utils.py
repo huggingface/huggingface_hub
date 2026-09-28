@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Optional, Union
 from unittest.mock import Mock, patch
 
-import httpx
+import httpx2
 
 
 def repo_name(id: Optional[str] = None, prefix: str = "repo") -> str:
@@ -51,14 +51,14 @@ def offline(mode=OfflineSimulationMode.CONNECTION_FAILS, timeout=1e-16):
         Connection errors are created by mocking socket.socket
     CONNECTION_TIMES_OUT: the connection hangs until it times out.
         The default timeout value is low (1e-16) to speed up the tests.
-        Timeout errors are created by mocking httpx.request
+        Timeout errors are created by mocking httpx2.request
     HF_HUB_OFFLINE_SET_TO_1: the HF_HUB_OFFLINE_SET_TO_1 environment variable is set to 1.
         This makes the http/ftp calls of the library instantly fail and raise an OfflineModeEnabled error.
     """
     import socket
 
-    # Store the original httpx.request to avoid recursion
-    original_httpx_request = httpx.request
+    # Store the original httpx2.request to avoid recursion
+    original_httpx2_request = httpx2.request
 
     def timeout_request(method, url, **kwargs):
         # Change the url to an invalid url so that the connection hangs
@@ -69,7 +69,7 @@ def offline(mode=OfflineSimulationMode.CONNECTION_FAILS, timeout=1e-16):
             )
         kwargs["timeout"] = timeout
         try:
-            return original_httpx_request(method, invalid_url, **kwargs)
+            return original_httpx2_request(method, invalid_url, **kwargs)
         except Exception as e:
             # The following changes in the error are just here to make the offline timeout error prettier
             if hasattr(e, "request"):
@@ -85,7 +85,7 @@ def offline(mode=OfflineSimulationMode.CONNECTION_FAILS, timeout=1e-16):
         raise socket.error("Offline mode is enabled.")
 
     def build_offline_client(exc_factory):
-        # Build a fake `httpx.Client` whose every HTTP method fails. We patch the cached `_GLOBAL_CLIENT`
+        # Build a fake `httpx2.Client` whose every HTTP method fails. We patch the cached `_GLOBAL_CLIENT`
         # so that EVERY caller of `get_session()` is offline,
         client = Mock()
 
@@ -98,16 +98,16 @@ def offline(mode=OfflineSimulationMode.CONNECTION_FAILS, timeout=1e-16):
 
     if mode is OfflineSimulationMode.CONNECTION_FAILS:
         # inspired from https://stackoverflow.com/a/18601897
-        offline_client = build_offline_client(lambda: httpx.ConnectError("Connection failed"))
+        offline_client = build_offline_client(lambda: httpx2.ConnectError("Connection failed"))
         with patch("socket.socket", offline_socket):
             with patch("huggingface_hub.utils._http._GLOBAL_CLIENT", offline_client):
                 yield
     elif mode is OfflineSimulationMode.CONNECTION_TIMES_OUT:
         # inspired from https://stackoverflow.com/a/904609
-        offline_client = build_offline_client(lambda: httpx.ConnectTimeout("Connection timed out"))
+        offline_client = build_offline_client(lambda: httpx2.ConnectTimeout("Connection timed out"))
         # `.request` keeps the "hangs until timeout" behavior so the no-timeout guard is still exercised.
         offline_client.request = timeout_request
-        with patch("httpx.request", timeout_request):
+        with patch("httpx2.request", timeout_request):
             with patch("huggingface_hub.utils._http._GLOBAL_CLIENT", offline_client):
                 yield
     elif mode is OfflineSimulationMode.HF_HUB_OFFLINE_SET_TO_1:
