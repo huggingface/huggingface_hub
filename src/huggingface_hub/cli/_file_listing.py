@@ -44,6 +44,11 @@ def get_item_date(item: ListingItem) -> datetime | None:
             return None
 
 
+def escape_path(path: str) -> str:
+    """Escape non-printable characters (CR, LF, ESC, ...) so a file name cannot alter the terminal output."""
+    return "".join(c if c.isprintable() else repr(c)[1:-1] for c in path)
+
+
 def format_size(size: int | float, human_readable: bool = False) -> str:
     """Format a size in bytes."""
     if not human_readable:
@@ -147,9 +152,9 @@ def _render_tree(
                     prefix = f"{size_str:>{max_size_width}}  {date_str}"
                 else:
                     prefix = " " * prefix_width
-            lines.append(f"{prefix}  {indent}{connector}{name}{'/' if is_dir else ''}")
+            lines.append(f"{prefix}  {indent}{connector}{escape_path(name)}{'/' if is_dir else ''}")
         else:
-            lines.append(f"{indent}{connector}{name}{'/' if is_dir else ''}")
+            lines.append(f"{indent}{connector}{escape_path(name)}{'/' if is_dir else ''}")
 
         if children:
             child_indent = indent + ("    " if is_last else _ascii_safe("│   ", "|   "))
@@ -208,18 +213,18 @@ def print_file_listing(
     elif out.mode == OutputFormat.quiet:
         for item in items:
             if isinstance(item, BucketFolder | RepoFolder):
-                print(f"{item.path}/")
+                print(f"{escape_path(item.path)}/")
             else:
-                print(item.path)
+                print(escape_path(item.path))
     else:
         for item in items:
             if isinstance(item, BucketFolder | RepoFolder):
                 date_str = format_date(get_item_date(item), human_readable)
-                print(f"{'':>12}  {date_str:>19}  {item.path}/")
+                print(f"{'':>12}  {date_str:>19}  {escape_path(item.path)}/")
             else:
                 size_str = format_size(item.size, human_readable)
                 date_str = format_date(get_item_date(item), human_readable)
-                print(f"{size_str:>12}  {date_str:>19}  {item.path}")
+                print(f"{size_str:>12}  {date_str:>19}  {escape_path(item.path)}")
 
     if not recursive and has_directories:
         out.hint("Use -R to list files recursively.")
