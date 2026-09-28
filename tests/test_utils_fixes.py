@@ -36,10 +36,12 @@ class TestWeakFileLock:
         monkeypatch.setattr("huggingface_hub.constants.FILELOCK_LOG_EVERY_SECONDS", 0.1)
         lock_file = tmp_path / ".lock"
 
+        # Wait 10x the log interval but only assert on the first 3 messages: on a loaded CI runner
+        # a poll can take much longer than the interval, so we can't expect all 10 of them.
         with caplog.at_level(logging.INFO, logger="huggingface_hub.utils._fixes"):
             with WeakFileLock(lock_file):
                 with pytest.raises(filelock.Timeout) as exc_info:
-                    with WeakFileLock(lock_file, timeout=0.3):
+                    with WeakFileLock(lock_file, timeout=1.0):
                         pass
                 assert exc_info.value.lock_file == str(lock_file)
 

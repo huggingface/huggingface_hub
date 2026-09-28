@@ -19,6 +19,7 @@ import time
 from pathlib import Path
 
 from .fetch_prs import fetch_prs_since_tag
+from .opencode import check_opencode_model
 from .validate_notes import validate_release_notes
 
 
@@ -41,7 +42,7 @@ def bump_version(tag: str, bump_type: str = "patch") -> str:
     Returns:
         Bumped version (e.g., "v2.0.0", "v1.4.0", or "v1.3.8")
     """
-    match = re.match(r"v?(\d+)\.(\d+)\.(\d+)", tag)
+    match = re.search(r"^v?(\d+)\.(\d+)\.(\d+)", tag)
     if not match:
         raise ValueError(f"Invalid version tag format: {tag}")
 
@@ -59,27 +60,6 @@ def bump_version(tag: str, bump_type: str = "patch") -> str:
 
     prefix = "v" if tag.startswith("v") else ""
     return f"{prefix}{major}.{minor}.{patch}"
-
-
-def check_opencode_model(model: str) -> None:
-    """Verify that ``model`` is listed by ``opencode models``.
-
-    OpenCode exits 0 and prints an error line when an unknown model is passed
-    via ``--model``, so calls silently no-op unless we validate up front.
-    Raises ``RuntimeError`` if opencode is missing or the model is unknown.
-    """
-    opencode_cmd = shutil.which("opencode")
-    if not opencode_cmd:
-        raise RuntimeError("'opencode' command not found in PATH")
-
-    result = subprocess.run([opencode_cmd, "models"], check=True, capture_output=True, text=True)
-    available = [line.strip() for line in result.stdout.splitlines() if line.strip()]
-    if model not in available:
-        raise RuntimeError(
-            f"RELEASE_NOTES_MODEL={model!r} not found in `opencode models` output. "
-            f"Expected the full `provider/model` form (e.g. `huggingface/zai-org/GLM-4.6`). "
-            f"{len(available)} model(s) available — first 10: {', '.join(available[:10])}"
-        )
 
 
 def run_opencode_skill(

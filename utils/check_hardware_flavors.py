@@ -80,7 +80,7 @@ def _parse_enum_entries(source: str, class_name: str) -> list[_EnumEntry]:
 
     entries: list[_EnumEntry] = []
     for line in body_after_doc.splitlines():
-        m = re.match(r"^\s{4}([A-Z_][A-Z_0-9]*)\s*=\s*\"([^\"]+)\"(.*)$", line)
+        m = re.fullmatch(r"\s{4}([A-Z_][A-Z_0-9]*)\s*=\s*\"([^\"]+)\"(.*)", line)
         if m:
             name, value, rest = m.group(1), m.group(2), m.group(3)
             is_legacy = "# legacy" in rest

@@ -247,7 +247,7 @@ class RepoCard:
                 function is called by a child class, it will default to the child class's `repo_type`.
             commit_message (`str`, *optional*):
                 The summary / title / first line of the generated commit.
-            commit_description (`str`, *optional*)
+            commit_description (`str`, *optional*):
                 The description of the generated commit.
             revision (`str`, *optional*):
                 The git revision to commit from. Defaults to the head of the `"main"` branch.
@@ -721,7 +721,7 @@ def metadata_update(
         commit_message (`str`, *optional*):
             The summary / title / first line of the generated commit. Defaults to
             `f"Update metadata with huggingface_hub"`
-        commit_description (`str` *optional*)
+        commit_description (`str`, *optional*):
             The description of the generated commit
         revision (`str`, *optional*):
             The git revision to commit from. Defaults to the head of the

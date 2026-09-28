@@ -13,11 +13,15 @@
 # limitations under the License.
 """Contains commands to print information about the environment and version."""
 
+import shutil
+import subprocess
+import sys
+
 import click
 
-from huggingface_hub import __version__
+from huggingface_hub import __version__, constants
 
-from ..utils import dump_environment_info
+from ..utils import dump_environment_info, installation_method
 from ._cli_utils import _fetch_latest_pypi_version, run_update
 from ._output import out
 
@@ -34,6 +38,8 @@ def version() -> None:
 
 def update() -> None:
     """Update the `hf` CLI to the latest version."""
+    from ._skills import DEFAULT_SKILL_ID, _installed_hf_cli_dirs
+
     out.text(f"Current version: {__version__}")
     out.text("Checking for updates to latest version...")
     latest_version = _fetch_latest_pypi_version("huggingface_hub")
@@ -41,10 +47,45 @@ def update() -> None:
         out.text(f"hf is up to date ({__version__})")
         return
 
-    returncode = run_update()
+    # Windows refuses to replace the `hf.exe` launcher of a running process: pip would fail with a
+    # "file in use" error (WinError 32) *after* having uninstalled the current version, leaving a dead
+    # `hf.exe` and no `huggingface_hub` module behind. Print the command instead of running it, the same
+    # way pip refuses to upgrade itself on Windows.
+    if sys.platform == "win32" and installation_method() == "pip":
+        command = subprocess.list2cmdline([sys.executable, "-m", "pip", "install", "-U", "huggingface_hub"])
+        out.error(
+            "On Windows, a pip-installed `hf` cannot update itself: pip is not allowed to replace `hf.exe` while it "
+            f"is running. Run this command instead:\n    {command}"
+        )
+        raise click.exceptions.Exit(code=1)
+
+    # The standalone installer installs the `hf-cli` skill by default. If it's not installed at this
+    # point, the user opted out (or removed it): tell the installer to leave it alone instead of
+    # silently undoing that choice.
+    skill_installed = bool(
+        _installed_hf_cli_dirs(constants.AGENTS_SKILLS_GLOBAL_PATH, constants.CLAUDE_SKILLS_GLOBAL_PATH)
+    )
+
+    returncode = run_update(exclude_skill=not skill_installed)
     if returncode != 0:
         raise click.exceptions.Exit(code=returncode)
-    out.hint(
-        "You may also want to run `hf skills update` to refresh any installed skills "
-        "so your AI agent sees the latest command surface."
-    )
+
+    if not skill_installed:
+        out.hint("Run `hf skills add -g` to teach your AI agents how to use the `hf` CLI.")
+        return
+
+    # Refresh the globally installed skill so agents see the new command surface. Runs in a
+    # subprocess: the skill is generated from the CLI code, which has just been replaced on disk
+    # while this process still runs the previous version.
+    out.text(f"Updating the `{DEFAULT_SKILL_ID}` skill...")
+    subprocess.call([*_hf_argv(), "skills", "update", DEFAULT_SKILL_ID, "-g"])
+
+
+def _hf_argv() -> list[str]:
+    """argv prefix to invoke the freshly updated `hf` CLI."""
+    if installation_method() == "brew":
+        # Homebrew installs the new version in a new prefix: the current interpreter is the old one.
+        hf_bin = shutil.which("hf")
+        if hf_bin is not None:
+            return [hf_bin]
+    return [sys.executable, "-m", "huggingface_hub.cli.hf"]

@@ -16,7 +16,7 @@
 from collections.abc import Iterable
 from typing import Any
 
-import httpx
+import httpx2
 
 from . import get_session, hf_raise_for_status, http_backoff, logging
 
@@ -48,5 +48,5 @@ def paginate(path: str, params: dict | list[tuple[str, Any]], headers: dict, tim
         next_page = _get_next_page(r)
 
 
-def _get_next_page(response: httpx.Response) -> str | None:
+def _get_next_page(response: httpx2.Response) -> str | None:
     return response.links.get("next", {}).get("url")

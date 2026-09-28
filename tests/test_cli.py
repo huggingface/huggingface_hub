@@ -1,26 +1,34 @@
 import json
 import os
+import re
+import sys
 import warnings
 from contextlib import contextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Generator, Optional
-from unittest.mock import Mock, patch
+from unittest.mock import ANY, Mock, patch
 
 import click
+import httpx2
 import pytest
-from click.testing import CliRunner
+from click.testing import CliRunner, Result
 
-from huggingface_hub import HfApi
+from huggingface_hub import HfApi, InferenceEndpointHardware, constants
 from huggingface_hub._dataset_viewer import DatasetParquetEntry
 from huggingface_hub._jobs_api import JobInfo, JobOwner, _create_job_spec, _derive_job_volume_name
 from huggingface_hub._space_api import Volume
-from huggingface_hub.cli._cli_utils import RepoType, parse_volumes
+from huggingface_hub.cli import _skills, extensions, system
+from huggingface_hub.cli._cli_utils import RepoType, _get_huggingface_hub_update_command, parse_volumes
 from huggingface_hub.cli._output import OutputFormat, out
+from huggingface_hub.cli._uv_script_header import UvScriptHeader, parse_uv_script_header
 from huggingface_hub.cli.cache import CacheDeletionCounts
 from huggingface_hub.cli.download import download
 from huggingface_hub.cli.hf import app
-from huggingface_hub.cli.jobs import _parse_and_sync_job_volumes, _parse_namespace_from_job_id
+from huggingface_hub.cli.hf import main as hf_main
+from huggingface_hub.cli.inference_endpoints import _build_custom_image
+from huggingface_hub.cli.jobs import _get_jobs_stats_rows, _parse_and_sync_job_volumes, _parse_namespace_from_job_id
 from huggingface_hub.cli.skills import build_skill_md
 from huggingface_hub.cli.upload import _resolve_upload_paths, upload
 from huggingface_hub.errors import CLIError, DeviceCodeError, HfUriError, RevisionNotFoundError
@@ -43,12 +51,14 @@ def runner() -> CliRunner:
     return CliRunner()
 
 
-def _make_revision(commit_hash: str, *, refs: Optional[set[str]] = None) -> CachedRevisionInfo:
+def _make_revision(
+    commit_hash: str, *, refs: set[str] | None = None, files: frozenset[CachedFileInfo] = frozenset()
+) -> CachedRevisionInfo:
     return CachedRevisionInfo(
         commit_hash=commit_hash,
         snapshot_path=Path(f"/tmp/{commit_hash}"),
         size_on_disk=0,
-        files=frozenset(),
+        files=files,
         refs=frozenset(refs or set()),
         last_modified=0.0,
     )
@@ -215,23 +225,55 @@ class TestCacheCommand:
         hf_cache_info.delete_revisions.assert_called_once_with(revision.commit_hash)
         strategy.execute.assert_called_once_with()
 
+    @pytest.mark.parametrize("target", ["hf://models/user/model/config.json", " hf://models/user/model/config.json "])
+    def test_rm_file_uri_executes_strategy(self, runner: CliRunner, target: str) -> None:
+        commit_hash = "c" * 40
+        file = CachedFileInfo(
+            file_name="config.json",
+            file_path=Path(f"/tmp/{commit_hash}/config.json"),
+            blob_path=Path("/tmp/blobs/abc"),
+            size_on_disk=0,
+            blob_last_accessed=0.0,
+            blob_last_modified=0.0,
+        )
+        revision = _make_revision(commit_hash, files=frozenset({file}))
+        repo = _make_repo("user/model", revisions=[revision])
+
+        strategy = Mock()
+        strategy.expected_freed_size_str = "0B"
+
+        hf_cache_info = Mock()
+        hf_cache_info.delete_files.return_value = strategy
+
+        with (
+            patch("huggingface_hub.cli.cache.scan_cache_dir", return_value=hf_cache_info),
+            patch("huggingface_hub.cli.cache.build_cache_index", return_value=({"model/user/model": repo}, {})),
+        ):
+            result = runner.invoke(app, ["cache", "rm", target, "--yes"])
+
+        assert result.exit_code == 0
+        assert f"model/user/model@{commit_hash}/config.json" in result.output
+        hf_cache_info.delete_files.assert_called_once_with(file)
+        strategy.execute.assert_called_once_with()
+
     @pytest.mark.parametrize(
-        "target",
+        "targets, message",
         [
-            "hf://models/openai-community/gpt2@main",
-            "hf://models/openai-community/gpt2/config.json",
+            (["hf://models/openai-community/gpt2@main"], "Revisions in hf:// URIs are not supported"),
+            (["hf://models/openai-community/gpt2@main/config.json"], "Revisions in hf:// URIs are not supported"),
+            (["hf://models/openai-community/gpt2/config.json", "model/openai-community/gpt2"], "cannot be mixed"),
         ],
     )
-    def test_rm_hf_uri_rejects_revisions_and_paths(self, runner: CliRunner, target: str) -> None:
+    def test_rm_hf_uri_rejects_invalid_targets(self, runner: CliRunner, targets: list[str], message: str) -> None:
         with (
             patch("huggingface_hub.cli.cache.scan_cache_dir"),
             patch("huggingface_hub.cli.cache.build_cache_index", return_value=({}, {})),
         ):
-            result = runner.invoke(app, ["cache", "rm", target])
+            result = runner.invoke(app, ["cache", "rm", *targets])
 
         assert result.exit_code == 1
         assert isinstance(result.exception, CLIError)
-        assert "Only repo-level hf:// URIs are supported" in str(result.exception)
+        assert message in str(result.exception)
 
     def test_rm_hf_uri_rejects_buckets(self, runner: CliRunner) -> None:
         with (
@@ -290,6 +332,7 @@ class TestCacheCommand:
 
         hf_cache_info.incomplete_files = frozenset()
         hf_cache_info.incomplete_size_on_disk = 0
+        hf_cache_info.cache_dir = None
 
         with (
             patch("huggingface_hub.cli.cache.scan_cache_dir", return_value=hf_cache_info),
@@ -585,6 +628,72 @@ class TestUploadCommand:
         )
         scheduler.stop.assert_called_once_with()
 
+    @pytest.mark.parametrize(
+        "path_in_repo, expected_path_in_repo",
+        [
+            ("model.safetensors", ""),  # default: file lands at the root
+            ("weights/model.safetensors", "weights"),  # explicit destination folder
+            ("weights/", "weights"),  # destination folder with a trailing slash
+        ],
+    )
+    def test_upload_single_file_with_every(
+        self, runner: CliRunner, path_in_repo: str, expected_path_in_repo: str
+    ) -> None:
+        """A scheduled single file is watched through its parent folder, so patterns use the file name."""
+        with SoftTemporaryDirectory() as tmp_dir:
+            file_path = Path(tmp_dir) / "models" / "model.safetensors"
+            file_path.parent.mkdir()
+            file_path.write_bytes(b"weights")
+            with (
+                patch(
+                    "huggingface_hub.cli.upload._resolve_upload_paths",
+                    return_value=(file_path.as_posix(), path_in_repo, None),
+                ),
+                patch("huggingface_hub.cli.upload.get_hf_api") as api_cls,
+                patch("huggingface_hub.cli.upload.CommitScheduler") as scheduler_cls,
+                patch("huggingface_hub.cli.upload.time.sleep", side_effect=KeyboardInterrupt),
+            ):
+                result = runner.invoke(
+                    app, ["upload", DUMMY_MODEL_ID, file_path.as_posix(), "--every", "5", "--format", "quiet"]
+                )
+        assert result.exit_code == 0
+        assert "Scheduled uploads keep the local file name" not in result.stderr
+        scheduler_cls.assert_called_once_with(
+            folder_path=file_path.parent.as_posix(),
+            repo_id=DUMMY_MODEL_ID,
+            repo_type="model",
+            revision=None,
+            allow_patterns=["model.safetensors"],
+            ignore_patterns=[],
+            path_in_repo=expected_path_in_repo,
+            private=None,
+            every=5,
+            hf_api=api_cls.return_value,
+        )
+
+    def test_upload_single_file_with_every_warns_on_rename(self, runner: CliRunner) -> None:
+        """Scheduled uploads keep the local file name, so a differing destination name warns."""
+        with SoftTemporaryDirectory() as tmp_dir:
+            file_path = Path(tmp_dir) / "models" / "model.safetensors"
+            file_path.parent.mkdir()
+            file_path.write_bytes(b"weights")
+            with (
+                patch(
+                    "huggingface_hub.cli.upload._resolve_upload_paths",
+                    return_value=(file_path.as_posix(), "adapter_model.safetensors", None),
+                ),
+                patch("huggingface_hub.cli.upload.get_hf_api"),
+                patch("huggingface_hub.cli.upload.CommitScheduler") as scheduler_cls,
+                patch("huggingface_hub.cli.upload.time.sleep", side_effect=KeyboardInterrupt),
+            ):
+                result = runner.invoke(
+                    app, ["upload", DUMMY_MODEL_ID, file_path.as_posix(), "--every", "5", "--format", "quiet"]
+                )
+        assert result.exit_code == 0
+        assert "Scheduled uploads keep the local file name" in result.stderr
+        # Only the directory part is kept: never the destination file name, nor a slice of it.
+        assert scheduler_cls.call_args.kwargs["path_in_repo"] == ""
+
     def test_every_must_be_positive(self) -> None:
         class _PatchedBadParameter(click.BadParameter):
             def __init__(self, message: str, *, param_name: Optional[str] = None, **kwargs: object) -> None:
@@ -697,15 +806,15 @@ class TestResolveUploadPaths:
             repo_id=DUMMY_MODEL_ID, local_path="*.safetensors", path_in_repo=None, include=None
         )
         assert local_path == "."
-        assert path_in_repo == "*.safetensors"
-        assert include == ["."]
+        assert path_in_repo == "."
+        assert include == ["*.safetensors"]
 
         local_path, path_in_repo, include = _resolve_upload_paths(
             repo_id=DUMMY_MODEL_ID, local_path="subdir/*.safetensors", path_in_repo=None, include=None
         )
         assert local_path == "."
-        assert path_in_repo == "subdir/*.safetensors"
-        assert include == ["."]
+        assert path_in_repo == "."
+        assert include == ["subdir/*.safetensors"]
 
         with pytest.raises(ValueError):
             _resolve_upload_paths(
@@ -1340,7 +1449,7 @@ class TestTagCommands:
             api = api_cls.return_value
             result = runner.invoke(
                 app,
-                ["repo", "tag", "create", DUMMY_MODEL_ID, "1.0", "-m", "My tag message"],
+                ["repos", "tag", "create", DUMMY_MODEL_ID, "1.0", "-m", "My tag message"],
             )
         assert result.exit_code == 0
         api_cls.assert_called_once_with(token=None)
@@ -1358,7 +1467,7 @@ class TestTagCommands:
             result = runner.invoke(
                 app,
                 [
-                    "repo",
+                    "repos",
                     "tag",
                     "create",
                     DUMMY_MODEL_ID,
@@ -1388,7 +1497,7 @@ class TestTagCommands:
         with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
             api = api_cls.return_value
             api.list_repo_refs.return_value = refs
-            result = runner.invoke(app, ["repo", "tag", "list", DUMMY_MODEL_ID])
+            result = runner.invoke(app, ["repos", "tag", "list", DUMMY_MODEL_ID])
         assert result.exit_code == 0
         api_cls.assert_called_once_with(token=None)
         api.list_repo_refs.assert_called_once_with(repo_id=DUMMY_MODEL_ID, repo_type="model")
@@ -1398,7 +1507,7 @@ class TestTagCommands:
             api = api_cls.return_value
             result = runner.invoke(
                 app,
-                ["repo", "tag", "delete", DUMMY_MODEL_ID, "1.0"],
+                ["repos", "tag", "delete", DUMMY_MODEL_ID, "1.0"],
                 input="y\n",
             )
         assert result.exit_code == 0
@@ -1410,7 +1519,7 @@ class TestBranchCommands:
     def test_branch_create_basic(self, runner: CliRunner) -> None:
         with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
             api = api_cls.return_value
-            result = runner.invoke(app, ["repo", "branch", "create", DUMMY_MODEL_ID, "dev"])
+            result = runner.invoke(app, ["repos", "branch", "create", DUMMY_MODEL_ID, "dev"])
         assert result.exit_code == 0
         api_cls.assert_called_once_with(token=None)
         api.create_branch.assert_called_once_with(
@@ -1427,7 +1536,7 @@ class TestBranchCommands:
             result = runner.invoke(
                 app,
                 [
-                    "repo",
+                    "repos",
                     "branch",
                     "create",
                     DUMMY_MODEL_ID,
@@ -1454,7 +1563,7 @@ class TestBranchCommands:
     def test_branch_delete_basic(self, runner: CliRunner) -> None:
         with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
             api = api_cls.return_value
-            result = runner.invoke(app, ["repo", "branch", "delete", DUMMY_MODEL_ID, "dev"])
+            result = runner.invoke(app, ["repos", "branch", "delete", DUMMY_MODEL_ID, "dev"])
         assert result.exit_code == 0
         api_cls.assert_called_once_with(token=None)
         api.delete_branch.assert_called_once_with(
@@ -1469,7 +1578,7 @@ class TestBranchCommands:
             result = runner.invoke(
                 app,
                 [
-                    "repo",
+                    "repos",
                     "branch",
                     "delete",
                     DUMMY_MODEL_ID,
@@ -1509,8 +1618,6 @@ class TestRepoCreateCommand:
                     "gradio",
                     "--flavor",
                     "t4-medium",
-                    "--storage",
-                    "small",
                     "--sleep-time",
                     "3600",
                     "--secrets",
@@ -1535,7 +1642,6 @@ class TestRepoCreateCommand:
             region=None,
             space_sdk="gradio",
             space_hardware="t4-medium",
-            space_storage="small",
             space_sleep_time=3600,
             space_secrets=[{"key": "HF_TOKEN", "value": "secret_val"}],
             space_variables=[{"key": "THEME", "value": "dark"}, {"key": "DEBUG", "value": "1"}],
@@ -1559,7 +1665,6 @@ class TestRepoCreateCommand:
             region=None,
             space_sdk=None,
             space_hardware=None,
-            space_storage=None,
             space_sleep_time=None,
             space_secrets=None,
             space_variables=None,
@@ -1584,7 +1689,6 @@ class TestRepoDuplicateCommand:
             token=None,
             exist_ok=False,
             space_hardware=None,
-            space_storage=None,
             space_sleep_time=None,
             space_secrets=None,
             space_variables=None,
@@ -1619,7 +1723,6 @@ class TestRepoDuplicateCommand:
             token="my-token",
             exist_ok=True,
             space_hardware=None,
-            space_storage=None,
             space_sleep_time=None,
             space_secrets=None,
             space_variables=None,
@@ -1644,8 +1747,6 @@ class TestRepoDuplicateCommand:
                     "space",
                     "--flavor",
                     "l4x4",
-                    "--storage",
-                    "small",
                     "--volume",
                     "hf://org/gpt2:/model",
                     "--sleep-time",
@@ -1666,7 +1767,6 @@ class TestRepoDuplicateCommand:
             token=None,
             exist_ok=False,
             space_hardware="l4x4",
-            space_storage="small",
             space_sleep_time=3600,
             space_secrets=[{"key": "HF_TOKEN", "value": "hf_secret123"}],
             space_variables=[{"key": "THEME", "value": "dark"}],
@@ -1704,7 +1804,6 @@ class TestRepoDuplicateCommand:
             token=None,
             exist_ok=False,
             space_hardware=None,
-            space_storage=None,
             space_sleep_time=None,
             space_secrets=[{"key": "MY_SECRET", "value": "env_value"}],
             space_variables=None,
@@ -1716,7 +1815,7 @@ class TestRepoMoveCommand:
     def test_repo_move_basic(self, runner: CliRunner) -> None:
         with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
             api = api_cls.return_value
-            result = runner.invoke(app, ["repo", "move", DUMMY_MODEL_ID, "new-id"])
+            result = runner.invoke(app, ["repos", "move", DUMMY_MODEL_ID, "new-id"])
         assert result.exit_code == 0
         api_cls.assert_called_once_with(token=None)
         api.move_repo.assert_called_once_with(
@@ -1731,7 +1830,7 @@ class TestRepoMoveCommand:
             result = runner.invoke(
                 app,
                 [
-                    "repo",
+                    "repos",
                     "move",
                     DUMMY_MODEL_ID,
                     "new-id",
@@ -1754,7 +1853,7 @@ class TestRepoSettingsCommand:
     def test_repo_settings_basic(self, runner: CliRunner) -> None:
         with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
             api = api_cls.return_value
-            result = runner.invoke(app, ["repo", "settings", DUMMY_MODEL_ID])
+            result = runner.invoke(app, ["repos", "settings", DUMMY_MODEL_ID])
         assert result.exit_code == 0
         api_cls.assert_called_once_with(token=None)
         api.update_repo_settings.assert_called_once_with(
@@ -1770,7 +1869,7 @@ class TestRepoSettingsCommand:
             result = runner.invoke(
                 app,
                 [
-                    "repo",
+                    "repos",
                     "settings",
                     DUMMY_MODEL_ID,
                     "--gated",
@@ -1821,7 +1920,7 @@ class TestRepoDeleteCommand:
     def test_repo_delete_basic(self, runner: CliRunner) -> None:
         with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
             api = api_cls.return_value
-            result = runner.invoke(app, ["repo", "delete", DUMMY_MODEL_ID, "--yes"])
+            result = runner.invoke(app, ["repos", "delete", DUMMY_MODEL_ID, "--yes"])
         assert result.exit_code == 0
         api_cls.assert_called_once_with(token=None)
         api.delete_repo.assert_called_once_with(
@@ -1836,7 +1935,7 @@ class TestRepoDeleteCommand:
             result = runner.invoke(
                 app,
                 [
-                    "repo",
+                    "repos",
                     "delete",
                     DUMMY_MODEL_ID,
                     "--repo-type",
@@ -2609,6 +2708,10 @@ class TestInferenceEndpointsCommands:
                     "/health",
                     "--port",
                     "30000",
+                    "--container-registry-username",
+                    "user",
+                    "--container-registry-password",
+                    "secret",
                     "--container-args",
                     "--tp 8 --reasoning-parser qwen3",
                     "--env",
@@ -2625,11 +2728,47 @@ class TestInferenceEndpointsCommands:
             "port": 30000,
         }
         assert kwargs["container_args"] == ["--tp", "8", "--reasoning-parser", "qwen3"]
+        assert kwargs["container_registry_username"] == "user"
+        assert kwargs["container_registry_password"] == "secret"
         assert "container_command" not in kwargs
         assert kwargs["env"] == {"MODEL_ID": "/repository"}
         assert kwargs["type"] == "authenticated"
 
-    def test_deploy_custom_args_require_image(self, runner: CliRunner) -> None:
+    def test_deploy_container_args_without_custom_image(self, runner: CliRunner) -> None:
+        endpoint = Mock(raw={"name": "hub-args"})
+        with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.create_inference_endpoint.return_value = endpoint
+            result = runner.invoke(
+                app,
+                [
+                    "endpoints",
+                    "deploy",
+                    "my-endpoint",
+                    "--repo",
+                    "my-repo",
+                    "--framework",
+                    "pytorch",
+                    "--accelerator",
+                    "gpu",
+                    "--instance-size",
+                    "x8",
+                    "--instance-type",
+                    "nvidia-h200",
+                    "--region",
+                    "us-east-1",
+                    "--vendor",
+                    "aws",
+                    "--container-args",
+                    "--enable-auto-tool-choice --tool-call-parser lfm2",
+                ],
+            )
+        assert result.exit_code == 0, result.stdout
+        _, kwargs = api.create_inference_endpoint.call_args
+        assert kwargs["container_args"] == ["--enable-auto-tool-choice", "--tool-call-parser", "lfm2"]
+        assert "custom_image" not in kwargs
+
+    def test_deploy_port_and_health_route_require_image(self, runner: CliRunner) -> None:
         with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
             result = runner.invoke(
                 app,
@@ -2651,13 +2790,13 @@ class TestInferenceEndpointsCommands:
                     "us-east-1",
                     "--vendor",
                     "aws",
-                    "--container-args",
-                    "--tp 8",
+                    "--port",
+                    "8000",
                 ],
             )
         assert result.exit_code != 0
         api_cls.return_value.create_inference_endpoint.assert_not_called()
-        assert "require --custom-image" in (result.stdout + str(result.exception))
+        assert "--custom-image is required" in (result.stdout + str(result.exception))
 
     def test_deploy_from_catalog(self, runner: CliRunner) -> None:
         endpoint = Mock(raw={"name": "catalog"})
@@ -2724,6 +2863,11 @@ class TestInferenceEndpointsCommands:
             framework=None,
             revision=None,
             task=None,
+            custom_image=None,
+            container_command=None,
+            container_args=None,
+            tensor_parallel_size=None,
+            data_parallel_size=None,
             accelerator="gpu",
             instance_size="x4",
             instance_type=None,
@@ -2735,6 +2879,60 @@ class TestInferenceEndpointsCommands:
             scaling_threshold=None,
         )
         assert '"name": "updated"' in result.stdout
+
+    def test_update_container_args(self, runner: CliRunner) -> None:
+        endpoint = Mock(raw={"name": "updated"})
+        with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.update_inference_endpoint.return_value = endpoint
+            result = runner.invoke(
+                app,
+                [
+                    "endpoints",
+                    "update",
+                    "my-endpoint",
+                    "--container-args",
+                    "--enable-auto-tool-choice --tool-call-parser lfm2",
+                ],
+            )
+        assert result.exit_code == 0, result.stdout
+        _, kwargs = api.update_inference_endpoint.call_args
+        assert kwargs["container_args"] == ["--enable-auto-tool-choice", "--tool-call-parser", "lfm2"]
+        assert kwargs["container_command"] is None
+        assert '"name": "updated"' in result.stdout
+
+    def test_update_parallelism_alone(self, runner: CliRunner) -> None:
+        """The one-liner for retuning an already-deployed endpoint: no image needed, `HfApi` merges into the
+        one currently configured."""
+        endpoint = Mock(raw={"name": "updated"})
+        with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.update_inference_endpoint.return_value = endpoint
+            result = runner.invoke(app, ["endpoints", "update", "my-endpoint", "--tensor-parallel-size", "8"])
+        assert result.exit_code == 0, result.stdout
+        _, kwargs = api.update_inference_endpoint.call_args
+        assert kwargs["tensor_parallel_size"] == 8
+        assert kwargs["custom_image"] is None
+
+    def test_update_container_args_empty_string_resets(self, runner: CliRunner) -> None:
+        endpoint = Mock(raw={"name": "updated"})
+        with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.update_inference_endpoint.return_value = endpoint
+            result = runner.invoke(
+                app,
+                [
+                    "endpoints",
+                    "update",
+                    "my-endpoint",
+                    "--container-args",
+                    "",
+                ],
+            )
+        assert result.exit_code == 0, result.stdout
+        _, kwargs = api.update_inference_endpoint.call_args
+        assert kwargs["container_args"] == []
+        assert kwargs["container_command"] is None
 
     def test_delete(self, runner: CliRunner) -> None:
         with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
@@ -2823,6 +3021,213 @@ class TestInferenceEndpointsCommands:
         assert '"model"' in result.stdout
 
 
+IMAGE_URL = "vllm/vllm-openai:v0.23.0"
+
+
+@pytest.mark.parametrize(
+    "engine, extra, expected",
+    [
+        # No engine: a flat container config, which `HfApi` keys as `custom`.
+        (None, {"health_route": "/health", "port": 8000}, {"url": IMAGE_URL, "healthRoute": "/health", "port": 8000}),
+        # An engine is keyed by the API's variant name, and the sizes go inside that config.
+        (
+            "vllm",
+            {"tensor_parallel_size": 8, "data_parallel_size": 2},
+            {"vLLM": {"url": IMAGE_URL, "tensorParallelSize": 8, "dataParallelSize": 2}},
+        ),
+        # An engine this version doesn't know about is forwarded as typed, so the API names the bad variant
+        # instead of the config being silently reshaped into a custom container.
+        ("VLLM", {}, {"VLLM": {"url": IMAGE_URL}}),
+    ],
+    ids=["no_engine", "engine_with_sizes", "unknown_engine"],
+)
+def test_build_custom_image(engine: str | None, extra: dict, expected: dict) -> None:
+    assert _build_custom_image(IMAGE_URL, engine=engine, **extra) == expected
+
+
+@pytest.mark.parametrize(
+    "engine, sizes",
+    [("tgi", {"tensor_parallel_size": 8}), ("sglang", {"data_parallel_size": 2})],
+    ids=["tgi_tensor", "sglang_data"],
+)
+def test_build_custom_image_warns_for_engine_without_the_field(engine: str, sizes: dict) -> None:
+    """Deploy must go through `_set_parallelism_in_image`: the API drops a field the engine doesn't declare
+    rather than rejecting it, so writing the sizes here directly would leave the no-op silent."""
+    with pytest.warns(UserWarning, match="not a known setting"):
+        _build_custom_image(IMAGE_URL, engine=engine, **sizes)
+
+
+@pytest.mark.parametrize(
+    "custom_image, extra, match",
+    [
+        (None, {"engine": "vllm", "tensor_parallel_size": 8}, "--custom-image is required"),
+        (None, {"container_registry_username": "user"}, "--custom-image is required"),
+        (
+            IMAGE_URL,
+            {"container_registry_password": "secret"},
+            "--container-registry-password requires --container-registry-username",
+        ),
+        (
+            IMAGE_URL,
+            {"engine": "vllm", "container_registry_username": "user"},
+            "only be set for a custom container without --engine",
+        ),
+        # Without an engine key the API ignores the parallelism fields rather than rejecting them, which would
+        # deploy an endpoint quietly running on a single accelerator.
+        (IMAGE_URL, {"tensor_parallel_size": 8}, "require --engine"),
+    ],
+    ids=[
+        "flags_without_image",
+        "registry_credentials_without_image",
+        "registry_password_without_username",
+        "registry_credentials_with_engine",
+        "sizes_without_engine",
+    ],
+)
+def test_build_custom_image_rejects(custom_image: str | None, extra: dict, match: str) -> None:
+    with pytest.raises(CLIError, match=match):
+        _build_custom_image(custom_image, **extra)
+
+
+def _hardware(instance_type: str, **kwargs) -> InferenceEndpointHardware:
+    """Build a hardware entry, overriding only the fields a test cares about. The id is derived like the server does."""
+    fields = {
+        "vendor": "aws",
+        "region": "us-east-1",
+        "accelerator": "gpu",
+        "instance_type": instance_type,
+        "instance_size": "x1",
+        "architecture": instance_type.title(),
+        "num_accelerators": 1,
+        "num_cpus": 7,
+        "memory_gb": 30.0,
+        "gpu_memory_gb": 24,
+        "price_per_hour": 0.8,
+        "status": "available",
+        "max_accelerators": 16,
+        "used_accelerators": 1,
+        **kwargs,
+    }
+    id = "-".join(fields[key] for key in ("vendor", "region", "instance_type", "instance_size"))
+    return InferenceEndpointHardware(id=id, **fields)
+
+
+class TestInferenceEndpointsHardwareCommand:
+    """Tests for `hf endpoints hardware`."""
+
+    HARDWARE = [
+        _hardware("nvidia-h200", region="us-west-2", price_per_hour=5.0, status="deprecated"),
+        _hardware("nvidia-h100", price_per_hour=10.0, max_accelerators=0, used_accelerators=0),
+        _hardware("intel-spr", accelerator="cpu", price_per_hour=0.033, gpu_memory_gb=None, num_cpus=None),
+        _hardware("nvidia-l4"),
+        _hardware("nvidia-a100", vendor="gcp", region="us-east4", price_per_hour=3.6),
+    ]
+
+    @pytest.fixture
+    def api(self) -> Generator[Mock, None, None]:
+        with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_inference_endpoints_hardware.return_value = list(self.HARDWARE)
+            yield api
+
+    def test_hides_hardware_that_cannot_be_deployed_on(self, runner: CliRunner, api: Mock) -> None:
+        result = runner.invoke(app, ["endpoints", "hardware", "--format", "json"])
+        assert result.exit_code == 0
+        api.list_inference_endpoints_hardware.assert_called_once_with(namespace=None, token=None)
+        listed = json.loads(result.stdout)
+        assert [hw["id"] for hw in listed] == [
+            "aws-us-east-1-intel-spr-x1",
+            "aws-us-east-1-nvidia-l4-x1",
+            "gcp-us-east4-nvidia-a100-x1",
+        ]
+        assert listed[0]["price_per_hour"] == 0.033  # a number, not "$0.033"
+
+    def test_all_includes_hardware_that_cannot_be_deployed_on(self, runner: CliRunner, api: Mock) -> None:
+        result = runner.invoke(app, ["endpoints", "hardware", "--all", "--format", "json"])
+        assert result.exit_code == 0
+        listed = {hw["id"] for hw in json.loads(result.stdout)}
+        assert "aws-us-west-2-nvidia-h200-x1" in listed  # deprecated
+        assert "aws-us-east-1-nvidia-h100-x1" in listed  # out of quota
+
+    @pytest.mark.parametrize(
+        "overrides, is_listed",
+        [
+            ({}, True),
+            ({"status": "low_availability"}, True),  # scarce, but still deployable
+            ({"status": "reserved"}, True),  # capacity reserved for the namespace
+            ({"status": "not_available"}, False),
+            ({"status": "deprecated"}, False),
+            ({"num_accelerators": 8, "used_accelerators": 0, "max_accelerators": 8}, True),  # exactly enough quota
+            ({"max_accelerators": 0, "used_accelerators": 0}, False),  # no quota at all
+            ({"num_accelerators": 8, "used_accelerators": 4, "max_accelerators": 8}, False),  # 4 left, x8 needs 8
+        ],
+    )
+    def test_default_lists_only_deployable_hardware(
+        self, runner: CliRunner, api: Mock, overrides: dict, is_listed: bool
+    ) -> None:
+        api.list_inference_endpoints_hardware.return_value = [_hardware("nvidia-l4", **overrides)]
+        result = runner.invoke(app, ["endpoints", "hardware", "--format", "quiet"])
+        assert result.exit_code == 0
+        assert result.stdout.split() == (["aws-us-east-1-nvidia-l4-x1"] if is_listed else [])
+
+    @pytest.mark.parametrize(
+        "flags, expected_ids",
+        [
+            (["--vendor", "gcp"], ["gcp-us-east4-nvidia-a100-x1"]),
+            (["--vendor", "AWS", "--accelerator", "GPU"], ["aws-us-east-1-nvidia-l4-x1"]),
+            (["--region", "us-east-1", "--instance-type", "intel-spr"], ["aws-us-east-1-intel-spr-x1"]),
+            (["--vendor", "gcp", "--accelerator", "cpu"], []),
+        ],
+    )
+    def test_filters(self, runner: CliRunner, api: Mock, flags: list[str], expected_ids: list[str]) -> None:
+        result = runner.invoke(app, ["endpoints", "hardware", *flags, "--format", "quiet"])
+        assert result.exit_code == 0
+        assert result.stdout.split() == expected_ids
+
+    def test_human_output_reports_quota_and_a_deploy_command(self, runner: CliRunner, api: Mock) -> None:
+        result = runner.invoke(app, ["endpoints", "hardware", "--vendor", "gcp", "--format", "human"])
+        assert result.exit_code == 0
+        # both, since 'gpu_memory_gb' is null on CPU hardware
+        assert {"MEMORY_GB", "GPU_MEMORY_GB"} <= set(result.stdout.splitlines()[0].split())
+        assert "3.6" in result.stdout  # price, as a bare number
+        assert "1/16" in result.stdout  # quota, as used/max
+        assert (
+            "--vendor gcp --region us-east4 --accelerator gpu --instance-type nvidia-a100 --instance-size x1"
+            in result.stderr
+        )
+
+    def test_all_does_not_suggest_deploying_on_undeployable_hardware(self, runner: CliRunner, api: Mock) -> None:
+        result = runner.invoke(
+            app, ["endpoints", "hardware", "--all", "--instance-type", "nvidia-h200", "--format", "json"]
+        )
+        assert result.exit_code == 0
+        assert [hw["id"] for hw in json.loads(result.stdout)] == ["aws-us-west-2-nvidia-h200-x1"]  # listed, as asked
+        assert "hf endpoints deploy" not in result.stderr  # but not offered as an example
+        assert "None of these can be deployed on right now" in result.stderr
+
+    def test_hints_at_all_when_only_undeployable_hardware_matches(self, runner: CliRunner, api: Mock) -> None:
+        result = runner.invoke(app, ["endpoints", "hardware", "--instance-type", "nvidia-h200", "--format", "human"])
+        assert result.exit_code == 0
+        assert "No results found." in result.stdout
+        assert "Use '--all'" in result.stderr
+
+    @pytest.mark.parametrize(
+        "flags, expected_hint",
+        [
+            (["--vendor", "asw"], "No such hardware: --vendor 'asw' (valid: aws, gcp)."),
+            # 'gcp' and 'cpu' both exist, just never on the same hardware.
+            (["--vendor", "gcp", "--accelerator", "cpu"], "No hardware matches all of these filters at once."),
+        ],
+    )
+    def test_hints_at_valid_values_when_no_hardware_matches_at_all(
+        self, runner: CliRunner, api: Mock, flags: list[str], expected_hint: str
+    ) -> None:
+        result = runner.invoke(app, ["endpoints", "hardware", *flags, "--format", "human"])
+        assert result.exit_code == 0
+        assert "No results found." in result.stdout
+        assert expected_hint in result.stderr
+
+
 @contextmanager
 def tmp_current_directory() -> Generator[str, None, None]:
     with SoftTemporaryDirectory() as tmp_dir:
@@ -2841,7 +3246,7 @@ class TestRepoDeleteFilesCommand:
         "cli_args, expected_kwargs",
         [
             (
-                ["repo", "delete-files", DUMMY_MODEL_ID, "*"],
+                ["repos", "delete-files", DUMMY_MODEL_ID, "*"],
                 {
                     "delete_patterns": ["*"],
                     "repo_id": DUMMY_MODEL_ID,
@@ -2853,7 +3258,7 @@ class TestRepoDeleteFilesCommand:
                 },
             ),
             (
-                ["repo", "delete-files", DUMMY_MODEL_ID, "file.txt"],
+                ["repos", "delete-files", DUMMY_MODEL_ID, "file.txt"],
                 {
                     "delete_patterns": ["file.txt"],
                     "repo_id": DUMMY_MODEL_ID,
@@ -2865,7 +3270,7 @@ class TestRepoDeleteFilesCommand:
                 },
             ),
             (
-                ["repo", "delete-files", DUMMY_MODEL_ID, "folder/"],
+                ["repos", "delete-files", DUMMY_MODEL_ID, "folder/"],
                 {
                     "delete_patterns": ["folder/"],
                     "repo_id": DUMMY_MODEL_ID,
@@ -2877,7 +3282,7 @@ class TestRepoDeleteFilesCommand:
                 },
             ),
             (
-                ["repo", "delete-files", DUMMY_MODEL_ID, "file1.txt", "folder/", "file2.txt"],
+                ["repos", "delete-files", DUMMY_MODEL_ID, "file1.txt", "folder/", "file2.txt"],
                 {
                     "delete_patterns": [
                         "file1.txt",
@@ -2894,7 +3299,7 @@ class TestRepoDeleteFilesCommand:
             ),
             (
                 [
-                    "repo",
+                    "repos",
                     "delete-files",
                     DUMMY_MODEL_ID,
                     "file.txt *",
@@ -2917,7 +3322,7 @@ class TestRepoDeleteFilesCommand:
             ),
             (
                 [
-                    "repo",
+                    "repos",
                     "delete-files",
                     DUMMY_MODEL_ID,
                     "file.txt *",
@@ -2951,31 +3356,6 @@ class TestRepoDeleteFilesCommand:
         api.delete_files.assert_called_once_with(**expected_kwargs)
 
 
-class TestRepoFilesCommand:
-    """Tests for legacy `hf repo-files delete` (deprecated, kept for backward compatibility)."""
-
-    def test_legacy_delete_still_works(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.repo_files.get_hf_api") as api_cls:
-            api = api_cls.return_value
-            result = runner.invoke(app, ["repo-files", "delete", DUMMY_MODEL_ID, "file.txt"])
-        assert result.exit_code == 0
-        api.delete_files.assert_called_once_with(
-            delete_patterns=["file.txt"],
-            repo_id=DUMMY_MODEL_ID,
-            repo_type="model",
-            revision=None,
-            commit_message=None,
-            commit_description=None,
-            create_pr=False,
-        )
-
-    def test_legacy_delete_emits_deprecation_warning(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.repo_files.get_hf_api"):
-            result = runner.invoke(app, ["repo-files", "delete", DUMMY_MODEL_ID, "file.txt"])
-        assert result.exit_code == 0
-        assert "hf repos delete-files" in result.output
-
-
 class TestJobsCommand:
     def test_run(self, runner: CliRunner) -> None:
         job = Mock(id="my-job-id", url="https://huggingface.co/api/jobs/687f911eaea852de79c4a50a")
@@ -2992,12 +3372,14 @@ class TestJobsCommand:
             command=["echo", "hello"],
             env={},
             secrets={},
-            labels=None,
+            labels={"name": ANY},
             volumes=None,
             flavor=None,
             timeout=None,
             expose=None,
             ssh=False,
+            network_group=None,
+            network_aliases=None,
             resource_group_id=None,
             namespace=None,
         )
@@ -3020,12 +3402,14 @@ class TestJobsCommand:
             command=["python", "-c", "'print(\"Hello from the cloud!\")'"],
             env={},
             secrets={},
-            labels=None,
+            labels={"name": ANY},
             volumes=None,
             flavor=None,
             timeout=None,
             expose=None,
             ssh=False,
+            network_group=None,
+            network_aliases=None,
             resource_group_id=None,
             namespace=None,
         )
@@ -3052,7 +3436,7 @@ class TestJobsCommand:
             concurrency=None,
             env={},
             secrets={},
-            labels=None,
+            labels={"name": ANY},
             volumes=None,
             flavor=None,
             timeout=None,
@@ -3079,12 +3463,14 @@ class TestJobsCommand:
             image=None,
             env={},
             secrets={},
-            labels=None,
+            labels={"name": ANY},
             volumes=None,
             flavor=None,
             timeout=None,
             expose=None,
             ssh=False,
+            network_group=None,
+            network_aliases=None,
             resource_group_id=None,
             namespace=None,
         )
@@ -3110,44 +3496,49 @@ class TestJobsCommand:
             image=None,
             env={},
             secrets={},
-            labels=None,
+            labels={"name": ANY},
             volumes=None,
             flavor=None,
             timeout=None,
             expose=None,
             ssh=False,
+            network_group=None,
+            network_aliases=None,
             resource_group_id=None,
             namespace=None,
         )
         api.fetch_job_logs.assert_not_called()
 
     def test_uv_remote_script(self, runner: CliRunner) -> None:
+        """A remote script is downloaded once at submit time, then shipped like a local script."""
         job = Mock(id="my-job-id", url="https://huggingface.co/api/jobs/687f911eaea852de79c4a50a")
         with (
             patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
             patch("huggingface_hub.cli._cli_utils._get_extended_environ", return_value={}),
+            patch("huggingface_hub.cli._uv_script_header.get_session") as session,
         ):
+            session.return_value.get.return_value = Mock(content=b"print('hello')")
             api = api_cls.return_value
-            api.run_uv_job.return_value = job
-            result = runner.invoke(app, ["jobs", "uv", "run", "--detach", "https://.../script.py"])
+            downloaded = []
+
+            def submit(script, **kwargs):
+                path = Path(script)
+                downloaded.append(path)
+                assert path.read_text(encoding="utf-8") == "print('hello')"
+                return job
+
+            api.run_uv_job.side_effect = submit
+            result = runner.invoke(app, ["jobs", "uv", "run", "--detach", "https://example.co/script.py"])
         assert result.exit_code == 0
-        api.run_uv_job.assert_called_once_with(
-            script="https://.../script.py",
-            script_args=[],
-            dependencies=None,
-            python=None,
-            image=None,
-            env={},
-            secrets={},
-            labels=None,
-            volumes=None,
-            flavor=None,
-            timeout=None,
-            expose=None,
-            ssh=False,
-            resource_group_id=None,
-            namespace=None,
+        session.return_value.get.assert_called_once_with(
+            "https://example.co/script.py", timeout=constants.DEFAULT_REQUEST_TIMEOUT
         )
+        # The downloaded copy is on disk while the Job is submitted (and cleaned up afterwards).
+        assert len(downloaded) == 1
+        assert downloaded[0].name == "script.py"
+        assert not downloaded[0].exists()
+        # The Job is still named after the URL, not after the temporary file it was downloaded to.
+        assert api.run_uv_job.call_args.kwargs["labels"]["name"].startswith("script-")
 
     def test_uv_local_script(self, runner: CliRunner, tmp_path: Path) -> None:
         script_path = tmp_path / "script.py"
@@ -3169,12 +3560,14 @@ class TestJobsCommand:
             image=None,
             env={},
             secrets={},
-            labels=None,
+            labels={"name": ANY},
             volumes=None,
             flavor=None,
             timeout=None,
             expose=None,
             ssh=False,
+            network_group=None,
+            network_aliases=None,
             resource_group_id=None,
             namespace=None,
         )
@@ -3561,6 +3954,42 @@ class TestJobsCommand:
         assert volume_2.mount_path == "/output"
         assert volume_2.read_only is None
 
+    @pytest.mark.parametrize("num_gpus", [1, 2, 4, 8])
+    def test_stats_rows_one_row_per_gpu(self, num_gpus: int) -> None:
+        """`hf jobs stats` must render one row per GPU, each with its own metrics."""
+        headers = [
+            "JOB ID",
+            "CPU %",
+            "NUM CPU",
+            "MEM %",
+            "MEM USAGE",
+            "NET I/O",
+            "GPU UTIL %",
+            "GPU MEM %",
+            "GPU MEM USAGE",
+        ]
+        metrics = {
+            "cpu_usage_pct": 42,
+            "cpu_millicores": 8000,
+            "memory_used_bytes": 4_000_000_000,
+            "memory_total_bytes": 16_000_000_000,
+            "rx_bps": 1_000_000,
+            "tx_bps": 2_000_000,
+            "gpus": {
+                f"gpu-{index}": {
+                    "utilization": 10 * (index + 1),
+                    "memory_used_bytes": 1_000_000_000 * (index + 1),
+                    "memory_total_bytes": 80_000_000_000,
+                }
+                for index in range(num_gpus)
+            },
+        }
+        (rows,) = [rows for done, _, rows in _get_jobs_stats_rows("my-job-id", [metrics], headers) if not done]
+
+        assert len(rows) == num_gpus
+        assert all(len(row) == len(headers) for row in rows)
+        assert [row[headers.index("GPU UTIL %")] for row in rows] == [f"{10 * (i + 1)}%" for i in range(num_gpus)]
+
 
 class TestJobsWaitCommand:
     def _job(self, job_id: str, stage: str) -> Mock:
@@ -3622,6 +4051,214 @@ class TestJobsWaitCommand:
         assert isinstance(result.exception, CLIError)
         assert "same namespace" in str(result.exception)
         api.wait_for_job.assert_not_called()
+
+
+class TestUvScriptHeader:
+    """Tests for the `[tool.hf-jobs]` table a UV script can carry in its PEP 723 header."""
+
+    FULL_HEADER = """
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["vllm"]
+#
+# [tool.uv]
+# exclude-newer = "2026-01-01T00:00:00Z"
+#
+# [tool.hf-jobs]
+# image           = "vllm/vllm-openai:latest"
+# flavor          = "l4x1"
+# python          = "/usr/bin/python3"
+# timeout         = "2h"
+# name            = "ocr"
+# namespace       = "my-org"
+# network_group   = "ocr-net"
+# env             = { PYTHONPATH = "/usr/local/lib/python3.12/dist-packages" }
+# secrets         = ["MY_SECRET"]
+# labels          = { template = "uv-ocr:1" }
+# volumes         = ["hf://datasets/org/pdfs:/input"]
+# network_aliases = ["worker"]
+# ///
+print("hello")
+"""
+
+    @pytest.mark.parametrize("newline", ["\n", "\r\n"])
+    def test_parses_full_table(self, newline: str) -> None:
+        header = parse_uv_script_header(self.FULL_HEADER.replace("\n", newline))
+        assert header == UvScriptHeader(
+            image="vllm/vllm-openai:latest",
+            flavor="l4x1",
+            python="/usr/bin/python3",
+            timeout="2h",
+            name="ocr",
+            namespace="my-org",
+            network_group="ocr-net",
+            env={"PYTHONPATH": "/usr/local/lib/python3.12/dist-packages"},
+            secrets=["MY_SECRET"],
+            labels={"template": "uv-ocr:1"},
+            volumes=["hf://datasets/org/pdfs:/input"],
+            network_aliases=["worker"],
+        )
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            'print("hello")',  # no PEP 723 header at all
+            '# /// script\n# dependencies = ["vllm"]\n# ///\nprint("hello")',  # header without the table
+        ],
+    )
+    def test_no_table(self, text: str) -> None:
+        assert parse_uv_script_header(text) is None
+
+    @pytest.mark.parametrize(
+        "table, expected_error",
+        [
+            ('flavour = "l4x1"', "Unknown key(s) 'flavour'"),  # a typo must not silently drop the intent
+            ("env = { DEBUG = true }", "'env.DEBUG' in the script's [tool.hf-jobs] table must be a string"),
+            ('secrets = { HF_TOKEN = "hf_xxx" }', "must be a list of names"),  # values never live in the script
+        ],
+    )
+    def test_invalid_table(self, table: str, expected_error: str) -> None:
+        with pytest.raises(CLIError, match=re.escape(expected_error)):
+            parse_uv_script_header(f"# /// script\n# [tool.hf-jobs]\n# {table}\n# ///")
+
+    def _write_script(self, tmp_path: Path, table: str) -> str:
+        script_path = tmp_path / "script.py"
+        script_path.write_text(f"# /// script\n# [tool.hf-jobs]\n{table}\n# ///\nprint('hello')")
+        return str(script_path)
+
+    @pytest.mark.parametrize("scheduled", [False, True])
+    def test_cli_flag_wins_over_script(self, runner: CliRunner, tmp_path: Path, scheduled: bool) -> None:
+        """Script values are defaults: an explicit flag overrides them, entry by entry for env/labels/volumes."""
+        script = self._write_script(
+            tmp_path,
+            "# image = 'vllm/vllm-openai:latest'\n"
+            "# flavor = 'l4x1'\n"
+            "# name = 'from-script'\n"
+            "# timeout = '2h'\n"
+            "# env = { A = 'from-script', B = 'from-script' }\n"
+            "# secrets = ['MY_SECRET']\n"
+            "# volumes = ['hf://datasets/org/pdfs:/input', 'hf://datasets/org/models:/models']",
+        )
+        job = Mock(id="my-job-id", url="https://huggingface.co/jobs/user/my-job-id")
+        with (
+            patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
+            patch("huggingface_hub.cli._cli_utils._get_extended_environ", return_value={"MY_SECRET": "s3cret"}),
+            patch("huggingface_hub.cli.jobs._get_extended_environ", return_value={"MY_SECRET": "s3cret"}),
+        ):
+            api = api_cls.return_value
+            submit = api.create_scheduled_uv_job if scheduled else api.run_uv_job
+            submit.return_value = job
+            result = runner.invoke(
+                app,
+                # fmt: off
+                [
+                    "jobs",
+                    *(["scheduled"] if scheduled else []),
+                    "uv",
+                    "run",
+                    *(["@daily"] if scheduled else ["--detach"]),
+                    script,
+                    "--flavor",
+                    "a10g-small",
+                    "--name",
+                    "from-cli",
+                    "-e",
+                    "B=from-cli",
+                    "-v",
+                    "hf://datasets/org/other:/input",
+                ],
+                # fmt: on
+            )
+        assert result.exit_code == 0
+        assert "MY_SECRET=*** (from script)" in result.output
+        assert "s3cret" not in result.output
+        kwargs = submit.call_args.kwargs
+        assert kwargs["image"] == "vllm/vllm-openai:latest"  # only in the script
+        assert kwargs["flavor"] == "a10g-small"  # CLI wins
+        assert kwargs["timeout"] == "2h"
+        assert kwargs["labels"] == {"name": "from-cli"}  # CLI wins
+        assert kwargs["env"] == {"A": "from-script", "B": "from-cli"}  # merged, CLI wins per key
+        assert kwargs["secrets"] == {"MY_SECRET": "s3cret"}  # value read from the local environment
+        # '/input' is overridden by the CLI, '/models' still comes from the script
+        assert [(volume.source, volume.mount_path) for volume in kwargs["volumes"]] == [
+            ("org/models", "/models"),
+            ("org/other", "/input"),
+        ]
+
+    def test_network_group_from_script(self, runner: CliRunner, tmp_path: Path) -> None:
+        """A script can join a network group, but a scheduled Job cannot: it must not lose it silently."""
+        script = self._write_script(tmp_path, "# network_group = 'ocr-net'\n# network_aliases = ['worker', 'gpu']")
+        job = Mock(id="my-job-id", url="https://huggingface.co/jobs/user/my-job-id")
+        with (
+            patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
+            patch("huggingface_hub.cli._cli_utils._get_extended_environ", return_value={}),
+        ):
+            api = api_cls.return_value
+            api.run_uv_job.return_value = job
+            result = runner.invoke(app, ["jobs", "uv", "run", "--detach", script])
+        assert result.exit_code == 0
+        assert "ocr-net (from script)" in result.output
+        kwargs = api.run_uv_job.call_args.kwargs
+        assert kwargs["network_group"] == "ocr-net"
+        assert kwargs["network_aliases"] == ["worker", "gpu"]
+
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            result = runner.invoke(app, ["jobs", "scheduled", "uv", "run", "@daily", script])
+        assert result.exit_code == 1
+        assert "do not support network groups" in str(result.exception)
+        api_cls.return_value.create_scheduled_uv_job.assert_not_called()
+
+    def test_missing_secret_is_an_error(self, runner: CliRunner, tmp_path: Path) -> None:
+        """A secret requested by the script but not set locally must not be submitted as an empty value."""
+        script = self._write_script(tmp_path, "# secrets = ['MY_SECRET']")
+        with (
+            patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
+            patch("huggingface_hub.cli.jobs._get_extended_environ", return_value={}),
+        ):
+            api = api_cls.return_value
+            result = runner.invoke(app, ["jobs", "uv", "run", script])
+        assert result.exit_code == 1
+        assert "MY_SECRET" in str(result.exception)
+        api.run_uv_job.assert_not_called()
+
+    def test_default_name_reflects_resolved_config(self, runner: CliRunner, tmp_path: Path) -> None:
+        """The default name hashes the resolved config, so a different runtime gives a different name."""
+
+        def auto_name(table: str, *args: str) -> str:
+            script = self._write_script(tmp_path, table)
+            with (
+                patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
+                patch("huggingface_hub.cli._cli_utils._get_extended_environ", return_value={}),
+            ):
+                api = api_cls.return_value
+                assert runner.invoke(app, ["jobs", "uv", "run", "--detach", script, *args]).exit_code == 0
+                return api.run_uv_job.call_args.kwargs["labels"]["name"]
+
+        baseline = auto_name("# flavor = 'l4x1'")
+        assert baseline == auto_name("# flavor = 'l4x1'")  # deterministic
+        assert baseline != auto_name("# flavor = 'a10g-small'")  # from the script
+        assert baseline != auto_name("# flavor = 'l4x1'", "--timeout", "2h")  # from the command line
+        # Env values change what the Job does, so they are hashed; secret values are not (only their names).
+        assert auto_name("", "-e", "FOO=a") != auto_name("", "-e", "FOO=b")
+        assert auto_name("", "-s", "TOK=a") == auto_name("", "-s", "TOK=b")
+
+    @pytest.mark.parametrize("command", [["run"], ["uv", "run"], ["scheduled", "run"], ["scheduled", "uv", "run"]])
+    def test_dry_run(self, runner: CliRunner, tmp_path: Path, command: list[str]) -> None:
+        script = self._write_script(tmp_path, "# flavor = 'l4x1'\n# secrets = ['MY_SECRET']")
+        with (
+            patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
+            patch("huggingface_hub.cli.jobs._get_extended_environ", return_value={}),
+        ):
+            args = ["jobs", *command, "--dry-run", "-v", f"{tmp_path}:/input"]
+            args += ["@daily"] if "scheduled" in command else []
+            args += [script] if "uv" in command else ["python:3.12", "echo", "hello"]
+            result = runner.invoke(app, args)
+        assert result.exit_code == 0
+        assert "(dry run) Job not submitted." in result.output
+        if "uv" in command:
+            assert "l4x1 (from script)" in result.output
+            assert "MY_SECRET=<not set> (from script)" in result.output
+        assert api_cls.return_value.mock_calls == []
 
 
 class TestBucketTransport:
@@ -4060,6 +4697,42 @@ class TestVolume:
         )
         assert spec.get("expose") == expected
 
+    @pytest.mark.parametrize(
+        "network_group, network_aliases, expected",
+        [
+            (None, None, None),
+            ("train", None, {"group": "train"}),
+            ("train", [], {"group": "train"}),
+            ("train", ["master", "worker"], {"group": "train", "aliases": ["master", "worker"]}),
+        ],
+    )
+    def test_serialize_network(
+        self, network_group: str | None, network_aliases: list[str] | None, expected: dict | None
+    ) -> None:
+        spec = _create_job_spec(
+            image="python:3.12",
+            command=["echo"],
+            env=None,
+            secrets=None,
+            flavor=None,
+            timeout=None,
+            network_group=network_group,
+            network_aliases=network_aliases,
+        )
+        assert spec.get("network") == expected
+
+    def test_network_aliases_require_group(self) -> None:
+        with pytest.raises(ValueError, match="network_aliases"):
+            _create_job_spec(
+                image="python:3.12",
+                command=["echo"],
+                env=None,
+                secrets=None,
+                flavor=None,
+                timeout=None,
+                network_aliases=["master"],
+            )
+
 
 class TestWebhooksCommand:
     def _make_webhook(self, **kwargs):
@@ -4138,6 +4811,7 @@ class TestWebhooksCommand:
             watched=[WebhookWatchedItem(type="model", name="bert-base-uncased")],
             domains=None,
             secret=None,
+            secrets=None,
         )
 
     def test_create_with_domain_and_secret(self, runner: CliRunner) -> None:
@@ -4168,6 +4842,7 @@ class TestWebhooksCommand:
             watched=[WebhookWatchedItem(type="org", name="HuggingFace")],
             domains=["repo"],
             secret="mysecret",
+            secrets=None,
         )
 
     def test_create_with_job_id(self, runner: CliRunner) -> None:
@@ -4189,7 +4864,38 @@ class TestWebhooksCommand:
             watched=[WebhookWatchedItem(type="user", name="julien-c")],
             domains=None,
             secret=None,
+            secrets=None,
         )
+
+    def test_create_with_job_secrets(self, runner: CliRunner) -> None:
+        webhook = self._make_webhook(url=None)
+        with (
+            patch("huggingface_hub.cli.webhooks.get_hf_api") as api_cls,
+            patch.dict(os.environ, {"MY_SECRET": "s3cr3t"}),
+        ):
+            api_cls.return_value.create_webhook.return_value = webhook
+            result = runner.invoke(
+                app,
+                [
+                    "webhooks",
+                    "create",
+                    "--job-id",
+                    "687f911eaea852de79c4a50a",
+                    "--watch",
+                    "bucket:my-org/my-bucket",
+                    "--secrets",
+                    "MY_SECRET",
+                ],
+            )
+        assert result.exit_code == 0, result.output
+        assert api_cls.return_value.create_webhook.call_args.kwargs["secrets"] == {"MY_SECRET": "s3cr3t"}
+
+    def test_create_secrets_require_job_id(self, runner: CliRunner) -> None:
+        result = runner.invoke(
+            app,
+            ["webhooks", "create", "--url", "https://example.com/hook", "--watch", "user:me", "--secrets", "A=b"],
+        )
+        assert result.exit_code != 0
 
     def test_create_url_and_job_id_mutually_exclusive(self, runner: CliRunner) -> None:
         result = runner.invoke(
@@ -4233,10 +4939,29 @@ class TestWebhooksCommand:
         api_cls.return_value.update_webhook.assert_called_once_with(
             "wh-abc123",
             url="https://new.example.com/hook",
+            job_id=None,
             watched=None,
             domains=None,
             secret=None,
+            secrets=None,
         )
+
+    def test_update_with_job_secrets(self, runner: CliRunner) -> None:
+        webhook = self._make_webhook(url=None)
+        with patch("huggingface_hub.cli.webhooks.get_hf_api") as api_cls:
+            api_cls.return_value.update_webhook.return_value = webhook
+            result = runner.invoke(
+                app,
+                ["webhooks", "update", "wh-abc123", "--job-id", "687f911eaea852de79c4a50a", "--secrets", "A=b"],
+            )
+        assert result.exit_code == 0, result.output
+        kwargs = api_cls.return_value.update_webhook.call_args.kwargs
+        assert kwargs["job_id"] == "687f911eaea852de79c4a50a"
+        assert kwargs["secrets"] == {"A": "b"}
+
+    def test_update_secrets_require_job_id(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["webhooks", "update", "wh-abc123", "--secrets", "A=b"])
+        assert result.exit_code != 0
 
     def test_enable(self, runner: CliRunner) -> None:
         webhook = self._make_webhook(disabled=False)
@@ -4280,6 +5005,101 @@ class TestWebhooksCommand:
             result = runner.invoke(app, ["webhooks", "delete", "wh-abc123"], input="n\n")
         assert result.exit_code != 0
         api_cls.return_value.delete_webhook.assert_not_called()
+
+
+class TestSecretHygiene:
+    """Test the warnings that steer secret material out of argv (shared options in `_cli_utils.py`)."""
+
+    ARGV_WARNING = "shell history"
+
+    @staticmethod
+    def _create_sandbox(runner: CliRunner, *args: str, **kwargs) -> tuple[Result, Mock]:
+        """Run `hf sandbox create` with the network mocked out; return the result and the `Sandbox` mock."""
+        with (
+            patch("huggingface_hub.cli.sandbox.Sandbox") as sandbox_cls,
+            patch("huggingface_hub.cli.sandbox.SandboxPool"),
+            patch("huggingface_hub.cli._cli_utils._get_extended_environ", return_value={"MY_SECRET": "from-env"}),
+        ):
+            sandbox_cls.create.return_value = Mock(id="sbx", image="python:3.12")
+            result = runner.invoke(app, ["sandbox", "create", *args], **kwargs)
+        return result, sandbox_cls
+
+    def test_warns_on_inline_secret_value(self, runner: CliRunner) -> None:
+        result, _ = self._create_sandbox(runner, "-s", "MY_SECRET=psswrd")
+        assert result.exit_code == 0, result.output
+        assert self.ARGV_WARNING in result.stderr
+
+    def test_warns_once_for_several_inline_secret_values(self, runner: CliRunner) -> None:
+        result, _ = self._create_sandbox(runner, "-s", "A=1", "-s", "B=2", "-s", "C=3")
+        assert result.exit_code == 0, result.output
+        assert result.stderr.count(self.ARGV_WARNING) == 1
+
+    def test_no_warning_for_bare_secret_name(self, runner: CliRunner) -> None:
+        """The recommended form resolves the value from the environment, so nothing lands in argv."""
+        result, sandbox_cls = self._create_sandbox(runner, "-s", "MY_SECRET")
+        assert result.exit_code == 0, result.output
+        assert self.ARGV_WARNING not in result.stderr
+        assert sandbox_cls.create.call_args.kwargs["secrets"] == {"MY_SECRET": "from-env"}
+
+    def test_no_warning_for_secrets_file(self, runner: CliRunner, tmp_path: Path) -> None:
+        secrets_file = tmp_path / "secrets.env"
+        secrets_file.write_text("MY_SECRET=psswrd\n")
+        secrets_file.chmod(0o600)
+        result, _ = self._create_sandbox(runner, "--secrets-file", str(secrets_file))
+        assert result.exit_code == 0, result.output
+        assert self.ARGV_WARNING not in result.stderr
+
+    def test_no_warning_without_secret_flags(self, runner: CliRunner) -> None:
+        result, _ = self._create_sandbox(runner, "-e", "LOG_LEVEL=debug")
+        assert result.exit_code == 0, result.output
+        assert self.ARGV_WARNING not in result.stderr
+
+    def test_quiet_keeps_the_warning_on_stderr(self, runner: CliRunner) -> None:
+        result, _ = self._create_sandbox(runner, "-q", "-s", "MY_SECRET=psswrd")
+        assert result.exit_code == 0, result.output
+        assert self.ARGV_WARNING in result.stderr
+
+    def test_warns_on_inline_token(self, runner: CliRunner) -> None:
+        result, _ = self._create_sandbox(runner, "--token", "hf_abcdef")
+        assert result.exit_code == 0, result.output
+        assert self.ARGV_WARNING in result.stderr
+
+    def test_no_token_warning_for_auth_login(self, runner: CliRunner) -> None:
+        """`hf auth login --token` is the flow the warning points at, so it must stay silent."""
+        with patch("huggingface_hub.cli.auth.login") as login_mock:
+            result = runner.invoke(app, ["auth", "login", "--token", "hf_abcdef"])
+        assert result.exit_code == 0, result.output
+        assert self.ARGV_WARNING not in result.stderr
+        login_mock.assert_called_once()
+
+    def test_secrets_file_from_stdin(self, runner: CliRunner) -> None:
+        result, sandbox_cls = self._create_sandbox(runner, "--secrets-file", "-", input="MY_SECRET=piped\n")
+        assert result.exit_code == 0, result.output
+        assert sandbox_cls.create.call_args.kwargs["secrets"] == {"MY_SECRET": "piped"}
+
+    @pytest.mark.skipif(os.name != "posix", reason="File modes are POSIX-specific.")
+    def test_warns_on_group_readable_secrets_file(self, runner: CliRunner, tmp_path: Path) -> None:
+        secrets_file = tmp_path / "secrets.env"
+        secrets_file.write_text("MY_SECRET=psswrd\n")
+        secrets_file.chmod(0o644)
+        result, _ = self._create_sandbox(runner, "--secrets-file", str(secrets_file))
+        assert result.exit_code == 0, result.output
+        assert "readable by other users (mode 644)" in result.stderr
+
+    @pytest.mark.skipif(os.name != "posix", reason="File modes are POSIX-specific.")
+    def test_warns_on_group_readable_env_file(self, runner: CliRunner, tmp_path: Path) -> None:
+        env_file = tmp_path / "vars.env"
+        env_file.write_text("LOG_LEVEL=debug\n")
+        env_file.chmod(0o640)
+        result, _ = self._create_sandbox(runner, "--env-file", str(env_file))
+        assert result.exit_code == 0, result.output
+        assert "readable by other users (mode 640)" in result.stderr
+
+    def test_pool_rejects_secrets_with_a_reason(self, runner: CliRunner) -> None:
+        result, _ = self._create_sandbox(runner, "--pool", "pool-ab12cd34ef56", "-s", "MY_SECRET")
+        assert isinstance(result.exception, CLIError)
+        assert "no encrypted-secrets channel" in str(result.exception)
+        assert "--env" in str(result.exception)
 
 
 class TestGlobalFormattingFlags:
@@ -4541,6 +5361,120 @@ class TestSkillsHfCliCLI:
         runner.invoke(app, ["skills", "update", "--dest", str(dest)])
         assert skill_file.read_text(encoding="utf-8") == build_skill_md()
 
+    def test_skills_flag_prints_the_skill(self, runner: CliRunner) -> None:
+        """`hf --skills` is a top-level alias for `hf skills preview`."""
+        result = runner.invoke(app, ["--skills"])
+        assert result.exit_code == 0, result.output
+        assert result.stdout == build_skill_md() + "\n"
+
+    def test_skills_flag_available_top_level_only(self, runner: CliRunner) -> None:
+        """The alias is a top-level flag: commands and subgroups must not accept it."""
+        for args in (["skills", "preview", "--skills"], ["repos", "--skills"]):
+            result = runner.invoke(app, args)
+            assert result.exit_code != 0, args
+            assert "--skills" in result.output, args
+
+
+class TestSkillUpdateCheck:
+    """The daily `hf-cli` skill check only prints hints, it never installs nor updates."""
+
+    @pytest.fixture(autouse=True)
+    def isolated_skills_dirs(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(constants, "AGENTS_SKILLS_GLOBAL_PATH", tmp_path / "global/.agents/skills")
+        monkeypatch.setattr(constants, "CLAUDE_SKILLS_GLOBAL_PATH", tmp_path / "global/.claude/skills")
+        monkeypatch.setattr(constants, "AGENTS_SKILLS_LOCAL_PATH", tmp_path / "local/.agents/skills")
+        monkeypatch.setattr(constants, "CLAUDE_SKILLS_LOCAL_PATH", tmp_path / "local/.claude/skills")
+        monkeypatch.setattr(constants, "CHECK_FOR_SKILL_UPDATE_DONE_PATH", str(tmp_path / ".check_done"))
+        monkeypatch.setattr(constants, "HF_HUB_DISABLE_UPDATE_CHECK", False)
+
+    def _write_global_skill(self, tmp_path: Path, content: str) -> Path:
+        skill_dir = tmp_path / "global/.agents/skills/hf-cli"
+        skill_dir.mkdir(parents=True)
+        skill_file = skill_dir / "SKILL.md"
+        skill_file.write_text(content, encoding="utf-8")
+        return skill_file
+
+    def test_hints_to_add_when_not_installed(self, capsys: pytest.CaptureFixture) -> None:
+        with patch.object(_skills, "__version__", "1.0.0"):
+            _skills.check_skill_update()
+        assert "hf skills add -g" in capsys.readouterr().err
+
+    def test_hints_to_update_when_generated_by_another_version(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture
+    ) -> None:
+        self._write_global_skill(tmp_path, "Generated with `huggingface_hub v0.0.1`.")
+        _skills.check_skill_update()
+        assert "hf skills update hf-cli -g" in capsys.readouterr().err
+
+    def test_silent_when_up_to_date_and_throttled_afterwards(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture
+    ) -> None:
+        skill_file = self._write_global_skill(tmp_path, build_skill_md())
+        _skills.check_skill_update()
+        assert capsys.readouterr().err == ""
+
+        # Checked less than 24 hours ago: stays silent even though the skill is now outdated.
+        skill_file.write_text("Generated with `huggingface_hub v0.0.1`.", encoding="utf-8")
+        _skills.check_skill_update()
+        assert capsys.readouterr().err == ""
+
+    @pytest.mark.parametrize(
+        "argv, expected_call_count",
+        [
+            (["hf", "version"], 1),
+            (["hf", "skills", "add"], 0),  # the user is already managing skills
+            (["hf", "--skills"], 0),  # `hf --skills` is an alias for `hf skills preview`
+            (["hf", "update"], 0),  # `hf update` handles the skill itself
+        ],
+    )
+    def test_skipped_for_skills_and_update_commands(self, argv: list[str], expected_call_count: int) -> None:
+        with (
+            patch.object(sys, "argv", argv),
+            patch("huggingface_hub.cli.hf.logging"),
+            patch("huggingface_hub.cli.hf.check_cli_update"),
+            patch("huggingface_hub.cli.hf.app"),
+            patch("huggingface_hub.cli.hf.check_skill_update") as mock_check,
+        ):
+            hf_main()
+        assert mock_check.call_count == expected_call_count
+
+
+class TestUpdateSkillOptOut:
+    """`hf update` must not silently reinstall the `hf-cli` skill for users who opted out."""
+
+    @pytest.fixture(autouse=True)
+    def isolated_skills_dirs(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(constants, "AGENTS_SKILLS_GLOBAL_PATH", tmp_path / ".agents/skills")
+        monkeypatch.setattr(constants, "CLAUDE_SKILLS_GLOBAL_PATH", tmp_path / ".claude/skills")
+
+    @contextmanager
+    def _mocked_update(self) -> Generator[Mock, None, None]:
+        with (
+            patch("huggingface_hub.cli.system._fetch_latest_pypi_version", return_value="99.0.0"),
+            patch("huggingface_hub.cli.system.subprocess.call", return_value=0),
+            # `hf update` refuses to self-update a pip install on Windows: pretend we're not on Windows.
+            patch("huggingface_hub.cli.system.sys.platform", "linux"),
+            patch("huggingface_hub.cli.system.run_update", return_value=0) as mock_run_update,
+        ):
+            yield mock_run_update
+
+    def test_excludes_skill_when_not_installed(self) -> None:
+        with self._mocked_update() as mock_run_update:
+            system.update()
+        mock_run_update.assert_called_once_with(exclude_skill=True)
+
+    def test_keeps_skill_when_installed(self, tmp_path: Path) -> None:
+        (tmp_path / ".agents/skills/hf-cli").mkdir(parents=True)
+        with self._mocked_update() as mock_run_update:
+            system.update()
+        mock_run_update.assert_called_once_with(exclude_skill=False)
+
+    def test_installer_command_passes_the_flag(self) -> None:
+        flag = "-ExcludeSkill" if os.name == "nt" else "--exclude-skill"
+        with patch("huggingface_hub.cli._cli_utils.installation_method", return_value="hf_installer"):
+            assert flag in _get_huggingface_hub_update_command(exclude_skill=True)[-1]
+            assert flag not in _get_huggingface_hub_update_command(exclude_skill=False)[-1]
+
 
 @pytest.mark.xet
 class TestSkillsMarketplaceCLI:
@@ -4576,3 +5510,143 @@ class TestSkillsMarketplaceCLI:
                 "huggingface-gradio: updated",
             )
         ), result.stdout
+
+
+class _FakeGitHubSession:
+    """Session double that records requested URLs and serves canned responses.
+
+    Patterns are matched as substrings of the URL; anything unmatched 404s.
+    """
+
+    def __init__(self, responses: dict[str, httpx2.Response] | None = None) -> None:
+        self.urls: list[str] = []
+        self.responses = responses or {}
+
+    def request(self, method: str, url: str, **kwargs) -> httpx2.Response:
+        self.urls.append(url)
+        response = next((r for pattern, r in self.responses.items() if pattern in url), httpx2.Response(404))
+        response.request = httpx2.Request(method, url)
+        return response
+
+    def __getattr__(self, method: str):
+        # `.get()`, `.head()`, ... are recorded too: a quota assertion must not pass merely because
+        # the code under test reached GitHub without going through `request()`.
+        return lambda url, **kwargs: self.request(method.upper(), url, **kwargs)
+
+    @property
+    def api_urls(self) -> list[str]:
+        """Requests that count against the unauthenticated REST API quota."""
+        return [url for url in self.urls if url.startswith("https://api.github.com/")]
+
+
+def _fake_install_extension(root: Path, *short_names: str) -> None:
+    """Write a manifest for each name, as if the extension had been installed."""
+    for short_name in short_names:
+        extensions.ExtensionManifest(
+            owner="huggingface",
+            repo=f"hf-{short_name}",
+            repo_id=f"huggingface/hf-{short_name}",
+            short_name=short_name,
+            executable_path=str(root / f"hf-{short_name}" / f"hf-{short_name}"),
+            type="binary",
+            installed_at=datetime.now(timezone.utc),
+        ).save(root / f"hf-{short_name}")
+
+
+BINARY_URL = "raw.githubusercontent.com/huggingface/hf-demo/HEAD/hf-demo"
+REPO_PAGE_URL = "https://github.com/huggingface/hf-demo"
+COMMITS_URL = "https://api.github.com/repos/huggingface/hf-demo/commits/HEAD"
+
+
+class TestExtensionsGitHubAccess:
+    """GitHub is reached without a token, so requests must stay off the metered REST API."""
+
+    @pytest.fixture
+    def github(self, tmp_path: Path) -> Generator[_FakeGitHubSession, None, None]:
+        session = _FakeGitHubSession()
+        with (
+            patch.object(extensions, "get_session", return_value=session),
+            patch.object(extensions, "EXTENSIONS_ROOT", tmp_path),
+        ):
+            yield session
+
+    def test_unknown_command_spends_no_api_quota(self, github: _FakeGitHubSession) -> None:
+        # Every mistyped `hf <command>` probes for an official extension, so this path must be free.
+        assert extensions.dispatch_unknown_top_level_extension(["jbos"], {"jobs", "repos"}) is None
+        assert github.api_urls == []
+
+    @pytest.mark.parametrize(
+        "about, expected_description",
+        [
+            ("A demo extension - huggingface/hf-demo", "A demo extension"),
+            # Empty About field: GitHub renders boilerplate, which must not be taken as a description.
+            ("Contribute to huggingface/hf-demo development by creating an account on GitHub.", None),
+        ],
+    )
+    @pytest.mark.skipif(os.name == "nt", reason="Shell-script extensions are not supported on Windows.")
+    def test_install_uses_head_refs_and_a_single_api_call(
+        self, github: _FakeGitHubSession, about: str, expected_description: str | None
+    ) -> None:
+        # Shell-script extensions ship neither manifest.json nor pyproject.toml, so the repo's "About"
+        # field is their only description. It is served by github.com, off the REST API quota.
+        github.responses = {
+            BINARY_URL: httpx2.Response(200, content=b"#!/bin/sh"),
+            REPO_PAGE_URL: httpx2.Response(200, text=f'<meta name="description" content="{about}">'),
+            COMMITS_URL: httpx2.Response(200, text="a" * 40),
+        }
+        manifest = extensions._install_extension(owner="huggingface", repo_name="hf-demo", short_name="demo")
+
+        assert manifest.type == "binary"
+        assert manifest.commit_sha == "a" * 40
+        assert manifest.description == expected_description
+        # The default branch is addressed as `HEAD`, so no `GET /repos/{owner}/{repo}` lookup is needed.
+        assert github.api_urls == [COMMITS_URL]
+        raw_prefix = "https://raw.githubusercontent.com/huggingface/hf-demo/"
+        raw_urls = [url for url in github.urls if url.startswith(raw_prefix)]
+        assert raw_urls and all(url.removeprefix(raw_prefix).startswith("HEAD/") for url in raw_urls)
+
+    @pytest.mark.skipif(os.name == "nt", reason="Shell-script extensions are not supported on Windows.")
+    def test_install_completes_when_the_api_quota_is_exhausted(self, github: _FakeGitHubSession) -> None:
+        # The extension itself comes from the CDN, so only the optional version marker is lost.
+        github.responses = {
+            BINARY_URL: httpx2.Response(200, content=b"#!/bin/sh"),
+            "HEAD/manifest.json": httpx2.Response(200, json={"description": "Demo extension"}),
+            "api.github.com": httpx2.Response(403, headers={"x-ratelimit-remaining": "0"}),
+        }
+        manifest = extensions._install_extension(owner="huggingface", repo_name="hf-demo", short_name="demo")
+
+        assert manifest.commit_sha is None
+        assert manifest.description == "Demo extension"
+        assert Path(manifest.executable_path).is_file()
+
+    def test_unreachable_github_is_not_reported_as_a_missing_repo(
+        self, github: _FakeGitHubSession, runner: CliRunner
+    ) -> None:
+        # Only a 404 means "missing"; anything else must not escape as a raw httpx2 traceback either.
+        github.responses = {REPO_PAGE_URL: httpx2.Response(500)}
+        result = runner.invoke(app, ["extensions", "install", "huggingface/hf-demo"])
+
+        assert isinstance(result.exception, CLIError)
+        assert "Could not reach GitHub" in str(result.exception)
+        assert github.api_urls == []
+
+    def test_update_stops_on_rate_limit_instead_of_warning_per_extension(
+        self, github: _FakeGitHubSession, runner: CliRunner, tmp_path: Path
+    ) -> None:
+        _fake_install_extension(tmp_path, "one", "two")
+        # A secondary limit: GitHub asks for a back-off and rides the *primary* window's reset
+        # timestamp alongside it, on a quota that is not exhausted. The back-off is what applies.
+        github.responses = {
+            "api.github.com": httpx2.Response(
+                429,
+                headers={"x-ratelimit-remaining": "53", "x-ratelimit-reset": "1786500000", "retry-after": "60"},
+            )
+        }
+        result = runner.invoke(app, ["extensions", "update"])
+
+        assert isinstance(result.exception, CLIError)
+        assert "rate limit exceeded" in str(result.exception)
+        assert "Retry in 60s." in str(result.exception)
+        assert "It resets at" not in str(result.exception)
+        # Bailed out on the first extension rather than repeating the failure for every one of them.
+        assert len(github.api_urls) == 1

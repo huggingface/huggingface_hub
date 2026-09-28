@@ -9,7 +9,8 @@ from pathlib import Path
 from threading import Lock, Thread
 from typing import Optional
 
-from .hf_api import DEFAULT_IGNORE_PATTERNS, CommitInfo, CommitOperationAdd, HfApi
+from ._commit_api import CommitOperationAdd
+from .hf_api import DEFAULT_IGNORE_PATTERNS, CommitInfo, HfApi
 from .utils import filter_repo_objects
 
 

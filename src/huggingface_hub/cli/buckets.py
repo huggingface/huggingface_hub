@@ -13,6 +13,7 @@
 # limitations under the License.
 """Contains commands to interact with buckets via the CLI."""
 
+from collections.abc import Iterable, Iterator
 from typing import Annotated
 
 import click
@@ -21,6 +22,7 @@ from huggingface_hub import logging
 from huggingface_hub._buckets import (
     BUCKET_PREFIX,
     BucketFile,
+    BucketFolder,
     FilterMatcher,
     _parse_bucket_uri,
 )
@@ -230,6 +232,18 @@ def _list_buckets(
     out.table(items, alignments={"size": "right"})
 
 
+def _iter_under_prefix(items: Iterable[BucketFile | BucketFolder], prefix: str) -> Iterator[BucketFile | BucketFolder]:
+    """Drop entries that are not `prefix` itself or below it.
+
+    The server matches `prefix` lexically, so listing "logs" also returns "logs.json" or "logs_backup/...".
+    Filesystem semantics require path components => keep only what's actually under the prefix.
+    """
+    prefix = prefix.rstrip("/")
+    for item in items:
+        if not prefix or item.path == prefix or item.path.startswith(f"{prefix}/"):
+            yield item
+
+
 def _list_files(
     argument: str,
     human_readable: bool,
@@ -244,10 +258,13 @@ def _list_files(
     api = get_hf_api(token=token)
     parsed = _parse_bucket_uri(argument)
     items = list(
-        api.list_bucket_tree(
-            parsed.id,
-            prefix=parsed.path_in_repo or None,
-            recursive=recursive,
+        _iter_under_prefix(
+            api.list_bucket_tree(
+                parsed.id,
+                prefix=parsed.path_in_repo or None,
+                recursive=recursive,
+            ),
+            parsed.path_in_repo,
         )
     )
 
@@ -416,10 +433,13 @@ def remove(
         status = out.status("Listing files from remote")
 
         all_files: list[BucketFile] = []
-        for item in api.list_bucket_tree(
-            bucket_id,
-            prefix=prefix or None,
-            recursive=True,
+        for item in _iter_under_prefix(
+            api.list_bucket_tree(
+                bucket_id,
+                prefix=prefix or None,
+                recursive=True,
+            ),
+            prefix,
         ):
             if isinstance(item, BucketFile):
                 all_files.append(item)
@@ -518,6 +538,61 @@ def move(
     api = get_hf_api(token=token)
     api.move_bucket(from_id=parsed_from.id, to_id=parsed_to.id)
     out.result("Bucket moved", from_id=parsed_from.id, to_id=parsed_to.id)
+
+
+@buckets_cli.command(
+    name="settings",
+    examples=[
+        "hf buckets settings user/my-bucket --private",
+        "hf buckets settings user/my-bucket --public",
+        "hf buckets settings hf://buckets/user/my-bucket --private",
+    ],
+)
+def settings(
+    bucket_id: Annotated[
+        str,
+        Argument(
+            help="Bucket ID: namespace/bucket_name or hf://buckets/namespace/bucket_name",
+        ),
+    ],
+    private: Annotated[
+        bool,
+        Option(
+            "--private",
+            help="Make the bucket private.",
+        ),
+    ] = False,
+    public: Annotated[
+        bool,
+        Option(
+            "--public",
+            help="Make the bucket public.",
+        ),
+    ] = False,
+    token: TokenOpt = None,
+) -> None:
+    """Update bucket settings (visibility)."""
+    if private == public:
+        raise click.BadParameter("Specify exactly one of --private or --public.")
+
+    if bucket_id.startswith(BUCKET_PREFIX):
+        parsed = _parse_bucket_uri(bucket_id)
+        if parsed.path_in_repo:
+            raise click.BadParameter(
+                f"Cannot specify a prefix for bucket settings: {bucket_id}."
+                f" Use namespace/bucket_name or {BUCKET_PREFIX}namespace/bucket_name."
+            )
+        bucket_id = parsed.id
+    elif "/" not in bucket_id:
+        raise click.BadParameter(
+            f"Invalid bucket ID: {bucket_id}."
+            f" Must be in format namespace/bucket_name or {BUCKET_PREFIX}namespace/bucket_name."
+        )
+
+    api = get_hf_api(token=token)
+    api.update_bucket_settings(bucket_id, private=private)
+    out.result("Bucket settings updated", bucket_id=bucket_id, private=private)
+    out.hint(f"Run `hf buckets info {bucket_id}` to view bucket details.")
 
 
 # =============================================================================

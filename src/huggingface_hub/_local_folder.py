@@ -57,6 +57,7 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath, PureWindowsPath
 
 from .utils import WeakFileLock
+from .utils._paths import as_extended_path
 
 
 logger = logging.getLogger(__name__)
@@ -92,12 +93,7 @@ class LocalDownloadFilePaths:
     def incomplete_path(self, etag: str) -> Path:
         """Return the path where a file will be temporarily downloaded before being moved to `file_path`."""
         path = self.metadata_path.parent / f"{_short_hash(self.metadata_path.name)}.{etag}.incomplete"
-        resolved_path = str(path.resolve())
-        # Some Windows versions do not allow for paths longer than 255 characters.
-        # In this case, we must specify it as an extended path by using the "\\?\" prefix.
-        if os.name == "nt" and len(resolved_path) > 255 and not resolved_path.startswith("\\\\?\\"):
-            path = Path("\\\\?\\" + resolved_path)
-        return path
+        return Path(as_extended_path(path))
 
 
 @dataclass(frozen=True)
@@ -253,13 +249,10 @@ def get_local_download_paths(local_dir: Path, filename: str) -> LocalDownloadFil
     metadata_path = _huggingface_dir(local_dir) / "download" / f"{sanitized_filename}.metadata"
     lock_path = metadata_path.with_suffix(".lock")
 
-    # Some Windows versions do not allow for paths longer than 255 characters.
-    # In this case, we must specify it as an extended path by using the "\\?\" prefix
-    if os.name == "nt":
-        if not str(local_dir).startswith("\\\\?\\") and len(os.path.abspath(lock_path)) > 255:
-            file_path = Path("\\\\?\\" + os.path.abspath(file_path))
-            lock_path = Path("\\\\?\\" + os.path.abspath(lock_path))
-            metadata_path = Path("\\\\?\\" + os.path.abspath(metadata_path))
+    # Parent directories are created below => use the stricter Windows limit for directories.
+    file_path = Path(as_extended_path(file_path, max_length=247))
+    lock_path = Path(as_extended_path(lock_path, max_length=247))
+    metadata_path = Path(as_extended_path(metadata_path, max_length=247))
 
     file_path.parent.mkdir(parents=True, exist_ok=True)
     metadata_path.parent.mkdir(parents=True, exist_ok=True)
@@ -288,13 +281,10 @@ def get_local_upload_paths(local_dir: Path, filename: str) -> LocalUploadFilePat
     metadata_path = _huggingface_dir(local_dir) / "upload" / f"{sanitized_filename}.metadata"
     lock_path = metadata_path.with_suffix(".lock")
 
-    # Some Windows versions do not allow for paths longer than 255 characters.
-    # In this case, we must specify it as an extended path by using the "\\?\" prefix
-    if os.name == "nt":
-        if not str(local_dir).startswith("\\\\?\\") and len(os.path.abspath(lock_path)) > 255:
-            file_path = Path("\\\\?\\" + os.path.abspath(file_path))
-            lock_path = Path("\\\\?\\" + os.path.abspath(lock_path))
-            metadata_path = Path("\\\\?\\" + os.path.abspath(metadata_path))
+    # Parent directories are created below => use the stricter Windows limit for directories.
+    file_path = Path(as_extended_path(file_path, max_length=247))
+    lock_path = Path(as_extended_path(lock_path, max_length=247))
+    metadata_path = Path(as_extended_path(metadata_path, max_length=247))
 
     file_path.parent.mkdir(parents=True, exist_ok=True)
     metadata_path.parent.mkdir(parents=True, exist_ok=True)
@@ -456,17 +446,10 @@ def _huggingface_dir(local_dir: Path) -> Path:
     """Return the path to the `.cache/huggingface` directory in a local directory."""
     # Wrap in lru_cache to avoid overwriting the .gitignore file if called multiple times
     path = local_dir / ".cache" / "huggingface"
-    # Without long path support enabled, Windows caps directory paths at 247 characters
-    # (MAX_PATH minus room for an 8.3 file name), so creating the `.cache/huggingface` directory
-    # (and the bookkeeping files below) fails for a deep `local_dir`.
-    # Use the extended-length "\\?\" prefix for the filesystem operations, matching what
-    # `get_local_download_paths`/`get_local_upload_paths` already do for the download/upload paths.
-    # The un-prefixed `path` is still returned so callers keep re-deriving/prefixing as before.
-    target = path
-    if os.name == "nt":
-        abs_path = os.path.abspath(path)
-        if len(abs_path) > 247 and not abs_path.startswith("\\\\?\\"):
-            target = Path("\\\\?\\" + abs_path)
+    # Creating the `.cache/huggingface` directory (and the bookkeeping files below) fails for a deep `local_dir`, so
+    # the filesystem operations go through the extended-length form. The un-prefixed `path` is still returned so
+    # callers keep re-deriving/prefixing as before.
+    target = Path(as_extended_path(path, max_length=247))
     target.mkdir(exist_ok=True, parents=True)
 
     # Create a CACHEDIR.TAG so backup tools can skip this directory.

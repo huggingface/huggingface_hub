@@ -9,12 +9,28 @@ from _pytest.monkeypatch import MonkeyPatch
 from huggingface_hub.utils._xet import (
     XetSessionHolder,
     XetTokenType,
+    is_valid_xet_hash,
     parse_xet_file_data_from_response,
     xet_connection_info_refresh_url,
 )
 
 
 pytestmark = pytest.mark.xet
+
+
+@pytest.mark.parametrize(
+    ("xet_hash", "expected"),
+    [
+        ("63bed80836ee0758c8fd4f8975d59bb0b864263ee2753547c358e8a37cde8758", True),
+        ("63BED80836EE0758C8FD4F8975D59BB0B864263EE2753547C358E8A37CDE8758", True),
+        ("****************************************************************", False),
+        ("", False),
+        ("abc", False),
+        ("g" * 64, False),
+    ],
+)
+def test_is_valid_xet_hash(xet_hash: str, expected: bool) -> None:
+    assert is_valid_xet_hash(xet_hash) is expected
 
 
 def test_parse_valid_headers_file_info() -> None:

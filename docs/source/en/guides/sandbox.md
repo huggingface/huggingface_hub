@@ -3,11 +3,17 @@ rendered properly in your Markdown viewer.
 -->
 # Sandboxes
 
+> [!NOTE]
+> Sandboxes are an **experimental** feature. The API, defaults, and behavior may change without notice. Shared
+> sandboxes are intended for workloads within the same trust boundary; their isolation does not guarantee protection
+> from every cross-sandbox attack. Use dedicated sandboxes for workloads that do not trust each other, and avoid making
+> long-lived or broadly scoped credentials available to sandbox workloads.
+
 A sandbox is an isolated cloud machine you can spin up in seconds, run commands in with live-streamed output, and move files in and out of — all from Python or the CLI. Sandboxes are built on top of [Jobs](./jobs): under the hood, a sandbox is just a Job running a tiny server that exposes command execution and file transfer over HTTP.
 
 They are a good fit whenever you need to run code somewhere other than your own machine:
 
-- **Running untrusted or AI-generated code** — let an agent execute arbitrary code without giving it access to your filesystem.
+- **Running untrusted or AI-generated code** — let an agent execute arbitrary code without giving it access to your filesystem. Use a *dedicated* sandbox for this: it is a VM of its own.
 - **Reproducible builds and experiments** — run on a clean, well-defined image, on CPU or GPU.
 - **Fanning out work** — launch hundreds of parallel environments (RL rollouts, evaluation, batch tool execution) cheaply.
 
@@ -117,12 +123,12 @@ Other helpers: `stat`, `exists`, `mkdir`, `delete`.
 Start a server in the sandbox (in the background), then reach it from the outside with [`Sandbox.proxy_url_for`] — the request is forwarded by the in-job sandbox server to your inner server, so there's no extra public port to expose. It works for plain HTTP, Server-Sent Events and WebSocket. Pair the URL with [`Sandbox.proxy_headers`] for auth (your WebSocket/HTTP client must send them):
 
 ```python
->>> import httpx
+>>> import httpx2
 >>> with Sandbox.create() as sbx:
 ...     sbx.files.write("app.py", "...")  # a server exposing e.g. /hello and /ws
 ...     sbx.run("uvicorn app:app --host 127.0.0.1 --port 8000", background=True)
 ...     # plain HTTP
-...     r = httpx.get(sbx.proxy_url_for(8000, "/hello"), headers=sbx.proxy_headers)
+...     r = httpx2.get(sbx.proxy_url_for(8000, "/hello"), headers=sbx.proxy_headers)
 ...     # WebSocket: ask for a wss:// URL
 ...     ws_url = sbx.proxy_url_for(8000, "/ws", scheme="wss://")
 ```
@@ -148,7 +154,7 @@ A sandbox outlives the process that created it — you can create it now and rec
 
 - `idle_timeout` (default 10 minutes) is the real keeper: it shuts the sandbox down once no API call is made and no process is running, so abandoned sandboxes stop billing. Set it at create time (`Sandbox.create(idle_timeout="30m")`) or pass `None` to disable.
 - The job also has a fixed 24h maximum lifetime as a hard backstop (not configurable).
-- Your HF token is never sent into the sandbox unless you opt in with `forward_hf_token=True`.
+- `forward_hf_token=True` explicitly exposes your HF token to the code running in the sandbox (as `HF_TOKEN`). Even with `forward_hf_token=False`, don't treat the sandbox as a hard boundary for your credentials — see the warning at the top of this page.
 
 ## Many sandboxes at once: SandboxPool
 
@@ -216,8 +222,13 @@ To reattach from another machine with no local state, reconnect by pool id with 
 
 A `connect()`'d pool does not own the shared hosts (other clients may be using them), so — like [`Sandbox.connect`] — leaving its `with` block (or calling `close()`) only releases the local HTTP clients and leaves the hosts running. Terminate a pool's hosts explicitly with `pool delete` / `hf sandbox pool delete <id>`.
 
-> [!WARNING]
-> Sandboxes within a host are isolated from each other by distinct uids plus a per-sandbox Landlock ruleset — they cannot read, signal, or write each other's files, and each is confined to its own private home. This is the right boundary for *one user's own* parallel workloads. For mutually-hostile untrusted code, or for GPU, use [`Sandbox.create`] (a separate VM per sandbox). The trade-offs are detailed in the [conceptual guide](../concepts/sandbox#isolation-in-a-pool-uid--landlock).
+> [!NOTE]
+> Sandboxes within a host are separated by distinct uids and per-sandbox Landlock rulesets. Shared sandboxes are
+> intended for *one user's own* parallel workloads, and isolation from every cross-sandbox attack is not guaranteed.
+> For mutually untrusted code, or for GPU, use [`Sandbox.create`] (a separate VM per sandbox). The trade-offs are
+> detailed in the conceptual guide: [how the isolation
+> works](../concepts/sandbox#isolation-in-a-pool-uid--landlock) and — more important if you are choosing between the
+> two modes — the full list of [known limitations](../concepts/sandbox#known-limitations).
 
 ## From the CLI
 
@@ -226,6 +237,9 @@ The `hf sandbox` command mirrors the Python API. A dedicated sandbox:
 ```bash
 >>> hf sandbox create
 ✓ Sandbox ready id=687f911eaea852de79c4a50a image=python:3.12 elapsed=6.0s
+
+# Attach labels to the underlying Job
+>>> hf sandbox create --label controller-run=run-42 --label team=data-infra
 
 >>> hf sandbox exec 687f911eaea852de79c4a50a -- python -c "print('hi')"
 hi

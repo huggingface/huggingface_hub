@@ -176,7 +176,32 @@ class TestModelCardData:
         assert eval_results[2].source_name == "Open LLM Leaderboard"
         assert eval_results[2].source_url == OPEN_LLM_LEADERBOARD_URL
 
+    def test_model_index_to_eval_results_source_null(self):
+        """model-index YAML may have 'source: null' (explicit null, which is valid YAML).
+        result.get("source", {}) returns None in that case (the key exists), so calling
+        .get("name") on None used to raise AttributeError. Verify we gracefully treat
+        an explicit null source the same as a missing source key."""
+        model_index = [
+            {
+                "name": "my-cool-model",
+                "results": [
+                    {
+                        "task": {"type": "image-classification"},
+                        "dataset": {"type": "beans", "name": "Beans"},
+                        "metrics": [{"type": "acc", "value": 0.9}],
+                        "source": None,  # explicit null — valid YAML
+                    }
+                ],
+            }
+        ]
+        model_name, eval_results = model_index_to_eval_results(model_index)
+        assert model_name == "my-cool-model"
+        assert len(eval_results) == 1
+        assert eval_results[0].source_name is None
+        assert eval_results[0].source_url is None
+
     def test_card_data_requires_model_name_for_eval_results(self):
+
         with pytest.raises(ValueError, match="`eval_results` requires `model_name` to be set."):
             ModelCardData(
                 eval_results=[

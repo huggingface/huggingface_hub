@@ -2,10 +2,11 @@ import os
 from pathlib import Path
 from typing import Literal, overload
 
-import httpx
+import httpx2
 from tqdm.auto import tqdm as base_tqdm
 
 from . import constants
+from ._revision import ResolvedRevision
 from ._tree_cache import TreeCacheEntry, read_tree_cache, tree_cache_folder_for_local_dir, write_tree_cache
 from .errors import (
     CachedRepoTreeNotFoundError,
@@ -17,9 +18,17 @@ from .errors import (
     RepositoryNotFoundError,
     RevisionNotFoundError,
 )
-from .file_download import REGEX_COMMIT_HASH, DryRunFileInfo, hf_hub_download, repo_folder_name
-from .hf_api import DatasetInfo, HfApi, KernelInfo, ModelInfo, RepoFile, SpaceInfo
+from .file_download import (
+    REGEX_COMMIT_HASH,
+    DryRunFileInfo,
+    _cache_commit_hash_for_specific_revision,
+    hf_hub_download,
+    repo_folder_name,
+)
+from .hf_api import HfApi, RepoFile
 from .utils import OfflineModeIsEnabled, filter_repo_objects, logging, validate_hf_hub_args
+from .utils._http import flag_as_download_call
+from .utils._paths import as_extended_path
 from .utils._xet_progress_reporting import (
     XET_BYTES_BAR_FORMAT,
     XET_TRANSFER_BAR_FORMAT,
@@ -110,6 +119,7 @@ def snapshot_download(
 
 
 @validate_hf_hub_args
+@flag_as_download_call
 def snapshot_download(
     repo_id: str,
     *,
@@ -168,7 +178,7 @@ def snapshot_download(
             The user-agent info in the form of a dictionary or a string.
         etag_timeout (`float`, *optional*, defaults to `10`):
             When fetching ETag, how many seconds to wait for the server to send
-            data before giving up, which is passed to `httpx.request`.
+            data before giving up, which is passed to `httpx2.request`.
         force_download (`bool`, *optional*, defaults to `False`):
             Whether the file should be downloaded even if it already exists in the local cache.
         token (`str`, `bool`, *optional*):
@@ -249,17 +259,28 @@ def snapshot_download(
         token=token,
     )
 
-    repo_info: ModelInfo | DatasetInfo | SpaceInfo | KernelInfo | None = None
+    # The revision is already a commit hash if:
+    # - it's a `ResolvedRevision` (already resolved, see [`HfApi.resolve_revision`])
+    # - it's a commit hash, which is immutable
+    # => in both cases, there is nothing to resolve and the `repo_info` call can be skipped.
+    commit_hash: str | None = None
+    if isinstance(revision, ResolvedRevision):
+        commit_hash = revision.resolved
+    elif REGEX_COMMIT_HASH.fullmatch(revision):
+        commit_hash = revision
+
     api_call_error: Exception | None = None
-    if not local_files_only:
+    if commit_hash is None and not local_files_only:
         # try/except logic to handle different errors => taken from `hf_hub_download`
         try:
             # if we have internet connection we want to list files to download
             repo_info = api.repo_info(repo_id=repo_id, repo_type=repo_type, revision=revision)
-        except httpx.ProxyError:
+            assert repo_info.sha is not None, "Repo info returned from server must have a revision sha."
+            commit_hash = repo_info.sha
+        except httpx2.ProxyError:
             # Actually raise on proxy error
             raise
-        except (httpx.ConnectError, httpx.TimeoutException, OfflineModeIsEnabled) as error:
+        except (httpx2.ConnectError, httpx2.TimeoutException, OfflineModeIsEnabled) as error:
             # Internet connection is down
             # => will try to use local files only
             api_call_error = error
@@ -277,7 +298,7 @@ def snapshot_download(
             api_call_error = error
             pass
 
-    # At this stage, if `repo_info` is None it means either:
+    # At this stage, if the commit hash is unknown it means either:
     # - internet connection is down
     # - internet connection is deactivated (local_files_only=True or HF_HUB_OFFLINE=True)
     # - repo is private/gated and invalid/missing token sent
@@ -286,17 +307,14 @@ def snapshot_download(
     #    - if the specified revision is a commit hash, look inside "snapshots".
     #    - f the specified revision is a branch or tag, look inside "refs".
     # => if local_dir is not None, we will return the path to the local folder if it exists.
-    if repo_info is None:
+    if commit_hash is None or local_files_only:
         if dry_run:
             raise DryRunError(
                 "Dry run cannot be performed as the repository cannot be accessed. Please check your internet connection or authentication token."
             ) from api_call_error
 
         # Try to get which commit hash corresponds to the specified revision
-        commit_hash = None
-        if REGEX_COMMIT_HASH.match(revision):
-            commit_hash = revision
-        else:
+        if commit_hash is None:
             ref_path = os.path.join(storage_folder, "refs", revision)
             if os.path.exists(ref_path):
                 # retrieve commit_hash from refs file
@@ -367,10 +385,9 @@ def snapshot_download(
                 " and try again."
             ) from api_call_error
 
-    # At this stage, internet connection is up and running
+    # At this stage, the commit hash is known and internet connection is up and running
     # => let's download the files!
-    assert repo_info.sha is not None, "Repo info returned from server must have a revision sha."
-    commit_hash = repo_info.sha
+    assert commit_hash is not None
 
     # Retrieve /tree listing from cache or fetch it
     tree_entries = read_tree_cache(tree_cache_folder, commit_hash)
@@ -403,15 +420,16 @@ def snapshot_download(
     snapshot_folder = os.path.join(storage_folder, "snapshots", commit_hash)
     # if passed revision is not identical to commit_hash
     # then revision has to be a branch name or tag name.
-    # In that case store a ref.
-    if revision != commit_hash:
-        ref_path = os.path.join(storage_folder, "refs", revision)
+    # In that case store a ref (except if ResolvedRevision, in which case it's already done).
+    if not isinstance(revision, ResolvedRevision):
         try:
-            os.makedirs(os.path.dirname(ref_path), exist_ok=True)
-            with open(ref_path, "w") as f:
-                f.write(commit_hash)
+            # Skips the write if the ref is already up to date, and writes atomically otherwise so that
+            # concurrent readers never observe a truncated (empty) ref file.
+            _cache_commit_hash_for_specific_revision(storage_folder, revision, commit_hash)
         except OSError as e:
-            logger.warning(f"Ignored error while writing commit hash to {ref_path}: {e}.")
+            logger.warning(
+                f"Ignored error while writing commit hash to {os.path.join(storage_folder, 'refs', revision)}: {e}."
+            )
 
     results: list[str | DryRunFileInfo] = []
 
@@ -520,7 +538,7 @@ def snapshot_download(
     )
 
     _finish_transfer_bar(transfer_progress)
-    transfer_progress.set_description("Download complete")
+    transfer_progress.set_description_str("Download complete")
     reconstruct_progress.set_description("Reconstruction complete")
 
     if dry_run:
@@ -643,7 +661,9 @@ def get_cached_repo_tree(
 
     # The tree cache is keyed by commit hash. Resolve the revision to a commit hash: either it already is one,
     # or it's a branch/tag name recorded in `refs/` by a previous download.
-    if REGEX_COMMIT_HASH.match(revision):
+    if isinstance(revision, ResolvedRevision):
+        commit_hash = revision.resolved
+    elif REGEX_COMMIT_HASH.fullmatch(revision):
         commit_hash = revision
     else:
         ref_path = os.path.join(storage_folder, "refs", revision)
@@ -676,7 +696,4 @@ def _local_file_exists(base_dir: str, path: str) -> bool:
     On Windows, paths longer than 255 characters must be prefixed with `\\\\?\\`, otherwise `os.path.isfile` reports an
     existing file as missing.
     """
-    full_path = os.path.join(base_dir, *path.split("/"))
-    if os.name == "nt" and len(os.path.abspath(full_path)) > 255 and not full_path.startswith("\\\\?\\"):
-        full_path = "\\\\?\\" + os.path.abspath(full_path)
-    return os.path.isfile(full_path)
+    return os.path.isfile(as_extended_path(os.path.join(base_dir, *path.split("/"))))

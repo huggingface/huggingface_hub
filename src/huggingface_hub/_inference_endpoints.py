@@ -1,4 +1,5 @@
 import time
+import warnings
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -7,6 +8,7 @@ from typing import TYPE_CHECKING, Optional
 from huggingface_hub.errors import InferenceEndpointError, InferenceEndpointTimeoutError
 
 from .utils import get_session, logging, parse_datetime
+from .utils._headers import get_token_to_send
 
 
 if TYPE_CHECKING:
@@ -15,6 +17,77 @@ if TYPE_CHECKING:
     from .inference._generated._async_client import AsyncInferenceClient
 
 logger = logging.get_logger(__name__)
+
+
+def _build_endpoint_image_payload(
+    custom_image: dict,
+    *,
+    container_registry_username: str | None = None,
+    container_registry_password: str | None = None,
+) -> dict:
+    """Build the `model.image` payload of an Inference Endpoint from a user-provided image dict.
+
+    `model.image` is a union keyed by variant (`{"vLLM": {...}}`, `{"custom": {...}}`, ...). Only a flat
+    container dict has a top-level `url` (required server-side, and no variant is named `url`), so dicts with
+    one are wrapped in `{"custom": ...}`. Everything else is forwarded as-is, so variants added to the API
+    later work without a release.
+    """
+    image = {"custom": custom_image} if "url" in custom_image else custom_image
+
+    if container_registry_password is not None and container_registry_username is None:
+        raise ValueError("`container_registry_password` requires `container_registry_username`.")
+    if container_registry_username is None:
+        return image
+
+    custom_container = image.get("custom")
+    if not isinstance(custom_container, dict):
+        raise ValueError("Container registry credentials can only be set for a custom container image.")
+
+    credentials = {"username": container_registry_username}
+    if container_registry_password is not None:
+        credentials["password"] = container_registry_password
+    return {**image, "custom": {**custom_container, "credentials": credentials}}
+
+
+# Image variants that declare `tensorParallelSize` / `dataParallelSize`. The API ignores a field a variant doesn't
+# declare instead of rejecting it, so these only drive a warning: a wrong engine gets a visible no-op rather than a
+# silent one, and an engine the API adds later still works without a `huggingface_hub` release.
+_TENSOR_PARALLEL_IMAGE_KEYS = ("sGLang", "vLLM")
+_DATA_PARALLEL_IMAGE_KEYS = ("vLLM",)
+
+
+def _set_parallelism_in_image(
+    image: dict,
+    *,
+    tensor_parallel_size: int | None = None,
+    data_parallel_size: int | None = None,
+) -> dict:
+    """Write the parallelism sizes into a `model.image` payload.
+
+    They are engine settings, so they live inside the engine config (`{"vLLM": {"url": ..., "tensorParallelSize": 8}}`)
+    rather than at the top level. Returns a new image dict, the input is left untouched.
+    """
+    image_key = next(iter(image), None)
+    if image_key is None:
+        raise ValueError("Cannot set the parallelism sizes: the image payload is empty.")
+
+    for value, name, supported in (
+        (tensor_parallel_size, "tensor_parallel_size", _TENSOR_PARALLEL_IMAGE_KEYS),
+        (data_parallel_size, "data_parallel_size", _DATA_PARALLEL_IMAGE_KEYS),
+    ):
+        if value is not None and image_key not in supported:
+            warnings.warn(
+                f"`{name}` is not a known setting of the '{image_key}' image: the API will silently drop it."
+                f" Engines that support it: {', '.join(supported)}.",
+                UserWarning,
+            )
+
+    image = {image_key: {**image[image_key]}}
+    if tensor_parallel_size is not None:
+        image[image_key]["tensorParallelSize"] = tensor_parallel_size
+    if data_parallel_size is not None:
+        image[image_key]["dataParallelSize"] = data_parallel_size
+    return image
 
 
 class InferenceEndpointStatus(str, Enum):
@@ -30,7 +103,6 @@ class InferenceEndpointStatus(str, Enum):
 
 class InferenceEndpointType(str, Enum):
     PUBlIC = "public"
-    PROTECTED = "protected"  # deprecated, use AUTHENTICATED instead
     AUTHENTICATED = "authenticated"
     PRIVATE = "private"
 
@@ -85,7 +157,7 @@ class InferenceEndpoint:
         >>> endpoint.status
         'running'
         >>> endpoint.url
-        'https://my-text-to-image.region.vendor.endpoints.huggingface.cloud'
+        'https://68a0f3b5c6ee5c9dcc0e0a01.endpoints.huggingface.cloud'
 
         # Run inference
         >>> endpoint.client.text_to_image(...)
@@ -135,6 +207,8 @@ class InferenceEndpoint:
             api = HfApi()
         if token is None:
             token = api.token
+        if token is True:
+            token = get_token_to_send(token)
 
         # All other fields are populated in __post_init__
         return cls(raw=raw, namespace=namespace, _token=token, _api=api)
@@ -267,6 +341,10 @@ class InferenceEndpoint:
         revision: str | None = None,
         task: str | None = None,
         custom_image: dict | None = None,
+        container_command: list[str] | None = None,
+        container_args: list[str] | None = None,
+        tensor_parallel_size: int | None = None,
+        data_parallel_size: int | None = None,
         secrets: dict[str, str] | None = None,
     ) -> "InferenceEndpoint":
         """Update the Inference Endpoint.
@@ -300,8 +378,22 @@ class InferenceEndpoint:
             task (`str`, *optional*):
                 The task on which to deploy the model (e.g. `"text-classification"`).
             custom_image (`dict`, *optional*):
-                A custom Docker image to use for the Inference Endpoint. This is useful if you want to deploy an
-                Inference Endpoint running on the `text-generation-inference` (TGI) framework (see examples).
+                The container image to run. Either a dict keyed by image variant (e.g.
+                `{"vLLM": {"url": "vllm/vllm-openai:v0.23.0", "port": 8000}}`, also `sGLang`, `tgi`, `tei`,
+                `llamacpp`, `hfServe`, ...), which is forwarded as-is, or a flat dict describing a custom
+                container (e.g. `{"url": ..., "port": ...}`), which is sent as `{"custom": ...}`.
+            container_command (`list[str]`, *optional*):
+                Override the container entrypoint command (maps to `model.command` in the API payload). Works with
+                both managed engine images (e.g. vLLM, SGLang) and custom images.
+            container_args (`list[str]`, *optional*):
+                Arguments appended to the container entrypoint (maps to `model.args` in the API payload). Works with
+                both managed engine images (e.g. vLLM, SGLang) and custom images.
+            tensor_parallel_size (`int`, *optional*):
+                Number of accelerators to shard a single model copy across (vLLM and SGLang images). When
+                `custom_image` is not given, the image currently configured on the endpoint is fetched and updated
+                in place, as the API requires `model.image` as a whole.
+            data_parallel_size (`int`, *optional*):
+                Number of model copies to run, one per accelerator (vLLM images).
             secrets (`dict[str, str]`, *optional*):
                 Secret values to inject in the container environment.
         Returns:
@@ -322,6 +414,10 @@ class InferenceEndpoint:
             revision=revision,
             task=task,
             custom_image=custom_image,
+            container_command=container_command,
+            container_args=container_args,
+            tensor_parallel_size=tensor_parallel_size,
+            data_parallel_size=data_parallel_size,
             secrets=secrets,
             token=self._token,  # type: ignore [arg-type]
         )
@@ -417,3 +513,92 @@ class InferenceEndpoint:
         self.created_at = parse_datetime(self.raw["status"]["createdAt"])
         self.updated_at = parse_datetime(self.raw["status"]["updatedAt"])
         self.type = self.raw["type"]
+
+
+@dataclass
+class InferenceEndpointHardware:
+    """
+    Contains information about a hardware configuration available for Inference Endpoints.
+
+    The `vendor`, `region`, `accelerator`, `instance_type` and `instance_size` fields are exactly the values to pass to
+    [`create_inference_endpoint`] (or `hf endpoints deploy`) to deploy on this hardware.
+
+    Args:
+        id (`str`):
+            Unique hardware identifier, e.g. `"aws-us-east-1-nvidia-l4-x1"`.
+        vendor (`str`):
+            The cloud provider hosting the hardware, e.g. `"aws"`.
+        region (`str`):
+            The cloud region the hardware is available in, e.g. `"us-east-1"`.
+        accelerator (`str`):
+            The type of hardware accelerator, e.g. `"cpu"`, `"gpu"` or `"neuron"`.
+        instance_type (`str`):
+            The cloud instance type, e.g. `"nvidia-l4"`.
+        instance_size (`str`):
+            The instance size multiplier, e.g. `"x1"`.
+        architecture (`str`):
+            Human-readable hardware description, e.g. `"Nvidia L4"`.
+        num_accelerators (`int`):
+            Number of accelerator units per replica.
+        num_cpus (`int`, *optional*):
+            Number of vCPUs per replica.
+        memory_gb (`float`):
+            RAM per replica, in GB.
+        gpu_memory_gb (`int`, *optional*):
+            Total GPU memory per replica, in GB (i.e. summed over `num_accelerators`). `None` for non-GPU hardware.
+        price_per_hour (`float`):
+            Cost per replica per hour, in USD.
+        status (`str`):
+            Availability of the hardware: `"available"`, `"low_availability"`, `"not_available"`, `"reserved"` or
+            `"deprecated"`.
+        max_accelerators (`int`):
+            Maximum number of accelerators of this type the namespace is allowed to run.
+        used_accelerators (`int`):
+            Number of accelerators of this type currently used by the namespace.
+
+    Example:
+        ```python
+        >>> from huggingface_hub import list_inference_endpoints_hardware
+        >>> hardware = list_inference_endpoints_hardware()
+        >>> hardware[0]
+        InferenceEndpointHardware(id='aws-us-east-1-nvidia-l4-x1', vendor='aws', region='us-east-1', ...)
+        ```
+    """
+
+    id: str
+    vendor: str
+    region: str
+    accelerator: str
+    instance_type: str
+    instance_size: str
+    architecture: str
+    num_accelerators: int
+    num_cpus: int | None
+    memory_gb: float
+    gpu_memory_gb: int | None
+    price_per_hour: float
+    status: str
+    max_accelerators: int
+    used_accelerators: int
+
+    @classmethod
+    def from_raw(cls, raw: dict, *, vendor: str, region: str) -> "InferenceEndpointHardware":
+        """Initialize object from a raw compute dictionary, nested under a vendor and a region in the API response."""
+        quota = raw["quota"]
+        return cls(
+            id=raw["id"],
+            vendor=vendor,
+            region=region,
+            accelerator=raw["accelerator"],
+            instance_type=raw["instanceType"],
+            instance_size=raw["instanceSize"],
+            architecture=raw["architecture"],
+            num_accelerators=raw["numAccelerators"],
+            num_cpus=raw.get("numCpus"),
+            memory_gb=raw["memoryGb"],
+            gpu_memory_gb=raw.get("gpuMemoryGb"),
+            price_per_hour=raw["pricePerHour"],
+            status=raw["status"],
+            max_accelerators=quota["maxAccelerators"],
+            used_accelerators=quota["usedAccelerators"],
+        )

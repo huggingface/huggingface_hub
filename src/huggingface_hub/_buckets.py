@@ -30,6 +30,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
 from . import constants, logging
+from ._local_folder import _validate_relative_filename
 from .errors import BucketNotFoundError
 from .utils import (
     HfUri,
@@ -41,6 +42,7 @@ from .utils import (
     parse_hf_uri,
 )
 from .utils._hf_uris import _looks_like_hf_url
+from .utils._paths import _normalize_separators
 
 
 if TYPE_CHECKING:
@@ -326,7 +328,11 @@ class SyncPlan:
 
 
 class FilterMatcher:
-    """Matches file paths against include/exclude patterns."""
+    """Matches file paths against include/exclude patterns.
+
+    Matching is case-sensitive on every platform, like bucket paths. Backslashes in patterns are treated as path
+    separators, since bucket paths and local relative paths always use `/`.
+    """
 
     def __init__(
         self,
@@ -341,9 +347,9 @@ class FilterMatcher:
             exclude_patterns: Patterns to exclude (from --exclude)
             filter_rules: Rules from filter file as list of ("+"/"-", pattern) tuples
         """
-        self.include_patterns = include_patterns or []
-        self.exclude_patterns = exclude_patterns or []
-        self.filter_rules = filter_rules or []
+        self.include_patterns = [_normalize_separators(p) for p in include_patterns or []]
+        self.exclude_patterns = [_normalize_separators(p) for p in exclude_patterns or []]
+        self.filter_rules = [(sign, _normalize_separators(p)) for sign, p in filter_rules or []]
 
     def matches(self, path: str) -> bool:
         """Check if a path should be included based on the filter rules.
@@ -354,16 +360,16 @@ class FilterMatcher:
         """
         # First check filter rules from file (in order)
         for sign, pattern in self.filter_rules:
-            if fnmatch.fnmatch(path, pattern):
+            if fnmatch.fnmatchcase(path, pattern):
                 return sign == "+"
 
         # Then check CLI patterns
         for pattern in self.exclude_patterns:
-            if fnmatch.fnmatch(path, pattern):
+            if fnmatch.fnmatchcase(path, pattern):
                 return False
 
         for pattern in self.include_patterns:
-            if fnmatch.fnmatch(path, pattern):
+            if fnmatch.fnmatchcase(path, pattern):
                 return True
 
         # If include patterns were specified but none matched, exclude
@@ -465,6 +471,8 @@ def _list_remote_files(api: "HfApi", bucket_id: str, prefix: str) -> Iterator[tu
                 continue
         else:
             rel_path = path
+        # Reject server keys that would escape the local dir when joined onto it (see PR #4540).
+        _validate_relative_filename(rel_path)
         mtime_ms = item.mtime.timestamp() * 1000 if item.mtime else 0
         yield rel_path, item.size, mtime_ms, item
 
@@ -885,6 +893,10 @@ def _execute_plan(plan: SyncPlan, api: "HfApi", verbose: bool = False, status: A
     """Execute a sync plan."""
     is_upload = not _is_bucket_path(plan.source) and _is_bucket_path(plan.dest)
     is_download = _is_bucket_path(plan.source) and not _is_bucket_path(plan.dest)
+
+    # Validate here too: an --apply'd plan is read from disk, bypassing the _list_remote_files guard.
+    for op in plan.operations:
+        _validate_relative_filename(op.path)
 
     if is_upload:
         local_path = os.path.abspath(plan.source)

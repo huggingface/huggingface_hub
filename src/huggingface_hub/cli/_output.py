@@ -21,12 +21,15 @@ import shutil
 import sys
 from collections.abc import Sequence
 from enum import Enum
+from functools import cache
 from typing import Any, cast
 
 import click
 
+from huggingface_hub import constants
 from huggingface_hub.errors import ConfirmationError
-from huggingface_hub.utils import ANSI, StatusLine, disable_progress_bars, is_agent, tabulate
+from huggingface_hub.repocard_data import CardData
+from huggingface_hub.utils import ANSI, StatusLine, disable_progress_bars, enable_progress_bars, is_agent, tabulate
 
 
 class OutputFormat(str, Enum):
@@ -64,8 +67,13 @@ class Output:
         if mode == OutputFormat.auto:
             mode = OutputFormat.agent if is_agent() else OutputFormat.human
         self.mode = mode
-        if mode != OutputFormat.human:
-            disable_progress_bars()
+        is_human = mode == OutputFormat.human
+        ANSI.set_enabled(is_human)
+        if constants.HF_HUB_DISABLE_PROGRESS_BARS is None:  # env var has priority
+            if is_human:
+                enable_progress_bars()
+            else:
+                disable_progress_bars()
 
     def set_no_truncate(self, no_truncate: bool) -> None:
         """Toggle off cell truncation for human table output."""
@@ -166,7 +174,7 @@ class Output:
         """Print a success summary to stdout."""
         match self.mode:
             case OutputFormat.human:  # ✓ message + key: value lines
-                parts = [ANSI.green(f"✓ {message}")]
+                parts = [ANSI.green(f"{_ascii_safe('✓', '[OK]')} {message}")]
                 for k, v in data.items():
                     if v is not None:
                         parts.append(f"  {k}: {v}")
@@ -239,6 +247,24 @@ class Output:
 # HELPERS
 
 
+@cache
+def _ascii_safe(char: str, fallback: str) -> str:
+    """Return `char`, or `fallback` if stdout cannot encode it.
+
+    On Windows, `sys.stdout` uses the ANSI code page (e.g. cp1252) instead of the console
+    encoding whenever it is not attached to a console (output redirected, piped, captured by
+    a CI step). Printing a decoration like "✓" then raises `UnicodeEncodeError` - a
+    `ValueError` subclass, so it surfaces as a confusing "Invalid value." error and aborts
+    the command. Cached since the stream encoding is fixed for the lifetime of the process.
+    """
+    encoding = getattr(sys.stdout, "encoding", None) or "utf-8"
+    try:
+        char.encode(encoding)
+    except (LookupError, UnicodeEncodeError):
+        return fallback
+    return char
+
+
 def _serialize_value(v: object) -> object:
     """Recursively serialize a value to be JSON-compatible."""
     if isinstance(v, datetime.datetime):
@@ -252,7 +278,14 @@ def _serialize_value(v: object) -> object:
 
 def _dataclass_to_dict(info: Any) -> dict[str, Any]:
     """Convert a dataclass to a json-serializable dict."""
-    return {k: _serialize_value(v) for k, v in dataclasses.asdict(info).items() if v is not None}
+    data = dataclasses.asdict(info)
+
+    for field in dataclasses.fields(info):
+        value = getattr(info, field.name)
+        if isinstance(value, CardData):
+            data[field.name] = value.to_dict()
+
+    return {k: _serialize_value(v) for k, v in data.items() if v is not None}
 
 
 _ANSI_RE = re.compile(r"\033\[[0-9;]*m")
@@ -286,10 +319,10 @@ def _format_table_value_human(value: Any) -> str:
     if value is None:
         return ""
     if isinstance(value, bool):
-        return "✔" if value else ""
+        return _ascii_safe("✔", "yes") if value else ""
     if isinstance(value, datetime.datetime):
         return value.strftime("%Y-%m-%d")
-    if isinstance(value, str) and re.match(r"^\d{4}-\d{2}-\d{2}T", value):
+    if isinstance(value, str) and re.search(r"^\d{4}-\d{2}-\d{2}T", value):
         return value[:10]
     if isinstance(value, str):
         return _single_line(value)

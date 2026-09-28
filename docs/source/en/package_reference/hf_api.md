@@ -39,19 +39,19 @@ models = hf_api.list_models()
 
 ### BucketFile
 
-[[autodoc]] huggingface_hub.hf_api.BucketFile
+[[autodoc]] huggingface_hub.BucketFile
 
 ### BucketFileMetadata
 
-[[autodoc]] huggingface_hub.hf_api.BucketFileMetadata
+[[autodoc]] huggingface_hub.BucketFileMetadata
 
 ### BucketInfo
 
-[[autodoc]] huggingface_hub.hf_api.BucketInfo
+[[autodoc]] huggingface_hub.BucketInfo
 
 ### BucketUrl
 
-[[autodoc]] huggingface_hub.hf_api.BucketUrl
+[[autodoc]] huggingface_hub.BucketUrl
 
 ### DatasetLeaderboardEntry
 
@@ -79,7 +79,7 @@ models = hf_api.list_models()
 
 ### DryRunFileInfo
 
-[[autodoc]] huggingface_hub.hf_api.DryRunFileInfo
+[[autodoc]] huggingface_hub.DryRunFileInfo
 
 ### GitRefInfo
 

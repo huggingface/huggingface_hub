@@ -4,12 +4,12 @@ on:
   pull_request
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
 
 jobs:
   build:
-    uses: huggingface/doc-builder/.github/workflows/build_pr_documentation.yml@0f4784322c564503c4a4d67ccb7fba29e32f111a  # main
+    uses: huggingface/doc-builder/.github/workflows/build_pr_documentation.yml@63ec6f1a0ac9300e6a35f4efe140b09ac9f68a89  # main
     with:
       commit_sha: ${{ github.event.pull_request.head.sha }}
       pr_number: ${{ github.event.number }}

@@ -13,13 +13,15 @@ from typing import Any, NoReturn, Union
 from urllib.parse import quote, unquote
 
 import fsspec
-import httpx
+import httpx2
 from fsspec.callbacks import _DEFAULT_CALLBACK, NoOpCallback, TqdmCallback
 from fsspec.config import apply_config
 from fsspec.utils import isfilelike
 
 from . import constants
+from ._buckets import BucketFile, BucketFolder
 from ._commit_api import CommitOperationCopy, CommitOperationDelete
+from ._local_folder import _validate_relative_filename
 from .errors import (
     BucketNotFoundError,
     EntryNotFoundError,
@@ -27,9 +29,11 @@ from .errors import (
     RepositoryNotFoundError,
     RevisionNotFoundError,
 )
-from .file_download import hf_hub_url, http_get
-from .hf_api import SPECIAL_REFS_REVISION_REGEX, BucketFile, BucketFolder, HfApi, LastCommitInfo, RepoFile, RepoFolder
-from .utils import HFValidationError, hf_raise_for_status, http_backoff, http_stream_backoff, parse_hf_uri
+from .file_download import hf_hub_url, http_get, xet_get
+from .hf_api import SPECIAL_REFS_REVISION_REGEX, HfApi, LastCommitInfo, RepoFile, RepoFolder
+from .utils import HFValidationError, XetFileData, hf_raise_for_status, http_backoff, http_stream_backoff, parse_hf_uri
+from .utils._runtime import is_xet_available
+from .utils._xet import XetTokenType, xet_connection_info_refresh_url
 from .utils.insecure_hashlib import md5
 
 
@@ -663,6 +667,11 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         out: list[BucketFile | BucketFolder] = []
 
         for bucket_entry in bucket_files:
+            # The server matches `prefix` lexically, so listing "logs" also returns "logs_existing/...".
+            # Filesystem semantics require path components => drop entries that aren't `prefix` itself
+            # or below it.
+            if prefix and bucket_entry.path != prefix and not bucket_entry.path.startswith(f"{prefix}/"):
+                continue
             out.append(bucket_entry)
 
             # If recursive=False, both files and folders are returned by the server => nothing to do
@@ -1070,7 +1079,28 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
             url = url.replace("/resolve/", "/tree/", 1)
         return url
 
-    def get_file(self, rpath, lpath, callback=_DEFAULT_CALLBACK, outfile=None, **kwargs) -> None:
+    def _get_xet_file_data(
+        self, resolved_path: HfFileSystemResolvedRepositoryPath | HfFileSystemResolvedBucketPath, info: dict[str, Any]
+    ) -> XetFileData | None:
+        """Build the Xet metadata of a file from its `info()` entry, or return None if it can't be downloaded with Xet."""
+        if not is_xet_available() or (xet_hash := info.get("xet_hash")) is None:
+            return None
+        if isinstance(resolved_path, HfFileSystemResolvedBucketPath):
+            repo_id, repo_type, revision = resolved_path.bucket_id, "bucket", None
+        else:
+            # Special refs (e.g. "refs/pr/1") must be quoted in the token route
+            repo_id, repo_type = resolved_path.repo_id, resolved_path.repo_type
+            revision = quote(resolved_path.revision, safe="")
+        refresh_route = xet_connection_info_refresh_url(
+            token_type=XetTokenType.READ,
+            repo_id=repo_id,
+            repo_type=repo_type,
+            revision=revision,
+            endpoint=self.endpoint,
+        )
+        return XetFileData(file_hash=xet_hash, refresh_route=refresh_route)
+
+    def get_file(self, rpath, lpath=None, callback=_DEFAULT_CALLBACK, outfile=None, **kwargs) -> None:
         """
         Copy single remote file to local.
 
@@ -1080,8 +1110,8 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         Args:
             rpath (`str`):
                 Remote path to download from.
-            lpath (`str`):
-                Local path to download to.
+            lpath (`str`, *optional*):
+                Local path to download to. Can be omitted if `outfile` is provided.
             callback (`Callback`, *optional*):
                 Optional callback to track download progress. Defaults to no callback.
             outfile (`IO`, *optional*):
@@ -1089,32 +1119,48 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
 
         """
         revision = kwargs.get("revision")
+        resolve_remote_path = self.resolve_path(rpath, revision=revision)
+        # Recursive downloads map remote filenames to local paths, including on Windows.
+        # Validate before creating directories, opening files, or delegating to fsspec.
+        _validate_relative_filename(resolve_remote_path.path)
         unhandled_kwargs = set(kwargs.keys()) - {"revision"}
         if not isinstance(callback, (NoOpCallback, TqdmCallback)) or len(unhandled_kwargs) > 0:
             # for now, let's not handle custom callbacks
             # and let's not handle custom kwargs
             return super().get_file(rpath, lpath, callback=callback, outfile=outfile, **kwargs)
 
-        # Taken from https://github.com/fsspec/filesystem_spec/blob/47b445ae4c284a82dd15e0287b1ffc410e8fc470/fsspec/spec.py#L883
-        if isfilelike(lpath):
-            outfile = lpath
-        elif self.isdir(rpath):
-            os.makedirs(lpath, exist_ok=True)
-            return None
+        info = self.info(rpath, revision=revision)
 
-        if isinstance(lpath, (str, Path)):  # otherwise, let's assume it's a file-like object
-            os.makedirs(os.path.dirname(lpath), exist_ok=True)
-
-        # Open file if not already open
+        # Adapted from https://github.com/fsspec/filesystem_spec/blob/0f76baaae4a227b085b18e8469e6cc1792a95ade/fsspec/spec.py#L975
         close_file = False
         if outfile is None:
-            outfile = open(lpath, "wb")
-            close_file = True
+            if lpath is None:
+                raise ValueError("Either `lpath` or `outfile` must be provided.")
+            if isfilelike(lpath):
+                outfile = lpath
+            elif self.isdir(rpath):
+                os.makedirs(lpath, exist_ok=True)
+                return None
+            else:
+                os.makedirs(os.path.dirname(lpath) or os.curdir, exist_ok=True)
+                if (xet_file_data := self._get_xet_file_data(resolve_remote_path, info)) is not None:
+                    # hf_xet writes the file to disk directly
+                    callback.set_size(info["size"])
+                    xet_get(
+                        incomplete_path=Path(lpath),
+                        xet_file_data=xet_file_data,
+                        headers=self._api._build_hf_headers(),
+                        expected_size=info["size"],
+                        displayed_filename=rpath,
+                        _tqdm_bar=callback.tqdm if isinstance(callback, TqdmCallback) else None,
+                    )
+                    return None
+                outfile = open(lpath, "wb")
+                close_file = True
         initial_pos = outfile.tell()
 
         # Custom implementation of `get_file` to use `http_get`.
-        resolve_remote_path = self.resolve_path(rpath, revision=revision)
-        expected_size = self.info(rpath, revision=revision)["size"]
+        expected_size = info["size"]
         callback.set_size(expected_size)
         try:
             http_get(
@@ -1266,7 +1312,7 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
         super().__init__(
             fs, self.resolved_path.unresolve(), mode=mode, block_size=block_size, cache_type=cache_type, **kwargs
         )
-        self.response: httpx.Response | None = None
+        self.response: httpx2.Response | None = None
         self.fs: HfFileSystem
         self._exit_stack = ExitStack()
         # streaming state
@@ -1387,7 +1433,7 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
 
 
 def safe_revision(revision: str) -> str:
-    return revision if SPECIAL_REFS_REVISION_REGEX.match(revision) else safe_quote(revision)
+    return revision if SPECIAL_REFS_REVISION_REGEX.search(revision) else safe_quote(revision)
 
 
 def safe_quote(s: str) -> str:

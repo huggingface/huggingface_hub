@@ -92,6 +92,9 @@ class JobStage(str, Enum):
 # Stages indicating the Job has reached a terminal state and will not run further.
 TERMINAL_JOB_STAGES = (JobStage.COMPLETED, JobStage.CANCELED, JobStage.ERROR, JobStage.DELETED)
 
+# Default image used to run UV scripts: Debian Bookworm with Python 3.12 and `uv` pre-installed.
+DEFAULT_UV_IMAGE = "ghcr.io/astral-sh/uv:python3.12-bookworm"
+
 # URL prefixes identifying an image that points to a HF Space rather than a Docker image.
 _SPACE_IMAGE_PREFIXES = (
     "https://huggingface.co/spaces/",
@@ -114,6 +117,26 @@ class JobOwner:
     id: str
     name: str
     type: str
+
+
+@dataclass
+class JobNetwork:
+    """
+    Network group a Job joined.
+
+    Args:
+        group (`str`):
+            Name of the network group, as passed to `network_group=`.
+        aliases (`list[str]`):
+            Aliases the Job claims in the group, as passed to `network_aliases=`. Empty when none.
+    """
+
+    group: str
+    aliases: list[str]
+
+    def __init__(self, **kwargs) -> None:
+        self.group = kwargs["group"]
+        self.aliases = kwargs.get("aliases") or []
 
 
 @dataclass
@@ -211,6 +234,9 @@ class JobInfo:
             SSH endpoint of the Job, e.g. `"ssh://687fb701029421ae5549d998@ssh.hf.jobs"`. Only present when the Job
             was started with `ssh=True`. Connecting requires write access to the Job's namespace and an SSH public
             key registered on the Hub (https://huggingface.co/settings/keys).
+        network (`JobNetwork` or `None`):
+            Network group the Job joined and the aliases it claims, e.g. `JobNetwork(group="train", aliases=["master"])`.
+            `None` when the Job was started without `network_group=`.
 
     Example:
 
@@ -248,6 +274,7 @@ class JobInfo:
     durations: JobDurations | None
     owner: JobOwner
     initiator: JobInitiator | None
+    network: JobNetwork | None
 
     # Inferred fields
     endpoint: str
@@ -286,6 +313,8 @@ class JobInfo:
         self.initiator = (
             JobInitiator(type=initiator["type"], id=initiator["id"], name=initiator.get("name")) if initiator else None
         )
+        network = kwargs.get("network")
+        self.network = JobNetwork(**network) if network else None
 
         # Inferred fields
         self.endpoint = kwargs.get("endpoint", constants.ENDPOINT)
@@ -536,13 +565,16 @@ def _short_invocation_hash(parts: list[str]) -> str:
     return hashlib.sha256("\x00".join(parts).encode()).hexdigest()[:8]
 
 
-def _default_job_name_from_image(image: str, command: list[str]) -> str:
+def _default_job_name_from_image(image: str, command: list[str], *, config_parts: list[str] | None = None) -> str:
     """Derive a default Job name from a Docker image or Space reference and its command.
 
     A short hash of the full command line is appended to group reruns of the same command.
     e.g. python:3.12 + [foo, --truc]             -> python-3-12-1a2b3c4d
          hf.co/spaces/lhoestq/duckdb             -> lhoestq-duckdb-<hash>
          pytorch/pytorch:2.6.0-cuda12.4-...      -> pytorch-2-6-0-cuda12-4-...-<hash>
+
+    `config_parts` adds the rest of the resolved launch configuration (flavor, env, ...) to the hash.
+    The CLI passes it so that the name reflects the values actually submitted.
     """
     for prefix in _SPACE_IMAGE_PREFIXES:
         if image.startswith(prefix):
@@ -550,22 +582,28 @@ def _default_job_name_from_image(image: str, command: list[str]) -> str:
             break
     else:
         base = _sanitize_job_name(image.rstrip("/").split("/")[-1] or image)  # drop registry host and namespace
-    return f"{base}-{_short_invocation_hash([image, *command])}"
+    return f"{base}-{_short_invocation_hash([image, *command, *(config_parts or [])])}"
 
 
-def _default_job_name_from_script(script: str, script_args: list[str]) -> str:
+def _default_job_name_from_script(
+    script: str, script_args: list[str], *, config_parts: list[str] | None = None
+) -> str:
     """Derive a default Job name from a UV script path, URL, or command and its arguments.
 
     A short hash of the full command line is appended to group reruns of the same command.
     e.g. my_script.py + [--epochs, 3]  -> my_script-1a2b3c4d
          https://.../sft.py?raw=1      -> sft-<hash>
          lighteval                     -> lighteval-<hash>
+
+    `config_parts` adds the rest of the resolved launch configuration (image, flavor, env, ...) to the
+    hash. The CLI passes it so that the name reflects the values actually submitted, including those
+    coming from a script's `[tool.hf-jobs]` header rather than from the command line.
     """
     name = script.split("?", 1)[0].split("#", 1)[0].rstrip("/").split("/")[-1]
     if name.endswith(".py"):
         name = name[: -len(".py")]
     base = _sanitize_job_name(name or script)
-    return f"{base}-{_short_invocation_hash([script, *script_args])}"
+    return f"{base}-{_short_invocation_hash([script, *script_args, *(config_parts or [])])}"
 
 
 def _create_job_spec(
@@ -581,8 +619,12 @@ def _create_job_spec(
     volumes: list[Volume] | None = None,
     expose: list[int] | None = None,
     ssh: bool = False,
+    network_group: str | None = None,
+    network_aliases: list[str] | None = None,
     resource_group_id: str | None = None,
 ) -> dict[str, Any]:
+    if network_aliases and not network_group:
+        raise ValueError("`network_aliases` requires `network_group`.")
     if name is not None:
         if labels is not None and "name" in labels:
             raise ValueError("`name` and the `name` key in `labels` cannot both be provided.")
@@ -617,6 +659,12 @@ def _create_job_spec(
     # make the job container reachable over SSH
     if ssh:
         job_spec["ssh"] = {"enabled": True}
+    # join a network group, optionally claiming aliases in it
+    if network_group:
+        network: dict[str, Any] = {"group": network_group}
+        if network_aliases:
+            network["aliases"] = network_aliases
+        job_spec["network"] = network
     # resource group is optional
     if resource_group_id:
         job_spec["resourceGroupId"] = resource_group_id

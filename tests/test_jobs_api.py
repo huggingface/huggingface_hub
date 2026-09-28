@@ -5,6 +5,7 @@ import pytest
 from huggingface_hub import HfApi, JobStage
 from huggingface_hub._jobs_api import (
     JobInfo,
+    JobNetwork,
     _default_job_name_from_image,
     _default_job_name_from_script,
 )
@@ -129,3 +130,22 @@ def test_default_job_name_hash_groups_and_splits_by_command() -> None:
     assert truc != bar
     # ...while the same command yields the same name (groups identical runs).
     assert truc == _default_job_name_from_image("python:3.12", ["foo", "--truc"])
+
+
+@pytest.mark.parametrize(
+    "network, expected",
+    [
+        ({"group": "train", "aliases": ["master"]}, JobNetwork(group="train", aliases=["master"])),
+        # The Hub omits `aliases` when the Job claims none.
+        ({"group": "train"}, JobNetwork(group="train", aliases=[])),
+        (None, None),
+    ],
+)
+def test_job_info_parses_network(network, expected) -> None:
+    job = JobInfo(
+        id="job-id",
+        owner={"id": "1234", "name": "user", "type": "user"},
+        status={"stage": "RUNNING"},
+        network=network,
+    )
+    assert job.network == expected
