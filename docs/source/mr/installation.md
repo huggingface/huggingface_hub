@@ -3,13 +3,13 @@
 
 # प्रतिष्ठापन
 
-सुरुवात करण्यापूर्वी, आवश्यक packages इंस्टॉल करून तुमचे environment तयार करणे गरजेचे आहे.
+सुरू करण्यापूर्वी, आवश्यक packages इंस्टॉल करून तुमचे environment तयार करणे गरजेचे आहे.
 
 `huggingface_hub` ची चाचणी **Python 3.10+** वर करण्यात आली आहे.
 
 ## pip वापरून इंस्टॉल करा
 
-`huggingface_hub` [virtual environment](https://docs.python.org/3/library/venv.html) मध्ये इंस्टॉल करण्याची जोरदार शिफारस केली जाते.
+`huggingface_hub` [virtual environment](https://docs.python.org/3/library/venv.html) मध्ये इंस्टॉल करण्याची आवर्जून शिफारस केली जाते.
 जर तुम्हाला Python virtual environments बद्दल माहिती नसेल, तर हे [guide](https://packaging.python.org/en/latest/guides/installing-using-pip-and-virtual-environments/) पहा.
 Virtual environment मुळे वेगवेगळे प्रकल्प व्यवस्थापित करणे सोपे होते आणि dependencies मधील compatibility संबंधित समस्या टाळण्यास मदत होते.
 
@@ -63,7 +63,7 @@ pip install 'huggingface_hub[mcp,torch]'
 
 मात्र, याचा अर्थ `main` version नेहमीच पूर्णपणे स्थिर (stable) असेलच असे नाही.
 आम्ही `main` version कार्यरत ठेवण्याचा सातत्याने प्रयत्न करतो आणि बहुतेक समस्या काही तासांत किंवा एका दिवसाच्या आत सोडवल्या जातात.
-तुम्हाला कोणतीही समस्या आढळल्यास, कृपया एक Issue उघडा, म्हणजे आम्ही ती आणखी लवकर दुरुस्त करू शकू!
+तुम्हाला कोणतीही समस्या आढळल्यास, कृपया एक Issue उघडा, जेणेकरून आम्ही ती आणखी लवकर दुरुस्त करू शकू!
 
 ```bash
 pip install git+https://github.com/huggingface/huggingface_hub
