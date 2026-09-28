@@ -237,6 +237,10 @@ class JobInfo:
         network (`JobNetwork` or `None`):
             Network group the Job joined and the aliases it claims, e.g. `JobNetwork(group="train", aliases=["master"])`.
             `None` when the Job was started without `network_group=`.
+        expose (`list[int]` or `None`):
+            Ports exposed through the Jobs proxy.
+        expose_public (`list[int]` or `None`):
+            Exposed ports reachable without authentication.
 
     Example:
 
@@ -275,6 +279,8 @@ class JobInfo:
     owner: JobOwner
     initiator: JobInitiator | None
     network: JobNetwork | None
+    expose: list[int] | None
+    expose_public: list[int] | None
 
     # Inferred fields
     endpoint: str
@@ -315,6 +321,9 @@ class JobInfo:
         )
         network = kwargs.get("network")
         self.network = JobNetwork(**network) if network else None
+        expose = kwargs.get("expose") or {}
+        self.expose = expose.get("ports")
+        self.expose_public = expose.get("portsPublic")
 
         # Inferred fields
         self.endpoint = kwargs.get("endpoint", constants.ENDPOINT)
@@ -335,6 +344,8 @@ class JobSpec:
     arch: str | None
     labels: dict[str, str] | None
     volumes: list[Volume] | None
+    expose: list[int] | None
+    expose_public: list[int] | None
 
     def __init__(self, **kwargs) -> None:
         self.docker_image = kwargs.get("dockerImage") or kwargs.get("docker_image")
@@ -350,6 +361,9 @@ class JobSpec:
         self.labels = kwargs.get("labels")
         volumes = kwargs.get("volumes")
         self.volumes = [Volume(**v) for v in volumes] if volumes else None
+        expose = kwargs.get("expose") or {}
+        self.expose = expose.get("ports")
+        self.expose_public = expose.get("portsPublic")
 
 
 @dataclass
@@ -618,6 +632,7 @@ def _create_job_spec(
     labels: dict[str, str] | None = None,
     volumes: list[Volume] | None = None,
     expose: list[int] | None = None,
+    expose_public: list[int] | None = None,
     ssh: bool = False,
     network_group: str | None = None,
     network_aliases: list[str] | None = None,
@@ -625,6 +640,8 @@ def _create_job_spec(
 ) -> dict[str, Any]:
     if network_aliases and not network_group:
         raise ValueError("`network_aliases` requires `network_group`.")
+    if expose_public and not set(expose_public).issubset(expose or []):
+        raise ValueError("`expose_public` must be a subset of `expose`.")
     if name is not None:
         if labels is not None and "name" in labels:
             raise ValueError("`name` and the `name` key in `labels` cannot both be provided.")
@@ -656,6 +673,8 @@ def _create_job_spec(
     # expose ports through the jobs proxy
     if expose:
         job_spec["expose"] = {"ports": expose}
+        if expose_public is not None:
+            job_spec["expose"]["portsPublic"] = expose_public
     # make the job container reachable over SSH
     if ssh:
         job_spec["ssh"] = {"enabled": True}

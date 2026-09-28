@@ -11743,6 +11743,7 @@ class HfApi:
         labels: dict[str, str] | None = None,
         volumes: list[Volume] | None = None,
         expose: list[int] | None = None,
+        expose_public: list[int] | None = None,
         ssh: bool = False,
         network_group: str | None = None,
         network_aliases: list[str] | None = None,
@@ -11790,8 +11791,10 @@ class HfApi:
 
             expose (`list[int]`, *optional*):
                 Container ports to expose through the jobs proxy. Each listed port is reachable
-                on the public jobs domain (e.g. `https://<job_id>--8000.hf.jobs`). Access always
-                requires an HF token with read access to the job's namespace.
+                on the public jobs domain (e.g. `https://<job_id>--8000.hf.jobs`). Access requires an HF token with read access to the job's namespace unless the port is also in `expose_public`.
+
+            expose_public (`list[int]`, *optional*):
+                Subset of `expose` reachable without authentication. Other exposed ports require an HF token.
 
             ssh (`bool`, *optional*):
                 If True, the job's container is reachable over SSH at the URL given by `job.status.ssh_url`
@@ -11867,6 +11870,7 @@ class HfApi:
             labels=labels,
             volumes=volumes,
             expose=expose,
+            expose_public=expose_public,
             ssh=ssh,
             network_group=network_group,
             network_aliases=network_aliases,
@@ -12339,6 +12343,44 @@ class HfApi:
         )
         hf_raise_for_status(response)
 
+    def update_job_expose(
+        self,
+        *,
+        job_id: str,
+        expose: list[int],
+        expose_public: list[int] | None = None,
+        namespace: str | None = None,
+        token: bool | str | None = None,
+    ) -> JobInfo:
+        """Replace a running Job's exposed ports without rerunning it.
+
+        Args:
+            job_id (`str`):
+                ID of the running Job.
+            expose (`list[int]`):
+                Complete list of ports to expose. Pass an empty list to close all exposed ports.
+            expose_public (`list[int]`, *optional*):
+                Subset of `expose` reachable without authentication. All other ports require an HF token.
+            namespace (`str`, *optional*):
+                Namespace of the Job. Defaults to the current user's namespace.
+            token (`bool` or `str`, *optional*):
+                User access token. Defaults to the locally saved token.
+
+        Returns:
+            [`JobInfo`]: The updated Job.
+        """
+        if expose_public and not set(expose_public).issubset(expose):
+            raise ValueError("`expose_public` must be a subset of `expose`.")
+        if namespace is None:
+            namespace = self.whoami(token=token)["name"]
+        response = get_session().put(
+            f"{self.endpoint}/api/jobs/{namespace}/{job_id}/expose",
+            json={"ports": expose, "portsPublic": expose_public or []},
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+        return JobInfo(**response.json(), endpoint=self.endpoint)
+
     def update_job_labels(
         self,
         *,
@@ -12399,6 +12441,7 @@ class HfApi:
         labels: dict[str, str] | None = None,
         volumes: list[Volume] | None = None,
         expose: list[int] | None = None,
+        expose_public: list[int] | None = None,
         ssh: bool = False,
         network_group: str | None = None,
         network_aliases: list[str] | None = None,
@@ -12458,8 +12501,10 @@ class HfApi:
 
             expose (`list[int]`, *optional*):
                 Container ports to expose through the jobs proxy. Each listed port is reachable
-                on the public jobs domain (e.g. `https://<job_id>--8000.hf.jobs`). Access always
-                requires an HF token with read access to the job's namespace.
+                on the public jobs domain (e.g. `https://<job_id>--8000.hf.jobs`). Access requires an HF token with read access to the job's namespace unless the port is also in `expose_public`.
+
+            expose_public (`list[int]`, *optional*):
+                Subset of `expose` reachable without authentication. Other exposed ports require an HF token.
 
             ssh (`bool`, *optional*):
                 If True, the job's container is reachable over SSH at the URL given by `job.status.ssh_url`
@@ -12563,6 +12608,7 @@ class HfApi:
             labels=labels,
             volumes=volumes,
             expose=expose,
+            expose_public=expose_public,
             ssh=ssh,
             network_group=network_group,
             network_aliases=network_aliases,
@@ -12587,6 +12633,7 @@ class HfApi:
         labels: dict[str, str] | None = None,
         volumes: list[Volume] | None = None,
         expose: list[int] | None = None,
+        expose_public: list[int] | None = None,
         resource_group_id: str | None = None,
         namespace: str | None = None,
         token: bool | str | None = None,
@@ -12641,8 +12688,10 @@ class HfApi:
 
             expose (`list[int]`, *optional*):
                 Container ports to expose through the jobs proxy. Each listed port is reachable
-                on the public jobs domain (e.g. `https://<job_id>--8000.hf.jobs`). Access always
-                requires an HF token with read access to the job's namespace.
+                on the public jobs domain (e.g. `https://<job_id>--8000.hf.jobs`). Access requires an HF token with read access to the job's namespace unless the port is also in `expose_public`.
+
+            expose_public (`list[int]`, *optional*):
+                Subset of `expose` reachable without authentication. Other exposed ports require an HF token.
 
             resource_group_id (`str`, *optional*):
                 The ID of the resource group to create the scheduled Job in. Used to control access to resources
@@ -12699,6 +12748,7 @@ class HfApi:
             labels=labels,
             volumes=volumes,
             expose=expose,
+            expose_public=expose_public,
             resource_group_id=resource_group_id,
         )
         input_json: dict[str, Any] = {
@@ -13006,6 +13056,7 @@ class HfApi:
         labels: dict[str, str] | None = None,
         volumes: list[Volume] | None = None,
         expose: list[int] | None = None,
+        expose_public: list[int] | None = None,
         resource_group_id: str | None = None,
         namespace: str | None = None,
         token: bool | str | None = None,
@@ -13072,8 +13123,10 @@ class HfApi:
 
             expose (`list[int]`, *optional*):
                 Container ports to expose through the jobs proxy. Each listed port is reachable
-                on the public jobs domain (e.g. `https://<job_id>--8000.hf.jobs`). Access always
-                requires an HF token with read access to the job's namespace.
+                on the public jobs domain (e.g. `https://<job_id>--8000.hf.jobs`). Access requires an HF token with read access to the job's namespace unless the port is also in `expose_public`.
+
+            expose_public (`list[int]`, *optional*):
+                Subset of `expose` reachable without authentication. Other exposed ports require an HF token.
 
             resource_group_id (`str`, *optional*):
                 The ID of the resource group to create the scheduled Job in. Used to control access to resources
@@ -13150,6 +13203,7 @@ class HfApi:
             labels=labels,
             volumes=volumes,
             expose=expose,
+            expose_public=expose_public,
             resource_group_id=resource_group_id,
             namespace=namespace,
             token=token,
@@ -15091,6 +15145,7 @@ inspect_job = api.inspect_job
 wait_for_job = api.wait_for_job
 cancel_job = api.cancel_job
 update_job_labels = api.update_job_labels
+update_job_expose = api.update_job_expose
 run_uv_job = api.run_uv_job
 create_scheduled_job = api.create_scheduled_job
 list_scheduled_jobs = api.list_scheduled_jobs

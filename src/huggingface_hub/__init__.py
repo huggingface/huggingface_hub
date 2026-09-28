@@ -361,6 +361,7 @@ _SUBMOD_ATTRS = {
         "update_collection_metadata",
         "update_collection_resource_group",
         "update_inference_endpoint",
+        "update_job_expose",
         "update_job_labels",
         "update_repo_settings",
         "update_scheduled_job_labels",
@@ -1137,6 +1138,7 @@ __all__ = [
     "update_collection_metadata",
     "update_collection_resource_group",
     "update_inference_endpoint",
+    "update_job_expose",
     "update_job_labels",
     "update_repo_settings",
     "update_scheduled_job_labels",
@@ -1555,6 +1557,7 @@ if TYPE_CHECKING:  # pragma: no cover
         update_collection_metadata,  # noqa: F401
         update_collection_resource_group,  # noqa: F401
         update_inference_endpoint,  # noqa: F401
+        update_job_expose,  # noqa: F401
         update_job_labels,  # noqa: F401
         update_repo_settings,  # noqa: F401
         update_scheduled_job_labels,  # noqa: F401

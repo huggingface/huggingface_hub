@@ -349,6 +349,30 @@ In the CLI, simply pass a local directory as the source side of `-v`:
 >>> hf jobs uv run -v ./pdfs:/input -v ./md-out:/output:rw ocr.py
 ```
 
+## Expose Job ports
+
+Pass `expose` to make a container port reachable through the Jobs proxy. Exposed ports require an HF token with read access to the Job by default. Add a port to `expose_public` to allow access without authentication:
+
+```python
+>>> from huggingface_hub import run_job, update_job_expose
+>>> job = run_job(
+...     image="python:3.12",
+...     command=["python", "-m", "http.server", "8000"],
+...     expose=[8000],
+...     expose_public=[8000],
+... )
+>>> job.expose_public
+[8000]
+
+# Keep the port exposed, but require an HF token from now on
+>>> job = update_job_expose(job_id=job.id, expose=[8000])
+
+# Close all exposed ports
+>>> job = update_job_expose(job_id=job.id, expose=[])
+```
+
+`expose_public` must be a subset of `expose`. `update_job_expose` replaces the full port list on a running Job without restarting it. Both options are also available when creating UV and scheduled Jobs.
+
 ## SSH into a Job
 
 Pass `ssh=True` to [`run_job`] (or [`run_uv_job`]) to make the Job's container reachable over SSH. The SSH endpoint is available in the Job status:

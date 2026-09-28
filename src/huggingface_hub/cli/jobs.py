@@ -502,6 +502,20 @@ ExposeOpt = Annotated[
     ),
 ]
 
+ExposePublicOpt = Annotated[
+    list[int] | None,
+    Option(
+        "--expose-public",
+        help="Allow unauthenticated access to this exposed port. Repeat for multiple ports; each must also be passed with --expose.",
+    ),
+]
+
+
+def _validate_exposed_ports(expose: list[int] | None, expose_public: list[int] | None) -> None:
+    if expose_public and not set(expose_public).issubset(expose or []):
+        raise CLIError("Every `--expose-public` port must also be passed with `--expose`.")
+
+
 SshEnabledOpt = Annotated[
     bool,
     Option(
@@ -663,6 +677,7 @@ def jobs_run(
     detach: DetachOpt = False,
     dry_run: DryRunOpt = False,
     expose: ExposeOpt = None,
+    expose_public: ExposePublicOpt = None,
     ssh: SshEnabledOpt = False,
     network_group: NetworkGroupOpt = None,
     network_alias: NetworkAliasOpt = None,
@@ -675,6 +690,7 @@ def jobs_run(
 ) -> None:
     """Run a Job."""
     set_output_format(format, json_output, quiet)
+    _validate_exposed_ports(expose, expose_public)
     env_map = parse_env_map(env, env_file)
     secrets_map = parse_env_map(secrets, secrets_file)
     labels_map = _parse_labels_map(label, name=name) or {}
@@ -709,6 +725,7 @@ def jobs_run(
             "volumes": volume or [],
             "labels": labels_map,
             "expose": " ".join(str(port) for port in expose or []),
+            "expose_public": " ".join(str(port) for port in expose_public or []),
             "ssh": ssh,
             "network_group": network_group,
             "network_aliases": " ".join(network_alias or []),
@@ -729,6 +746,7 @@ def jobs_run(
         flavor=flavor,
         timeout=timeout,
         expose=expose,
+        expose_public=expose_public,
         ssh=ssh,
         network_group=network_group,
         network_aliases=network_alias,
@@ -744,7 +762,7 @@ def jobs_run(
         )
     if isinstance(job.status.expose_urls, list):
         urls = "\n".join(f"  {url}" for url in job.status.expose_urls)
-        out.hint(f"Exposed ports are reachable at (requires an HF token with read access to the job):\n{urls}")
+        out.hint(f"Exposed ports are reachable at:\n{urls}")
     if isinstance(job.status.ssh_url, str):
         out.hint(f"Use `hf jobs ssh {job.owner.name}/{job.id}` to open an SSH session into the job.")
     if network_group:
@@ -1099,6 +1117,35 @@ def jobs_inspect(
     out.table([_surface_name(_dataclass_to_dict(job), labels=job.labels) for job in jobs], id_key="id")
 
 
+@jobs_cli.command(
+    "expose",
+    examples=[
+        "hf jobs expose <job_id> --expose 8000 --expose-public 8000",
+        "hf jobs expose <job_id> --expose 8000 --expose 9000 --expose-public 8000",
+        "hf jobs expose <job_id> --clear",
+    ],
+)
+def jobs_expose(
+    job_id: JobIdArg,
+    expose: ExposeOpt = None,
+    expose_public: ExposePublicOpt = None,
+    clear: Annotated[bool, Option("--clear", help="Close all exposed ports.")] = False,
+    namespace: NamespaceOpt = None,
+    token: TokenOpt = None,
+) -> None:
+    """Replace exposed ports on a running Job."""
+    if clear and (expose or expose_public):
+        raise CLIError("`--clear` cannot be combined with `--expose` or `--expose-public`.")
+    if not clear and not expose:
+        raise CLIError("Pass at least one `--expose` port, or `--clear` to close all ports.")
+    if expose_public and not set(expose_public).issubset(expose or []):
+        raise CLIError("Every `--expose-public` port must also be passed with `--expose`.")
+    job_id, namespace = _parse_namespace_from_job_id(job_id, namespace)
+    api = get_hf_api(token=token)
+    job = api.update_job_expose(job_id=job_id, expose=expose or [], expose_public=expose_public, namespace=namespace)
+    out.result("Exposed ports updated", id=job.id, ports=job.expose or [], public_ports=job.expose_public or [])
+
+
 @jobs_cli.command("cancel", examples=["hf jobs cancel <job_id>"])
 def jobs_cancel(
     job_id: JobIdArg,
@@ -1290,6 +1337,7 @@ def jobs_uv_run(
     detach: DetachOpt = False,
     dry_run: DryRunOpt = False,
     expose: ExposeOpt = None,
+    expose_public: ExposePublicOpt = None,
     ssh: SshEnabledOpt = False,
     network_group: NetworkGroupOpt = None,
     network_alias: NetworkAliasOpt = None,
@@ -1304,6 +1352,7 @@ def jobs_uv_run(
 ) -> None:
     """Run a UV script (local file or URL) on HF infrastructure"""
     set_output_format(format, json_output, quiet)
+    _validate_exposed_ports(expose, expose_public)
     api = get_hf_api(token=token)
     with _resolve_uv_job_config(
         api=api,
@@ -1340,6 +1389,7 @@ def jobs_uv_run(
                 "volumes": config.volume_specs,
                 "labels": config.labels,
                 "expose": " ".join(str(port) for port in expose or []),
+                "expose_public": " ".join(str(port) for port in expose_public or []),
                 "ssh": ssh,
                 "network_group": config.network_group,
                 "network_aliases": " ".join(config.network_aliases),
@@ -1364,6 +1414,7 @@ def jobs_uv_run(
             flavor=config.flavor,
             timeout=config.timeout,
             expose=expose,
+            expose_public=expose_public,
             ssh=ssh,
             network_group=config.network_group,
             network_aliases=config.network_aliases or None,
@@ -1379,7 +1430,7 @@ def jobs_uv_run(
         )
     if isinstance(job.status.expose_urls, list):
         urls = "\n".join(f"  {url}" for url in job.status.expose_urls)
-        out.hint(f"Exposed ports are reachable at (requires an HF token with read access to the job):\n{urls}")
+        out.hint(f"Exposed ports are reachable at:\n{urls}")
     if isinstance(job.status.ssh_url, str):
         out.hint(f"Use `hf jobs ssh {job.owner.name}/{job.id}` to open an SSH session into the job.")
     if group := config.network_group:
@@ -1432,6 +1483,7 @@ def scheduled_run(
     timeout: TimeoutOpt = None,
     dry_run: DryRunOpt = False,
     expose: ExposeOpt = None,
+    expose_public: ExposePublicOpt = None,
     resource_group_id: ResourceGroupIdOpt = None,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
@@ -1441,6 +1493,7 @@ def scheduled_run(
 ) -> None:
     """Schedule a Job."""
     set_output_format(format, json_output, quiet)
+    _validate_exposed_ports(expose, expose_public)
     env_map = parse_env_map(env, env_file)
     secrets_map = parse_env_map(secrets, secrets_file)
     labels_map = _parse_labels_map(label, name=name) or {}
@@ -1476,6 +1529,7 @@ def scheduled_run(
             "volumes": volume or [],
             "labels": labels_map,
             "expose": " ".join(str(port) for port in expose or []),
+            "expose_public": " ".join(str(port) for port in expose_public or []),
             "resource_group_id": resource_group_id,
             "namespace": namespace,
         },
@@ -1496,6 +1550,7 @@ def scheduled_run(
         flavor=flavor,
         timeout=timeout,
         expose=expose,
+        expose_public=expose_public,
         resource_group_id=resource_group_id,
         namespace=namespace,
     )
@@ -1801,6 +1856,7 @@ def scheduled_uv_run(
     timeout: TimeoutOpt = None,
     dry_run: DryRunOpt = False,
     expose: ExposeOpt = None,
+    expose_public: ExposePublicOpt = None,
     resource_group_id: ResourceGroupIdOpt = None,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
@@ -1812,6 +1868,7 @@ def scheduled_uv_run(
 ) -> None:
     """Run a UV script (local file or URL) on HF infrastructure"""
     set_output_format(format, json_output, quiet)
+    _validate_exposed_ports(expose, expose_public)
     api = get_hf_api(token=token)
     with _resolve_uv_job_config(
         api=api,
@@ -1857,6 +1914,7 @@ def scheduled_uv_run(
                 "volumes": config.volume_specs,
                 "labels": config.labels,
                 "expose": " ".join(str(port) for port in expose or []),
+                "expose_public": " ".join(str(port) for port in expose_public or []),
                 "resource_group_id": resource_group_id,
                 "namespace": config.namespace,
             },
@@ -1881,6 +1939,7 @@ def scheduled_uv_run(
             flavor=config.flavor,
             timeout=config.timeout,
             expose=expose,
+            expose_public=expose_public,
             resource_group_id=resource_group_id,
             namespace=config.namespace,
         )

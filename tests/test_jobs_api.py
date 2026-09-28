@@ -6,6 +6,7 @@ from huggingface_hub import HfApi, JobStage
 from huggingface_hub._jobs_api import (
     JobInfo,
     JobNetwork,
+    _create_job_spec,
     _default_job_name_from_image,
     _default_job_name_from_script,
 )
@@ -149,3 +150,28 @@ def test_job_info_parses_network(network, expected) -> None:
         network=network,
     )
     assert job.network == expected
+
+
+def test_public_exposed_ports() -> None:
+    spec = _create_job_spec(
+        image="python:3.12",
+        command=["echo"],
+        env=None,
+        secrets=None,
+        flavor=None,
+        timeout=None,
+        expose=[8000, 9000],
+        expose_public=[9000],
+    )
+    assert spec["expose"] == {"ports": [8000, 9000], "portsPublic": [9000]}
+    with pytest.raises(ValueError, match="subset"):
+        _create_job_spec(
+            image="python:3.12",
+            command=["echo"],
+            env=None,
+            secrets=None,
+            flavor=None,
+            timeout=None,
+            expose=[8000],
+            expose_public=[9000],
+        )
