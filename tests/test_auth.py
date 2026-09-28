@@ -125,6 +125,13 @@ class TestUnicodeTokenNames:
         with patch("huggingface_hub.utils._auth.locale.getpreferredencoding", return_value="cp1252"):
             assert _read_stored_tokens_full() == {"Clé perso": {"hf_token": "hf_legacy"}}
 
+    def test_read_legacy_file_in_utf8_mode(self):
+        """A legacy-encoded file is still recovered when the locale is UTF-8 (via latin-1)."""
+        with open(constants.HF_STORED_TOKENS_PATH, "w", encoding="cp1252") as f:
+            f.write("[Clé perso]\nhf_token = hf_legacy\n")
+        with patch("huggingface_hub.utils._auth.locale.getpreferredencoding", return_value="utf-8"):
+            assert _read_stored_tokens_full() == {"Clé perso": {"hf_token": "hf_legacy"}}
+
     def test_read_undecodable_file_never_raises(self):
         with open(constants.HF_STORED_TOKENS_PATH, "wb") as f:
             f.write(b"\xff\xfe\xfa\xfb")

@@ -380,9 +380,11 @@ def _read_stored_tokens_full() -> dict[str, dict[str, str]]:
     if not tokens_path.exists():
         return {}
     # interpolation=None: token values are opaque strings, a `%` must not be interpreted.
-    # Token names are arbitrary Unicode, so read as UTF-8; fall back to the locale encoding
-    # so files written before UTF-8 was adopted are still readable instead of dropped.
-    for encoding in ("utf-8", locale.getpreferredencoding(False)):
+    # Token names are arbitrary Unicode, so read as UTF-8; fall back to the locale encoding,
+    # then latin-1 (which decodes any byte sequence) so tokens written before UTF-8 was
+    # adopted are recovered rather than silently dropped.
+    encodings = dict.fromkeys(["utf-8", locale.getpreferredencoding(False), "latin-1"])
+    for encoding in encodings:
         config = configparser.ConfigParser(interpolation=None)
         try:
             with tokens_path.open("r", encoding=encoding) as f:
