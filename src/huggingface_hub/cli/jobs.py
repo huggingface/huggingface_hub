@@ -1722,8 +1722,12 @@ def scheduled_reschedule(
     schedule: ScheduleArg,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
+    format: FormatOpt = None,
+    json_output: JsonOpt = False,
+    quiet: QuietOpt = False,
 ) -> None:
     """Change when a scheduled Job runs."""
+    set_output_format(format, json_output, quiet)
     scheduled_job_id, namespace = _parse_namespace_from_job_id(scheduled_job_id, namespace)
     api = get_hf_api(token=token)
     job = api.update_scheduled_job_schedule(scheduled_job_id=scheduled_job_id, schedule=schedule, namespace=namespace)
