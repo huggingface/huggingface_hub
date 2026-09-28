@@ -15,6 +15,7 @@
 
 import configparser
 import io
+import locale
 import logging
 import os
 import time
@@ -38,7 +39,9 @@ def _write_secret(path: Path, content: str) -> None:
     """Write content to file, restricting both the file and its parent directory to owner-only on POSIX systems."""
     path.parent.mkdir(parents=True, exist_ok=True, mode=_SECRET_DIR_MODE)
     fd = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, _SECRET_FILE_MODE)
-    with os.fdopen(fd, "w") as f:
+    # Token names are arbitrary Unicode (a user-set `displayName`), so write UTF-8 rather
+    # than the locale encoding, which cannot represent them on e.g. Windows.
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
         f.write(content)
     try:
         path.chmod(_SECRET_FILE_MODE)
@@ -377,13 +380,18 @@ def _read_stored_tokens_full() -> dict[str, dict[str, str]]:
     if not tokens_path.exists():
         return {}
     # interpolation=None: token values are opaque strings, a `%` must not be interpreted.
-    config = configparser.ConfigParser(interpolation=None)
-    try:
-        config.read(tokens_path)
-        return {token_name: dict(config.items(token_name)) for token_name in config.sections()}
-    except configparser.Error as e:
-        logger.error(f"Error parsing stored tokens file: {e}")
-        return {}
+    # Token names are arbitrary Unicode, so read as UTF-8; fall back to the locale encoding
+    # so files written before UTF-8 was adopted are still readable instead of dropped.
+    for encoding in ("utf-8", locale.getpreferredencoding(False)):
+        config = configparser.ConfigParser(interpolation=None)
+        try:
+            with tokens_path.open("r", encoding=encoding) as f:
+                config.read_file(f)
+            return {token_name: dict(config.items(token_name)) for token_name in config.sections()}
+        except (configparser.Error, UnicodeDecodeError) as e:
+            last_error = e
+    logger.error(f"Error parsing stored tokens file: {last_error}")
+    return {}
 
 
 def _save_stored_tokens_full(stored_tokens: dict[str, dict[str, str]]) -> None:
