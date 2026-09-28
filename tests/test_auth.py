@@ -109,28 +109,10 @@ class TestSaveToken:
 
 
 class TestUnicodeTokenNames:
-    def test_save_and_read_unicode_token_name(self):
-        _save_token(TOKEN, "🤗 laptop")
-        assert get_stored_tokens() == {"🤗 laptop": TOKEN}
-
     def test_unicode_token_name_does_not_wipe_existing_tokens(self):
         _save_token(TOKEN, "work")
         _save_token(OTHER_TOKEN, "🤗 laptop")
         assert get_stored_tokens() == {"work": TOKEN, "🤗 laptop": OTHER_TOKEN}
-
-    def test_read_legacy_locale_encoded_file(self):
-        """A file written in a legacy single-byte encoding (before UTF-8) is still read."""
-        with open(constants.HF_STORED_TOKENS_PATH, "w", encoding="cp1252") as f:
-            f.write("[Clé perso]\nhf_token = hf_legacy\n")
-        with patch("huggingface_hub.utils._auth.locale.getpreferredencoding", return_value="cp1252"):
-            assert _read_stored_tokens_full() == {"Clé perso": {"hf_token": "hf_legacy"}}
-
-    def test_read_legacy_file_in_utf8_mode(self):
-        """A legacy-encoded file is still recovered when the locale is UTF-8 (via latin-1)."""
-        with open(constants.HF_STORED_TOKENS_PATH, "w", encoding="cp1252") as f:
-            f.write("[Clé perso]\nhf_token = hf_legacy\n")
-        with patch("huggingface_hub.utils._auth.locale.getpreferredencoding", return_value="utf-8"):
-            assert _read_stored_tokens_full() == {"Clé perso": {"hf_token": "hf_legacy"}}
 
     def test_read_undecodable_file_never_raises(self):
         with open(constants.HF_STORED_TOKENS_PATH, "wb") as f:

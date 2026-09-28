@@ -15,7 +15,6 @@
 
 import configparser
 import io
-import locale
 import logging
 import os
 import time
@@ -380,20 +379,15 @@ def _read_stored_tokens_full() -> dict[str, dict[str, str]]:
     if not tokens_path.exists():
         return {}
     # interpolation=None: token values are opaque strings, a `%` must not be interpreted.
-    # Token names are arbitrary Unicode, so read as UTF-8; fall back to the locale encoding,
-    # then latin-1 (which decodes any byte sequence) so tokens written before UTF-8 was
-    # adopted are recovered rather than silently dropped.
-    encodings = dict.fromkeys(["utf-8", locale.getpreferredencoding(False), "latin-1"])
-    for encoding in encodings:
-        config = configparser.ConfigParser(interpolation=None)
-        try:
-            with tokens_path.open("r", encoding=encoding) as f:
-                config.read_file(f)
-            return {token_name: dict(config.items(token_name)) for token_name in config.sections()}
-        except (configparser.Error, UnicodeDecodeError) as e:
-            last_error = e
-    logger.error(f"Error parsing stored tokens file: {last_error}")
-    return {}
+    # Read as UTF-8 (token names are arbitrary Unicode). A file that is not valid UTF-8 is treated
+    # as unparseable, so that the user can log in again to overwrite it.
+    config = configparser.ConfigParser(interpolation=None)
+    try:
+        config.read(tokens_path, encoding="utf-8")
+        return {token_name: dict(config.items(token_name)) for token_name in config.sections()}
+    except (configparser.Error, UnicodeDecodeError) as e:
+        logger.error(f"Error parsing stored tokens file: {e}")
+        return {}
 
 
 def _save_stored_tokens_full(stored_tokens: dict[str, dict[str, str]]) -> None:
