@@ -389,7 +389,7 @@ print(completion.choices[0].message)
 
 ## Async client का उपयोग करें
 
-client का एक async संस्करण भी उपलब्ध है, जो `asyncio` और `httpx` पर आधारित है। सभी async API endpoints, [`AsyncInferenceClient`] के ज़रिए उपलब्ध हैं। इसका initialization और APIs, sync-only संस्करण के बिल्कुल समान हैं।
+client का एक async संस्करण भी उपलब्ध है, जो `asyncio` और `httpx2` पर आधारित है। सभी async API endpoints, [`AsyncInferenceClient`] के ज़रिए उपलब्ध हैं। इसका initialization और APIs, sync-only संस्करण के बिल्कुल समान हैं।
 
 ```py
 # Code must be run in an asyncio concurrent context.
