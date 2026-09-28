@@ -468,6 +468,8 @@ def skills_add(
     claude_path = constants.CLAUDE_SKILLS_GLOBAL_PATH if global_ else constants.CLAUDE_SKILLS_LOCAL_PATH
     link_path = _create_symlink(claude_path, name, central_skill_path, force)
     print(f"Created symlink: {link_path}" if link_path.is_symlink() else f"Copied '{name}' to {link_path}")
+    if not global_:
+        out.hint(f"Run `hf skills add {name} --global` to install the skill globally instead.")
 
 
 @skills_cli.command(
@@ -505,8 +507,10 @@ def skills_update(
     results = _skills.update_skills(roots, selector=name, hf_cli_content=build_skill_md())
     if not results:
         print("No installed skills found.")
-        return
-
     for result in results:
         detail = f" ({result.detail})" if result.detail else ""
         print(f"{result.name}: {result.status}{detail}")
+
+    if not global_ and dest is None:
+        command = f"hf skills update {name} --global" if name else "hf skills update --global"
+        out.hint(f"Run `{command}` to update globally installed skills instead.")

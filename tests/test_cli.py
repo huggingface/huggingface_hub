@@ -5361,6 +5361,26 @@ class TestSkillsHfCliCLI:
         runner.invoke(app, ["skills", "update", "--dest", str(dest)])
         assert skill_file.read_text(encoding="utf-8") == build_skill_md()
 
+    def test_local_add_and_update_hint_global(
+        self, runner: CliRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(constants, "AGENTS_SKILLS_GLOBAL_PATH", tmp_path / "global/.agents/skills")
+        monkeypatch.setattr(constants, "CLAUDE_SKILLS_GLOBAL_PATH", tmp_path / "global/.claude/skills")
+        monkeypatch.setattr(constants, "AGENTS_SKILLS_LOCAL_PATH", tmp_path / "local/.agents/skills")
+        monkeypatch.setattr(constants, "CLAUDE_SKILLS_LOCAL_PATH", tmp_path / "local/.claude/skills")
+
+        result = runner.invoke(app, ["skills", "add"])
+        assert result.exit_code == 0, result.output
+        assert "hf skills add hf-cli --global" in result.stderr
+
+        result = runner.invoke(app, ["skills", "update"])
+        assert result.exit_code == 0, result.output
+        assert "hf skills update --global" in result.stderr
+
+        result = runner.invoke(app, ["skills", "add", "--global"])
+        assert result.exit_code == 0, result.output
+        assert "--global" not in result.stderr
+
     def test_skills_flag_prints_the_skill(self, runner: CliRunner) -> None:
         """`hf --skills` is a top-level alias for `hf skills preview`."""
         result = runner.invoke(app, ["--skills"])
