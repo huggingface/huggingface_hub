@@ -1,7 +1,7 @@
 import inspect
 import sys
 from dataclasses import asdict, astuple, dataclass, is_dataclass
-from typing import Annotated, Any, Literal, Optional, Sequence, TypedDict, Union, get_type_hints
+from typing import Annotated, Any, Dict, List, Literal, Optional, Sequence, Set, TypedDict, Union, get_type_hints
 
 import jedi
 import pytest
@@ -258,6 +258,12 @@ def test_custom_validator_must_be_callable():
         ((1, 2, "3"), Sequence),
         ("abc", Sequence),
         ([], Sequence),
+        # Bare typing generics without type parameters (accept any items)
+        ([1, "2", None], List),
+        ([], List),
+        ({"a": 1, 2: "b"}, Dict),
+        ({1, "2"}, Set),
+        ([1, 2], Optional[List]),
         # Custom classes
         (DummyClass(), DummyClass),
         # Any
@@ -338,6 +344,10 @@ def test_type_validator_valid(value, type_annotation):
         # Sequence without type parameter
         (5, Sequence),  # not a sequence
         ({1, 2, 3}, Sequence),  # set is not a sequence
+        # Bare typing generics without type parameters
+        ((1, 2), List),
+        ([("a", 1)], Dict),
+        ([1, 2], Set),
         # Bool should not be accepted as int in containers
         ([True, 1], list[int]),
         ((True,), tuple[int]),
