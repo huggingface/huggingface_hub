@@ -4708,17 +4708,28 @@ class TestVolume:
         assert spec["volumes"][0]["path"] == "subdir"
 
     @pytest.mark.parametrize(
-        "expose, expected",
+        "expose, expose_public, expected",
         [
-            (None, None),
-            ([], None),
-            ([8000], {"ports": [8000]}),
-            ([8000, 8001], {"ports": [8000, 8001]}),
+            (None, None, None),
+            ([], [], None),
+            ([8000], None, {"ports": [8000], "portsPublic": []}),
+            ([8000, 8001], None, {"ports": [8000, 8001], "portsPublic": []}),
+            # public ports are merged into `ports` (the server requires `portsPublic` to be a subset of `ports`)
+            ([8000, 9000], [9000, 7000], {"ports": [8000, 9000, 7000], "portsPublic": [9000, 7000]}),
         ],
     )
-    def test_serialize_expose(self, expose: list[int] | None, expected: dict | None) -> None:
+    def test_serialize_expose(
+        self, expose: list[int] | None, expose_public: list[int] | None, expected: dict | None
+    ) -> None:
         spec = _create_job_spec(
-            image="python:3.12", command=["echo"], env=None, secrets=None, flavor=None, timeout=None, expose=expose
+            image="python:3.12",
+            command=["echo"],
+            env=None,
+            secrets=None,
+            flavor=None,
+            timeout=None,
+            expose=expose,
+            expose_public=expose_public,
         )
         assert spec.get("expose") == expected
 
