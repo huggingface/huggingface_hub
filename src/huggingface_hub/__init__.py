@@ -131,6 +131,7 @@ _SUBMOD_ATTRS = {
         "SpaceStorage",
         "SpaceVariable",
         "Volume",
+        "ZeroGpuQuota",
     ],
     "_tensorboard_logger": [
         "HFSummaryWriter",
@@ -284,6 +285,7 @@ _SUBMOD_ATTRS = {
         "get_space_variables",
         "get_user_overview",
         "get_webhook",
+        "get_zero_gpu_quota",
         "grant_access",
         "inspect_job",
         "inspect_scheduled_job",
@@ -932,6 +934,7 @@ __all__ = [
     "WebhookPayloadWebhook",
     "WebhookWatchedItem",
     "WebhooksServer",
+    "ZeroGpuQuota",
     "ZeroShotClassificationInput",
     "ZeroShotClassificationOutputElement",
     "ZeroShotClassificationParameters",
@@ -1032,6 +1035,7 @@ __all__ = [
     "get_torch_storage_size",
     "get_user_overview",
     "get_webhook",
+    "get_zero_gpu_quota",
     "grant_access",
     "hf_hub_download",
     "hf_hub_url",
@@ -1333,6 +1337,7 @@ if TYPE_CHECKING:  # pragma: no cover
         SpaceStorage,  # noqa: F401
         SpaceVariable,  # noqa: F401
         Volume,  # noqa: F401
+        ZeroGpuQuota,  # noqa: F401
     )
     from ._tensorboard_logger import HFSummaryWriter  # noqa: F401
     from ._webhooks_payload import (
@@ -1484,6 +1489,7 @@ if TYPE_CHECKING:  # pragma: no cover
         get_space_variables,  # noqa: F401
         get_user_overview,  # noqa: F401
         get_webhook,  # noqa: F401
+        get_zero_gpu_quota,  # noqa: F401
         grant_access,  # noqa: F401
         inspect_job,  # noqa: F401
         inspect_scheduled_job,  # noqa: F401

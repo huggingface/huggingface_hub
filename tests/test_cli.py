@@ -18,7 +18,7 @@ from click.testing import CliRunner, Result
 from huggingface_hub import HfApi, InferenceEndpointHardware, constants
 from huggingface_hub._dataset_viewer import DatasetParquetEntry
 from huggingface_hub._jobs_api import JobInfo, JobOwner, _create_job_spec, _derive_job_volume_name
-from huggingface_hub._space_api import Volume
+from huggingface_hub._space_api import Volume, ZeroGpuQuota
 from huggingface_hub.cli import _skills, extensions, system
 from huggingface_hub.cli._cli_utils import RepoType, _get_huggingface_hub_update_command, parse_volumes
 from huggingface_hub.cli._output import OutputFormat, out
@@ -2584,6 +2584,34 @@ class TestSpacesHardwareCommand:
         assert cpu_basic["accelerator"] is None
         assert cpu_basic["cost/min"] == "free"
         assert cpu_basic["cost/hour"] == "free"
+
+
+class TestSpacesZeroGpuQuotaCommand:
+    @pytest.fixture(autouse=True)
+    def _mock_api(self):
+        quota = ZeroGpuQuota(
+            {"base": 1500, "current": 750, "resetsAt": "2026-06-25T10:30:00.000Z", "overquotaUsed": 90}
+        )
+        with patch("huggingface_hub.cli.spaces.get_hf_api") as api_cls:
+            api_cls.return_value.get_zero_gpu_quota.return_value = quota
+            yield
+
+    def test_human(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["spaces", "zero-gpu-quota", "--format", "human"])
+        assert result.exit_code == 0
+        assert "Remaining:      12m 30s / 25m 0s" in result.stdout
+        assert "Resets at:      2026-06-25 10:30:00 UTC" in result.stdout
+        assert "Overquota used: 1m 30s" in result.stdout
+
+    def test_json(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["spaces", "zero-gpu-quota", "--format", "json"])
+        assert result.exit_code == 0
+        assert json.loads(result.stdout) == {
+            "base": 1500,
+            "remaining": 750,
+            "resets_at": "2026-06-25T10:30:00+00:00",
+            "overquota_used": 90,
+        }
 
 
 class TestInferenceEndpointsCommands:

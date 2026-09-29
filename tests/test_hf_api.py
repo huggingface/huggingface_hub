@@ -3624,6 +3624,32 @@ class TestSpaceAPIMocked:
             params={"factory": "true"},
         )
 
+    def test_get_zero_gpu_quota(self, mocker) -> None:
+        get_mock = mocker.patch("huggingface_hub.hf_api.get_session").return_value.get
+        get_mock.return_value.status_code = 200
+        get_mock.return_value.json.return_value = {
+            "base": 1500,
+            "current": 1200,
+            "resetsAt": "2026-06-25T00:00:00.000Z",
+            "overquotaUsed": 12,
+        }
+        quota = self.api.get_zero_gpu_quota()
+        get_mock.assert_called_once_with(
+            f"{self.api.endpoint}/api/spaces/zero-gpu/quota", headers=self.api._build_hf_headers()
+        )
+        assert quota.base == 1500
+        assert quota.remaining == 1200
+        assert quota.resets_at == datetime.datetime(2026, 6, 25, tzinfo=datetime.timezone.utc)
+        assert quota.overquota_used == 12
+
+    def test_get_zero_gpu_quota_unauthorized(self, mocker) -> None:
+        # A 401 must not be reported as a missing 'zero-gpu/quota' Space repo
+        get_mock = mocker.patch("huggingface_hub.hf_api.get_session").return_value.get
+        get_mock.return_value.status_code = 401
+        with pytest.raises(HfHubHTTPError, match="a valid token is required") as exc_info:
+            self.api.get_zero_gpu_quota()
+        assert not isinstance(exc_info.value, RepositoryNotFoundError)
+
 
 @pytest.mark.production
 class TestListGitRefs:

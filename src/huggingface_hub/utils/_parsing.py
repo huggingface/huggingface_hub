@@ -76,7 +76,7 @@ def _parse_with_unit(value: str, units: dict[str, int]) -> int:
     return number * units[unit]
 
 
-def format_duration(secs: int | None) -> str:
+def format_duration(secs: float | None) -> str:
     """Format a duration in seconds as a short human-readable string (e.g. `"1m 32s"`, `"2h 15m"`, `"45s"`).
 
     Returns `"--"` when `secs` is `None` so it can be used directly as a CLI table cell.

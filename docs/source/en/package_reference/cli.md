@@ -4529,6 +4529,7 @@ $ hf spaces [OPTIONS] COMMAND [ARGS]...
 * `variables`: Manage environment variables for a Space on the Hub.
 * `volumes`: Manage volumes for a Space on the Hub.
 * `wait`: Wait for a Space to finish building/starting.
+* `zero-gpu-quota`: Show your ZeroGPU quota (remaining GPU time and reset date).
 
 ### `hf spaces card`
 
@@ -5308,6 +5309,32 @@ $ hf spaces wait [OPTIONS] SPACE_ID
 Examples
   $ hf spaces wait username/my-space
   $ hf spaces wait username/my-space --timeout 5m
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf spaces zero-gpu-quota`
+
+Show your ZeroGPU quota (remaining GPU time and reset date).
+
+Raw values (`--format json`) are in GPU-seconds. With `--quiet`, only the remaining GPU-seconds are printed.
+
+**Usage**:
+
+```console
+$ hf spaces zero-gpu-quota [OPTIONS]
+```
+
+**Options**:
+
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces zero-gpu-quota
+  $ hf spaces zero-gpu-quota --format json
 
 Learn more
   Use `hf <command> --help` for more information about a command.

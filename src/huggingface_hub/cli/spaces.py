@@ -40,7 +40,7 @@ from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.hf_api import ExpandSpaceProperty_T, HfApi, SpaceSort_T
 from huggingface_hub.repocard import SpaceCard
 from huggingface_hub.utils import disable_progress_bars
-from huggingface_hub.utils._parsing import parse_duration
+from huggingface_hub.utils._parsing import format_duration, parse_duration
 
 from ._cli_utils import (
     REPO_LIST_DEFAULT_LIMIT,
@@ -66,7 +66,7 @@ from ._cli_utils import (
 )
 from ._file_listing import list_repo_files_cmd
 from ._framework import Argument, Option
-from ._output import _dataclass_to_dict, out
+from ._output import OutputFormat, _dataclass_to_dict, out
 
 
 HOT_RELOADING_MIN_GRADIO = "6.1.0"
@@ -514,6 +514,33 @@ def spaces_hardware(token: TokenOpt = None) -> None:
         )
     out.table(items)
     out.hint("Use `hf spaces settings <space_id> --hardware <name>` to request hardware for a Space.")
+
+
+@spaces_cli.command(
+    "zero-gpu-quota",
+    examples=[
+        "hf spaces zero-gpu-quota",
+        "hf spaces zero-gpu-quota --format json",
+    ],
+)
+def spaces_zero_gpu_quota(token: TokenOpt = None) -> None:
+    """Show your ZeroGPU quota (remaining GPU time and reset date).
+
+    Raw values (`--format json`) are in GPU-seconds. With `--quiet`, only the remaining GPU-seconds are printed.
+    """
+    api = get_hf_api(token=token)
+    quota = api.get_zero_gpu_quota()
+    if out.mode != OutputFormat.human:
+        out.dict(quota, id_key="remaining")
+        return
+    lines = [
+        f"Remaining:      {format_duration(quota.remaining)} / {format_duration(quota.base)}",
+        f"Resets at:      {quota.resets_at.strftime('%Y-%m-%d %H:%M:%S UTC') if quota.resets_at else 'not used yet'}",
+    ]
+    if quota.overquota_used is not None:
+        lines.append(f"Overquota used: {format_duration(quota.overquota_used)}")
+    out.text("\n".join(lines))
+    out.hint("Use `hf spaces zero-gpu-quota --format json` to get raw values in GPU-seconds.")
 
 
 @spaces_cli.command(

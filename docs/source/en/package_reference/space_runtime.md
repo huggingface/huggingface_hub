@@ -12,6 +12,7 @@ Check the [`HfApi`] documentation page for the reference of methods to manage yo
 - Manage hardware: [`request_space_hardware`]
 - Manage state: [`pause_space`], [`restart_space`], [`set_space_sleep_time`]
 - Wait until Space is ready: [`wait_for_space`]
+- Check your ZeroGPU quota: [`get_zero_gpu_quota`]
 
 ## Data structures
 
@@ -38,3 +39,7 @@ Check the [`HfApi`] documentation page for the reference of methods to manage yo
 ### SpaceTemplate
 
 [[autodoc]] SpaceTemplate
+
+### ZeroGpuQuota
+
+[[autodoc]] ZeroGpuQuota

@@ -71,6 +71,7 @@ from ._space_api import (
     SpaceTemplate,
     SpaceVariable,
     Volume,
+    ZeroGpuQuota,
 )
 from .community import (
     Discussion,
@@ -8090,6 +8091,46 @@ class HfApi:
         hf_raise_for_status(response)
         return [JobHardwareInfo(**hardware) for hardware in response.json()]
 
+    def get_zero_gpu_quota(self, *, token: bool | str | None = None) -> ZeroGpuQuota:
+        """Get the ZeroGPU quota of the authenticated user.
+
+        Useful to track ZeroGPU usage when calling ZeroGPU Spaces programmatically (e.g. from an app, an agent or
+        an MCP server). See https://huggingface.co/docs/hub/spaces-zerogpu for more details.
+
+        Args:
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                A fine-grained token must have the "Billing > Read billing usage and payment method status"
+                permission and an OAuth token must have the `read-billing` scope.
+
+        Returns:
+            [`ZeroGpuQuota`]: The ZeroGPU quota of the authenticated user.
+
+        Example:
+            ```py
+            >>> from huggingface_hub import get_zero_gpu_quota
+            >>> quota = get_zero_gpu_quota()
+            >>> quota
+            ZeroGpuQuota(base=2400, remaining=1810, resets_at=datetime.datetime(2026, 9, 30, 9, 12, 3, tzinfo=datetime.timezone.utc), overquota_used=0)
+            >>> print(f"{quota.remaining / 60:.1f} minutes left")
+            30.2 minutes left
+            ```
+        """
+        r = get_session().get(
+            f"{self.endpoint}/api/spaces/zero-gpu/quota", headers=self._build_hf_headers(token=token)
+        )
+        if r.status_code == 401:
+            # Handled before `hf_raise_for_status` which would treat it as a missing 'zero-gpu/quota' Space repo.
+            raise HfHubHTTPError(
+                "401 Unauthorized: a valid token is required to get the ZeroGPU quota. Log in with `hf auth login` or"
+                " pass a token. See https://huggingface.co/settings/tokens.",
+                response=r,
+            )
+        hf_raise_for_status(r)
+        return ZeroGpuQuota(r.json())
+
     @validate_hf_hub_args
     def request_space_hardware(
         self,
@@ -15189,6 +15230,7 @@ add_space_variable = api.add_space_variable
 delete_space_variable = api.delete_space_variable
 get_space_runtime = api.get_space_runtime
 list_spaces_hardware = api.list_spaces_hardware
+get_zero_gpu_quota = api.get_zero_gpu_quota
 request_space_hardware = api.request_space_hardware
 set_space_sleep_time = api.set_space_sleep_time
 pause_space = api.pause_space
