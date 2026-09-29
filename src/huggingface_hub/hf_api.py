@@ -12909,20 +12909,39 @@ class HfApi:
         namespace: str | None = None,
         token: bool | str | None = None,
     ) -> ScheduledJobInfo:
-        """Change when an existing scheduled Job runs.
+        """
+        Change when an existing scheduled Job runs.
+
+        Only the schedule is updated: the Job spec, labels and suspended state are kept. To run the scheduled Job once
+        right now without changing its schedule, use [`trigger_scheduled_job`] instead.
 
         Args:
             scheduled_job_id (`str`):
                 ID of the scheduled Job.
+
             schedule (`str`):
-                New CRON expression (for example, `"0 9 * * 1"`) or preset such as `"@daily"`.
+                One of "@annually", "@yearly", "@monthly", "@weekly", "@daily", "@hourly", or a
+                CRON schedule expression (e.g., '0 9 * * 1' for 9 AM every Monday).
+
             namespace (`str`, *optional*):
-                Namespace of the scheduled Job. Defaults to the current user's namespace.
+                The namespace where the scheduled Job is. Defaults to the current user's namespace.
+
             token (`bool` or `str`, *optional*):
-                User access token. Defaults to the locally saved token.
+                A valid user access token. If not provided, the locally saved token will be used, which is the
+                recommended authentication method. Set to `False` to disable authentication.
+                Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
 
         Returns:
-            [`ScheduledJobInfo`]: The updated scheduled Job.
+            [`ScheduledJobInfo`]: The updated scheduled Job info.
+
+        Example:
+
+            ```python
+            >>> from huggingface_hub import update_scheduled_job_schedule
+            >>> scheduled_job = update_scheduled_job_schedule(scheduled_job_id="6abb8dc9c617607c354d45f4", schedule="@daily")
+            >>> scheduled_job.schedule
+            '@daily'
+            ```
         """
         if namespace is None:
             namespace = self.whoami(token=token)["name"]

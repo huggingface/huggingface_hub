@@ -2694,7 +2694,7 @@ $ hf jobs scheduled reschedule [OPTIONS] SCHEDULED_JOB_ID SCHEDULE
 **Arguments**:
 
 * `SCHEDULED_JOB_ID`: Scheduled Job ID (or 'namespace/scheduled_job_id')  [required]
-* `SCHEDULE`: One of annually, yearly, monthly, weekly, daily, hourly, or a CRON schedule expression.  [required]
+* `SCHEDULE`: One of @annually, @yearly, @monthly, @weekly, @daily, @hourly, or a CRON schedule expression.  [required]
 
 **Options**:
 
@@ -2750,7 +2750,7 @@ $ hf jobs scheduled run [OPTIONS] SCHEDULE IMAGE COMMAND...
 
 **Arguments**:
 
-* `SCHEDULE`: One of annually, yearly, monthly, weekly, daily, hourly, or a CRON schedule expression.  [required]
+* `SCHEDULE`: One of @annually, @yearly, @monthly, @weekly, @daily, @hourly, or a CRON schedule expression.  [required]
 * `IMAGE`: The Docker image to use.  [required]
 * `COMMAND...`: The command to run.  [required]
 
@@ -2871,7 +2871,7 @@ $ hf jobs scheduled uv run [OPTIONS] SCHEDULE SCRIPT [SCRIPT_ARGS]...
 
 **Arguments**:
 
-* `SCHEDULE`: One of annually, yearly, monthly, weekly, daily, hourly, or a CRON schedule expression.  [required]
+* `SCHEDULE`: One of @annually, @yearly, @monthly, @weekly, @daily, @hourly, or a CRON schedule expression.  [required]
 * `SCRIPT`: UV script to run (local file or URL)  [required]
 * `[SCRIPT_ARGS]...`: Arguments for the script
 

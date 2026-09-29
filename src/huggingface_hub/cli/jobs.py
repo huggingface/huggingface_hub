@@ -560,7 +560,7 @@ ConcurrencyOpt = Annotated[
 ScheduleArg = Annotated[
     str,
     Argument(
-        help="One of annually, yearly, monthly, weekly, daily, hourly, or a CRON schedule expression.",
+        help="One of @annually, @yearly, @monthly, @weekly, @daily, @hourly, or a CRON schedule expression.",
     ),
 ]
 
