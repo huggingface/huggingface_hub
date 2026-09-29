@@ -513,6 +513,8 @@ class _HfFileSystemBucketChecks:
             assert info["size"] > 0  # not empty
 
 
+# File streaming uses plain HTTP instead of Xet without `hf_xet`.
+@pytest.mark.both_xet_modes
 class TestHfFileSystemRepositoryRO(_HfFileSystemRepositoryChecks, _HfFileSystemBaseROTests):
     __test__ = True
 
@@ -643,6 +645,8 @@ class TestHfFileSystemRepositoryRO(_HfFileSystemRepositoryChecks, _HfFileSystemB
                 assert "@refs/pr/1" in files[0]["name"]
 
 
+# Writes go through the LFS upload protocol without `hf_xet`.
+@pytest.mark.both_xet_modes
 class TestHfFileSystemRepositoryRW(_HfFileSystemRepositoryChecks, _HfFileSystemBaseRWTests):
     __test__ = True
 

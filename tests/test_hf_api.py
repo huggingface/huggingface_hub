@@ -501,6 +501,7 @@ class TestCommitApi:
         repo_name_with_no_org = api.get_full_repo_name("model", organization="org")
         assert repo_name_with_no_org == "org/model"
 
+    @pytest.mark.both_xet_modes
     def test_upload_folder(self, api: HfApi, repo_factory: RepoFactory) -> None:
         repo_url = repo_factory()
         repo_id = repo_url.repo_id
@@ -526,6 +527,7 @@ class TestCommitApi:
         return_val = api.upload_folder(folder_path=self.tmp_dir, path_in_repo="temp/dir", repo_id=repo_id)
         assert isinstance(return_val, CommitInfo)
 
+    @pytest.mark.both_xet_modes
     def test_upload_folder_create_pr(self, api: HfApi, repo_factory: RepoFactory) -> None:
         repo_url = repo_factory()
         repo_id = repo_url.repo_id
@@ -544,6 +546,7 @@ class TestCommitApi:
             filepath = hf_hub_download(repo_id=repo_id, filename=f"temp/dir/{rpath}", revision="refs/pr/1")
             assert Path(local_path).read_bytes() == Path(filepath).read_bytes()
 
+    @pytest.mark.both_xet_modes
     def test_upload_folder_git_folder_excluded(self, api: HfApi, repo_factory: RepoFactory) -> None:
         repo_url = repo_factory()
 
@@ -572,6 +575,7 @@ class TestCommitApi:
             "nested/file.bin",
         }
 
+    @pytest.mark.both_xet_modes
     def test_upload_folder_gitignore_already_exists(self, api: HfApi, repo_factory: RepoFactory) -> None:
         repo_url = repo_factory()
         # Ignore nested folder
@@ -583,6 +587,7 @@ class TestCommitApi:
         # Check nested file not uploaded
         assert not api.file_exists(repo_url.repo_id, "nested/file.bin")
 
+    @pytest.mark.both_xet_modes
     def test_upload_folder_gitignore_in_commit(self, api: HfApi, repo_factory: RepoFactory) -> None:
         repo_url = repo_factory()
         # Create .gitignore file locally
@@ -788,6 +793,7 @@ class TestCommitApi:
 
         assert str(context.value) == expected_message
 
+    @pytest.mark.both_xet_modes
     def test_create_commit_lfs_file_implicit_token(self, api: HfApi, mocker) -> None:
         """Test that uploading a file as LFS works with cached token.
 
@@ -852,6 +858,7 @@ class TestCommitApi:
             repo_id=repo_url.repo_id,
         )
 
+    @pytest.mark.both_xet_modes
     def test_commit_preflight_on_lots_of_lfs_files(self, api: HfApi, repo_factory: RepoFactory):
         """Test committing 1300 LFS files at once.
 
@@ -912,6 +919,7 @@ class TestCommitApi:
         assert "file.txt" in repo_files
         assert "lfs.bin" in repo_files
 
+    @pytest.mark.both_xet_modes
     def test_create_commit_mutates_operations(self, api: HfApi, repo_factory: RepoFactory) -> None:
         repo_url = repo_factory()
         repo_id = repo_url.repo_id
@@ -932,6 +940,7 @@ class TestCommitApi:
         assert operations[1]._is_committed
         assert operations[1].path_or_fileobj == b"content"
 
+    @pytest.mark.both_xet_modes
     def test_pre_upload_before_commit(self, api: HfApi, repo_factory: RepoFactory, caplog) -> None:
         repo_url = repo_factory()
         repo_id = repo_url.repo_id
@@ -1018,6 +1027,7 @@ class TestCommitApi:
         assert records[0].message == "No files have been modified since last commit. Skipping to prevent empty commit."
         assert records[0].levelname == "WARNING"
 
+    @pytest.mark.both_xet_modes
     def test_prevent_empty_commit_if_no_new_addition(self, api: HfApi, repo_factory: RepoFactory, caplog) -> None:
         repo_url = repo_factory()
         api.create_commit(
@@ -1098,6 +1108,7 @@ class TestCommitApi:
         assert len(commits) == 1  # no 2nd commit
         assert url.oid == commits[0].commit_id
 
+    @pytest.mark.both_xet_modes
     def test_continue_commit_without_existing_files(self, api: HfApi, repo_factory: RepoFactory, caplog) -> None:
         repo_url = repo_factory()
         api.create_commit(
@@ -1274,6 +1285,7 @@ class TestCommitApi:
         assert "file2.txt" not in remote_files
 
 
+@pytest.mark.both_xet_modes
 class TestHfApiUploadEmptyFile:
     @pytest.fixture(scope="class", autouse=True)
     def _shared_repo(self, request, api: HfApi):

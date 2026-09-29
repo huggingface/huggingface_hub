@@ -38,11 +38,13 @@ addopts = "-Werror::FutureWarning --log-cli-level=INFO -sv --durations=0 --stric
 # Custom markers. Xet policy (enforced by the `xet_mode` fixture in tests/conftest.py):
 # tests marked `xet` require `hf_xet` (skipped if not installed, Xet force-enabled);
 # tests marked `no_xet` must run without `hf_xet` (skipped if installed);
-# unmarked tests must work regardless of Xet and run in both CI jobs (with and
-# without `hf_xet` installed).
+# tests marked `both_xet_modes` cover code that behaves differently without `hf_xet`
+# (upload, download, file streaming) and run in both CI jobs (with and without `hf_xet`);
+# unmarked tests run only with `hf_xet` installed in CI.
 markers = [
     "xet: test requires the `hf_xet` package; Xet is force-enabled (skipped if `hf_xet` is not installed)",
     "no_xet: test must run without `hf_xet`; skipped if `hf_xet` is installed",
+    "both_xet_modes: test covers code that behaves differently without `hf_xet` (upload, download, file streaming); runs both with and without `hf_xet` in CI",
     "inference: inference test (client, providers, types); runs in the dedicated 'Inference only' CI job",
     "production: test runs against the production Hub endpoint (patches `ENDPOINT` and the download URL template, like the former `with_production_testing` decorator)",
     "deprecated: test is expected to emit a `FutureWarning` mentioning the given function name(s), e.g. `@pytest.mark.deprecated('some_deprecated_method')`",

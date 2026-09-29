@@ -85,7 +85,7 @@ jobs:
 
           case "${{ matrix.test_name }}" in
 
-            "no hf_xet" | "Inference only")
+            "Inference only")
               sudo apt update
               sudo apt install -y libsndfile1-dev
               ;;
@@ -107,9 +107,11 @@ jobs:
           esac
 
           # Xet policy (see `xet_mode` fixture in tests/conftest.py):
-          # - "with hf_xet" job: hf_xet installed (comes with `huggingface_hub[testing]`). Runs `-m 'not no_xet'` => `xet` tests + unmarked tests with Xet.
-          # - all other jobs: hf_xet uninstalled. Run `-m 'not xet'` => `no_xet` tests + unmarked tests without Xet.
-          # Unmarked tests therefore run both with and without Xet and must work regardless.
+          # - "with hf_xet" job: hf_xet installed (comes with `huggingface_hub[testing]`). Runs `-m 'not no_xet'` => all tests except `no_xet` ones.
+          # - "no hf_xet" job: hf_xet uninstalled. Runs `-m '(both_xet_modes or no_xet) and not xet'` => only tests covering code that behaves
+          #   differently without Xet (upload, download, file streaming). Other tests (repos, discussions, settings, CLI, etc.) don't depend
+          #   on Xet: running them twice would only add load on the staging Hub.
+          # - all other jobs: hf_xet uninstalled.
           if [[ "${{ matrix.test_name }}" != "with hf_xet" ]]; then
             uv pip uninstall hf_xet
           fi
@@ -131,7 +133,7 @@ jobs:
             ;;
 
             "no hf_xet")
-              PYTEST="$PYTEST ../tests -m 'not xet and not inference' -n 4"
+              PYTEST="$PYTEST ../tests -m '(both_xet_modes or no_xet) and not xet' -n 4"
               echo $PYTEST
               eval $PYTEST
             ;;
@@ -146,7 +148,7 @@ jobs:
             ;;
 
             "with hf_xet")
-              # `xet` tests + unmarked tests, all with hf_xet installed.
+              # All tests except `no_xet` ones, with hf_xet installed.
               # Inference tests are excluded: they have their own job and don't depend on Xet.
               PYTEST="$PYTEST ../tests -m 'not no_xet and not inference' -n 4"
               echo $PYTEST
@@ -199,9 +201,10 @@ jobs:
           uv pip install "huggingface_hub[testing] @ ."
 
           # Xet policy (see `xet_mode` fixture in tests/conftest.py):
-          # - "with hf_xet" job: hf_xet installed (comes with `huggingface_hub[testing]`). Runs `-m 'not no_xet'` => `xet` tests + unmarked tests with Xet.
-          # - all other jobs: hf_xet uninstalled. Run `-m 'not xet'` => `no_xet` tests + unmarked tests without Xet.
-          # Unmarked tests therefore run both with and without Xet and must work regardless.
+          # - "with hf_xet" job: hf_xet installed (comes with `huggingface_hub[testing]`). Runs `-m 'not no_xet'` => all tests except `no_xet` ones.
+          # - "no hf_xet" job: hf_xet uninstalled. Runs `-m '(both_xet_modes or no_xet) and not xet'` => only tests covering code that behaves
+          #   differently without Xet (upload, download, file streaming). Other tests (repos, discussions, settings, CLI, etc.) don't depend
+          #   on Xet: running them twice would only add load on the staging Hub.
           if ("${{ matrix.test_name }}" -ne "with hf_xet") {
             uv pip uninstall hf_xet
           }
@@ -225,12 +228,11 @@ jobs:
 
           switch ("${{ matrix.test_name }}") {
             "with hf_xet" {
-              # `xet` tests + unmarked tests, all with hf_xet installed.
-              # Inference tests already run in "no hf_xet" and don't depend on Xet.
-              python $PYTEST_ARGS -m "not no_xet and not inference"
+              # All tests except `no_xet` ones (Inference tests included: Windows has no dedicated Inference job).
+              python $PYTEST_ARGS -m "not no_xet"
             }
             "no hf_xet" {
-              python $PYTEST_ARGS -m "not xet"
+              python $PYTEST_ARGS -m "(both_xet_modes or no_xet) and not xet"
             }
           }
 

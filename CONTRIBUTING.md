@@ -235,16 +235,14 @@ Whether a test depends on Xet is declared explicitly with markers, enforced by t
   Mark a whole module with `pytestmark = pytest.mark.xet`.
 - `@pytest.mark.no_xet` — the test **must run without** `hf_xet` (e.g. legacy LFS
   behavior). It is skipped when `hf_xet` is installed.
-- unmarked — the test must work **regardless of Xet**. Nothing is forced: it runs with
-  whatever your environment provides. In CI, unmarked tests run twice: once with
-  `hf_xet` installed ("with hf_xet" job) and once without (other jobs). If an unmarked
-  test only passes in one mode, mark it `xet` or `no_xet` accordingly.
+- `@pytest.mark.both_xet_modes` — the test covers code that **behaves differently without** `hf_xet`: LFS upload, HTTP download, file streaming, `upload_folder` without the Xet pipeline, etc. It runs twice in CI: once with `hf_xet` installed ("with hf_xet" job) and once without ("no hf_xet" job). Use it for tests that target the transfer logic itself, not for tests that merely upload or download a file as part of their setup.
+- unmarked — everything else (repo, discussion, collection, settings APIs, CLI output, etc.). Nothing is forced: it runs with whatever your environment provides. In CI, unmarked tests run only with `hf_xet` installed, which is the default install on all major platforms.
 
 ```bash
-$ pytest tests -m xet                    # only Xet-required tests (needs hf_xet)
-$ pytest tests -m no_xet                 # only legacy tests (skipped if hf_xet installed)
-$ pytest tests -m "not xet"              # what CI runs without hf_xet installed
-$ pytest tests -m "not no_xet"           # what CI runs with hf_xet installed
+$ pytest tests -m xet                                        # only Xet-required tests (needs hf_xet)
+$ pytest tests -m no_xet                                     # only legacy tests (skipped if hf_xet installed)
+$ pytest tests -m "not no_xet"                               # what CI runs with hf_xet installed
+$ pytest tests -m "(both_xet_modes or no_xet) and not xet"   # what CI runs without hf_xet installed
 ```
 
 #### Inference tests
