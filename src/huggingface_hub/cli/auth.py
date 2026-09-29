@@ -165,7 +165,7 @@ def auth_whoami() -> None:
 
     token = get_token()
     if token is None:
-        out.error("Not logged in")
+        out.error("Not logged in. Run `hf auth login` to log in.")
         raise click.exceptions.Exit(code=1)
 
     info = whoami(token)
