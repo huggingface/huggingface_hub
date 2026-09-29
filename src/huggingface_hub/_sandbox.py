@@ -73,13 +73,13 @@ DEFAULT_IMAGE = "python:3.12"
 # reviewed for this release -- not whatever the mutable `sbx-server` alias points at today.
 # Both constants move together on every server release; the digest is printed by the server
 # repo's publish workflow.
-SANDBOX_SERVER_VERSION = "0.6.0"
-SANDBOX_SERVER_SHA256 = "bd08d60b3bdab4ddd4e81401b6dacc96e01bcee3a4753e258b99d40c07d81ee3"
+SANDBOX_SERVER_VERSION = "0.7.0"
+SANDBOX_SERVER_SHA256 = "eb2b04f79fbe765195300aaf1582be2a2a9ea698ff067d0cab428171d5584932"
 
 # The sbx-server wire contract this client drives, checked against `/health`'s `protocol` on
 # startup. A pool host keeps the binary it downloaded at boot for up to 24h, so pinning a
 # digest does not stop this client from meeting a server it did not pin -- the check does.
-SANDBOX_SERVER_PROTOCOL = 2
+SANDBOX_SERVER_PROTOCOL = 3
 
 DEFAULT_IDLE_TIMEOUT = 10 * 60  # 10 minutes
 SANDBOX_MAX_LIFETIME = "24h"
