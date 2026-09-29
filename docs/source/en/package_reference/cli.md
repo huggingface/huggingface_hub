@@ -4513,6 +4513,7 @@ $ hf spaces [OPTIONS] COMMAND [ARGS]...
 **Commands**:
 
 * `card`: Get the Space card (README) for a Space on the Hub.
+* `custom-domain`: Manage the custom domain of a Space on the Hub.
 * `dev-mode`: Enable or disable dev mode on a Space.
 * `hardware`: List available hardware options for Spaces.
 * `hot-reload`: Hot-reload any Python file of a Space without a full rebuild + restart.
@@ -4556,6 +4557,114 @@ Examples
   $ hf spaces card mteb/leaderboard --metadata
   $ hf spaces card mteb/leaderboard --metadata --format json
   $ hf spaces card mteb/leaderboard --text
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf spaces custom-domain`
+
+Manage the custom domain of a Space on the Hub.
+
+**Usage**:
+
+```console
+$ hf spaces custom-domain [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `delete`: Remove the custom domain from a Space.
+* `renew`: Renew the DNS verification challenge of a Space custom domain.
+* `set`: Set a custom domain for a Space.
+
+#### `hf spaces custom-domain delete`
+
+Remove the custom domain from a Space.
+
+**Usage**:
+
+```console
+$ hf spaces custom-domain delete [OPTIONS] SPACE_ID
+```
+
+**Arguments**:
+
+* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+
+**Options**:
+
+* `-y, --yes`: Answer Yes to prompt automatically.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces custom-domain delete username/my-space
+  $ hf spaces custom-domain delete username/my-space --yes
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+#### `hf spaces custom-domain renew`
+
+Renew the DNS verification challenge of a Space custom domain.
+
+Use it when the domain was not verified in time (stage EXPIRED_CHALLENGE).
+
+**Usage**:
+
+```console
+$ hf spaces custom-domain renew [OPTIONS] SPACE_ID
+```
+
+**Arguments**:
+
+* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+
+**Options**:
+
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces custom-domain renew username/my-space
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+#### `hf spaces custom-domain set`
+
+Set a custom domain for a Space. Replaces the current custom domain, if any.
+
+Requires a PRO account or a Team or Enterprise organization.
+
+**Usage**:
+
+```console
+$ hf spaces custom-domain set [OPTIONS] SPACE_ID DOMAIN
+```
+
+**Arguments**:
+
+* `SPACE_ID`: The space ID (e.g. `username/repo-name`).  [required]
+* `DOMAIN`: Custom domain to host the Space on (e.g. `demo.example.com`).  [required]
+
+**Options**:
+
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces custom-domain set username/my-space demo.example.com
 
 Learn more
   Use `hf <command> --help` for more information about a command.

@@ -2572,6 +2572,19 @@ class TestSpacesLogsCommand:
         assert "Cannot use --follow and --tail together" in str(result.exception)
 
 
+class TestSpacesCustomDomainCommand:
+    def test_set_custom_domain(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.spaces.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            result = runner.invoke(
+                app, ["spaces", "custom-domain", "set", "user/my-space", "demo.example.com", "--format", "human"]
+            )
+        assert result.exit_code == 0
+        api.set_space_custom_domain.assert_called_once_with("user/my-space", domain="demo.example.com")
+        assert "Custom domain set" in result.stdout
+        assert "CNAME record pointing 'demo.example.com' to 'hf.space'" in result.stderr
+
+
 @pytest.mark.production
 class TestSpacesHardwareCommand:
     def test_list_hardware(self, runner: CliRunner) -> None:

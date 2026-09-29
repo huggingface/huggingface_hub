@@ -1179,6 +1179,17 @@ Use `hf spaces variables` to manage non-secret environment variables on a Space.
 >>> hf spaces variables delete username/my-space MAX_TOKENS --yes
 ```
 
+### Manage a Space custom domain
+
+Use `hf spaces custom-domain set` to host a Space on your own domain (requires a PRO account or a Team or Enterprise organization). Then add a `CNAME` record pointing the domain to `hf.space` in your DNS provider. Use `hf spaces info --expand runtime` to check the domain stage: it becomes `READY` once the DNS record is verified. If the verification expired (`EXPIRED_CHALLENGE`), fix your DNS record and run `hf spaces custom-domain renew`. Use `hf spaces custom-domain delete` to remove the custom domain.
+
+```bash
+>>> hf spaces custom-domain set username/my-space demo.example.com
+>>> hf spaces info username/my-space --expand runtime
+>>> hf spaces custom-domain renew username/my-space
+>>> hf spaces custom-domain delete username/my-space --yes
+```
+
 ### SSH into a Space (Dev Mode)
 
 Use `hf spaces ssh` to open an SSH session into a Space's Dev Mode container. If Dev Mode is not enabled, the CLI will prompt you to enable it (or use `--auto` to skip the prompt).

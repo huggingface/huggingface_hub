@@ -30,7 +30,7 @@ from urllib.parse import urlparse
 
 import pytest
 
-from huggingface_hub import HfApi, SpaceHardware, SpaceStage, constants
+from huggingface_hub import HfApi, SpaceDomain, SpaceHardware, SpaceStage, constants
 from huggingface_hub._commit_api import (
     CommitOperationAdd,
     CommitOperationCopy,
@@ -3623,6 +3623,36 @@ class TestSpaceAPIMocked:
             headers=self.api._build_hf_headers(),
             params={"factory": "true"},
         )
+
+    def test_set_space_custom_domain(self) -> None:
+        self.api.set_space_custom_domain(self.repo_id, domain="demo.example.com")
+        self.post_mock.assert_called_once_with(
+            f"{self.api.endpoint}/api/spaces/{self.repo_id}/custom-domain",
+            headers=self.api._build_hf_headers(),
+            json={"domain": "demo.example.com"},
+        )
+
+    def test_delete_space_custom_domain(self) -> None:
+        self.api.delete_space_custom_domain(self.repo_id)
+        self.delete_mock.assert_called_once_with(
+            f"{self.api.endpoint}/api/spaces/{self.repo_id}/custom-domain",
+            headers=self.api._build_hf_headers(),
+        )
+
+    def test_space_runtime_domains(self) -> None:
+        runtime = SpaceRuntime(
+            {
+                "stage": "RUNNING",
+                "domains": [
+                    {"domain": "user-repo.hf.space", "stage": "READY"},
+                    {"domain": "demo.example.com", "stage": "PENDING_CHALLENGE"},
+                ],
+            }
+        )
+        assert runtime.domains == [
+            SpaceDomain({"domain": "user-repo.hf.space", "stage": "READY", "isCustom": False}),
+            SpaceDomain({"domain": "demo.example.com", "stage": "PENDING_CHALLENGE", "isCustom": True}),
+        ]
 
 
 @pytest.mark.production

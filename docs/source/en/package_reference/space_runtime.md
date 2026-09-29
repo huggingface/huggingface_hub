@@ -12,12 +12,17 @@ Check the [`HfApi`] documentation page for the reference of methods to manage yo
 - Manage hardware: [`request_space_hardware`]
 - Manage state: [`pause_space`], [`restart_space`], [`set_space_sleep_time`]
 - Wait until Space is ready: [`wait_for_space`]
+- Manage custom domain: [`set_space_custom_domain`], [`delete_space_custom_domain`], [`renew_space_custom_domain_challenge`]
 
 ## Data structures
 
 ### SpaceRuntime
 
 [[autodoc]] SpaceRuntime
+
+### SpaceDomain
+
+[[autodoc]] SpaceDomain
 
 ### SpaceHardware
 

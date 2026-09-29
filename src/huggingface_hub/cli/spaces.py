@@ -89,9 +89,11 @@ spaces_cli = typer_factory(help="Interact with spaces on the Hub.")
 volumes_cli = typer_factory(help="Manage volumes for a Space on the Hub.")
 secrets_cli = typer_factory(help="Manage secrets for a Space on the Hub.")
 variables_cli = typer_factory(help="Manage environment variables for a Space on the Hub.")
+custom_domain_cli = typer_factory(help="Manage the custom domain of a Space on the Hub.")
 spaces_cli.add_group(volumes_cli, name="volumes")
 spaces_cli.add_group(secrets_cli, name="secrets")
 spaces_cli.add_group(variables_cli, name="variables")
+spaces_cli.add_group(custom_domain_cli, name="custom-domain")
 
 
 @spaces_cli.command(
@@ -944,6 +946,73 @@ def volumes_delete(
     out.hint(
         f"Use `hf spaces volumes set {space_id} -v hf://<repo_type>/<repo_id>:/<mount_path>` to set volumes for a Space."
     )
+
+
+@custom_domain_cli.command(
+    "set",
+    examples=["hf spaces custom-domain set username/my-space demo.example.com"],
+)
+def custom_domain_set(
+    space_id: Annotated[str, Argument(help="The space ID (e.g. `username/repo-name`).")],
+    domain: Annotated[str, Argument(help="Custom domain to host the Space on (e.g. `demo.example.com`).")],
+    token: TokenOpt = None,
+) -> None:
+    """Set a custom domain for a Space. Replaces the current custom domain, if any.
+
+    Requires a PRO account or a Team or Enterprise organization.
+    """
+    api = get_hf_api(token=token)
+    api.set_space_custom_domain(space_id, domain=domain)
+    out.result("Custom domain set", space_id=space_id, domain=domain)
+    out.hint(
+        f"Create a CNAME record pointing '{domain}' to 'hf.space' in your DNS provider (use an ALIAS record for a root domain)."
+    )
+    out.hint(f"Use `hf spaces info {space_id} --expand runtime` to check the domain stage (READY once verified).")
+
+
+@custom_domain_cli.command(
+    "delete",
+    examples=[
+        "hf spaces custom-domain delete username/my-space",
+        "hf spaces custom-domain delete username/my-space --yes",
+    ],
+)
+def custom_domain_delete(
+    space_id: Annotated[str, Argument(help="The space ID (e.g. `username/repo-name`).")],
+    yes: Annotated[
+        bool,
+        Option(
+            "-y",
+            "--yes",
+            help="Answer Yes to prompt automatically.",
+        ),
+    ] = False,
+    token: TokenOpt = None,
+) -> None:
+    """Remove the custom domain from a Space."""
+    out.confirm(f"You are about to remove the custom domain from Space '{space_id}'. Proceed?", yes=yes)
+    api = get_hf_api(token=token)
+    api.delete_space_custom_domain(space_id)
+    out.result("Custom domain deleted", space_id=space_id)
+    out.hint(f"Use `hf spaces custom-domain set {space_id} <domain>` to set a new custom domain.")
+
+
+@custom_domain_cli.command(
+    "renew",
+    examples=["hf spaces custom-domain renew username/my-space"],
+)
+def custom_domain_renew(
+    space_id: Annotated[str, Argument(help="The space ID (e.g. `username/repo-name`).")],
+    token: TokenOpt = None,
+) -> None:
+    """Renew the DNS verification challenge of a Space custom domain.
+
+    Use it when the domain was not verified in time (stage EXPIRED_CHALLENGE).
+    """
+    api = get_hf_api(token=token)
+    api.renew_space_custom_domain_challenge(space_id)
+    out.result("Custom domain challenge renewed", space_id=space_id)
+    out.hint(f"Use `hf spaces info {space_id} --expand runtime` to check the domain stage (READY once verified).")
 
 
 @secrets_cli.command(

@@ -192,6 +192,37 @@ class SpaceHotReloading:
 
 
 @dataclass
+class SpaceDomain:
+    """
+    Contains information about a domain serving a Space.
+
+    Args:
+        domain (`str`):
+            Domain name. Example: `"username-my-space.hf.space"` or `"demo.example.com"`.
+        stage (`str`):
+            Current stage of the domain. Possible values are `"READY"` (domain is active), `"PENDING"`,
+            `"PENDING_CHALLENGE"` (DNS record not found yet), `"EXPIRED_CHALLENGE"` (domain was not verified in time,
+            see [`HfApi.renew_space_custom_domain_challenge`]) and `"MISCONFIGURED"` (DNS record points to the wrong
+            target).
+        is_custom (`bool`):
+            Whether the domain is a custom domain set with [`HfApi.set_space_custom_domain`], as opposed to the
+            default `*.hf.space` domain of the Space.
+    """
+
+    domain: str
+    stage: str
+    is_custom: bool
+
+    def __init__(self, data: dict) -> None:
+        self.domain = data["domain"]
+        self.stage = data["stage"]
+        # `isCustom` is not always returned by the server. Custom domains cannot end with "hf.space" (enforced
+        # server-side), so we can safely infer it from the domain name.
+        is_custom = data.get("isCustom")
+        self.is_custom = is_custom if is_custom is not None else not self.domain.endswith("hf.space")
+
+
+@dataclass
 class SpaceRuntime:
     """
     Contains information about the current runtime of a Space.
@@ -213,6 +244,9 @@ class SpaceRuntime:
         volumes (`list[Volume]` or `None`):
             List of volumes mounted in the Space. Each volume is a [`Volume`] object describing its type, source,
             mount path, and optional settings. `None` if no volumes are attached.
+        domains (`list[SpaceDomain]` or `None`):
+            List of domains serving the Space, including its custom domain if any. Each domain is a [`SpaceDomain`]
+            object with its name, stage and whether it's a custom domain. `None` if not returned by the server.
         raw (`dict`):
             Raw response from the server. Contains more information about the Space
             runtime like number of replicas, number of cpu, memory size,...
@@ -226,6 +260,7 @@ class SpaceRuntime:
     dev_mode: bool
     hot_reloading: SpaceHotReloading | None
     volumes: list[Volume] | None
+    domains: list[SpaceDomain] | None
     raw: dict
 
     def __init__(self, data: dict) -> None:
@@ -239,6 +274,8 @@ class SpaceRuntime:
         self.hot_reloading = SpaceHotReloading(raw_hr) if (raw_hr := data.get("hotReloading")) is not None else None
         raw_volumes = data.get("volumes")
         self.volumes = [Volume(**v) for v in raw_volumes] if raw_volumes is not None else None
+        raw_domains = data.get("domains")
+        self.domains = [SpaceDomain(d) for d in raw_domains] if raw_domains is not None else None
         self.raw = data
 
 

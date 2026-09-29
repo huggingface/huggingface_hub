@@ -8854,6 +8854,126 @@ class HfApi:
         )
         hf_raise_for_status(r)
 
+    @validate_hf_hub_args
+    def set_space_custom_domain(
+        self,
+        repo_id: str,
+        domain: str,
+        *,
+        token: bool | str | None = None,
+    ) -> None:
+        """Set a custom domain for a Space.
+
+        Once the custom domain is set, you must configure a `CNAME` record pointing `domain` to `hf.space` in your DNS
+        provider (use an `ALIAS` record for a root domain such as `example.com`). The domain stays pending until the
+        DNS record is verified. Check its stage with [`get_space_runtime`] (see [`SpaceRuntime.domains`]).
+
+        A Space can only have one custom domain. Setting a new domain replaces the previous one. This feature requires
+        a PRO account or a Team or Enterprise organization, and is only available for public or protected Spaces. See
+        https://huggingface.co/docs/hub/spaces-custom-domain for more details.
+
+        Args:
+            repo_id (`str`):
+                ID of the Space to update. Example: `"username/my-space"`.
+            domain (`str`):
+                Custom domain to host the Space on. Must be a valid DNS name and must not end with `"hf.space"`.
+                Example: `"demo.example.com"`.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Raises:
+            [`BadRequestError`]:
+                If the domain is not a valid DNS name or ends with `"hf.space"`.
+            [`HfHubHTTPError`]:
+                HTTP 403 if you don't have access to custom domains (requires PRO or a Team or Enterprise organization).
+                HTTP 409 if the domain is already associated with another Space.
+
+        Example:
+            ```python
+            >>> from huggingface_hub import HfApi
+            >>> api = HfApi()
+            >>> api.set_space_custom_domain("username/my-space", "demo.example.com")
+            ```
+        """
+        r = get_session().post(
+            f"{self.endpoint}/api/spaces/{repo_id}/custom-domain",
+            headers=self._build_hf_headers(token=token),
+            json={"domain": domain},
+        )
+        hf_raise_for_status(r)
+
+    @validate_hf_hub_args
+    def delete_space_custom_domain(
+        self,
+        repo_id: str,
+        *,
+        token: bool | str | None = None,
+    ) -> None:
+        """Remove the custom domain from a Space.
+
+        The Space remains available on its default `*.hf.space` domain. This is a no-op if the Space has no custom
+        domain.
+
+        Args:
+            repo_id (`str`):
+                ID of the Space to update. Example: `"username/my-space"`.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Example:
+            ```python
+            >>> from huggingface_hub import HfApi
+            >>> api = HfApi()
+            >>> api.delete_space_custom_domain("username/my-space")
+            ```
+        """
+        r = get_session().delete(
+            f"{self.endpoint}/api/spaces/{repo_id}/custom-domain",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(r)
+
+    @validate_hf_hub_args
+    def renew_space_custom_domain_challenge(
+        self,
+        repo_id: str,
+        *,
+        token: bool | str | None = None,
+    ) -> None:
+        """Renew the DNS verification challenge of a Space custom domain.
+
+        A custom domain must be verified within a limited time after being set. If the DNS record was not configured
+        in time, the domain moves to the `"EXPIRED_CHALLENGE"` stage. Once your DNS record is configured, use this
+        method to restart the verification.
+
+        Args:
+            repo_id (`str`):
+                ID of the Space to update. Example: `"username/my-space"`.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Example:
+            ```python
+            >>> from huggingface_hub import HfApi
+            >>> api = HfApi()
+            >>> api.renew_space_custom_domain_challenge("username/my-space")
+            ```
+        """
+        r = get_session().post(
+            f"{self.endpoint}/api/spaces/{repo_id}/custom-domain/renew",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(r)
+
     #######################
     # Inference Endpoints #
     #######################
@@ -15196,6 +15316,9 @@ restart_space = api.restart_space
 duplicate_repo = api.duplicate_repo
 set_space_volumes = api.set_space_volumes
 delete_space_volumes = api.delete_space_volumes
+set_space_custom_domain = api.set_space_custom_domain
+delete_space_custom_domain = api.delete_space_custom_domain
+renew_space_custom_domain_challenge = api.renew_space_custom_domain_challenge
 enable_space_dev_mode = api.enable_space_dev_mode
 disable_space_dev_mode = api.disable_space_dev_mode
 fetch_space_logs = api.fetch_space_logs

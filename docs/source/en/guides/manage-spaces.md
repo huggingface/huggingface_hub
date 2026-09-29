@@ -400,6 +400,37 @@ hf spaces volumes set username/my-space \
 hf spaces volumes delete username/my-space
 ```
 
+### Use a custom domain
+
+You can host your Space on a custom domain such as `demo.example.com` using [`set_space_custom_domain`]. This feature requires a [PRO](https://huggingface.co/pro) account or a Team or Enterprise organization, and is only available for public or protected Spaces. A Space can have only one custom domain: setting a new one replaces the previous one. For more details, check out the [Spaces Custom Domain documentation](https://huggingface.co/docs/hub/spaces-custom-domain).
+
+```py
+>>> api.set_space_custom_domain(repo_id=repo_id, domain="demo.example.com")
+```
+
+Once the domain is set, add a `CNAME` record pointing `demo.example.com` to `hf.space` in your DNS provider (use an `ALIAS` record for a root domain like `example.com`). The domain stays pending until the DNS record is verified. You can check its stage in the Space runtime:
+
+```py
+>>> runtime = api.get_space_runtime(repo_id=repo_id)
+>>> [domain for domain in runtime.domains if domain.is_custom]
+[SpaceDomain(domain='demo.example.com', stage='PENDING_CHALLENGE', is_custom=True)]
+```
+
+When the stage is `READY`, your Space is available on your custom domain. If the DNS record was not configured in time, the stage becomes `EXPIRED_CHALLENGE`. In that case, fix your DNS configuration and restart the verification with [`renew_space_custom_domain_challenge`]. To remove the custom domain, use [`delete_space_custom_domain`]:
+
+```py
+>>> api.renew_space_custom_domain_challenge(repo_id=repo_id)
+>>> api.delete_space_custom_domain(repo_id=repo_id)
+```
+
+The same operations are available from the CLI:
+
+```bash
+hf spaces custom-domain set username/my-space demo.example.com
+hf spaces custom-domain renew username/my-space
+hf spaces custom-domain delete username/my-space
+```
+
 ## More advanced: temporarily upgrade your Space !
 
 Spaces allow for a lot of different use cases. Sometimes, you might want
