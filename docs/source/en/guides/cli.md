@@ -2100,6 +2100,23 @@ By default `hf jobs ps` displays at most 100 Jobs to avoid bloating the terminal
 >>> hf jobs ps -a --limit 0
 ```
 
+### Expose Job ports
+
+Use `--expose` for a token-protected port and `--expose-public` for a port that should allow unauthenticated access. Both flags can be repeated and combined, and work with Docker, UV, and scheduled Jobs.
+
+```bash
+# Start a Job with a public HTTP server
+>>> hf jobs run --detach --expose-public 8000 python:3.12 python -m http.server 8000
+
+# Replace the configuration on a running Job: port 8000 is private, 9000 is public
+>>> hf jobs expose <job_id> 8000 --public 9000
+
+# Close all exposed ports
+>>> hf jobs expose <job_id> --clear
+```
+
+`hf jobs expose` takes token-protected ports as positional arguments and public ports with `--public`. It applies the change without rerunning the Job. Ports omitted from the replacement list are closed.
+
 ### SSH into a Job
 
 Pass `--ssh` to `hf jobs run` (or `hf jobs uv run`) to make the Job's container reachable over SSH, then connect with `hf jobs ssh`:

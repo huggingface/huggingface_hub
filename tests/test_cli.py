@@ -3378,6 +3378,7 @@ class TestJobsCommand:
             flavor=None,
             timeout=None,
             expose=None,
+            expose_public=None,
             ssh=False,
             network_group=None,
             network_aliases=None,
@@ -3408,6 +3409,7 @@ class TestJobsCommand:
             flavor=None,
             timeout=None,
             expose=None,
+            expose_public=None,
             ssh=False,
             network_group=None,
             network_aliases=None,
@@ -3442,6 +3444,7 @@ class TestJobsCommand:
             flavor=None,
             timeout=None,
             expose=None,
+            expose_public=None,
             resource_group_id=None,
             namespace=None,
         )
@@ -3469,6 +3472,7 @@ class TestJobsCommand:
             flavor=None,
             timeout=None,
             expose=None,
+            expose_public=None,
             ssh=False,
             network_group=None,
             network_aliases=None,
@@ -3502,6 +3506,7 @@ class TestJobsCommand:
             flavor=None,
             timeout=None,
             expose=None,
+            expose_public=None,
             ssh=False,
             network_group=None,
             network_aliases=None,
@@ -3566,6 +3571,7 @@ class TestJobsCommand:
             flavor=None,
             timeout=None,
             expose=None,
+            expose_public=None,
             ssh=False,
             network_group=None,
             network_aliases=None,
@@ -4456,6 +4462,25 @@ class TestBucketTransport:
         result = runner.invoke(app, ["jobs", "labels", "my-job-id"])
         assert result.exit_code == 1  # at least one label or clear
 
+    def test_update_job_expose(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.update_job_expose.return_value = JobInfo(
+                id="my-job-id",
+                status={"stage": "RUNNING"},
+                owner={"id": "1", "name": "user", "type": "user"},
+                expose={"ports": [8000, 8001, 9000], "portsPublic": [9000]},
+            )
+            result = runner.invoke(app, ["jobs", "expose", "my-job-id", "8000", "8001", "--public", "9000"])
+        assert result.exit_code == 0
+        api.update_job_expose.assert_called_once_with(
+            job_id="my-job-id", expose=[8000, 8001], expose_public=[9000], namespace=None
+        )
+
+    def test_update_job_expose_clear_with_ports_error(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["jobs", "expose", "my-job-id", "8000", "--clear"])
+        assert result.exit_code == 1
+
 
 class TestParseNamespaceFromJobId:
     """Unit tests for _parse_namespace_from_job_id."""
@@ -4684,17 +4709,28 @@ class TestVolume:
         assert spec["volumes"][0]["path"] == "subdir"
 
     @pytest.mark.parametrize(
-        "expose, expected",
+        "expose, expose_public, expected",
         [
-            (None, None),
-            ([], None),
-            ([8000], {"ports": [8000]}),
-            ([8000, 8001], {"ports": [8000, 8001]}),
+            (None, None, None),
+            ([], [], None),
+            ([8000], None, {"ports": [8000], "portsPublic": []}),
+            ([8000, 8001], None, {"ports": [8000, 8001], "portsPublic": []}),
+            # public ports are merged into `ports` (the server requires `portsPublic` to be a subset of `ports`)
+            ([8000, 9000], [9000, 7000], {"ports": [8000, 9000, 7000], "portsPublic": [9000, 7000]}),
         ],
     )
-    def test_serialize_expose(self, expose: list[int] | None, expected: dict | None) -> None:
+    def test_serialize_expose(
+        self, expose: list[int] | None, expose_public: list[int] | None, expected: dict | None
+    ) -> None:
         spec = _create_job_spec(
-            image="python:3.12", command=["echo"], env=None, secrets=None, flavor=None, timeout=None, expose=expose
+            image="python:3.12",
+            command=["echo"],
+            env=None,
+            secrets=None,
+            flavor=None,
+            timeout=None,
+            expose=expose,
+            expose_public=expose_public,
         )
         assert spec.get("expose") == expected
 
