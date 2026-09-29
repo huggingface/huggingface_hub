@@ -2109,13 +2109,13 @@ Use `--expose` for a token-protected port and `--expose-public` for a port that 
 >>> hf jobs run --detach --expose-public 8000 python:3.12 python -m http.server 8000
 
 # Replace the configuration on a running Job: port 8000 is private, 9000 is public
->>> hf jobs expose <job_id> --expose 8000 --expose-public 9000
+>>> hf jobs expose <job_id> 8000 --public 9000
 
 # Close all exposed ports
 >>> hf jobs expose <job_id> --clear
 ```
 
-`hf jobs expose` applies the change without rerunning the Job. Ports omitted from the replacement list are closed.
+`hf jobs expose` takes token-protected ports as positional arguments and public ports with `--public`. It applies the change without rerunning the Job. Ports omitted from the replacement list are closed.
 
 ### SSH into a Job
 

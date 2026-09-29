@@ -1114,15 +1114,26 @@ def jobs_inspect(
 @jobs_cli.command(
     "expose",
     examples=[
-        "hf jobs expose <job_id> --expose-public 8000",
-        "hf jobs expose <job_id> --expose 8000 --expose-public 9000",
+        "hf jobs expose <job_id> 8000",
+        "hf jobs expose <job_id> 8000 --public 9000",
         "hf jobs expose <job_id> --clear",
     ],
 )
 def jobs_expose(
     job_id: JobIdArg,
-    expose: ExposeOpt = None,
-    expose_public: ExposePublicOpt = None,
+    ports: Annotated[
+        list[int] | None,
+        Argument(
+            help="Ports to expose through the jobs proxy. Access requires an HF token with read access to the job's namespace."
+        ),
+    ] = None,
+    public: Annotated[
+        list[int] | None,
+        Option(
+            "--public",
+            help="Expose a port without authentication. Repeat the flag for multiple ports. No need to also pass the port as a positional argument.",
+        ),
+    ] = None,
     clear: Annotated[bool, Option("--clear", help="Close all exposed ports.")] = False,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
@@ -1132,13 +1143,13 @@ def jobs_expose(
 ) -> None:
     """Replace exposed ports on a running Job."""
     set_output_format(format, json_output, quiet)
-    if clear and (expose or expose_public):
-        raise CLIError("`--clear` cannot be combined with `--expose` or `--expose-public`.")
-    if not clear and not expose and not expose_public:
-        raise CLIError("Pass at least one `--expose` or `--expose-public` port, or `--clear` to close all ports.")
+    if clear and (ports or public):
+        raise CLIError("`--clear` cannot be combined with ports or `--public`.")
+    if not clear and not ports and not public:
+        raise CLIError("Pass at least one port or `--public` port, or `--clear` to close all ports.")
     job_id, namespace = _parse_namespace_from_job_id(job_id, namespace)
     api = get_hf_api(token=token)
-    job = api.update_job_expose(job_id=job_id, expose=expose, expose_public=expose_public, namespace=namespace)
+    job = api.update_job_expose(job_id=job_id, expose=ports, expose_public=public, namespace=namespace)
     out.result("Exposed ports updated", id=job.id, ports=job.expose or [], public_ports=job.expose_public or [])
 
 

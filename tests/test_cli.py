@@ -4461,6 +4461,25 @@ class TestBucketTransport:
         result = runner.invoke(app, ["jobs", "labels", "my-job-id"])
         assert result.exit_code == 1  # at least one label or clear
 
+    def test_update_job_expose(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.update_job_expose.return_value = JobInfo(
+                id="my-job-id",
+                status={"stage": "RUNNING"},
+                owner={"id": "1", "name": "user", "type": "user"},
+                expose={"ports": [8000, 8001, 9000], "portsPublic": [9000]},
+            )
+            result = runner.invoke(app, ["jobs", "expose", "my-job-id", "8000", "8001", "--public", "9000"])
+        assert result.exit_code == 0
+        api.update_job_expose.assert_called_once_with(
+            job_id="my-job-id", expose=[8000, 8001], expose_public=[9000], namespace=None
+        )
+
+    def test_update_job_expose_clear_with_ports_error(self, runner: CliRunner) -> None:
+        result = runner.invoke(app, ["jobs", "expose", "my-job-id", "8000", "--clear"])
+        assert result.exit_code == 1
+
 
 class TestParseNamespaceFromJobId:
     """Unit tests for _parse_namespace_from_job_id."""

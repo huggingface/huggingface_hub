@@ -2326,17 +2326,17 @@ Replace exposed ports on a running Job.
 **Usage**:
 
 ```console
-$ hf jobs expose [OPTIONS] JOB_ID
+$ hf jobs expose [OPTIONS] JOB_ID [PORTS]...
 ```
 
 **Arguments**:
 
 * `JOB_ID`: Job ID (or 'namespace/job_id')  [required]
+* `[PORTS]...`: Ports to expose through the jobs proxy. Access requires an HF token with read access to the job's namespace.
 
 **Options**:
 
-* `--expose INTEGER`: Expose a container port through the jobs proxy. Repeat the flag for multiple ports (e.g. `--expose 8000 --expose 8001`). Each exposed port is reachable on the public jobs domain; access requires an HF token with read access to the job's namespace.
-* `--expose-public INTEGER`: Expose a container port through the jobs proxy without authentication. Repeat the flag for multiple ports. No need to also pass the port with `--expose`.
+* `--public INTEGER`: Expose a port without authentication. Repeat the flag for multiple ports. No need to also pass the port as a positional argument.
 * `--clear`: Close all exposed ports.
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
@@ -2346,8 +2346,8 @@ $ hf jobs expose [OPTIONS] JOB_ID
 * `--help`: Show this message and exit.
 
 Examples
-  $ hf jobs expose <job_id> --expose-public 8000
-  $ hf jobs expose <job_id> --expose 8000 --expose-public 9000
+  $ hf jobs expose <job_id> 8000
+  $ hf jobs expose <job_id> 8000 --public 9000
   $ hf jobs expose <job_id> --clear
 
 Learn more
