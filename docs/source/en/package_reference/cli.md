@@ -2497,9 +2497,6 @@ $ hf jobs rerun [OPTIONS] JOB_ID
 
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--format [agent|auto|human|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
 * `--help`: Show this message and exit.
 
 Examples

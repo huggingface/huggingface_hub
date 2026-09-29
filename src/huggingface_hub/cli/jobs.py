@@ -1119,12 +1119,8 @@ def jobs_rerun(
     job_id: JobIdArg,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
-    format: FormatOpt = None,
-    json_output: JsonOpt = False,
-    quiet: QuietOpt = False,
 ) -> None:
     """Run a new Job with an existing Job's spec."""
-    set_output_format(format, json_output, quiet)
     job_id, namespace = _parse_namespace_from_job_id(job_id, namespace)
     api = get_hf_api(token=token)
     job = api.rerun_job(job_id=job_id, namespace=namespace)
