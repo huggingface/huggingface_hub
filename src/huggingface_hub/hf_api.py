@@ -4548,6 +4548,9 @@ class HfApi:
                 created in the default region. Requires Team plan or above.
             space_sdk (`str`, *optional*):
                 Choice of SDK to use if repo_type is "space". Can be "streamlit", "gradio", "docker", or "static".
+                `"static"` Spaces are free for everyone. Other SDKs run on compute: on the free `cpu-basic` hardware,
+                they require a subscription (PRO for users, Team or Enterprise for organizations), while paid hardware
+                only requires billing (a payment method and prepaid credits).
             space_hardware (`SpaceHardware` or `str`, *optional*):
                 Choice of Hardware if repo_type is "space". See [`SpaceHardware`] for a complete list.
             space_sleep_time (`int`, *optional*):
@@ -8274,8 +8277,9 @@ class HfApi:
         """Disable dev mode on a Space.
 
         Spaces Dev Mode eases the debugging of your application and makes iterating on Spaces faster by allowing you
-        to restart your application without stopping the Space container itself. This feature is available as part of
-        a PRO or Team & Enterprise plan. See https://huggingface.co/docs/hub/spaces-dev-mode for more details.
+        to restart your application without stopping the Space container itself. Enabling dev mode requires a PRO or
+        Team & Enterprise plan, but disabling it is always allowed (e.g. after a subscription has expired). See
+        https://huggingface.co/docs/hub/spaces-dev-mode for more details.
 
         Args:
             repo_id (`str`):
