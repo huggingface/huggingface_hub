@@ -1997,6 +1997,17 @@ The `--timeout` option also works with UV scripts and scheduled jobs:
 > [!WARNING]
 > If your job exceeds the timeout, it will be automatically terminated. Always set an appropriate timeout with some buffer for long-running tasks to avoid unexpected job terminations.
 
+### Retry and rerun a Job
+
+`--attempts` sets the maximum number of attempts, including the first run. It works with Docker, UV, and scheduled Jobs. Rerunning a Job starts a new Job with the same saved spec:
+
+```bash
+>>> hf jobs run --attempts 3 --detach python:3.12 python train.py
+>>> hf jobs rerun <job_id>
+```
+
+An attempt count of 3 allows up to two retries when a Job fails. `hf jobs rerun` also reuses the original attempt count. Like `hf jobs run`, it streams the logs of the new Job until it finishes. Use `--detach` to return right away.
+
 ### Hardware
 
 Available `--flavor` options:

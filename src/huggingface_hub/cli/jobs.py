@@ -28,7 +28,7 @@ from queue import Empty, Queue
 from typing import Annotated, Any, TypeVar
 from urllib.parse import urlsplit
 
-from huggingface_hub import HfApi, JobHardware, JobInfo, JobStage, Volume, constants
+from huggingface_hub import HfApi, JobHardware, JobInfo, JobNetwork, JobStage, Volume, constants
 from huggingface_hub._jobs_api import (
     DEFAULT_UV_IMAGE,
     TERMINAL_JOB_STAGES,
@@ -181,6 +181,7 @@ def _resolve_uv_job_config(
     secrets: list[str] | None,
     secrets_file: str | None,
     timeout: str | None,
+    attempts: int | None,
     name: str | None,
     label: list[str] | None,
     volume: list[str] | None,
@@ -276,7 +277,12 @@ def _resolve_uv_job_config(
                     volume_specs=config.volume_specs,
                     network_group=config.network_group,
                     network_aliases=config.network_aliases,
-                    extra=[config.image or DEFAULT_UV_IMAGE, config.python or "", *(dependencies or [])],
+                    extra=[
+                        config.image or DEFAULT_UV_IMAGE,
+                        config.python or "",
+                        *(dependencies or []),
+                        *([str(attempts)] if attempts is not None else []),
+                    ],
                 ),
             )
         yield config
@@ -460,6 +466,11 @@ TimeoutOpt = Annotated[
     Option(
         help="Max duration: int with s (seconds, default), m (minutes), h (hours) or d (days).",
     ),
+]
+
+AttemptsOpt = Annotated[
+    int | None,
+    Option("--attempts", min=1, help="Maximum attempts, including the first run. Defaults to 1."),
 ]
 
 DetachOpt = Annotated[
@@ -646,6 +657,28 @@ def _stream_logs_and_check_status(api: HfApi, job: JobInfo) -> None:
     out.text(f"Job {final.id} completed")
 
 
+def _hint_or_follow_started_job(api: HfApi, job: JobInfo, *, detach: bool) -> None:
+    """Print hints about how to reach a started Job, then stream its logs unless `detach` is set."""
+    job_ref = f"{job.owner.name}/{job.id}"
+    if isinstance(job.status.expose_urls, list):
+        urls = "\n".join(f"  {url}" for url in job.status.expose_urls)
+        out.hint(f"Exposed ports are reachable at:\n{urls}")
+    if isinstance(job.status.ssh_url, str):
+        out.hint(f"Use `hf jobs ssh {job_ref}` to open an SSH session into the job.")
+    if isinstance(job.network, JobNetwork):
+        group = job.network.group
+        out.hint(
+            f"Joined network group '{group}'. Jobs of this namespace and resource group started with "
+            f"`--network-group {group}` reach each other at `$HF_NETWORK_GROUP_HOSTNAME` (every member) "
+            "or `${HF_NETWORK_GROUP_PREFIX}<alias>` (members claiming an alias)."
+        )
+    if detach:
+        out.hint(f"Use `hf jobs logs -f {job_ref}` to stream logs, or `hf jobs inspect {job_ref}` to check status.")
+        out.hint(f"Use `hf jobs wait {job_ref}` to block until it finishes.")
+        return
+    _stream_logs_and_check_status(api, job)
+
+
 @jobs_cli.command(
     "run",
     context_settings={"ignore_unknown_options": True},
@@ -669,6 +702,7 @@ def jobs_run(
     secrets_file: SecretsFileOpt = None,
     flavor: FlavorOpt = None,
     timeout: TimeoutOpt = None,
+    attempts: AttemptsOpt = None,
     detach: DetachOpt = False,
     dry_run: DryRunOpt = False,
     expose: ExposeOpt = None,
@@ -696,6 +730,7 @@ def jobs_run(
             config_parts=_name_hash_parts(
                 flavor=flavor,
                 timeout=timeout,
+                extra=[str(attempts)] if attempts is not None else None,
                 namespace=namespace,
                 env=env_map,
                 secrets=secrets_map,
@@ -714,6 +749,7 @@ def jobs_run(
             "command": shlex.join(command),
             "flavor": flavor or JobHardware.CPU_BASIC.value,
             "timeout": timeout,
+            "attempts": attempts,
             "env": env_map,
             "secrets": secrets_map,
             "volumes": volume or [],
@@ -739,6 +775,7 @@ def jobs_run(
         volumes=volumes,
         flavor=flavor,
         timeout=timeout,
+        attempts=attempts,
         expose=expose,
         expose_public=expose_public,
         ssh=ssh,
@@ -754,23 +791,7 @@ def jobs_run(
             f"Job auto-named '{auto_name}'. Pass `--name` or run "
             f"`hf jobs labels {job.owner.name}/{job.id} --name NAME` to rename it."
         )
-    if isinstance(job.status.expose_urls, list):
-        urls = "\n".join(f"  {url}" for url in job.status.expose_urls)
-        out.hint(f"Exposed ports are reachable at:\n{urls}")
-    if isinstance(job.status.ssh_url, str):
-        out.hint(f"Use `hf jobs ssh {job.owner.name}/{job.id}` to open an SSH session into the job.")
-    if network_group:
-        out.hint(
-            f"Joined network group '{network_group}'. Jobs of this namespace and resource group started with "
-            f"`--network-group {network_group}` reach each other at `$HF_NETWORK_GROUP_HOSTNAME` (every member) "
-            "or `${HF_NETWORK_GROUP_PREFIX}<alias>` (members claiming an alias)."
-        )
-    if detach:
-        job_ref = f"{job.owner.name}/{job.id}"
-        out.hint(f"Use `hf jobs logs -f {job_ref}` to stream logs, or `hf jobs inspect {job_ref}` to check status.")
-        out.hint(f"Use `hf jobs wait {job_ref}` to block until it finishes.")
-        return
-    _stream_logs_and_check_status(api, job)
+    _hint_or_follow_started_job(api, job, detach=detach)
 
 
 @jobs_cli.command(
@@ -1111,6 +1132,21 @@ def jobs_inspect(
     out.table([_surface_name(_dataclass_to_dict(job), labels=job.labels) for job in jobs], id_key="id")
 
 
+@jobs_cli.command("rerun", examples=["hf jobs rerun <job_id>", "hf jobs rerun --detach <job_id>"])
+def jobs_rerun(
+    job_id: JobIdArg,
+    detach: DetachOpt = False,
+    namespace: NamespaceOpt = None,
+    token: TokenOpt = None,
+) -> None:
+    """Run a new Job with an existing Job's spec."""
+    job_id, namespace = _parse_namespace_from_job_id(job_id, namespace)
+    api = get_hf_api(token=token)
+    job = api.rerun_job(job_id=job_id, namespace=namespace)
+    out.result("Job started", id=job.id, name=(job.labels or {}).get("name"), url=job.url)
+    _hint_or_follow_started_job(api, job, detach=detach)
+
+
 @jobs_cli.command(
     "expose",
     examples=[
@@ -1337,6 +1373,7 @@ def jobs_uv_run(
     env_file: EnvFileOpt = None,
     secrets_file: SecretsFileOpt = None,
     timeout: TimeoutOpt = None,
+    attempts: AttemptsOpt = None,
     detach: DetachOpt = False,
     dry_run: DryRunOpt = False,
     expose: ExposeOpt = None,
@@ -1369,6 +1406,7 @@ def jobs_uv_run(
         secrets=secrets,
         secrets_file=secrets_file,
         timeout=timeout,
+        attempts=attempts,
         name=name,
         label=label,
         volume=volume,
@@ -1386,6 +1424,7 @@ def jobs_uv_run(
                 "flavor": config.flavor or JobHardware.CPU_BASIC.value,
                 "python": config.python,
                 "timeout": config.timeout,
+                "attempts": attempts,
                 "env": config.env,
                 "secrets": config.secrets,
                 "volumes": config.volume_specs,
@@ -1415,6 +1454,7 @@ def jobs_uv_run(
             volumes=config.volumes,
             flavor=config.flavor,
             timeout=config.timeout,
+            attempts=attempts,
             expose=expose,
             expose_public=expose_public,
             ssh=ssh,
@@ -1430,23 +1470,7 @@ def jobs_uv_run(
             f"Job auto-named '{auto_name}'. Pass `--name` or run "
             f"`hf jobs labels {job.owner.name}/{job.id} --name NAME` to rename it."
         )
-    if isinstance(job.status.expose_urls, list):
-        urls = "\n".join(f"  {url}" for url in job.status.expose_urls)
-        out.hint(f"Exposed ports are reachable at:\n{urls}")
-    if isinstance(job.status.ssh_url, str):
-        out.hint(f"Use `hf jobs ssh {job.owner.name}/{job.id}` to open an SSH session into the job.")
-    if group := config.network_group:
-        out.hint(
-            f"Joined network group '{group}'. Jobs of this namespace and resource group started with "
-            f"`--network-group {group}` reach each other at `$HF_NETWORK_GROUP_HOSTNAME` (every member) "
-            "or `${HF_NETWORK_GROUP_PREFIX}<alias>` (members claiming an alias)."
-        )
-    if detach:
-        job_ref = f"{job.owner.name}/{job.id}"
-        out.hint(f"Use `hf jobs logs -f {job_ref}` to stream logs, or `hf jobs inspect {job_ref}` to check status.")
-        out.hint(f"Use `hf jobs wait {job_ref}` to block until it finishes.")
-        return
-    _stream_logs_and_check_status(api, job)
+    _hint_or_follow_started_job(api, job, detach=detach)
 
 
 class ScheduledJobStatusFilter(str, Enum):
@@ -1483,6 +1507,7 @@ def scheduled_run(
     secrets_file: SecretsFileOpt = None,
     flavor: FlavorOpt = None,
     timeout: TimeoutOpt = None,
+    attempts: AttemptsOpt = None,
     dry_run: DryRunOpt = False,
     expose: ExposeOpt = None,
     expose_public: ExposePublicOpt = None,
@@ -1506,6 +1531,7 @@ def scheduled_run(
             config_parts=_name_hash_parts(
                 flavor=flavor,
                 timeout=timeout,
+                extra=[str(attempts)] if attempts is not None else None,
                 namespace=namespace,
                 env=env_map,
                 secrets=secrets_map,
@@ -1525,6 +1551,7 @@ def scheduled_run(
             "command": shlex.join(command),
             "flavor": flavor or JobHardware.CPU_BASIC.value,
             "timeout": timeout,
+            "attempts": attempts,
             "env": env_map,
             "secrets": secrets_map,
             "volumes": volume or [],
@@ -1550,6 +1577,7 @@ def scheduled_run(
         volumes=volumes,
         flavor=flavor,
         timeout=timeout,
+        attempts=attempts,
         expose=expose,
         expose_public=expose_public,
         resource_group_id=resource_group_id,
@@ -1870,6 +1898,7 @@ def scheduled_uv_run(
     env_file: EnvFileOpt = None,
     secrets_file: SecretsFileOpt = None,
     timeout: TimeoutOpt = None,
+    attempts: AttemptsOpt = None,
     dry_run: DryRunOpt = False,
     expose: ExposeOpt = None,
     expose_public: ExposePublicOpt = None,
@@ -1898,6 +1927,7 @@ def scheduled_uv_run(
         secrets=secrets,
         secrets_file=secrets_file,
         timeout=timeout,
+        attempts=attempts,
         name=name,
         label=label,
         volume=volume,
@@ -1924,6 +1954,7 @@ def scheduled_uv_run(
                 "flavor": config.flavor or JobHardware.CPU_BASIC.value,
                 "python": config.python,
                 "timeout": config.timeout,
+                "attempts": attempts,
                 "env": config.env,
                 "secrets": config.secrets,
                 "volumes": config.volume_specs,
@@ -1953,6 +1984,7 @@ def scheduled_uv_run(
             volumes=config.volumes,
             flavor=config.flavor,
             timeout=config.timeout,
+            attempts=attempts,
             expose=expose,
             expose_public=expose_public,
             resource_group_id=resource_group_id,

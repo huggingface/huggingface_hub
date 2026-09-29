@@ -237,6 +237,8 @@ class JobInfo:
         network (`JobNetwork` or `None`):
             Network group the Job joined and the aliases it claims, e.g. `JobNetwork(group="train", aliases=["master"])`.
             `None` when the Job was started without `network_group=`.
+        retry (`int` or `None`):
+            Number of retries configured for the Job (`attempts - 1`).
         expose (`list[int]` or `None`):
             All ports exposed through the Jobs proxy, public ones included.
         expose_public (`list[int]` or `None`):
@@ -279,6 +281,7 @@ class JobInfo:
     owner: JobOwner
     initiator: JobInitiator | None
     network: JobNetwork | None
+    retry: int | None
     expose: list[int] | None
     expose_public: list[int] | None
 
@@ -321,6 +324,7 @@ class JobInfo:
         )
         network = kwargs.get("network")
         self.network = JobNetwork(**network) if network else None
+        self.retry = kwargs.get("retry")
         expose = kwargs.get("expose") or {}
         self.expose = expose.get("ports")
         self.expose_public = expose.get("portsPublic")
@@ -344,6 +348,7 @@ class JobSpec:
     arch: str | None
     labels: dict[str, str] | None
     volumes: list[Volume] | None
+    retry: int | None
     expose: list[int] | None
     expose_public: list[int] | None
 
@@ -361,6 +366,7 @@ class JobSpec:
         self.labels = kwargs.get("labels")
         volumes = kwargs.get("volumes")
         self.volumes = [Volume(**v) for v in volumes] if volumes else None
+        self.retry = kwargs.get("retry")
         expose = kwargs.get("expose") or {}
         self.expose = expose.get("ports")
         self.expose_public = expose.get("portsPublic")
@@ -643,6 +649,7 @@ def _create_job_spec(
     network_group: str | None = None,
     network_aliases: list[str] | None = None,
     resource_group_id: str | None = None,
+    attempts: int | None = None,
 ) -> dict[str, Any]:
     if network_aliases and not network_group:
         raise ValueError("`network_aliases` requires `network_group`.")
@@ -668,6 +675,8 @@ def _create_job_spec(
             job_spec["timeoutSeconds"] = int(float(timeout[:-1]) * time_units_factors[timeout[-1]])
         else:
             job_spec["timeoutSeconds"] = int(timeout)
+    if attempts is not None:
+        job_spec["attempts"] = attempts
     # labels are optional
     if labels:
         job_spec["labels"] = labels

@@ -11740,6 +11740,7 @@ class HfApi:
         secrets: dict[str, Any] | None = None,
         flavor: JobHardware | str | None = None,
         timeout: int | float | str | None = None,
+        attempts: int | None = None,
         name: str | None = None,
         labels: dict[str, str] | None = None,
         volumes: list[Volume] | None = None,
@@ -11777,6 +11778,10 @@ class HfApi:
             timeout (`Union[int, float, str]`, *optional*):
                 Max duration for the Job: int with s (seconds, default), m (minutes), h (hours) or d (days).
                 Example: `300` or `"5m"` for 5 minutes.
+
+            attempts (`int`, *optional*):
+                Maximum number of attempts, including the initial run. Defaults to 1. For example, 3 retries a
+                failed Job up to 2 times.
 
             name (`str`, *optional*):
                 A name for the Job. Stored as the `name` label. Cannot be passed together with a `name` key in
@@ -11870,6 +11875,7 @@ class HfApi:
             secrets=secrets,
             flavor=flavor,
             timeout=timeout,
+            attempts=attempts,
             name=name,
             labels=labels,
             volumes=volumes,
@@ -12317,6 +12323,35 @@ class HfApi:
             return _wait_single(job_id)
         return [_wait_single(single_job_id) for single_job_id in job_id]
 
+    def rerun_job(
+        self,
+        *,
+        job_id: str,
+        namespace: str | None = None,
+        token: bool | str | None = None,
+    ) -> JobInfo:
+        """Run a new Job using the existing Job's spec, including its retry and resource settings.
+
+        Args:
+            job_id (`str`):
+                ID of the Job to rerun.
+            namespace (`str`, *optional*):
+                Namespace of the Job. Defaults to the current user's namespace.
+            token (`bool` or `str`, *optional*):
+                User access token. Defaults to the locally saved token.
+
+        Returns:
+            [`JobInfo`]: The newly started Job.
+        """
+        if namespace is None:
+            namespace = self.whoami(token=token)["name"]
+        response = get_session().post(
+            f"{self.endpoint}/api/jobs/{namespace}/{job_id}/duplicate",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+        return JobInfo(**response.json(), endpoint=self.endpoint)
+
     def cancel_job(
         self,
         *,
@@ -12444,6 +12479,7 @@ class HfApi:
         secrets: dict[str, Any] | None = None,
         flavor: JobHardware | str | None = None,
         timeout: int | float | str | None = None,
+        attempts: int | None = None,
         name: str | None = None,
         labels: dict[str, str] | None = None,
         volumes: list[Volume] | None = None,
@@ -12493,6 +12529,9 @@ class HfApi:
             timeout (`Union[int, float, str]`, *optional*):
                 Max duration for the Job: int with s (seconds, default), m (minutes), h (hours) or d (days).
                 Example: `300` or `"5m"` for 5 minutes.
+
+            attempts (`int`, *optional*):
+                Maximum number of attempts, including the initial run. Defaults to 1.
 
             name (`str`, *optional*):
                 A name for the Job. Stored as the `name` label. Cannot be passed together with a `name` key in
@@ -12614,6 +12653,7 @@ class HfApi:
             secrets=secrets,
             flavor=flavor,
             timeout=timeout,
+            attempts=attempts,
             name=name,
             labels=labels,
             volumes=volumes,
@@ -12639,6 +12679,7 @@ class HfApi:
         secrets: dict[str, Any] | None = None,
         flavor: JobHardware | str | None = None,
         timeout: int | float | str | None = None,
+        attempts: int | None = None,
         name: str | None = None,
         labels: dict[str, str] | None = None,
         volumes: list[Volume] | None = None,
@@ -12683,6 +12724,9 @@ class HfApi:
             timeout (`Union[int, float, str]`, *optional*):
                 Max duration for the Job: int with s (seconds, default), m (minutes), h (hours) or d (days).
                 Example: `300` or `"5m"` for 5 minutes.
+
+            attempts (`int`, *optional*):
+                Maximum number of attempts for each run, including the initial attempt. Defaults to 1.
 
             name (`str`, *optional*):
                 A name for the scheduled Job. Stored as the `name` label. Cannot be passed together with a `name`
@@ -12757,6 +12801,7 @@ class HfApi:
             secrets=secrets,
             flavor=flavor,
             timeout=timeout,
+            attempts=attempts,
             name=name,
             labels=labels,
             volumes=volumes,
@@ -13117,6 +13162,7 @@ class HfApi:
         secrets: dict[str, Any] | None = None,
         flavor: JobHardware | str | None = None,
         timeout: int | float | str | None = None,
+        attempts: int | None = None,
         name: str | None = None,
         labels: dict[str, str] | None = None,
         volumes: list[Volume] | None = None,
@@ -13173,6 +13219,9 @@ class HfApi:
             timeout (`Union[int, float, str]`, *optional*):
                 Max duration for the Job: int with s (seconds, default), m (minutes), h (hours) or d (days).
                 Example: `300` or `"5m"` for 5 minutes.
+
+            attempts (`int`, *optional*):
+                Maximum number of attempts for each run, including the initial attempt. Defaults to 1.
 
             name (`str`, *optional*):
                 A name for the scheduled Job. Stored as the `name` label. Cannot be passed together with a `name`
@@ -13267,6 +13316,7 @@ class HfApi:
             secrets=secrets,
             flavor=flavor,
             timeout=timeout,
+            attempts=attempts,
             name=name,
             labels=labels,
             volumes=volumes,
@@ -15211,6 +15261,7 @@ list_jobs = api.list_jobs
 list_jobs_hardware = api.list_jobs_hardware
 inspect_job = api.inspect_job
 wait_for_job = api.wait_for_job
+rerun_job = api.rerun_job
 cancel_job = api.cancel_job
 update_job_labels = api.update_job_labels
 update_job_expose = api.update_job_expose

@@ -2284,6 +2284,7 @@ $ hf jobs [OPTIONS] COMMAND [ARGS]...
 * `labels`: Update labels on a Job.
 * `list`: List Jobs. [alias: ls, ps]
 * `logs`: Fetch the logs of a Job.
+* `rerun`: Run a new Job with an existing Job's spec.
 * `run`: Run a Job.
 * `scheduled`: Create and manage scheduled Jobs on the Hub.
 * `ssh`: SSH into a running Job.
@@ -2512,6 +2513,36 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
+### `hf jobs rerun`
+
+Run a new Job with an existing Job's spec.
+
+**Usage**:
+
+```console
+$ hf jobs rerun [OPTIONS] JOB_ID
+```
+
+**Arguments**:
+
+* `JOB_ID`: Job ID (or 'namespace/job_id')  [required]
+
+**Options**:
+
+* `-d, --detach`: Run the Job in the background and print the Job ID.
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf jobs rerun <job_id>
+  $ hf jobs rerun --detach <job_id>
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
 ### `hf jobs run`
 
 Run a Job.
@@ -2538,6 +2569,7 @@ $ hf jobs run [OPTIONS] IMAGE COMMAND...
 * `--secrets-file TEXT`: Read in a file of secret environment variables. Use `-` to read them from stdin.
 * `--flavor [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|rtx-pro-6000|rtx-pro-6000x2|rtx-pro-6000x4|rtx-pro-6000x8]`: Flavor for the hardware. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.
 * `--timeout TEXT`: Max duration: int with s (seconds, default), m (minutes), h (hours) or d (days).
+* `--attempts INTEGER RANGE`: Maximum attempts, including the first run. Defaults to 1.  [x>=1]
 * `-d, --detach`: Run the Job in the background and print the Job ID.
 * `--dry-run`: Print the resolved Job configuration without submitting the Job.
 * `--expose INTEGER`: Expose a container port through the jobs proxy. Repeat the flag for multiple ports (e.g. `--expose 8000 --expose 8001`). Each exposed port is reachable on the public jobs domain; access requires an HF token with read access to the job's namespace.
@@ -2802,6 +2834,7 @@ $ hf jobs scheduled run [OPTIONS] SCHEDULE IMAGE COMMAND...
 * `--secrets-file TEXT`: Read in a file of secret environment variables. Use `-` to read them from stdin.
 * `--flavor [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|rtx-pro-6000|rtx-pro-6000x2|rtx-pro-6000x4|rtx-pro-6000x8]`: Flavor for the hardware. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.
 * `--timeout TEXT`: Max duration: int with s (seconds, default), m (minutes), h (hours) or d (days).
+* `--attempts INTEGER RANGE`: Maximum attempts, including the first run. Defaults to 1.  [x>=1]
 * `--dry-run`: Print the resolved Job configuration without submitting the Job.
 * `--expose INTEGER`: Expose a container port through the jobs proxy. Repeat the flag for multiple ports (e.g. `--expose 8000 --expose 8001`). Each exposed port is reachable on the public jobs domain; access requires an HF token with read access to the job's namespace.
 * `--expose-public INTEGER`: Expose a container port through the jobs proxy without authentication. Repeat the flag for multiple ports. No need to also pass the port with `--expose`.
@@ -2925,6 +2958,7 @@ $ hf jobs scheduled uv run [OPTIONS] SCHEDULE SCRIPT [SCRIPT_ARGS]...
 * `--env-file TEXT`: Read in a file of environment variables. Use `-` to read them from stdin.
 * `--secrets-file TEXT`: Read in a file of secret environment variables. Use `-` to read them from stdin.
 * `--timeout TEXT`: Max duration: int with s (seconds, default), m (minutes), h (hours) or d (days).
+* `--attempts INTEGER RANGE`: Maximum attempts, including the first run. Defaults to 1.  [x>=1]
 * `--dry-run`: Print the resolved Job configuration without submitting the Job.
 * `--expose INTEGER`: Expose a container port through the jobs proxy. Repeat the flag for multiple ports (e.g. `--expose 8000 --expose 8001`). Each exposed port is reachable on the public jobs domain; access requires an HF token with read access to the job's namespace.
 * `--expose-public INTEGER`: Expose a container port through the jobs proxy without authentication. Repeat the flag for multiple ports. No need to also pass the port with `--expose`.
@@ -3056,6 +3090,7 @@ $ hf jobs uv run [OPTIONS] SCRIPT [SCRIPT_ARGS]...
 * `--env-file TEXT`: Read in a file of environment variables. Use `-` to read them from stdin.
 * `--secrets-file TEXT`: Read in a file of secret environment variables. Use `-` to read them from stdin.
 * `--timeout TEXT`: Max duration: int with s (seconds, default), m (minutes), h (hours) or d (days).
+* `--attempts INTEGER RANGE`: Maximum attempts, including the first run. Defaults to 1.  [x>=1]
 * `-d, --detach`: Run the Job in the background and print the Job ID.
 * `--dry-run`: Print the resolved Job configuration without submitting the Job.
 * `--expose INTEGER`: Expose a container port through the jobs proxy. Repeat the flag for multiple ports (e.g. `--expose 8000 --expose 8001`). Each exposed port is reachable on the public jobs domain; access requires an HF token with read access to the job's namespace.
