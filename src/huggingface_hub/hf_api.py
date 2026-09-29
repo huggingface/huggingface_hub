@@ -8603,6 +8603,7 @@ class HfApi:
         visibility: RepoVisibility_T | None = None,
         token: bool | str | None = None,
         exist_ok: bool = False,
+        resource_group_id: str | None = None,
         space_hardware: SpaceHardware | None = None,
         space_sleep_time: int | None = None,
         space_secrets: list[dict[str, str]] | None = None,
@@ -8636,6 +8637,11 @@ class HfApi:
                 To disable authentication, pass `False`.
             exist_ok (`bool`, *optional*, defaults to `False`):
                 If `True`, do not raise an error if repo already exists.
+            resource_group_id (`str`, *optional*):
+                Resource group in which to create the new repo. Resource groups is only available for Enterprise Hub organizations and
+                allow to define which members of the organization can access the resource. The ID of a resource group
+                can be found in the URL of the resource's page on the Hub (e.g. `"66670e5163145ca562cb1988"`).
+                To learn more about resource groups, see https://huggingface.co/docs/hub/en/security-resource-groups.
             space_hardware (`SpaceHardware` or `str`, *optional*):
                 Choice of Hardware if repo_type is "space". Example: `"t4-medium"`. See
                 [`SpaceHardware`] for a complete list.
@@ -8726,6 +8732,8 @@ class HfApi:
 
         if resolved_visibility is not None:
             payload["visibility"] = resolved_visibility
+        if resource_group_id is not None:
+            payload["resourceGroupId"] = resource_group_id
 
         # Space-specific options
         space_args: list[tuple[str, str, Any]] = [
