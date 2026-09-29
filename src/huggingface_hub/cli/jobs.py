@@ -28,7 +28,7 @@ from queue import Empty, Queue
 from typing import Annotated, Any, TypeVar
 from urllib.parse import urlsplit
 
-from huggingface_hub import HfApi, JobHardware, JobInfo, JobStage, Volume, constants
+from huggingface_hub import HfApi, JobHardware, JobInfo, JobNetwork, JobStage, Volume, constants
 from huggingface_hub._jobs_api import (
     DEFAULT_UV_IMAGE,
     TERMINAL_JOB_STAGES,
@@ -648,6 +648,28 @@ def _stream_logs_and_check_status(api: HfApi, job: JobInfo) -> None:
     out.text(f"Job {final.id} completed")
 
 
+def _hint_or_follow_started_job(api: HfApi, job: JobInfo, *, detach: bool) -> None:
+    """Print hints about how to reach a started Job, then stream its logs unless `detach` is set."""
+    job_ref = f"{job.owner.name}/{job.id}"
+    if isinstance(job.status.expose_urls, list):
+        urls = "\n".join(f"  {url}" for url in job.status.expose_urls)
+        out.hint(f"Exposed ports are reachable at (requires an HF token with read access to the job):\n{urls}")
+    if isinstance(job.status.ssh_url, str):
+        out.hint(f"Use `hf jobs ssh {job_ref}` to open an SSH session into the job.")
+    if isinstance(job.network, JobNetwork):
+        group = job.network.group
+        out.hint(
+            f"Joined network group '{group}'. Jobs of this namespace and resource group started with "
+            f"`--network-group {group}` reach each other at `$HF_NETWORK_GROUP_HOSTNAME` (every member) "
+            "or `${HF_NETWORK_GROUP_PREFIX}<alias>` (members claiming an alias)."
+        )
+    if detach:
+        out.hint(f"Use `hf jobs logs -f {job_ref}` to stream logs, or `hf jobs inspect {job_ref}` to check status.")
+        out.hint(f"Use `hf jobs wait {job_ref}` to block until it finishes.")
+        return
+    _stream_logs_and_check_status(api, job)
+
+
 @jobs_cli.command(
     "run",
     context_settings={"ignore_unknown_options": True},
@@ -757,23 +779,7 @@ def jobs_run(
             f"Job auto-named '{auto_name}'. Pass `--name` or run "
             f"`hf jobs labels {job.owner.name}/{job.id} --name NAME` to rename it."
         )
-    if isinstance(job.status.expose_urls, list):
-        urls = "\n".join(f"  {url}" for url in job.status.expose_urls)
-        out.hint(f"Exposed ports are reachable at (requires an HF token with read access to the job):\n{urls}")
-    if isinstance(job.status.ssh_url, str):
-        out.hint(f"Use `hf jobs ssh {job.owner.name}/{job.id}` to open an SSH session into the job.")
-    if network_group:
-        out.hint(
-            f"Joined network group '{network_group}'. Jobs of this namespace and resource group started with "
-            f"`--network-group {network_group}` reach each other at `$HF_NETWORK_GROUP_HOSTNAME` (every member) "
-            "or `${HF_NETWORK_GROUP_PREFIX}<alias>` (members claiming an alias)."
-        )
-    if detach:
-        job_ref = f"{job.owner.name}/{job.id}"
-        out.hint(f"Use `hf jobs logs -f {job_ref}` to stream logs, or `hf jobs inspect {job_ref}` to check status.")
-        out.hint(f"Use `hf jobs wait {job_ref}` to block until it finishes.")
-        return
-    _stream_logs_and_check_status(api, job)
+    _hint_or_follow_started_job(api, job, detach=detach)
 
 
 @jobs_cli.command(
@@ -1126,12 +1132,7 @@ def jobs_rerun(
     api = get_hf_api(token=token)
     job = api.rerun_job(job_id=job_id, namespace=namespace)
     out.result("Job started", id=job.id, name=(job.labels or {}).get("name"), url=job.url)
-    if detach:
-        job_ref = f"{job.owner.name}/{job.id}"
-        out.hint(f"Use `hf jobs logs -f {job_ref}` to stream logs, or `hf jobs inspect {job_ref}` to check status.")
-        out.hint(f"Use `hf jobs wait {job_ref}` to block until it finishes.")
-        return
-    _stream_logs_and_check_status(api, job)
+    _hint_or_follow_started_job(api, job, detach=detach)
 
 
 @jobs_cli.command("cancel", examples=["hf jobs cancel <job_id>"])
@@ -1416,23 +1417,7 @@ def jobs_uv_run(
             f"Job auto-named '{auto_name}'. Pass `--name` or run "
             f"`hf jobs labels {job.owner.name}/{job.id} --name NAME` to rename it."
         )
-    if isinstance(job.status.expose_urls, list):
-        urls = "\n".join(f"  {url}" for url in job.status.expose_urls)
-        out.hint(f"Exposed ports are reachable at (requires an HF token with read access to the job):\n{urls}")
-    if isinstance(job.status.ssh_url, str):
-        out.hint(f"Use `hf jobs ssh {job.owner.name}/{job.id}` to open an SSH session into the job.")
-    if group := config.network_group:
-        out.hint(
-            f"Joined network group '{group}'. Jobs of this namespace and resource group started with "
-            f"`--network-group {group}` reach each other at `$HF_NETWORK_GROUP_HOSTNAME` (every member) "
-            "or `${HF_NETWORK_GROUP_PREFIX}<alias>` (members claiming an alias)."
-        )
-    if detach:
-        job_ref = f"{job.owner.name}/{job.id}"
-        out.hint(f"Use `hf jobs logs -f {job_ref}` to stream logs, or `hf jobs inspect {job_ref}` to check status.")
-        out.hint(f"Use `hf jobs wait {job_ref}` to block until it finishes.")
-        return
-    _stream_logs_and_check_status(api, job)
+    _hint_or_follow_started_job(api, job, detach=detach)
 
 
 class ScheduledJobStatusFilter(str, Enum):
