@@ -365,6 +365,29 @@ In the CLI, simply pass a local directory as the source side of `-v`:
 >>> hf jobs uv run -v ./pdfs:/input -v ./md-out:/output:rw ocr.py
 ```
 
+## Expose Job ports
+
+Pass `expose` to make a container port reachable through the Jobs proxy. Access requires an HF token with read access to the Job's namespace. Use `expose_public` instead to allow access without authentication:
+
+```python
+>>> from huggingface_hub import run_job, update_job_expose
+>>> job = run_job(
+...     image="python:3.12",
+...     command=["python", "-m", "http.server", "8000"],
+...     expose_public=[8000],
+... )
+>>> job.expose_public
+[8000]
+
+# Keep the port exposed, but require an HF token from now on
+>>> job = update_job_expose(job_id=job.id, expose=[8000])
+
+# Close all exposed ports
+>>> job = update_job_expose(job_id=job.id)
+```
+
+`expose` and `expose_public` can be combined. `update_job_expose` replaces the full port configuration on a running Job without restarting it: ports that are in neither list are closed. Both options are also available when creating UV and scheduled Jobs.
+
 ## SSH into a Job
 
 Pass `ssh=True` to [`run_job`] (or [`run_uv_job`]) to make the Job's container reachable over SSH. The SSH endpoint is available in the Job status:
@@ -714,7 +737,7 @@ Use [`create_scheduled_job`] or [`create_scheduled_uv_job`] with a schedule of `
 
 Use the same parameters as [`run_job`] and [`run_uv_job`] to pass environment variables, secrets, timeout, etc.
 
-Manage scheduled jobs using [`list_scheduled_jobs`], [`inspect_scheduled_job`], [`suspend_scheduled_job`], [`resume_scheduled_job`], [`trigger_scheduled_job`], and [`delete_scheduled_job`]:
+Manage scheduled jobs using [`list_scheduled_jobs`], [`inspect_scheduled_job`], [`suspend_scheduled_job`], [`resume_scheduled_job`], [`update_scheduled_job_schedule`], [`trigger_scheduled_job`], and [`delete_scheduled_job`]:
 
 ```python
 # List your active scheduled jobs
@@ -735,6 +758,12 @@ Manage scheduled jobs using [`list_scheduled_jobs`], [`inspect_scheduled_job`], 
 # Resume a scheduled job
 >>> from huggingface_hub import resume_scheduled_job
 >>> resume_scheduled_job(scheduled_job_id)
+
+# Change future run times without recreating the scheduled job
+>>> from huggingface_hub import update_scheduled_job_schedule
+>>> updated = update_scheduled_job_schedule(scheduled_job_id=scheduled_job_id, schedule="0 9 * * 1")
+>>> updated.schedule
+'0 9 * * 1'
 
 # Trigger a scheduled job to run right now (does not change the schedule)
 >>> from huggingface_hub import trigger_scheduled_job
