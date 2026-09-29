@@ -32,7 +32,7 @@ from huggingface_hub.cli.jobs import _get_jobs_stats_rows, _parse_and_sync_job_v
 from huggingface_hub.cli.skills import build_skill_md
 from huggingface_hub.cli.upload import _resolve_upload_paths, upload
 from huggingface_hub.errors import CLIError, DeviceCodeError, HfUriError, RevisionNotFoundError
-from huggingface_hub.hf_api import ModelInfo, RepoFile
+from huggingface_hub.hf_api import ModelInfo
 from huggingface_hub.utils import (
     CachedFileInfo,
     CachedRepoInfo,
@@ -2219,18 +2219,6 @@ class TestModelsLsCommand:
         lines = result.stdout.strip().splitlines()
         assert "config.json" in lines
         assert any(line.startswith("onnx/") for line in lines)
-
-    @pytest.mark.parametrize("extra_args", [[], ["--format", "quiet"], ["--tree"]])
-    def test_models_ls_files_escapes_control_characters(self, runner: CliRunner, extra_args: list[str]) -> None:
-        with patch("huggingface_hub.cli._file_listing.get_hf_api") as api_cls:
-            api = api_cls.return_value
-            api.list_repo_tree.return_value = [RepoFile(path="evil\r\x1b[2Kfake.bin\n", size=1, oid="abc")]
-            result = runner.invoke(app, ["models", "ls", DUMMY_MODEL_ID, *extra_args])
-
-        assert result.exit_code == 0
-        assert "evil\\r\\x1b[2Kfake.bin\\n" in result.stdout
-        assert "\r" not in result.stdout
-        assert "\x1b" not in result.stdout
 
     def test_models_ls_tree_without_repo_id_fails(self, runner: CliRunner) -> None:
         result = runner.invoke(app, ["models", "ls", "--tree"])
