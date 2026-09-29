@@ -2060,6 +2060,7 @@ class TestAuthWhoamiCommand:
             result = runner.invoke(app, ["auth", "whoami"])
         assert result.exit_code == 1
         assert "Not logged in" in result.output
+        assert "hf auth login" in result.output
 
     def test_whoami_not_logged_in_json(self, runner: CliRunner) -> None:
         with patch("huggingface_hub.cli.auth.get_token", return_value=None):
