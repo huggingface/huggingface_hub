@@ -2006,7 +2006,7 @@ The `--timeout` option also works with UV scripts and scheduled jobs:
 >>> hf jobs rerun <job_id>
 ```
 
-An attempt count of 3 allows up to two retries when a Job fails. `hf jobs rerun` also reuses the original attempt count.
+An attempt count of 3 allows up to two retries when a Job fails. `hf jobs rerun` also reuses the original attempt count. Like `hf jobs run`, it streams the logs of the new Job until it finishes. Use `--detach` to return right away.
 
 ### Hardware
 

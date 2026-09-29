@@ -1114,9 +1114,10 @@ def jobs_inspect(
     out.table([_surface_name(_dataclass_to_dict(job), labels=job.labels) for job in jobs], id_key="id")
 
 
-@jobs_cli.command("rerun", examples=["hf jobs rerun <job_id>"])
+@jobs_cli.command("rerun", examples=["hf jobs rerun <job_id>", "hf jobs rerun --detach <job_id>"])
 def jobs_rerun(
     job_id: JobIdArg,
+    detach: DetachOpt = False,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
@@ -1124,8 +1125,13 @@ def jobs_rerun(
     job_id, namespace = _parse_namespace_from_job_id(job_id, namespace)
     api = get_hf_api(token=token)
     job = api.rerun_job(job_id=job_id, namespace=namespace)
-    out.result("Job started", id=job.id, url=job.url)
-    out.hint(f"Use `hf jobs logs -f {job.owner.name}/{job.id}` to stream logs.")
+    out.result("Job started", id=job.id, name=(job.labels or {}).get("name"), url=job.url)
+    if detach:
+        job_ref = f"{job.owner.name}/{job.id}"
+        out.hint(f"Use `hf jobs logs -f {job_ref}` to stream logs, or `hf jobs inspect {job_ref}` to check status.")
+        out.hint(f"Use `hf jobs wait {job_ref}` to block until it finishes.")
+        return
+    _stream_logs_and_check_status(api, job)
 
 
 @jobs_cli.command("cancel", examples=["hf jobs cancel <job_id>"])

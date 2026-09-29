@@ -630,8 +630,6 @@ def _create_job_spec(
     resource_group_id: str | None = None,
     attempts: int | None = None,
 ) -> dict[str, Any]:
-    if attempts is not None and (isinstance(attempts, bool) or not isinstance(attempts, int) or attempts < 1):
-        raise ValueError("`attempts` must be a positive integer.")
     if network_aliases and not network_group:
         raise ValueError("`network_aliases` requires `network_group`.")
     if name is not None:

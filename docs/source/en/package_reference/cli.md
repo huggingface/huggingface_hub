@@ -2495,12 +2495,14 @@ $ hf jobs rerun [OPTIONS] JOB_ID
 
 **Options**:
 
+* `-d, --detach`: Run the Job in the background and print the Job ID.
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
 Examples
   $ hf jobs rerun <job_id>
+  $ hf jobs rerun --detach <job_id>
 
 Learn more
   Use `hf <command> --help` for more information about a command.
