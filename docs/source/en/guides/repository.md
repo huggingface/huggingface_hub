@@ -155,6 +155,17 @@ RepoUrl('https://huggingface.co/spaces/nateraw/dreambooth-training',...)
 RepoUrl('https://huggingface.co/datasets/nateraw/gdpval',...)
 ```
 
+The git history is copied right away, but the LFS/Xet files may still be copied in the background once [`duplicate_repo`] returns. Until the copy is complete, downloading these files from the new repo may fail. Check `files_copy_pending` on the returned value and use [`get_duplication_status`] to follow the progress:
+
+```py
+>>> from huggingface_hub import duplicate_repo, get_duplication_status
+>>> repo_url = duplicate_repo("openai/gdpval", repo_type="dataset")
+>>> repo_url.files_copy_pending
+True
+>>> get_duplication_status(repo_url.repo_id, repo_type="dataset")
+DuplicationStatus(pending=True, files_total=42, files_copied=10)
+```
+
 ## Search for Spaces
 
 The Hub provides a semantic search API for discovering Spaces. You can search using natural language queries with [`search_spaces`]:

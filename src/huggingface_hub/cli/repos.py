@@ -305,6 +305,29 @@ def repo_duplicate(
         space_volumes=parse_volumes(volume),
     )
     out.result("Repo duplicated", from_id=from_id, to_id=repo_url.repo_id, url=str(repo_url))
+    if repo_url.files_copy_pending:
+        type_flag = "" if repo_type == RepoType.model else f" --type {repo_type.value}"
+        out.warning(
+            f"LFS/Xet files are still being copied in the background. Downloading them from '{repo_url.repo_id}'"
+            " may fail until the copy is complete."
+        )
+        out.hint(f"Use 'hf repos duplication-status {repo_url.repo_id}{type_flag}' to check the copy progress.")
+
+
+@repos_cli.command(
+    "duplication-status",
+    examples=[
+        "hf repos duplication-status myorg/my-gdpval --type dataset",
+    ],
+)
+def repo_duplication_status(
+    repo_id: RepoIdArg,
+    repo_type: RepoTypeOpt = RepoType.model,
+    token: TokenOpt = None,
+) -> None:
+    """Get the progress of the background file copy of a duplicated repo."""
+    api = get_hf_api(token=token)
+    out.dict(api.get_duplication_status(repo_id, repo_type=repo_type.value, token=token))
 
 
 @repos_cli.command("delete", examples=["hf repos delete my-model"])

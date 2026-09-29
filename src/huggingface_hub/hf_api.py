@@ -568,6 +568,49 @@ class RepoUrl(str):
         return f"RepoUrl('{self}', endpoint='{self.endpoint}', repo_type='{self.repo_type}', repo_id='{self.repo_id}')"
 
 
+class DuplicatedRepoUrl(RepoUrl):
+    """[`RepoUrl`] returned by [`duplicate_repo`], with information about the background file copy.
+
+    Attributes:
+        files_copy_pending (`bool`):
+            `True` if the LFS/Xet files of the new repo are still being copied in the background. Until the copy is
+            complete, downloading these files may fail. Use [`get_duplication_status`] to check progress.
+    """
+
+    def __new__(cls, url: Any, endpoint: str | None = None, files_copy_pending: bool = False):
+        return super().__new__(cls, url, endpoint=endpoint)
+
+    def __init__(self, url: Any, endpoint: str | None = None, files_copy_pending: bool = False) -> None:
+        super().__init__(url, endpoint=endpoint)
+        self.files_copy_pending = files_copy_pending
+
+
+@dataclass
+class DuplicationStatus:
+    """Progress of the background LFS/Xet file copy of a duplicated repo.
+
+    Returned by [`get_duplication_status`].
+
+    Attributes:
+        pending (`bool`):
+            `True` while the LFS/Xet files are still being copied. `False` once the copy is complete (or if the repo
+            has no copy in progress).
+        files_total (`int`, *optional*):
+            Number of LFS/Xet files to copy. Only set while the copy is pending.
+        files_copied (`int`, *optional*):
+            Number of files copied so far. Only set while the copy is pending.
+    """
+
+    pending: bool
+    files_total: int | None
+    files_copied: int | None
+
+    def __init__(self, **kwargs: Any) -> None:
+        self.pending = kwargs["pending"]
+        self.files_total = kwargs.get("filesTotal")
+        self.files_copied = kwargs.get("filesCopied")
+
+
 def _resolve_copy_target_path(
     src_file_path: str,
     src_root_path: str | None,
@@ -8612,11 +8655,15 @@ class HfApi:
         space_secrets: list[dict[str, str]] | None = None,
         space_variables: list[dict[str, str]] | None = None,
         space_volumes: list[Volume] | None = None,
-    ) -> RepoUrl:
+    ) -> DuplicatedRepoUrl:
         """Duplicate a repo on the Hub (model, dataset, or Space).
 
         This performs a server-side copy that preserves full git history and LFS objects
         without requiring a local download/upload round-trip.
+
+        The git history is copied right away, but the LFS/Xet files may still be copied in the background once this
+        method returns. In that case, `files_copy_pending` is `True` on the returned value and downloading these files
+        from the new repo may fail until the copy is complete. Use [`get_duplication_status`] to check progress.
 
         Args:
             from_id (`str`):
@@ -8666,8 +8713,8 @@ class HfApi:
                 Only applicable if repo_type is "space".
 
         Returns:
-            [`RepoUrl`]: URL to the newly created repo. Value is a subclass of `str` containing
-            attributes like `endpoint`, `repo_type` and `repo_id`.
+            [`DuplicatedRepoUrl`]: URL to the newly created repo. Value is a subclass of [`RepoUrl`] (and of `str`)
+            containing attributes like `endpoint`, `repo_type`, `repo_id` and `files_copy_pending`.
 
         Raises:
             [`~utils.RepositoryNotFoundError`]:
@@ -8681,8 +8728,11 @@ class HfApi:
         >>> from huggingface_hub import duplicate_repo
 
         # Duplicate a model to your account
-        >>> duplicate_repo("google/gemma-7b")
+        >>> repo_url = duplicate_repo("google/gemma-7b")
+        >>> repo_url
         RepoUrl('https://huggingface.co/nateraw/gemma-7b',...)
+        >>> repo_url.files_copy_pending
+        True
 
         # Duplicate a dataset with a custom name
         >>> duplicate_repo("openai/gdpval", to_id="myorg/my-gdpval", repo_type="dataset")
@@ -8770,7 +8820,60 @@ class HfApi:
             else:
                 raise
 
-        return RepoUrl(r.json()["url"], endpoint=self.endpoint)
+        data = r.json()
+        return DuplicatedRepoUrl(
+            data["url"], endpoint=self.endpoint, files_copy_pending=data.get("filesCopyPending", False)
+        )
+
+    @validate_hf_hub_args
+    def get_duplication_status(
+        self,
+        repo_id: str,
+        *,
+        repo_type: str | None = None,
+        token: bool | str | None = None,
+    ) -> DuplicationStatus:
+        """Get the progress of the background LFS/Xet file copy of a repo created with [`duplicate_repo`].
+
+        When duplicating a repo, the LFS/Xet files are copied in the background. Until the copy is complete,
+        downloading these files from the new repo may fail.
+
+        Args:
+            repo_id (`str`):
+                ID of the new repo (the duplicate, not the original one). Example: `"myorg/my-gdpval"`.
+            repo_type (`str`, *optional*):
+                Set to `"dataset"` or `"space"` if the repo is a dataset or a Space, `None` or `"model"` if it is a
+                model. Default is `None`.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            [`DuplicationStatus`]: The copy status. `pending` is `False` once the copy is complete (or if the repo
+            has no copy in progress). `files_total` and `files_copied` are only set while the copy is pending.
+
+        Raises:
+            [`~utils.RepositoryNotFoundError`]:
+              If the repo cannot be found. This may be because it doesn't exist, or because it is set to `private`
+              and you do not have access.
+
+        Example:
+        ```python
+        >>> from huggingface_hub import duplicate_repo, get_duplication_status
+        >>> repo_url = duplicate_repo("openai/gdpval", repo_type="dataset")
+        >>> get_duplication_status(repo_url.repo_id, repo_type="dataset")
+        DuplicationStatus(pending=True, files_total=42, files_copied=10)
+        ```
+        """
+        repo_type = repo_type or constants.REPO_TYPE_MODEL
+        r = get_session().get(
+            f"{self.endpoint}/api/{repo_type}s/{repo_id}/duplicate/status",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(r)
+        return DuplicationStatus(**r.json())
 
     @validate_hf_hub_args
     def set_space_volumes(
@@ -15198,6 +15301,7 @@ set_space_sleep_time = api.set_space_sleep_time
 pause_space = api.pause_space
 restart_space = api.restart_space
 duplicate_repo = api.duplicate_repo
+get_duplication_status = api.get_duplication_status
 set_space_volumes = api.set_space_volumes
 delete_space_volumes = api.delete_space_volumes
 enable_space_dev_mode = api.enable_space_dev_mode
