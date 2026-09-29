@@ -560,7 +560,7 @@ ConcurrencyOpt = Annotated[
 ScheduleArg = Annotated[
     str,
     Argument(
-        help="One of annually, yearly, monthly, weekly, daily, hourly, or a CRON schedule expression.",
+        help="One of @annually, @yearly, @monthly, @weekly, @daily, @hourly, or a CRON schedule expression.",
     ),
 ]
 
@@ -1714,6 +1714,21 @@ def scheduled_resume(
     api = get_hf_api(token=token)
     api.resume_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=namespace)
     out.result("Scheduled Job resumed", id=scheduled_job_id)
+
+
+@scheduled_app.command("reschedule", examples=['hf jobs scheduled reschedule <id> "0 9 * * 1"'])
+def scheduled_reschedule(
+    scheduled_job_id: ScheduledJobIdArg,
+    schedule: ScheduleArg,
+    namespace: NamespaceOpt = None,
+    token: TokenOpt = None,
+) -> None:
+    """Change when a scheduled Job runs."""
+    scheduled_job_id, namespace = _parse_namespace_from_job_id(scheduled_job_id, namespace)
+    api = get_hf_api(token=token)
+    job = api.update_scheduled_job_schedule(scheduled_job_id=scheduled_job_id, schedule=schedule, namespace=namespace)
+    out.result("Scheduled Job rescheduled", id=job.id, schedule=job.schedule)
+    out.hint(f"Use `hf jobs scheduled inspect {job.owner.name}/{job.id}` to see its next run.")
 
 
 @scheduled_app.command("trigger", examples=["hf jobs scheduled trigger <id>"])

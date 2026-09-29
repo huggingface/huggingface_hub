@@ -2550,6 +2550,7 @@ $ hf jobs scheduled [OPTIONS] COMMAND [ARGS]...
 * `inspect`: Display detailed information on one or more scheduled Jobs
 * `labels`: Update labels on a scheduled Job.
 * `list`: List scheduled Jobs. [alias: ls, ps]
+* `reschedule`: Change when a scheduled Job runs.
 * `resume`: Resume (unpause) a scheduled Job.
 * `run`: Schedule a Job.
 * `suspend`: Suspend (pause) a scheduled Job.
@@ -2680,6 +2681,35 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
+#### `hf jobs scheduled reschedule`
+
+Change when a scheduled Job runs.
+
+**Usage**:
+
+```console
+$ hf jobs scheduled reschedule [OPTIONS] SCHEDULED_JOB_ID SCHEDULE
+```
+
+**Arguments**:
+
+* `SCHEDULED_JOB_ID`: Scheduled Job ID (or 'namespace/scheduled_job_id')  [required]
+* `SCHEDULE`: One of @annually, @yearly, @monthly, @weekly, @daily, @hourly, or a CRON schedule expression.  [required]
+
+**Options**:
+
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf jobs scheduled reschedule <id> "0 9 * * 1"
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
 #### `hf jobs scheduled resume`
 
 Resume (unpause) a scheduled Job.
@@ -2720,7 +2750,7 @@ $ hf jobs scheduled run [OPTIONS] SCHEDULE IMAGE COMMAND...
 
 **Arguments**:
 
-* `SCHEDULE`: One of annually, yearly, monthly, weekly, daily, hourly, or a CRON schedule expression.  [required]
+* `SCHEDULE`: One of @annually, @yearly, @monthly, @weekly, @daily, @hourly, or a CRON schedule expression.  [required]
 * `IMAGE`: The Docker image to use.  [required]
 * `COMMAND...`: The command to run.  [required]
 
@@ -2841,7 +2871,7 @@ $ hf jobs scheduled uv run [OPTIONS] SCHEDULE SCRIPT [SCRIPT_ARGS]...
 
 **Arguments**:
 
-* `SCHEDULE`: One of annually, yearly, monthly, weekly, daily, hourly, or a CRON schedule expression.  [required]
+* `SCHEDULE`: One of @annually, @yearly, @monthly, @weekly, @daily, @hourly, or a CRON schedule expression.  [required]
 * `SCRIPT`: UV script to run (local file or URL)  [required]
 * `[SCRIPT_ARGS]...`: Arguments for the script
 

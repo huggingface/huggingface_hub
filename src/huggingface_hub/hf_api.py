@@ -12901,6 +12901,58 @@ class HfApi:
         )
         hf_raise_for_status(response)
 
+    def update_scheduled_job_schedule(
+        self,
+        *,
+        scheduled_job_id: str,
+        schedule: str,
+        namespace: str | None = None,
+        token: bool | str | None = None,
+    ) -> ScheduledJobInfo:
+        """
+        Change when an existing scheduled Job runs.
+
+        Only the schedule is updated: the Job spec, labels and suspended state are kept. To run the scheduled Job once
+        right now without changing its schedule, use [`trigger_scheduled_job`] instead.
+
+        Args:
+            scheduled_job_id (`str`):
+                ID of the scheduled Job.
+
+            schedule (`str`):
+                One of "@annually", "@yearly", "@monthly", "@weekly", "@daily", "@hourly", or a
+                CRON schedule expression (e.g., '0 9 * * 1' for 9 AM every Monday).
+
+            namespace (`str`, *optional*):
+                The namespace where the scheduled Job is. Defaults to the current user's namespace.
+
+            token (`bool` or `str`, *optional*):
+                A valid user access token. If not provided, the locally saved token will be used, which is the
+                recommended authentication method. Set to `False` to disable authentication.
+                Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+
+        Returns:
+            [`ScheduledJobInfo`]: The updated scheduled Job info.
+
+        Example:
+
+            ```python
+            >>> from huggingface_hub import update_scheduled_job_schedule
+            >>> scheduled_job = update_scheduled_job_schedule(scheduled_job_id="6abb8dc9c617607c354d45f4", schedule="@daily")
+            >>> scheduled_job.schedule
+            '@daily'
+            ```
+        """
+        if namespace is None:
+            namespace = self.whoami(token=token)["name"]
+        response = get_session().post(
+            f"{self.endpoint}/api/scheduled-jobs/{namespace}/{scheduled_job_id}/schedule",
+            json={"schedule": schedule},
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+        return ScheduledJobInfo(**response.json())
+
     def trigger_scheduled_job(
         self,
         *,
@@ -15099,6 +15151,7 @@ delete_scheduled_job = api.delete_scheduled_job
 suspend_scheduled_job = api.suspend_scheduled_job
 resume_scheduled_job = api.resume_scheduled_job
 trigger_scheduled_job = api.trigger_scheduled_job
+update_scheduled_job_schedule = api.update_scheduled_job_schedule
 update_scheduled_job_labels = api.update_scheduled_job_labels
 create_scheduled_uv_job = api.create_scheduled_uv_job
 sync_job_volume = api.sync_job_volume
