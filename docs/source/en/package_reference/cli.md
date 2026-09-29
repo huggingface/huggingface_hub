@@ -2336,7 +2336,7 @@ $ hf jobs expose [OPTIONS] JOB_ID
 **Options**:
 
 * `--expose INTEGER`: Expose a container port through the jobs proxy. Repeat the flag for multiple ports (e.g. `--expose 8000 --expose 8001`). Each exposed port is reachable on the public jobs domain; access requires an HF token with read access to the job's namespace.
-* `--expose-public INTEGER`: Allow unauthenticated access to this exposed port. Repeat for multiple ports; each must also be passed with --expose.
+* `--expose-public INTEGER`: Expose a container port through the jobs proxy without authentication. Repeat the flag for multiple ports. No need to also pass the port with `--expose`.
 * `--clear`: Close all exposed ports.
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
@@ -2346,8 +2346,8 @@ $ hf jobs expose [OPTIONS] JOB_ID
 * `--help`: Show this message and exit.
 
 Examples
-  $ hf jobs expose <job_id> --expose 8000 --expose-public 8000
-  $ hf jobs expose <job_id> --expose 8000 --expose 9000 --expose-public 8000
+  $ hf jobs expose <job_id> --expose-public 8000
+  $ hf jobs expose <job_id> --expose 8000 --expose-public 9000
   $ hf jobs expose <job_id> --clear
 
 Learn more
@@ -2544,7 +2544,7 @@ $ hf jobs run [OPTIONS] IMAGE COMMAND...
 * `-d, --detach`: Run the Job in the background and print the Job ID.
 * `--dry-run`: Print the resolved Job configuration without submitting the Job.
 * `--expose INTEGER`: Expose a container port through the jobs proxy. Repeat the flag for multiple ports (e.g. `--expose 8000 --expose 8001`). Each exposed port is reachable on the public jobs domain; access requires an HF token with read access to the job's namespace.
-* `--expose-public INTEGER`: Allow unauthenticated access to this exposed port. Repeat for multiple ports; each must also be passed with --expose.
+* `--expose-public INTEGER`: Expose a container port through the jobs proxy without authentication. Repeat the flag for multiple ports. No need to also pass the port with `--expose`.
 * `--ssh`: Make the job's container reachable over SSH. Connect with `hf jobs ssh <job_id>`. Requires an SSH public key registered on https://huggingface.co/settings/keys.
 * `--network-group TEXT`: Join a network group. Jobs in the same namespace and resource group sharing a group are placed together and reach each other on every port. Inside each member, `$HF_NETWORK_GROUP_HOSTNAME` resolves to every member. Lowercase alphanumerics and dashes, 46 characters max.
 * `--network-alias TEXT`: Claim an alias in the network group. Members reach the jobs claiming it at `${HF_NETWORK_GROUP_PREFIX}<alias>`. Repeat the flag for several aliases. Lowercase alphanumerics and dashes, 34 characters max, unique within the job. Requires `--network-group`.
@@ -2777,7 +2777,7 @@ $ hf jobs scheduled run [OPTIONS] SCHEDULE IMAGE COMMAND...
 * `--timeout TEXT`: Max duration: int with s (seconds, default), m (minutes), h (hours) or d (days).
 * `--dry-run`: Print the resolved Job configuration without submitting the Job.
 * `--expose INTEGER`: Expose a container port through the jobs proxy. Repeat the flag for multiple ports (e.g. `--expose 8000 --expose 8001`). Each exposed port is reachable on the public jobs domain; access requires an HF token with read access to the job's namespace.
-* `--expose-public INTEGER`: Allow unauthenticated access to this exposed port. Repeat for multiple ports; each must also be passed with --expose.
+* `--expose-public INTEGER`: Expose a container port through the jobs proxy without authentication. Repeat the flag for multiple ports. No need to also pass the port with `--expose`.
 * `--resource-group-id TEXT`: The ID of the resource group to create the Job in. Used to control access to resources within an organization and for cost attribution/spending-limit features.
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
@@ -2900,7 +2900,7 @@ $ hf jobs scheduled uv run [OPTIONS] SCHEDULE SCRIPT [SCRIPT_ARGS]...
 * `--timeout TEXT`: Max duration: int with s (seconds, default), m (minutes), h (hours) or d (days).
 * `--dry-run`: Print the resolved Job configuration without submitting the Job.
 * `--expose INTEGER`: Expose a container port through the jobs proxy. Repeat the flag for multiple ports (e.g. `--expose 8000 --expose 8001`). Each exposed port is reachable on the public jobs domain; access requires an HF token with read access to the job's namespace.
-* `--expose-public INTEGER`: Allow unauthenticated access to this exposed port. Repeat for multiple ports; each must also be passed with --expose.
+* `--expose-public INTEGER`: Expose a container port through the jobs proxy without authentication. Repeat the flag for multiple ports. No need to also pass the port with `--expose`.
 * `--resource-group-id TEXT`: The ID of the resource group to create the Job in. Used to control access to resources within an organization and for cost attribution/spending-limit features.
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
@@ -3032,7 +3032,7 @@ $ hf jobs uv run [OPTIONS] SCRIPT [SCRIPT_ARGS]...
 * `-d, --detach`: Run the Job in the background and print the Job ID.
 * `--dry-run`: Print the resolved Job configuration without submitting the Job.
 * `--expose INTEGER`: Expose a container port through the jobs proxy. Repeat the flag for multiple ports (e.g. `--expose 8000 --expose 8001`). Each exposed port is reachable on the public jobs domain; access requires an HF token with read access to the job's namespace.
-* `--expose-public INTEGER`: Allow unauthenticated access to this exposed port. Repeat for multiple ports; each must also be passed with --expose.
+* `--expose-public INTEGER`: Expose a container port through the jobs proxy without authentication. Repeat the flag for multiple ports. No need to also pass the port with `--expose`.
 * `--ssh`: Make the job's container reachable over SSH. Connect with `hf jobs ssh <job_id>`. Requires an SSH public key registered on https://huggingface.co/settings/keys.
 * `--network-group TEXT`: Join a network group. Jobs in the same namespace and resource group sharing a group are placed together and reach each other on every port. Inside each member, `$HF_NETWORK_GROUP_HOSTNAME` resolves to every member. Lowercase alphanumerics and dashes, 46 characters max.
 * `--network-alias TEXT`: Claim an alias in the network group. Members reach the jobs claiming it at `${HF_NETWORK_GROUP_PREFIX}<alias>`. Repeat the flag for several aliases. Lowercase alphanumerics and dashes, 34 characters max, unique within the job. Requires `--network-group`.

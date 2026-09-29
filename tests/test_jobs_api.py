@@ -161,17 +161,7 @@ def test_public_exposed_ports() -> None:
         flavor=None,
         timeout=None,
         expose=[8000, 9000],
-        expose_public=[9000],
+        expose_public=[9000, 7000],
     )
-    assert spec["expose"] == {"ports": [8000, 9000], "portsPublic": [9000]}
-    with pytest.raises(ValueError, match="subset"):
-        _create_job_spec(
-            image="python:3.12",
-            command=["echo"],
-            env=None,
-            secrets=None,
-            flavor=None,
-            timeout=None,
-            expose=[8000],
-            expose_public=[9000],
-        )
+    # public ports are merged into `ports` (the server requires `portsPublic` to be a subset of `ports`)
+    assert spec["expose"] == {"ports": [8000, 9000, 7000], "portsPublic": [9000, 7000]}

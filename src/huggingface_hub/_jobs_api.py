@@ -227,9 +227,9 @@ class JobInfo:
         initiator (`JobInitiator` or `None`):
             What triggered the Job, e.g. `JobInitiator(type="scheduled-job", id="...")` for a cron-triggered run.
         expose_urls (`list[str]` or `None`):
-            Public URLs through which the Job's exposed ports are reachable (one per port exposed via `expose=`),
+            Public URLs through which the Job's exposed ports are reachable (one per exposed port),
             e.g. `["https://687fb701029421ae5549d998--8000.hf.jobs"]`. `None` when no port is exposed.
-            Accessing a URL requires an HF token with read access to the Job's namespace.
+            Accessing a URL requires an HF token with read access to the Job's namespace, unless the port is public.
         ssh_url (`str` or `None`):
             SSH endpoint of the Job, e.g. `"ssh://687fb701029421ae5549d998@ssh.hf.jobs"`. Only present when the Job
             was started with `ssh=True`. Connecting requires write access to the Job's namespace and an SSH public
@@ -238,7 +238,7 @@ class JobInfo:
             Network group the Job joined and the aliases it claims, e.g. `JobNetwork(group="train", aliases=["master"])`.
             `None` when the Job was started without `network_group=`.
         expose (`list[int]` or `None`):
-            Ports exposed through the Jobs proxy.
+            All ports exposed through the Jobs proxy, public ones included.
         expose_public (`list[int]` or `None`):
             Exposed ports reachable without authentication.
 
@@ -620,6 +620,12 @@ def _default_job_name_from_script(
     return f"{base}-{_short_invocation_hash([script, *script_args, *(config_parts or [])])}"
 
 
+def _build_expose_payload(expose: list[int] | None, expose_public: list[int] | None) -> dict[str, list[int]]:
+    # Public ports are exposed too: the server expects them in both lists (`portsPublic` must be a subset of `ports`).
+    ports_public = list(dict.fromkeys(expose_public or []))
+    return {"ports": list(dict.fromkeys([*(expose or []), *ports_public])), "portsPublic": ports_public}
+
+
 def _create_job_spec(
     *,
     image: str,
@@ -640,8 +646,6 @@ def _create_job_spec(
 ) -> dict[str, Any]:
     if network_aliases and not network_group:
         raise ValueError("`network_aliases` requires `network_group`.")
-    if expose_public and not set(expose_public).issubset(expose or []):
-        raise ValueError("`expose_public` must be a subset of `expose`.")
     if name is not None:
         if labels is not None and "name" in labels:
             raise ValueError("`name` and the `name` key in `labels` cannot both be provided.")
@@ -671,10 +675,8 @@ def _create_job_spec(
     if volumes:
         job_spec["volumes"] = [vol.to_dict() for vol in volumes]
     # expose ports through the jobs proxy
-    if expose:
-        job_spec["expose"] = {"ports": expose}
-        if expose_public is not None:
-            job_spec["expose"]["portsPublic"] = expose_public
+    if expose or expose_public:
+        job_spec["expose"] = _build_expose_payload(expose, expose_public)
     # make the job container reachable over SSH
     if ssh:
         job_spec["ssh"] = {"enabled": True}

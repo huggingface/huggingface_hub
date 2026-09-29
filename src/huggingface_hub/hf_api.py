@@ -55,6 +55,7 @@ from ._jobs_api import (
     JobSpec,
     JobStage,
     ScheduledJobInfo,
+    _build_expose_payload,
     _create_job_spec,
     _default_job_name_from_image,
     _default_job_name_from_script,
@@ -11791,10 +11792,13 @@ class HfApi:
 
             expose (`list[int]`, *optional*):
                 Container ports to expose through the jobs proxy. Each listed port is reachable
-                on the public jobs domain (e.g. `https://<job_id>--8000.hf.jobs`). Access requires an HF token with read access to the job's namespace unless the port is also in `expose_public`.
+                on the public jobs domain (e.g. `https://<job_id>--8000.hf.jobs`). Access always
+                requires an HF token with read access to the job's namespace. Use `expose_public` for
+                unauthenticated access.
 
             expose_public (`list[int]`, *optional*):
-                Subset of `expose` reachable without authentication. Other exposed ports require an HF token.
+                Ports to expose through the Jobs proxy without authentication. They don't need to be listed in
+                `expose`.
 
             ssh (`bool`, *optional*):
                 If True, the job's container is reachable over SSH at the URL given by `job.status.ssh_url`
@@ -12347,20 +12351,25 @@ class HfApi:
         self,
         *,
         job_id: str,
-        expose: list[int],
+        expose: list[int] | None = None,
         expose_public: list[int] | None = None,
         namespace: str | None = None,
         token: bool | str | None = None,
     ) -> JobInfo:
         """Replace a running Job's exposed ports without rerunning it.
 
+        `expose` and `expose_public` together form the complete port configuration: ports that are in neither list
+        are closed. Pass neither to close all exposed ports.
+
         Args:
             job_id (`str`):
                 ID of the running Job.
-            expose (`list[int]`):
-                Complete list of ports to expose. Pass an empty list to close all exposed ports.
+            expose (`list[int]`, *optional*):
+                Ports to expose through the Jobs proxy. Access requires an HF token with read access to the Job's
+                namespace.
             expose_public (`list[int]`, *optional*):
-                Subset of `expose` reachable without authentication. All other ports require an HF token.
+                Ports to expose through the Jobs proxy without authentication. They don't need to be listed in
+                `expose`.
             namespace (`str`, *optional*):
                 Namespace of the Job. Defaults to the current user's namespace.
             token (`bool` or `str`, *optional*):
@@ -12369,13 +12378,11 @@ class HfApi:
         Returns:
             [`JobInfo`]: The updated Job.
         """
-        if expose_public and not set(expose_public).issubset(expose):
-            raise ValueError("`expose_public` must be a subset of `expose`.")
         if namespace is None:
             namespace = self.whoami(token=token)["name"]
         response = get_session().put(
             f"{self.endpoint}/api/jobs/{namespace}/{job_id}/expose",
-            json={"ports": expose, "portsPublic": expose_public or []},
+            json=_build_expose_payload(expose, expose_public),
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
@@ -12501,10 +12508,13 @@ class HfApi:
 
             expose (`list[int]`, *optional*):
                 Container ports to expose through the jobs proxy. Each listed port is reachable
-                on the public jobs domain (e.g. `https://<job_id>--8000.hf.jobs`). Access requires an HF token with read access to the job's namespace unless the port is also in `expose_public`.
+                on the public jobs domain (e.g. `https://<job_id>--8000.hf.jobs`). Access always
+                requires an HF token with read access to the job's namespace. Use `expose_public` for
+                unauthenticated access.
 
             expose_public (`list[int]`, *optional*):
-                Subset of `expose` reachable without authentication. Other exposed ports require an HF token.
+                Ports to expose through the Jobs proxy without authentication. They don't need to be listed in
+                `expose`.
 
             ssh (`bool`, *optional*):
                 If True, the job's container is reachable over SSH at the URL given by `job.status.ssh_url`
@@ -12688,10 +12698,13 @@ class HfApi:
 
             expose (`list[int]`, *optional*):
                 Container ports to expose through the jobs proxy. Each listed port is reachable
-                on the public jobs domain (e.g. `https://<job_id>--8000.hf.jobs`). Access requires an HF token with read access to the job's namespace unless the port is also in `expose_public`.
+                on the public jobs domain (e.g. `https://<job_id>--8000.hf.jobs`). Access always
+                requires an HF token with read access to the job's namespace. Use `expose_public` for
+                unauthenticated access.
 
             expose_public (`list[int]`, *optional*):
-                Subset of `expose` reachable without authentication. Other exposed ports require an HF token.
+                Ports to expose through the Jobs proxy without authentication. They don't need to be listed in
+                `expose`.
 
             resource_group_id (`str`, *optional*):
                 The ID of the resource group to create the scheduled Job in. Used to control access to resources
@@ -13123,10 +13136,13 @@ class HfApi:
 
             expose (`list[int]`, *optional*):
                 Container ports to expose through the jobs proxy. Each listed port is reachable
-                on the public jobs domain (e.g. `https://<job_id>--8000.hf.jobs`). Access requires an HF token with read access to the job's namespace unless the port is also in `expose_public`.
+                on the public jobs domain (e.g. `https://<job_id>--8000.hf.jobs`). Access always
+                requires an HF token with read access to the job's namespace. Use `expose_public` for
+                unauthenticated access.
 
             expose_public (`list[int]`, *optional*):
-                Subset of `expose` reachable without authentication. Other exposed ports require an HF token.
+                Ports to expose through the Jobs proxy without authentication. They don't need to be listed in
+                `expose`.
 
             resource_group_id (`str`, *optional*):
                 The ID of the resource group to create the scheduled Job in. Used to control access to resources

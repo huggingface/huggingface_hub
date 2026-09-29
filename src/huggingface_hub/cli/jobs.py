@@ -506,14 +506,9 @@ ExposePublicOpt = Annotated[
     list[int] | None,
     Option(
         "--expose-public",
-        help="Allow unauthenticated access to this exposed port. Repeat for multiple ports; each must also be passed with --expose.",
+        help="Expose a container port through the jobs proxy without authentication. Repeat the flag for multiple ports. No need to also pass the port with `--expose`.",
     ),
 ]
-
-
-def _validate_exposed_ports(expose: list[int] | None, expose_public: list[int] | None) -> None:
-    if expose_public and not set(expose_public).issubset(expose or []):
-        raise CLIError("Every `--expose-public` port must also be passed with `--expose`.")
 
 
 SshEnabledOpt = Annotated[
@@ -690,7 +685,6 @@ def jobs_run(
 ) -> None:
     """Run a Job."""
     set_output_format(format, json_output, quiet)
-    _validate_exposed_ports(expose, expose_public)
     env_map = parse_env_map(env, env_file)
     secrets_map = parse_env_map(secrets, secrets_file)
     labels_map = _parse_labels_map(label, name=name) or {}
@@ -1120,8 +1114,8 @@ def jobs_inspect(
 @jobs_cli.command(
     "expose",
     examples=[
-        "hf jobs expose <job_id> --expose 8000 --expose-public 8000",
-        "hf jobs expose <job_id> --expose 8000 --expose 9000 --expose-public 8000",
+        "hf jobs expose <job_id> --expose-public 8000",
+        "hf jobs expose <job_id> --expose 8000 --expose-public 9000",
         "hf jobs expose <job_id> --clear",
     ],
 )
@@ -1140,13 +1134,11 @@ def jobs_expose(
     set_output_format(format, json_output, quiet)
     if clear and (expose or expose_public):
         raise CLIError("`--clear` cannot be combined with `--expose` or `--expose-public`.")
-    if not clear and not expose:
-        raise CLIError("Pass at least one `--expose` port, or `--clear` to close all ports.")
-    if expose_public and not set(expose_public).issubset(expose or []):
-        raise CLIError("Every `--expose-public` port must also be passed with `--expose`.")
+    if not clear and not expose and not expose_public:
+        raise CLIError("Pass at least one `--expose` or `--expose-public` port, or `--clear` to close all ports.")
     job_id, namespace = _parse_namespace_from_job_id(job_id, namespace)
     api = get_hf_api(token=token)
-    job = api.update_job_expose(job_id=job_id, expose=expose or [], expose_public=expose_public, namespace=namespace)
+    job = api.update_job_expose(job_id=job_id, expose=expose, expose_public=expose_public, namespace=namespace)
     out.result("Exposed ports updated", id=job.id, ports=job.expose or [], public_ports=job.expose_public or [])
 
 
@@ -1356,7 +1348,6 @@ def jobs_uv_run(
 ) -> None:
     """Run a UV script (local file or URL) on HF infrastructure"""
     set_output_format(format, json_output, quiet)
-    _validate_exposed_ports(expose, expose_public)
     api = get_hf_api(token=token)
     with _resolve_uv_job_config(
         api=api,
@@ -1497,7 +1488,6 @@ def scheduled_run(
 ) -> None:
     """Schedule a Job."""
     set_output_format(format, json_output, quiet)
-    _validate_exposed_ports(expose, expose_public)
     env_map = parse_env_map(env, env_file)
     secrets_map = parse_env_map(secrets, secrets_file)
     labels_map = _parse_labels_map(label, name=name) or {}
@@ -1872,7 +1862,6 @@ def scheduled_uv_run(
 ) -> None:
     """Run a UV script (local file or URL) on HF infrastructure"""
     set_output_format(format, json_output, quiet)
-    _validate_exposed_ports(expose, expose_public)
     api = get_hf_api(token=token)
     with _resolve_uv_job_config(
         api=api,
