@@ -1156,6 +1156,8 @@ Overquota used: 0s
 {"base": 2400, "remaining": 2400, "overquota_used": 0}
 ```
 
+If your quota is running low, the command suggests purchasing credits from your [billing settings](https://huggingface.co/settings/billing?add-credits=true) to keep using ZeroGPU beyond the daily quota (PRO, Team and Enterprise users only).
+
 ### Update Space settings
 
 Use `hf spaces settings` to update the settings of a Space.

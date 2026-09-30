@@ -530,17 +530,23 @@ def spaces_zero_gpu_quota(token: TokenOpt = None) -> None:
     """
     api = get_hf_api(token=token)
     quota = api.get_zero_gpu_quota()
-    if out.mode != OutputFormat.human:
+    if out.mode == OutputFormat.human:
+        lines = [
+            f"Remaining:      {format_duration(quota.remaining)} / {format_duration(quota.base)}",
+            f"Resets at:      {quota.resets_at.strftime('%Y-%m-%d %H:%M:%S UTC') if quota.resets_at else 'not used yet'}",
+        ]
+        if quota.overquota_used is not None:
+            lines.append(f"Overquota used: {format_duration(quota.overquota_used)}")
+        out.text("\n".join(lines))
+        out.hint("Use `hf spaces zero-gpu-quota --format json` to get raw values in GPU-seconds.")
+    else:
         out.dict(quota, id_key="remaining")
-        return
-    lines = [
-        f"Remaining:      {format_duration(quota.remaining)} / {format_duration(quota.base)}",
-        f"Resets at:      {quota.resets_at.strftime('%Y-%m-%d %H:%M:%S UTC') if quota.resets_at else 'not used yet'}",
-    ]
-    if quota.overquota_used is not None:
-        lines.append(f"Overquota used: {format_duration(quota.overquota_used)}")
-    out.text("\n".join(lines))
-    out.hint("Use `hf spaces zero-gpu-quota --format json` to get raw values in GPU-seconds.")
+    if quota.remaining < 0.1 * quota.base:
+        status = "exhausted" if quota.remaining <= 0 else "running low"
+        out.hint(
+            f"Your ZeroGPU quota is {status}. PRO, Team and Enterprise users can purchase credits to keep using"
+            " ZeroGPU beyond the daily quota: https://huggingface.co/settings/billing?add-credits=true"
+        )
 
 
 @spaces_cli.command(

@@ -230,6 +230,8 @@ ZeroGpuQuota(base=2400, remaining=1810, resets_at=datetime.datetime(2026, 9, 30,
 
 `resets_at` is `None` if you haven't used ZeroGPU since the last reset. If you use a fine-grained token, it must have the "Billing > Read billing usage and payment method status" permission. The same information is available from the CLI with `hf spaces zero-gpu-quota`.
 
+Once the quota is exhausted, PRO, Team and Enterprise users can keep using ZeroGPU Spaces by consuming pre-paid credits. You can purchase credits from your [billing settings](https://huggingface.co/settings/billing?add-credits=true). See [Extending quota with credits](https://huggingface.co/docs/hub/spaces-zerogpu#extending-quota-with-credits) for more details.
+
 ### Pause and restart your Space
 
 By default if your Space is running on an upgraded hardware, it will never be stopped. However to avoid getting billed,

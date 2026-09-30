@@ -414,7 +414,8 @@ class ZeroGpuQuota:
         resets_at (`datetime` or `None`):
             Date at which the quota will be reset. `None` if the quota has not been used yet.
         overquota_used (`float` or `None`):
-            Overquota (paid) GPU-seconds consumed once the base quota is exhausted.
+            Overquota (paid) GPU-seconds consumed once the base quota is exhausted. PRO, Team and Enterprise users
+            can purchase credits to go beyond the base quota at https://huggingface.co/settings/billing?add-credits=true.
     """
 
     base: float
