@@ -19,6 +19,7 @@ from huggingface_hub.errors import (
     OfflineModeIsEnabled,
     RepositoryNotFoundError,
 )
+from huggingface_hub.utils import _http
 from huggingface_hub.utils._http import (
     _WARNED_TOPICS,
     RateLimitInfo,
@@ -900,14 +901,14 @@ class TestFollowHubRedirects:
         ],
     )
     def test_is_same_or_hub_host(self, monkeypatch, url, target, expected):
-        monkeypatch.setattr(constants, "HF_URL_HOSTS", frozenset({"huggingface.co"}))
+        monkeypatch.setattr(_http, "_HUB_ORIGINS", frozenset({("https", "huggingface.co", 443)}))
         assert _is_same_or_hub_host(url, target) is expected
 
     def test_is_same_or_hub_host_with_ported_endpoint(self, monkeypatch):
-        """A Hub host is only trusted on its standard port (e.g. with `HF_ENDPOINT=http://localhost:15564`)."""
-        monkeypatch.setattr(constants, "HF_URL_HOSTS", frozenset({"localhost", "huggingface.co"}))
-        assert _is_same_or_hub_host("https://example.com/file.bin", "http://localhost/resolve/main/file.bin")
-        assert _is_same_or_hub_host("https://example.com/file.bin", "http://localhost:80/resolve/main/file.bin")
+        """A Hub endpoint is trusted on its own port (e.g. with `HF_ENDPOINT=http://localhost:15564`)."""
+        monkeypatch.setattr(_http, "_HUB_ORIGINS", frozenset({("http", "localhost", 15564)}))
+        assert _is_same_or_hub_host("https://example.com/file.bin", "http://localhost:15564/resolve/main/file.bin")
+        assert not _is_same_or_hub_host("https://example.com/file.bin", "http://localhost/resolve/main/file.bin")
         assert not _is_same_or_hub_host("https://example.com/file.bin", "http://localhost:14886/resolve/main/file.bin")
 
 

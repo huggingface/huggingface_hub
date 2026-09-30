@@ -783,16 +783,21 @@ def _url_origin(url: str) -> tuple[str, str, int]:
     return (parsed.scheme, (parsed.hostname or "").lower(), parsed.port or _DEFAULT_PORTS.get(parsed.scheme, 0))
 
 
-def _is_same_or_hub_host(url: str, target: str) -> bool:
-    """Whether `target` is served by the same origin as `url`, or by a known Hub host on a standard port."""
-    if _url_origin(url) == _url_origin(target):
-        return True
-    target_parsed = urlparse(target)
-    # Hub hosts are known by hostname only => trust them only on their scheme's standard port.
-    return (target_parsed.hostname or "").lower() in constants.HF_URL_HOSTS and target_parsed.port in (
-        None,
-        _DEFAULT_PORTS.get(target_parsed.scheme),
+# Origins considered to be Hub endpoints. The auth header is forwarded to these: only add trusted ones.
+_HUB_ORIGINS = frozenset(
+    _url_origin(endpoint)
+    for endpoint in (
+        constants._HF_DEFAULT_ENDPOINT,
+        constants._HF_DEFAULT_STAGING_ENDPOINT,
+        constants.ENDPOINT,
+        "https://hf.co",
     )
+)
+
+
+def _is_same_or_hub_host(url: str, target: str) -> bool:
+    """Whether `target` is served by the same origin as `url`, or by a known Hub origin."""
+    return _url_origin(target) in {_url_origin(url), *_HUB_ORIGINS}
 
 
 def fix_hf_endpoint_in_url(url: str, endpoint: str | None) -> str:
