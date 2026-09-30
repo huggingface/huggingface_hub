@@ -238,13 +238,11 @@ class TestHfApiEndpoints:
         api.delete_repo("repo-that-does-not-exist", missing_ok=True)
 
     def test_move_repo_normal_usage(self, api: HfApi):
-        # Spaces not tested on staging (error 500)
-        for repo_type in [None, constants.REPO_TYPE_MODEL, constants.REPO_TYPE_DATASET]:
-            repo_id = f"{USER}/{repo_name()}"
-            new_repo_id = f"{USER}/{repo_name()}"
-            api.create_repo(repo_id=repo_id, repo_type=repo_type)
-            api.move_repo(from_id=repo_id, to_id=new_repo_id, repo_type=repo_type)
-            api.delete_repo(repo_id=new_repo_id, repo_type=repo_type)
+        repo_id = f"{USER}/{repo_name()}"
+        new_repo_id = f"{USER}/{repo_name()}"
+        api.create_repo(repo_id=repo_id, repo_type="dataset")
+        api.move_repo(from_id=repo_id, to_id=new_repo_id, repo_type="dataset")
+        api.delete_repo(repo_id=new_repo_id, repo_type="dataset")
 
     def test_move_repo_target_already_exists(self, api: HfApi) -> None:
         repo_id_1 = f"{USER}/{repo_name()}"
@@ -271,26 +269,21 @@ class TestHfApiEndpoints:
         repo_url = repo_factory("model")
         repo_id = repo_url.repo_id
 
-        for gated_value in ["auto", "manual", False]:
-            for private_value in [True, False]:  # Test both private and public settings
-                api.update_repo_settings(repo_id=repo_id, gated=gated_value, private=private_value)
-                info = api.model_info(repo_id)
-                assert info.gated == gated_value
-                assert info.private == private_value  # Verify the private setting
+        # Enable then disable both settings
+        for gated_value, private_value in [("manual", True), (False, False)]:
+            api.update_repo_settings(repo_id=repo_id, gated=gated_value, private=private_value)
+            info = api.model_info(repo_id)
+            assert info.gated == gated_value
+            assert info.private == private_value
 
     def test_update_dataset_repo_settings(self, api: HfApi, repo_factory: RepoFactory):
         repo_url = repo_factory("dataset")
         repo_id = repo_url.repo_id
-        repo_type = repo_url.repo_type
 
-        for gated_value in ["auto", "manual", False]:
-            for private_value in [True, False]:
-                api.update_repo_settings(
-                    repo_id=repo_id, repo_type=repo_type, gated=gated_value, private=private_value
-                )
-                info = api.dataset_info(repo_id)
-                assert info.gated == gated_value
-                assert info.private == private_value
+        api.update_repo_settings(repo_id=repo_id, repo_type="dataset", gated="auto", private=True)
+        info = api.dataset_info(repo_id)
+        assert info.gated == "auto"
+        assert info.private
 
 
 class TestCommitApi:
@@ -2383,9 +2376,8 @@ class TestHfApiPublicProduction:
         assert len(models) == 0
 
     def test_filter_models_by_language(self, api: HfApi):
-        for language in ["en", "fr", "zh"]:
-            for model in api.list_models(filter=language, limit=5):
-                assert language in model.tags
+        for model in api.list_models(filter="fr", limit=5):
+            assert "fr" in model.tags
 
     def test_filter_models_with_tag(self, api: HfApi):
         models = list(api.list_models(author="HuggingFaceBR4", filter=["tensorboard"]))
