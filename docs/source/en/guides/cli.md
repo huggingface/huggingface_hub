@@ -1144,7 +1144,7 @@ Use `hf spaces hardware` to list all available hardware options for Spaces, incl
 
 ### Check your ZeroGPU quota
 
-Use `hf spaces zero-gpu-quota` to check how much of your [ZeroGPU](https://huggingface.co/docs/hub/spaces-zerogpu) quota is left and when it resets. This is useful to track your usage when calling ZeroGPU Spaces from scripts, apps or agents. Use `--format json` to get the raw values (in GPU-seconds) or `-q` to print only the remaining GPU-seconds.
+Use `hf spaces zero-gpu-quota` to check how much of your [ZeroGPU](https://huggingface.co/docs/hub/spaces-zerogpu) quota is left and when it resets. This is useful to track your usage when calling ZeroGPU Spaces from scripts, apps or agents.
 
 ```bash
 >>> hf spaces zero-gpu-quota
