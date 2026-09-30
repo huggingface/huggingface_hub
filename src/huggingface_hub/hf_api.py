@@ -10651,8 +10651,10 @@ class HfApi:
         if repo_type is None:
             repo_type = constants.REPO_TYPE_MODEL
 
-        if (user is None) == (user_id is None):
-            raise ValueError("Exactly one of `user` or `user_id` must be provided.")
+        if user is None and user_id is None:
+            raise ValueError("One of `user` or `user_id` must be provided.")
+        if user is not None and user_id is not None:
+            raise ValueError("Cannot provide both `user` and `user_id`.")
         payload: dict[str, str | None] = {"user": user} if user is not None else {"userId": user_id}
         payload["status"] = status
 

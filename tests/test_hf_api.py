@@ -4151,9 +4151,9 @@ class TestAccessRequestHiddenPII:
         assert requests[0].user_id == "5e67bdd61009063689407479"
 
     def test_handle_access_request_requires_exactly_one_of_user_or_user_id(self):
-        with pytest.raises(ValueError, match="Exactly one of `user` or `user_id`"):
+        with pytest.raises(ValueError, match="One of `user` or `user_id` must be provided"):
             HfApi().accept_access_request("user/repo")
-        with pytest.raises(ValueError, match="Exactly one of `user` or `user_id`"):
+        with pytest.raises(ValueError, match="Cannot provide both `user` and `user_id`"):
             HfApi().accept_access_request("user/repo", "clem", user_id="5e67bdd61009063689407479")
 
 
