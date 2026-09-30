@@ -322,6 +322,9 @@ OAUTH_CLIENT_SECRET = os.environ.get("OAUTH_CLIENT_SECRET")
 OAUTH_SCOPES = os.environ.get("OAUTH_SCOPES")
 OPENID_PROVIDER_URL = os.environ.get("OPENID_PROVIDER_URL")
 
+# Stable per-Space secret injected in every Space (used to sign OAuth session cookies)
+SPACE_SIGNING_SECRET = os.environ.get("SPACE_SIGNING_SECRET")
+
 # OAuth client ID of the Device Code login flow (RFC 8628) used by `hf auth login` / `login()`.
 # Overridable for Hub deployments (staging, Enterprise) where the default client ID is not provisioned.
 DEVICE_CODE_OAUTH_CLIENT_ID = os.environ.get("HF_DEVICE_CODE_OAUTH_CLIENT_ID", "26be6b09-91c5-47da-9861-d2d2bb7a7e36")

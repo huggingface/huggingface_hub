@@ -156,11 +156,10 @@ def attach_huggingface_oauth(app: "fastapi.FastAPI", route_prefix: str = "/"):
     # TODO: handle generic case (handling OAuth in a non-Space environment with custom dev values) (low priority)
 
     # Add SessionMiddleware to the FastAPI app to store the OAuth info in the session.
-    # Session Middleware requires a secret key to sign the cookies. If an OAuth client
-    # secret is set, we derive the key from it to make it unique to the Space + updated
-    # in case OAuth config gets updated. Otherwise (PKCE-only Space or local run), we
-    # generate a random key for the process lifetime: sessions are invalidated on
-    # restart, requiring users to log in again.
+    # Session Middleware requires a secret key to sign the cookies. In a Space, we derive it
+    # from `SPACE_SIGNING_SECRET` (stable per-Space secret injected by the Hub) so that sessions
+    # survive restarts and are shared across replicas. Otherwise (e.g. local run), we generate
+    # a random key for the process lifetime: sessions are invalidated on restart.
     try:
         from starlette.middleware.sessions import SessionMiddleware
     except ImportError as e:
@@ -168,7 +167,11 @@ def attach_huggingface_oauth(app: "fastapi.FastAPI", route_prefix: str = "/"):
             "Cannot initialize OAuth to due a missing library. Please run `pip install huggingface_hub[oauth]` or add "
             "`huggingface_hub[oauth]` to your requirements.txt file in order to install the required dependencies."
         ) from e
-    session_secret = constants.OAUTH_CLIENT_SECRET + "-v1" if constants.OAUTH_CLIENT_SECRET else secrets.token_hex(32)
+    session_secret = (
+        constants.SPACE_SIGNING_SECRET + "-oauth-session-v1"
+        if constants.SPACE_SIGNING_SECRET
+        else secrets.token_hex(32)
+    )
     app.add_middleware(
         SessionMiddleware,  # type: ignore
         secret_key=hashlib.sha256(session_secret.encode()).hexdigest(),
