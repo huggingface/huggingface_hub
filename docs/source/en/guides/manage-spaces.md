@@ -47,6 +47,9 @@ Here is an end-to-end example to create and set up a Space on the Hub.
 >>> api.create_repo(repo_id=repo_id, repo_type="space", space_sdk="gradio")
 ```
 
+> [!TIP]
+> Static Spaces are free for everyone. Gradio and Docker Spaces run on compute: on the free `cpu-basic` hardware, they require a subscription (PRO for users, Team or Enterprise for organizations), while paid hardware only requires billing (a payment method and prepaid credits). Without a subscription, creating, duplicating or moving a Gradio or Docker Space on `cpu-basic` fails with a payment error (HTTP 402). See [pricing](https://huggingface.co/pricing) for more details.
+
 ### Create a Space from a template
 
 Instead of starting from an empty Space, you can seed a new Space from one of the official templates offered on the Hub (e.g. JupyterLab, a Gradio chatbot, a Streamlit app, etc.). List the available templates with [`list_space_templates`], then pass a template's `repo_id` (or its short `name`) as `space_template` to [`create_repo`]. Note that `space_sdk` is still required: the template seeds the files while the SDK sets the card metadata.
@@ -104,8 +107,7 @@ Here is an example to upload the local folder `src/` from your machine to your S
 >>> api.upload_folder(repo_id=repo_id, repo_type="space", folder_path="src/")
 ```
 
-At this step, your app should already be running on the Hub for free !
-However, you might want to configure it further with secrets and upgraded hardware.
+At this step, your app should already be running on the Hub! However, you might want to configure it further with secrets and upgraded hardware.
 
 ### Configure secrets and variables
 
@@ -165,9 +167,7 @@ Secrets and variables can be set when creating or duplicating a space:
 
 ### Configure the hardware
 
-By default, your Space will run on a CPU environment for free. You can upgrade the hardware
-to run it on GPUs. A payment card or a community grant is required to access upgrade your
-Space. See [docs](https://huggingface.co/docs/hub/spaces-gpus) for more details.
+By default, your Space runs on the free `cpu-basic` hardware (which requires a subscription for Gradio and Docker Spaces, see above). You can upgrade the hardware to run it on GPUs. A payment method and prepaid credits (or a community grant) are required to upgrade your Space. See [docs](https://huggingface.co/docs/hub/spaces-gpus) for more details.
 
 ```py
 # Use `SpaceHardware` enum
@@ -192,8 +192,7 @@ has been met.
 "t4-medium"
 ```
 
-You now have a Space fully configured. Make sure to downgrade your Space back to "cpu-classic"
-when you are done using it.
+You now have a Space fully configured. Make sure to downgrade your Space back to `cpu-basic` when you are done using it.
 
 **Bonus: request hardware when creating or duplicating the Space!**
 
@@ -339,6 +338,12 @@ You can also enable Dev Mode without SSH using `hf spaces dev-mode`, which print
 hf spaces dev-mode username/my-space
 ```
 
+Enabling Dev Mode requires a PRO or Team & Enterprise plan. Disabling it is always allowed, for example if your subscription has expired while Dev Mode was on:
+
+```bash
+hf spaces dev-mode username/my-space --stop
+```
+
 ### Mount volumes in your Space
 
 You can mount Hub resources (models, datasets, or storage buckets) as volumes in your Space's container. This gives your Space direct filesystem access to these resources without having to download them in your code. Volumes can be set directly when creating or duplicating a Space:
@@ -439,9 +444,7 @@ we will see one solution using a Dataset as "task scheduler".
 
 ### App skeleton
 
-Here is what your app would look like. On startup, check if a task is scheduled and if yes,
-run it on the correct hardware. Once done, set back hardware to the free-plan CPU and
-prompt the user for a new task.
+Here is what your app would look like. On startup, check if a task is scheduled and if yes, run it on the correct hardware. Once done, set back hardware to the free `cpu-basic` CPU and prompt the user for a new task.
 
 > [!WARNING]
 > Such a workflow does not support concurrent access as normal demos.

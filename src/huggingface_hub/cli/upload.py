@@ -111,7 +111,11 @@ def upload(
     ] = None,
     token: TokenOpt = None,
 ) -> None:
-    """Upload a file or a folder to the Hub. Recommended for single-commit uploads."""
+    """Upload a file or a folder to the Hub.
+
+    Folders with many files are split into several commits. If a folder upload is interrupted, re-run the same command
+    to resume it.
+    """
 
     if every is not None and every <= 0:
         raise click.BadParameter("--every must be a positive value", param_hint="every")
