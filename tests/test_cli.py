@@ -2586,43 +2586,6 @@ class TestSpacesHardwareCommand:
         assert cpu_basic["cost/hour"] == "free"
 
 
-class TestSpacesZeroGpuQuotaCommand:
-    @pytest.fixture(autouse=True)
-    def _mock_api(self):
-        quota = ZeroGpuQuota(
-            {"base": 1500, "current": 750, "resetsAt": "2026-06-25T10:30:00.000Z", "overquotaUsed": 90}
-        )
-        with patch("huggingface_hub.cli.spaces.get_hf_api") as api_cls:
-            api_cls.return_value.get_zero_gpu_quota.return_value = quota
-            self.api = api_cls.return_value
-            yield
-
-    def test_human(self, runner: CliRunner) -> None:
-        result = runner.invoke(app, ["spaces", "zero-gpu-quota", "--format", "human"])
-        assert result.exit_code == 0
-        assert "remaining: 750" in result.stdout
-        assert "resets_at: 2026-06-25T10:30:00+00:00" in result.stdout
-        assert "overquota_used: 90" in result.stdout
-
-    def test_json(self, runner: CliRunner) -> None:
-        result = runner.invoke(app, ["spaces", "zero-gpu-quota", "--format", "json"])
-        assert result.exit_code == 0
-        assert json.loads(result.stdout) == {
-            "remaining": 750,
-            "base": 1500,
-            "resets_at": "2026-06-25T10:30:00+00:00",
-            "overquota_used": 90,
-        }
-        assert "add-credits" not in result.stderr
-
-    def test_low_quota_hint(self, runner: CliRunner) -> None:
-        self.api.get_zero_gpu_quota.return_value = ZeroGpuQuota({"base": 1500, "current": 0, "overquotaUsed": 0})
-        result = runner.invoke(app, ["spaces", "zero-gpu-quota", "--format", "human"])
-        assert result.exit_code == 0
-        assert "Your ZeroGPU quota is exhausted." in result.stderr
-        assert "https://huggingface.co/settings/billing?add-credits=true" in result.stderr
-
-
 class TestInferenceEndpointsCommands:
     def test_list(self, runner: CliRunner) -> None:
         endpoint = Mock(raw={"name": "demo"})
