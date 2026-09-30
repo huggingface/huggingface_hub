@@ -1148,12 +1148,14 @@ Use `hf spaces zero-gpu-quota` to check how much of your [ZeroGPU](https://huggi
 
 ```bash
 >>> hf spaces zero-gpu-quota
-Remaining:      40m 0s / 40m 0s
-Resets at:      not used yet
-Overquota used: 0s
+✓ ZeroGPU quota (in GPU-seconds)
+  remaining: 1810
+  base: 2400
+  resets_at: 2026-09-30T18:12:03+00:00
+  overquota_used: 0
 
 >>> hf spaces zero-gpu-quota --format json
-{"base": 2400, "remaining": 2400, "overquota_used": 0}
+{"remaining": 1810, "base": 2400, "resets_at": "2026-09-30T18:12:03+00:00", "overquota_used": 0}
 ```
 
 If your quota is running low, the command suggests purchasing credits from your [billing settings](https://huggingface.co/settings/billing?add-credits=true) to keep using ZeroGPU beyond the daily quota (PRO, Team and Enterprise users only).

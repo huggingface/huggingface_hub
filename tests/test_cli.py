@@ -2600,16 +2600,16 @@ class TestSpacesZeroGpuQuotaCommand:
     def test_human(self, runner: CliRunner) -> None:
         result = runner.invoke(app, ["spaces", "zero-gpu-quota", "--format", "human"])
         assert result.exit_code == 0
-        assert "Remaining:      12m 30s / 25m 0s" in result.stdout
-        assert "Resets at:      2026-06-25 10:30:00 UTC" in result.stdout
-        assert "Overquota used: 1m 30s" in result.stdout
+        assert "remaining: 750" in result.stdout
+        assert "resets_at: 2026-06-25T10:30:00+00:00" in result.stdout
+        assert "overquota_used: 90" in result.stdout
 
     def test_json(self, runner: CliRunner) -> None:
         result = runner.invoke(app, ["spaces", "zero-gpu-quota", "--format", "json"])
         assert result.exit_code == 0
         assert json.loads(result.stdout) == {
-            "base": 1500,
             "remaining": 750,
+            "base": 1500,
             "resets_at": "2026-06-25T10:30:00+00:00",
             "overquota_used": 90,
         }

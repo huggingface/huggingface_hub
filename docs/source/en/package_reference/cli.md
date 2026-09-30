@@ -5319,7 +5319,7 @@ Learn more
 
 Show your ZeroGPU quota (remaining GPU time and reset date).
 
-Raw values (`--format json`) are in GPU-seconds. With `--quiet`, only the remaining GPU-seconds are printed.
+Values are in GPU-seconds. With `--quiet`, only the remaining GPU-seconds are printed.
 
 **Usage**:
 
