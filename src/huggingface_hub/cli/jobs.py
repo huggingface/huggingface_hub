@@ -301,8 +301,7 @@ def _parse_secrets_map(
     if missing and not dry_run:
         raise CLIError(
             f"The following secret(s) are not set in your environment: {', '.join(missing)}."
-            f" Export them locally (e.g. `export {missing[0]}=...`) or pass them explicitly"
-            f" (e.g. `--secrets {missing[0]}=...`)."
+            f" Export them locally (e.g. `export {missing[0]}=...`) or use `--secrets-file` otherwise."
         )
     return {**secrets_map, **dict.fromkeys(missing)}
 
@@ -336,8 +335,7 @@ def _resolve_script_secrets(
     if missing and not dry_run:
         raise CLIError(
             f"The script requires the following secret(s), which are not set in your environment: {', '.join(missing)}."
-            f" Export them locally (e.g. `export {missing[0]}=...`) or pass them explicitly"
-            f" (e.g. `--secrets {missing[0]}=...`)."
+            f" Export them locally (e.g. `export {missing[0]}=...`) or use `--secrets-file` otherwise."
         )
     if resolved:
         out.warning(
