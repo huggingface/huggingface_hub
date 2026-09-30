@@ -389,7 +389,7 @@ print(completion.choices[0].message)
 
 ## Async client
 
-An async version of the client is also provided, based on `asyncio` and `httpx`. All async API endpoints are available via [`AsyncInferenceClient`]. Its initialization and APIs are strictly the same as the sync-only version.
+An async version of the client is also provided, based on `asyncio` and `httpx2`. All async API endpoints are available via [`AsyncInferenceClient`]. Its initialization and APIs are strictly the same as the sync-only version.
 
 ```py
 # Code must be run in an asyncio concurrent context.

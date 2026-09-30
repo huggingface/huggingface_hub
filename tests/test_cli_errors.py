@@ -2,7 +2,7 @@
 
 from unittest.mock import Mock
 
-import httpx
+import httpx2
 
 from huggingface_hub.cli._errors import (
     _format_bucket_not_found,
@@ -22,9 +22,9 @@ from huggingface_hub.errors import (
 
 def _make_error(cls, **attrs):
     """Helper to create an HfHubHTTPError subclass with custom attributes."""
-    response = Mock(spec=httpx.Response)
-    response.headers = httpx.Headers({})
-    response.request = Mock(spec=httpx.Request)
+    response = Mock(spec=httpx2.Response)
+    response.headers = httpx2.Headers({})
+    response.request = Mock(spec=httpx2.Request)
     err = cls("test", response=response)
     for key, value in attrs.items():
         setattr(err, key, value)

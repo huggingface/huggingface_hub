@@ -22,8 +22,11 @@ from huggingface_hub.constants import WEBHOOK_DOMAIN_T
 from huggingface_hub.hf_api import WebhookWatchedItem
 
 from ._cli_utils import (
+    SecretsFileOpt,
+    SecretsOpt,
     TokenOpt,
     get_hf_api,
+    parse_env_map,
     typer_factory,
 )
 from ._framework import Argument, Option
@@ -64,6 +67,18 @@ def _parse_watch(values: list[str]) -> list[WebhookWatchedItem]:
             raise click.BadParameter(f"Invalid type '{kind}'. Valid types: {', '.join(valid_types)}.")
         items.append(WebhookWatchedItem(type=kind, name=name))  # type: ignore
     return items
+
+
+def _parse_job_secrets(
+    secrets: list[str] | None, secrets_file: str | None, job_id: str | None
+) -> dict[str, str] | None:
+    """Parse `--secrets` / `--secrets-file` for the Job triggered by a webhook (requires `--job-id`)."""
+    secrets_map = parse_env_map(secrets, secrets_file)
+    if not secrets_map:
+        return None
+    if job_id is None:
+        raise click.BadParameter("--secrets and --secrets-file require --job-id.")
+    return {key: value or "" for key, value in secrets_map.items()}
 
 
 webhooks_cli = typer_factory(help="Manage webhooks on the Hub.")
@@ -117,6 +132,7 @@ def webhooks_info(
         "hf webhooks create --url https://example.com/hook --watch model:bert-base-uncased",
         "hf webhooks create --url https://example.com/hook --watch org:HuggingFace --watch model:gpt2 --domain repo",
         "hf webhooks create --job-id 687f911eaea852de79c4a50a --watch user:julien-c",
+        "hf webhooks create --job-id 687f911eaea852de79c4a50a --watch bucket:my-org/my-bucket --secrets HF_TOKEN",
     ],
 )
 def webhooks_create(
@@ -149,20 +165,31 @@ def webhooks_create(
         str | None,
         Option(help="Optional secret used to sign webhook payloads."),
     ] = None,
+    secrets: SecretsOpt = None,
+    secrets_file: SecretsFileOpt = None,
     token: TokenOpt = None,
 ) -> None:
     """Create a new webhook.
 
     Provide either --url (to ping a remote server) or --job-id (to trigger a Job), but not both.
+    The source Job's secrets are not copied to the webhook: pass them again with --secrets / --secrets-file.
     """
     if url is not None and job_id is not None:
         raise click.BadParameter("Provide either --url or --job-id, not both.")
     if url is None and job_id is None:
         raise click.BadParameter("Provide either --url or --job-id.")
+    job_secrets = _parse_job_secrets(secrets, secrets_file, job_id)
     api = get_hf_api(token=token)
     watched_items = _parse_watch(watch)
     domains = [d.value for d in domain] if domain else None
-    webhook = api.create_webhook(url=url, job_id=job_id, watched=watched_items, domains=domains, secret=secret)  # type: ignore
+    webhook = api.create_webhook(
+        url=url,
+        job_id=job_id,
+        watched=watched_items,  # type: ignore
+        domains=domains,  # type: ignore
+        secret=secret,
+        secrets=job_secrets,
+    )
     out.result("Webhook created", id=webhook.id)
 
 
@@ -172,6 +199,7 @@ def webhooks_create(
         "hf webhooks update abc123 --url https://new-url.com/hook",
         "hf webhooks update abc123 --watch model:gpt2 --domain repo",
         "hf webhooks update abc123 --secret newsecret",
+        "hf webhooks update abc123 --job-id 687f911eaea852de79c4a50a --secrets HF_TOKEN",
     ],
 )
 def webhooks_update(
@@ -179,6 +207,13 @@ def webhooks_update(
     url: Annotated[
         str | None,
         Option(help="New URL to send webhook payloads to."),
+    ] = None,
+    job_id: Annotated[
+        str | None,
+        Option(
+            "--job-id",
+            help="ID of the source Job to trigger (can be the current one). Required with --secrets / --secrets-file.",
+        ),
     ] = None,
     watch: Annotated[
         list[str] | None,
@@ -201,13 +236,29 @@ def webhooks_update(
         str | None,
         Option(help="New secret used to sign webhook payloads."),
     ] = None,
+    secrets: SecretsOpt = None,
+    secrets_file: SecretsFileOpt = None,
     token: TokenOpt = None,
 ) -> None:
-    """Update an existing webhook. Only provided options are changed."""
+    """Update an existing webhook. Only provided options are changed.
+
+    Job secrets passed with --secrets replace stored values with the same name; others are kept.
+    """
+    if url is not None and job_id is not None:
+        raise click.BadParameter("Provide either --url or --job-id, not both.")
+    job_secrets = _parse_job_secrets(secrets, secrets_file, job_id)
     api = get_hf_api(token=token)
     watched_items = _parse_watch(watch) if watch else None
     domains = [d.value for d in domain] if domain else None
-    webhook = api.update_webhook(webhook_id, url=url, watched=watched_items, domains=domains, secret=secret)  # type: ignore
+    webhook = api.update_webhook(
+        webhook_id,
+        url=url,
+        job_id=job_id,
+        watched=watched_items,  # type: ignore
+        domains=domains,  # type: ignore
+        secret=secret,
+        secrets=job_secrets,
+    )
     out.result("Webhook updated", id=webhook.id)
 
 

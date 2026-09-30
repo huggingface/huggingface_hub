@@ -770,6 +770,8 @@ def eval_results_to_model_index(model_name: str, eval_results: list[EvalResult])
 def _to_unique_list(tags: list[str] | None) -> list[str] | None:
     if tags is None:
         return tags
+    if isinstance(tags, str):
+        tags = [tags]
     unique_tags = []  # make tags unique + keep order explicitly
     for tag in tags:
         if tag not in unique_tags:

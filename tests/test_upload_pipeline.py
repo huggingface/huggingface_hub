@@ -198,6 +198,25 @@ class TestCommitPacer:
 
 
 class TestLiveDisplayCounters:
+    def test_validating_appears_when_shard_finalization_starts(self):
+        with patch.object(upload_pipeline.logger, "isEnabledFor", return_value=True):
+            display = _LiveDisplay(total_files=1, enabled=False)
+        callback = display.new_xet_callback()
+
+        shard = SimpleNamespace(
+            total_shards=0,
+            total_shards_completed=0,
+            total_shard_validation_entries=0,
+            total_shard_validation_entries_completed=0,
+        )
+        callback(SimpleNamespace(total_transfer_bytes_completed=0, shard=shard), {})
+        assert not display._shard_active
+
+        shard.total_shards = 1
+        callback(SimpleNamespace(total_transfer_bytes_completed=0, shard=shard), {})
+        assert display._shard_active
+        assert "Validating" in display._line_validating()
+
     def test_xet_callback_sums_increments_across_concurrent_commits(self):
         with patch.object(upload_pipeline.logger, "isEnabledFor", return_value=True):
             display = _LiveDisplay(total_files=10, enabled=True)

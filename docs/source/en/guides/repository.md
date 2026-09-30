@@ -308,7 +308,7 @@ Or via CLI:
 ### Rename your repository
 
 You can rename your repository on the Hub using [`move_repo`]. Using this method, you can also move the repo from a user to
-an organization. When doing so, there are a [few limitations](https://hf.cos/docs/hub/repositories-settings#renaming-or-transferring-a-repo)
+an organization. When doing so, there are a [few limitations](https://hf.co/docs/hub/repositories-settings#renaming-or-transferring-a-repo)
 that you should be aware of. For example, you can't transfer your repo to another user.
 
 ```py

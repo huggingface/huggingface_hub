@@ -227,10 +227,11 @@ AGENT_HARNESSES_PATH = os.path.join(HF_HOME, ".agent_harnesses.json")
 
 # Skills directories for AI agents: `.agents/skills` is read by most agents, `.claude/skills` by Claude Code.
 # Local = current project, global = user-level (see `hf skills add`).
+# Claude Code's user-level directory defaults to `~/.claude` but can be relocated with `CLAUDE_CONFIG_DIR`.
 AGENTS_SKILLS_LOCAL_PATH = Path(".agents/skills")
 AGENTS_SKILLS_GLOBAL_PATH = Path("~/.agents/skills")
 CLAUDE_SKILLS_LOCAL_PATH = Path(".claude/skills")
-CLAUDE_SKILLS_GLOBAL_PATH = Path("~/.claude/skills")
+CLAUDE_SKILLS_GLOBAL_PATH = Path(os.environ.get("CLAUDE_CONFIG_DIR") or "~/.claude") / "skills"
 
 # Set to skip the CLI update check (PyPI query + "new version available" warning at startup).
 HF_HUB_DISABLE_UPDATE_CHECK = _is_true(os.environ.get("HF_HUB_DISABLE_UPDATE_CHECK"))

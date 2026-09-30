@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Optional
 from huggingface_hub.errors import InferenceEndpointError, InferenceEndpointTimeoutError
 
 from .utils import get_session, logging, parse_datetime
+from .utils._headers import get_token_to_send
 
 
 if TYPE_CHECKING:
@@ -102,7 +103,6 @@ class InferenceEndpointStatus(str, Enum):
 
 class InferenceEndpointType(str, Enum):
     PUBlIC = "public"
-    PROTECTED = "protected"  # deprecated, use AUTHENTICATED instead
     AUTHENTICATED = "authenticated"
     PRIVATE = "private"
 
@@ -157,7 +157,7 @@ class InferenceEndpoint:
         >>> endpoint.status
         'running'
         >>> endpoint.url
-        'https://my-text-to-image.region.vendor.endpoints.huggingface.cloud'
+        'https://68a0f3b5c6ee5c9dcc0e0a01.endpoints.huggingface.cloud'
 
         # Run inference
         >>> endpoint.client.text_to_image(...)
@@ -207,6 +207,8 @@ class InferenceEndpoint:
             api = HfApi()
         if token is None:
             token = api.token
+        if token is True:
+            token = get_token_to_send(token)
 
         # All other fields are populated in __post_init__
         return cls(raw=raw, namespace=namespace, _token=token, _api=api)

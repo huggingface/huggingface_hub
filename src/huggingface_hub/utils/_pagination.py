@@ -16,9 +16,9 @@
 from collections.abc import Iterable
 from typing import Any
 
-import httpx
+import httpx2
 
-from . import get_session, hf_raise_for_status, http_backoff, logging
+from . import hf_raise_for_status, http_backoff, logging
 
 
 logger = logging.get_logger(__name__)
@@ -32,8 +32,7 @@ def paginate(path: str, params: dict | list[tuple[str, Any]], headers: dict, tim
     - https://requests.readthedocs.io/en/latest/api/#requests.Response.links
     - https://docs.github.com/en/rest/guides/traversing-with-pagination#link-header
     """
-    session = get_session()
-    r = session.get(path, params=params, headers=headers, timeout=timeout)
+    r = http_backoff("GET", path, params=params, headers=headers, timeout=timeout)
     hf_raise_for_status(r)
     yield from r.json()
 
@@ -48,5 +47,5 @@ def paginate(path: str, params: dict | list[tuple[str, Any]], headers: dict, tim
         next_page = _get_next_page(r)
 
 
-def _get_next_page(response: httpx.Response) -> str | None:
+def _get_next_page(response: httpx2.Response) -> str | None:
     return response.links.get("next", {}).get("url")

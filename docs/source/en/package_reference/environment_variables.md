@@ -43,7 +43,7 @@ Defaults to `"$HF_HOME/hub"` (e.g. `"~/.cache/huggingface/hub"` by default).
 
 ### HF_XET_CACHE
 
-To configure where Xet chunks (byte ranges from files managed by Xet backend) are cached locally.
+To configure where Xet stores its shard cache and upload staging data locally. See [Xet caching](../guides/manage-cache#xet-caching) for more details.
 
 Defaults to `"$HF_HOME/xet"` (e.g. `"~/.cache/huggingface/xet"` by default).
 
@@ -94,9 +94,7 @@ Integer value to define the number of seconds to wait for server response when d
 
 ### HF_XET_CHUNK_CACHE_SIZE_BYTES
 
-To set the size of the Xet chunk cache locally. By default, the chunk cache is disabled. The chunk cache can be beneficial if you are generating new revisions to existing models or datasets as this is used to cache terms/chunks that are fetched from S3. A larger cache can better take advantage of deduplication across repos & files. To enable the chunk cache set the environment variable to a large number (10GB) or greater. However, in most cases when downloading or uploading new data, disabling the chunk cache will have better performance, which is why it is disabled by default.
-
-Defaults to `0` (0 bytes, means chunk cache is disabled).
+This variable no longer has any effect. `hf_xet` no longer uses a local chunk cache for downloads, and setting this variable does not enable one. See [xet-core#715](https://github.com/huggingface/xet-core/issues/715) for details.
 
 ### HF_XET_SHARD_CACHE_SIZE_LIMIT
 
@@ -106,9 +104,7 @@ Defaults to `16000000000` (16GB).
 
 ### HF_XET_NUM_CONCURRENT_RANGE_GETS
 
-To set the number of concurrent terms (range of bytes from within a xorb, often called a chunk) downloaded from S3 per file. Increasing this will help with the speed of downloading a file if there is network bandwidth available. 
-
-Defaults to `16`.
+This variable is no longer used. Since `hf_xet` 1.3.0, download concurrency is controlled adaptively.
 
 ## Boolean values
 

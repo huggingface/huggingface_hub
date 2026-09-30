@@ -40,14 +40,13 @@ $ hf [OPTIONS] [COMMAND] [ARGS]...
 * `lfs-multipart-upload`: Internal git-lfs custom transfer agent for multipart uploads.
 * `models`: Interact with models on the Hub.
 * `papers`: Interact with papers on the Hub.
-* `repos`: Manage repos on the Hub. [alias: repo]
+* `repos`: Manage repos on the Hub.
 * `sandbox`: Run and manage experimental sandboxes on Hugging Face Jobs.
 * `skills`: Manage skills for AI assistants.
 * `spaces`: Interact with spaces on the Hub.
 * `sync`: Sync files between local directory and a bucket.
 * `update`: Update the `hf` CLI to the latest version.
 * `upload`: Upload a file or a folder to the Hub.
-* `upload-large-folder`: [Deprecated] Upload a large folder to the Hub.
 * `version`: Print information about the hf version.
 * `webhooks`: Manage webhooks on the Hub.
 
@@ -1815,7 +1814,7 @@ $ hf endpoints deploy [OPTIONS] NAME
 * `--env-file TEXT`: Read in a file of environment variables. Use `-` to read them from stdin.
 * `-s, --secrets TEXT`: Set secret environment variables. Prefer `--secrets SECRET` to read the value from your environment (e.g. `--secrets HF_TOKEN` to pass your Hugging Face token); `--secrets SECRET=value` puts the value in your shell history.
 * `--secrets-file TEXT`: Read in a file of secret environment variables. Use `-` to read them from stdin.
-* `--type [public|protected|authenticated|private]`: Endpoint access type. Defaults to 'authenticated' (token-gated, publicly reachable).
+* `--type [public|authenticated|private]`: Endpoint access type. Defaults to 'authenticated' (token-gated, publicly reachable).
 * `--help`: Show this message and exit.
 
 Examples
@@ -2279,11 +2278,13 @@ $ hf jobs [OPTIONS] COMMAND [ARGS]...
 **Commands**:
 
 * `cancel`: Cancel a Job
+* `expose`: Replace exposed ports on a running Job.
 * `hardware`: List available hardware options for Jobs
 * `inspect`: Display detailed information on one or more Jobs
 * `labels`: Update labels on a Job.
 * `list`: List Jobs. [alias: ls, ps]
 * `logs`: Fetch the logs of a Job.
+* `rerun`: Run a new Job with an existing Job's spec.
 * `run`: Run a Job.
 * `scheduled`: Create and manage scheduled Jobs on the Hub.
 * `ssh`: SSH into a running Job.
@@ -2313,6 +2314,39 @@ $ hf jobs cancel [OPTIONS] JOB_ID
 
 Examples
   $ hf jobs cancel <job_id>
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf jobs expose`
+
+Replace exposed ports on a running Job.
+
+**Usage**:
+
+```console
+$ hf jobs expose [OPTIONS] JOB_ID [PORTS]...
+```
+
+**Arguments**:
+
+* `JOB_ID`: Job ID (or 'namespace/job_id')  [required]
+* `[PORTS]...`: Ports to expose through the jobs proxy. Access requires an HF token with read access to the job's namespace.
+
+**Options**:
+
+* `--public INTEGER`: Expose a port without authentication. Repeat the flag for multiple ports. No need to also pass the port as a positional argument.
+* `--clear`: Close all exposed ports.
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf jobs expose <job_id> 8000
+  $ hf jobs expose <job_id> 8000 --public 9000
+  $ hf jobs expose <job_id> --clear
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -2424,7 +2458,6 @@ $ hf jobs list | ls | ps [OPTIONS]
 * `--limit INTEGER`: Maximum number of Jobs to display. Set to 0 to show all (no limit).  [default: 100]
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `-f, --filter TEXT`: (Deprecated) Use `--status` and `--label` instead.
 * `--help`: Show this message and exit.
 
 Examples
@@ -2480,6 +2513,36 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
+### `hf jobs rerun`
+
+Run a new Job with an existing Job's spec.
+
+**Usage**:
+
+```console
+$ hf jobs rerun [OPTIONS] JOB_ID
+```
+
+**Arguments**:
+
+* `JOB_ID`: Job ID (or 'namespace/job_id')  [required]
+
+**Options**:
+
+* `-d, --detach`: Run the Job in the background and print the Job ID.
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf jobs rerun <job_id>
+  $ hf jobs rerun --detach <job_id>
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
 ### `hf jobs run`
 
 Run a Job.
@@ -2506,9 +2569,11 @@ $ hf jobs run [OPTIONS] IMAGE COMMAND...
 * `--secrets-file TEXT`: Read in a file of secret environment variables. Use `-` to read them from stdin.
 * `--flavor [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|rtx-pro-6000|rtx-pro-6000x2|rtx-pro-6000x4|rtx-pro-6000x8]`: Flavor for the hardware. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.
 * `--timeout TEXT`: Max duration: int with s (seconds, default), m (minutes), h (hours) or d (days).
+* `--attempts INTEGER RANGE`: Maximum attempts, including the first run. Defaults to 1.  [x>=1]
 * `-d, --detach`: Run the Job in the background and print the Job ID.
 * `--dry-run`: Print the resolved Job configuration without submitting the Job.
 * `--expose INTEGER`: Expose a container port through the jobs proxy. Repeat the flag for multiple ports (e.g. `--expose 8000 --expose 8001`). Each exposed port is reachable on the public jobs domain; access requires an HF token with read access to the job's namespace.
+* `--expose-public INTEGER`: Expose a container port through the jobs proxy without authentication. Repeat the flag for multiple ports. No need to also pass the port with `--expose`.
 * `--ssh`: Make the job's container reachable over SSH. Connect with `hf jobs ssh <job_id>`. Requires an SSH public key registered on https://huggingface.co/settings/keys.
 * `--network-group TEXT`: Join a network group. Jobs in the same namespace and resource group sharing a group are placed together and reach each other on every port. Inside each member, `$HF_NETWORK_GROUP_HOSTNAME` resolves to every member. Lowercase alphanumerics and dashes, 46 characters max.
 * `--network-alias TEXT`: Claim an alias in the network group. Members reach the jobs claiming it at `${HF_NETWORK_GROUP_PREFIX}<alias>`. Repeat the flag for several aliases. Lowercase alphanumerics and dashes, 34 characters max, unique within the job. Requires `--network-group`.
@@ -2552,6 +2617,7 @@ $ hf jobs scheduled [OPTIONS] COMMAND [ARGS]...
 * `inspect`: Display detailed information on one or more scheduled Jobs
 * `labels`: Update labels on a scheduled Job.
 * `list`: List scheduled Jobs. [alias: ls, ps]
+* `reschedule`: Change when a scheduled Job runs.
 * `resume`: Resume (unpause) a scheduled Job.
 * `run`: Schedule a Job.
 * `suspend`: Suspend (pause) a scheduled Job.
@@ -2668,7 +2734,6 @@ $ hf jobs scheduled list | ls | ps [OPTIONS]
 * `--name TEXT`: Only show scheduled Jobs with the given name (shortcut for `--label name=NAME`).
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `-f, --filter TEXT`: (Deprecated) Use `--status` and `--label` instead.
 * `--help`: Show this message and exit.
 
 Examples
@@ -2677,6 +2742,35 @@ Examples
   $ hf jobs scheduled ls --status suspended
   $ hf jobs scheduled ls --name daily-script
   $ hf jobs scheduled ls --label env=prod --label team=ml
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+#### `hf jobs scheduled reschedule`
+
+Change when a scheduled Job runs.
+
+**Usage**:
+
+```console
+$ hf jobs scheduled reschedule [OPTIONS] SCHEDULED_JOB_ID SCHEDULE
+```
+
+**Arguments**:
+
+* `SCHEDULED_JOB_ID`: Scheduled Job ID (or 'namespace/scheduled_job_id')  [required]
+* `SCHEDULE`: One of @annually, @yearly, @monthly, @weekly, @daily, @hourly, or a CRON schedule expression.  [required]
+
+**Options**:
+
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf jobs scheduled reschedule <id> "0 9 * * 1"
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -2723,7 +2817,7 @@ $ hf jobs scheduled run [OPTIONS] SCHEDULE IMAGE COMMAND...
 
 **Arguments**:
 
-* `SCHEDULE`: One of annually, yearly, monthly, weekly, daily, hourly, or a CRON schedule expression.  [required]
+* `SCHEDULE`: One of @annually, @yearly, @monthly, @weekly, @daily, @hourly, or a CRON schedule expression.  [required]
 * `IMAGE`: The Docker image to use.  [required]
 * `COMMAND...`: The command to run.  [required]
 
@@ -2740,8 +2834,10 @@ $ hf jobs scheduled run [OPTIONS] SCHEDULE IMAGE COMMAND...
 * `--secrets-file TEXT`: Read in a file of secret environment variables. Use `-` to read them from stdin.
 * `--flavor [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|rtx-pro-6000|rtx-pro-6000x2|rtx-pro-6000x4|rtx-pro-6000x8]`: Flavor for the hardware. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.
 * `--timeout TEXT`: Max duration: int with s (seconds, default), m (minutes), h (hours) or d (days).
+* `--attempts INTEGER RANGE`: Maximum attempts, including the first run. Defaults to 1.  [x>=1]
 * `--dry-run`: Print the resolved Job configuration without submitting the Job.
 * `--expose INTEGER`: Expose a container port through the jobs proxy. Repeat the flag for multiple ports (e.g. `--expose 8000 --expose 8001`). Each exposed port is reachable on the public jobs domain; access requires an HF token with read access to the job's namespace.
+* `--expose-public INTEGER`: Expose a container port through the jobs proxy without authentication. Repeat the flag for multiple ports. No need to also pass the port with `--expose`.
 * `--resource-group-id TEXT`: The ID of the resource group to create the Job in. Used to control access to resources within an organization and for cost attribution/spending-limit features.
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
@@ -2844,7 +2940,7 @@ $ hf jobs scheduled uv run [OPTIONS] SCHEDULE SCRIPT [SCRIPT_ARGS]...
 
 **Arguments**:
 
-* `SCHEDULE`: One of annually, yearly, monthly, weekly, daily, hourly, or a CRON schedule expression.  [required]
+* `SCHEDULE`: One of @annually, @yearly, @monthly, @weekly, @daily, @hourly, or a CRON schedule expression.  [required]
 * `SCRIPT`: UV script to run (local file or URL)  [required]
 * `[SCRIPT_ARGS]...`: Arguments for the script
 
@@ -2862,8 +2958,10 @@ $ hf jobs scheduled uv run [OPTIONS] SCHEDULE SCRIPT [SCRIPT_ARGS]...
 * `--env-file TEXT`: Read in a file of environment variables. Use `-` to read them from stdin.
 * `--secrets-file TEXT`: Read in a file of secret environment variables. Use `-` to read them from stdin.
 * `--timeout TEXT`: Max duration: int with s (seconds, default), m (minutes), h (hours) or d (days).
+* `--attempts INTEGER RANGE`: Maximum attempts, including the first run. Defaults to 1.  [x>=1]
 * `--dry-run`: Print the resolved Job configuration without submitting the Job.
 * `--expose INTEGER`: Expose a container port through the jobs proxy. Repeat the flag for multiple ports (e.g. `--expose 8000 --expose 8001`). Each exposed port is reachable on the public jobs domain; access requires an HF token with read access to the job's namespace.
+* `--expose-public INTEGER`: Expose a container port through the jobs proxy without authentication. Repeat the flag for multiple ports. No need to also pass the port with `--expose`.
 * `--resource-group-id TEXT`: The ID of the resource group to create the Job in. Used to control access to resources within an organization and for cost attribution/spending-limit features.
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
@@ -2992,9 +3090,11 @@ $ hf jobs uv run [OPTIONS] SCRIPT [SCRIPT_ARGS]...
 * `--env-file TEXT`: Read in a file of environment variables. Use `-` to read them from stdin.
 * `--secrets-file TEXT`: Read in a file of secret environment variables. Use `-` to read them from stdin.
 * `--timeout TEXT`: Max duration: int with s (seconds, default), m (minutes), h (hours) or d (days).
+* `--attempts INTEGER RANGE`: Maximum attempts, including the first run. Defaults to 1.  [x>=1]
 * `-d, --detach`: Run the Job in the background and print the Job ID.
 * `--dry-run`: Print the resolved Job configuration without submitting the Job.
 * `--expose INTEGER`: Expose a container port through the jobs proxy. Repeat the flag for multiple ports (e.g. `--expose 8000 --expose 8001`). Each exposed port is reachable on the public jobs domain; access requires an HF token with read access to the job's namespace.
+* `--expose-public INTEGER`: Expose a container port through the jobs proxy without authentication. Repeat the flag for multiple ports. No need to also pass the port with `--expose`.
 * `--ssh`: Make the job's container reachable over SSH. Connect with `hf jobs ssh <job_id>`. Requires an SSH public key registered on https://huggingface.co/settings/keys.
 * `--network-group TEXT`: Join a network group. Jobs in the same namespace and resource group sharing a group are placed together and reach each other on every port. Inside each member, `$HF_NETWORK_GROUP_HOSTNAME` resolves to every member. Lowercase alphanumerics and dashes, 46 characters max.
 * `--network-alias TEXT`: Claim an alias in the network group. Members reach the jobs claiming it at `${HF_NETWORK_GROUP_PREFIX}<alias>`. Repeat the flag for several aliases. Lowercase alphanumerics and dashes, 34 characters max, unique within the job. Requires `--network-group`.
@@ -3374,12 +3474,12 @@ Learn more
 
 ## `hf repos`
 
-Manage repos on the Hub. [alias: repo]
+Manage repos on the Hub.
 
 **Usage**:
 
 ```console
-$ hf repos [OPTIONS] [COMMAND] [ARGS]...
+$ hf repos [OPTIONS] COMMAND [ARGS]...
 ```
 
 **Options**:
@@ -3548,7 +3648,6 @@ $ hf repos create [OPTIONS] REPO_ID
 * `--resource-group-id TEXT`: Resource group in which to create the repo. Resource groups is only available for Enterprise Hub organizations.
 * `--region [us|eu]`: Cloud region in which to create the repo. Can be one of 'us' or 'eu'. Requires Team plan or above.
 * `--flavor [cpu-basic|cpu-upgrade|zero-a10g|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8]`: Space hardware flavor (e.g. 'cpu-basic', 't4-medium', 'l4x4'). Only for Spaces.
-* `--storage [small|medium|large]`: (Deprecated, use volumes instead) Space persistent storage tier ('small', 'medium', or 'large'). Only for Spaces.
 * `--sleep-time INTEGER`: Seconds of inactivity before the Space is put to sleep. Use -1 to disable. Only for Spaces.
 * `-s, --secrets TEXT`: Set secret environment variables. Prefer `--secrets SECRET` to read the value from your environment (e.g. `--secrets HF_TOKEN` to pass your Hugging Face token); `--secrets SECRET=value` puts the value in your shell history.
 * `--secrets-file TEXT`: Read in a file of secret environment variables. Use `-` to read them from stdin.
@@ -3659,7 +3758,6 @@ $ hf repos duplicate [OPTIONS] FROM_ID [TO_ID]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--exist-ok / --no-exist-ok`: Do not raise an error if repo already exists.  [default: no-exist-ok]
 * `--flavor [cpu-basic|cpu-upgrade|zero-a10g|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8]`: Space hardware flavor (e.g. 'cpu-basic', 't4-medium', 'l4x4'). Only for Spaces.
-* `--storage [small|medium|large]`: (Deprecated, use volumes instead) Space persistent storage tier ('small', 'medium', or 'large'). Only for Spaces.
 * `--sleep-time INTEGER`: Seconds of inactivity before the Space is put to sleep. Use -1 to disable. Only for Spaces.
 * `-s, --secrets TEXT`: Set secret environment variables. Prefer `--secrets SECRET` to read the value from your environment (e.g. `--secrets HF_TOKEN` to pass your Hugging Face token); `--secrets SECRET=value` puts the value in your shell history.
 * `--secrets-file TEXT`: Read in a file of secret environment variables. Use `-` to read them from stdin.
@@ -4298,7 +4396,8 @@ Install a Hugging Face skill for an AI assistant.
 The default `hf-cli` skill is generated locally from the installed CLI version;
 other skills are downloaded from the Hugging Face marketplace.
 Default location is in the current directory (.agents/skills) or user-level (~/.agents/skills).
-If `--claude` is specified, the skill is also symlinked into Claude's legacy skills directory.
+The skill is also symlinked into Claude Code's skills directory (`.claude/skills` or `~/.claude/skills`,
+honoring `CLAUDE_CONFIG_DIR` when set), unless `--dest` is used.
 
 **Usage**:
 
@@ -4312,7 +4411,6 @@ $ hf skills add [OPTIONS] [NAME]
 
 **Options**:
 
-* `--claude`: Install for Claude.
 * `-g, --global`: Install globally (user-level) instead of in the current project directory.
 * `--dest PATH`: Install into a custom destination (path to skills directory).
 * `--force`: Overwrite existing skills in the destination.
@@ -4322,8 +4420,7 @@ Examples
   $ hf skills add
   $ hf skills add huggingface-gradio --dest=~/my-skills
   $ hf skills add --global
-  $ hf skills add --claude
-  $ hf skills add huggingface-gradio --claude --global
+  $ hf skills add huggingface-gradio --global
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -4384,7 +4481,6 @@ $ hf skills update [OPTIONS] [NAME]
 
 **Options**:
 
-* `--claude`: Update skills installed for Claude.
 * `-g, --global`: Use global skills directories instead of the current project.
 * `--dest PATH`: Update skills in a custom skills directory.
 * `--help`: Show this message and exit.
@@ -4393,7 +4489,7 @@ Examples
   $ hf skills update
   $ hf skills update hf-cli
   $ hf skills update huggingface-gradio --dest=~/my-skills
-  $ hf skills update --claude
+  $ hf skills update -g
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -4471,8 +4567,8 @@ Learn more
 Enable or disable dev mode on a Space.
 
 Spaces Dev Mode eases the debugging of your application and makes iterating on Spaces faster by allowing you to
-restart your application without stopping the Space container itself. This feature is available as part of a PRO
-or Team & Enterprise plan.
+restart your application without stopping the Space container itself. Enabling dev mode requires a PRO or Team &
+Enterprise plan. Disabling it (`--stop`) is always allowed.
 
 See docs: https://huggingface.co/docs/hub/spaces-dev-mode
 
@@ -5307,43 +5403,6 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
-## `hf upload-large-folder`
-
-[Deprecated] Upload a large folder to the Hub. Use `hf upload` instead.
-
-**Usage**:
-
-```console
-$ hf upload-large-folder [OPTIONS] REPO_ID LOCAL_PATH
-```
-
-**Arguments**:
-
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
-* `LOCAL_PATH`: Local path to the folder to upload.  [required]
-
-**Options**:
-
-* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
-* `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
-* `--private / --no-private`: Whether to create a private repo if repo doesn't exist on the Hub. Ignored if the repo already exists.
-* `--include TEXT`: Glob patterns to match files to upload.
-* `--exclude TEXT`: Glob patterns to exclude from files to upload.
-* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--num-workers INTEGER`: Number of workers to use to hash, upload and commit files.
-* `--no-report / --no-no-report`: Whether to disable regular status report.  [default: no-no-report]
-* `--no-bars / --no-no-bars`: Whether to disable progress bars.  [default: no-no-bars]
-* `--help`: Show this message and exit.
-
-Examples
-  $ hf upload-large-folder Wauplin/my-cool-model ./large_model_dir
-  $ hf upload-large-folder Wauplin/my-cool-model ./large_model_dir --revision v1.0
-
-Learn more
-  Use `hf <command> --help` for more information about a command.
-  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
-
-
 ## `hf version`
 
 Print information about the hf version.
@@ -5387,6 +5446,7 @@ $ hf webhooks [OPTIONS] COMMAND [ARGS]...
 Create a new webhook.
 
 Provide either --url (to ping a remote server) or --job-id (to trigger a Job), but not both.
+The source Job's secrets are not copied to the webhook: pass them again with --secrets / --secrets-file.
 
 **Usage**:
 
@@ -5401,6 +5461,8 @@ $ hf webhooks create [OPTIONS]
 * `--job-id TEXT`: ID of a Job to trigger (from job.id) instead of pinging a URL. Mutually exclusive with --url.
 * `--domain [repo|discussions]`: Domain to watch: 'repo' or 'discussions'. Repeatable. Defaults to all domains.
 * `--secret TEXT`: Optional secret used to sign webhook payloads.
+* `-s, --secrets TEXT`: Set secret environment variables. Prefer `--secrets SECRET` to read the value from your environment (e.g. `--secrets HF_TOKEN` to pass your Hugging Face token); `--secrets SECRET=value` puts the value in your shell history.
+* `--secrets-file TEXT`: Read in a file of secret environment variables. Use `-` to read them from stdin.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -5408,6 +5470,7 @@ Examples
   $ hf webhooks create --url https://example.com/hook --watch model:bert-base-uncased
   $ hf webhooks create --url https://example.com/hook --watch org:HuggingFace --watch model:gpt2 --domain repo
   $ hf webhooks create --job-id 687f911eaea852de79c4a50a --watch user:julien-c
+  $ hf webhooks create --job-id 687f911eaea852de79c4a50a --watch bucket:my-org/my-bucket --secrets HF_TOKEN
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -5553,6 +5616,8 @@ Learn more
 
 Update an existing webhook. Only provided options are changed.
 
+Job secrets passed with --secrets replace stored values with the same name; others are kept.
+
 **Usage**:
 
 ```console
@@ -5566,9 +5631,12 @@ $ hf webhooks update [OPTIONS] WEBHOOK_ID
 **Options**:
 
 * `--url TEXT`: New URL to send webhook payloads to.
+* `--job-id TEXT`: ID of the source Job to trigger (can be the current one). Required with --secrets / --secrets-file.
 * `--watch TEXT`: New list of items to watch, in 'type:name' format. Repeatable. Replaces the entire existing watched list.
 * `--domain [repo|discussions]`: New list of domains to watch: 'repo' or 'discussions'. Repeatable.
 * `--secret TEXT`: New secret used to sign webhook payloads.
+* `-s, --secrets TEXT`: Set secret environment variables. Prefer `--secrets SECRET` to read the value from your environment (e.g. `--secrets HF_TOKEN` to pass your Hugging Face token); `--secrets SECRET=value` puts the value in your shell history.
+* `--secrets-file TEXT`: Read in a file of secret environment variables. Use `-` to read them from stdin.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -5576,6 +5644,7 @@ Examples
   $ hf webhooks update abc123 --url https://new-url.com/hook
   $ hf webhooks update abc123 --watch model:gpt2 --domain repo
   $ hf webhooks update abc123 --secret newsecret
+  $ hf webhooks update abc123 --job-id 687f911eaea852de79c4a50a --secrets HF_TOKEN
 
 Learn more
   Use `hf <command> --help` for more information about a command.

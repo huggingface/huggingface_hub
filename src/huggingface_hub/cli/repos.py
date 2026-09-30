@@ -14,11 +14,9 @@
 """Contains commands to interact with repositories on the Hugging Face Hub."""
 
 import enum
-from typing import Annotated
+from typing import Annotated, cast
 
-import click
-
-from huggingface_hub import SpaceHardware, SpaceStorage
+from huggingface_hub import SpaceHardware
 from huggingface_hub.cli._cli_utils import SoftChoice
 from huggingface_hub.errors import CLIError, HfHubHTTPError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.hf_api import REPO_REGIONS
@@ -52,12 +50,6 @@ from ._output import OutputFormat, out
 
 
 repos_cli = typer_factory(help="Manage repos on the Hub.")
-
-
-@repos_cli.group_callback(invoke_without_command=True)
-def _repos_callback(ctx: click.Context) -> None:
-    if ctx.info_name == "repo":
-        out.warning("`hf repo` is deprecated in favor of `hf repos`.")
 
 
 class RepoTypeAll(str, enum.Enum):
@@ -94,14 +86,6 @@ SpaceHardwareOpt = Annotated[
         "--flavor",
         help="Space hardware flavor (e.g. 'cpu-basic', 't4-medium', 'l4x4'). Only for Spaces.",
         click_type=SoftChoice(SpaceHardware),
-    ),
-]
-
-SpaceStorageOpt = Annotated[
-    SpaceStorage | None,
-    Option(
-        "--storage",
-        help="(Deprecated, use volumes instead) Space persistent storage tier ('small', 'medium', or 'large'). Only for Spaces.",
     ),
 ]
 
@@ -242,7 +226,6 @@ def repo_create(
         ),
     ] = None,
     hardware: SpaceHardwareOpt = None,
-    storage: SpaceStorageOpt = None,
     sleep_time: SpaceSleepTimeOpt = None,
     secrets: SecretsOpt = None,
     secrets_file: SecretsFileOpt = None,
@@ -261,8 +244,7 @@ def repo_create(
         resource_group_id=resource_group_id,
         region=region,
         space_sdk=sdk,
-        space_hardware=hardware,
-        space_storage=storage,
+        space_hardware=cast(SpaceHardware | None, hardware),
         space_sleep_time=sleep_time,
         space_secrets=env_map_to_key_value_list(parse_env_map(secrets, secrets_file)),
         space_variables=env_map_to_key_value_list(parse_env_map(env, env_file)),
@@ -300,7 +282,6 @@ def repo_duplicate(
         ),
     ] = False,
     hardware: SpaceHardwareOpt = None,
-    storage: SpaceStorageOpt = None,
     sleep_time: SpaceSleepTimeOpt = None,
     secrets: SecretsOpt = None,
     secrets_file: SecretsFileOpt = None,
@@ -317,8 +298,7 @@ def repo_duplicate(
         visibility="private" if private else "public" if public else "protected" if protected else None,  # type: ignore [arg-type]
         token=token,
         exist_ok=exist_ok,
-        space_hardware=hardware,
-        space_storage=storage,
+        space_hardware=cast(SpaceHardware | None, hardware),
         space_sleep_time=sleep_time,
         space_secrets=env_map_to_key_value_list(parse_env_map(secrets, secrets_file)),
         space_variables=env_map_to_key_value_list(parse_env_map(env, env_file)),

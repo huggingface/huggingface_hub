@@ -13,11 +13,13 @@ on:
       - ".github/workflows/check-installers.yml"
   workflow_dispatch: {}
 
-permissions:
-  contents: read
+
+permissions: {}
 
 jobs:
   linux-installer:
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -61,6 +63,8 @@ jobs:
           rm -rf "$HF_TEST_ROOT"
 
   windows-installer:
+    permissions:
+      contents: read
     runs-on: windows-latest
     steps:
       - name: Checkout repository

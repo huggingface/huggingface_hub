@@ -12,14 +12,14 @@ def get_version() -> str:
 
 
 # hf-xet version used in both install_requires and extras["hf_xet"]
-HF_XET_VERSION = "hf-xet>=1.5.2,<2.0.0"
+HF_XET_VERSION = "hf-xet>=1.6.0,<2.0.0"
 
 install_requires = [
     "click>=8.4.2,<9.0.0",  # 8.4.0/8.4.1 shipped a broken fish completion script
     "filelock>=3.10.0",
     "fsspec>=2023.5.0",
     f"{HF_XET_VERSION}; platform_machine=='x86_64' or platform_machine=='amd64' or platform_machine=='AMD64' or platform_machine=='arm64' or platform_machine=='aarch64'",
-    "httpx>=0.23.0, <1",
+    "httpx2>=2.0.0, <3",
     "packaging>=20.9",
     "pyyaml>=5.1",
     "tomli>=1.1.0; python_version<'3.11'",  # stdlib `tomllib` from 3.11 onwards. Used to read `[tool.hf-jobs]` in UV scripts.
@@ -30,9 +30,8 @@ install_requires = [
 extras = {}
 
 extras["oauth"] = [
-    "authlib>=1.3.2",  # minimum version to include https://github.com/lepture/authlib/pull/644
+    "authlib>=1.8.0",  # first version supporting httpx2
     "fastapi",
-    "httpx",  # required for authlib but not included in its dependencies
     "itsdangerous",  # required for starlette SessionMiddleware
 ]
 
@@ -48,7 +47,7 @@ extras["fastai"] = [
 
 extras["hf_xet"] = [HF_XET_VERSION]
 
-extras["mcp"] = ["mcp>=1.8.0, <2.0.0"]
+extras["mcp"] = ["mcp>=1.9.4, <2.0.0"]  # list_tools(cursor=...) only paginates correctly from 1.9.4
 
 extras["testing"] = (
     extras["oauth"]
@@ -118,7 +117,6 @@ setup(
     entry_points={
         "console_scripts": [
             "hf=huggingface_hub.cli.hf:main",
-            "huggingface-cli=huggingface_hub.cli.deprecated_cli:main",
             "tiny-agents=huggingface_hub.inference._mcp.cli:app",
         ],
         "fsspec.specs": "hf=huggingface_hub.HfFileSystem",

@@ -123,13 +123,13 @@ You can also enable or disable progress bars for specific groups. This allows yo
 ## Configuring the HTTP Backend
 
 > [!TIP]
-> In `huggingface_hub` v0.x, HTTP requests were handled with `requests`, and configuration was done via `configure_http_backend`. Since we now use `httpx`, configuration works differently: you must provide a factory function that takes no arguments and returns an `httpx.Client`. You can review the [default implementation here](https://github.com/huggingface/huggingface_hub/blob/main/src/huggingface_hub/utils/_http.py) to see which parameters are used by default.
+> In `huggingface_hub` v0.x, HTTP requests were handled with `requests`, and configuration was done via `configure_http_backend`. Since we now use `httpx2`, configuration works differently: you must provide a factory function that takes no arguments and returns an `httpx2.Client`. You can review the [default implementation here](https://github.com/huggingface/huggingface_hub/blob/main/src/huggingface_hub/utils/_http.py) to see which parameters are used by default.
 
 
 
-In some setups, you may need to control how HTTP requests are made, for example when working behind a proxy. The `huggingface_hub` library allows you to configure this globally with [`set_client_factory`]. After configuration, all requests to the Hub will use your custom settings. Since `huggingface_hub` relies on `httpx.Client` under the hood, you can check the [`httpx` documentation](https://www.python-httpx.org/advanced/clients/) for details on available parameters.
+In some setups, you may need to control how HTTP requests are made, for example when working behind a proxy. The `huggingface_hub` library allows you to configure this globally with [`set_client_factory`]. After configuration, all requests to the Hub will use your custom settings. Since `huggingface_hub` relies on `httpx2.Client` under the hood, you can check the [`httpx2` documentation](https://httpx2.pydantic.dev/advanced/clients/) for details on available parameters.
 
-If you are building a third-party library and need to make direct requests to the Hub, use [`get_session`] to obtain a correctly configured `httpx` client. Replace any direct `httpx.get(...)` calls with `get_session().get(...)` to ensure proper behavior.
+If you are building a third-party library and need to make direct requests to the Hub, use [`get_session`] to obtain a correctly configured `httpx2` client. Replace any direct `httpx2.get(...)` calls with `get_session().get(...)` to ensure proper behavior.
 
 [[autodoc]] set_client_factory
 
@@ -141,7 +141,7 @@ Sessions are always closed automatically when the process exits.
 
 [[autodoc]] close_session
 
-For async code, use [`set_async_client_factory`] to configure an `httpx.AsyncClient` and [`get_async_session`] to retrieve one.
+For async code, use [`set_async_client_factory`] to configure an `httpx2.AsyncClient` and [`get_async_session`] to retrieve one.
 
 [[autodoc]] set_async_client_factory
 
@@ -163,7 +163,7 @@ except httpx.HTTPError:
     ...
 ```
 
-This is mostly useful for third-party libraries built on top of `huggingface_hub`. `huggingface_hub` v1.x is built on [`httpx`](https://www.python-httpx.org/), while v2.x will be built on [`httpx2`](https://httpx2.pydantic.dev/) (its successor, distributed as a separate package). Importing the module from `huggingface_hub.utils` instead of importing `httpx` directly means you always get the version that `huggingface_hub` actually uses, and your library stays compatible with both major versions. See [this issue](https://github.com/huggingface/huggingface_hub/issues/4802) for more details about the migration plan.
+This is mostly useful for third-party libraries built on top of `huggingface_hub`. `huggingface_hub` v1.x is built on [`httpx`](https://www.python-httpx.org/), while v2.x is built on [`httpx2`](https://httpx2.pydantic.dev/) (its successor, distributed as a separate package). Importing the module from `huggingface_hub.utils` instead of importing `httpx` directly means you always get the version that `huggingface_hub` actually uses, and your library stays compatible with both major versions. See [this issue](https://github.com/huggingface/huggingface_hub/issues/4802) for more details about the migration plan.
 
 > [!WARNING]
 > Only use this if you need `httpx` types or exceptions (e.g. to catch errors). To make requests to the Hub, use [`get_session`] as described above.
@@ -172,12 +172,12 @@ This is mostly useful for third-party libraries built on top of `huggingface_hub
 ## Handle HTTP errors
 
 `huggingface_hub` defines its own HTTP errors to refine the `HTTPError` raised by
-`httpx` with additional information sent back by the server.
+`httpx2` with additional information sent back by the server.
 
 ### Raise for status
 
 [`~utils.hf_raise_for_status`] is meant to be the central method to "raise for status" from any
-request made to the Hub. It wraps the base `httpx.Response.raise_for_status` to provide
+request made to the Hub. It wraps the base `httpx2.Response.raise_for_status` to provide
 additional information. Any `HTTPError` thrown is converted into a `HfHubHTTPError`.
 
 ```py

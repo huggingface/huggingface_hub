@@ -20,7 +20,7 @@ for more information on how to use it.
 
 ## Async Inference Client
 
-An async version of the client is also provided, based on `asyncio` and `httpx`.
+An async version of the client is also provided, based on `asyncio` and `httpx2`.
 
 [[autodoc]] AsyncInferenceClient
 

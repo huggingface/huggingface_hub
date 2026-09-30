@@ -252,7 +252,7 @@ class CommitOperationAdd:
         config.json: 100%|█████████████████████████| 8.19k/8.19k [00:02<00:00, 3.72kB/s]
 
         >>> with operation.as_file(with_tqdm=True) as file:
-        ...     httpx.put(..., data=file)
+        ...     httpx2.put(..., data=file)
         config.json: 100%|█████████████████████████| 8.19k/8.19k [00:02<00:00, 3.72kB/s]
         ```
         """

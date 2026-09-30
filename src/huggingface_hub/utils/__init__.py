@@ -220,8 +220,8 @@ _ATTR_TO_MODULE = {attr: module for module, attrs in _SUBMOD_ATTRS.items() for a
 
 
 def __getattr__(name: str):
-    if name == "httpx":  # Forward compatibility: this will be httpx2 in huggingface_hub v2.x.
-        return importlib.import_module("httpx")
+    if name == "httpx":  # Keep the same export for downstream libraries across major versions.
+        return importlib.import_module("httpx2")
     if name in _SUBMODULES:
         module_name = "tqdm" if name == "_tqdm" else name
         return importlib.import_module(f"{__name__}.{module_name}")
@@ -251,7 +251,7 @@ sys.modules[__name__].__class__ = _LazyUtilsModule
 
 
 if TYPE_CHECKING:  # pragma: no cover
-    import httpx as httpx  # noqa: F401
+    import httpx2 as httpx  # noqa: F401
 
     from huggingface_hub.errors import (
         BadRequestError,  # noqa: F401

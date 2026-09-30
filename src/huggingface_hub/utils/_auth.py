@@ -38,7 +38,9 @@ def _write_secret(path: Path, content: str) -> None:
     """Write content to file, restricting both the file and its parent directory to owner-only on POSIX systems."""
     path.parent.mkdir(parents=True, exist_ok=True, mode=_SECRET_DIR_MODE)
     fd = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, _SECRET_FILE_MODE)
-    with os.fdopen(fd, "w") as f:
+    # Token names are arbitrary Unicode (a user-set `displayName`), so write UTF-8 rather
+    # than the locale encoding, which cannot represent them on e.g. Windows.
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
         f.write(content)
     try:
         path.chmod(_SECRET_FILE_MODE)
@@ -377,11 +379,13 @@ def _read_stored_tokens_full() -> dict[str, dict[str, str]]:
     if not tokens_path.exists():
         return {}
     # interpolation=None: token values are opaque strings, a `%` must not be interpreted.
+    # Read as UTF-8 (token names are arbitrary Unicode). A file that is not valid UTF-8 is treated
+    # as unparseable, so that the user can log in again to overwrite it.
     config = configparser.ConfigParser(interpolation=None)
     try:
-        config.read(tokens_path)
+        config.read(tokens_path, encoding="utf-8")
         return {token_name: dict(config.items(token_name)) for token_name in config.sections()}
-    except configparser.Error as e:
+    except (configparser.Error, UnicodeDecodeError) as e:
         logger.error(f"Error parsing stored tokens file: {e}")
         return {}
 
