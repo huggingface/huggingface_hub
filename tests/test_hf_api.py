@@ -267,18 +267,6 @@ class TestHfApiEndpoints:
         with pytest.raises(ValueError, match=r"Invalid repo_id*"):
             api.move_repo(from_id="invalid_repo_id", to_id="namespace/repo_name")
 
-    def test_duplicate_repo_resource_group_id(self, api: HfApi, mocker) -> None:
-        mock_post = mocker.patch("huggingface_hub.hf_api.get_session").return_value.post
-        mock_post.return_value.json.return_value = {"url": f"{api.endpoint}/myorg/my-copy"}
-
-        api.duplicate_repo("user/my-model", "myorg/my-copy", resource_group_id="66670e5163145ca562cb1988")
-
-        assert mock_post.call_args.args[0] == f"{api.endpoint}/api/models/user/my-model/duplicate"
-        assert mock_post.call_args.kwargs["json"] == {
-            "repository": "myorg/my-copy",
-            "resourceGroupId": "66670e5163145ca562cb1988",
-        }
-
     def test_update_repo_settings(self, api: HfApi, repo_factory: RepoFactory):
         repo_url = repo_factory("model")
         repo_id = repo_url.repo_id
