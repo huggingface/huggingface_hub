@@ -55,12 +55,14 @@ import os
 import time
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath, PureWindowsPath
+from typing import IO, Callable, TypeVar
 
 from .utils import WeakFileLock
 from .utils._paths import as_extended_path
 
 
 logger = logging.getLogger(__name__)
+_MetadataT = TypeVar("_MetadataT")
 
 CACHEDIR_TAG_CONTENT = (
     "Signature: 8a477f597d28d172789f06886806bc55\n"
@@ -293,6 +295,24 @@ def get_local_upload_paths(local_dir: Path, filename: str) -> LocalUploadFilePat
     )
 
 
+def _read_metadata_file(metadata_path: Path, parser: Callable[[IO[str]], _MetadataT]) -> _MetadataT | None:
+    """Read a metadata file and remove it if its contents cannot be parsed."""
+    if not metadata_path.exists():
+        return None
+
+    try:
+        with metadata_path.open() as f:
+            return parser(f)
+    except Exception as e:
+        # remove the metadata file if it is corrupted / not the right format
+        logger.warning(f"Invalid metadata file {metadata_path}: {e}. Removing it from disk and continue.")
+        try:
+            metadata_path.unlink()
+        except Exception as e:
+            logger.warning(f"Could not remove corrupted metadata file {metadata_path}: {e}")
+        return None
+
+
 def read_download_metadata(local_dir: Path, filename: str) -> LocalDownloadFileMetadata | None:
     """Read metadata about a file in the local directory related to a download process.
 
@@ -307,29 +327,20 @@ def read_download_metadata(local_dir: Path, filename: str) -> LocalDownloadFileM
     """
     paths = get_local_download_paths(local_dir, filename)
     with WeakFileLock(paths.lock_path):
-        if paths.metadata_path.exists():
-            try:
-                with paths.metadata_path.open() as f:
-                    commit_hash = f.readline().strip()
-                    etag = f.readline().strip()
-                    timestamp = float(f.readline().strip())
-                    metadata = LocalDownloadFileMetadata(
-                        filename=filename,
-                        commit_hash=commit_hash,
-                        etag=etag,
-                        timestamp=timestamp,
-                    )
-            except Exception as e:
-                # remove the metadata file if it is corrupted / not the right format
-                logger.warning(
-                    f"Invalid metadata file {paths.metadata_path}: {e}. Removing it from disk and continue."
-                )
-                try:
-                    paths.metadata_path.unlink()
-                except Exception as e:
-                    logger.warning(f"Could not remove corrupted metadata file {paths.metadata_path}: {e}")
-                return None
 
+        def parse_metadata(f: IO[str]) -> LocalDownloadFileMetadata:
+            commit_hash = f.readline().strip()
+            etag = f.readline().strip()
+            timestamp = float(f.readline().strip())
+            return LocalDownloadFileMetadata(
+                filename=filename,
+                commit_hash=commit_hash,
+                etag=etag,
+                timestamp=timestamp,
+            )
+
+        metadata = _read_metadata_file(paths.metadata_path, parse_metadata)
+        if metadata is not None:
             try:
                 # check if the file exists and hasn't been modified since the metadata was saved
                 stat = paths.file_path.stat()
@@ -347,8 +358,6 @@ def read_download_metadata(local_dir: Path, filename: str) -> LocalDownloadFileM
 def read_upload_metadata(local_dir: Path, filename: str) -> LocalUploadFileMetadata:
     """Read metadata about a file in the local directory related to an upload process.
 
-    TODO: factorize logic with `read_download_metadata`.
-
     Args:
         local_dir (`Path`):
             Path to the local directory in which files are downloaded.
@@ -360,53 +369,41 @@ def read_upload_metadata(local_dir: Path, filename: str) -> LocalUploadFileMetad
     """
     paths = get_local_upload_paths(local_dir, filename)
     with WeakFileLock(paths.lock_path):
-        if paths.metadata_path.exists():
-            try:
-                with paths.metadata_path.open() as f:
-                    timestamp = float(f.readline().strip())
 
-                    size = int(f.readline().strip())  # never None
+        def parse_metadata(f: IO[str]) -> LocalUploadFileMetadata:
+            timestamp = float(f.readline().strip())
+            size = int(f.readline().strip())  # never None
 
-                    _should_ignore = f.readline().strip()
-                    should_ignore = None if _should_ignore == "" else bool(int(_should_ignore))
+            _should_ignore = f.readline().strip()
+            should_ignore = None if _should_ignore == "" else bool(int(_should_ignore))
 
-                    _sha256 = f.readline().strip()
-                    sha256 = None if _sha256 == "" else _sha256
+            _sha256 = f.readline().strip()
+            sha256 = None if _sha256 == "" else _sha256
 
-                    _upload_mode = f.readline().strip()
-                    upload_mode = None if _upload_mode == "" else _upload_mode
-                    if upload_mode not in (None, "regular", "lfs"):
-                        raise ValueError(f"Invalid upload mode in metadata {paths.path_in_repo}: {upload_mode}")
+            _upload_mode = f.readline().strip()
+            upload_mode = None if _upload_mode == "" else _upload_mode
+            if upload_mode not in (None, "regular", "lfs"):
+                raise ValueError(f"Invalid upload mode in metadata {paths.path_in_repo}: {upload_mode}")
 
-                    _remote_oid = f.readline().strip()
-                    remote_oid = None if _remote_oid == "" else _remote_oid
+            _remote_oid = f.readline().strip()
+            remote_oid = None if _remote_oid == "" else _remote_oid
 
-                    is_uploaded = bool(int(f.readline().strip()))
-                    is_committed = bool(int(f.readline().strip()))
+            is_uploaded = bool(int(f.readline().strip()))
+            is_committed = bool(int(f.readline().strip()))
 
-                    metadata = LocalUploadFileMetadata(
-                        timestamp=timestamp,
-                        size=size,
-                        should_ignore=should_ignore,
-                        sha256=sha256,
-                        upload_mode=upload_mode,
-                        remote_oid=remote_oid,
-                        is_uploaded=is_uploaded,
-                        is_committed=is_committed,
-                    )
-            except Exception as e:
-                # remove the metadata file if it is corrupted / not the right format
-                logger.warning(
-                    f"Invalid metadata file {paths.metadata_path}: {e}. Removing it from disk and continue."
-                )
-                try:
-                    paths.metadata_path.unlink()
-                except Exception as e:
-                    logger.warning(f"Could not remove corrupted metadata file {paths.metadata_path}: {e}")
+            return LocalUploadFileMetadata(
+                timestamp=timestamp,
+                size=size,
+                should_ignore=should_ignore,
+                sha256=sha256,
+                upload_mode=upload_mode,
+                remote_oid=remote_oid,
+                is_uploaded=is_uploaded,
+                is_committed=is_committed,
+            )
 
-                # corrupted metadata => we don't know anything expect its size
-                return LocalUploadFileMetadata(size=paths.file_path.stat().st_size)
-
+        metadata = _read_metadata_file(paths.metadata_path, parse_metadata)
+        if metadata is not None:
             # TODO: can we do better?
             if (
                 metadata.timestamp is not None
