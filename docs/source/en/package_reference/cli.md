@@ -5362,7 +5362,10 @@ $ hf update [OPTIONS]
 
 ## `hf upload`
 
-Upload a file or a folder to the Hub. Recommended for single-commit uploads.
+Upload a file or a folder to the Hub.
+
+Folders with many files are split into several commits. If a folder upload is interrupted, re-run the same command
+to resume it.
 
 **Usage**:
 

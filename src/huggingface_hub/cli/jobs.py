@@ -229,7 +229,7 @@ def _resolve_uv_job_config(
         from_script.update(f"env.{key}" for key in script_env)
         env_map = {**script_env, **env_map}
 
-        secrets_map = parse_env_map(secrets, secrets_file)
+        secrets_map = _parse_secrets_map(secrets, secrets_file, dry_run=dry_run)
         script_secrets = _resolve_script_secrets(header.secrets, secrets_map, dry_run=dry_run)
         from_script.update(f"secrets.{key}" for key in script_secrets)
         secrets_map = {**script_secrets, **secrets_map}
@@ -288,6 +288,24 @@ def _resolve_uv_job_config(
         yield config
 
 
+def _parse_secrets_map(
+    secrets: list[str] | None, secrets_file: str | None, *, dry_run: bool = False
+) -> dict[str, str | None]:
+    """Parse `--secrets`/`--secrets-file`, failing if a bare `--secrets NAME` is not set locally.
+
+    Same behavior as for the secrets requested by a script (see `_resolve_script_secrets`): a missing secret
+    is an error rather than silently dropped, except in `--dry-run` where it is displayed as `<not set>`.
+    """
+    secrets_map = parse_env_map(secrets, secrets_file)
+    missing = [name for value in secrets or [] if "=" not in value and (name := value.strip()) not in secrets_map]
+    if missing and not dry_run:
+        raise CLIError(
+            f"The following secret(s) are not set in your environment: {', '.join(missing)}."
+            f" Export them locally (e.g. `export {missing[0]}=...`) or use `--secrets-file` otherwise."
+        )
+    return {**secrets_map, **dict.fromkeys(missing)}
+
+
 def _resolve_script_secrets(
     names: list[str], cli_secrets: dict[str, str | None], *, dry_run: bool = False
 ) -> dict[str, str | None]:
@@ -317,8 +335,7 @@ def _resolve_script_secrets(
     if missing and not dry_run:
         raise CLIError(
             f"The script requires the following secret(s), which are not set in your environment: {', '.join(missing)}."
-            f" Export them locally (e.g. `export {missing[0]}=...`) or pass them explicitly"
-            f" (e.g. `--secrets {missing[0]}=...`)."
+            f" Export them locally (e.g. `export {missing[0]}=...`) or use `--secrets-file` otherwise."
         )
     if resolved:
         out.warning(
@@ -720,7 +737,7 @@ def jobs_run(
     """Run a Job."""
     set_output_format(format, json_output, quiet)
     env_map = parse_env_map(env, env_file)
-    secrets_map = parse_env_map(secrets, secrets_file)
+    secrets_map = _parse_secrets_map(secrets, secrets_file, dry_run=dry_run)
     labels_map = _parse_labels_map(label, name=name) or {}
     labels_map.setdefault(
         "name",
@@ -1521,7 +1538,7 @@ def scheduled_run(
     """Schedule a Job."""
     set_output_format(format, json_output, quiet)
     env_map = parse_env_map(env, env_file)
-    secrets_map = parse_env_map(secrets, secrets_file)
+    secrets_map = _parse_secrets_map(secrets, secrets_file, dry_run=dry_run)
     labels_map = _parse_labels_map(label, name=name) or {}
     labels_map.setdefault(
         "name",
