@@ -24,7 +24,7 @@ from huggingface_hub.utils._http import (
     _WARNED_TOPICS,
     RateLimitInfo,
     _adjust_range_header,
-    _httpx_follow_hub_redirects_with_backoff,
+    _httpx2_follow_hub_redirects_with_backoff,
     _is_same_or_hub_host,
     _parse_bucket_id_from_url,
     _parse_repo_info_from_url,
@@ -988,7 +988,7 @@ def test_resolve_redirect_to_same_hostname_other_port_is_not_followed():
     hub_handler = type("HubHandler", (_RedirectHubHandler,), {"location": f"{storage_url}/blob/deadbeef"})
     hub_url = _start_local_server(hub_handler)
 
-    response = _httpx_follow_hub_redirects_with_backoff("HEAD", f"{hub_url}/org/repo/resolve/main/file.bin")
+    response = _httpx2_follow_hub_redirects_with_backoff("HEAD", f"{hub_url}/org/repo/resolve/main/file.bin")
 
     # We got the Hub's 302, not the storage host's 200
     assert response.status_code == 302
@@ -1019,7 +1019,7 @@ def test_resolve_redirect_to_same_origin_is_followed():
     """A /resolve redirect that stays on the same origin (e.g. renamed repo) is followed."""
     hub_url = _start_local_server(_SameOriginRedirectHandler)
 
-    response = _httpx_follow_hub_redirects_with_backoff("HEAD", f"{hub_url}/org/repo/resolve/main/file.bin")
+    response = _httpx2_follow_hub_redirects_with_backoff("HEAD", f"{hub_url}/org/repo/resolve/main/file.bin")
 
     assert response.status_code == 200
     assert response.headers["X-Repo-Commit"] == "0" * 40
