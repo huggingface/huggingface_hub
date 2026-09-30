@@ -32,7 +32,7 @@ from huggingface_hub.cli.jobs import _get_jobs_stats_rows, _parse_and_sync_job_v
 from huggingface_hub.cli.skills import build_skill_md
 from huggingface_hub.cli.upload import _resolve_upload_paths, upload
 from huggingface_hub.errors import CLIError, DeviceCodeError, HfUriError, RevisionNotFoundError
-from huggingface_hub.hf_api import DuplicationStatus, ModelInfo
+from huggingface_hub.hf_api import ModelInfo
 from huggingface_hub.utils import (
     CachedFileInfo,
     CachedRepoInfo,
@@ -1809,25 +1809,6 @@ class TestRepoDuplicateCommand:
             space_variables=None,
             space_volumes=None,
         )
-
-    def test_repo_duplicate_files_copy_pending(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
-            api_cls.return_value.duplicate_repo.return_value = Mock(repo_id="myorg/my-copy", files_copy_pending=True)
-            result = runner.invoke(app, ["repos", "duplicate", "owner/repo", "myorg/my-copy", "--type", "dataset"])
-        assert result.exit_code == 0
-        assert "still being copied in the background" in result.stderr
-        assert "hf repos duplication-status myorg/my-copy --type dataset" in result.stderr
-
-    def test_repo_duplication_status(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
-            api = api_cls.return_value
-            api.get_duplication_status.return_value = DuplicationStatus(pending=True, filesTotal=42, filesCopied=10)
-            result = runner.invoke(
-                app, ["repos", "duplication-status", "myorg/my-copy", "--type", "dataset", "--format", "json"]
-            )
-        assert result.exit_code == 0
-        api.get_duplication_status.assert_called_once_with("myorg/my-copy", repo_type="dataset", token=None)
-        assert json.loads(result.stdout) == {"pending": True, "files_total": 42, "files_copied": 10}
 
 
 class TestRepoMoveCommand:

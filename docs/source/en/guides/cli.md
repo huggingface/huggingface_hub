@@ -1443,18 +1443,7 @@ Use `hf repos duplicate` to copy an existing model, dataset, or Space to your ac
 >>> hf repos duplicate openai/gdpval myorg/my-gdpval --type dataset --private
 ```
 
-The LFS/Xet files of the new repo may still be copied in the background after the command returns. In that case, a warning is printed and downloading these files from the new repo may fail until the copy is complete. Use `hf repos duplication-status` to check the progress:
-
-```bash
->>> hf repos duplication-status myorg/my-gdpval --type dataset
-{
-  "pending": true,
-  "files_total": 42,
-  "files_copied": 10
-}
-```
-
-`"pending": false` means the copy is complete.
+The LFS/Xet files of the new repo may still be copied in the background after the command returns. In that case, a warning is printed and downloading these files from the new repo may fail until the copy is complete.
 
 ### Delete a repo
 

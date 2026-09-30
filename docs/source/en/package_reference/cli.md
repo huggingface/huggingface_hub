@@ -3494,7 +3494,6 @@ $ hf repos [OPTIONS] COMMAND [ARGS]...
 * `delete`: Delete a repo from the Hub.
 * `delete-files`: Delete files from a repo on the Hub.
 * `duplicate`: Duplicate a repo on the Hub (model, dataset, or Space).
-* `duplication-status`: Get the progress of the background file copy of a duplicated repo.
 * `list`: List all repos (models, datasets, spaces, buckets) with storage info. [alias: ls]
 * `move`: Move a repository from a namespace to another namespace.
 * `settings`: Update the settings of a repository.
@@ -3771,34 +3770,6 @@ Examples
   $ hf repos duplicate openai/gdpval --type dataset
   $ hf repos duplicate multimodalart/dreambooth-training my-dreambooth --type space --flavor l4x4 --secrets HF_TOKEN --private
   $ hf repos duplicate org/my-space my-space --type space -v hf://org/my-model:/models -v hf://buckets/org/b:/data
-
-Learn more
-  Use `hf <command> --help` for more information about a command.
-  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
-
-
-### `hf repos duplication-status`
-
-Get the progress of the background file copy of a duplicated repo.
-
-**Usage**:
-
-```console
-$ hf repos duplication-status [OPTIONS] REPO_ID
-```
-
-**Arguments**:
-
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
-
-**Options**:
-
-* `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
-* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--help`: Show this message and exit.
-
-Examples
-  $ hf repos duplication-status myorg/my-gdpval --type dataset
 
 Learn more
   Use `hf <command> --help` for more information about a command.

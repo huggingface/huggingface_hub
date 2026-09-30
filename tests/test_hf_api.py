@@ -57,7 +57,6 @@ from huggingface_hub.hf_api import (
     CommitInfo,
     DatasetInfo,
     DatasetLeaderboardEntry,
-    DuplicationStatus,
     ExpandDatasetProperty_T,
     ExpandModelProperty_T,
     ExpandSpaceProperty_T,
@@ -4632,26 +4631,6 @@ def test_create_inference_endpoint_private_link_payload(mocker):
     payload = mock_session.post.call_args.kwargs["json"]
     assert payload["privateService"] == {"accountId": "123456789012", "region": "eu-west-1"}
     assert "accountId" not in payload
-
-
-def test_duplicate_repo_files_copy_pending(mocker):
-    mock_session = mocker.patch("huggingface_hub.hf_api.get_session").return_value
-    mock_session.post.return_value.json.return_value = {
-        "url": f"{ENDPOINT_STAGING}/datasets/myorg/my-copy",
-        "filesCopyPending": True,
-    }
-    mock_session.get.return_value.json.return_value = {"pending": True, "filesTotal": 42, "filesCopied": 10}
-    api = HfApi(endpoint=ENDPOINT_STAGING, token=TOKEN)
-
-    repo_url = api.duplicate_repo("owner/repo", "myorg/my-copy", repo_type="dataset")
-    assert isinstance(repo_url, RepoUrl)
-    assert repo_url.repo_id == "myorg/my-copy"
-    assert repo_url.files_copy_pending is True
-
-    status = api.get_duplication_status("myorg/my-copy", repo_type="dataset")
-    assert status == DuplicationStatus(pending=True, filesTotal=42, filesCopied=10)
-    assert (status.pending, status.files_total, status.files_copied) == (True, 42, 10)
-    assert mock_session.get.call_args.args[0] == f"{ENDPOINT_STAGING}/api/datasets/myorg/my-copy/duplicate/status"
 
 
 @pytest.mark.parametrize(

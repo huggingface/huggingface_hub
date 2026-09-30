@@ -197,7 +197,6 @@ _SUBMOD_ATTRS = {
         "DatasetInfo",
         "DatasetLeaderboardEntry",
         "DuplicatedRepoUrl",
-        "DuplicationStatus",
         "GitCommitInfo",
         "GitRefInfo",
         "GitRefs",
@@ -273,7 +272,6 @@ _SUBMOD_ATTRS = {
         "get_dataset_leaderboard",
         "get_dataset_tags",
         "get_discussion_details",
-        "get_duplication_status",
         "get_full_repo_name",
         "get_inference_endpoint",
         "get_local_safetensors_metadata",
@@ -739,7 +737,6 @@ __all__ = [
     "DocumentQuestionAnsweringParameters",
     "DryRunFileInfo",
     "DuplicatedRepoUrl",
-    "DuplicationStatus",
     "EvalResult",
     "EvalResultEntry",
     "FLAX_WEIGHTS_NAME",
@@ -1019,7 +1016,6 @@ __all__ = [
     "get_dataset_leaderboard",
     "get_dataset_tags",
     "get_discussion_details",
-    "get_duplication_status",
     "get_full_repo_name",
     "get_hf_file_metadata",
     "get_inference_endpoint",
@@ -1403,7 +1399,6 @@ if TYPE_CHECKING:  # pragma: no cover
         DatasetInfo,  # noqa: F401
         DatasetLeaderboardEntry,  # noqa: F401
         DuplicatedRepoUrl,  # noqa: F401
-        DuplicationStatus,  # noqa: F401
         GitCommitInfo,  # noqa: F401
         GitRefInfo,  # noqa: F401
         GitRefs,  # noqa: F401
@@ -1479,7 +1474,6 @@ if TYPE_CHECKING:  # pragma: no cover
         get_dataset_leaderboard,  # noqa: F401
         get_dataset_tags,  # noqa: F401
         get_discussion_details,  # noqa: F401
-        get_duplication_status,  # noqa: F401
         get_full_repo_name,  # noqa: F401
         get_inference_endpoint,  # noqa: F401
         get_local_safetensors_metadata,  # noqa: F401
