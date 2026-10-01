@@ -16,6 +16,7 @@ from .testing_constants import (
     ENDPOINT_PRODUCTION_URL_SCHEME,
     ENDPOINT_STAGING,
     TOKEN,
+    USER,
 )
 from .testing_utils import repo_name
 
@@ -229,7 +230,7 @@ class RepoFactory(Protocol):
     The created repo is automatically deleted when the test ends.
     """
 
-    def __call__(self, repo_type: str = "model", **kwargs) -> RepoUrl: ...
+    def __call__(self, repo_type: str = "model", repo_id: str | None = None, **kwargs) -> RepoUrl: ...
 
 
 @pytest.fixture
@@ -241,21 +242,28 @@ def repo_factory(api: HfApi) -> Generator[RepoFactory, None, None]:
     def test_something(api: HfApi, repo_factory):
         repo_url = repo_factory()              # a model repo
         dataset_url = repo_factory("dataset")  # a dataset repo
+        named_url = repo_factory(repo_id=repo_name("CaSe"))  # when the repo name matters
+        other_url = repo_factory(token=OTHER_TOKEN)  # created (and deleted) with another token
     ```
     """
-    created: list[tuple[str, str]] = []
+    created: list[tuple[str, str, str | None]] = []
 
-    def _factory(repo_type: str = "model", **kwargs) -> RepoUrl:
+    def _factory(repo_type: str = "model", repo_id: str | None = None, **kwargs) -> RepoUrl:
         if repo_type == "space" and "space_sdk" not in kwargs:
             kwargs["space_sdk"] = "gradio"
-        repo_url = api.create_repo(repo_id=repo_name(prefix=repo_type), repo_type=repo_type, **kwargs)
-        created.append((repo_url.repo_id, repo_type))
+        repo_url = api.create_repo(repo_id=repo_id or repo_name(prefix=repo_type), repo_type=repo_type, **kwargs)
+        created.append((repo_url.repo_id, repo_type, kwargs.get("token")))
         return repo_url
 
     yield _factory
 
-    for repo_id, repo_type in created:
-        try:
-            api.delete_repo(repo_id=repo_id, repo_type=repo_type)
-        except Exception:
-            pass
+    for repo_id, repo_type, token in created:
+        api.delete_repo(repo_id=repo_id, repo_type=repo_type, token=token, missing_ok=True)
+
+
+@pytest.fixture
+def new_repo_id(api: HfApi) -> Generator[str, None, None]:
+    """Id of a model repo that doesn't exist yet (e.g. created by `push_to_hub`). Deleted when the test ends."""
+    repo_id = f"{USER}/{repo_name()}"
+    yield repo_id
+    api.delete_repo(repo_id=repo_id, missing_ok=True)

@@ -235,8 +235,8 @@ class TestCachedDownload:
                     local_files_only=True,
                 )
 
-    def test_private_repo_and_file_cached_locally(self, api: HfApi):
-        repo_id = api.create_repo(repo_id=repo_name(), private=True, token=TOKEN).repo_id
+    def test_private_repo_and_file_cached_locally(self, api: HfApi, repo_factory: RepoFactory):
+        repo_id = repo_factory(private=True).repo_id
         api.upload_file(path_or_fileobj=b"content", path_in_repo="config.json", repo_id=repo_id, token=TOKEN)
 
         with SoftTemporaryDirectory() as tmpdir:
@@ -711,21 +711,23 @@ class TestHfHubDownloadToLocalDir:
         api = HfApi(endpoint=constants.ENDPOINT, token=TOKEN)
         request.cls.api = api
         request.cls.repo_id = api.create_repo(repo_id=repo_name()).repo_id
-        commit_1 = api.upload_file(
-            path_or_fileobj=b"content", path_in_repo=request.cls.file_name, repo_id=request.cls.repo_id
-        )
-        commit_2 = api.upload_file(
-            path_or_fileobj=b"content", path_in_repo=request.cls.lfs_name, repo_id=request.cls.repo_id
-        )
+        try:
+            commit_1 = api.upload_file(
+                path_or_fileobj=b"content", path_in_repo=request.cls.file_name, repo_id=request.cls.repo_id
+            )
+            commit_2 = api.upload_file(
+                path_or_fileobj=b"content", path_in_repo=request.cls.lfs_name, repo_id=request.cls.repo_id
+            )
 
-        info = api.get_paths_info(repo_id=request.cls.repo_id, paths=[request.cls.file_name, request.cls.lfs_name])
-        info = {item.path: item for item in info}
-        request.cls.commit_hash_1 = commit_1.oid
-        request.cls.commit_hash_2 = commit_2.oid
-        request.cls.file_etag = info[request.cls.file_name].blob_id
-        request.cls.lfs_etag = info[request.cls.lfs_name].lfs.sha256
-        yield
-        api.delete_repo(repo_id=request.cls.repo_id)
+            info = api.get_paths_info(repo_id=request.cls.repo_id, paths=[request.cls.file_name, request.cls.lfs_name])
+            info = {item.path: item for item in info}
+            request.cls.commit_hash_1 = commit_1.oid
+            request.cls.commit_hash_2 = commit_2.oid
+            request.cls.file_etag = info[request.cls.file_name].blob_id
+            request.cls.lfs_etag = info[request.cls.lfs_name].lfs.sha256
+            yield
+        finally:
+            api.delete_repo(repo_id=request.cls.repo_id, missing_ok=True)
 
     @contextmanager
     def with_patch_head(self):
@@ -1015,16 +1017,18 @@ class TestStagingCachedDownloadOnAwfulFilenames:
         api = HfApi(endpoint=constants.ENDPOINT, token=TOKEN)
         request.cls.api = api
         request.cls.repo_url = api.create_repo(repo_id=repo_name("awful_filename"))
-        request.cls.expected_resolve_url = (
-            f"{request.cls.repo_url}/resolve/main/subfolder/to%3F/awful%3Ffilename%25you%3Ashould%2Cnever.give"
-        )
-        api.upload_file(
-            path_or_fileobj=b"content",
-            path_in_repo=request.cls.filepath,
-            repo_id=request.cls.repo_url.repo_id,
-        )
-        yield
-        api.delete_repo(repo_id=request.cls.repo_url.repo_id)
+        try:
+            request.cls.expected_resolve_url = (
+                f"{request.cls.repo_url}/resolve/main/subfolder/to%3F/awful%3Ffilename%25you%3Ashould%2Cnever.give"
+            )
+            api.upload_file(
+                path_or_fileobj=b"content",
+                path_in_repo=request.cls.filepath,
+                repo_id=request.cls.repo_url.repo_id,
+            )
+            yield
+        finally:
+            api.delete_repo(repo_id=request.cls.repo_url.repo_id, missing_ok=True)
 
     def test_hf_hub_url_on_awful_filepath(self):
         assert hf_hub_url(self.repo_url.repo_id, self.filepath) == self.expected_resolve_url
@@ -1070,11 +1074,13 @@ class TestHfHubDownloadRelativePaths:
         api = HfApi(endpoint=constants.ENDPOINT, token=TOKEN)
         request.cls.api = api
         request.cls.repo_id = api.create_repo(repo_id=repo_name()).repo_id
-        api.upload_file(
-            path_or_fileobj=b"content", path_in_repo="folder/..\\..\\..\\file", repo_id=request.cls.repo_id
-        )
-        yield
-        api.delete_repo(repo_id=request.cls.repo_id)
+        try:
+            api.upload_file(
+                path_or_fileobj=b"content", path_in_repo="folder/..\\..\\..\\file", repo_id=request.cls.repo_id
+            )
+            yield
+        finally:
+            api.delete_repo(repo_id=request.cls.repo_id, missing_ok=True)
 
     def test_download_folder_file_in_cache_dir(self, tmp_path: Path) -> None:
         with pytest.raises(ValueError, match="Invalid filename"):

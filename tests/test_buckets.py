@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import warnings
+from collections.abc import Iterator
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
@@ -69,47 +70,51 @@ def _init_bucket(api: HfApi, bucket_id: str, private: bool = False) -> str:
 
 
 @pytest.fixture(scope="module")
-def bucket_read(api: HfApi) -> str:
+def bucket_read(api: HfApi) -> Iterator[str]:
     """Bucket for read-only tests."""
-    return _init_bucket(api, bucket_name())
-
-
-@pytest.fixture(scope="module")
-def bucket_read_private(api: HfApi) -> str:
-    """Private bucket for read-only tests."""
-    return _init_bucket(api, bucket_name(), private=True)
-
-
-@pytest.fixture(scope="module")
-def bucket_read_other(api_other: HfApi) -> str:
-    """Bucket for read-only tests with other user."""
-    bucket = api_other.create_bucket(bucket_name())
-    return bucket.bucket_id
-
-
-@pytest.fixture(scope="module")
-def bucket_read_private_other(api_other: HfApi) -> str:
-    """Private bucket for read-only tests with other user."""
-    bucket = api_other.create_bucket(bucket_name(), private=True)
-    return bucket.bucket_id
-
-
-@pytest.fixture(scope="function")
-def bucket_write(api: HfApi) -> str:
-    """Bucket for read-write tests (rebuilt every test)."""
-    bucket = api.create_bucket(bucket_name())
-    return bucket.bucket_id
-
-
-@pytest.fixture(scope="function")
-def bucket_write_2(api: HfApi) -> str:
-    """Second bucket for read-write tests (rebuilt every test)."""
-    bucket = api.create_bucket(bucket_name())
-    return bucket.bucket_id
-
-
-def test_create_bucket(api: HfApi):
     bucket_id = f"{USER}/{bucket_name()}"
+    try:
+        yield _init_bucket(api, bucket_id)
+    finally:
+        api.delete_bucket(bucket_id, missing_ok=True)
+
+
+@pytest.fixture(scope="module")
+def bucket_read_private(api: HfApi) -> Iterator[str]:
+    """Private bucket for read-only tests."""
+    bucket_id = f"{USER}/{bucket_name()}"
+    try:
+        yield _init_bucket(api, bucket_id, private=True)
+    finally:
+        api.delete_bucket(bucket_id, missing_ok=True)
+
+
+@pytest.fixture(scope="function")
+def bucket_write(api: HfApi) -> Iterator[str]:
+    """Bucket for read-write tests (rebuilt every test)."""
+    bucket_id = api.create_bucket(bucket_name()).bucket_id
+    yield bucket_id
+    api.delete_bucket(bucket_id, missing_ok=True)
+
+
+@pytest.fixture(scope="function")
+def bucket_write_2(api: HfApi) -> Iterator[str]:
+    """Second bucket for read-write tests (rebuilt every test)."""
+    bucket_id = api.create_bucket(bucket_name()).bucket_id
+    yield bucket_id
+    api.delete_bucket(bucket_id, missing_ok=True)
+
+
+@pytest.fixture(scope="function")
+def new_bucket_id(api: HfApi) -> Iterator[str]:
+    """Id of a bucket that doesn't exist yet. Deleted at the end of the test if the test created it."""
+    bucket_id = f"{USER}/{bucket_name()}"
+    yield bucket_id
+    api.delete_bucket(bucket_id, missing_ok=True)
+
+
+def test_create_bucket(api: HfApi, new_bucket_id: str):
+    bucket_id = new_bucket_id
     bucket_url = api.create_bucket(bucket_id)
     assert bucket_url.bucket_id == bucket_id
 
@@ -123,8 +128,16 @@ def test_create_bucket(api: HfApi):
     assert bucket_url == bucket_url_2
 
 
-def test_create_bucket_enterprise_org(api_enterprise: HfApi, api_other: HfApi):
+@pytest.fixture(scope="function")
+def new_enterprise_bucket_id(api_enterprise: HfApi) -> Iterator[str]:
+    """Same as `new_bucket_id` but in the enterprise org."""
     bucket_id = f"{ENTERPRISE_ORG}/{bucket_name()}"
+    yield bucket_id
+    api_enterprise.delete_bucket(bucket_id, missing_ok=True)
+
+
+def test_create_bucket_enterprise_org(api_enterprise: HfApi, api_other: HfApi, new_enterprise_bucket_id: str):
+    bucket_id = new_enterprise_bucket_id
     bucket_url = api_enterprise.create_bucket(bucket_id)
     assert bucket_url.bucket_id == bucket_id
 
@@ -137,14 +150,14 @@ def test_create_bucket_enterprise_org(api_enterprise: HfApi, api_other: HfApi):
         api_other.bucket_info(bucket_id)
 
 
-def test_create_bucket_implicit_namespace(api: HfApi):
-    name = bucket_name()
+def test_create_bucket_implicit_namespace(api: HfApi, new_bucket_id: str):
+    name = new_bucket_id.split("/")[1]
     bucket_url = api.create_bucket(name)
-    assert bucket_url.bucket_id == f"{USER}/{name}"
+    assert bucket_url.bucket_id == new_bucket_id
 
 
-def test_create_bucket_with_visibility(api: HfApi):
-    bucket_url = api.create_bucket(bucket_name(), visibility="private")
+def test_create_bucket_with_visibility(api: HfApi, new_bucket_id: str):
+    bucket_url = api.create_bucket(new_bucket_id, visibility="private")
     assert api.bucket_info(bucket_url.bucket_id).private
 
 
@@ -238,17 +251,13 @@ def test_delete_bucket_cannot_do_implicit_namespace(api: HfApi):
     assert exc_info.value.response.status_code == 404
 
 
-def test_move_bucket_rename(api: HfApi, bucket_write: str):
+def test_move_bucket_rename(api: HfApi, bucket_write: str, new_bucket_id: str):
     """Test renaming a bucket within the same namespace."""
-    new_bucket_id = f"{USER}/{bucket_name()}"
     api.move_bucket(from_id=bucket_write, to_id=new_bucket_id)
 
     # New bucket should exist
     info = api.bucket_info(new_bucket_id)
     assert info.id == new_bucket_id
-
-    # Clean up - delete the renamed bucket
-    api.delete_bucket(new_bucket_id)
 
 
 def test_update_bucket_settings(api: HfApi, bucket_write: str):
@@ -367,8 +376,8 @@ def test_copy_files_bucket_to_different_bucket_folder(api: HfApi, bucket_write: 
     assert b_path.read_bytes() == b"b"
 
 
-def test_copy_files_repo_to_bucket_with_revision(api: HfApi, bucket_write: str, tmp_path):
-    repo_id = api.create_repo(repo_id=repo_name(prefix="copy-files")).repo_id
+def test_copy_files_repo_to_bucket_with_revision(api: HfApi, bucket_write: str, repo_factory, tmp_path):
+    repo_id = repo_factory().repo_id
     branch = "copy-files-branch"
     api.upload_file(repo_id=repo_id, path_in_repo="main.txt", path_or_fileobj=b"main")
     api.create_branch(repo_id=repo_id, branch=branch)
@@ -384,8 +393,8 @@ def test_copy_files_repo_to_bucket_with_revision(api: HfApi, bucket_write: str, 
     assert output_path.read_bytes() == b"branch"
 
 
-def test_copy_files_bucket_to_repo_raises(api: HfApi, bucket_write: str):
-    repo_id = api.create_repo(repo_id=repo_name(prefix="copy-files-dst")).repo_id
+def test_copy_files_bucket_to_repo_raises(api: HfApi, bucket_write: str, repo_factory):
+    repo_id = repo_factory().repo_id
     api.batch_bucket_files(bucket_write, add=[(b"x", "x.txt")])
     with pytest.raises(ValueError, match="Bucket-to-repo copy is not supported"):
         api.copy_files(f"hf://buckets/{bucket_write}/x.txt", f"hf://{repo_id}/x.txt")

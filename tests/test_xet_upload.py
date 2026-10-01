@@ -98,6 +98,13 @@ def repo_url(api, repo_type: str = "model"):
 
 
 @pytest.fixture
+def bucket_id(api):
+    bucket_id = api.create_bucket(repo_name(prefix="bucket")).bucket_id
+    yield bucket_id
+    api.delete_bucket(bucket_id, missing_ok=True)
+
+
+@pytest.fixture
 def xet_setup(request, tmp_path):
     instance = getattr(request, "instance", None)
     if instance is None:
@@ -367,11 +374,8 @@ class TestXetUpload:
 class TestBucketXetUploadSkipSha256:
     """Test that bucket uploads pass skip_sha256=True to hf_xet."""
 
-    def test_skip_sha256_passed_for_bucket_uploads(self, api, tmp_path):
+    def test_skip_sha256_passed_for_bucket_uploads(self, api, bucket_id, tmp_path):
         """Upload from both filepath and bytes to a real bucket. SKIP_SHA256 is used internally."""
-        bucket_url = api.create_bucket(repo_name(prefix="bucket"))
-        bucket_id = bucket_url.bucket_id
-
         test_file = tmp_path / "test_file.bin"
         test_file.write_bytes(b"file content for bucket test")
         mtime = 1700000000.123
@@ -389,8 +393,6 @@ class TestBucketXetUploadSkipSha256:
         assert "from_path.bin" in uploaded
         assert "from_bytes.bin" in uploaded
         assert uploaded["from_path.bin"].mtime == datetime.fromtimestamp(mtime, tz=timezone.utc)
-
-        api.delete_bucket(bucket_id)
 
 
 @pytest.mark.usefixtures("xet_setup")
