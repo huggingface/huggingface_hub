@@ -155,6 +155,8 @@ RepoUrl('https://huggingface.co/spaces/nateraw/dreambooth-training',...)
 RepoUrl('https://huggingface.co/datasets/nateraw/gdpval',...)
 ```
 
+Like [`create_repo`], [`duplicate_repo`] accepts a `resource_group_id` to create the copy directly inside a resource group of your Enterprise organization (`--resource-group-id` with `hf repos duplicate`).
+
 ## Search for Spaces
 
 The Hub provides a semantic search API for discovering Spaces. You can search using natural language queries with [`search_spaces`]:
