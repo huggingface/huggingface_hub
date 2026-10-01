@@ -13651,6 +13651,7 @@ class HfApi:
         bucket_id: str,
         *,
         private: bool | None = None,
+        visibility: Literal["public", "private"] | None = None,
         resource_group_id: str | None = None,
         region: REPO_REGIONS | None = None,
         exist_ok: bool = False,
@@ -13664,7 +13665,10 @@ class HfApi:
                 If no namespace is provided, the bucket will be created in the current user's namespace.
             private (`bool`, *optional*):
                 Whether to make the bucket private. If `None` (default), the bucket will be public unless the
-                organization's default is private.
+                organization's default is private. Cannot be passed together with `visibility`.
+            visibility (`Literal["public", "private"]`, *optional*):
+                Visibility of the bucket. Can be `"public"` or `"private"`. If `None` (default), the bucket will be
+                public unless the organization's default is private.
             resource_group_id (`str`, *optional*):
                 Resource group in which to create the bucket. Resource groups are only available for Enterprise Hub
                 organizations and allow to define which members of the organization can access the resource. The ID
@@ -13707,9 +13711,11 @@ class HfApi:
         """
         from ._buckets import BucketUrl, _parse_bucket_uri
 
+        resolved_visibility = _resolve_repo_visibility(private=private, visibility=visibility, repo_type="bucket")
+
         payload: dict[str, Any] = {}
-        if private is not None:
-            payload["private"] = private
+        if resolved_visibility is not None:
+            payload["visibility"] = resolved_visibility
         if resource_group_id is not None:
             payload["resourceGroupId"] = resource_group_id
         if region is not None:
