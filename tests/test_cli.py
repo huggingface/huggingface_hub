@@ -42,6 +42,7 @@ from huggingface_hub.utils import (
 )
 from huggingface_hub.utils._verification import FolderVerification
 
+from .conftest import RepoFactory
 from .testing_constants import DUMMY_MODEL_ID, TOKEN
 from .testing_utils import repo_name
 
@@ -1897,13 +1898,13 @@ class TestRepoSettingsCommand:
 
 
 class TestRepoListCommand:
-    def test_repo_list(self, runner: CliRunner) -> None:
+    def test_repo_list(self, runner: CliRunner, repo_factory: RepoFactory) -> None:
         """Integration test: create repos, check `hf repos ls` with search + type filter."""
         api = HfApi(token=TOKEN)
         suffix = repo_name("repos-ls")
-        model_id = api.create_repo(suffix, repo_type="model").repo_id
-        dataset_id = api.create_repo(suffix, repo_type="dataset").repo_id
-        space_id = api.create_repo(suffix, repo_type="space", space_sdk="static").repo_id
+        model_id = repo_factory("model", repo_id=suffix).repo_id
+        repo_factory("dataset", repo_id=suffix)
+        repo_factory("space", repo_id=suffix, space_sdk="static")
 
         api.upload_file(repo_id=model_id, path_in_repo="data.bin", path_or_fileobj=b"x" * 1024)
 
@@ -1916,10 +1917,6 @@ class TestRepoListCommand:
         assert len(output) == 1
         assert output[0]["id"] == model_id
         assert output[0]["type"] == "model"
-
-        api.delete_repo(model_id)
-        api.delete_repo(dataset_id, repo_type="dataset")
-        api.delete_repo(space_id, repo_type="space")
 
 
 class TestRepoDeleteCommand:
