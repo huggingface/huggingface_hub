@@ -714,7 +714,7 @@ def test_load_state_dict_missing_file(safe_serialization):
 
 def test_load_torch_model_directory_does_not_exist():
     """Test proper error handling when directory does not contain a valid checkpoint."""
-    with pytest.raises(ValueError, match="Checkpoint path does_not_exist does not exist"):
+    with pytest.raises(FileNotFoundError, match="Checkpoint path does_not_exist does not exist"):
         load_torch_model(Mock(), "does_not_exist")
 
 

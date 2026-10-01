@@ -425,7 +425,7 @@ def load_torch_model(
         [`ImportError`](https://docs.python.org/3/library/exceptions.html#ImportError)
             If safetensors or torch is not installed when trying to load a .safetensors file or a PyTorch checkpoint respectively.
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
-           If the checkpoint path is invalid or if the checkpoint format cannot be determined.
+            If the checkpoint format cannot be determined.
 
     Example:
     ```python
