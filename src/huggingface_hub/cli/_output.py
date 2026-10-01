@@ -155,7 +155,7 @@ class Output:
             case OutputFormat.quiet:  # id_key column (or first column), one per line
                 quiet_key = id_key or headers[0]
                 for item in items:
-                    _print_flush(item.get(quiet_key, ""))
+                    _print_flush(_escape_control_chars(str(item.get(quiet_key, ""))))
 
     def dict(self, data: Any, *, id_key: str | None = None) -> None:
         """Print structured data as JSON in all modes (indented for human, compact otherwise).
@@ -295,8 +295,13 @@ def _strip_ansi(text: str) -> str:
     return _ANSI_RE.sub("", text)
 
 
+def _escape_control_chars(text: str) -> str:
+    """Escape non-printable characters (CR, LF, ESC, ...) so Hub-provided strings cannot alter the terminal output."""
+    return "".join(c if c.isprintable() else repr(c)[1:-1] for c in text)
+
+
 def _single_line(text: str) -> str:
-    return " ".join(text.split())
+    return _escape_control_chars(" ".join(text.split()))
 
 
 def _to_header(name: str) -> str:

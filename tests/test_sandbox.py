@@ -7,7 +7,7 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from unittest.mock import MagicMock
 
-import httpx
+import httpx2
 import pytest
 
 import huggingface_hub._sandbox as sandbox_mod
@@ -100,7 +100,7 @@ def _make_sandbox(base_url: str) -> Sandbox:
     return Sandbox(id="job123", server=server, local_id=None, owns_sandbox=True, owns_server=True)
 
 
-class _TerminalStream(httpx.SyncByteStream):
+class _TerminalStream(httpx2.SyncByteStream):
     """Offline response body with an optional transport failure after its chunks."""
 
     def __init__(self, chunks, error=None):
@@ -126,9 +126,9 @@ def terminal_stream(monkeypatch):
 
     def setup(chunks, error=None):
         stream = _TerminalStream(chunks, error)
-        response = httpx.Response(200, stream=stream)
+        response = httpx2.Response(200, stream=stream)
         handler = MagicMock(return_value=response)
-        client = httpx.Client(transport=httpx.MockTransport(handler))
+        client = httpx2.Client(transport=httpx2.MockTransport(handler))
         monkeypatch.setattr(sandbox._server, "_client", client)
         return sandbox, stream, response, handler
 
@@ -700,14 +700,30 @@ class TestSharedSandbox:
         assert sandbox.proxy_headers["X-Sandbox-Token"] == "tok-local1"
         assert sandbox.proxy_headers["X-Sandbox-Token"] != sandbox._server._sandbox_token
 
-    def test_falls_back_to_the_host_token_on_an_older_server(self, fake_server: str) -> None:
-        # A host running a server that predates per-sandbox tokens returns no token
-        # in the create response; those sandboxes keep working with the host one.
+    @pytest.mark.parametrize("token", [None, "", 42, False])
+    def test_shared_sandbox_requires_a_valid_token(self, fake_server: str, token) -> None:
         server = _make_server(fake_server, capacity=10)
-        _FakeServer.sandboxes.add("local1")
-        sandbox = Sandbox(id="job123.local1", server=server, local_id="local1", owns_sandbox=True, owns_server=False)
-        assert sandbox._sandbox_token is None
-        assert sandbox.proxy_headers["X-Sandbox-Token"] == "secret"
+        with pytest.raises(SandboxError, match="sandbox-scoped token.*recycle"):
+            Sandbox(
+                id="job123.local1",
+                server=server,
+                local_id="local1",
+                owns_sandbox=True,
+                owns_server=False,
+                sandbox_token=token,
+            )
+
+    def test_token_recovery_never_falls_back(self, fake_server, monkeypatch):
+        server = _make_server(fake_server)
+        request = MagicMock()
+        monkeypatch.setattr(server, "request", request)
+        request.side_effect = SandboxError("missing token route", status_code=404)
+        with pytest.raises(SandboxError, match="missing token route"):
+            server.sandbox_token("local1")
+        request.side_effect = None
+        request.return_value.json.return_value = {}
+        with pytest.raises(SandboxError, match="sandbox-scoped token"):
+            server.sandbox_token("local1")
 
 
 class TestSandboxPool:
@@ -1410,7 +1426,7 @@ class TestPoolCacheIntegration:
 @pytest.mark.parametrize("exit_code,timed_out", [(0, False), (3, False), (0, True), (None, True)])
 @pytest.mark.parametrize("check", [True, False])
 @pytest.mark.parametrize("split", [True, False])
-@pytest.mark.parametrize("tail_error", [None, httpx.RemoteProtocolError("incomplete chunked read")])
+@pytest.mark.parametrize("tail_error", [None, httpx2.RemoteProtocolError("incomplete chunked read")])
 def test_terminal_stream_result(terminal_stream, exit_code, timed_out, check, split, tail_error):
     events = [
         {"event": "stdout", "data": "out"},
@@ -1442,9 +1458,13 @@ def test_terminal_stream_result(terminal_stream, exit_code, timed_out, check, sp
     "body,error,expected",
     [
         (b'{"event":"stdout","data":"partial"}\n', None, SandboxError),
-        (b'{"event":"stdout","data":"partial"}\n', httpx.RemoteProtocolError("truncated"), httpx.RemoteProtocolError),
+        (
+            b'{"event":"stdout","data":"partial"}\n',
+            httpx2.RemoteProtocolError("truncated"),
+            httpx2.RemoteProtocolError,
+        ),
         (b'{"event":"exit",', None, json.JSONDecodeError),
-        (b'{"event":"exit",', httpx.RemoteProtocolError("truncated"), httpx.RemoteProtocolError),
+        (b'{"event":"exit",', httpx2.RemoteProtocolError("truncated"), httpx2.RemoteProtocolError),
         (b"{invalid}\n", None, json.JSONDecodeError),
         (b'{"event":"exit"}\n', None, KeyError),
     ],
@@ -1706,11 +1726,11 @@ class TestCachedHostFreshness:
 
     def test_missing_job_is_pruned(self, monkeypatch):
         _save_cache("p1", [_cached_host("hostA", age=HOST_TRUST_TTL + 60)])
-        response = httpx.Response(404, request=httpx.Request("GET", "https://huggingface.co/api/jobs/user/hostA"))
+        response = httpx2.Response(404, request=httpx2.Request("GET", "https://huggingface.co/api/jobs/user/hostA"))
         monkeypatch.setattr(
             sandbox_mod.HfApi,
             "inspect_job",
-            MagicMock(side_effect=httpx.HTTPStatusError("missing", request=response.request, response=response)),
+            MagicMock(side_effect=httpx2.HTTPStatusError("missing", request=response.request, response=response)),
         )
         pool = self._pool()
         pool._seed_hosts_from_cache()
@@ -1722,7 +1742,7 @@ class TestTransportHardening:
     and no local file left mangled by a transfer."""
 
     def test_a_redirect_is_not_followed(self, fake_server: str) -> None:
-        # Both credentials ride on every request, and httpx re-sends `Authorization` on a
+        # Both credentials ride on every request, and httpx2 re-sends `Authorization` on a
         # same-scheme redirect, so a 302 must be surfaced rather than chased.
         elsewhere, listener = _spawn_fake()
         _FakeServer.redirect_to = elsewhere + "/v1/sandboxes"

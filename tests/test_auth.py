@@ -5,7 +5,7 @@ import time
 from contextlib import contextmanager
 from unittest.mock import MagicMock, patch
 
-import httpx
+import httpx2
 import pytest
 
 from huggingface_hub import constants
@@ -106,6 +106,18 @@ class TestSaveToken:
         """Token values are opaque server strings: configparser interpolation must not interpret `%`."""
         _save_token(TOKEN, "oauth_token", refresh_token="rt_with_%_inside", expires_at=1752192000)
         assert _read_stored_tokens_full()["oauth_token"]["refresh_token"] == "rt_with_%_inside"
+
+
+class TestUnicodeTokenNames:
+    def test_unicode_token_name_does_not_wipe_existing_tokens(self):
+        _save_token(TOKEN, "work")
+        _save_token(OTHER_TOKEN, "🤗 laptop")
+        assert get_stored_tokens() == {"work": TOKEN, "🤗 laptop": OTHER_TOKEN}
+
+    def test_read_undecodable_file_never_raises(self):
+        with open(constants.HF_STORED_TOKENS_PATH, "wb") as f:
+            f.write(b"\xff\xfe\xfa\xfb")
+        assert _read_stored_tokens_full() == {}
 
 
 class TestSetActiveToken:
@@ -248,8 +260,8 @@ class TestRequestDeviceCode:
         assert result["expires_in"] == 900
 
     def test_failure(self):
-        response = httpx.Response(
-            400, text="bad request", request=httpx.Request("POST", "https://hub.test/oauth/device")
+        response = httpx2.Response(
+            400, text="bad request", request=httpx2.Request("POST", "https://hub.test/oauth/device")
         )
         with patch("huggingface_hub.utils._oauth_device.get_session") as mock_session:
             mock_session.return_value.post.return_value = response
@@ -308,7 +320,7 @@ class TestPollDeviceToken:
             patch("huggingface_hub.utils._oauth_device.time.sleep"),
         ):
             mock_session.return_value.post.side_effect = [
-                httpx.ConnectError("network blip"),
+                httpx2.ConnectError("network blip"),
                 _mock_response({}, status_code=502),
                 non_json,
                 _mock_response({"message": "forbidden"}, status_code=403),  # JSON without an `error` field

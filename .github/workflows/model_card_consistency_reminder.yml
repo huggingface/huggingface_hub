@@ -7,8 +7,11 @@ on:
       - src/huggingface_hub/templates/modelcard_template.md
       - src/huggingface_hub/templates/datasetcard_template.md
 
+permissions: {}
+
 jobs:
   comment:
+    permissions: {}
     runs-on: ubuntu-latest
     steps:
       - name: Create GitHub App token

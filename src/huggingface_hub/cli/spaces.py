@@ -355,8 +355,8 @@ def dev_mode(
     Enable or disable dev mode on a Space.
 
     Spaces Dev Mode eases the debugging of your application and makes iterating on Spaces faster by allowing you to
-    restart your application without stopping the Space container itself. This feature is available as part of a PRO
-    or Team & Enterprise plan.
+    restart your application without stopping the Space container itself. Enabling dev mode requires a PRO or Team &
+    Enterprise plan. Disabling it (`--stop`) is always allowed.
 
     See docs: https://huggingface.co/docs/hub/spaces-dev-mode
     """

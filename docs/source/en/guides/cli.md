@@ -72,12 +72,11 @@ Main commands:
   jobs                 Run and manage Jobs on the Hub.
   models               Interact with models on the Hub.
   papers               Interact with papers on the Hub.
-  repo                 Manage repos on the Hub.
+  repos                Manage repos on the Hub.
   skills               Manage skills for AI assistants.
   spaces               Interact with spaces on the Hub.
   sync                 Sync files between local directory and a bucket.
   upload               Upload a file or a folder to the Hub.
-  upload-large-folder  [Deprecated] Use 'hf upload' instead.
 
 Help commands:
   env      Print information about the environment.
@@ -433,7 +432,7 @@ By default, the `hf download` command will be verbose. It will print details suc
 On machines with slow connections, you might encounter timeout issues like this one:
 
 ```bash
-`httpx.TimeoutException: (TimeoutException("HTTPSConnectionPool(host='cdn-lfs-us-1.huggingface.co', port=443): Read timed out. (read timeout=10)"), '(Request ID: a33d910c-84c6-4514-8362-c705e2039d38)')`
+`httpx2.TimeoutException: (TimeoutException("HTTPSConnectionPool(host='cdn-lfs-us-1.huggingface.co', port=443): Read timed out. (read timeout=10)"), '(Request ID: a33d910c-84c6-4514-8362-c705e2039d38)')`
 ```
 
 To mitigate this issue, you can set the `HF_HUB_DOWNLOAD_TIMEOUT` environment variable to a higher value (default is 10):
@@ -600,19 +599,6 @@ By default, the `hf upload` command will be verbose. It will print details such 
 ```bash
 >>> hf upload Wauplin/my-cool-model ./models . --quiet
 https://huggingface.co/Wauplin/my-cool-model/tree/main
-```
-
-## hf upload-large-folder
-
-> [!WARNING]
-> `hf upload-large-folder` is deprecated and will be removed in a future release. Use [`hf upload`](#hf-upload) instead. It now handles very large folders out of the box and resumes automatically on re-run.
-
-```bash
-# Upload a large folder to a model repository
->>> hf upload Wauplin/my-cool-model ./large_model_dir
-
-# Upload a dataset
->>> hf upload Wauplin/my-cool-dataset ./large_data_dir --repo-type dataset
 ```
 
 ## hf buckets
@@ -1792,7 +1778,7 @@ Copy-and-paste the text below in your GitHub issue.
 - Configured git credential helpers: store
 - Installation method: unknown
 - Torch: N/A
-- httpx: 0.28.1
+- httpx2: 2.0.0
 - hf_xet: 1.1.10
 - gradio: 5.41.1
 - tensorboard: N/A
@@ -2011,6 +1997,17 @@ The `--timeout` option also works with UV scripts and scheduled jobs:
 > [!WARNING]
 > If your job exceeds the timeout, it will be automatically terminated. Always set an appropriate timeout with some buffer for long-running tasks to avoid unexpected job terminations.
 
+### Retry and rerun a Job
+
+`--attempts` sets the maximum number of attempts, including the first run. It works with Docker, UV, and scheduled Jobs. Rerunning a Job starts a new Job with the same saved spec:
+
+```bash
+>>> hf jobs run --attempts 3 --detach python:3.12 python train.py
+>>> hf jobs rerun <job_id>
+```
+
+An attempt count of 3 allows up to two retries when a Job fails. `hf jobs rerun` also reuses the original attempt count. Like `hf jobs run`, it streams the logs of the new Job until it finishes. Use `--detach` to return right away.
+
 ### Hardware
 
 Available `--flavor` options:
@@ -2114,9 +2111,22 @@ By default `hf jobs ps` displays at most 100 Jobs to avoid bloating the terminal
 >>> hf jobs ps -a --limit 0
 ```
 
-> [!WARNING]
-> `-f`/`--filter` is deprecated in favor of `--status` and `--label`. Matching is exact: glob patterns (`data-*`) and negation (`key!=value`) are not supported, and filtering by `id`, `image` or `command` is not available.
+### Expose Job ports
 
+Use `--expose` for a token-protected port and `--expose-public` for a port that should allow unauthenticated access. Both flags can be repeated and combined, and work with Docker, UV, and scheduled Jobs.
+
+```bash
+# Start a Job with a public HTTP server
+>>> hf jobs run --detach --expose-public 8000 python:3.12 python -m http.server 8000
+
+# Replace the configuration on a running Job: port 8000 is private, 9000 is public
+>>> hf jobs expose <job_id> 8000 --public 9000
+
+# Close all exposed ports
+>>> hf jobs expose <job_id> --clear
+```
+
+`hf jobs expose` takes token-protected ports as positional arguments and public ports with `--public`. It applies the change without rerunning the Job. Ports omitted from the replacement list are closed.
 
 ### SSH into a Job
 
@@ -2300,6 +2310,9 @@ Manage scheduled jobs using
 # Resume a scheduled job
 >>> hf jobs scheduled resume <scheduled_job_id>
 
+# Change future run times (Mondays at 9:00)
+>>> hf jobs scheduled reschedule <scheduled_job_id> "0 9 * * 1"
+
 # Trigger a scheduled job to run right now (does not change the schedule)
 >>> hf jobs scheduled trigger <scheduled_job_id>
 
@@ -2406,6 +2419,12 @@ Or create a webhook that triggers a Job instead:
 >>> hf webhooks create --job-id 687f911eaea852de79c4a50a --watch user:julien-c
 ```
 
+The source Job's secrets are not copied to the webhook. Use `--secrets` or `--secrets-file` (same syntax as `hf jobs run`) to pass them to the triggered Job. For example, `--secrets HF_TOKEN` passes your local Hugging Face token:
+
+```bash
+>>> hf webhooks create --job-id 687f911eaea852de79c4a50a --watch bucket:my-org/my-bucket --secrets HF_TOKEN
+```
+
 The `--watch` option uses the format `type:name` where type is one of `model`, `dataset`, `space`, `bucket`, `org`, or `user`. It can be repeated to watch multiple items. Use `--domain` to filter events to `repo` or `discussions`, and `--secret` to set a signing secret.
 
 ### Update a webhook
@@ -2416,6 +2435,12 @@ The `--watch` option uses the format `type:name` where type is one of `model`, `
 ```
 
 Only the provided options are changed. Note that `--watch` replaces the entire watched list when specified.
+
+To update the secrets of a Job-triggered webhook, pass `--job-id` together with `--secrets`. Listed secrets replace the stored values and all other secrets are kept:
+
+```bash
+>>> hf webhooks update wh-abc123 --job-id 687f911eaea852de79c4a50a --secrets HF_TOKEN
+```
 
 ### Enable / disable a webhook
 

@@ -150,8 +150,8 @@ def expect_deprecation_marker(request: SubRequest) -> Generator[None, None, None
     Each argument is a function name; the test must emit a `FutureWarning` mentioning it (the suite runs
     with `-Werror::FutureWarning`, so an unraised warning fails the test). Example:
     ```py
-    @pytest.mark.deprecated("duplicate_space", "duplicate_repo")
-    def test_duplicate_space(...): ...
+    @pytest.mark.deprecated("some_deprecated_method")
+    def test_some_deprecated_method(...): ...
     ```
     """
     function_names = [name for marker in request.node.iter_markers("deprecated") for name in marker.args]

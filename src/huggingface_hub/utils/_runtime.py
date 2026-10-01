@@ -38,7 +38,7 @@ _CANDIDATES = {
     "graphviz": {"graphviz"},
     "hf_xet": {"hf_xet"},
     "jinja": {"Jinja2"},
-    "httpx": {"httpx"},
+    "httpx2": {"httpx2"},
     "keras": {"keras"},
     "numpy": {"numpy"},
     "pillow": {"Pillow"},
@@ -142,13 +142,13 @@ def get_graphviz_version() -> str:
     return _get_version("graphviz")
 
 
-# httpx
-def is_httpx_available() -> bool:
-    return is_package_available("httpx")
+# httpx2
+def is_httpx2_available() -> bool:
+    return is_package_available("httpx2")
 
 
-def get_httpx_version() -> str:
-    return _get_version("httpx")
+def get_httpx2_version() -> str:
+    return _get_version("httpx2")
 
 
 # xet
@@ -417,7 +417,7 @@ def dump_environment_info() -> dict[str, Any]:
     info["Installation method"] = installation_method()
 
     # Installed dependencies
-    info["httpx"] = get_httpx_version()
+    info["httpx2"] = get_httpx2_version()
     info["hf_xet"] = get_xet_version()
     info["gradio"] = get_gradio_version()
     info["tensorboard"] = get_tensorboard_version()
