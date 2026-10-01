@@ -1661,7 +1661,7 @@ $ hf endpoints [OPTIONS] COMMAND [ARGS]...
 * `describe`: Get information about an existing endpoint.
 * `hardware`: List the hardware available to deploy an Inference Endpoint on.
 * `list`: Lists all Inference Endpoints for the given namespace. [alias: ls]
-* `list-catalog`: List available Catalog models.
+* `list-catalog`: List the models available in the Model Catalog.
 * `pause`: Pause an Inference Endpoint.
 * `resume`: Resume an Inference Endpoint.
 * `scale-to-zero`: Scale an Inference Endpoint to zero.
@@ -1684,11 +1684,15 @@ $ hf endpoints catalog [OPTIONS] COMMAND [ARGS]...
 **Commands**:
 
 * `deploy`: Deploy an Inference Endpoint from the Model Catalog.
-* `list`: List available Catalog models. [alias: ls]
+* `list`: List the models available in the Model Catalog. [alias: ls]
 
 #### `hf endpoints catalog deploy`
 
 Deploy an Inference Endpoint from the Model Catalog.
+
+Catalog models are deployed through a recipe: a hardware and engine combination that has been tested for them.
+Pass --repo to deploy the default recipe of a model, optionally narrowed down with --accelerator and
+--gguf-file, or pass --recipe to deploy an exact recipe listed by `hf endpoints catalog ls`.
 
 **Usage**:
 
@@ -1698,15 +1702,18 @@ $ hf endpoints catalog deploy [OPTIONS]
 
 **Options**:
 
-* `--repo TEXT`: The name of the model repository associated with the Inference Endpoint (e.g. 'openai/gpt-oss-120b').  [required]
+* `--repo TEXT`: The name of the model repository associated with the Inference Endpoint (e.g. 'openai/gpt-oss-120b'). Deploys its default recipe. Mutually exclusive with --recipe.
+* `--recipe TEXT`: The id of the catalog recipe to deploy, as listed by 'hf endpoints catalog ls'. Mutually exclusive with --repo.
 * `--name TEXT`: Endpoint name.
-* `--accelerator TEXT`: The hardware accelerator to be used for inference (e.g. 'cpu', 'gpu', 'neuron').
+* `--accelerator [cpu|gpu|neuron]`: The hardware accelerator to be used for inference. Only with --repo.
+* `--gguf-file TEXT`: The GGUF file to deploy, for models that have one recipe per quant. Only with --repo.
 * `--namespace TEXT`: The namespace associated with the Inference Endpoint. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
 Examples
   $ hf endpoints catalog deploy --repo meta-llama/Llama-3.2-1B-Instruct
+  $ hf endpoints catalog deploy --recipe sizzling-biryani-g4xsi1ac
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -1715,7 +1722,10 @@ Learn more
 
 #### `hf endpoints catalog list`
 
-List available Catalog models. [alias: ls]
+List the models available in the Model Catalog. [alias: ls]
+
+One row per recipe, i.e. per tested way of deploying a model. Deploy one with
+`hf endpoints catalog deploy --recipe <RECIPE_ID>`.
 
 **Usage**:
 
@@ -1725,11 +1735,18 @@ $ hf endpoints catalog list [OPTIONS]
 
 **Options**:
 
+* `--accelerator [cpu|gpu|neuron]`: Only show recipes running on this accelerator.
+* `--engine [llamacpp|sglang|tei|vllm]`: Only show recipes running this inference engine.
+* `--license TEXT`: Only show models under this license (e.g. 'Apache 2.0').
+* `--task TEXT`: Only show models for this task (e.g. 'text-generation').
+* `--search TEXT`: Search query.
+* `--limit INTEGER`: Limit the number of models to return.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
 Examples
   $ hf endpoints catalog ls
+  $ hf endpoints catalog ls --engine vllm
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -1917,7 +1934,10 @@ Learn more
 
 ### `hf endpoints list-catalog`
 
-List available Catalog models.
+List the models available in the Model Catalog.
+
+One row per recipe, i.e. per tested way of deploying a model. Deploy one with
+`hf endpoints catalog deploy --recipe <RECIPE_ID>`.
 
 **Usage**:
 
@@ -1927,6 +1947,12 @@ $ hf endpoints list-catalog [OPTIONS]
 
 **Options**:
 
+* `--accelerator [cpu|gpu|neuron]`: Only show recipes running on this accelerator.
+* `--engine [llamacpp|sglang|tei|vllm]`: Only show recipes running this inference engine.
+* `--license TEXT`: Only show models under this license (e.g. 'Apache 2.0').
+* `--task TEXT`: Only show models for this task (e.g. 'text-generation').
+* `--search TEXT`: Search query.
+* `--limit INTEGER`: Limit the number of models to return.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
