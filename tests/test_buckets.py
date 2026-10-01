@@ -12,6 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import time
 import warnings
 from collections.abc import Iterator
 from datetime import datetime, timezone
@@ -357,6 +358,7 @@ def test_copy_files_bucket_to_same_bucket_file(api: HfApi, bucket_write: str, tm
 
 def test_copy_files_bucket_to_different_bucket_folder(api: HfApi, bucket_write: str, bucket_write_2: str, tmp_path):
     api.batch_bucket_files(bucket_write, add=[(b"a", "logs/a.txt"), (b"b", "logs/sub/b.txt"), (b"c", "other/c.txt")])
+    time.sleep(1)  # hub-ci: give the server time to propagate the write before reading it back
 
     api.copy_files(
         f"hf://buckets/{bucket_write}/logs",
