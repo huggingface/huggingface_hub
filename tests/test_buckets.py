@@ -143,6 +143,11 @@ def test_create_bucket_implicit_namespace(api: HfApi):
     assert bucket_url.bucket_id == f"{USER}/{name}"
 
 
+def test_create_bucket_with_visibility(api: HfApi):
+    bucket_url = api.create_bucket(bucket_name(), visibility="private")
+    assert api.bucket_info(bucket_url.bucket_id).private
+
+
 def test_bucket_info(api: HfApi, api_other: HfApi, api_unauth: HfApi, bucket_read: str):
     # Can access bucket
     info = api.bucket_info(bucket_read)
