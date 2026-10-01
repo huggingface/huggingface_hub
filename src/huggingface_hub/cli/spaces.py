@@ -517,6 +517,35 @@ def spaces_hardware(token: TokenOpt = None) -> None:
 
 
 @spaces_cli.command(
+    "zero-gpu-quota",
+    examples=[
+        "hf spaces zero-gpu-quota",
+        "hf spaces zero-gpu-quota --format json",
+    ],
+)
+def spaces_zero_gpu_quota(token: TokenOpt = None) -> None:
+    """Show your ZeroGPU quota (remaining GPU time and reset date).
+
+    Values are in GPU-seconds. With `--quiet`, only the remaining GPU-seconds are printed.
+    """
+    api = get_hf_api(token=token)
+    quota = api.get_zero_gpu_quota()
+    out.result(
+        "ZeroGPU quota (in GPU-seconds)",
+        remaining=quota.remaining,
+        base=quota.base,
+        resets_at=quota.resets_at.isoformat() if quota.resets_at else None,
+        overquota_used=quota.overquota_used,
+    )
+    if quota.remaining < 0.1 * quota.base:
+        status = "exhausted" if quota.remaining <= 0 else "running low"
+        out.hint(
+            f"Your ZeroGPU quota is {status}. PRO, Team and Enterprise users can purchase credits to keep using"
+            " ZeroGPU beyond the daily quota: https://huggingface.co/settings/billing?add-credits=true"
+        )
+
+
+@spaces_cli.command(
     "settings",
     examples=[
         "hf spaces settings username/my-space --sleep-time 300",

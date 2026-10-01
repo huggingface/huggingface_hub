@@ -1142,6 +1142,24 @@ Use `hf spaces hardware` to list all available hardware options for Spaces, incl
 >>> hf spaces hardware
 ```
 
+### Check your ZeroGPU quota
+
+Use `hf spaces zero-gpu-quota` to check how much of your [ZeroGPU](https://huggingface.co/docs/hub/spaces-zerogpu) quota is left and when it resets. This is useful to track your usage when calling ZeroGPU Spaces from scripts, apps or agents.
+
+```bash
+>>> hf spaces zero-gpu-quota
+✓ ZeroGPU quota (in GPU-seconds)
+  remaining: 1810
+  base: 2400
+  resets_at: 2026-09-30T18:12:03+00:00
+  overquota_used: 0
+
+>>> hf spaces zero-gpu-quota --format json
+{"remaining": 1810, "base": 2400, "resets_at": "2026-09-30T18:12:03+00:00", "overquota_used": 0}
+```
+
+If your quota is running low, the command suggests purchasing credits from your [billing settings](https://huggingface.co/settings/billing?add-credits=true) to keep using ZeroGPU beyond the daily quota (PRO, Team and Enterprise users only).
+
 ### Update Space settings
 
 Use `hf spaces settings` to update the settings of a Space.
