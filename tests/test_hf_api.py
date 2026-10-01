@@ -4086,6 +4086,7 @@ class TestAccessRequestAPI:
         request = requests[0]
         assert isinstance(request, AccessRequest)
         assert request.username == OTHER_USER
+        assert isinstance(request.user_id, str)
         assert request.email is None  # email not shared when granted access manually
         assert request.status == "accepted"
         assert isinstance(request.timestamp, datetime.datetime)
@@ -4106,8 +4107,8 @@ class TestAccessRequestAPI:
         assert len(requests) == 1
         assert requests[0].username == OTHER_USER
 
-        # Accept again
-        api.accept_access_request(self.repo_id, OTHER_USER)
+        # Accept again (using user id instead of username)
+        api.accept_access_request(self.repo_id, user_id=request.user_id)
         requests = list(api.list_accepted_access_requests(self.repo_id))
         assert len(requests) == 1
         assert requests[0].username == OTHER_USER
@@ -4133,6 +4134,27 @@ class TestAccessRequestAPI:
         api.cancel_access_request(self.repo_id, OTHER_USER)
         with pytest.raises(HfHubHTTPError):
             api.cancel_access_request(self.repo_id, OTHER_USER)
+
+
+class TestAccessRequestHiddenPII:
+    def test_list_access_requests_without_username_and_email(self):
+        # Repos can be configured to not share username/email of requesters
+        request = {
+            "user": {"_id": "5e67bdd61009063689407479", "fullname": "Clem 🤗"},
+            "status": "pending",
+            "timestamp": "2023-11-23T18:04:53.828Z",
+        }
+        with patch("huggingface_hub.hf_api.paginate", return_value=[request]):
+            requests = list(HfApi().list_pending_access_requests("user/repo"))
+        assert requests[0].username is None
+        assert requests[0].email is None
+        assert requests[0].user_id == "5e67bdd61009063689407479"
+
+    def test_handle_access_request_requires_exactly_one_of_user_or_user_id(self):
+        with pytest.raises(ValueError, match="One of `user` or `user_id` must be provided"):
+            HfApi().accept_access_request("user/repo")
+        with pytest.raises(ValueError, match="Cannot provide both `user` and `user_id`"):
+            HfApi().accept_access_request("user/repo", "clem", user_id="5e67bdd61009063689407479")
 
 
 @pytest.mark.production
