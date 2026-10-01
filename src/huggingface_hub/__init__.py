@@ -198,6 +198,7 @@ _SUBMOD_ATTRS = {
         "CommitInfo",
         "DatasetInfo",
         "DatasetLeaderboardEntry",
+        "DuplicatedRepoUrl",
         "GitCommitInfo",
         "GitRefInfo",
         "GitRefs",
@@ -737,6 +738,7 @@ __all__ = [
     "DocumentQuestionAnsweringOutputElement",
     "DocumentQuestionAnsweringParameters",
     "DryRunFileInfo",
+    "DuplicatedRepoUrl",
     "EvalResult",
     "EvalResultEntry",
     "FLAX_WEIGHTS_NAME",
@@ -1402,6 +1404,7 @@ if TYPE_CHECKING:  # pragma: no cover
         CommitInfo,  # noqa: F401
         DatasetInfo,  # noqa: F401
         DatasetLeaderboardEntry,  # noqa: F401
+        DuplicatedRepoUrl,  # noqa: F401
         GitCommitInfo,  # noqa: F401
         GitRefInfo,  # noqa: F401
         GitRefs,  # noqa: F401

@@ -5344,7 +5344,11 @@ class TestRepoTypePrefix:
             api_cls.return_value.duplicate_repo.return_value = type(
                 "RepoUrl",
                 (),
-                {"repo_id": "user/my-space-copy", "__str__": lambda s: "https://hf.co/user/my-space-copy"},
+                {
+                    "repo_id": "user/my-space-copy",
+                    "files_copy_pending": False,
+                    "__str__": lambda s: "https://hf.co/user/my-space-copy",
+                },
             )()
             result = runner.invoke(app, ["repos", "duplicate", "spaces/user/my-space"])
         assert result.exit_code == 0, result.output

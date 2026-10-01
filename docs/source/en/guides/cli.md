@@ -1368,7 +1368,7 @@ To view the diff of a pull request directly in your terminal, use `hf discussion
 
 ## hf repos
 
-`hf repos` lets you list, create, delete, move repositories, update their settings, and delete files on the Hugging Face Hub. It also includes subcommands to manage branches and tags.
+`hf repos` lets you list, create, duplicate, delete, move repositories, update their settings, and delete files on the Hugging Face Hub. It also includes subcommands to manage branches and tags.
 
 ### List repos
 
@@ -1433,6 +1433,17 @@ Create a repo in a specific region:
 ```bash
 >>> hf repos create my-model --region us
 ```
+
+### Duplicate a repo
+
+Use `hf repos duplicate` to copy an existing model, dataset, or Space to your account (or to an organization). The copy happens on the server and preserves the git history:
+
+```bash
+>>> hf repos duplicate openai/gdpval --type dataset
+>>> hf repos duplicate openai/gdpval myorg/my-gdpval --type dataset --private
+```
+
+The LFS/Xet files of the new repo may still be copied in the background after the command returns. In that case, a warning is printed and downloading these files from the new repo may fail until the copy is complete.
 
 ### Delete a repo
 

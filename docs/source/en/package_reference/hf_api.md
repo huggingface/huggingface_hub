@@ -81,6 +81,10 @@ models = hf_api.list_models()
 
 [[autodoc]] huggingface_hub.DryRunFileInfo
 
+### DuplicatedRepoUrl
+
+[[autodoc]] huggingface_hub.hf_api.DuplicatedRepoUrl
+
 ### GitRefInfo
 
 [[autodoc]] huggingface_hub.hf_api.GitRefInfo

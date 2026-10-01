@@ -312,6 +312,11 @@ def repo_duplicate(
         space_volumes=parse_volumes(volume),
     )
     out.result("Repo duplicated", from_id=from_id, to_id=repo_url.repo_id, url=str(repo_url))
+    if repo_url.files_copy_pending:
+        out.warning(
+            f"LFS/Xet files are still being copied in the background. Downloading them from '{repo_url.repo_id}'"
+            " may fail until the copy is complete."
+        )
 
 
 @repos_cli.command("delete", examples=["hf repos delete my-model"])

@@ -569,6 +569,18 @@ class RepoUrl(str):
         return f"RepoUrl('{self}', endpoint='{self.endpoint}', repo_type='{self.repo_type}', repo_id='{self.repo_id}')"
 
 
+class DuplicatedRepoUrl(RepoUrl):
+    """[`RepoUrl`] returned by [`duplicate_repo`].
+
+    Attributes:
+        files_copy_pending (`bool`):
+            `True` if the LFS/Xet files of the new repo are still being copied in the background. Until the copy is
+            complete, downloading these files may fail.
+    """
+
+    files_copy_pending: bool = False
+
+
 def _resolve_copy_target_path(
     src_file_path: str,
     src_root_path: str | None,
@@ -8614,11 +8626,15 @@ class HfApi:
         space_secrets: list[dict[str, str]] | None = None,
         space_variables: list[dict[str, str]] | None = None,
         space_volumes: list[Volume] | None = None,
-    ) -> RepoUrl:
+    ) -> DuplicatedRepoUrl:
         """Duplicate a repo on the Hub (model, dataset, or Space).
 
         This performs a server-side copy that preserves full git history and LFS objects
         without requiring a local download/upload round-trip.
+
+        The git history is copied right away, but the LFS/Xet files may still be copied in the background once this
+        method returns. In that case, `files_copy_pending` is `True` on the returned value and downloading these files
+        from the new repo may fail until the copy is complete.
 
         Args:
             from_id (`str`):
@@ -8673,8 +8689,8 @@ class HfApi:
                 Only applicable if repo_type is "space".
 
         Returns:
-            [`RepoUrl`]: URL to the newly created repo. Value is a subclass of `str` containing
-            attributes like `endpoint`, `repo_type` and `repo_id`.
+            [`DuplicatedRepoUrl`]: URL to the newly created repo. Value is a subclass of [`RepoUrl`] (and of `str`)
+            containing attributes like `endpoint`, `repo_type`, `repo_id` and `files_copy_pending`.
 
         Raises:
             [`~utils.RepositoryNotFoundError`]:
@@ -8688,8 +8704,11 @@ class HfApi:
         >>> from huggingface_hub import duplicate_repo
 
         # Duplicate a model to your account
-        >>> duplicate_repo("google/gemma-7b")
+        >>> repo_url = duplicate_repo("google/gemma-7b")
+        >>> repo_url
         RepoUrl('https://huggingface.co/nateraw/gemma-7b',...)
+        >>> repo_url.files_copy_pending
+        True
 
         # Duplicate a dataset with a custom name
         >>> duplicate_repo("openai/gdpval", to_id="myorg/my-gdpval", repo_type="dataset")
@@ -8779,7 +8798,10 @@ class HfApi:
             else:
                 raise
 
-        return RepoUrl(r.json()["url"], endpoint=self.endpoint)
+        data = r.json()
+        repo_url = DuplicatedRepoUrl(data["url"], endpoint=self.endpoint)
+        repo_url.files_copy_pending = data.get("filesCopyPending", False)
+        return repo_url
 
     @validate_hf_hub_args
     def set_space_volumes(
