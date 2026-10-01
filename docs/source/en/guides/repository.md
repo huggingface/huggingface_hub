@@ -155,6 +155,8 @@ RepoUrl('https://huggingface.co/spaces/nateraw/dreambooth-training',...)
 RepoUrl('https://huggingface.co/datasets/nateraw/gdpval',...)
 ```
 
+Like [`create_repo`], [`duplicate_repo`] accepts a `resource_group_id` to create the copy directly inside a resource group of your Enterprise organization (`--resource-group-id` with `hf repos duplicate`).
+
 The git history is copied right away, but the LFS/Xet files may still be copied in the background once [`duplicate_repo`] returns. Until the copy is complete, downloading these files from the new repo may fail. Check `files_copy_pending` on the returned value to know if the copy is still in progress:
 
 ```py

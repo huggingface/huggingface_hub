@@ -17,6 +17,7 @@ from ._cli_utils import (
     EnvFileOpt,
     EnvOpt,
     RevisionOpt,
+    SearchOpt,
     SecretsFileOpt,
     SecretsOpt,
     SoftChoice,
@@ -471,31 +472,63 @@ def deploy(
     out.hint(f"Use 'hf endpoints describe {name}' to check the deployment status.")
 
 
-@catalog_app.command(name="deploy", examples=["hf endpoints catalog deploy --repo meta-llama/Llama-3.2-1B-Instruct"])
+@catalog_app.command(
+    name="deploy",
+    examples=[
+        "hf endpoints catalog deploy --repo meta-llama/Llama-3.2-1B-Instruct",
+        "hf endpoints catalog deploy --recipe sizzling-biryani-g4xsi1ac",
+    ],
+)
 def deploy_from_catalog(
     repo: Annotated[
-        str,
+        str | None,
         Option(
-            help="The name of the model repository associated with the Inference Endpoint (e.g. 'openai/gpt-oss-120b').",
+            help="The name of the model repository associated with the Inference Endpoint (e.g. 'openai/gpt-oss-120b')."
+            " Deploys its default recipe. Mutually exclusive with --recipe.",
         ),
-    ],
+    ] = None,
+    recipe: Annotated[
+        str | None,
+        Option(
+            help="The id of the catalog recipe to deploy, as listed by 'hf endpoints catalog ls'."
+            " Mutually exclusive with --repo.",
+        ),
+    ] = None,
     name: NameOpt = None,
     accelerator: Annotated[
         str | None,
         Option(
-            help="The hardware accelerator to be used for inference (e.g. 'cpu', 'gpu', 'neuron').",
+            click_type=SoftChoice(["cpu", "gpu", "neuron"]),
+            help="The hardware accelerator to be used for inference. Only with --repo.",
+        ),
+    ] = None,
+    gguf_file: Annotated[
+        str | None,
+        Option(
+            help="The GGUF file to deploy, for models that have one recipe per quant. Only with --repo.",
         ),
     ] = None,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
-    """Deploy an Inference Endpoint from the Model Catalog."""
+    """Deploy an Inference Endpoint from the Model Catalog.
+
+    Catalog models are deployed through a recipe: a hardware and engine combination that has been tested for them.
+    Pass --repo to deploy the default recipe of a model, optionally narrowed down with --accelerator and
+    --gguf-file, or pass --recipe to deploy an exact recipe listed by `hf endpoints catalog ls`.
+    """
+    # `--repo` used to be required, so a bare `catalog deploy` used to fail in click. Keep the message flag-shaped.
+    if (repo is None) == (recipe is None):
+        raise CLIError("Provide exactly one of --repo or --recipe. List recipes with 'hf endpoints catalog ls'.")
+
     api = get_hf_api(token=token)
     try:
         endpoint = api.create_inference_endpoint_from_catalog(
             repo_id=repo,
+            recipe_id=recipe,
             name=name,
             accelerator=accelerator,
+            gguf_file=gguf_file,
             namespace=namespace,
             token=token,
         )
@@ -504,23 +537,77 @@ def deploy_from_catalog(
         raise click.exceptions.Exit(code=error.response.status_code) from error
 
     out.dict(endpoint.raw)
+    out.hint(f"Use 'hf endpoints describe {endpoint.name}' to check the deployment status.")
 
 
 def list_catalog(
+    accelerator: Annotated[
+        str | None,
+        Option(
+            click_type=SoftChoice(["cpu", "gpu", "neuron"]),
+            help="Only show recipes running on this accelerator.",
+        ),
+    ] = None,
+    engine: Annotated[
+        str | None,
+        Option(
+            click_type=SoftChoice(["llamacpp", "sglang", "tei", "vllm"]),
+            help="Only show recipes running this inference engine.",
+        ),
+    ] = None,
+    license: Annotated[
+        str | None,
+        Option(help="Only show models under this license (e.g. 'Apache 2.0')."),
+    ] = None,
+    task: Annotated[
+        str | None,
+        Option(help="Only show models for this task (e.g. 'text-generation')."),
+    ] = None,
+    search: SearchOpt = None,
+    limit: Annotated[int | None, Option(help="Limit the number of models to return.")] = None,
     token: TokenOpt = None,
 ) -> None:
-    """List available Catalog models."""
+    """List the models available in the Model Catalog.
+
+    One row per recipe, i.e. per tested way of deploying a model. Deploy one with
+    `hf endpoints catalog deploy --recipe <RECIPE_ID>`.
+    """
     api = get_hf_api(token=token)
     try:
-        models = api.list_inference_catalog(token=token)
+        models = api.list_inference_catalog(
+            accelerator=accelerator,
+            engine=engine,
+            license=license,
+            task=task,
+            search=search,
+            limit=limit,
+            token=token,
+        )
     except HfHubHTTPError as error:
         out.error(f"Catalog fetch failed: {error}")
         raise click.exceptions.Exit(code=error.response.status_code) from error
 
-    out.dict({"models": models})
+    items = [
+        {
+            "repo_id": model.repo_id,
+            "task": model.task,
+            "license": model.license,
+            "accelerator": recipe.accelerator,
+            "engine": recipe.engine,
+            "gguf_file": recipe.gguf_file,
+            "recipe_id": recipe.id,
+        }
+        for model in models
+        for recipe in model.recipes
+    ]
+    out.table(items, id_key="recipe_id")
+    if items:
+        out.hint(f"Deploy one with: hf endpoints catalog deploy --recipe {items[0]['recipe_id']}")
 
 
-catalog_app.command(name="list | ls", examples=["hf endpoints catalog ls"])(list_catalog)
+catalog_app.command(name="list | ls", examples=["hf endpoints catalog ls", "hf endpoints catalog ls --engine vllm"])(
+    list_catalog
+)
 ie_cli.command(name="list-catalog", hidden=True)(list_catalog)
 
 
