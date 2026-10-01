@@ -208,6 +208,8 @@ class TestStagingDownload:
         api.move_repo(repo_id_after, repo_id_before)
 
 
+# Downloads LFS files: plain HTTP instead of Xet without `hf_xet`.
+@pytest.mark.transfer
 @pytest.mark.production
 class TestCachedDownload:
     def test_file_not_found_locally_and_network_disabled(self):
@@ -671,6 +673,8 @@ class TestCachedDownload:
             )
 
 
+# Downloads LFS files: plain HTTP instead of Xet without `hf_xet`.
+@pytest.mark.transfer
 class TestHfHubDownloadToLocalDir:
     # `cache_dir` is a temporary directory
     # `local_dir` is a subdirectory in which files will be downloaded

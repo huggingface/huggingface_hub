@@ -43,23 +43,60 @@ def reset_oauth_refresh_state():
     yield
 
 
+SUITES = ("api", "transfer", "inference")
+_INVALID_MARKERS = pytest.StashKey[str]()
+
+
+@pytest.hookimpl(tryfirst=True)  # before `-m` deselection, so that it sees the markers added here
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    """Assign each test to exactly one CI suite, selectable with `pytest -m <suite>`.
+
+    - `transfer`: upload/download logic. CI runs it both with and without `hf_xet`.
+      `xet` and `no_xet` tests are transfer tests restricted to one mode: they get the `transfer` marker automatically.
+    - `inference`: InferenceClient, providers and types.
+    - `api`: everything else. Added automatically to tests without a suite marker.
+
+    Invalid combinations make the test fail (see `pytest_runtest_setup`).
+    """
+    for item in items:
+        markers = {marker.name for marker in item.iter_markers()}
+        if {"xet", "no_xet"} <= markers:
+            item.stash[_INVALID_MARKERS] = "A test cannot be marked with both `xet` and `no_xet`."
+        if markers & {"xet", "no_xet"} and "transfer" not in markers:
+            item.add_marker(pytest.mark.transfer)
+            markers.add("transfer")
+        match sorted(markers.intersection(SUITES)):
+            case []:
+                item.add_marker(pytest.mark.api)
+            case [_]:
+                pass
+            case suites:
+                item.stash[_INVALID_MARKERS] = (
+                    f"A test must belong to exactly one suite, got {', '.join(suites)}"
+                    " (`xet` and `no_xet` imply `transfer`)."
+                )
+
+
+def pytest_runtest_setup(item: pytest.Item) -> None:
+    # Fail the test itself rather than the collection: a collection error is unreadable with pytest-xdist.
+    if (error := item.stash.get(_INVALID_MARKERS, None)) is not None:
+        pytest.fail(error, pytrace=False)
+
+
 @pytest.fixture(autouse=True)
 def xet_mode(request: SubRequest, monkeypatch: pytest.MonkeyPatch) -> None:
     """Make Xet usage explicit and deterministic, locally and in CI.
 
-    Three modes:
     - `@pytest.mark.xet`: test requires `hf_xet` => skipped when it is not installed,
       Xet force-enabled otherwise.
     - `@pytest.mark.no_xet`: test must run without `hf_xet` (e.g. legacy LFS behavior)
       => skipped when it is installed.
-    - unmarked: test must work regardless of Xet => nothing is forced; the test runs
-      with whatever the environment provides. CI runs unmarked tests both with and
-      without `hf_xet` installed.
+    - unmarked: nothing is forced; the test runs with whatever the environment provides.
+
+    In CI, `transfer` tests run both with and without `hf_xet`, other tests only with `hf_xet` (the default install).
     """
     xet = request.node.get_closest_marker("xet") is not None
     no_xet = request.node.get_closest_marker("no_xet") is not None
-    if xet and no_xet:
-        pytest.fail("A test cannot be marked with both `xet` and `no_xet`.")
     if xet:
         if not is_package_available("hf_xet"):
             pytest.skip("Test requires `hf_xet` (marked with `pytest.mark.xet`)")
