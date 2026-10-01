@@ -56,7 +56,8 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.10", "3.14"]
-        test_name: ["no hf_xet", "Inference only", "with hf_xet"]
+        # Test suites are defined in tests/conftest.py (`pytest_collection_modifyitems`).
+        test_name: ["api", "transfer (hf_xet)", "transfer (no hf_xet)", "inference"]
         include:
           - python-version: "3.10" # test torch~=1.11 on python 3.10 only.
             test_name: "Python 3.10, torch_1.11"
@@ -85,7 +86,7 @@ jobs:
 
           case "${{ matrix.test_name }}" in
 
-            "Inference only")
+            inference)
               sudo apt update
               sudo apt install -y libsndfile1-dev
               ;;
@@ -106,13 +107,8 @@ jobs:
 
           esac
 
-          # Xet policy (see `xet_mode` fixture in tests/conftest.py):
-          # - "with hf_xet" job: hf_xet installed (comes with `huggingface_hub[testing]`). Runs `-m 'not no_xet'` => all tests except `no_xet` ones.
-          # - "no hf_xet" job: hf_xet uninstalled. Runs `-m '(both_xet_modes or no_xet) and not xet'` => only tests covering code that behaves
-          #   differently without Xet (upload, download, file streaming). Other tests (repos, discussions, settings, CLI, etc.) don't depend
-          #   on Xet: running them twice would only add load on the staging Hub.
-          # - all other jobs: hf_xet uninstalled.
-          if [[ "${{ matrix.test_name }}" != "with hf_xet" ]]; then
+          # hf_xet comes with `huggingface_hub[testing]`. Only the "transfer (no hf_xet)" job runs without it.
+          if [[ "${{ matrix.test_name }}" == "transfer (no hf_xet)" ]]; then
             uv pip uninstall hf_xet
           fi
 
@@ -125,17 +121,16 @@ jobs:
 
           case "${{ matrix.test_name }}" in
 
-            "Inference only")
-              # Run inference tests concurrently
-              PYTEST="$PYTEST ../tests -m 'inference' -n 4"
-              echo $PYTEST
-              eval $PYTEST
+            api | inference)
+              eval "$PYTEST ../tests -m ${{ matrix.test_name }} -n 4"
             ;;
 
-            "no hf_xet")
-              PYTEST="$PYTEST ../tests -m '(both_xet_modes or no_xet) and not xet' -n 4"
-              echo $PYTEST
-              eval $PYTEST
+            "transfer (hf_xet)")
+              eval "$PYTEST ../tests -m transfer -n 4"
+            ;;
+
+            "transfer (no hf_xet)")
+              eval "$PYTEST ../tests -m 'transfer and not xet' -n 4"
             ;;
 
             gradio)
@@ -145,14 +140,6 @@ jobs:
             "Python 3.10, torch_1.11" | torch_latest)
             eval "$PYTEST ../tests/test_hub_mixin*"
             eval "$PYTEST ../tests/test_serialization.py"
-            ;;
-
-            "with hf_xet")
-              # All tests except `no_xet` ones, with hf_xet installed.
-              # Inference tests are excluded: they have their own job and don't depend on Xet.
-              PYTEST="$PYTEST ../tests -m 'not no_xet and not inference' -n 4"
-              echo $PYTEST
-              eval $PYTEST
             ;;
 
           esac
@@ -179,7 +166,7 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.10", "3.14"]
-        test_name: ["no hf_xet", "with hf_xet"]
+        test_name: ["api", "transfer (hf_xet)", "transfer (no hf_xet)", "inference"]
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -200,12 +187,8 @@ jobs:
         run: |
           uv pip install "huggingface_hub[testing] @ ."
 
-          # Xet policy (see `xet_mode` fixture in tests/conftest.py):
-          # - "with hf_xet" job: hf_xet installed (comes with `huggingface_hub[testing]`). Runs `-m 'not no_xet'` => all tests except `no_xet` ones.
-          # - "no hf_xet" job: hf_xet uninstalled. Runs `-m '(both_xet_modes or no_xet) and not xet'` => only tests covering code that behaves
-          #   differently without Xet (upload, download, file streaming). Other tests (repos, discussions, settings, CLI, etc.) don't depend
-          #   on Xet: running them twice would only add load on the staging Hub.
-          if ("${{ matrix.test_name }}" -ne "with hf_xet") {
+          # hf_xet comes with `huggingface_hub[testing]`. Only the "transfer (no hf_xet)" job runs without it.
+          if ("${{ matrix.test_name }}" -eq "transfer (no hf_xet)") {
             uv pip uninstall hf_xet
           }
 
@@ -227,13 +210,10 @@ jobs:
           )
 
           switch ("${{ matrix.test_name }}") {
-            "with hf_xet" {
-              # All tests except `no_xet` ones (Inference tests included: Windows has no dedicated Inference job).
-              python $PYTEST_ARGS -m "not no_xet"
-            }
-            "no hf_xet" {
-              python $PYTEST_ARGS -m "(both_xet_modes or no_xet) and not xet"
-            }
+            "api" { python $PYTEST_ARGS -m "api" }
+            "transfer (hf_xet)" { python $PYTEST_ARGS -m "transfer" }
+            "transfer (no hf_xet)" { python $PYTEST_ARGS -m "transfer and not xet" }
+            "inference" { python $PYTEST_ARGS -m "inference" }
           }
 
       # Upload code coverage

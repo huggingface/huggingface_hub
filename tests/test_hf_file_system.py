@@ -514,7 +514,7 @@ class _HfFileSystemBucketChecks:
 
 
 # File streaming uses plain HTTP instead of Xet without `hf_xet`.
-@pytest.mark.both_xet_modes
+@pytest.mark.transfer
 class TestHfFileSystemRepositoryRO(_HfFileSystemRepositoryChecks, _HfFileSystemBaseROTests):
     __test__ = True
 
@@ -646,7 +646,7 @@ class TestHfFileSystemRepositoryRO(_HfFileSystemRepositoryChecks, _HfFileSystemB
 
 
 # Writes go through the LFS upload protocol without `hf_xet`.
-@pytest.mark.both_xet_modes
+@pytest.mark.transfer
 class TestHfFileSystemRepositoryRW(_HfFileSystemRepositoryChecks, _HfFileSystemBaseRWTests):
     __test__ = True
 

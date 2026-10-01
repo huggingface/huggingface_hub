@@ -225,37 +225,24 @@ $ pytest tests/test_repository.py        # run a specific test file
 $ pytest tests -k tag                    # run tests matching a name
 ```
 
-#### Xet vs non-Xet tests
+#### Test suites
 
-Whether a test depends on Xet is declared explicitly with markers, enforced by the
-`xet_mode` fixture in `tests/conftest.py`:
+Each test belongs to exactly one suite. CI runs each suite in its own job, on Ubuntu and Windows, with Python 3.10 and 3.14. Suites are declared with markers and enforced in `tests/conftest.py`:
 
-- `@pytest.mark.xet` — the test **requires** `hf_xet` (e.g. Buckets, Xet upload/download).
-  It is skipped when `hf_xet` is not installed and runs with Xet force-enabled otherwise.
-  Mark a whole module with `pytestmark = pytest.mark.xet`.
-- `@pytest.mark.no_xet` — the test **must run without** `hf_xet` (e.g. legacy LFS
-  behavior). It is skipped when `hf_xet` is installed.
-- `@pytest.mark.both_xet_modes` — the test covers code that **behaves differently without** `hf_xet`: LFS upload, HTTP download, file streaming, `upload_folder` without the Xet pipeline, etc. It runs twice in CI: once with `hf_xet` installed ("with hf_xet" job) and once without ("no hf_xet" job). Use it for tests that target the transfer logic itself, not for tests that merely upload or download a file as part of their setup.
-- unmarked — everything else (repo, discussion, collection, settings APIs, CLI output, etc.). Nothing is forced: it runs with whatever your environment provides. In CI, unmarked tests run only with `hf_xet` installed, which is the default install on all major platforms.
+- `api` (default) — everything that doesn't transfer files: repo, discussion, collection and settings APIs, CLI output, utils, etc. Tests without a suite marker get it automatically, so there is nothing to add.
+- `@pytest.mark.transfer` — the test covers upload or download logic, which **behaves differently without** `hf_xet`: LFS upload, HTTP download, file streaming, `upload_folder` without the Xet pipeline, etc. CI runs it twice: once with `hf_xet` installed and once without. Use it for tests that target the transfer logic itself, not for tests that merely upload or download a file as part of their setup.
+- `@pytest.mark.inference` — `InferenceClient`, providers and types. Mark a whole module with `pytestmark = pytest.mark.inference` (this is how the `test_inference_*.py` files are tagged).
 
-```bash
-$ pytest tests -m xet                                        # only Xet-required tests (needs hf_xet)
-$ pytest tests -m no_xet                                     # only legacy tests (skipped if hf_xet installed)
-$ pytest tests -m "not no_xet"                               # what CI runs with hf_xet installed
-$ pytest tests -m "(both_xet_modes or no_xet) and not xet"   # what CI runs without hf_xet installed
-```
+Two markers restrict a `transfer` test to one Xet mode. They imply `transfer`, so there is no need to add both:
 
-#### Inference tests
+- `@pytest.mark.xet` — the test **requires** `hf_xet` (e.g. Buckets, Xet upload/download). It is skipped when `hf_xet` is not installed and runs with Xet force-enabled otherwise. Mark a whole module with `pytestmark = pytest.mark.xet`.
+- `@pytest.mark.no_xet` — the test **must run without** `hf_xet` (e.g. legacy LFS behavior). It is skipped when `hf_xet` is installed.
 
-Inference tests (client, providers, types, endpoints) are declared with the `inference`
-marker and run in their own CI job, separate from the Xet jobs above:
-
-- `@pytest.mark.inference` — the test belongs to the Inference suite. Mark a whole module
-  with `pytestmark = pytest.mark.inference` (this is how the `test_inference_*.py` files
-  are tagged).
-- unmarked — everything else.
+A test that ends up in several suites (e.g. `inference` + `xet`), or that is marked both `xet` and `no_xet`, fails with an explicit error.
 
 ```bash
-$ pytest tests -m inference              # only inference tests (the dedicated CI job)
-$ pytest tests -m "not inference"        # everything except inference tests
+$ pytest tests -m api                       # "api" CI job
+$ pytest tests -m transfer                  # "transfer (hf_xet)" CI job
+$ pytest tests -m "transfer and not xet"    # "transfer (no hf_xet)" CI job (uninstall hf_xet first)
+$ pytest tests -m inference                 # "inference" CI job
 ```
