@@ -10,7 +10,7 @@ import click
 PACKAGE_REFERENCE_PATH = Path(__file__).parents[1] / "docs" / "source" / "en" / "package_reference" / "cli.md"
 
 # Hidden (deprecated) commands that should not appear in the generated reference.
-HIDDEN_COMMANDS = ["spaces zero-gpu-quota"]
+HIDDEN_COMMANDS = ["repo-files"]
 
 WARNING_HEADER = """<!--
 # WARNING
@@ -215,15 +215,13 @@ def _strip_hidden_commands(content: str, hidden_commands: list[str]) -> str:
     published reference.
     """
     for cmd in hidden_commands:
-        # Remove bullet entry from the parent's command list: `* `zero-gpu-quota`: ...`
-        leaf = cmd.split()[-1]
-        content = re.sub(rf"^\* `{re.escape(leaf)}`:.*\n", "", content, flags=re.MULTILINE)
+        # Remove bullet entry from top-level command list: `* `repo-files`: ...`
+        content = re.sub(rf"^\* `{re.escape(cmd)}`:.*\n", "", content, flags=re.MULTILINE)
 
-        # Remove the full section (e.g. ### `hf spaces <cmd>`) and any sub-sections
-        # up to the next section at the same or higher level.
-        level = cmd.count(" ") + 2
+        # Remove the full section (## `hf <cmd>`) and any sub-sections (### `hf <cmd> ...`)
+        # up to the next section at the same or higher level (##).
         content = re.sub(
-            rf"^{'#' * level} `hf {re.escape(cmd)}`\n(?:(?!^#{{1,{level}}} ).*\n)*",
+            rf"^## `hf {re.escape(cmd)}`\n(?:(?!^## ).*\n)*",
             "",
             content,
             flags=re.MULTILINE,

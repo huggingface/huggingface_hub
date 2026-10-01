@@ -547,10 +547,6 @@ def spaces_zero_gpu_quota(token: TokenOpt = None) -> None:
         )
 
 
-# Kept as a hidden alias of `hf spaces zero-gpu quota` (released in v2.1.0)
-spaces_cli.command(name="zero-gpu-quota", hidden=True)(spaces_zero_gpu_quota)
-
-
 @spaces_cli.command(
     "settings",
     examples=[
