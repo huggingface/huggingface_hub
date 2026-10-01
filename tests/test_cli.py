@@ -833,6 +833,22 @@ class TestResolveUploadPaths:
                 include=None,
             )
 
+    def test_upload_existing_path_with_glob_characters(self) -> None:
+        with tmp_current_directory() as cache_dir:
+            (Path(cache_dir) / "model [v2].safetensors").write_text("content")
+            local_path, path_in_repo, include = _resolve_upload_paths(
+                repo_id="my-repo", local_path="model [v2].safetensors", path_in_repo=None, include=None
+            )
+            assert (local_path, path_in_repo, include) == ("model [v2].safetensors", "model [v2].safetensors", None)
+
+            local_path, path_in_repo, include = _resolve_upload_paths(
+                repo_id="my-repo",
+                local_path="model [v2].safetensors",
+                path_in_repo="weights.safetensors",
+                include=None,
+            )
+            assert (local_path, path_in_repo, include) == ("model [v2].safetensors", "weights.safetensors", None)
+
     def test_upload_implicit_local_path_when_folder_exists(self) -> None:
         with tmp_current_directory() as cache_dir:
             folder_path = Path(cache_dir) / "my-cool-model"
