@@ -89,9 +89,11 @@ spaces_cli = typer_factory(help="Interact with spaces on the Hub.")
 volumes_cli = typer_factory(help="Manage volumes for a Space on the Hub.")
 secrets_cli = typer_factory(help="Manage secrets for a Space on the Hub.")
 variables_cli = typer_factory(help="Manage environment variables for a Space on the Hub.")
+zero_gpu_cli = typer_factory(help="Manage your ZeroGPU usage on the Hub.")
 spaces_cli.add_group(volumes_cli, name="volumes")
 spaces_cli.add_group(secrets_cli, name="secrets")
 spaces_cli.add_group(variables_cli, name="variables")
+spaces_cli.add_group(zero_gpu_cli, name="zero-gpu")
 
 
 @spaces_cli.command(
@@ -516,11 +518,11 @@ def spaces_hardware(token: TokenOpt = None) -> None:
     out.hint("Use `hf spaces settings <space_id> --hardware <name>` to request hardware for a Space.")
 
 
-@spaces_cli.command(
-    "zero-gpu-quota",
+@zero_gpu_cli.command(
+    "quota",
     examples=[
-        "hf spaces zero-gpu-quota",
-        "hf spaces zero-gpu-quota --format json",
+        "hf spaces zero-gpu quota",
+        "hf spaces zero-gpu quota --format json",
     ],
 )
 def spaces_zero_gpu_quota(token: TokenOpt = None) -> None:
@@ -543,6 +545,10 @@ def spaces_zero_gpu_quota(token: TokenOpt = None) -> None:
             f"Your ZeroGPU quota is {status}. PRO, Team and Enterprise users can purchase credits to keep using"
             " ZeroGPU beyond the daily quota: https://huggingface.co/settings/billing?add-credits=true"
         )
+
+
+# Kept as a hidden alias of `hf spaces zero-gpu quota` (released in v2.1.0)
+spaces_cli.command(name="zero-gpu-quota", hidden=True)(spaces_zero_gpu_quota)
 
 
 @spaces_cli.command(

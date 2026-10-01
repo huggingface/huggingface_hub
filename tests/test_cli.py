@@ -18,7 +18,7 @@ from click.testing import CliRunner, Result
 from huggingface_hub import HfApi, InferenceCatalogModel, InferenceEndpointHardware, constants
 from huggingface_hub._dataset_viewer import DatasetParquetEntry
 from huggingface_hub._jobs_api import JobInfo, JobOwner, _create_job_spec, _derive_job_volume_name
-from huggingface_hub._space_api import Volume
+from huggingface_hub._space_api import Volume, ZeroGpuQuota
 from huggingface_hub.cli import _skills, extensions, system
 from huggingface_hub.cli._cli_utils import RepoType, _get_huggingface_hub_update_command, parse_volumes
 from huggingface_hub.cli._output import OutputFormat, out
@@ -2590,6 +2590,17 @@ class TestSpacesHardwareCommand:
         assert cpu_basic["accelerator"] is None
         assert cpu_basic["cost/min"] == "free"
         assert cpu_basic["cost/hour"] == "free"
+
+
+class TestSpacesZeroGpuQuotaCommand:
+    @pytest.mark.parametrize("command", [["spaces", "zero-gpu", "quota"], ["spaces", "zero-gpu-quota"]])
+    def test_quota(self, runner: CliRunner, command: list[str]) -> None:
+        quota = ZeroGpuQuota({"base": 2400, "current": 1810, "overquotaUsed": 0})
+        with patch("huggingface_hub.cli.spaces.get_hf_api") as api_cls:
+            api_cls.return_value.get_zero_gpu_quota.return_value = quota
+            result = runner.invoke(app, [*command, "--format", "json"])
+        assert result.exit_code == 0
+        assert json.loads(result.stdout) == {"remaining": 1810, "base": 2400, "resets_at": None, "overquota_used": 0}
 
 
 class TestInferenceEndpointsCommands:
