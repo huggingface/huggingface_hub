@@ -3136,6 +3136,7 @@ class TestListAndPermanentlyDeleteLFSFiles:
         )
 
         # List LFS files
+        time.sleep(1)  # hub-ci: give the server time to propagate the write before reading it back
         lfs_files = [file for file in api.list_lfs_files(repo_id=repo_id)]
         assert len(lfs_files) == 3
         assert {file.filename for file in lfs_files} == {
@@ -3150,6 +3151,7 @@ class TestListAndPermanentlyDeleteLFSFiles:
 
         # Permanently delete LFS files
         api.permanently_delete_lfs_files(repo_id=repo_id, lfs_files=lfs_files_on_main)
+        time.sleep(1)  # hub-ci: give the server time to propagate the write before reading it back
 
         # LFS file from the branch remains
         lfs_files = [file for file in api.list_lfs_files(repo_id=repo_id)]
@@ -4053,6 +4055,7 @@ class TestAccessRequestAPI:
 
         # Grant access to a user
         api.grant_access(self.repo_id, OTHER_USER)
+        time.sleep(1)  # hub-ci: give the server time to propagate the write before reading it back
 
         # User is in accepted list
         requests = list(api.list_accepted_access_requests(self.repo_id))
@@ -4066,6 +4069,7 @@ class TestAccessRequestAPI:
 
         # Cancel access
         api.cancel_access_request(self.repo_id, OTHER_USER)
+        time.sleep(1)  # hub-ci: give the server time to propagate the write before reading it back
         requests = list(api.list_accepted_access_requests(self.repo_id))
         assert len(requests) == 0  # not accepted anymore
         requests = list(api.list_pending_access_requests(self.repo_id))
@@ -4074,6 +4078,7 @@ class TestAccessRequestAPI:
 
         # Reject access
         api.reject_access_request(self.repo_id, OTHER_USER, rejection_reason="This is a rejection reason")
+        time.sleep(1)  # hub-ci: give the server time to propagate the write before reading it back
         requests = list(api.list_pending_access_requests(self.repo_id))
         assert len(requests) == 0  # not pending anymore
         requests = list(api.list_rejected_access_requests(self.repo_id))
@@ -4082,6 +4087,7 @@ class TestAccessRequestAPI:
 
         # Accept again
         api.accept_access_request(self.repo_id, OTHER_USER)
+        time.sleep(1)  # hub-ci: give the server time to propagate the write before reading it back
         requests = list(api.list_accepted_access_requests(self.repo_id))
         assert len(requests) == 1
         assert requests[0].username == OTHER_USER
