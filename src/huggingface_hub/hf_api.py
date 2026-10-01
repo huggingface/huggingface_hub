@@ -934,9 +934,10 @@ class ModelInfo:
         self.used_storage = kwargs.pop("usedStorage", None)
 
         card_data = kwargs.pop("cardData", None) or kwargs.pop("card_data", None)
-        self.card_data = (
-            ModelCardData(**card_data, ignore_metadata_errors=True) if isinstance(card_data, dict) else card_data
-        )
+        if isinstance(card_data, dict):
+            card_data.pop("ignore_metadata_errors", None)  # reserved kwarg, cannot be a metadata key
+            card_data = ModelCardData(**card_data, ignore_metadata_errors=True)
+        self.card_data = card_data
 
         self.widget_data = kwargs.pop("widgetData", None)
         self.model_index = kwargs.pop("model-index", None) or kwargs.pop("model_index", None)
@@ -1088,9 +1089,10 @@ class DatasetInfo:
         self.used_storage = kwargs.pop("usedStorage", None)
 
         card_data = kwargs.pop("cardData", None) or kwargs.pop("card_data", None)
-        self.card_data = (
-            DatasetCardData(**card_data, ignore_metadata_errors=True) if isinstance(card_data, dict) else card_data
-        )
+        if isinstance(card_data, dict):
+            card_data.pop("ignore_metadata_errors", None)  # reserved kwarg, cannot be a metadata key
+            card_data = DatasetCardData(**card_data, ignore_metadata_errors=True)
+        self.card_data = card_data
         siblings = kwargs.pop("siblings", None)
         self.siblings = (
             [
@@ -1223,9 +1225,10 @@ class SpaceInfo:
         self.trending_score = kwargs.pop("trendingScore", None)
         self.used_storage = kwargs.pop("usedStorage", None)
         card_data = kwargs.pop("cardData", None) or kwargs.pop("card_data", None)
-        self.card_data = (
-            SpaceCardData(**card_data, ignore_metadata_errors=True) if isinstance(card_data, dict) else card_data
-        )
+        if isinstance(card_data, dict):
+            card_data.pop("ignore_metadata_errors", None)  # reserved kwarg, cannot be a metadata key
+            card_data = SpaceCardData(**card_data, ignore_metadata_errors=True)
+        self.card_data = card_data
         siblings = kwargs.pop("siblings", None)
         self.siblings = (
             [

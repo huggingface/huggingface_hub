@@ -1975,6 +1975,12 @@ class TestHfApiPublicProduction:
             assert model.card_data.eval_results is None
         assert any("Invalid model-index" in record.message for record in caplog.records)
 
+    @pytest.mark.parametrize("info_cls", [ModelInfo, DatasetInfo, SpaceInfo])
+    def test_info_card_data_with_ignore_metadata_errors_key(self, info_cls) -> None:
+        """A metadata key named 'ignore_metadata_errors' must not break parsing (reserved kwarg of CardData)."""
+        info = info_cls(id="user/repo", cardData={"ignore_metadata_errors": False, "tag": "this is a test"})
+        assert info.card_data.to_dict() == {"tag": "this is a test"}
+
     def test_model_info_with_widget_data(self, api: HfApi):
         info = api.model_info("HuggingFaceH4/zephyr-7b-beta")
         assert info.widget_data is not None

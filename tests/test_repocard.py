@@ -745,6 +745,11 @@ class TestRegexYamlBlock:
         assert card.data.to_dict() == {"language": "en"}
         assert "Some body" in card.text
 
+    def test_ignore_metadata_errors_key_in_metadata(self):
+        # 'ignore_metadata_errors' is a reserved kwarg of CardData => key is dropped instead of raising a TypeError
+        card = RepoCard("---\nignore_metadata_errors: false\nlanguage: en\n---\nSome body\n")
+        assert card.data.to_dict() == {"language": "en"}
+
     def test_crlf_empty_frontmatter_retains_trailing_content(self):
         # An empty-frontmatter card must not silently drop the trailing content, and the
         # CRLF form must behave like the LF form: no metadata, text retained.

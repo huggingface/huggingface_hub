@@ -106,6 +106,10 @@ class RepoCard:
             data_dict = {}
             self.text = content
 
+        if "ignore_metadata_errors" in data_dict:
+            # Reserved kwarg of `CardData`, cannot be passed as a metadata key
+            logger.warning("Ignoring 'ignore_metadata_errors' key found in repo card metadata.")
+            data_dict = {k: v for k, v in data_dict.items() if k != "ignore_metadata_errors"}
         self.data = self.card_data_class(**data_dict, ignore_metadata_errors=self.ignore_metadata_errors)
         self._original_order = list(data_dict.keys())
 
