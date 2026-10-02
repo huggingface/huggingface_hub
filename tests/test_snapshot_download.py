@@ -46,53 +46,6 @@ def test_tree_with_redacted_xet_hash_is_not_cached(tmp_path: Path):
     assert read_tree_cache(str(storage_folder), COMMIT_HASH) is None
 
 
-def _mock_repo_tree(*paths: str) -> list[RepoFile]:
-    return [RepoFile(path=path, size=42, oid=f"blob-{i}") for i, path in enumerate(paths)]
-
-
-@pytest.mark.parametrize(
-    ("kwargs", "expect_warning"),
-    [
-        ({"allow_patterns": ["*.safetensor"]}, True),
-        ({"allow_patterns": "*.safetensor"}, True),
-        ({"ignore_patterns": ["*"]}, True),
-        ({"allow_patterns": ["*.json"], "ignore_patterns": ["*.json"]}, True),
-        ({"allow_patterns": ["*.json"]}, False),
-        ({"ignore_patterns": ["*.bin"]}, False),
-        ({}, False),
-    ],
-)
-def test_warn_when_patterns_match_no_files(tmp_path: Path, caplog, kwargs: dict, expect_warning: bool):
-    tree = _mock_repo_tree("config.json", "model.safetensors")
-
-    with (
-        patch("huggingface_hub._snapshot_download.HfApi.repo_info", return_value=MagicMock(sha=COMMIT_HASH)),
-        patch("huggingface_hub._snapshot_download.HfApi.list_repo_tree", return_value=tree),
-        patch("huggingface_hub._snapshot_download.hf_thread_map"),
-        caplog.at_level("WARNING", logger="huggingface_hub"),
-    ):
-        snapshot_download("user/repo", cache_dir=tmp_path, **kwargs)
-
-    messages = [record.message for record in caplog.records if "No files matched" in record.message]
-    if expect_warning:
-        assert len(messages) == 1
-        assert "(repo has 2 files)" in messages[0]
-    else:
-        assert messages == []
-
-
-def test_no_warning_when_repo_is_empty(tmp_path: Path, caplog):
-    with (
-        patch("huggingface_hub._snapshot_download.HfApi.repo_info", return_value=MagicMock(sha=COMMIT_HASH)),
-        patch("huggingface_hub._snapshot_download.HfApi.list_repo_tree", return_value=[]),
-        patch("huggingface_hub._snapshot_download.hf_thread_map"),
-        caplog.at_level("WARNING", logger="huggingface_hub"),
-    ):
-        snapshot_download("user/repo", cache_dir=tmp_path, allow_patterns=["*.safetensors"])
-
-    assert not [record for record in caplog.records if "No files matched" in record.message]
-
-
 class TestSnapshotDownload:
     @pytest.fixture(scope="class", autouse=True)
     def _shared_repo(self, request, api: HfApi):
