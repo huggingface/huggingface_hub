@@ -148,12 +148,12 @@ class CommitScheduler:
         self.every = every
         self.squash_history = squash_history
 
+        self.last_future: Future[CommitInfo | None] | None = None
+        self.__stopped = False
         logger.info(f"Scheduled job to push '{self.folder_path}' to '{self.repo_id}' every {self.every} minutes.")
         self._scheduler_thread = Thread(target=self._run_scheduler, daemon=True)
         self._scheduler_thread.start()
         atexit.register(self._push_to_hub)
-
-        self.__stopped = False
 
     def stop(self) -> None:
         """Stop the scheduler.
@@ -179,11 +179,15 @@ class CommitScheduler:
             if self.__stopped:
                 break
 
-    def trigger(self) -> Future:
+    def trigger(self) -> Future[CommitInfo | None]:
         """Trigger a `push_to_hub` and return a future.
 
         This method is automatically called every `every` minutes. You can also call it manually to trigger a commit
-        immediately, without waiting for the next scheduled commit.
+        immediately, without waiting for the next scheduled commit. Call `Future.result()` to wait for the push to
+        complete; it returns the commit info or raises the push error.
+
+        The future for the most recent scheduled push is also available as `last_future`. It is `None` until the
+        scheduler has triggered its first push.
         """
         return self.api.run_as_future(self._push_to_hub)
 

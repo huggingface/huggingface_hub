@@ -44,6 +44,30 @@ class TestCommitScheduler:
         # Can get the last upload result
         assert self.scheduler.last_future.result() == push_to_hub_mock.return_value
 
+    def test_failed_scheduled_push_can_be_inspected(self, mocker, tmp_path: Path) -> None:
+        mocker.patch.object(self.api, "create_repo", return_value=mocker.Mock(repo_id=self.repo_name))
+        mocker.patch.object(self.api, "delete_repo")
+        mocker.patch(
+            "huggingface_hub._commit_scheduler.CommitScheduler.push_to_hub",
+            side_effect=RuntimeError("Upload failed"),
+        )
+        self.scheduler = CommitScheduler(
+            folder_path=tmp_path,
+            repo_id=self.repo_name,
+            every=1 / 60 / 10,  # every 0.1s
+            hf_api=self.api,
+        )
+
+        # The most recent scheduled Future keeps the exception for callers to inspect.
+        deadline = time.monotonic() + 1
+        while self.scheduler.last_future is None and time.monotonic() < deadline:
+            time.sleep(0.01)
+
+        future = self.scheduler.last_future
+        assert future is not None
+        with pytest.raises(RuntimeError, match="Upload failed"):
+            future.result()
+
     def test_invalid_folder_path_is_a_file(self, tmp_path: Path) -> None:
         """Test cannot scheduler upload of a single file."""
         file_path = tmp_path / "file.txt"

@@ -322,9 +322,21 @@ For more details about the [`CommitScheduler`], here is what you need to know:
     recommended to set a minimal value of 5 minutes. Besides, the scheduler is designed to avoid empty commits. If no
     new content is detected in the folder, the scheduled commit is dropped.
 - **errors:**
-    The scheduler run as background thread. It is started when you instantiate the class and never stops. In particular,
-    if an error occurs during the upload (example: connection issue), the scheduler will silently ignore it and retry
-    at the next scheduled commit.
+    The scheduler runs in a background thread. If an upload fails, the scheduler logs the error and retries at the next
+    scheduled commit. The exception is also stored in the future for the latest scheduled push. Call `result()` on that
+    future to wait for the push and raise its exception in your code:
+
+    ```py
+    future = scheduler.last_future
+    if future is not None:
+        try:
+            future.result()
+        except Exception as error:
+            print(f"Scheduled upload failed: {error}")
+    ```
+
+    `last_future` is `None` until the scheduler triggers its first push. Calling `result()` blocks until that push
+    completes.
 - **thread-safety:**
     In most cases it is safe to assume that you can write to a file without having to worry about a lock file. The
     scheduler will not crash or be corrupted if you write content to the folder while it's uploading. In practice,
