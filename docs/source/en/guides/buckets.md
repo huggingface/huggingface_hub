@@ -795,3 +795,18 @@ For lower-level use cases, the following methods are also available:
 >>> metadata.size
 42000
 ```
+
+- [`edit_bucket_file`]: Edit an existing file in-place, only re-uploading the parts that are actually rewritten (thanks to Xet). Edits, inserts and deletes are applied in a single commit. See also [`HfFileSystemEditFile`] for a file-like API.
+
+```py
+>>> from huggingface_hub import edit_bucket_file
+>>> edit_bucket_file(
+...     bucket_id="username/my-bucket",
+...     remote_path="data.csv",
+...     edits=[
+...         (0, 16, b"updated header"),  # edit the first 16 bytes
+...         (32, 32, b"inserted data"),  # insert data at location 32
+...         (64, 80, b""),  # delete the bytes from 64 to 80
+...     ],
+... )
+```

@@ -1,15 +1,19 @@
+import io
 import os
 import tempfile
 import threading
+import time
 from collections import deque
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable, Iterator, Sequence
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import ExitStack
 from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime
+from functools import partial
 from itertools import chain
 from pathlib import Path, PurePosixPath
-from typing import Any, NoReturn, Union
+from typing import Any, Literal, NoReturn, Union, overload
 from urllib.parse import quote, unquote
 
 import fsspec
@@ -389,6 +393,88 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
                 else:
                     self._bucket_exists_cache.pop(resolved_path.bucket_id, None)
 
+    @overload
+    def open(
+        self,
+        path,
+        mode: Literal["ab", "eb"],
+        block_size=None,
+        cache_options=None,
+        compression=None,
+        **kwargs,
+    ) -> "HfFileSystemEditFile": ...
+
+    @overload
+    def open(
+        self,
+        path,
+        mode: Literal["r", "rt", "w", "wb"],
+        block_size=None,
+        cache_options=None,
+        compression=None,
+        **kwargs,
+    ) -> io.TextIOWrapper: ...
+
+    @overload
+    def open(
+        self,
+        path,
+        mode: str,
+        block_size=None,
+        cache_options=None,
+        compression=None,
+        **kwargs,
+    ) -> fsspec.spec.AbstractBufferedFile: ...
+
+    def open(  # ty: ignore[invalid-method-override]
+        self,
+        path,
+        mode="rb",
+        block_size=None,
+        cache_options=None,
+        compression=None,
+        **kwargs,
+    ) -> Union[fsspec.spec.AbstractBufferedFile, "HfFileSystemEditFile", io.TextIOWrapper]:
+        """
+        Return a file-like object from the filesystem
+
+        The resultant instance must function correctly in a context ``with``
+        block.
+
+        Args:
+            path (`str`):
+                Target file
+            mode: str like 'rb', 'w', 'ab', 'eb'
+                See builtin ``open()``.
+                Two extra binary modes are available for Storage Buckets (hf://buckets/...):
+                'ab' (append bytes) and 'eb' (edit bytes in-place). They offer `append()`,
+                `edit()`, `insert()`, `delete()` and `truncate()` methods (see
+                [`HfFileSystemEditFile`]) and are available thanks to Xet which stores
+                files by chunks. Text modes ('a', 'e', ...) are not supported.
+            block_size (`int`):
+                Some indication of buffering - this is a value in bytes
+            cache_options : dict, optional
+                Extra arguments to pass through to the cache.
+            compression: string or None
+                If given, open file using compression codec. Can either be a compression
+                name (a key in ``fsspec.compression.compr``) or "infer" to guess the
+                compression from the filename suffix.
+            encoding, errors, newline: passed on to TextIOWrapper for text mode
+        """
+        if "a" in mode or "e" in mode:
+            if "b" not in mode:
+                raise NotImplementedError(f"Mode '{mode}' is not supported. Only binary modes 'ab' and 'eb' are.")
+            if compression is not None:
+                raise NotImplementedError(f"Mode '{mode}' with compression is not implemented")
+        return super().open(
+            path,
+            mode=mode,
+            block_size=block_size,
+            cache_options=cache_options,
+            compression=compression,
+            **kwargs,
+        )
+
     def _open(  # type: ignore
         self,
         path: str,
@@ -396,12 +482,12 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         block_size: int | None = None,
         revision: str | None = None,
         **kwargs,
-    ) -> Union["HfFileSystemFile", "HfFileSystemStreamFile"]:
+    ) -> Union["HfFileSystemFile", "HfFileSystemStreamFile", "HfFileSystemEditFile"]:
         block_size = block_size if block_size is not None else self.block_size
         if block_size is not None:
             kwargs["block_size"] = block_size
-        if "a" in mode:
-            raise NotImplementedError("Appending to remote files is not yet supported.")
+        if "a" in mode or "e" in mode:
+            return HfFileSystemEditFile(self, path, mode=mode, **kwargs)
         if block_size == 0:
             return HfFileSystemStreamFile(self, path, mode=mode, revision=revision, **kwargs)
         else:
@@ -818,7 +904,36 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         if isinstance(resolved_path1, HfFileSystemResolvedBucketPath) or isinstance(
             resolved_path2, HfFileSystemResolvedBucketPath
         ):
-            raise NotImplementedError("Copy from/to buckets is not available yet")
+            # TODO: copy between two different buckets and between a repo and a bucket are also possible
+            # (the Hub copies by xet hash). Enable them in a follow-up PR.
+            if not isinstance(resolved_path1, HfFileSystemResolvedBucketPath) or not isinstance(
+                resolved_path2, HfFileSystemResolvedBucketPath
+            ):
+                raise NotImplementedError("Copy between repos and buckets is not available yet")
+            if resolved_path1.bucket_id != resolved_path2.bucket_id:
+                raise NotImplementedError("Copy between different buckets is not available yet")
+            from huggingface_hub._buckets import _BucketCopyFile
+
+            # Use _BucketCopyFile to update the file reference.
+            # We copy from the same bucket (self-referential) to update the file hash.
+            file_metadata = self._api.get_bucket_file_metadata(
+                bucket_id=resolved_path1.bucket_id, remote_path=resolved_path1.path, token=self.token
+            )
+            self._api._batch_bucket_files(
+                bucket_id=resolved_path2.bucket_id,
+                copy=[
+                    _BucketCopyFile(
+                        destination=resolved_path2.path,
+                        xet_hash=file_metadata.xet_file_data.file_hash,
+                        source_repo_type="bucket",
+                        source_repo_id=resolved_path2.bucket_id,
+                    )
+                ],
+                token=self.token,
+            )
+            self.invalidate_cache(path=resolved_path1.unresolve())
+            self.invalidate_cache(path=resolved_path2.unresolve())
+            return
 
         same_repo = (
             resolved_path1.repo_type == resolved_path2.repo_type and resolved_path1.repo_id == resolved_path2.repo_id
@@ -1432,6 +1547,476 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
         self._stream_iterator = self.response.iter_bytes()
 
 
+class HfFileSystemEditFile(fsspec.spec.AbstractBufferedFile):
+    """Mutate a file in a bucket in-place, only re-uploading the parts
+    the caller actually rewrites.
+
+    Supported edit operations: append(), edit(), insert(), delete(), truncate().
+
+    It is obtained with the binary open modes "ab" and "eb" (see [`HfFileSystem.open`]).
+
+    Edits are kept in an internal buffer and sent to the Hub in batches: either as soon as
+    the buffer is at least `block_size` bytes large, or once `send_interval` seconds (10
+    seconds by default) have elapsed since the oldest unflushed edit. Sending happens in a
+    background thread, and can be forced synchronously with `f.flush(force=True)`.
+
+    Examples:
+
+    - Write logs progressively using the append mode "ab":
+
+    ```py
+    from huggingface_hub import hffs
+
+    with hffs.open("buckets/username/my-bucket/logs.txt", "ab") as f:
+        for log in logs:
+            f.write(log.encode())
+    ```
+
+    - Edit a file header using the edit mode "eb":
+
+    ```py
+    from huggingface_hub import hffs
+
+    header_length = 16
+    new_header = b"MY_NEW_HEADER_00"
+    with hffs.open("buckets/username/my-bucket/data.bin", "eb") as f:
+        f.edit((0, header_length), new_header)
+    ```
+
+    - Remove a line using the edit mode "eb":
+
+    ```py
+    from huggingface_hub import hffs
+
+    bad_line = b"this is a bad line\n"
+    with hffs.open("buckets/username/my-bucket/doc.txt", "eb") as f:
+        while (line := f.read(len(bad_line))) == bad_line:
+            f.delete(loc=f.loc - len(bad_line), length=len(bad_line))
+    ```
+    """
+
+    DEFAULT_SEND_INTERVAL = 10.0
+
+    def __init__(
+        self,
+        fs: HfFileSystem,
+        path: str,
+        mode: str = "eb",
+        block_size: Literal["default"] | int | None = "default",
+        send_interval: Literal["default"] | int | None = "default",
+        autocommit: bool = True,
+        cache_type: str | None = "readahead",
+        cache_options: dict | None = None,
+        size: int | None = None,
+        file_hash: str | None = None,
+        **kwargs,
+    ):
+        from fsspec.core import caches
+
+        if mode not in {"eb", "ab"}:
+            raise NotImplementedError(f"Mode '{mode}' is not supported. Only binary modes 'ab' and 'eb' are.")
+        resolved_path = fs.resolve_path(path)
+        if not isinstance(resolved_path, HfFileSystemResolvedBucketPath):
+            raise ValueError(f"File mode '{mode}' is only available for Storage Buckets (hf://buckets/...)")
+        path = resolved_path.unresolve()
+        try:
+            details = fs.info(path)
+        except FileNotFoundError:
+            fs.touch(path)
+            details = fs.info(path)
+        self.resolved_path = resolved_path
+
+        # required by AbstractBufferedFile
+        self.path = path
+        self.fs = fs
+        self.mode = mode
+        self.details = details  # set it explicitly to avoid an extra info() call
+        self.blocksize = self.DEFAULT_BLOCK_SIZE if block_size in ["default", None] else block_size
+        self.autocommit = autocommit
+        self.closed = False
+        self.forced = False
+        self.size = size if size is not None else self.details["size"]
+        self.original_size = self.size
+        self.cache_type = cache_type
+        self.cache_options = cache_options
+        self.cache = caches[cache_type](self.blocksize, self._fetch_range, self.size, **(cache_options or {}))
+        self.loc = self.size if "a" in mode else 0
+        self.kwargs = kwargs
+
+        # specific to HfFileSystemEditFile
+        self.file_hash = file_hash if file_hash is not None else self.details["xet_hash"]
+        self.ranges: list[range | bytearray] = [range(0, self.size)]
+        self.buffer_size = 0
+        self.oldest_update_time: float | None = None
+        self.send_interval = self.DEFAULT_SEND_INTERVAL if send_interval in ["default", None] else send_interval
+        self.task = None
+
+    def __del__(self):
+        if not hasattr(self, "resolved_path"):
+            # Means that the constructor failed. Nothing to do.
+            return
+        return super().__del__()
+
+    def _fetch_range(self, start: int, end: int) -> bytes:
+        ranges_contents: list[bytes] = []
+        offset = 0
+        for range_ in self.ranges:
+            if isinstance(range_, range):
+                range_to_fetch = range(
+                    range_.start + max(0, start - offset), range_.stop + min(0, end - offset - len(range_))
+                )
+                if range_to_fetch.start < range_to_fetch.stop:
+                    if self.task is not None and not self.task.done():
+                        # the kept ranges point to the file version currently being sent: wait for it
+                        # before fetching bytes from it, otherwise we would read stale content.
+                        while self.task is not None and not self.task.done():
+                            time.sleep(0.05)
+                    headers = {
+                        "range": f"bytes={range_to_fetch.start}-{range_to_fetch.stop - 1}",
+                        **self.fs._api._build_hf_headers(token=self.fs.token),
+                    }
+                    url = self.url()
+                    r = http_backoff("GET", url, headers=headers, timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT)
+                    hf_raise_for_status(r)
+                    ranges_contents.append(r.content)
+            else:
+                range_to_fetch = range(max(0, start - offset), len(range_) + min(0, end - offset - len(range_)))
+                if range_to_fetch.start < range_to_fetch.stop:
+                    ranges_contents.append(bytes(range_[range_to_fetch.start : range_to_fetch.stop]))
+            offset += len(range_)
+        return b"".join(ranges_contents)
+
+    def _upload_ranges(self, defer: bool) -> None:
+        if self.task is not None:
+            while not self.task.done():
+                time.sleep(0.1)
+            # Re-raise a failed background send: the corresponding edits are not buffered anymore,
+            # so they would be lost silently otherwise. The task is dropped so that the failure
+            # is raised only once.
+            exception, self.task = self.task.exception(), None
+            if exception is not None:
+                raise exception
+        if defer:
+            # the buffered data is copied to make sure it is not mutated while being sent in the background
+            ranges = [range_ if isinstance(range_, range) else bytes(range_) for range_ in self.ranges]
+            self.task = _get_deferred_executor().submit(partial(self._upload_ranges_inner, ranges, self.original_size))
+        else:
+            self._upload_ranges_inner(self.ranges, self.original_size)
+            self.task = None
+        self.ranges = [range(0, self.size)]
+        self.original_size = self.size
+        self.buffer_size = 0
+
+    def _upload_ranges_inner(self, ranges: Sequence[range | bytearray | bytes], original_size: int) -> None:
+        # All locations are expressed relatively to the file as it currently is on the Hub,
+        # which is what the xet range upload API expects (edits must be sorted and non-overlapping).
+        edits: list[tuple[int, int, bytes]] = []  # (start, end, replacement_data)
+        original_offset = 0
+        for range_ in ranges:
+            if isinstance(range_, range):
+                if range_.start > original_offset:
+                    # original bytes that are not kept anymore are deleted
+                    edits.append((original_offset, range_.start, b""))
+                original_offset = range_.stop
+            else:
+                # new bytes are inserted at the current location, they don't replace any original byte
+                data = bytes(range_)
+                edits.append((original_offset, original_offset, data))
+        if original_offset < original_size:
+            edits.append((original_offset, original_size, b""))
+        if edits:
+            self.file_hash = self.fs._api._edit_bucket_file(
+                bucket_id=self.resolved_path.bucket_id,
+                remote_path=self.resolved_path.path,
+                edits=edits,
+                token=self.fs.token,
+                _file_hash=self.file_hash,
+                _file_size=original_size,
+            )
+            self.fs.invalidate_cache(
+                path=self.resolved_path.unresolve(),
+            )
+            self._details = None
+
+    def url(self) -> str:
+        return self.fs.url(self.path)
+
+    def readable(self):
+        """Whether opened for reading"""
+        return not self.closed
+
+    def read(self, length=-1):
+        """Read from the file.
+
+        Bytes that are still buffered locally (edited but not sent yet) are served directly
+        from memory, the others are downloaded from the Hub.
+        """
+        length = -1 if length is None else int(length)
+        if length < 0:
+            length = self.size - self.loc
+        if self.closed:
+            raise ValueError("I/O operation on closed file.")
+        if length == 0:
+            # don't even bother calling fetch
+            return b""
+        out = self.cache._fetch(self.loc, self.loc + length)
+        self.loc += len(out)
+        return out
+
+    def seek(self, loc, whence=0):
+        """Set current file location
+
+        Args:
+            loc (`int`):
+                byte location
+            whence (`int`, one of 0, 1 or 2):
+                from start of file, current location or end of file, resp.
+        """
+        loc = int(loc)
+        if whence == 0:
+            nloc = loc
+        elif whence == 1:
+            nloc = self.loc + loc
+        elif whence == 2:
+            nloc = self.size + loc
+        else:
+            raise ValueError(f"invalid whence ({whence}, should be 0, 1 or 2)")
+        if nloc < 0:
+            raise ValueError("Seek before start of file")
+        if nloc > self.size:
+            raise ValueError("Seek past end of file")
+        self.loc = nloc
+        return self.loc
+
+    def writable(self):
+        """Whether opened for writing"""
+        return not self.closed
+
+    def write(self, data: bytes):
+        """
+        Write `data` at the current location.
+
+        The data is buffered in memory and only sent to the Hub later
+        (see [`HfFileSystemEditFile`] and [`HfFileSystemEditFile.flush`]).
+
+        Args:
+            data (`bytes`):
+                Set of bytes to be written.
+        """
+        return self.edit((self.loc, self.loc + len(data)), data)
+
+    def edit(self, byte_range: tuple[int, int], data: bytes):
+        """
+        Replace the range [`start`, `end`) with `data`, which can be of any size
+        (not necessarily the size of the replaced range).
+
+        The data is buffered in memory and only sent to the Hub later
+        (see [`HfFileSystemEditFile`] and [`HfFileSystemEditFile.flush`]).
+
+        Args:
+            byte_range (`tuple[int, int]`):
+                (start, end) where to edit the file.
+            data (`bytes`):
+                Set of bytes to be placed in the specified range.
+                Size can be different than the range.
+        """
+        if self.closed:
+            raise ValueError("I/O operation on closed file.")
+        from fsspec.core import caches
+
+        start, end = byte_range
+        if not 0 <= start <= end:
+            raise ValueError(f"Invalid byte range {byte_range}, expected 0 <= start <= end.")
+        if start > self.size:
+            raise ValueError(f"Cannot edit at location {start}: file size is {self.size}.")
+        end = min(self.size, end)
+        if start == end and not data:
+            return
+
+        new_ranges: list[range | bytearray] = []
+        offset = 0
+        done = False
+
+        def add_range(range_or_bytes: range | bytearray | bytes):
+            """Add a new range and use byterarray appends when possible (this would make the list of ranges very long)"""
+            if new_ranges and isinstance(new_ranges[-1], bytearray) and isinstance(range_or_bytes, bytes):
+                new_ranges[-1] += range_or_bytes
+            else:
+                new_ranges.append(
+                    range_or_bytes if isinstance(range_or_bytes, (range, bytearray)) else bytearray(range_or_bytes)
+                )
+
+        def fast_slice(range_: range | bytearray, start=None, end=None):
+            """slice a range and avoid slicing a bytearray when possible (this would cause a copy)"""
+            if start is not None and start < 0:
+                start += len(range_)
+            if end is not None and end < 0:
+                end += len(range_)
+            if start is not None and start > 0 and end is not None and end < len(range_):
+                return range_[start:end]
+            elif start is not None and start > 0:
+                return range_[start:]
+            elif end is not None and end < len(range_):
+                return range_[:end]
+            else:
+                return range_
+
+        # note: this could be optimized with an offset index
+        for range_ in self.ranges:
+            length = len(range_)
+            if offset <= start <= offset + length <= end:
+                if offset < start:
+                    add_range(fast_slice(range_, end=start - offset))
+                if data and not done:
+                    add_range(data)
+                    done = True
+            elif start <= offset <= offset + length <= end:
+                pass
+            elif start <= offset <= end <= offset + length:
+                if data and not done:
+                    add_range(data)
+                    done = True
+                if end < offset + length:
+                    add_range(fast_slice(range_, start=end - offset))
+            elif offset <= start <= end <= offset + length:
+                if offset < start:
+                    add_range(fast_slice(range_, end=start - offset))
+                if data and not done:
+                    add_range(data)
+                    done = True
+                if end < offset + length:
+                    add_range(fast_slice(range_, start=end - offset))
+            else:
+                add_range(range_)
+            offset += length
+        if data and not done:
+            # the edited location was the end of the file (or the file is empty)
+            add_range(data)
+        self.ranges = new_ranges
+
+        self.loc = start + len(data)
+        self.buffer_size += len(data)
+        self.size += len(data) - (end - start)
+        self.cache = caches[self.cache_type](
+            self.blocksize, self._fetch_range, self.size, **(self.cache_options or {})
+        )
+        if self.oldest_update_time is None:
+            self.oldest_update_time = time.time()
+        if self.flush(defer=True):
+            # buffer has been sent: nothing is pending anymore
+            self.oldest_update_time = None
+        return len(data)
+
+    def insert(self, loc: int, data: bytes):
+        """
+        Insert the content of `data` at location `loc`, and shift
+        the rest of the file.
+
+        The data is buffered in memory and only sent to the Hub later
+        (see [`HfFileSystemEditFile`] and [`HfFileSystemEditFile.flush`]).
+
+        Args:
+            loc (`int`):
+                Where to insert the data.
+            data (`bytes`):
+                Set of bytes to be inserted.
+        """
+        return self.edit((loc, loc), data)
+
+    def append(self, data: bytes):
+        """
+        Append `data` at the end of the file.
+
+        The data is buffered in memory and only sent to the Hub later
+        (see [`HfFileSystemEditFile`] and [`HfFileSystemEditFile.flush`]).
+
+        Args:
+            data (`bytes`):
+                Set of bytes to be appended at the end of the file.
+        """
+        return self.insert(self.size, data)
+
+    def delete(self, loc: int, length: int):
+        """
+        Delete the range [`loc`, `loc + length`).
+
+        The deletion is buffered in memory and only sent to the Hub later
+        (see [`HfFileSystemEditFile`] and [`HfFileSystemEditFile.flush`]).
+
+        Args:
+            loc (`int`):
+                Where to start deleting bytes.
+            length (`int`):
+                Number of bytes to delete.
+        """
+        return self.edit((loc, loc + length), b"")
+
+    def truncate(self, size: int | None = None):
+        """
+        Truncate file to `size` bytes, and return the new size of the file.
+
+        If `size` is not provided, the file is truncated at the current location (`f.loc`).
+
+        - If `size` is smaller than the current size, the file is cut short: every byte
+          after location `size` is deleted.
+        - If `size` is bigger than the current size, the file is extended to `size` bytes
+          and the new bytes are filled with zero bytes (`b"\\0"`). This is the same behavior
+          as Python's built-in `f.truncate()`.
+        - If `size` is equal to the current size, nothing happens.
+
+        Args:
+            size (`int`, *optional*):
+                New size of the file, in bytes.
+
+        Returns:
+            `int`: the new size of the file.
+        """
+        if size is None:
+            size = self.loc
+        if size < self.size:
+            self.delete(size, self.size - size)
+        elif self.size < size:
+            self.append(b"\0" * (size - self.size))
+        return self.size
+
+    def flush(self, force=False, defer=False):
+        """
+        Write buffered data to backend store.
+
+        As most `fsspec` file objects, a regular `flush()` call might not send anything:
+        the buffered edits are sent to the Hub either once the buffer is at least
+        `blocksize` bytes large, or once `send_interval` seconds have elapsed since the
+        oldest unflushed edit. Use `f.flush(force=True)` to persist the buffered edits
+        right now.
+
+        Args:
+            force (`bool`):
+                Send the buffer even if none of the sending conditions above are met.
+
+                If a previous send wasn't finished, it waits for it to finish
+                before flushing.
+
+            defer (`bool`):
+                Send the buffer in the background, non-blocking.
+        """
+
+        if self.closed:
+            raise ValueError("Flush on closed file")
+        if not force and self.task is not None and not self.task.done():
+            # a send is already in flight in the background: keep buffering instead of stacking another one
+            return False
+        if (
+            force
+            or self.buffer_size >= self.blocksize
+            or (self.oldest_update_time and (time.time() - self.oldest_update_time) > self.send_interval)
+        ):
+            self._upload_ranges(defer=defer)
+            return True
+        else:
+            # Defer write on small buffer or recent update
+            return False
+
+
 def safe_revision(revision: str) -> str:
     return revision if SPECIAL_REFS_REVISION_REGEX.search(revision) else safe_quote(revision)
 
@@ -1460,6 +2045,20 @@ def make_instance(cls, args, kwargs, instance_state):
     for attr, state_value in instance_state.items():
         setattr(fs, attr, state_value)
     return fs
+
+
+_DEFERRED_UPLOAD_THREAD_NAME = "hffs-deferred-upload"
+_deferred_executor = None
+_deferred_executor_lock = threading.Lock()
+
+
+def _get_deferred_executor():
+    """Executor used to send buffered edits to the Hub in the background."""
+    global _deferred_executor
+    with _deferred_executor_lock:
+        if _deferred_executor is None:
+            _deferred_executor = ThreadPoolExecutor(thread_name_prefix=_DEFERRED_UPLOAD_THREAD_NAME)
+        return _deferred_executor
 
 
 hffs = HfFileSystem()
