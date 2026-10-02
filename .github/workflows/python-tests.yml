@@ -112,12 +112,14 @@ jobs:
             uv pip uninstall hf_xet
           fi
 
+      # Retry only transient failures, including HTTP errors printed by CLI assertions and propagation
+      # delays after creating a collection item repo or uploading bucket data. Assertions stay strict.
       # Run tests
       - name: Run tests
         working-directory: ./src # For code coverage to work
         run: |
           source ../.venv/bin/activate
-          PYTEST="python -m pytest --cov=./huggingface_hub --cov-report=xml:../coverage.xml --vcr-record=none --reruns 3 --reruns-delay 2 --only-rerun '(OSError|FileNotFoundError|Timeout|HTTPError.*409|HTTPError.*502|HTTPError.*504)'"
+          PYTEST="python -m pytest --cov=./huggingface_hub --cov-report=xml:../coverage.xml --vcr-record=none --reruns 3 --reruns-delay 2 --only-rerun '(OSError|FileNotFoundError|Timeout|HTTPError.*409|HTTPError.*502|HTTPError.*504|Server error.*50[24]|Cannot add item to collection:.*not found|(?s:BucketBatchError:.*File not found in Xet storage))'"
 
           case "${{ matrix.test_name }}" in
 
@@ -192,6 +194,8 @@ jobs:
             uv pip uninstall hf_xet
           }
 
+      # Retry only transient failures, including HTTP errors printed by CLI assertions and propagation
+      # delays after creating a collection item repo or uploading bucket data. Assertions stay strict.
       # Run tests
       - name: Run tests
         working-directory: ./src # For code coverage to work
@@ -205,7 +209,7 @@ jobs:
             "--vcr-record=none",
             "--reruns", "3",
             "--reruns-delay", "2",
-            "--only-rerun", "(OSError|FileNotFoundError|Timeout|HTTPError.*409|HTTPError.*502|HTTPError.*504)",
+            "--only-rerun", "(OSError|FileNotFoundError|Timeout|HTTPError.*409|HTTPError.*502|HTTPError.*504|Server error.*50[24]|Cannot add item to collection:.*not found|(?s:BucketBatchError:.*File not found in Xet storage))",
             "../tests"
           )
 

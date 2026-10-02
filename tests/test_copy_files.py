@@ -583,8 +583,10 @@ def test_cp_remote_repo_to_repo(api: HfApi, repo_write: str, dataset_write: str)
     api.upload_file(repo_id=repo_write, path_in_repo="config.json", path_or_fileobj=b'{"key": "value"}')
     api.upload_file(repo_id=repo_write, path_in_repo="data/a.txt", path_or_fileobj=b"text data")
 
-    cli(f"hf cp hf://{repo_write}/config.json hf://datasets/{dst_repo_id}/config.json")
-    cli(f"hf cp hf://{repo_write}/data/ hf://datasets/{dst_repo_id}/copied/")
+    result = cli(f"hf cp hf://{repo_write}/config.json hf://datasets/{dst_repo_id}/config.json")
+    assert result.exit_code == 0, result.output
+    result = cli(f"hf cp hf://{repo_write}/data/ hf://datasets/{dst_repo_id}/copied/")
+    assert result.exit_code == 0, result.output
 
     dst_files = api.list_repo_files(dst_repo_id, repo_type="dataset")
     assert "config.json" in dst_files
@@ -594,7 +596,8 @@ def test_cp_remote_repo_to_repo(api: HfApi, repo_write: str, dataset_write: str)
 def test_cp_remote_bucket_to_bucket(api: HfApi, bucket_write: str, bucket_write_2: str):
     api.batch_bucket_files(bucket_write, add=[(b"aaa", "logs/a.txt"), (b"bbb", "logs/sub/b.txt"), (b"ccc", "c.txt")])
 
-    cli(f"hf cp hf://buckets/{bucket_write}/logs hf://buckets/{bucket_write_2}/backup/")
+    result = cli(f"hf cp hf://buckets/{bucket_write}/logs hf://buckets/{bucket_write_2}/backup/")
+    assert result.exit_code == 0, result.output
 
     files = _remote_files(api, bucket_write_2)
     assert "backup/a.txt" in files
@@ -611,7 +614,8 @@ def test_cp_remote_repo_to_bucket(api: HfApi, repo_write: str, bucket_write_2: s
         repo_id=repo_write, path_in_repo="nested/from-branch.txt", path_or_fileobj=b"branch", revision=branch
     )
 
-    cli(f"hf cp hf://{repo_write}@{branch}/nested/from-branch.txt hf://buckets/{bucket_write_2}/copied.txt")
+    result = cli(f"hf cp hf://{repo_write}@{branch}/nested/from-branch.txt hf://buckets/{bucket_write_2}/copied.txt")
+    assert result.exit_code == 0, result.output
 
     assert "copied.txt" in _remote_files(api, bucket_write_2)
 

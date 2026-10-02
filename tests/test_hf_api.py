@@ -3330,6 +3330,9 @@ class TestCommitInBackground:
         assert upload_future_1.done()
         assert upload_future_2.done()
         assert upload_future_3.done()
+        # A completed future can contain an exception. Surface it so CI can retry transient HTTP errors.
+        upload_future_1.result()
+        upload_future_2.result()
 
         # 4 commits, sorted in reverse order of creation
         commits = api.list_repo_commits(repo_id=repo_id)
