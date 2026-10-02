@@ -64,7 +64,11 @@ ChatCompletionOutput(
             finish_reason="eos_token",
             index=0,
             message=ChatCompletionOutputMessage(
-                role="assistant", content="The capital of France is Paris.", name=None, tool_calls=None
+                role="assistant",
+                content="The capital of France is Paris.",
+                reasoning=None,
+                tool_call_id=None,
+                tool_calls=None,
             ),
             logprobs=None,
         )
@@ -72,7 +76,6 @@ ChatCompletionOutput(
     created=1719907176,
     id="",
     model="meta-llama/Meta-Llama-3-8B-Instruct",
-    object="text_completion",
     system_fingerprint="2.0.4-sha-f426a33",
     usage=ChatCompletionOutputUsage(completion_tokens=8, prompt_tokens=17, total_tokens=25),
 )

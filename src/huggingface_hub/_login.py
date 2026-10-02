@@ -128,6 +128,9 @@ def logout(token_name: str | None = None) -> None:
     Raises:
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError):
             If the access token name is not found.
+        [`OSError`](https://docs.python.org/3/library/exceptions.html#OSError):
+            If the token was deleted from the machine but you are still logged in through the `HF_TOKEN` or
+            `HUGGING_FACE_HUB_TOKEN` environment variable, or a Google Colab secret.
     """
     if get_token() is None and not get_stored_tokens():  # No active token and no saved access tokens
         logger.warning("Not logged in!")
