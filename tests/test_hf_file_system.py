@@ -628,6 +628,16 @@ class TestHfFileSystemRepositoryRO(_HfFileSystemRepositoryChecks, _HfFileSystemB
             assert Path(temp_dir, "pr.bin").read_bytes() == b"dummy binary data on pr"
         assert xet_mock.call_count == 2
 
+    @pytest.mark.xet
+    def test_read_range_with_xet(self):
+        with patch.object(hf_file_system, "XetRangeReader", wraps=hf_file_system.XetRangeReader) as reader_mock:
+            with self.hffs.open(self.hf_path + "/data/binary_data.bin", "rb") as f:
+                f.seek(6)
+                assert f.read(6) == b"binary"
+                f.seek(13)
+                assert f.read(100) == b"data"
+        reader_mock.assert_called_once()
+
     def test_list_data_directory_with_revision(self):
         files = self.hffs.ls(self.hf_path + "@refs%2Fpr%2F1" + "/data")
 

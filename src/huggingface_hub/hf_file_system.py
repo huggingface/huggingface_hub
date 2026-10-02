@@ -29,7 +29,7 @@ from .errors import (
     RepositoryNotFoundError,
     RevisionNotFoundError,
 )
-from .file_download import hf_hub_url, http_get, xet_get
+from .file_download import XetRangeReader, hf_hub_url, http_get, xet_get
 from .hf_api import SPECIAL_REFS_REVISION_REGEX, HfApi, LastCommitInfo, RepoFile, RepoFolder
 from .utils import HFValidationError, XetFileData, hf_raise_for_status, http_backoff, http_stream_backoff, parse_hf_uri
 from .utils._runtime import is_xet_available
@@ -1222,6 +1222,7 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
                     f"{e}.\nMake sure the repository and revision exist before writing data."
                 ) from e
             raise
+        self._xet_reader: XetRangeReader | None = None
         super().__init__(fs, self.resolved_path.unresolve(), **kwargs)
         self.fs: HfFileSystem
 
@@ -1231,7 +1232,22 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
             return
         return super().__del__()
 
+    def close(self):
+        if self._xet_reader is not None:
+            self._xet_reader.close()
+            self._xet_reader = None
+        super().close()
+
     def _fetch_range(self, start: int, end: int) -> bytes:
+        if (
+            self._xet_reader is None
+            and (xet_file_data := self.fs._get_xet_file_data(self.resolved_path, self.details)) is not None
+        ):
+            self._xet_reader = XetRangeReader(
+                xet_file_data, headers=self.fs._api._build_hf_headers(), file_size=self.size
+            )
+        if self._xet_reader is not None:
+            return self._xet_reader.read(start, end)
         headers = {
             "range": f"bytes={start}-{end - 1}",
             **self.fs._api._build_hf_headers(),

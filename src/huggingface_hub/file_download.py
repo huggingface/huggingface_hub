@@ -63,7 +63,16 @@ from .utils._shared_blobs import (
     shared_blobs_enabled,
     try_link_from_shared_store,
 )
-from .utils._xet import XetTokenType, is_valid_xet_hash, xet_connection_info_refresh_url
+from .utils._xet import (
+    XetTokenType,
+    abort_xet_session,
+    get_xet_session,
+    is_valid_xet_hash,
+    is_xet_session_active,
+    refresh_xet_connection_info,
+    xet_connection_info_refresh_url,
+    xet_headers_without_auth,
+)
 from .utils.sha import sha_fileobj
 from .utils.tqdm import _get_progress_bar_context
 
@@ -601,6 +610,55 @@ def xet_get(
         except KeyboardInterrupt:
             abort_xet_session()
             raise
+
+
+class XetRangeReader:
+    """Read byte ranges of a Xet file, like `http_get` with a `Range` header but through Xet storage.
+
+    All reads share one download stream group, created on the first read: a new group for each range would be much
+    slower. Call `close()` once done to finish the group.
+    """
+
+    def __init__(self, xet_file_data: XetFileData, *, headers: dict[str, str], file_size: int) -> None:
+        self.xet_file_data = xet_file_data
+        self.headers = headers
+        self.file_size = file_size
+        self._group: Any = None
+        self._session: Any = None  # session the group belongs to
+
+    def read(self, start: int, end: int) -> bytes:
+        """Return bytes `[start, end)` of the file."""
+        from hf_xet import XetFileInfo
+
+        group = self._get_group()
+        try:
+            stream = group.download_stream(
+                XetFileInfo(self.xet_file_data.file_hash, self.file_size), start=start, end=end
+            )
+            return b"".join(stream)
+        except KeyboardInterrupt:
+            abort_xet_session()
+            raise
+
+    def close(self) -> None:
+        if self._group is not None and is_xet_session_active(self._session):
+            self._group.finish()
+        self._group = None
+
+    def _get_group(self) -> Any:
+        # A group can't be used anymore once its session was aborted (Ctrl-C) or inherited from a fork
+        if self._group is None or not is_xet_session_active(self._session):
+            connection_info = refresh_xet_connection_info(file_data=self.xet_file_data, headers=self.headers)
+            self._session = get_xet_session()
+            self._group = self._session.new_download_stream_group(
+                endpoint=connection_info.endpoint,
+                token=connection_info.access_token,
+                token_expiry_unix_secs=connection_info.expiration_unix_epoch,
+                token_refresh_url=self.xet_file_data.refresh_route,
+                token_refresh_headers=self.headers,
+                custom_headers=xet_headers_without_auth(self.headers),
+            )
+        return self._group
 
 
 def _normalize_etag(etag: str | None) -> str | None:
