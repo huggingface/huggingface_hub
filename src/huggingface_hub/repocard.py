@@ -215,7 +215,7 @@ class RepoCard:
         headers = {"Accept": "text/plain"}
 
         try:
-            response = get_session().post("https://huggingface.co/api/validate-yaml", json=body, headers=headers)
+            response = get_session().post(f"{constants.ENDPOINT}/api/validate-yaml", json=body, headers=headers)
             hf_raise_for_status(response)
         except HfHubHTTPError as exc:
             if response.status_code == 400:

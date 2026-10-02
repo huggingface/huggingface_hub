@@ -16,7 +16,9 @@ import os
 import re
 import time
 from pathlib import Path
+from unittest.mock import Mock
 
+import httpx2
 import pytest
 import yaml
 
@@ -636,6 +638,21 @@ class TestRepoCard:
         card.data.license = "asdf"
         with pytest.raises(ValueError, match='- Error: "license" must be one of'):
             card.validate()
+
+    def test_validate_repocard_uses_configured_endpoint(self, monkeypatch):
+        endpoint = "https://private-hub.example.com"
+        monkeypatch.setattr(constants, "ENDPOINT", endpoint)
+        post = Mock(return_value=httpx2.Response(200, request=httpx2.Request("POST", f"{endpoint}/api/validate-yaml")))
+        monkeypatch.setattr("huggingface_hub.repocard.get_session", Mock(return_value=Mock(post=post)))
+
+        card = RepoCard(DUMMY_MODELCARD)
+        card.validate()
+
+        post.assert_called_once_with(
+            f"{endpoint}/api/validate-yaml",
+            json={"repoType": "model", "content": str(card)},
+            headers={"Accept": "text/plain"},
+        )
 
     def test_push_to_hub(self, api: HfApi, repo_factory: RepoFactory):
         repo_id = repo_factory(repo_id=repo_name("push-card")).repo_id
