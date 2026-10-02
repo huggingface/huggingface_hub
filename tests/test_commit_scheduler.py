@@ -23,10 +23,7 @@ class TestCommitScheduler:
         except AttributeError:
             pass
 
-        try:  # try delete temporary repo
-            self.api.delete_repo(self.repo_name)
-        except Exception:
-            pass
+        self.api.delete_repo(self.repo_name, missing_ok=True)
 
     def test_mocked_push_to_hub(self, mocker, tmp_path: Path) -> None:
         push_to_hub_mock: MagicMock = mocker.patch("huggingface_hub._commit_scheduler.CommitScheduler.push_to_hub")

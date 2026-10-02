@@ -15,6 +15,7 @@
 """Tests specific to kernel repo type."""
 
 import os
+from collections.abc import Iterator
 
 import pytest
 
@@ -45,8 +46,16 @@ def api():
     return HfApi(endpoint=ENDPOINT_PRODUCTION)
 
 
-def test_create_kernel(staging_api: HfApi) -> None:
+@pytest.fixture
+def new_kernel_name(staging_api: HfApi) -> Iterator[str]:
+    """Name of a kernel repo that doesn't exist yet. Deleted at the end of the test if the test created it."""
     name = kernel_name()
+    yield name
+    staging_api.delete_repo(f"{USER}/{name}", repo_type="kernel", missing_ok=True)
+
+
+def test_create_kernel(staging_api: HfApi, new_kernel_name: str) -> None:
+    name = new_kernel_name
     repo_url = staging_api.create_repo(name, repo_type="kernel")
     assert isinstance(repo_url, RepoUrl)
 
@@ -56,8 +65,6 @@ def test_create_kernel(staging_api: HfApi) -> None:
     assert repo_url.repo_id == f"{USER}/{name}"
     assert repo_url.url == f"https://hub-ci.huggingface.co/kernels/{USER}/{name}"
     assert repo_url.endpoint == ENDPOINT_STAGING
-
-    staging_api.delete_repo(repo_url.repo_id, repo_type="kernel")
 
 
 def test_kernel_info(api: HfApi) -> None:

@@ -413,6 +413,13 @@ def snapshot_download(
             ignore_patterns=ignore_patterns,
         )
     )
+    if tree_entries and not filtered_repo_files and (allow_patterns is not None or ignore_patterns is not None):
+        provided_patterns = ", ".join(
+            f"{name}={value!r}"
+            for name, value in (("allow_patterns", allow_patterns), ("ignore_patterns", ignore_patterns))
+            if value is not None
+        )
+        logger.warning(f"No files matched {provided_patterns}.")
     tqdm_desc = f"Fetching {len(filtered_repo_files)} files"
     if dry_run:
         tqdm_desc = "[dry-run] " + tqdm_desc

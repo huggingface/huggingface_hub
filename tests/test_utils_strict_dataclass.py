@@ -561,6 +561,13 @@ def test_custom_repr_preserved_when_repr_false():
     assert repr(obj) == "CustomRepr(x=1)"
 
 
+@pytest.fixture
+def isolated_jedi_cache(tmp_path, monkeypatch):
+    # parso writes its on-disk cache non-atomically => xdist workers sharing ~/.cache/jedi can read a half-written file
+    monkeypatch.setattr(jedi.settings, "cache_directory", str(tmp_path))
+
+
+@pytest.mark.usefixtures("isolated_jedi_cache")
 def test_autocompletion_attribute_without_kwargs():
     # Create a sample script
     completions = jedi.Script("""
@@ -581,6 +588,7 @@ config.
     assert "hidden_size" in completion_names
 
 
+@pytest.mark.usefixtures("isolated_jedi_cache")
 def test_autocompletion_attribute_with_kwargs():
     # Create a sample script
     completions = jedi.Script("""
@@ -602,6 +610,7 @@ config.
     assert "foo" not in completion_names  # not an official arg
 
 
+@pytest.mark.usefixtures("isolated_jedi_cache")
 def test_autocompletion_init_without_kwargs():
     # Create a sample script
     completions = jedi.Script("""
@@ -621,6 +630,7 @@ config = Config(
     assert "hidden_size=" in completion_names
 
 
+@pytest.mark.usefixtures("isolated_jedi_cache")
 def test_autocompletion_init_with_kwargs():
     # Create a sample script
     completions = jedi.Script("""

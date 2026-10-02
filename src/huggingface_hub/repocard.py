@@ -215,7 +215,7 @@ class RepoCard:
         headers = {"Accept": "text/plain"}
 
         try:
-            response = get_session().post("https://huggingface.co/api/validate-yaml", json=body, headers=headers)
+            response = get_session().post(f"{constants.ENDPOINT}/api/validate-yaml", json=body, headers=headers)
             hf_raise_for_status(response)
         except HfHubHTTPError as exc:
             if response.status_code == 400:
@@ -604,7 +604,7 @@ def metadata_eval_result(
         dataset_split (`str`, *optional*):
             Example: test. The name of the dataset split used in `load_dataset()`.
         dataset_revision (`str`, *optional*):
-            Example: 5503434ddd753f426f4b38109466949a1217c2bb. The name of the dataset dataset revision
+            Example: 5503434ddd753f426f4b38109466949a1217c2bb. The name of the dataset revision
             used in `load_dataset()`.
         metrics_verification_token (`bool`, *optional*):
             A JSON Web Token that is used to verify whether the metrics originate from Hugging Face's [evaluation service](https://huggingface.co/spaces/autoevaluate/model-evaluator) or not.

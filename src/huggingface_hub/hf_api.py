@@ -39,6 +39,7 @@ from tqdm import tqdm as base_tqdm
 from . import constants
 from ._eval_results import EvalResultEntry, parse_eval_result_entries
 from ._inference_endpoints import (
+    InferenceCatalogModel,
     InferenceEndpoint,
     InferenceEndpointHardware,
     InferenceEndpointScalingMetric,
@@ -71,6 +72,7 @@ from ._space_api import (
     SpaceTemplate,
     SpaceVariable,
     Volume,
+    ZeroGpuQuota,
 )
 from .community import (
     Discussion,
@@ -566,6 +568,18 @@ class RepoUrl(str):
 
     def __repr__(self) -> str:
         return f"RepoUrl('{self}', endpoint='{self.endpoint}', repo_type='{self.repo_type}', repo_id='{self.repo_id}')"
+
+
+class DuplicatedRepoUrl(RepoUrl):
+    """[`RepoUrl`] returned by [`duplicate_repo`].
+
+    Attributes:
+        files_copy_pending (`bool`):
+            `True` if the LFS/Xet files of the new repo are still being copied in the background. Until the copy is
+            complete, downloading these files may fail.
+    """
+
+    files_copy_pending: bool = False
 
 
 def _resolve_copy_target_path(
@@ -1881,7 +1895,7 @@ class LFSFileInfo:
         >>> api = HfApi()
         >>> lfs_files = api.list_lfs_files("username/my-cool-repo")
 
-        # Filter files files to delete based on a combination of `filename`, `pushed_at`, `ref` or `size`.
+        # Filter files to delete based on a combination of `filename`, `pushed_at`, `ref` or `size`.
         # e.g. select only LFS files in the "checkpoints" folder
         >>> lfs_files_to_delete = (lfs_file for lfs_file in lfs_files if lfs_file.filename.startswith("checkpoints/"))
 
@@ -4381,7 +4395,7 @@ class HfApi:
             >>> api = HfApi()
             >>> lfs_files = api.list_lfs_files("username/my-cool-repo")
 
-            # Filter files files to delete based on a combination of `filename`, `pushed_at`, `ref` or `size`.
+            # Filter files to delete based on a combination of `filename`, `pushed_at`, `ref` or `size`.
             # e.g. select only LFS files in the "checkpoints" folder
             >>> lfs_files_to_delete = (lfs_file for lfs_file in lfs_files if lfs_file.filename.startswith("checkpoints/"))
 
@@ -4439,7 +4453,7 @@ class HfApi:
             >>> api = HfApi()
             >>> lfs_files = api.list_lfs_files("username/my-cool-repo")
 
-            # Filter files files to delete based on a combination of `filename`, `pushed_at`, `ref` or `size`.
+            # Filter files to delete based on a combination of `filename`, `pushed_at`, `ref` or `size`.
             # e.g. select only LFS files in the "checkpoints" folder
             >>> lfs_files_to_delete = (lfs_file for lfs_file in lfs_files if lfs_file.filename.startswith("checkpoints/"))
 
@@ -8093,6 +8107,46 @@ class HfApi:
         hf_raise_for_status(response)
         return [JobHardwareInfo(**hardware) for hardware in response.json()]
 
+    def get_zero_gpu_quota(self, *, token: bool | str | None = None) -> ZeroGpuQuota:
+        """Get the ZeroGPU quota of the authenticated user.
+
+        Useful to track ZeroGPU usage when calling ZeroGPU Spaces programmatically (e.g. from an app, an agent or
+        an MCP server). See https://huggingface.co/docs/hub/spaces-zerogpu for more details.
+
+        Args:
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                A fine-grained token must have the "Billing > Read billing usage and payment method status"
+                permission and an OAuth token must have the `read-billing` scope.
+
+        Returns:
+            [`ZeroGpuQuota`]: The ZeroGPU quota of the authenticated user.
+
+        Example:
+            ```py
+            >>> from huggingface_hub import get_zero_gpu_quota
+            >>> quota = get_zero_gpu_quota()
+            >>> quota
+            ZeroGpuQuota(base=2400, remaining=1810, resets_at=datetime.datetime(2026, 9, 30, 9, 12, 3, tzinfo=datetime.timezone.utc), overquota_used=0)
+            >>> print(f"{quota.remaining / 60:.1f} minutes left")
+            30.2 minutes left
+            ```
+        """
+        r = get_session().get(
+            f"{self.endpoint}/api/spaces/zero-gpu/quota", headers=self._build_hf_headers(token=token)
+        )
+        if r.status_code == 401:
+            # Handled before `hf_raise_for_status` which would treat it as a missing 'zero-gpu/quota' Space repo.
+            raise HfHubHTTPError(
+                "401 Unauthorized: a valid token is required to get the ZeroGPU quota. Log in with `hf auth login` or"
+                " pass a token. See https://huggingface.co/settings/tokens.",
+                response=r,
+            )
+        hf_raise_for_status(r)
+        return ZeroGpuQuota(r.json())
+
     @validate_hf_hub_args
     def request_space_hardware(
         self,
@@ -8607,16 +8661,21 @@ class HfApi:
         visibility: RepoVisibility_T | None = None,
         token: bool | str | None = None,
         exist_ok: bool = False,
+        resource_group_id: str | None = None,
         space_hardware: SpaceHardware | None = None,
         space_sleep_time: int | None = None,
         space_secrets: list[dict[str, str]] | None = None,
         space_variables: list[dict[str, str]] | None = None,
         space_volumes: list[Volume] | None = None,
-    ) -> RepoUrl:
+    ) -> DuplicatedRepoUrl:
         """Duplicate a repo on the Hub (model, dataset, or Space).
 
         This performs a server-side copy that preserves full git history and LFS objects
         without requiring a local download/upload round-trip.
+
+        The git history is copied right away, but the LFS/Xet files may still be copied in the background once this
+        method returns. In that case, `files_copy_pending` is `True` on the returned value and downloading these files
+        from the new repo may fail until the copy is complete.
 
         Args:
             from_id (`str`):
@@ -8640,6 +8699,11 @@ class HfApi:
                 To disable authentication, pass `False`.
             exist_ok (`bool`, *optional*, defaults to `False`):
                 If `True`, do not raise an error if repo already exists.
+            resource_group_id (`str`, *optional*):
+                Resource group in which to create the new repo. Resource groups is only available for Enterprise Hub organizations and
+                allow to define which members of the organization can access the resource. The ID of a resource group
+                can be found in the URL of the resource's page on the Hub (e.g. `"66670e5163145ca562cb1988"`).
+                To learn more about resource groups, see https://huggingface.co/docs/hub/en/security-resource-groups.
             space_hardware (`SpaceHardware` or `str`, *optional*):
                 Choice of Hardware if repo_type is "space". Example: `"t4-medium"`. See
                 [`SpaceHardware`] for a complete list.
@@ -8666,8 +8730,8 @@ class HfApi:
                 Only applicable if repo_type is "space".
 
         Returns:
-            [`RepoUrl`]: URL to the newly created repo. Value is a subclass of `str` containing
-            attributes like `endpoint`, `repo_type` and `repo_id`.
+            [`DuplicatedRepoUrl`]: URL to the newly created repo. Value is a subclass of [`RepoUrl`] (and of `str`)
+            containing attributes like `endpoint`, `repo_type`, `repo_id` and `files_copy_pending`.
 
         Raises:
             [`~utils.RepositoryNotFoundError`]:
@@ -8681,8 +8745,11 @@ class HfApi:
         >>> from huggingface_hub import duplicate_repo
 
         # Duplicate a model to your account
-        >>> duplicate_repo("google/gemma-7b")
+        >>> repo_url = duplicate_repo("google/gemma-7b")
+        >>> repo_url
         RepoUrl('https://huggingface.co/nateraw/gemma-7b',...)
+        >>> repo_url.files_copy_pending
+        True
 
         # Duplicate a dataset with a custom name
         >>> duplicate_repo("openai/gdpval", to_id="myorg/my-gdpval", repo_type="dataset")
@@ -8730,6 +8797,8 @@ class HfApi:
 
         if resolved_visibility is not None:
             payload["visibility"] = resolved_visibility
+        if resource_group_id is not None:
+            payload["resourceGroupId"] = resource_group_id
 
         # Space-specific options
         space_args: list[tuple[str, str, Any]] = [
@@ -8770,7 +8839,10 @@ class HfApi:
             else:
                 raise
 
-        return RepoUrl(r.json()["url"], endpoint=self.endpoint)
+        data = r.json()
+        repo_url = DuplicatedRepoUrl(data["url"], endpoint=self.endpoint)
+        repo_url.files_copy_pending = data.get("filesCopyPending", False)
+        return repo_url
 
     @validate_hf_hub_args
     def set_space_volumes(
@@ -9221,27 +9293,41 @@ class HfApi:
     @validate_hf_hub_args
     def create_inference_endpoint_from_catalog(
         self,
-        repo_id: str,
+        repo_id: str | None = None,
         *,
+        recipe_id: str | None = None,
         name: str | None = None,
         accelerator: Literal["cpu", "gpu", "neuron"] | str | None = None,
+        gguf_file: str | None = None,
         token: bool | str | None = None,
         namespace: str | None = None,
     ) -> InferenceEndpoint:
-        """Create a new Inference Endpoint from a model in the Hugging Face Inference Catalog.
+        """Create a new Inference Endpoint from the Hugging Face Inference Catalog.
 
         The goal of the Inference Catalog is to provide a curated list of models that are optimized for inference
         and for which default configurations have been tested. See https://endpoints.huggingface.co/catalog for a list
         of available models in the catalog.
 
+        Each catalog model is deployed through a *recipe*: a hardware and engine combination that has been tested for
+        it. Pass `repo_id` to deploy the default recipe of a model, optionally narrowed down with `accelerator` and
+        `gguf_file`, or pass `recipe_id` to deploy an exact recipe listed by [`list_inference_catalog`].
+
         Args:
-            repo_id (`str`):
-                The ID of the model in the catalog to deploy as an Inference Endpoint.
+            repo_id (`str`, *optional*):
+                The ID of the model in the catalog to deploy as an Inference Endpoint. Mutually exclusive with
+                `recipe_id`.
+            recipe_id (`str`, *optional*):
+                The ID of the catalog recipe to deploy (see [`InferenceCatalogRecipe`]). Mutually exclusive with
+                `repo_id`.
             name (`str`, *optional*):
                 The unique name for the new Inference Endpoint. If not provided, a random name will be generated.
             accelerator (`str`, *optional*):
                 The hardware accelerator to be used for inference. Possible values include `"cpu"`, `"gpu"`, and
-                `"neuron"`. If not provided, the server will use a default appropriate for the model.
+                `"neuron"`. If not provided, the server will use a default appropriate for the model. Only valid
+                with `repo_id`.
+            gguf_file (`str`, *optional*):
+                The GGUF file to deploy, for models that have one recipe per quant (e.g.
+                `"Qwen2.5-Coder-32B-Instruct-Q4_K_M.gguf"`). Only valid with `repo_id`.
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -9260,54 +9346,105 @@ class HfApi:
             raise ValueError(
                 "Cannot use `token=False` with `create_inference_endpoint_from_catalog` as it requires authentication."
             )
-        token = token or self.token or get_token()
-        payload: dict = {
-            "namespace": namespace or self._get_namespace(token=token),
-            "repoId": repo_id,
-        }
-        if name is not None:
-            payload["endpointName"] = name
-        if accelerator is not None:
-            payload["accelerator"] = accelerator
+        if (repo_id is None) == (recipe_id is None):
+            raise ValueError("Provide exactly one of `repo_id` or `recipe_id`.")
+        if recipe_id is not None and (accelerator is not None or gguf_file is not None):
+            # `accelerator` and `gguf_file` pick a recipe among the ones of a model. A `recipe_id` already is one, so
+            # the server would silently ignore them.
+            raise ValueError(
+                "`accelerator` and `gguf_file` cannot be used with `recipe_id`, which already is a recipe."
+            )
 
-        response = get_session().post(
-            f"{constants.INFERENCE_CATALOG_ENDPOINT}/deploy",
-            headers=self._build_hf_headers(token=token),
-            json=payload,
-        )
+        token = token or self.token or get_token()
+        namespace = namespace or self._get_namespace(token=token)
+        payload: dict = {"namespace": namespace}
+        if name is not None:
+            payload["config"] = {"name": name}
+
+        if recipe_id is not None:
+            url = f"{constants.INFERENCE_CATALOG_ENDPOINT}/recipe/{recipe_id}/deploy"
+        else:
+            url = f"{constants.INFERENCE_CATALOG_ENDPOINT}/model/{repo_id}/deploy"
+            if accelerator is not None:
+                payload["accelerator"] = accelerator
+            if gguf_file is not None:
+                payload["ggufFile"] = gguf_file
+
+        response = get_session().post(url, headers=self._build_hf_headers(token=token), json=payload)
         hf_raise_for_status(response)
-        data = response.json()["endpoint"]
-        return InferenceEndpoint.from_raw(data, namespace=data["name"], token=token)
+        return InferenceEndpoint.from_raw(response.json()["endpoint"], namespace=namespace, token=token)
 
     @experimental
     @validate_hf_hub_args
-    def list_inference_catalog(self, *, token: bool | str | None = None) -> list[str]:
+    def list_inference_catalog(
+        self,
+        *,
+        accelerator: Literal["cpu", "gpu", "neuron"] | str | None = None,
+        engine: Literal["llamacpp", "sglang", "tei", "vllm"] | str | None = None,
+        license: str | None = None,
+        task: str | None = None,
+        search: str | None = None,
+        limit: int | None = None,
+        token: bool | str | None = None,
+    ) -> list[InferenceCatalogModel]:
         """List models available in the Hugging Face Inference Catalog.
 
         The goal of the Inference Catalog is to provide a curated list of models that are optimized for inference
         and for which default configurations have been tested. See https://endpoints.huggingface.co/catalog for a list
         of available models in the catalog.
 
-        Use [`create_inference_endpoint_from_catalog`] to deploy a model from the catalog.
+        Use [`create_inference_endpoint_from_catalog`] to deploy a model or a recipe from the catalog.
 
         Args:
+            accelerator (`str`, *optional*):
+                Only return models that have a recipe for this accelerator (`"cpu"`, `"gpu"` or `"neuron"`).
+            engine (`str`, *optional*):
+                Only return models that have a recipe for this inference engine (e.g. `"vllm"`, `"llamacpp"`,
+                `"tei"`, `"sglang"`).
+            license (`str`, *optional*):
+                Only return models under this license (e.g. `"Apache 2.0"`).
+            task (`str`, *optional*):
+                Only return models for this task (e.g. `"text-generation"`).
+            search (`str`, *optional*):
+                Only return models matching this search query.
+            limit (`int`, *optional*):
+                The maximum number of models to return.
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
 
         Returns:
-            List[`str`]: A list of model IDs available in the catalog.
+            `list[InferenceCatalogModel]`: The models available in the catalog, each with its tested recipes.
+
+        Example:
+        ```python
+        >>> from huggingface_hub import HfApi
+        >>> api = HfApi()
+        >>> catalog = api.list_inference_catalog(task="text-generation", accelerator="neuron")
+        >>> [(model.repo_id, [recipe.id for recipe in model.recipes]) for model in catalog]
+        [('meta-llama/Llama-3.1-8B-Instruct', ['sizzling-biryani-g4xsi1ac', 'artisanal-quinoa-yz9ynamx']), ...]
+        ```
+
         > [!WARNING]
         > `list_inference_catalog` is experimental. Its API is subject to change in the future. Please provide feedback
         > if you have any suggestions or requests.
         """
+        params = {
+            "accelerator": accelerator,
+            "engine": engine,
+            "license": license,
+            "task": task,
+            "search": search,
+            "limit": limit,
+        }
         response = get_session().get(
-            f"{constants.INFERENCE_CATALOG_ENDPOINT}/repo-list",
+            f"{constants.INFERENCE_CATALOG_ENDPOINT}/list",
             headers=self._build_hf_headers(token=token),
+            params={key: value for key, value in params.items() if value is not None},
         )
         hf_raise_for_status(response)
-        return response.json()["models"]
+        return [InferenceCatalogModel.from_raw(item) for item in response.json()["items"]]
 
     def get_inference_endpoint(
         self, name: str, *, namespace: str | None = None, token: bool | str | None = None
@@ -13555,6 +13692,7 @@ class HfApi:
         bucket_id: str,
         *,
         private: bool | None = None,
+        visibility: Literal["public", "private"] | None = None,
         resource_group_id: str | None = None,
         region: REPO_REGIONS | None = None,
         exist_ok: bool = False,
@@ -13568,7 +13706,10 @@ class HfApi:
                 If no namespace is provided, the bucket will be created in the current user's namespace.
             private (`bool`, *optional*):
                 Whether to make the bucket private. If `None` (default), the bucket will be public unless the
-                organization's default is private.
+                organization's default is private. Cannot be passed together with `visibility`.
+            visibility (`Literal["public", "private"]`, *optional*):
+                Visibility of the bucket. Can be `"public"` or `"private"`. If `None` (default), the bucket will be
+                public unless the organization's default is private.
             resource_group_id (`str`, *optional*):
                 Resource group in which to create the bucket. Resource groups are only available for Enterprise Hub
                 organizations and allow to define which members of the organization can access the resource. The ID
@@ -13611,9 +13752,11 @@ class HfApi:
         """
         from ._buckets import BucketUrl, _parse_bucket_uri
 
+        resolved_visibility = _resolve_repo_visibility(private=private, visibility=visibility, repo_type="bucket")
+
         payload: dict[str, Any] = {}
-        if private is not None:
-            payload["private"] = private
+        if resolved_visibility is not None:
+            payload["visibility"] = resolved_visibility
         if resource_group_id is not None:
             payload["resourceGroupId"] = resource_group_id
         if region is not None:
@@ -15193,6 +15336,7 @@ add_space_variable = api.add_space_variable
 delete_space_variable = api.delete_space_variable
 get_space_runtime = api.get_space_runtime
 list_spaces_hardware = api.list_spaces_hardware
+get_zero_gpu_quota = api.get_zero_gpu_quota
 request_space_hardware = api.request_space_hardware
 set_space_sleep_time = api.set_space_sleep_time
 pause_space = api.pause_space

@@ -614,6 +614,9 @@ def model_index_to_eval_results(model_index: list[dict[str, Any]]) -> tuple[str,
         ```
     """
 
+    if not model_index:
+        raise ValueError("`model_index` must be a non-empty list.")
+
     eval_results = []
     for elem in model_index:
         name = elem["name"]

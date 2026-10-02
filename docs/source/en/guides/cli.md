@@ -1142,6 +1142,24 @@ Use `hf spaces hardware` to list all available hardware options for Spaces, incl
 >>> hf spaces hardware
 ```
 
+### Check your ZeroGPU quota
+
+Use `hf spaces zero-gpu quota` to check how much of your [ZeroGPU](https://huggingface.co/docs/hub/spaces-zerogpu) quota is left and when it resets. This is useful to track your usage when calling ZeroGPU Spaces from scripts, apps or agents.
+
+```bash
+>>> hf spaces zero-gpu quota
+✓ ZeroGPU quota (in GPU-seconds)
+  remaining: 1810
+  base: 2400
+  resets_at: 2026-09-30T18:12:03+00:00
+  overquota_used: 0
+
+>>> hf spaces zero-gpu quota --format json
+{"remaining": 1810, "base": 2400, "resets_at": "2026-09-30T18:12:03+00:00", "overquota_used": 0}
+```
+
+If your quota is running low, the command suggests purchasing credits from your [billing settings](https://huggingface.co/settings/billing?add-credits=true) to keep using ZeroGPU beyond the daily quota (PRO, Team and Enterprise users only).
+
 ### Update Space settings
 
 Use `hf spaces settings` to update the settings of a Space.
@@ -1368,7 +1386,7 @@ To view the diff of a pull request directly in your terminal, use `hf discussion
 
 ## hf repos
 
-`hf repos` lets you list, create, delete, move repositories, update their settings, and delete files on the Hugging Face Hub. It also includes subcommands to manage branches and tags.
+`hf repos` lets you list, create, duplicate, delete, move repositories, update their settings, and delete files on the Hugging Face Hub. It also includes subcommands to manage branches and tags.
 
 ### List repos
 
@@ -1433,6 +1451,17 @@ Create a repo in a specific region:
 ```bash
 >>> hf repos create my-model --region us
 ```
+
+### Duplicate a repo
+
+Use `hf repos duplicate` to copy an existing model, dataset, or Space to your account (or to an organization). The copy happens on the server and preserves the git history:
+
+```bash
+>>> hf repos duplicate openai/gdpval --type dataset
+>>> hf repos duplicate openai/gdpval myorg/my-gdpval --type dataset --private
+```
+
+The LFS/Xet files of the new repo may still be copied in the background after the command returns. In that case, a warning is printed and downloading these files from the new repo may fail until the copy is complete.
 
 ### Delete a repo
 
@@ -2575,13 +2604,32 @@ To retune a running endpoint, pass the sizes on their own. `model.image` is sent
 
 Use `hf endpoints catalog` to interact with the Inference Endpoints Model Catalog. Deploy models directly from the catalog with optimized configurations.
 
+Each catalog model comes with one or more *recipes*: a hardware and engine combination that has been tested for it. `hf endpoints catalog ls` prints one row per recipe, so a model with both a GPU and a Neuron recipe shows up twice:
+
 ```bash
 # List available catalog models
 >>> hf endpoints catalog ls
+REPO_ID                             TASK               LICENSE    ACCELERATOR ENGINE   GGUF_FILE                     RECIPE_ID
+----------------------------------- ------------------ ---------- ----------- -------- ----------------------------- -------------------------
+meta-llama/Llama-3.1-8B-Instruct    text-generation    Llama 3.1  gpu         vllm                                   sizzling-biryani-g4xsi1ac
+meta-llama/Llama-3.1-8B-Instruct    text-generation    Llama 3.1  neuron      vllmNeuron                             artisanal-quinoa-yz9ynamx
+bartowski/QwQ-32B-Preview-GGUF      text-generation    Apache 2.0 gpu         llamacpp QwQ-32B-Preview-Q8_0.gguf     baked-orange-m863gx7d
 
-# Deploy a model from the catalog
+# Narrow it down
+>>> hf endpoints catalog ls --engine vllm --task text-generation --search llama --limit 10
+```
+
+`--accelerator`, `--engine`, `--license`, `--task`, `--search` and `--limit` all filter server-side.
+
+```bash
+# Deploy the default recipe of a model
 >>> hf endpoints catalog deploy --repo meta-llama/Llama-3.2-1B-Instruct
+
+# Deploy an exact recipe listed above
+>>> hf endpoints catalog deploy --recipe artisanal-quinoa-yz9ynamx
 
 # Deploy with a custom name
 >>> hf endpoints catalog deploy --repo meta-llama/Llama-3.2-1B-Instruct --name my-llama-endpoint
 ```
+
+With `--repo`, the default recipe can be narrowed down with `--accelerator` (`cpu`, `gpu`, `neuron`) and `--gguf-file` (for models that have one recipe per quant). Both are rejected together with `--recipe`, which already designates a single recipe.

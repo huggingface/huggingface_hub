@@ -269,7 +269,8 @@ def _resolve_upload_paths(
     repo_name = repo_id.split("/")[-1]
     resolved_include = include
 
-    if local_path is not None and any(c in local_path for c in ["*", "?", "["]):
+    # An existing path is never a wildcard, even if it contains glob characters (e.g. "model [v2].safetensors")
+    if local_path is not None and not os.path.exists(local_path) and any(c in local_path for c in ["*", "?", "["]):
         if include is not None:
             raise ValueError("Cannot set --include when local_path contains a wildcard.")
         if path_in_repo is not None and path_in_repo != ".":
