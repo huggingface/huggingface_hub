@@ -15,7 +15,7 @@ import httpx2
 import pytest
 from click.testing import CliRunner, Result
 
-from huggingface_hub import HfApi, InferenceEndpointHardware, constants
+from huggingface_hub import HfApi, InferenceCatalogModel, InferenceEndpointHardware, constants
 from huggingface_hub._dataset_viewer import DatasetParquetEntry
 from huggingface_hub._jobs_api import JobInfo, JobOwner, _create_job_spec, _derive_job_volume_name
 from huggingface_hub._space_api import Volume
@@ -42,6 +42,7 @@ from huggingface_hub.utils import (
 )
 from huggingface_hub.utils._verification import FolderVerification
 
+from .conftest import RepoFactory
 from .testing_constants import DUMMY_MODEL_ID, TOKEN
 from .testing_utils import repo_name
 
@@ -831,6 +832,22 @@ class TestResolveUploadPaths:
                 path_in_repo="models/",
                 include=None,
             )
+
+    def test_upload_existing_path_with_glob_characters(self) -> None:
+        with tmp_current_directory() as cache_dir:
+            (Path(cache_dir) / "model [v2].safetensors").write_text("content")
+            local_path, path_in_repo, include = _resolve_upload_paths(
+                repo_id="my-repo", local_path="model [v2].safetensors", path_in_repo=None, include=None
+            )
+            assert (local_path, path_in_repo, include) == ("model [v2].safetensors", "model [v2].safetensors", None)
+
+            local_path, path_in_repo, include = _resolve_upload_paths(
+                repo_id="my-repo",
+                local_path="model [v2].safetensors",
+                path_in_repo="weights.safetensors",
+                include=None,
+            )
+            assert (local_path, path_in_repo, include) == ("model [v2].safetensors", "weights.safetensors", None)
 
     def test_upload_implicit_local_path_when_folder_exists(self) -> None:
         with tmp_current_directory() as cache_dir:
@@ -1688,6 +1705,7 @@ class TestRepoDuplicateCommand:
             visibility="private",
             token=None,
             exist_ok=False,
+            resource_group_id=None,
             space_hardware=None,
             space_sleep_time=None,
             space_secrets=None,
@@ -1709,6 +1727,8 @@ class TestRepoDuplicateCommand:
                     "--type",
                     "space",
                     "--exist-ok",
+                    "--resource-group-id",
+                    "66670e5163145ca562cb1988",
                     "--token",
                     "my-token",
                 ],
@@ -1722,6 +1742,7 @@ class TestRepoDuplicateCommand:
             visibility=None,
             token="my-token",
             exist_ok=True,
+            resource_group_id="66670e5163145ca562cb1988",
             space_hardware=None,
             space_sleep_time=None,
             space_secrets=None,
@@ -1766,6 +1787,7 @@ class TestRepoDuplicateCommand:
             visibility="private",
             token=None,
             exist_ok=False,
+            resource_group_id=None,
             space_hardware="l4x4",
             space_sleep_time=3600,
             space_secrets=[{"key": "HF_TOKEN", "value": "hf_secret123"}],
@@ -1803,6 +1825,7 @@ class TestRepoDuplicateCommand:
             visibility=None,
             token=None,
             exist_ok=False,
+            resource_group_id=None,
             space_hardware=None,
             space_sleep_time=None,
             space_secrets=[{"key": "MY_SECRET", "value": "env_value"}],
@@ -1891,13 +1914,13 @@ class TestRepoSettingsCommand:
 
 
 class TestRepoListCommand:
-    def test_repo_list(self, runner: CliRunner) -> None:
+    def test_repo_list(self, runner: CliRunner, repo_factory: RepoFactory) -> None:
         """Integration test: create repos, check `hf repos ls` with search + type filter."""
         api = HfApi(token=TOKEN)
         suffix = repo_name("repos-ls")
-        model_id = api.create_repo(suffix, repo_type="model").repo_id
-        dataset_id = api.create_repo(suffix, repo_type="dataset").repo_id
-        space_id = api.create_repo(suffix, repo_type="space", space_sdk="static").repo_id
+        model_id = repo_factory("model", repo_id=suffix).repo_id
+        repo_factory("dataset", repo_id=suffix)
+        repo_factory("space", repo_id=suffix, space_sdk="static")
 
         api.upload_file(repo_id=model_id, path_in_repo="data.bin", path_or_fileobj=b"x" * 1024)
 
@@ -1910,10 +1933,6 @@ class TestRepoListCommand:
         assert len(output) == 1
         assert output[0]["id"] == model_id
         assert output[0]["type"] == "model"
-
-        api.delete_repo(model_id)
-        api.delete_repo(dataset_id, repo_type="dataset")
-        api.delete_repo(space_id, repo_type="space")
 
 
 class TestRepoDeleteCommand:
@@ -2818,12 +2837,31 @@ class TestInferenceEndpointsCommands:
         api_cls.assert_called_once_with(token=None)
         api.create_inference_endpoint_from_catalog.assert_called_once_with(
             repo_id="catalog/model",
+            recipe_id=None,
             name=None,
             accelerator=None,
+            gguf_file=None,
             namespace=None,
             token=None,
         )
         assert '"name": "catalog"' in result.stdout
+
+    def test_deploy_from_catalog_recipe(self, runner: CliRunner) -> None:
+        endpoint = Mock(raw={"name": "catalog"})
+        with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.create_inference_endpoint_from_catalog.return_value = endpoint
+            result = runner.invoke(app, ["endpoints", "catalog", "deploy", "--recipe", "ebony-pecan-n6tu7fs3"])
+        assert result.exit_code == 0
+        api.create_inference_endpoint_from_catalog.assert_called_once_with(
+            repo_id=None,
+            recipe_id="ebony-pecan-n6tu7fs3",
+            name=None,
+            accelerator=None,
+            gguf_file=None,
+            namespace=None,
+            token=None,
+        )
 
     def test_describe(self, runner: CliRunner) -> None:
         endpoint = Mock(raw={"name": "describe"})
@@ -3011,15 +3049,37 @@ class TestInferenceEndpointsCommands:
         assert '"name": "zero"' in result.stdout
 
     def test_list_catalog(self, runner: CliRunner) -> None:
+        model = InferenceCatalogModel.from_raw(
+            {
+                "repoId": "bartowski/QwQ-32B-Preview-GGUF",
+                "modelName": "QwQ-32B-Preview-GGUF",
+                "authorName": "bartowski",
+                "license": "Apache 2.0",
+                "task": "text-generation",
+                "createdAt": "2025-05-07T12:04:27.463Z",
+                "recipes": [
+                    {
+                        "publicId": "baked-orange-m863gx7d",
+                        "accelerator": "gpu",
+                        "engineType": "llamacpp",
+                        "ggufFile": "QwQ-32B-Preview-Q8_0.gguf",
+                    }
+                ],
+            }
+        )
         with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
             api = api_cls.return_value
-            api.list_inference_catalog.return_value = ["model"]
-            result = runner.invoke(app, ["endpoints", "catalog", "ls"])
+            api.list_inference_catalog.return_value = [model]
+            result = runner.invoke(app, ["endpoints", "catalog", "ls", "--engine", "llamacpp"])
         assert result.exit_code == 0
         api_cls.assert_called_once_with(token=None)
-        api.list_inference_catalog.assert_called_once_with(token=None)
-        assert '"models"' in result.stdout
-        assert '"model"' in result.stdout
+        api.list_inference_catalog.assert_called_once_with(
+            accelerator=None, engine="llamacpp", license=None, task=None, search=None, limit=None, token=None
+        )
+        # One row per recipe, with the recipe id to pass to 'catalog deploy --recipe'.
+        assert "bartowski/QwQ-32B-Preview-GGUF" in result.stdout
+        assert "baked-orange-m863gx7d" in result.stdout
+        assert "QwQ-32B-Preview-Q8_0.gguf" in result.stdout
 
 
 IMAGE_URL = "vllm/vllm-openai:v0.23.0"
@@ -5297,7 +5357,11 @@ class TestRepoTypePrefix:
             api_cls.return_value.duplicate_repo.return_value = type(
                 "RepoUrl",
                 (),
-                {"repo_id": "user/my-space-copy", "__str__": lambda s: "https://hf.co/user/my-space-copy"},
+                {
+                    "repo_id": "user/my-space-copy",
+                    "files_copy_pending": False,
+                    "__str__": lambda s: "https://hf.co/user/my-space-copy",
+                },
             )()
             result = runner.invoke(app, ["repos", "duplicate", "spaces/user/my-space"])
         assert result.exit_code == 0, result.output

@@ -1661,7 +1661,7 @@ $ hf endpoints [OPTIONS] COMMAND [ARGS]...
 * `describe`: Get information about an existing endpoint.
 * `hardware`: List the hardware available to deploy an Inference Endpoint on.
 * `list`: Lists all Inference Endpoints for the given namespace. [alias: ls]
-* `list-catalog`: List available Catalog models.
+* `list-catalog`: List the models available in the Model Catalog.
 * `pause`: Pause an Inference Endpoint.
 * `resume`: Resume an Inference Endpoint.
 * `scale-to-zero`: Scale an Inference Endpoint to zero.
@@ -1684,11 +1684,15 @@ $ hf endpoints catalog [OPTIONS] COMMAND [ARGS]...
 **Commands**:
 
 * `deploy`: Deploy an Inference Endpoint from the Model Catalog.
-* `list`: List available Catalog models. [alias: ls]
+* `list`: List the models available in the Model Catalog. [alias: ls]
 
 #### `hf endpoints catalog deploy`
 
 Deploy an Inference Endpoint from the Model Catalog.
+
+Catalog models are deployed through a recipe: a hardware and engine combination that has been tested for them.
+Pass --repo to deploy the default recipe of a model, optionally narrowed down with --accelerator and
+--gguf-file, or pass --recipe to deploy an exact recipe listed by `hf endpoints catalog ls`.
 
 **Usage**:
 
@@ -1698,15 +1702,18 @@ $ hf endpoints catalog deploy [OPTIONS]
 
 **Options**:
 
-* `--repo TEXT`: The name of the model repository associated with the Inference Endpoint (e.g. 'openai/gpt-oss-120b').  [required]
+* `--repo TEXT`: The name of the model repository associated with the Inference Endpoint (e.g. 'openai/gpt-oss-120b'). Deploys its default recipe. Mutually exclusive with --recipe.
+* `--recipe TEXT`: The id of the catalog recipe to deploy, as listed by 'hf endpoints catalog ls'. Mutually exclusive with --repo.
 * `--name TEXT`: Endpoint name.
-* `--accelerator TEXT`: The hardware accelerator to be used for inference (e.g. 'cpu', 'gpu', 'neuron').
+* `--accelerator [cpu|gpu|neuron]`: The hardware accelerator to be used for inference. Only with --repo.
+* `--gguf-file TEXT`: The GGUF file to deploy, for models that have one recipe per quant. Only with --repo.
 * `--namespace TEXT`: The namespace associated with the Inference Endpoint. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
 Examples
   $ hf endpoints catalog deploy --repo meta-llama/Llama-3.2-1B-Instruct
+  $ hf endpoints catalog deploy --recipe sizzling-biryani-g4xsi1ac
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -1715,7 +1722,10 @@ Learn more
 
 #### `hf endpoints catalog list`
 
-List available Catalog models. [alias: ls]
+List the models available in the Model Catalog. [alias: ls]
+
+One row per recipe, i.e. per tested way of deploying a model. Deploy one with
+`hf endpoints catalog deploy --recipe <RECIPE_ID>`.
 
 **Usage**:
 
@@ -1725,11 +1735,18 @@ $ hf endpoints catalog list [OPTIONS]
 
 **Options**:
 
+* `--accelerator [cpu|gpu|neuron]`: Only show recipes running on this accelerator.
+* `--engine [llamacpp|sglang|tei|vllm]`: Only show recipes running this inference engine.
+* `--license TEXT`: Only show models under this license (e.g. 'Apache 2.0').
+* `--task TEXT`: Only show models for this task (e.g. 'text-generation').
+* `--search TEXT`: Search query.
+* `--limit INTEGER`: Limit the number of models to return.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
 Examples
   $ hf endpoints catalog ls
+  $ hf endpoints catalog ls --engine vllm
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -1917,7 +1934,10 @@ Learn more
 
 ### `hf endpoints list-catalog`
 
-List available Catalog models.
+List the models available in the Model Catalog.
+
+One row per recipe, i.e. per tested way of deploying a model. Deploy one with
+`hf endpoints catalog deploy --recipe <RECIPE_ID>`.
 
 **Usage**:
 
@@ -1927,6 +1947,12 @@ $ hf endpoints list-catalog [OPTIONS]
 
 **Options**:
 
+* `--accelerator [cpu|gpu|neuron]`: Only show recipes running on this accelerator.
+* `--engine [llamacpp|sglang|tei|vllm]`: Only show recipes running this inference engine.
+* `--license TEXT`: Only show models under this license (e.g. 'Apache 2.0').
+* `--task TEXT`: Only show models for this task (e.g. 'text-generation').
+* `--search TEXT`: Search query.
+* `--limit INTEGER`: Limit the number of models to return.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -3757,6 +3783,7 @@ $ hf repos duplicate [OPTIONS] FROM_ID [TO_ID]
 * `--protected`: Whether to make the Space protected (Spaces only). Ignored if the repo already exists.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--exist-ok / --no-exist-ok`: Do not raise an error if repo already exists.  [default: no-exist-ok]
+* `--resource-group-id TEXT`: Resource group in which to create the new repo. Resource groups is only available for Enterprise Hub organizations.
 * `--flavor [cpu-basic|cpu-upgrade|zero-a10g|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8]`: Space hardware flavor (e.g. 'cpu-basic', 't4-medium', 'l4x4'). Only for Spaces.
 * `--sleep-time INTEGER`: Seconds of inactivity before the Space is put to sleep. Use -1 to disable. Only for Spaces.
 * `-s, --secrets TEXT`: Set secret environment variables. Prefer `--secrets SECRET` to read the value from your environment (e.g. `--secrets HF_TOKEN` to pass your Hugging Face token); `--secrets SECRET=value` puts the value in your shell history.
@@ -4529,6 +4556,7 @@ $ hf spaces [OPTIONS] COMMAND [ARGS]...
 * `variables`: Manage environment variables for a Space on the Hub.
 * `volumes`: Manage volumes for a Space on the Hub.
 * `wait`: Wait for a Space to finish building/starting.
+* `zero-gpu`: Manage your ZeroGPU usage on the Hub.
 
 ### `hf spaces card`
 
@@ -5314,6 +5342,50 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
+### `hf spaces zero-gpu`
+
+Manage your ZeroGPU usage on the Hub.
+
+**Usage**:
+
+```console
+$ hf spaces zero-gpu [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `quota`: Show your ZeroGPU quota (remaining GPU time and reset date).
+
+#### `hf spaces zero-gpu quota`
+
+Show your ZeroGPU quota (remaining GPU time and reset date).
+
+Values are in GPU-seconds. With `--quiet`, only the remaining GPU-seconds are printed.
+
+**Usage**:
+
+```console
+$ hf spaces zero-gpu quota [OPTIONS]
+```
+
+**Options**:
+
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces zero-gpu quota
+  $ hf spaces zero-gpu quota --format json
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
 ## `hf sync`
 
 Sync files between local directory and a bucket.
@@ -5362,7 +5434,10 @@ $ hf update [OPTIONS]
 
 ## `hf upload`
 
-Upload a file or a folder to the Hub. Recommended for single-commit uploads.
+Upload a file or a folder to the Hub.
+
+Folders with many files are split into several commits. If a folder upload is interrupted, re-run the same command
+to resume it.
 
 **Usage**:
 
