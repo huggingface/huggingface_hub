@@ -17,7 +17,7 @@ class ImageClassificationParameters(BaseInferenceType):
 
     function_to_apply: Optional["ImageClassificationOutputTransform"] = None
     """The function to apply to the model outputs in order to retrieve the scores."""
-    top_k: int | None = None
+    top_k: Optional[int] = None
     """When specified, limits the output to the top K most probable classes."""
 
 
@@ -29,7 +29,7 @@ class ImageClassificationInput(BaseInferenceType):
     """The input image data as a base64-encoded string. If no `parameters` are provided, you can
     also provide the image data as a raw bytes payload.
     """
-    parameters: ImageClassificationParameters | None = None
+    parameters: Optional[ImageClassificationParameters] = None
     """Additional inference parameters for Image Classification"""
 
 
