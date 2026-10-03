@@ -21,3 +21,8 @@
     - local: guides/hf_file_system
       title: Hugging Face 文件系统
 
+- title: "概念指南"
+  sections:
+    - local: concepts/git_vs_http
+      title: Git 与 HTTP 范式
+
