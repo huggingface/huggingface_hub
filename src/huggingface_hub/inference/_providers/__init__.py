@@ -47,6 +47,7 @@ from .replicate import (
     ReplicateTextToSpeechTask,
 )
 from .scaleway import ScalewayConversationalTask, ScalewayFeatureExtractionTask
+from .textclf import TextCLFConversationalTask, TextCLFTextGenerationTask
 from .together import (
     TogetherConversationalTask,
     TogetherFeatureExtractionTask,
@@ -86,6 +87,7 @@ PROVIDER_T = Literal[
     "publicai",
     "replicate",
     "scaleway",
+    "textclf",
     "together",
     "wavespeed",
     "zai-org",
@@ -187,6 +189,10 @@ PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
     "scaleway": {
         "conversational": ScalewayConversationalTask(),
         "feature-extraction": ScalewayFeatureExtractionTask(),
+    },
+    "textclf": {
+        "text-generation": TextCLFTextGenerationTask(),
+        "conversational": TextCLFConversationalTask(),
     },
     "together": {
         "conversational": TogetherConversationalTask(),
