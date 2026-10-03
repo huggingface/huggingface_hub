@@ -18,7 +18,7 @@ install_requires = [
     "click>=8.4.2,<9.0.0",  # 8.4.0/8.4.1 shipped a broken fish completion script
     "filelock>=3.10.0",
     "fsspec>=2023.5.0",
-    f"{HF_XET_VERSION}; platform_machine=='x86_64' or platform_machine=='amd64' or platform_machine=='AMD64' or platform_machine=='arm64' or platform_machine=='aarch64'",
+    f"{HF_XET_VERSION}; platform_machine=='x86_64' or platform_machine=='amd64' or platform_machine=='AMD64' or platform_machine=='arm64' or platform_machine=='ARM64' or platform_machine=='aarch64'",
     "httpx2>=2.0.0, <3",
     "packaging>=20.9",
     "pyyaml>=5.1",
