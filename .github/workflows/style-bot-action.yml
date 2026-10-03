@@ -339,6 +339,7 @@ jobs:
           HEADREPOFULLNAME: ${{ needs.run-style-bot.outputs.headRepoFullName }}
           HEADREF: ${{ needs.run-style-bot.outputs.headRef }}
           GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
+          STEPS_APPLY_PATCH_OUTPUTS_CHANGES_PRESENT: ${{ steps.apply_patch.outputs.changes_present }}
         run: |
           echo "HEADREPOFULLNAME: $HEADREPOFULLNAME, HEADREF: $HEADREF"
           # Configure git with the Actions bot user
@@ -349,7 +350,7 @@ jobs:
           git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/$HEADREPOFULLNAME.git"
 
           # If there are changes after running style/quality, commit them
-          if [ "${{ steps.apply_patch.outputs.changes_present }}" = "true" ] && [ -n "$(git status --porcelain)" ]; then
+          if [ "${STEPS_APPLY_PATCH_OUTPUTS_CHANGES_PRESENT}" = "true" ] && [ -n "$(git status --porcelain)" ]; then
             git add .
             git commit -m "Apply style fixes"
             # Push to the original contributor's forked branch
@@ -363,11 +364,13 @@ jobs:
       - name: Prepare final comment message
         id: prepare_final_comment
         run: |
-          if [ "${{ steps.commit_and_push.outputs.changes_pushed }}" = 'true' ]; then
+          if [ "${STEPS_COMMIT_AND_PUSH_OUTPUTS_CHANGES_PUSHED}" = 'true' ]; then
             echo "final_comment=Style bot fixed some files and pushed the changes." >> $GITHUB_OUTPUT
           else
             echo "final_comment=Style fix runs successfully without any file modified." >> $GITHUB_OUTPUT
           fi
+        env:
+          STEPS_COMMIT_AND_PUSH_OUTPUTS_CHANGES_PUSHED: ${{ steps.commit_and_push.outputs.changes_pushed }}
 
       - name: Comment on PR
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3  # v9.0.0
