@@ -257,9 +257,10 @@ jobs:
           fi
 
       - name: Create or checkout release branch
+        env:
+          BRANCH: ${{ steps.version.outputs.branch }}
+          RELEASE_TYPE: ${{ inputs.release_type }}
         run: |
-          BRANCH="${{ steps.version.outputs.branch }}"
-          RELEASE_TYPE="${{ inputs.release_type }}"
 
           if [[ "$RELEASE_TYPE" == *-prerelease ]]; then
             # For prereleases: create branch from main if it doesn't exist, or reuse existing
@@ -284,17 +285,19 @@ jobs:
           fi
 
       - name: Update version in __init__.py
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
           sed -i -E "s/__version__ = \".*\"/__version__ = \"${VERSION}\"/" src/huggingface_hub/__init__.py
           echo "Updated version to:"
           grep "__version__" src/huggingface_hub/__init__.py
 
       - name: Commit, tag, and push
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+          BRANCH: ${{ steps.version.outputs.branch }}
+          IS_PRERELEASE: ${{ steps.version.outputs.is_prerelease }}
         run: |
-          TAG="${{ steps.version.outputs.tag }}"
-          BRANCH="${{ steps.version.outputs.branch }}"
-          IS_PRERELEASE="${{ steps.version.outputs.is_prerelease }}"
 
           git add src/huggingface_hub/__init__.py
           git commit -m "Release: ${TAG}"
@@ -499,10 +502,21 @@ jobs:
           HF_TOKEN: ${{ secrets.RELEASE_NOTES_HF_TOKEN }}
           GITHUB_TOKEN_RELEASE_NOTES: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_NOTES_MODEL: ${{ vars.RELEASE_NOTES_MODEL }}
+          SINCE_TAG: ${{ needs.prepare.outputs.since_tag }}
+          BUMP_TYPE: ${{ needs.prepare.outputs.bump_type }}
         run: |
+          set -euo pipefail
+          case "$BUMP_TYPE" in
+            minor|major|patch) ;;
+            *) echo "::error::Unexpected bump type: $BUMP_TYPE"; exit 1 ;;
+          esac
+          case "$SINCE_TAG" in
+            v[0-9]*) ;;
+            *) echo "::error::Unexpected since tag: $SINCE_TAG"; exit 1 ;;
+          esac
           python -m utils.release_notes.generate_release_notes \
-            --since "${{ needs.prepare.outputs.since_tag }}" \
-            --${{ needs.prepare.outputs.bump_type }}
+            --since "$SINCE_TAG" \
+            "--$BUMP_TYPE"
 
       - name: Create draft GitHub release (prerelease)
         if: ${{ endsWith(inputs.release_type, '-prerelease') && steps.check_draft.outputs.skip != 'true' }}
@@ -674,8 +688,9 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.RELEASE_NOTES_HF_TOKEN }}
           RELEASE_NOTES_MODEL: ${{ vars.RELEASE_NOTES_MODEL }}
+          VERSION: ${{ needs.prepare.outputs.version }}
         run: |
-          VERSION="${{ needs.prepare.outputs.version }}"
+          set -euo pipefail
           BASE_VERSION=$(echo "$VERSION" | sed -E 's/\.rc.*//')
           # Create output directory (.release-notes/ is in .gitignore so absent after checkout)
           mkdir -p .release-notes
