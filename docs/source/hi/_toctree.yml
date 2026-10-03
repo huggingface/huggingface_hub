@@ -19,3 +19,5 @@
       title: रिपॉजिटरी
     - local: guides/search
       title: खोज
+    - local: guides/hf_file_system
+      title: Filesystem API का उपयोग
