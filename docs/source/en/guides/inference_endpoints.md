@@ -309,6 +309,20 @@ InferenceEndpoint(name='my-endpoint-name', namespace='Wauplin', repository='gpt2
 
 If `timeout` is set and the Inference Endpoint takes too much time to load, a [`InferenceEndpointTimeoutError`] timeout error is raised.
 
+If the deployment fails or the endpoint crashes, [`fetch_inference_endpoint_logs`] returns its logs, in chronological order. You can filter them by replica, level, text or start time:
+
+```py
+>>> from huggingface_hub import fetch_inference_endpoint_logs
+>>> for line in fetch_inference_endpoint_logs("my-endpoint-name", level="ERROR"):
+...     print(line)
+```
+
+Or via CLI:
+
+```bash
+hf endpoints logs my-endpoint-name --level ERROR --tail 50
+```
+
 ## Run inference
 
 Once your Inference Endpoint is up and running, you can finally run inference on it!

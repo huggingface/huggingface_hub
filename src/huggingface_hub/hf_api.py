@@ -9825,6 +9825,65 @@ class HfApi:
 
         return InferenceEndpoint.from_raw(response.json(), namespace=namespace, token=token)
 
+    def fetch_inference_endpoint_logs(
+        self,
+        name: str,
+        *,
+        namespace: str | None = None,
+        replica: str | None = None,
+        level: str | None = None,
+        search: str | None = None,
+        since: str | None = None,
+        token: bool | str | None = None,
+    ) -> Iterable[str]:
+        """Fetch the logs of an Inference Endpoint.
+
+        Useful for debugging an Inference Endpoint that fails to start or crashes at runtime, especially from a
+        script or agentic workflow where reading logs in the browser is not an option. Lines are returned in
+        chronological order, as `<timestamp> <replica> <level> <line>`. The number of lines returned by the server is
+        capped: use `since` to narrow down the window if needed.
+
+        Args:
+            name (`str`):
+                The name of the Inference Endpoint.
+            namespace (`str`, *optional*):
+                The namespace in which the Inference Endpoint is located. Defaults to the current user.
+            replica (`str`, *optional*):
+                Only return the logs of this replica ID.
+            level (`str`, *optional*):
+                Only return the logs of this level (e.g. `"ERROR"`).
+            search (`str`, *optional*):
+                Only return the log lines containing this string (case-insensitive).
+            since (`str`, *optional*):
+                Only return the logs emitted at or after this RFC 3339 timestamp (e.g. `"2026-10-01T12:00:00Z"`).
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            `Iterable[str]`: A generator yielding the log lines, without their trailing newline.
+
+        Example:
+        ```python
+        >>> from huggingface_hub import HfApi
+        >>> api = HfApi()
+        >>> for line in api.fetch_inference_endpoint_logs("my-endpoint", level="ERROR"):
+        ...     print(line)
+        ```
+        """
+        namespace = namespace or self._get_namespace(token=token)
+        params = {"replica": replica, "level": level, "search": search, "since": since}
+        with get_session().stream(
+            "GET",
+            f"{constants.INFERENCE_ENDPOINTS_ENDPOINT_V3}/endpoint/{namespace}/{name}/logs/download",
+            headers=self._build_hf_headers(token=token),
+            params={key: value for key, value in params.items() if value is not None},
+        ) as response:
+            hf_raise_for_status(response)
+            yield from response.iter_lines()
+
     def list_inference_endpoints_hardware(
         self, *, namespace: str | None = None, token: bool | str | None = None
     ) -> list[InferenceEndpointHardware]:
@@ -15358,6 +15417,7 @@ delete_inference_endpoint = api.delete_inference_endpoint
 pause_inference_endpoint = api.pause_inference_endpoint
 resume_inference_endpoint = api.resume_inference_endpoint
 scale_to_zero_inference_endpoint = api.scale_to_zero_inference_endpoint
+fetch_inference_endpoint_logs = api.fetch_inference_endpoint_logs
 create_inference_endpoint_from_catalog = api.create_inference_endpoint_from_catalog
 list_inference_catalog = api.list_inference_catalog
 list_inference_endpoints_hardware = api.list_inference_endpoints_hardware

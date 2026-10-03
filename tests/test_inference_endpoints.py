@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from itertools import chain, repeat
 from unittest.mock import MagicMock, Mock, patch
 
+import httpx2
 import pytest
 
 from huggingface_hub import (
@@ -12,6 +13,7 @@ from huggingface_hub import (
     InferenceEndpointError,
     InferenceEndpointTimeoutError,
 )
+from huggingface_hub.errors import HfHubHTTPError
 
 
 MOCK_INITIALIZING = {
@@ -438,3 +440,55 @@ def test_resume(mock: Mock):
     mock.return_value = InferenceEndpoint.from_raw(MOCK_INITIALIZING, namespace="foo")
     endpoint.resume()
     mock.assert_called_once_with(namespace="foo", name="my-endpoint-name", token=None, running_ok=True)
+
+
+def _mock_log_stream(mock_get_session: Mock, lines: list[str], status_code: int = 200) -> Mock:
+    response = MagicMock()
+    response.status_code = status_code
+    response.iter_lines.return_value = iter(lines)
+    stream = mock_get_session.return_value.stream
+    stream.return_value.__enter__.return_value = response
+    return stream
+
+
+@patch("huggingface_hub.hf_api.get_session")
+def test_fetch_inference_endpoint_logs(mock_get_session: Mock):
+    """Test `fetch_inference_endpoint_logs` streams the plain-text logs and only sends the filters that are set."""
+    stream = _mock_log_stream(mock_get_session, ["2026-10-01T12:00:00Z replica-0 INFO started", "second line"])
+
+    lines = HfApi().fetch_inference_endpoint_logs("my-endpoint", namespace="foo", level="ERROR", replica="replica-0")
+
+    assert list(lines) == ["2026-10-01T12:00:00Z replica-0 INFO started", "second line"]
+    stream.assert_called_once()
+    assert stream.call_args.args == (
+        "GET",
+        "https://api.endpoints.huggingface.cloud/v3/endpoint/foo/my-endpoint/logs/download",
+    )
+    assert stream.call_args.kwargs["params"] == {"level": "ERROR", "replica": "replica-0"}
+
+
+@patch("huggingface_hub.hf_api.get_session")
+def test_fetch_inference_endpoint_logs_forwards_all_filters(mock_get_session: Mock):
+    stream = _mock_log_stream(mock_get_session, [])
+
+    assert (
+        list(
+            HfApi().fetch_inference_endpoint_logs(
+                "my-endpoint", namespace="foo", search="oom", since="2026-10-01T12:00:00Z"
+            )
+        )
+        == []
+    )
+
+    assert stream.call_args.kwargs["params"] == {"search": "oom", "since": "2026-10-01T12:00:00Z"}
+
+
+@patch("huggingface_hub.hf_api.get_session")
+def test_fetch_inference_endpoint_logs_raises_on_http_error(mock_get_session: Mock):
+    """Test the HTTP error of the logs route is raised as a `HfHubHTTPError` before any line is yielded."""
+    url = "https://api.endpoints.huggingface.cloud/v3/endpoint/foo/my-endpoint/logs/download"
+    response = httpx2.Response(501, text="Log search not available", request=httpx2.Request("GET", url))
+    mock_get_session.return_value.stream.return_value.__enter__.return_value = response
+
+    with pytest.raises(HfHubHTTPError):
+        list(HfApi().fetch_inference_endpoint_logs("my-endpoint", namespace="foo"))
