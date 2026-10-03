@@ -102,6 +102,8 @@ INFERENCE_ENDPOINT = os.environ.get("HF_INFERENCE_ENDPOINT", "https://api-infere
 
 # See https://huggingface.co/docs/inference-endpoints/index
 INFERENCE_ENDPOINTS_ENDPOINT = "https://api.endpoints.huggingface.cloud/v2"
+# Logs are only served as plain text by the v3 API (`/endpoint/{namespace}/{name}/logs/download`).
+INFERENCE_ENDPOINTS_ENDPOINT_V3 = "https://api.endpoints.huggingface.cloud/v3"
 INFERENCE_CATALOG_ENDPOINT = "https://endpoints.huggingface.co/api/v1/catalog"
 
 # Proxy for third-party providers

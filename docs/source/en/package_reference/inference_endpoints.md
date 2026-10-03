@@ -17,6 +17,7 @@ A subset of the Inference Endpoint features are implemented in [`HfApi`]:
 - [`list_inference_catalog`] and [`create_inference_endpoint_from_catalog`] to browse and deploy the curated Model Catalog
 - [`pause_inference_endpoint`] and [`resume_inference_endpoint`] to pause and resume an Inference Endpoint
 - [`scale_to_zero_inference_endpoint`] to manually scale an Endpoint to 0 replicas
+- [`fetch_inference_endpoint_logs`] to fetch the logs of an Endpoint
 
 ## InferenceEndpoint
 

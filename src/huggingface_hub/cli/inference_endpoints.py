@@ -1,6 +1,7 @@
 """CLI commands for Hugging Face Inference Endpoints."""
 
 import shlex
+from collections import deque
 from typing import Annotated
 
 import click
@@ -879,6 +880,60 @@ def scale_to_zero(
         raise click.exceptions.Exit(code=error.response.status_code) from error
 
     out.dict(endpoint.raw)
+
+
+@ie_cli.command(
+    examples=[
+        "hf endpoints logs my-endpoint",
+        "hf endpoints logs my-endpoint --level ERROR",
+        "hf endpoints logs my-endpoint --since 2026-10-01T12:00:00Z -n 50",
+    ],
+)
+def logs(
+    name: NameArg,
+    namespace: NamespaceOpt = None,
+    replica: Annotated[
+        str | None,
+        Option(help="Only show the logs of this replica ID."),
+    ] = None,
+    level: Annotated[
+        str | None,
+        Option(help="Only show the logs of this level (e.g. 'ERROR')."),
+    ] = None,
+    search: Annotated[
+        str | None,
+        Option(help="Only show the log lines containing this text (case-insensitive)."),
+    ] = None,
+    since: Annotated[
+        str | None,
+        Option(help="Only show the logs emitted at or after this RFC 3339 timestamp (e.g. '2026-10-01T12:00:00Z')."),
+    ] = None,
+    tail: Annotated[
+        int | None,
+        Option(
+            "-n",
+            "--tail",
+            help="Number of lines to show from the end of the logs.",
+        ),
+    ] = None,
+    token: TokenOpt = None,
+) -> None:
+    """Fetch the logs of an Inference Endpoint.
+
+    Prints the logs currently available, in chronological order, and exits. Useful to find out why a deployment fails.
+    """
+    api = get_hf_api(token=token)
+    try:
+        lines = api.fetch_inference_endpoint_logs(
+            name, namespace=namespace, replica=replica, level=level, search=search, since=since, token=token
+        )
+        if tail is not None:
+            lines = deque(lines, maxlen=tail)
+        for line in lines:
+            out.text(line)
+    except HfHubHTTPError as error:
+        out.error(f"Fetching logs failed: {error}")
+        raise click.exceptions.Exit(code=error.response.status_code) from error
 
 
 def _build_custom_image(

@@ -1662,6 +1662,7 @@ $ hf endpoints [OPTIONS] COMMAND [ARGS]...
 * `hardware`: List the hardware available to deploy an Inference Endpoint on.
 * `list`: Lists all Inference Endpoints for the given namespace. [alias: ls]
 * `list-catalog`: List the models available in the Model Catalog.
+* `logs`: Fetch the logs of an Inference Endpoint.
 * `pause`: Pause an Inference Endpoint.
 * `resume`: Resume an Inference Endpoint.
 * `scale-to-zero`: Scale an Inference Endpoint to zero.
@@ -1955,6 +1956,43 @@ $ hf endpoints list-catalog [OPTIONS]
 * `--limit INTEGER`: Limit the number of models to return.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
+
+### `hf endpoints logs`
+
+Fetch the logs of an Inference Endpoint.
+
+Prints the logs currently available, in chronological order, and exits. Useful to find out why a deployment fails.
+
+**Usage**:
+
+```console
+$ hf endpoints logs [OPTIONS] NAME
+```
+
+**Arguments**:
+
+* `NAME`: Endpoint name.  [required]
+
+**Options**:
+
+* `--namespace TEXT`: The namespace associated with the Inference Endpoint. Defaults to the current user's namespace.
+* `--replica TEXT`: Only show the logs of this replica ID.
+* `--level TEXT`: Only show the logs of this level (e.g. 'ERROR').
+* `--search TEXT`: Only show the log lines containing this text (case-insensitive).
+* `--since TEXT`: Only show the logs emitted at or after this RFC 3339 timestamp (e.g. '2026-10-01T12:00:00Z').
+* `-n, --tail INTEGER`: Number of lines to show from the end of the logs.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf endpoints logs my-endpoint
+  $ hf endpoints logs my-endpoint --level ERROR
+  $ hf endpoints logs my-endpoint --since 2026-10-01T12:00:00Z -n 50
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
 
 ### `hf endpoints pause`
 

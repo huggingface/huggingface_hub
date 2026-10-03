@@ -3048,6 +3048,58 @@ class TestInferenceEndpointsCommands:
         )
         assert '"name": "zero"' in result.stdout
 
+    def test_logs(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.fetch_inference_endpoint_logs.return_value = iter(["line 1", "line 2", "line 3"])
+            result = runner.invoke(
+                app,
+                [
+                    "endpoints",
+                    "logs",
+                    "my-endpoint",
+                    "--replica",
+                    "replica-0",
+                    "--level",
+                    "ERROR",
+                    "--search",
+                    "oom",
+                    "--since",
+                    "2026-10-01T12:00:00Z",
+                ],
+            )
+        assert result.exit_code == 0, result.output
+        api.fetch_inference_endpoint_logs.assert_called_once_with(
+            "my-endpoint",
+            namespace=None,
+            replica="replica-0",
+            level="ERROR",
+            search="oom",
+            since="2026-10-01T12:00:00Z",
+            token=None,
+        )
+        assert result.stdout.splitlines() == ["line 1", "line 2", "line 3"]
+
+    def test_logs_tail(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.fetch_inference_endpoint_logs.return_value = iter(["line 1", "line 2", "line 3", "line 4"])
+            result = runner.invoke(app, ["endpoints", "logs", "my-endpoint", "-n", "2"])
+        assert result.exit_code == 0, result.output
+        assert result.stdout.splitlines() == ["line 3", "line 4"]
+
+    def test_logs_http_error(self, runner: CliRunner) -> None:
+        from huggingface_hub.errors import HfHubHTTPError
+
+        mock_response = Mock()
+        mock_response.status_code = 404
+        with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.fetch_inference_endpoint_logs.side_effect = HfHubHTTPError("Not found", response=mock_response)
+            result = runner.invoke(app, ["endpoints", "logs", "my-endpoint"])
+        assert result.exit_code == 404
+        assert "Fetching logs failed" in result.output
+
     def test_list_catalog(self, runner: CliRunner) -> None:
         model = InferenceCatalogModel.from_raw(
             {
