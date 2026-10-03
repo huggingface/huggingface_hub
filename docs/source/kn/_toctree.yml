@@ -1,0 +1,8 @@
+- title: "ಆರಂಭಿಸಿ"
+  sections:
+    - local: index
+      title: "ಮುಖಪುಟ"
+    - local: quick-start
+      title: "ಕ್ವಿಕ್‌ಸ್ಟಾರ್ಟ್"
+    - local: installation
+      title: "ಇನ್‌ಸ್ಟಾಲೇಶನ್"
