@@ -73,6 +73,9 @@ datasets:
 Hello
 """
 
+# Same card, but with non-ASCII text: it must load whatever the default encoding of the platform is.
+DUMMY_MODELCARD_WITH_NON_ASCII = DUMMY_MODELCARD + "中文模型卡\n"
+
 DUMMY_MODELCARD_TARGET = """---
 meaning_of_life: 42
 ---
@@ -183,6 +186,23 @@ Custom template passed as a string.
 """
 
 
+class _AsciiDefaultPath:
+    """A `Path` whose default text encoding is ASCII.
+
+    Emulates a platform whose locale encoding is not UTF-8 (`LC_ALL=C`, Windows cp936/cp1252, ...).
+    `locale.getencoding()` cannot be monkeypatched to do this because `open()` resolves the default
+    encoding in C.
+    """
+
+    def __init__(self, path) -> None:
+        self._path = Path(path)
+
+    def read_text(self, encoding=None, errors=None, newline=None):
+        # `newline` is only supported by `Path.read_text` from Python 3.13 on: forward it when set.
+        newline_kwargs = {} if newline is None else {"newline": newline}
+        return self._path.read_text(encoding=encoding or "ascii", errors=errors, **newline_kwargs)
+
+
 require_jinja = pytest.mark.skipif(not is_jinja_available(), reason="test requires Jinja2.")
 
 
@@ -195,6 +215,28 @@ class TestRepocardMetadata:
         self.filepath.write_text(DUMMY_MODELCARD)
         data = metadata_load(self.filepath)
         assert data == {"license": "mit", "datasets": ["foo", "bar"]}
+
+    def test_metadata_load_with_utf8_bom(self):
+        # A BOM written by Windows tools must not hide the metadata block.
+        self.filepath.write_bytes(b"\xef\xbb\xbf" + DUMMY_MODELCARD.encode("utf-8"))
+        data = metadata_load(self.filepath)
+        assert data == {"license": "mit", "datasets": ["foo", "bar"]}
+
+    def test_metadata_load_with_non_ascii_content(self, monkeypatch):
+        # `metadata_save` writes UTF-8, so `metadata_load` must read UTF-8, not the locale encoding.
+        self.filepath.write_bytes(DUMMY_MODELCARD_WITH_NON_ASCII.encode("utf-8"))
+        monkeypatch.setattr("huggingface_hub.repocard.Path", _AsciiDefaultPath)
+        data = metadata_load(self.filepath)
+        assert data == {"license": "mit", "datasets": ["foo", "bar"]}
+
+    @require_jinja
+    def test_from_template_with_non_ascii_template(self, monkeypatch, tmp_path):
+        # Same for templates passed by the user, which are also UTF-8 files.
+        template = tmp_path / "template.md"
+        template.write_text("---\n{{ card_data }}\n---\n\n中文模板\n", encoding="utf-8")
+        monkeypatch.setattr("huggingface_hub.repocard.Path", _AsciiDefaultPath)
+        card = ModelCard.from_template(ModelCardData(license="mit"), template_path=str(template))
+        assert "中文模板" in str(card)
 
     def test_metadata_save(self):
         self.filepath.write_text(DUMMY_MODELCARD)

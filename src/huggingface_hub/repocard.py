@@ -324,10 +324,13 @@ class RepoCard:
         kwargs = card_data.to_dict().copy()
         kwargs.update(template_kwargs)  # Template_kwargs have priority
 
+        # Templates are read as UTF-8 for the same reason as `metadata_load`: a template is text
+        # written by the user, so decoding it with the locale encoding crashes on Windows (cp936,
+        # cp1252, ...) as soon as it contains a non-ASCII character.
         if template_path is not None:
-            template_str = Path(template_path).read_text()
+            template_str = Path(template_path).read_text(encoding="utf-8")
         if template_str is None:
-            template_str = Path(cls.default_template_path).read_text()
+            template_str = Path(cls.default_template_path).read_text(encoding="utf-8")
         template = jinja2.Template(template_str)
         content = template.render(card_data=card_data.to_yaml(), **kwargs)
         return cls(content)
@@ -513,7 +516,11 @@ def _detect_line_ending(content: str) -> Literal["\r", "\n", "\r\n", None]:  # n
 
 
 def metadata_load(local_path: str | Path) -> dict | None:
-    content = Path(local_path).read_text()
+    # Read as UTF-8, like `metadata_save` writes it, instead of relying on the locale encoding
+    # (cp936/cp1252 on Windows, "ascii" under LC_ALL=C, ...). "utf-8-sig" also drops the BOM that
+    # Windows tools (e.g. PowerShell 5.1) write at the start of the file, which would otherwise
+    # prevent the YAML block from being detected.
+    content = Path(local_path).read_text(encoding="utf-8-sig")
     match = REGEX_YAML_BLOCK.search(content)
     if match:
         yaml_block = match.group(2)
