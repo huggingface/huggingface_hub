@@ -238,6 +238,23 @@ class TestRepocardMetadata:
         card = ModelCard.from_template(ModelCardData(license="mit"), template_path=str(template))
         assert "中文模板" in str(card)
 
+    @require_jinja
+    def test_from_template_with_utf8_bom_template(self, tmp_path):
+        # A BOM written by some editors must not leak into the rendered card: it is not whitespace
+        # for `REGEX_YAML_BLOCK`, so the front matter would be skipped and the data silently dropped.
+        template = tmp_path / "template.md"
+        template.write_bytes(b"\xef\xbb\xbf" + "---\n{{ card_data }}\n---\n\nBody\n".encode("utf-8"))
+        card = ModelCard.from_template(ModelCardData(license="mit"), template_path=str(template))
+        assert card.data.to_dict() == {"license": "mit"}
+        assert not str(card).startswith("\ufeff")
+
+    def test_load_with_utf8_bom(self):
+        # Same for a card file read from disk: the BOM must not be parsed as the start of the body.
+        self.filepath.write_bytes(b"\xef\xbb\xbf" + DUMMY_MODELCARD.encode("utf-8"))
+        card = RepoCard.load(self.filepath)
+        assert card.data.to_dict() == {"license": "mit", "datasets": ["foo", "bar"]}
+        assert not card.text.startswith("\ufeff")
+
     def test_metadata_save(self):
         self.filepath.write_text(DUMMY_MODELCARD)
         metadata_save(self.filepath, {"meaning_of_life": 42})

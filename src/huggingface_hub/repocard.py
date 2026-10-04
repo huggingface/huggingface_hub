@@ -182,8 +182,10 @@ class RepoCard:
         else:
             raise ValueError(f"Cannot load RepoCard: path not found on disk ({repo_id_or_path}).")
 
-        # Preserve newlines in the existing file.
-        with card_path.open(mode="r", newline="", encoding="utf-8") as f:
+        # Preserve newlines in the existing file. Read as UTF-8 (see `metadata_load`) and tolerate a
+        # BOM: kept as a leading character, the BOM is not whitespace for `REGEX_YAML_BLOCK`, so the
+        # YAML block would be missed and the card would be parsed with empty metadata.
+        with card_path.open(mode="r", newline="", encoding="utf-8-sig") as f:
             return cls(f.read(), ignore_metadata_errors=ignore_metadata_errors)
 
     def validate(self, repo_type: str | None = None):
@@ -326,11 +328,13 @@ class RepoCard:
 
         # Templates are read as UTF-8 for the same reason as `metadata_load`: a template is text
         # written by the user, so decoding it with the locale encoding crashes on Windows (cp936,
-        # cp1252, ...) as soon as it contains a non-ASCII character.
+        # cp1252, ...) as soon as it contains a non-ASCII character. "utf-8-sig" additionally drops
+        # the BOM that some editors add, which would otherwise be rendered into the card and hide
+        # its YAML block from `REGEX_YAML_BLOCK`.
         if template_path is not None:
-            template_str = Path(template_path).read_text(encoding="utf-8")
+            template_str = Path(template_path).read_text(encoding="utf-8-sig")
         if template_str is None:
-            template_str = Path(cls.default_template_path).read_text(encoding="utf-8")
+            template_str = Path(cls.default_template_path).read_text(encoding="utf-8-sig")
         template = jinja2.Template(template_str)
         content = template.render(card_data=card_data.to_yaml(), **kwargs)
         return cls(content)
