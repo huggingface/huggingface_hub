@@ -1384,9 +1384,9 @@ def _hf_hub_download_to_local_dir(
                     f"Couldn't access the Hub to check for update but local file already exists. Defaulting to existing file. (error: {head_call_error})"
                 )
             local_path = str(paths.file_path)
-            if dry_run and local_metadata is not None:
+            if dry_run:
                 return DryRunFileInfo(
-                    commit_hash=local_metadata.commit_hash,
+                    commit_hash=local_metadata.commit_hash if local_metadata is not None else revision,
                     file_size=os.path.getsize(local_path),
                     filename=filename,
                     is_cached=True,

@@ -29,6 +29,7 @@ from huggingface_hub._local_folder import write_download_metadata
 from huggingface_hub.errors import EntryNotFoundError, FileMetadataError, GatedRepoError, LocalEntryNotFoundError
 from huggingface_hub.file_download import (
     _CACHED_NO_EXIST,
+    DryRunFileInfo,
     HfFileMetadata,
     _check_disk_space,
     _create_symlink,
@@ -998,6 +999,30 @@ class TestFileDownloadDryRun:
             )
             assert not dry_run_info.is_cached
             assert dry_run_info.will_download
+
+    def test_dry_run_local_dir_offline_without_metadata(self):
+        """`dry_run=True` must return a `DryRunFileInfo`, not a `str`, offline without metadata.
+
+        Regression test: when the Hub cannot be reached (`local_files_only=True`) and the file is
+        already in `local_dir` but its download metadata is missing, `hf_hub_download` used to return
+        a plain `str` (the local path) instead of a `DryRunFileInfo`, breaking callers that read
+        `.is_cached`/`.will_download`.
+        """
+        with SoftTemporaryDirectory() as tmpdir:
+            # Simulate a file placed in `local_dir` without download metadata
+            (Path(tmpdir) / constants.CONFIG_NAME).write_text("{}")
+
+            dry_run_info = hf_hub_download(
+                DUMMY_MODEL_ID,
+                filename=constants.CONFIG_NAME,
+                local_dir=tmpdir,
+                dry_run=True,
+                local_files_only=True,
+            )
+
+            assert isinstance(dry_run_info, DryRunFileInfo)
+            assert dry_run_info.is_cached
+            assert not dry_run_info.will_download
 
 
 class TestStagingCachedDownloadOnAwfulFilenames:
