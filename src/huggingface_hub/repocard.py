@@ -547,7 +547,10 @@ def metadata_save(local_path: str | Path, data: dict) -> None:
     content = ""
     # try to detect existing newline character
     if os.path.exists(local_path):
-        with open(local_path, newline="", encoding="utf8") as readme:
+        # Read as `utf-8-sig`, like `metadata_load`: with a leading BOM, `REGEX_YAML_BLOCK` does not
+        # match the existing metadata block, so it would be kept in the body and a second block would
+        # be prepended instead of updating the existing one.
+        with open(local_path, newline="", encoding="utf-8-sig") as readme:
             content = readme.read()
             if isinstance(readme.newlines, tuple):
                 line_break = readme.newlines[0]

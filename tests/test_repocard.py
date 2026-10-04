@@ -261,6 +261,14 @@ class TestRepocardMetadata:
         content = self.filepath.read_text()
         assert content == DUMMY_MODELCARD_TARGET
 
+    def test_metadata_save_with_utf8_bom(self):
+        # A BOM must not hide the existing metadata block either: otherwise `metadata_save` prepends a
+        # second block and keeps the stale one in the body.
+        self.filepath.write_bytes(b"\xef\xbb\xbf" + DUMMY_MODELCARD.encode("utf-8"))
+        metadata_save(self.filepath, {"meaning_of_life": 42})
+        content = self.filepath.read_text(encoding="utf-8")
+        assert content == DUMMY_MODELCARD_TARGET
+
     def test_metadata_save_with_emoji_character(self):
         self.filepath.write_text(DUMMY_MODELCARD)
         metadata_save(self.filepath, {"emoji": "🎁"})
