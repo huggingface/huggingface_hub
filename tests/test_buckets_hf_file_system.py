@@ -83,6 +83,30 @@ class TestHfFileSystemBucketRW(_HfFileSystemBucketChecks, _HfFileSystemBaseRWTes
         yield
         self.api.delete_bucket(self.bucket_id)
 
-    @pytest.mark.skip("Not implemented yet")
     def test_copy_file(self):
-        pass
+        self.hffs.cp_file(self.text_file, self.hf_path + "/data/text_data_copy.txt")
+        with self.hffs.open(self.hf_path + "/data/text_data_copy.txt", "r") as f:
+            assert f.read() == "dummy text data"
+
+    def test_move_and_rename_file(self):
+        copied_file = self.hf_path + "/data/text_data_copy.txt"
+        moved_file = self.hf_path + "/data/text_data_moved.txt"
+        renamed_file = self.hf_path + "/data/text_data_renamed.txt"
+
+        self.hffs.cp_file(self.text_file, copied_file)
+        self.hffs.mv(copied_file, moved_file)
+        assert not self.hffs.exists(copied_file)
+        assert self.hffs.exists(moved_file)
+
+        self.hffs.rename(moved_file, renamed_file)
+        assert not self.hffs.exists(moved_file)
+        with self.hffs.open(renamed_file, "r") as f:
+            assert f.read() == "dummy text data"
+
+    def test_copy_between_buckets_is_not_supported(self):
+        other_bucket_id = self.api.create_bucket(repo_name()).bucket_id
+        try:
+            with pytest.raises(NotImplementedError, match="between buckets"):
+                self.hffs.cp_file(self.text_file, f"buckets/{other_bucket_id}/copy.txt")
+        finally:
+            self.api.delete_bucket(other_bucket_id)
