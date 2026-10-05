@@ -38,7 +38,7 @@ import re
 import warnings
 from collections.abc import Iterable
 from contextlib import ExitStack
-from typing import TYPE_CHECKING, Any, Literal, Optional, Union, overload
+from typing import TYPE_CHECKING, Any, Literal, Optional, Protocol, Union, overload
 
 from huggingface_hub import constants
 from huggingface_hub.errors import BadRequestError, HfHubHTTPError, InferenceTimeoutError
@@ -53,6 +53,8 @@ from huggingface_hub.inference._common import (
     _bytes_to_list,
     _get_unsupported_text_generation_kwargs,
     _import_numpy,
+    _normalize_chat_completion_response_format,
+    _normalize_text_generation_grammar,
     _set_unsupported_text_generation_kwargs,
     _stream_chat_completion_response,
     _stream_text_generation_response,
@@ -117,6 +119,17 @@ logger = logging.getLogger(__name__)
 
 
 MODEL_KWARGS_NOT_USED_REGEX = re.compile(r"The following `model_kwargs` are not used by the model: \[(.*?)\]")
+
+
+class _PydanticModelT(Protocol):
+    """Pydantic model class or instance. Pydantic is not imported: this is a structural type only."""
+
+    def model_json_schema(self, **kwargs: Any) -> dict[str, Any]: ...
+
+
+# Dicts and generated grammar objects stay valid. A Pydantic model is normalized just before the HTTP call.
+_ChatCompletionResponseFormatT = ChatCompletionInputGrammarType | dict[str, Any] | _PydanticModelT
+_TextGenerationGrammarT = TextGenerationInputGrammarType | dict[str, Any] | _PydanticModelT
 
 
 class InferenceClient:
@@ -461,7 +474,7 @@ class InferenceClient:
         max_tokens: int | None = None,
         n: int | None = None,
         presence_penalty: float | None = None,
-        response_format: ChatCompletionInputGrammarType | None = None,
+        response_format: _ChatCompletionResponseFormatT | None = None,
         seed: int | None = None,
         stop: list[str] | None = None,
         stream_options: ChatCompletionInputStreamOptions | None = None,
@@ -487,7 +500,7 @@ class InferenceClient:
         max_tokens: int | None = None,
         n: int | None = None,
         presence_penalty: float | None = None,
-        response_format: ChatCompletionInputGrammarType | None = None,
+        response_format: _ChatCompletionResponseFormatT | None = None,
         seed: int | None = None,
         stop: list[str] | None = None,
         stream_options: ChatCompletionInputStreamOptions | None = None,
@@ -513,7 +526,7 @@ class InferenceClient:
         max_tokens: int | None = None,
         n: int | None = None,
         presence_penalty: float | None = None,
-        response_format: ChatCompletionInputGrammarType | None = None,
+        response_format: _ChatCompletionResponseFormatT | None = None,
         seed: int | None = None,
         stop: list[str] | None = None,
         stream_options: ChatCompletionInputStreamOptions | None = None,
@@ -539,7 +552,7 @@ class InferenceClient:
         max_tokens: int | None = None,
         n: int | None = None,
         presence_penalty: float | None = None,
-        response_format: ChatCompletionInputGrammarType | None = None,
+        response_format: _ChatCompletionResponseFormatT | None = None,
         seed: int | None = None,
         stop: list[str] | None = None,
         stream_options: ChatCompletionInputStreamOptions | None = None,
@@ -587,8 +600,12 @@ class InferenceClient:
             presence_penalty (`float`, *optional*):
                 Number between -2.0 and 2.0. Positive values penalize new tokens based on whether they appear in the
                 text so far, increasing the model's likelihood to talk about new topics.
-            response_format ([`ChatCompletionInputGrammarType`], *optional*):
-                Grammar constraints. Can be either a JSONSchema or a regex.
+            response_format ([`ChatCompletionInputGrammarType`], `dict`, or a Pydantic model, *optional*):
+                Grammar constraints. Can be a JSON schema, a regex, or a Pydantic `BaseModel` class or instance.
+                A Pydantic model is serialized to
+                `{"type": "json_schema", "json_schema": {"name": ..., "schema": ...}}` before the request is sent
+                (the same payload as passing `MyModel.model_json_schema()` yourself). `pydantic` is optional and is
+                imported only when a model is passed.
             seed (Optional[`int`], *optional*):
                 Seed for reproducible control flow. Defaults to None.
             stop (`list[str]`, *optional*):
@@ -876,7 +893,31 @@ class InferenceClient:
         >>> response.choices[0].message.content
         '{\n\n"activity": "bike ride",\n"animals": ["puppy", "cat", "raccoon"],\n"animals_seen": 3,\n"location": "park"}'
         ```
+
+        Example passing a Pydantic model as `response_format`. `pydantic` is optional.
+        You can pass the model class (or an instance) and let the client build the JSON schema, or pass that schema yourself:
+        ```py
+        >>> from pydantic import BaseModel
+        >>> class Animals(BaseModel):
+        ...     location: str
+        ...     activity: str
+        ...     animals_seen: int
+        ...     animals: list[str]
+        >>> client = InferenceClient("meta-llama/Meta-Llama-3-70B-Instruct")
+        >>> messages = [{"role": "user", "content": "I saw a puppy a cat and a raccoon during my bike ride in the park."}]
+        >>> # The client serializes `Animals` to a JSON schema before the HTTP call.
+        >>> client.chat_completion(messages, response_format=Animals)
+        >>> # Equivalent explicit schema:
+        >>> client.chat_completion(
+        ...     messages,
+        ...     response_format={
+        ...         "type": "json_schema",
+        ...         "json_schema": {"name": "Animals", "schema": Animals.model_json_schema()},
+        ...     },
+        ... )
+        ```
         """
+        response_format = _normalize_chat_completion_response_format(response_format)
         # Since `chat_completion(..., model=xxx)` is also a payload parameter for the server, we need to handle 'model' differently.
         # `self.model` takes precedence over 'model' argument for building URL.
         # `model` takes precedence for payload value.
@@ -1955,7 +1996,7 @@ class InferenceClient:
         decoder_input_details: bool | None = None,
         do_sample: bool | None = None,
         frequency_penalty: float | None = None,
-        grammar: TextGenerationInputGrammarType | None = None,
+        grammar: _TextGenerationGrammarT | None = None,
         max_new_tokens: int | None = None,
         repetition_penalty: float | None = None,
         return_full_text: bool | None = None,
@@ -1984,7 +2025,7 @@ class InferenceClient:
         decoder_input_details: bool | None = None,
         do_sample: bool | None = None,
         frequency_penalty: float | None = None,
-        grammar: TextGenerationInputGrammarType | None = None,
+        grammar: _TextGenerationGrammarT | None = None,
         max_new_tokens: int | None = None,
         repetition_penalty: float | None = None,
         return_full_text: bool | None = None,
@@ -2013,7 +2054,7 @@ class InferenceClient:
         decoder_input_details: bool | None = None,
         do_sample: bool | None = None,
         frequency_penalty: float | None = None,
-        grammar: TextGenerationInputGrammarType | None = None,
+        grammar: _TextGenerationGrammarT | None = None,
         max_new_tokens: int | None = None,
         repetition_penalty: float | None = None,
         return_full_text: bool | None = None,  # Manual default value
@@ -2042,7 +2083,7 @@ class InferenceClient:
         decoder_input_details: bool | None = None,
         do_sample: bool | None = None,
         frequency_penalty: float | None = None,
-        grammar: TextGenerationInputGrammarType | None = None,
+        grammar: _TextGenerationGrammarT | None = None,
         max_new_tokens: int | None = None,
         repetition_penalty: float | None = None,
         return_full_text: bool | None = None,
@@ -2071,7 +2112,7 @@ class InferenceClient:
         decoder_input_details: bool | None = None,
         do_sample: bool | None = None,
         frequency_penalty: float | None = None,
-        grammar: TextGenerationInputGrammarType | None = None,
+        grammar: _TextGenerationGrammarT | None = None,
         max_new_tokens: int | None = None,
         repetition_penalty: float | None = None,
         return_full_text: bool | None = None,
@@ -2099,7 +2140,7 @@ class InferenceClient:
         decoder_input_details: bool | None = None,
         do_sample: bool | None = None,
         frequency_penalty: float | None = None,
-        grammar: TextGenerationInputGrammarType | None = None,
+        grammar: _TextGenerationGrammarT | None = None,
         max_new_tokens: int | None = None,
         repetition_penalty: float | None = None,
         return_full_text: bool | None = None,
@@ -2146,8 +2187,11 @@ class InferenceClient:
             frequency_penalty (`float`, *optional*):
                 Number between -2.0 and 2.0. Positive values penalize new tokens based on their existing frequency in
                 the text so far, decreasing the model's likelihood to repeat the same line verbatim.
-            grammar ([`TextGenerationInputGrammarType`], *optional*):
-                Grammar constraints. Can be either a JSONSchema or a regex.
+            grammar ([`TextGenerationInputGrammarType`], `dict`, or a Pydantic model, *optional*):
+                Grammar constraints. Can be a JSON schema, a regex, or a Pydantic `BaseModel` class or instance.
+                A Pydantic model is serialized to `{"type": "json", "value": <json schema>}` before the request is sent
+                (the same payload as passing `{"type": "json", "value": MyModel.model_json_schema()}` yourself).
+                `pydantic` is optional and is imported only when a model is passed.
             max_new_tokens (`int`, *optional*):
                 Maximum number of generated tokens. Defaults to 100.
             repetition_penalty (`float`, *optional*):
@@ -2293,8 +2337,25 @@ class InferenceClient:
             "animals_seen": 3,
             "location": "park"
         }
+
+        # Case 6: same grammar, built from a Pydantic model (or pass the model directly as `grammar=Animals`)
+        >>> from pydantic import BaseModel
+        >>> class Animals(BaseModel):
+        ...     location: str
+        ...     activity: str
+        ...     animals_seen: int
+        ...     animals: list[str]
+        >>> response = client.text_generation(
+        ...     prompt="I saw a puppy a cat and a raccoon during my bike ride in the park",
+        ...     grammar={"type": "json", "value": Animals.model_json_schema()},
+        ... )
+        >>> response = client.text_generation(
+        ...     prompt="I saw a puppy a cat and a raccoon during my bike ride in the park",
+        ...     grammar=Animals,
+        ... )
         ```
         """
+        grammar = _normalize_text_generation_grammar(grammar)
         if decoder_input_details and not details:
             warnings.warn(
                 "`decoder_input_details=True` has been passed to the server but `details=False` is set meaning that"

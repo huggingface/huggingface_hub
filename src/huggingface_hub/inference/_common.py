@@ -35,7 +35,7 @@ from huggingface_hub.errors import (
     ValidationError,
 )
 
-from ..utils import get_session, is_numpy_available, is_pillow_available
+from ..utils import get_session, is_numpy_available, is_pillow_available, is_pydantic_available
 from ._generated.types import ChatCompletionStreamOutput, TextGenerationStreamOutput
 
 
@@ -110,6 +110,101 @@ def _import_pil_image():
     from PIL import Image
 
     return Image
+
+
+_PYDANTIC_INSTALL_HINT = (
+    "This is an optional dependency that should be installed separately. "
+    "Please run `pip install --upgrade pydantic` and retry."
+)
+
+
+def _looks_like_pydantic_model(obj: Any) -> bool:
+    """Return True when `obj` exposes a Pydantic JSON-schema API.
+
+    Used only when `pydantic` itself cannot be imported, so a real `BaseModel` cannot be checked with `isinstance`.
+    """
+    candidate = obj if isinstance(obj, type) else type(obj)
+    if callable(getattr(candidate, "model_json_schema", None)):
+        return True
+    # Pydantic v1 models expose `schema()` together with `__fields__`.
+    return callable(getattr(candidate, "schema", None)) and hasattr(candidate, "__fields__")
+
+
+def _require_pydantic_model(obj: Any, *, param_name: str) -> type:
+    """Return the Pydantic model class for `obj`, or raise a user-facing error."""
+    if not is_pydantic_available():
+        if _looks_like_pydantic_model(obj):
+            raise ImportError(
+                f"Passing a Pydantic model as `{param_name}` requires the `pydantic` package. {_PYDANTIC_INSTALL_HINT}"
+            )
+        raise TypeError(
+            f"`{param_name}` must be a JSON schema dictionary, a grammar object, or a Pydantic BaseModel class or"
+            f" instance. Got {type(obj).__name__}."
+        )
+
+    from pydantic import BaseModel
+
+    if isinstance(obj, type):
+        try:
+            if issubclass(obj, BaseModel):
+                return obj
+        except TypeError:
+            pass
+    elif isinstance(obj, BaseModel):
+        return type(obj)
+    raise TypeError(
+        f"`{param_name}` must be a JSON schema dictionary, a grammar object, or a Pydantic BaseModel class or"
+        f" instance. Got {type(obj).__name__}."
+    )
+
+
+def _pydantic_json_schema(model: type) -> dict[str, Any]:
+    """Serialize a Pydantic model class to a JSON schema dict.
+
+    Pydantic v2 exposes `model_json_schema()`. Pydantic v1 exposes `schema()`.
+    """
+    if callable(getattr(model, "model_json_schema", None)):
+        schema = model.model_json_schema()
+    elif callable(getattr(model, "schema", None)):
+        schema = model.schema()
+    else:
+        raise TypeError(f"Pydantic model `{model.__name__}` does not provide `model_json_schema()` or `schema()`.")
+    if not isinstance(schema, dict):
+        raise TypeError(
+            f"JSON schema for Pydantic model `{model.__name__}` must be a dict. Got {type(schema).__name__}."
+        )
+    return schema
+
+
+def _normalize_chat_completion_response_format(response_format: Any) -> Any:
+    """Convert a Pydantic model passed as `response_format` to an OpenAI JSON-schema payload.
+
+    Dicts and grammar objects (which are dict subclasses) are returned unchanged. `pydantic` is imported only when a
+    model class or instance is passed.
+    """
+    if response_format is None or isinstance(response_format, dict):
+        return response_format
+    model = _require_pydantic_model(response_format, param_name="response_format")
+    # Same envelope as OpenAI structured outputs: `{type: "json_schema", json_schema: {name, schema}}`.
+    # Provider helpers then adapt this to their own wire format.
+    return {
+        "type": "json_schema",
+        "json_schema": {
+            "name": model.__name__,
+            "schema": _pydantic_json_schema(model),
+        },
+    }
+
+
+def _normalize_text_generation_grammar(grammar: Any) -> Any:
+    """Convert a Pydantic model passed as `text_generation(..., grammar=)` to a TGI grammar object.
+
+    Dicts and [`TextGenerationInputGrammarType`] objects are returned unchanged.
+    """
+    if grammar is None or isinstance(grammar, dict):
+        return grammar
+    model = _require_pydantic_model(grammar, param_name="grammar")
+    return {"type": "json", "value": _pydantic_json_schema(model)}
 
 
 ## ENCODING / DECODING UTILS

@@ -384,6 +384,75 @@ completion = client.chat.completions.create(
 
 print(completion.choices[0].message)
 ```
+
+### Using a Pydantic model
+
+Pydantic stays optional. Install it when you want to build the schema from a model:
+
+```bash
+pip install pydantic
+```
+
+**Option 1: pass the schema yourself.** `model_json_schema()` (Pydantic v2; `schema()` on Pydantic v1) produces the schema. Wrap it in the `response_format` object from the example above. `strict` is optional and is only sent when you set it:
+
+```python
+from pydantic import BaseModel
+
+class Book(BaseModel):
+    name: str
+    authors: list[str]
+
+completion = client.chat.completions.create(
+    model="Qwen/Qwen3-32B",
+    messages=[
+        {"role": "system", "content": "Extract the books information."},
+        {"role": "user", "content": "I recently read 'The Great Gatsby' by F. Scott Fitzgerald."},
+    ],
+    response_format={
+        "type": "json_schema",
+        "json_schema": {
+            "name": "Book",
+            "schema": Book.model_json_schema(),
+            "strict": True,
+        },
+    },
+)
+
+book = Book.model_validate_json(completion.choices[0].message.content)
+```
+
+**Option 2: pass the model.** A Pydantic `BaseModel` class or instance is accepted as `response_format`. The client serializes it before the HTTP call to `{"type": "json_schema", "json_schema": {"name": "Book", "schema": Book.model_json_schema()}}`. `strict` is left unset. `pydantic` is imported only in that case; passing a model when the package is missing raises `ImportError`.
+
+```python
+completion = client.chat.completions.create(
+    model="Qwen/Qwen3-32B",
+    messages=[
+        {"role": "system", "content": "Extract the books information."},
+        {"role": "user", "content": "I recently read 'The Great Gatsby' by F. Scott Fitzgerald."},
+    ],
+    response_format=Book,
+)
+
+book = Book.model_validate_json(completion.choices[0].message.content)
+```
+
+`text_generation(..., grammar=...)` accepts the same kind of input. The grammar object is `{"type": "json", "value": <schema>}`, and passing the model class is equivalent:
+
+```python
+from huggingface_hub import InferenceClient
+
+client = InferenceClient("http://localhost:8080")  # local TGI server
+client.text_generation(
+    "I recently read 'The Great Gatsby' by F. Scott Fitzgerald.",
+    grammar={"type": "json", "value": Book.model_json_schema()},
+)
+# or
+client.text_generation(
+    "I recently read 'The Great Gatsby' by F. Scott Fitzgerald.",
+    grammar=Book,
+)
+```
+
 > [!TIP]
 > Please refer to the providers' documentation to verify which models are supported by them for Structured Outputs and JSON Mode.
 

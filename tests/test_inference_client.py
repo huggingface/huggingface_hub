@@ -48,6 +48,8 @@ from huggingface_hub.errors import HfHubHTTPError, ValidationError
 from huggingface_hub.inference._common import (
     MimeBytes,
     _as_url,
+    _normalize_chat_completion_response_format,
+    _normalize_text_generation_grammar,
     _open_as_mime_bytes,
     _stream_chat_completion_response,
     _stream_text_generation_response,
@@ -1279,3 +1281,110 @@ def test_as_url_with_pil_image(image_file: str):
     pil_image.save(buffer, format="PNG")
     b64_encoded = base64.b64encode(buffer.getvalue()).decode()
     assert png_url == f"data:image/png;base64,{b64_encoded}"
+
+
+_LOCAL_SERVER = "http://localhost:8080"
+_CHAT_RESPONSE = b'{"choices": [{"message": {"role": "assistant", "content": "{}"}}]}'
+_TEXT_RESPONSE = b'{"generated_text": "{}"}'
+
+
+def _capture_chat_payload(response_format):
+    client = InferenceClient(_LOCAL_SERVER)
+    with patch.object(InferenceClient, "_inner_post", return_value=_CHAT_RESPONSE) as mock_post:
+        client.chat_completion(messages=[{"role": "user", "content": "hi"}], response_format=response_format)
+    return mock_post.call_args[0][0].json
+
+
+def _capture_text_payload(grammar):
+    client = InferenceClient(_LOCAL_SERVER)
+    with patch.object(InferenceClient, "_inner_post", return_value=_TEXT_RESPONSE) as mock_post:
+        client.text_generation("hi", grammar=grammar)
+    return mock_post.call_args[0][0].json
+
+
+class TestPydanticResponseFormat:
+    """Pydantic models as chat `response_format` / text-generation `grammar`.
+
+    `pydantic` is optional. Tests that build a real model are skipped when it is not installed. The missing-package
+    error path uses a stand-in class and does not import pydantic.
+    """
+
+    def test_dict_response_format_is_unchanged(self, monkeypatch: pytest.MonkeyPatch):
+        monkeypatch.setattr("huggingface_hub.inference._common.is_pydantic_available", lambda: False)
+        schema = {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "book",
+                "schema": {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]},
+            },
+        }
+        assert _normalize_chat_completion_response_format(schema) is schema
+        assert _normalize_chat_completion_response_format(None) is None
+
+        payload = _capture_chat_payload(schema)
+        assert payload["response_format"] == {"type": "json_object", "value": schema["json_schema"]["schema"]}
+
+    def test_dict_grammar_is_unchanged(self, monkeypatch: pytest.MonkeyPatch):
+        monkeypatch.setattr("huggingface_hub.inference._common.is_pydantic_available", lambda: False)
+        grammar = {"type": "json", "value": {"type": "object", "properties": {"name": {"type": "string"}}}}
+        assert _normalize_text_generation_grammar(grammar) is grammar
+
+        payload = _capture_text_payload(grammar)
+        assert payload["parameters"]["grammar"] == grammar
+
+    def test_pydantic_model_matches_explicit_schema(self):
+        pydantic = pytest.importorskip("pydantic")
+
+        class Book(pydantic.BaseModel):
+            name: str
+            authors: list[str]
+
+        schema = Book.model_json_schema()
+        expected = {"type": "json_schema", "json_schema": {"name": "Book", "schema": schema}}
+        assert _normalize_chat_completion_response_format(Book) == expected
+        assert _normalize_chat_completion_response_format(Book(name="Gatsby", authors=["Fitzgerald"])) == expected
+
+        explicit = _capture_chat_payload(expected)
+        from_class = _capture_chat_payload(Book)
+        from_instance = _capture_chat_payload(Book(name="Gatsby", authors=["Fitzgerald"]))
+        assert from_class == explicit == from_instance
+        assert from_class["response_format"]["value"]["properties"]["name"]["type"] == "string"
+        assert from_class["response_format"]["value"]["required"] == ["name", "authors"]
+
+    def test_pydantic_model_as_grammar_matches_explicit_schema(self):
+        pydantic = pytest.importorskip("pydantic")
+
+        class Book(pydantic.BaseModel):
+            name: str
+            authors: list[str]
+
+        schema = Book.model_json_schema()
+        expected = {"type": "json", "value": schema}
+        assert _normalize_text_generation_grammar(Book) == expected
+        assert _normalize_text_generation_grammar(Book(name="Gatsby", authors=["Fitzgerald"])) == expected
+
+        explicit = _capture_text_payload(expected)
+        from_class = _capture_text_payload(Book)
+        assert from_class == explicit
+        assert from_class["parameters"]["grammar"] == expected
+
+    def test_missing_pydantic_raises_for_model(self, monkeypatch: pytest.MonkeyPatch):
+        monkeypatch.setattr("huggingface_hub.inference._common.is_pydantic_available", lambda: False)
+
+        class Book:
+            @classmethod
+            def model_json_schema(cls) -> dict:
+                return {"type": "object"}
+
+        client = InferenceClient(_LOCAL_SERVER)
+        with pytest.raises(ImportError, match="pydantic"):
+            client.chat_completion(messages=[{"role": "user", "content": "hi"}], response_format=Book)
+        with pytest.raises(ImportError, match="pydantic"):
+            client.text_generation("hi", grammar=Book)
+
+    def test_invalid_response_format_raises_type_error(self):
+        client = InferenceClient(_LOCAL_SERVER)
+        with pytest.raises(TypeError, match="response_format"):
+            client.chat_completion(messages=[{"role": "user", "content": "hi"}], response_format=123)
+        with pytest.raises(TypeError, match="grammar"):
+            client.text_generation("hi", grammar=123)
