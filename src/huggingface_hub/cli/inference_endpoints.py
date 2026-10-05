@@ -893,10 +893,11 @@ def logs(
 ) -> None:
     """Fetch the most recent logs of an Inference Endpoint."""
     api = get_hf_api(token=token)
-    lines = api.fetch_inference_endpoint_logs(name=name, namespace=namespace, tail=tail, token=token)
-    for line in lines:
+    found_logs = False
+    for line in api.fetch_inference_endpoint_logs(name=name, namespace=namespace, tail=tail, token=token):
         out.text(line)
-    if not lines:
+        found_logs = True
+    if not found_logs:
         out.hint(f"No logs found for endpoint '{name}'. Use 'hf endpoints describe {name}' to check its status.")
 
 

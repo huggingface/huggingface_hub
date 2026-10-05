@@ -9832,7 +9832,7 @@ class HfApi:
         namespace: str | None = None,
         tail: int | None = None,
         token: bool | str | None = None,
-    ) -> list[str]:
+    ) -> Iterable[str]:
         """Fetch the most recent logs of an Inference Endpoint.
 
         Useful for debugging an Inference Endpoint that fails to start or crashes at runtime.
@@ -9851,7 +9851,7 @@ class HfApi:
                 To disable authentication, pass `False`.
 
         Returns:
-            `list[str]`: The log lines, oldest first, formatted as `<timestamp> <replica> <level> <line>`.
+            `Iterable[str]`: The log lines, oldest first, formatted as `<timestamp> <replica> <level> <line>`.
 
         Example:
         ```python
@@ -9869,10 +9869,12 @@ class HfApi:
         )
         hf_raise_for_status(response)
 
-        return [
-            f"{log['timestamp']} {log['replica_id']} {log.get('level') or 'INFO'} {log['line']}"
-            for log in response.json()
-        ]
+        logs = response.json()
+        if tail is not None:
+            # The server returns every entry sharing the oldest millisecond, even beyond `limit`.
+            logs = logs[-tail:]
+        for log in logs:
+            yield f"{log['timestamp']} {log['replica_id']} {log.get('level') or 'INFO'} {log['line']}"
 
     def list_inference_endpoints_hardware(
         self, *, namespace: str | None = None, token: bool | str | None = None
