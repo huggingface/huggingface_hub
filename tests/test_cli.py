@@ -3048,6 +3048,21 @@ class TestInferenceEndpointsCommands:
         )
         assert '"name": "zero"' in result.stdout
 
+    def test_logs(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.inference_endpoints.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.fetch_inference_endpoint_logs.return_value = ["line 1", "line 2"]
+            result = runner.invoke(app, ["endpoints", "logs", "my-endpoint", "-n", "2"])
+        assert result.exit_code == 0
+        api_cls.assert_called_once_with(token=None)
+        api.fetch_inference_endpoint_logs.assert_called_once_with(
+            name="my-endpoint",
+            namespace=None,
+            tail=2,
+            token=None,
+        )
+        assert result.stdout.splitlines() == ["line 1", "line 2"]
+
     def test_list_catalog(self, runner: CliRunner) -> None:
         model = InferenceCatalogModel.from_raw(
             {

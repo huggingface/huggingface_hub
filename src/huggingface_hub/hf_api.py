@@ -9825,6 +9825,55 @@ class HfApi:
 
         return InferenceEndpoint.from_raw(response.json(), namespace=namespace, token=token)
 
+    def fetch_inference_endpoint_logs(
+        self,
+        name: str,
+        *,
+        namespace: str | None = None,
+        tail: int | None = None,
+        token: bool | str | None = None,
+    ) -> list[str]:
+        """Fetch the most recent logs of an Inference Endpoint.
+
+        Useful for debugging an Inference Endpoint that fails to start or crashes at runtime.
+
+        Args:
+            name (`str`):
+                The name of the Inference Endpoint.
+            namespace (`str`, *optional*):
+                The namespace in which the Inference Endpoint is located. Defaults to the current user.
+            tail (`int`, *optional*):
+                Number of most recent lines to return. Defaults to 1000 (server-side), with a maximum of 5000.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            `list[str]`: The log lines, oldest first, formatted as `<timestamp> <replica> <level> <line>`.
+
+        Example:
+        ```python
+        >>> from huggingface_hub import fetch_inference_endpoint_logs
+        >>> for line in fetch_inference_endpoint_logs("my-endpoint", tail=50):
+        ...     print(line)
+        ```
+        """
+        namespace = namespace or self._get_namespace(token=token)
+
+        response = get_session().get(
+            f"{constants.INFERENCE_ENDPOINTS_ENDPOINT_V3}/endpoint/{namespace}/{name}/logs",
+            headers=self._build_hf_headers(token=token),
+            params={"limit": tail} if tail is not None else None,
+        )
+        hf_raise_for_status(response)
+
+        return [
+            f"{log['timestamp']} {log['replica_id']} {log.get('level') or 'INFO'} {log['line']}"
+            for log in response.json()
+        ]
+
     def list_inference_endpoints_hardware(
         self, *, namespace: str | None = None, token: bool | str | None = None
     ) -> list[InferenceEndpointHardware]:
@@ -15358,6 +15407,7 @@ delete_inference_endpoint = api.delete_inference_endpoint
 pause_inference_endpoint = api.pause_inference_endpoint
 resume_inference_endpoint = api.resume_inference_endpoint
 scale_to_zero_inference_endpoint = api.scale_to_zero_inference_endpoint
+fetch_inference_endpoint_logs = api.fetch_inference_endpoint_logs
 create_inference_endpoint_from_catalog = api.create_inference_endpoint_from_catalog
 list_inference_catalog = api.list_inference_catalog
 list_inference_endpoints_hardware = api.list_inference_endpoints_hardware

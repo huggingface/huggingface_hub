@@ -2519,6 +2519,9 @@ Use `hf endpoints` to list, deploy, describe, and manage Inference Endpoints dir
 # Show status and metadata
 >>> hf endpoints describe my-endpoint
 
+# Show the last 50 lines of logs
+>>> hf endpoints logs my-endpoint -n 50
+
 # Pause the endpoint
 >>> hf endpoints pause my-endpoint
 
