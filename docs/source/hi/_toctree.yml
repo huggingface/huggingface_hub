@@ -19,3 +19,5 @@
       title: रिपॉजिटरी
     - local: guides/search
       title: खोज
+    - local: guides/community
+      title: कम्युनिटी टैब
