@@ -62,7 +62,7 @@ from ._cli_utils import (
     typer_factory,
 )
 from ._framework import Argument, Option
-from ._output import _dataclass_to_dict, out
+from ._output import OutputFormat, _dataclass_to_dict, out
 from ._uv_script_header import TABLE_NAME, UvScriptHeader, load_uv_script
 
 
@@ -868,41 +868,68 @@ def _clear_line(n: int) -> None:
         print(LINE_UP, end=LINE_CLEAR)
 
 
+def _format_job_stats_rows(job_id: str, metrics: dict[str, Any], table_headers: list[str]) -> list[list[str | int]]:
+    row: list[str | int] = [
+        job_id,
+        f"{metrics['cpu_usage_pct']}%",
+        round(metrics["cpu_millicores"] / 1000.0, 1),
+        f"{round(100 * metrics['memory_used_bytes'] / metrics['memory_total_bytes'], 2)}%",
+        f"{_format_size(metrics['memory_used_bytes'])}B / {_format_size(metrics['memory_total_bytes'])}B",
+        f"{_format_size(metrics['rx_bps'])}bps / {_format_size(metrics['tx_bps'])}bps",
+    ]
+    if metrics["gpus"] and isinstance(metrics["gpus"], dict):
+        rows: list[list[str | int]] = [row] + [[""] * len(row) for _ in range(len(metrics["gpus"]) - 1)]
+        for row, gpu_id in zip(rows, sorted(metrics["gpus"])):
+            gpu = metrics["gpus"][gpu_id]
+            row += [
+                f"{gpu['utilization']}%",
+                f"{round(100 * gpu['memory_used_bytes'] / gpu['memory_total_bytes'], 2)}%",
+                f"{_format_size(gpu['memory_used_bytes'])}B / {_format_size(gpu['memory_total_bytes'])}B",
+            ]
+        return rows
+    row += ["N/A"] * (len(table_headers) - len(row))
+    return [row]
+
+
 def _get_jobs_stats_rows(
     job_id: str, metrics_stream: Iterable[dict[str, Any]], table_headers: list[str]
 ) -> Iterable[tuple[bool, str, list[list[str | int]]]]:
     for metrics in metrics_stream:
-        row = [
-            job_id,
-            f"{metrics['cpu_usage_pct']}%",
-            round(metrics["cpu_millicores"] / 1000.0, 1),
-            f"{round(100 * metrics['memory_used_bytes'] / metrics['memory_total_bytes'], 2)}%",
-            f"{_format_size(metrics['memory_used_bytes'])}B / {_format_size(metrics['memory_total_bytes'])}B",
-            f"{_format_size(metrics['rx_bps'])}bps / {_format_size(metrics['tx_bps'])}bps",
-        ]
-        if metrics["gpus"] and isinstance(metrics["gpus"], dict):
-            rows = [row] + [[""] * len(row) for _ in range(len(metrics["gpus"]) - 1)]
-            for row, gpu_id in zip(rows, sorted(metrics["gpus"])):
-                gpu = metrics["gpus"][gpu_id]
-                row += [
-                    f"{gpu['utilization']}%",
-                    f"{round(100 * gpu['memory_used_bytes'] / gpu['memory_total_bytes'], 2)}%",
-                    f"{_format_size(gpu['memory_used_bytes'])}B / {_format_size(gpu['memory_total_bytes'])}B",
-                ]
-        else:
-            row += ["N/A"] * (len(table_headers) - len(row))
-            rows = [row]
-        yield False, job_id, rows
+        yield False, job_id, _format_job_stats_rows(job_id, metrics, table_headers)
     yield True, job_id, []
 
 
-@jobs_cli.command("stats", examples=["hf jobs stats <job_id>"])
+@jobs_cli.command(
+    "stats",
+    examples=[
+        "hf jobs stats",
+        "hf jobs stats <job_id>",
+        "hf jobs stats -f <job_id>",
+    ],
+)
 def jobs_stats(
     job_ids: JobIdsArg = None,
+    follow: Annotated[
+        bool,
+        Option(
+            "-f",
+            "--follow",
+            help="Follow stats output (live view until the Jobs complete). Without this flag, a single snapshot is printed.",
+        ),
+    ] = False,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
-    """Fetch the resource usage statistics and metrics of Jobs"""
+    """Fetch the resource usage statistics and metrics of Jobs.
+
+    By default, prints a snapshot of the current stats and exits (non-blocking).
+    Use --follow/-f to display live stats until the Jobs complete.
+    """
+    if follow and out.mode != OutputFormat.human:
+        raise CLIError(
+            f"`--follow` displays a live terminal view and is not supported with '{out.mode.value}' output."
+            " Run without `--follow` to get a snapshot."
+        )
     if job_ids is not None:
         parsed_ids = []
         for job_id in job_ids:
@@ -932,6 +959,27 @@ def jobs_stats(
         "GPU MEM %",
         "GPU MEM USAGE",
     ]
+    if not follow:
+
+        def fetch_latest_metrics(job_id: str) -> dict[str, Any] | None:
+            return next(iter(api.fetch_job_metrics(job_id=job_id, namespace=namespace)), None)
+
+        with multiprocessing.pool.ThreadPool(len(job_ids)) as pool:
+            latest_metrics = pool.map(fetch_latest_metrics, job_ids)
+        items = []
+        for job_id, metrics in zip(job_ids, latest_metrics):
+            if metrics is None:
+                out.warning(f"No stats available for Job {job_id}. Is it running?")
+            else:
+                items.append({"job_id": job_id, **metrics})
+        if out.mode == OutputFormat.human and items:
+            rows = [row for item in items for row in _format_job_stats_rows(item["job_id"], item, table_headers)]
+            out.text(_tabulate(rows, headers=table_headers))
+            job_refs = " ".join(f"{namespace}/{item['job_id']}" for item in items)
+            out.hint(f"Use `hf jobs stats -f {job_refs}` to follow live stats.")
+        else:
+            out.table(items, id_key="job_id")
+        return
     with multiprocessing.pool.ThreadPool(len(job_ids)) as pool:
         rows_per_job_id: dict[str, list[list[str | int]]] = {}
         for job_id in job_ids:
