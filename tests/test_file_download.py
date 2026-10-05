@@ -420,6 +420,17 @@ class TestCachedDownload:
             f"{DUMMY_MODEL_ID}/resolve/main/config.json",
         )
 
+    @pytest.mark.parametrize("subfolder", ["onnx/", "/onnx", "//onnx", "/onnx/", "onnx"])
+    def test_hf_hub_url_strips_slashes_around_subfolder(self, subfolder):
+        url = hf_hub_url(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, subfolder=subfolder)
+        assert url.endswith(f"{DUMMY_MODEL_ID}/resolve/main/onnx/config.json")
+        assert "//" not in url.split("://", 1)[1]
+
+    @pytest.mark.parametrize("subfolder", ["/", "//"])
+    def test_hf_hub_url_with_slash_only_subfolder(self, subfolder):
+        url = hf_hub_url(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, subfolder=subfolder)
+        assert url.endswith(f"{DUMMY_MODEL_ID}/resolve/main/config.json")
+
     def test_hf_hub_url_with_endpoint(self, mocker):
         mocker.patch("huggingface_hub.constants.ENDPOINT", "https://huggingface.co")
         mocker.patch(

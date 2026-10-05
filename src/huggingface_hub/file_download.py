@@ -208,6 +208,18 @@ class DryRunFileInfo:
 
 
 @validate_hf_hub_args
+def _normalize_subfolder(subfolder: str | None) -> str | None:
+    """Treat slash-only and leading or trailing slashes like an absent subfolder.
+
+    ``""``, ``"/"`` and ``"//"`` become ``None``. ``"onnx/"`` and ``"/onnx"`` become
+    ``"onnx"``, so the resolve URL does not gain an empty path segment.
+    """
+    if subfolder is None:
+        return None
+    subfolder = subfolder.strip("/")
+    return subfolder or None
+
+
 def hf_hub_url(
     repo_id: str,
     filename: str,
@@ -273,8 +285,7 @@ def hf_hub_url(
 
     -  [1] https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/ETag
     """
-    if subfolder == "":
-        subfolder = None
+    subfolder = _normalize_subfolder(subfolder)
     if subfolder is not None:
         filename = f"{subfolder}/{filename}"
 
@@ -1001,8 +1012,7 @@ def hf_hub_download(
     if local_dir is not None:
         local_dir = str(Path(local_dir).expanduser().resolve())
 
-    if subfolder == "":
-        subfolder = None
+    subfolder = _normalize_subfolder(subfolder)
     if subfolder is not None:
         # This is used to create a URL, and not a local path, hence the forward slash.
         filename = f"{subfolder}/{filename}"
