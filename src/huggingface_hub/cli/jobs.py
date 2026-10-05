@@ -1011,6 +1011,8 @@ def jobs_stats(
                 total_rows = [row for job_id in rows_per_job_id for row in rows_per_job_id[job_id]]
                 print(_tabulate(total_rows, headers=table_headers))
                 last_update_time = now
+    job_refs = " ".join(f"{namespace}/{job_id}" for job_id in job_ids)
+    out.hint(f"All Jobs stopped. Run `hf jobs inspect {job_refs}` to check their final status.")
 
 
 @jobs_cli.command(
