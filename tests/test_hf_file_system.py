@@ -15,6 +15,7 @@ import pytest
 
 from huggingface_hub import HfApi, constants, hf_file_system
 from huggingface_hub.errors import BucketNotFoundError, RepositoryNotFoundError, RevisionNotFoundError
+from huggingface_hub.hf_api import RepoFile
 from huggingface_hub.hf_file_system import (
     HfFileSystem,
     HfFileSystemFile,
@@ -898,6 +899,56 @@ def test_access_repositories_lists(not_supported_path, expected_error: Type[Exce
         fs.ls(not_supported_path)
     with pytest.raises(expected_error):
         fs.open(not_supported_path)
+
+
+def test_exists_after_repo_creation_same_instance():
+    """A repo created after a failed lookup must be visible on the same HfFileSystem.
+
+    Regression test for #1945. HfFileSystem instances are reused for the process, and a cached
+    "repository not found" used to make later exists/info/glob calls keep reporting it missing.
+    """
+    endpoint = "https://example.invalid"
+    token = "hf_test_1945"
+    repo_id = "user/fresh-repo"
+    HfFileSystem.clear_instance_cache()
+    created = False
+    repo_info_calls = 0
+
+    def repo_info(repo_id_arg: str, *, revision: str | None = None, repo_type: str | None = None, **kwargs):
+        nonlocal repo_info_calls
+        repo_info_calls += 1
+        assert repo_id_arg == repo_id
+        if not created:
+            raise RepositoryNotFoundError(repo_id_arg, response=Mock())
+        return Mock()
+
+    try:
+        fs = HfFileSystem(endpoint=endpoint, token=token)
+        with (
+            patch.object(fs._api, "repo_info", side_effect=repo_info),
+            patch.object(
+                fs._api,
+                "list_repo_tree",
+                return_value=[RepoFile(path=".gitattributes", size=12, oid="abc123")],
+            ),
+        ):
+            assert fs.exists(f"{repo_id}/.gitattributes") is False
+            # A second miss must hit the Hub again. Caching the 404 is what hid the repo.
+            assert fs.exists(f"{repo_id}/.gitattributes") is False
+            assert repo_info_calls == 2
+
+            created = True
+            # Same constructor returns the process-wide instance that observed the 404.
+            assert HfFileSystem(endpoint=endpoint, token=token) is fs
+            assert fs.exists(f"{repo_id}/.gitattributes") is True
+            assert fs.info(repo_id)["type"] == "directory"
+            assert repo_info_calls == 3
+
+            # A repository that exists is still cached: no further repo_info call.
+            assert fs.exists(repo_id) is True
+            assert repo_info_calls == 3
+    finally:
+        HfFileSystem.clear_instance_cache()
 
 
 def test_exists_after_repo_deletion(repo_factory: RepoFactory):

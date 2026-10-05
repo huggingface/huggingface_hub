@@ -229,6 +229,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         # Maps (repo_type, repo_id, revision) to a 2-tuple with:
         #  * the 1st element indicating whether the repository and the revision exist
         #  * the 2nd element being the exception raised if the repository or revision doesn't exist
+        # A missing repository is intentionally not stored here (see #1945).
         self._repo_and_revision_exists_cache: dict[tuple[str, str, str | None], tuple[bool, Exception | None]] = {}
         # Same for buckets
         self._bucket_exists_cache: dict[str, tuple[bool, Exception | None]] = {}
@@ -256,7 +257,13 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
                 self._api.repo_info(
                     repo_id, revision=revision, repo_type=repo_type, timeout=constants.HF_HUB_ETAG_TIMEOUT
                 )
-            except (RepositoryNotFoundError, HFValidationError) as e:
+            except RepositoryNotFoundError as e:
+                # Don't cache a missing repository. This filesystem is reused for the whole process,
+                # so a cached 404 hides a repo created later in that process: exists/info/glob keep
+                # failing on the same instance. Successful lookups and unknown revisions stay cached.
+                # See https://github.com/huggingface/huggingface_hub/issues/1945.
+                return False, e
+            except HFValidationError as e:
                 self._repo_and_revision_exists_cache[(repo_type, repo_id, revision)] = False, e
                 self._repo_and_revision_exists_cache[(repo_type, repo_id, None)] = False, e
             except RevisionNotFoundError as e:
