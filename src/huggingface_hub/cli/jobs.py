@@ -437,6 +437,7 @@ def _format_job_value(key: str, value: Any, from_script: Collection[str]) -> str
 
 
 STATS_UPDATE_MIN_INTERVAL = 0.1  # we set a limit here since there is one update per second per job
+STATS_SNAPSHOT_TIMEOUT = 10  # max seconds to wait for a first sample in snapshot mode
 
 # Common job-related options
 ImageArg = Annotated[
@@ -964,8 +965,16 @@ def jobs_stats(
         def fetch_latest_metrics(job_id: str) -> dict[str, Any] | None:
             return next(iter(api.fetch_job_metrics(job_id=job_id, namespace=namespace)), None)
 
+        # The metrics stream retries while the job is RUNNING, even if no sample ever comes, so we bound the wait.
         with multiprocessing.pool.ThreadPool(len(job_ids)) as pool:
-            latest_metrics = pool.map(fetch_latest_metrics, job_ids)
+            pending = [pool.apply_async(fetch_latest_metrics, (job_id,)) for job_id in job_ids]
+            deadline = time.monotonic() + STATS_SNAPSHOT_TIMEOUT
+            latest_metrics = []
+            for result in pending:
+                try:
+                    latest_metrics.append(result.get(timeout=max(0.0, deadline - time.monotonic())))
+                except multiprocessing.TimeoutError:
+                    latest_metrics.append(None)
         items = []
         for job_id, metrics in zip(job_ids, latest_metrics):
             if metrics is None:
