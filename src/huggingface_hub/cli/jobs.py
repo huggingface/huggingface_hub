@@ -1012,7 +1012,7 @@ def jobs_stats(
                 print(_tabulate(total_rows, headers=table_headers))
                 last_update_time = now
     job_refs = " ".join(f"{namespace}/{job_id}" for job_id in job_ids)
-    out.hint(f"All Jobs stopped. Run `hf jobs inspect {job_refs}` to check their final status.")
+    out.hint(f"Stream ended. Run `hf jobs inspect {job_refs}` to check the final status (e.g. COMPLETED or ERROR).")
 
 
 @jobs_cli.command(
