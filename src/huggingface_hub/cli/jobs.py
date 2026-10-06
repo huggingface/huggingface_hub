@@ -923,7 +923,8 @@ def jobs_stats(
             if (job.status.stage if job.status else "UNKNOWN") in ("RUNNING", "UPDATING")
         ]
     if len(job_ids) == 0:
-        out.text("No running jobs found")
+        out.table([])
+        out.hint("No running jobs. Use `hf jobs ps -a` to list finished (and failed) jobs.")
         return
     table_headers = [
         "JOB ID",
