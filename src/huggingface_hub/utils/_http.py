@@ -784,10 +784,30 @@ def _httpx2_follow_hub_redirects_with_backoff(
     raise httpx2.TooManyRedirects(f"Exceeded {_MAX_REDIRECTS} redirects while resolving '{url}'.")
 
 
+_DEFAULT_PORTS = {"http": 80, "https": 443}
+
+
+def _url_origin(url: str) -> tuple[str, str, int]:
+    """Origin of a url: (scheme, hostname, port), with the scheme's default port if not explicit."""
+    parsed = urlparse(url)
+    return (parsed.scheme, (parsed.hostname or "").lower(), parsed.port or _DEFAULT_PORTS.get(parsed.scheme, 0))
+
+
+# Origins considered to be Hub endpoints. The auth header is forwarded to these: only add trusted ones.
+_HUB_ORIGINS = frozenset(
+    _url_origin(endpoint)
+    for endpoint in (
+        constants._HF_DEFAULT_ENDPOINT,
+        constants._HF_DEFAULT_STAGING_ENDPOINT,
+        constants.ENDPOINT,
+        "https://hf.co",
+    )
+)
+
+
 def _is_same_or_hub_host(url: str, target: str) -> bool:
-    """Whether `target` is served by the same host as `url`, or by a known Hub host."""
-    target_host = (urlparse(target).hostname or "").lower()
-    return target_host == (urlparse(url).hostname or "").lower() or target_host in constants.HF_URL_HOSTS
+    """Whether `target` is served by the same origin as `url`, or by a known Hub origin."""
+    return _url_origin(target) in {_url_origin(url), *_HUB_ORIGINS}
 
 
 def fix_hf_endpoint_in_url(url: str, endpoint: str | None) -> str:
