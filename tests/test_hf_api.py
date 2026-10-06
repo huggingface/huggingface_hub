@@ -3330,8 +3330,6 @@ class TestCommitInBackground:
         assert upload_future_1.done()
         assert upload_future_2.done()
         assert upload_future_3.done()
-        upload_future_1.result()
-        upload_future_2.result()
 
         # 4 commits, sorted in reverse order of creation
         commits = api.list_repo_commits(repo_id=repo_id)
@@ -3345,25 +3343,23 @@ class TestCommitInBackground:
         repo_url = repo_factory()
         repo_id = repo_url.repo_id
         # update repo visibility to private
-        update_1 = api.run_as_future(api.update_repo_settings, repo_id=repo_id, private=True)
+        api.run_as_future(api.update_repo_settings, repo_id=repo_id, private=True)
         future_1 = api.run_as_future(api.model_info, repo_id=repo_id)
 
         # update repo visibility to public
-        update_2 = api.run_as_future(api.update_repo_settings, repo_id=repo_id, private=False)
+        api.run_as_future(api.update_repo_settings, repo_id=repo_id, private=False)
         future_2 = api.run_as_future(api.model_info, repo_id=repo_id)
 
         assert isinstance(future_1, Future)
         assert isinstance(future_2, Future)
 
         # Wait for first info future
-        update_1.result()
         info_1 = future_1.result()
         assert not future_2.done()
 
         # Wait for second info future
         info_2 = future_2.result()
         assert future_2.done()
-        update_2.result()
 
         # Like/unlike is correct
         assert info_1.private is True

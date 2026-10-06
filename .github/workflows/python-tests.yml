@@ -113,12 +113,11 @@ jobs:
           fi
 
       # Run tests
-      # `BadRequestError`: hub-ci sometimes rejects a commit because it doesn't see a just-uploaded file yet.
       - name: Run tests
         working-directory: ./src # For code coverage to work
         run: |
           source ../.venv/bin/activate
-          PYTEST="python -m pytest --cov=./huggingface_hub --cov-report=xml:../coverage.xml --vcr-record=none --reruns 3 --reruns-delay 2 --only-rerun '(OSError|FileNotFoundError|Timeout|HTTPError.*409|HTTPError.*502|HTTPError.*504|BadRequestError)'"
+          PYTEST="python -m pytest --cov=./huggingface_hub --cov-report=xml:../coverage.xml --vcr-record=none --reruns 3 --reruns-delay 2 --only-rerun '(OSError|FileNotFoundError|Timeout|HTTPError.*409|HTTPError.*502|HTTPError.*504)'"
 
           case "${{ matrix.test_name }}" in
 
@@ -206,7 +205,7 @@ jobs:
             "--vcr-record=none",
             "--reruns", "3",
             "--reruns-delay", "2",
-            "--only-rerun", "(OSError|FileNotFoundError|Timeout|HTTPError.*409|HTTPError.*502|HTTPError.*504|BadRequestError)",
+            "--only-rerun", "(OSError|FileNotFoundError|Timeout|HTTPError.*409|HTTPError.*502|HTTPError.*504)",
             "../tests"
           )
 

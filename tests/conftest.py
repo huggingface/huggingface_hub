@@ -1,18 +1,14 @@
 import os
-import re
-import time
 from contextlib import ExitStack
 from typing import Generator, Protocol
 
-import httpx2
 import pytest
 from _pytest.fixtures import SubRequest
 from _pytest.skipping import evaluate_skip_marks
 
 import huggingface_hub
 from huggingface_hub import HfApi, RepoUrl, constants
-from huggingface_hub.utils import SoftTemporaryDirectory, _detect_agent, _http, logging, set_client_factory
-from huggingface_hub.utils._http import hf_request_event_hook
+from huggingface_hub.utils import SoftTemporaryDirectory, _detect_agent, logging
 from huggingface_hub.utils._runtime import is_package_available
 
 from .testing_constants import (
@@ -214,44 +210,6 @@ def git_lfs_marker(request: SubRequest) -> None:
     """Skip tests marked `@pytest.mark.git_lfs` unless `RUN_GIT_LFS_TESTS` is truthy (git-lfs needed)."""
     if request.node.get_closest_marker("git_lfs") is not None and os.environ.get("RUN_GIT_LFS_TESTS") != "1":
         pytest.skip("git-lfs test (set RUN_GIT_LFS_TESTS=1 to run)")
-
-
-_HUB_CI_RETRY_STATUSES = (499, 502, 503, 504)
-_READ_ONLY_POST = re.compile(r"/(paths-info|preupload)(/|$)")
-
-
-class _HubCiRetryTransport(httpx2.HTTPTransport):
-    """Retry transient hub-ci errors on requests that are safe to send twice (not commits)."""
-
-    def handle_request(self, request: httpx2.Request) -> httpx2.Response:
-        for delay in (1, 2, 4):
-            response = super().handle_request(request)
-            if response.status_code not in _HUB_CI_RETRY_STATUSES or not _is_safe_to_retry(request):
-                return response
-            response.close()
-            logger.warning(f"hub-ci returned {response.status_code} on {request.method} {request.url}, retrying")
-            time.sleep(delay)
-        return super().handle_request(request)
-
-
-def _is_safe_to_retry(request: httpx2.Request) -> bool:
-    return request.method in ("GET", "HEAD", "DELETE") or _READ_ONLY_POST.search(request.url.path) is not None
-
-
-def _hub_ci_client_factory() -> httpx2.Client:
-    return httpx2.Client(
-        event_hooks={"request": [hf_request_event_hook]},
-        follow_redirects=True,
-        timeout=None,
-        mounts={ENDPOINT_STAGING: _HubCiRetryTransport()},
-    )
-
-
-@pytest.fixture(autouse=True)
-def retry_hub_ci_errors() -> None:
-    """Some code paths turn a hub-ci 5xx into a wrong result instead of an error, which `--only-rerun` can't catch."""
-    if _http._GLOBAL_CLIENT_FACTORY is not _hub_ci_client_factory:  # e.g. reset by test_utils_http.py
-        set_client_factory(_hub_ci_client_factory)
 
 
 @pytest.fixture(scope="session")

@@ -33,7 +33,7 @@ def repo_name(id: Optional[str] = None, prefix: str = "repo") -> str:
 
 
 def wait_for_bucket_files(api: HfApi, bucket_id: str, paths: list[str]) -> None:
-    """Wait up to ~10s until `paths` are listed in the bucket: hub-ci listings can lag behind writes."""
+    """Wait up to ~10s until `paths` are listed in the bucket: listings are read from replicas and can lag behind writes."""
     for _ in range(10):
         if set(paths) <= {f.path for f in api.list_bucket_tree(bucket_id, recursive=True)}:
             return
