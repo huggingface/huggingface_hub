@@ -14,6 +14,7 @@
 # limitations under the License.
 import json
 import shlex
+from collections.abc import Iterator
 from typing import Optional
 
 import pytest
@@ -59,18 +60,23 @@ def api() -> HfApi:
 
 
 @pytest.fixture(scope="module")
-def repo_with_discussion(api: HfApi) -> tuple:
+def repo_with_discussion(api: HfApi) -> Iterator[tuple]:
     """Module-scoped repo with a discussion and a PR for read tests."""
-    repo_id = api.create_repo(repo_name(prefix="discussions"), exist_ok=True).repo_id
-    discussion = api.create_discussion(repo_id=repo_id, title="Test discussion")
-    pr = api.create_pull_request(repo_id=repo_id, title="Test PR")
-    return repo_id, discussion.num, pr.num
+    repo_id = api.create_repo(repo_name(prefix="discussions")).repo_id
+    try:
+        discussion = api.create_discussion(repo_id=repo_id, title="Test discussion")
+        pr = api.create_pull_request(repo_id=repo_id, title="Test PR")
+        yield repo_id, discussion.num, pr.num
+    finally:
+        api.delete_repo(repo_id, missing_ok=True)
 
 
 @pytest.fixture
-def repo_for_write(api: HfApi) -> str:
+def repo_for_write(api: HfApi) -> Iterator[str]:
     """Function-scoped repo for destructive tests."""
-    return api.create_repo(repo_name(prefix="discussions"), exist_ok=True).repo_id
+    repo_id = api.create_repo(repo_name(prefix="discussions")).repo_id
+    yield repo_id
+    api.delete_repo(repo_id, missing_ok=True)
 
 
 # =============================================================================

@@ -856,9 +856,13 @@ def jobs_logs(
     logs = api.fetch_job_logs(job_id=job_id, namespace=namespace, follow=follow, tail=tail)
     for log in logs:
         out.text(log)
+    job_ref = f"{namespace}/{job_id}" if namespace else job_id
     if follow:
-        job_ref = f"{namespace}/{job_id}" if namespace else job_id
         out.hint(f"Stream ended. Run `hf jobs inspect {job_ref}` to check the final status (e.g. COMPLETED or ERROR).")
+    else:
+        out.hint(
+            f"If the job is still running, use `hf jobs logs -f {job_ref}` to stream new logs until it completes."
+        )
 
 
 def _clear_line(n: int) -> None:
@@ -919,7 +923,8 @@ def jobs_stats(
             if (job.status.stage if job.status else "UNKNOWN") in ("RUNNING", "UPDATING")
         ]
     if len(job_ids) == 0:
-        out.text("No running jobs found")
+        out.table([])
+        out.hint("No running jobs. Use `hf jobs ps -a` to list finished (and failed) jobs.")
         return
     table_headers = [
         "JOB ID",

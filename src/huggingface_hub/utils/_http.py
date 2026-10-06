@@ -392,7 +392,7 @@ def set_async_client_factory(async_client_factory: ASYNC_CLIENT_FACTORY_T) -> No
 
     The async client factory is a method that returns a `httpx2.AsyncClient` object.
     This can be useful if you are running your scripts in a specific environment requiring custom configuration (e.g. custom proxy or certifications).
-    Use [`get_async_client`] to get a correctly configured `httpx2.AsyncClient`.
+    Use [`get_async_session`] to get a correctly configured `httpx2.AsyncClient`.
 
     > [!WARNING]
     > Contrary to the `httpx2.Client` that is shared between all calls made by `huggingface_hub`, the `httpx2.AsyncClient` is not shared.
