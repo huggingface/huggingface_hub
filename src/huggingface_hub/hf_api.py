@@ -25,6 +25,7 @@ from collections.abc import Callable, Iterable, Iterator
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta, timezone
+from email.utils import parsedate_to_datetime
 from functools import wraps
 from itertools import islice
 from pathlib import Path
@@ -8457,9 +8458,7 @@ class HfApi:
                         # no-follow: stop at the first event logged after the server's Date (1s resolution)
                         replay_end = None
                         if not follow and (date := response.headers.get("date")):
-                            replay_end = datetime.strptime(date, "%a, %d %b %Y %H:%M:%S GMT").replace(
-                                tzinfo=timezone.utc
-                            ) + timedelta(seconds=1)
+                            replay_end = parsedate_to_datetime(date) + timedelta(seconds=1)
                         event_idx = -1
                         for line in response.iter_lines():
                             if line and line.startswith("data: {"):
