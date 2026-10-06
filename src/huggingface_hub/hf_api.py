@@ -8515,7 +8515,8 @@ class HfApi:
             # Drop params after the first attempt: the start_event_idx dedup
             # requires a stable replay prefix, which `tail` would break.
             params = None
-            if on_iteration_end is not None and on_iteration_end():
+            # no-follow: a single attempt, never loop back
+            if not follow or (on_iteration_end is not None and on_iteration_end()):
                 break
 
     def _fetch_space_logs_sse(
@@ -12174,10 +12175,11 @@ class HfApi:
         *,
         job_id: str,
         namespace: str | None = None,
+        follow: bool = False,
         token: bool | str | None = None,
     ) -> Iterable[dict[str, Any]]:
         """
-        Fetch all the live metrics from a compute Job on Hugging Face infrastructure.
+        Fetch the live metrics from a compute Job on Hugging Face infrastructure.
 
         Args:
             job_id (`str`):
@@ -12185,6 +12187,10 @@ class HfApi:
 
             namespace (`str`, *optional*):
                 The namespace where the Job is running. Defaults to the current user's namespace.
+
+            follow (`bool`, *optional*):
+                If `True`, stream metrics in real-time until the job completes (blocking).
+                If `False` (default), fetch only the current metrics and return (non-blocking).
 
             token (`bool` or `str`, *optional*):
                 A valid user access token. If not provided, the locally saved token will be used, which is the
@@ -12214,6 +12220,10 @@ class HfApi:
                 },
                 "replica": "57vr7"
             }
+
+            >>> # Stream metrics until the job completes
+            >>> for metrics in fetch_job_metrics(job_id=job.id, follow=True):
+            ...     print(metrics)
             ```
         """
         # - there is one "metric" event every second, like this:
@@ -12225,7 +12235,7 @@ class HfApi:
         # - ChunkedEncodingError can happen in case of stopped logging in the middle of streaming
         # - there is a ": keep-alive" every 30 seconds
         seconds_between_events = 1
-        yield from self._fetch_running_job_sse(
+        metrics_stream = self._fetch_running_job_sse(
             job_id=job_id,
             route="metrics",
             timeout=10 * seconds_between_events,
@@ -12233,7 +12243,12 @@ class HfApi:
             tolerated_status_codes=(406, 500),
             namespace=namespace,
             token=token,
+            follow=follow,
         )
+        if follow:
+            yield from metrics_stream
+        else:  # the stream has no history: its first sample is the current one
+            yield from itertools.islice(metrics_stream, 1)
 
     def list_jobs(
         self,

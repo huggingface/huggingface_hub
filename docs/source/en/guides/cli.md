@@ -1892,6 +1892,8 @@ This command runs the job and shows the logs. You can pass `--detach` to run the
 >>> hf jobs stats
 # View resources usage stats and metrics of some jobs
 >>> hf jobs stats [job_ids]...
+# Follow live stats until the jobs complete
+>>> hf jobs stats -f [job_ids]...
 
 # Cancel a job
 >>> hf jobs cancel <job_id>
