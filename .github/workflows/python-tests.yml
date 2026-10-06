@@ -113,11 +113,12 @@ jobs:
           fi
 
       # Run tests
+      # `LFS pointer...` / `File not found in Xet storage`: hub-ci not seeing a just-uploaded file yet.
       - name: Run tests
         working-directory: ./src # For code coverage to work
         run: |
           source ../.venv/bin/activate
-          PYTEST="python -m pytest --cov=./huggingface_hub --cov-report=xml:../coverage.xml --vcr-record=none --reruns 3 --reruns-delay 2 --only-rerun '(OSError|FileNotFoundError|Timeout|HTTPError.*409|HTTPError.*502|HTTPError.*504)'"
+          PYTEST="python -m pytest --cov=./huggingface_hub --cov-report=xml:../coverage.xml --vcr-record=none --reruns 3 --reruns-delay 2 --only-rerun '(OSError|FileNotFoundError|Timeout|HTTPError.*409|HTTPError.*502|HTTPError.*504|LFS pointer pointed to a file that does not exist|File not found in Xet storage)'"
 
           case "${{ matrix.test_name }}" in
 
@@ -205,7 +206,7 @@ jobs:
             "--vcr-record=none",
             "--reruns", "3",
             "--reruns-delay", "2",
-            "--only-rerun", "(OSError|FileNotFoundError|Timeout|HTTPError.*409|HTTPError.*502|HTTPError.*504)",
+            "--only-rerun", "(OSError|FileNotFoundError|Timeout|HTTPError.*409|HTTPError.*502|HTTPError.*504|LFS pointer pointed to a file that does not exist|File not found in Xet storage)",
             "../tests"
           )
 
