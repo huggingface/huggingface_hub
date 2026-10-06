@@ -367,6 +367,11 @@ sub/
 > [!TIP]
 > The `hf buckets list` command accepts both short format (`username/my-bucket/sub`) and full handle (`hf://buckets/username/my-bucket/sub`) as arguments.
 
+> [!TIP]
+> Listing a bucket with [`HfFileSystem`] caches its content. Pass `HfFileSystem(live_follow=True)` to have the
+> listings refreshed as files are added, updated and deleted in the bucket by other peers, see
+> [the filesystem guide](./hf_file_system#keep-listings-fresh).
+
 ## Upload files
 
 ### Upload with Python
