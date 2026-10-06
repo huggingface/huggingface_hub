@@ -613,6 +613,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
                     revision=resolved_path.revision,
                     repo_type=resolved_path.repo_type,
                 )
+            listings: dict[str, list[dict[str, Any]]] = {}
             for path_info in tree:
                 cache_path = root_path + "/" + path_info.path
                 if isinstance(path_info, RepoFile):
@@ -650,11 +651,12 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
                         "type": "directory",
                         "uploaded_at": path_info.uploaded_at,
                     }
-                parent_path = self._parent(cache_path_info["name"])
-                self.dircache.setdefault(parent_path, []).append(cache_path_info)
+                if cache_path != path:
+                    listings.setdefault(self._parent(cache_path), []).append(cache_path_info)
                 depth = cache_path[len(path) :].count("/")
                 if maxdepth is None or depth <= maxdepth:
                     out.append(cache_path_info)
+            self.dircache.update(listings)
         return out
 
     def _list_bucket_tree_with_folders(
