@@ -12222,7 +12222,7 @@ class HfApi:
         # data: {"cpu_usage_pct":0,"cpu_millicores":3500,"memory_used_bytes":1417216,"memory_total_bytes":15032385536,"rx_bps":0,"tx_bps":0,"gpus":{"d901cd7f":{"utilization":0,"memory_used_bytes":0,"memory_total_bytes":22836000000}},"replica":"j6qz9"}
         # - the stream doesn't end when the job finishes, so we rely on timeouts (httpx2.NetworkError with Timeout as cause)
         # - httpx2.ReadTimeout can happen if the job is marked as running but the hardware is not available yet, that we can ignore
-        # - it returns an internal error 500 if the job has already finished, we simply ignore it
+        # - it returns a 406 (previously a 500) if the job has already finished, we simply ignore it
         # - ChunkedEncodingError can happen in case of stopped logging in the middle of streaming
         # - there is a ": keep-alive" every 30 seconds
         seconds_between_events = 1
@@ -12231,7 +12231,7 @@ class HfApi:
             route="metrics",
             timeout=10 * seconds_between_events,
             skip_previous_events_on_retry=False,
-            tolerated_status_codes=(500,),
+            tolerated_status_codes=(406, 500),
             namespace=namespace,
             token=token,
         )
