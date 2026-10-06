@@ -860,7 +860,7 @@ def jobs_logs(
     if follow:
         out.hint(f"Stream ended. Run `hf jobs inspect {job_ref}` to check the final status (e.g. COMPLETED or ERROR).")
     else:
-        out.hint(f"Use `hf jobs logs -f {job_ref}` to stream new logs until the job completes.")
+        out.hint(f"If the job is still running, use `hf jobs logs -f {job_ref}` to stream new logs until it completes.")
 
 
 def _clear_line(n: int) -> None:
