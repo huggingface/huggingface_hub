@@ -856,9 +856,11 @@ def jobs_logs(
     logs = api.fetch_job_logs(job_id=job_id, namespace=namespace, follow=follow, tail=tail)
     for log in logs:
         out.text(log)
+    job_ref = f"{namespace}/{job_id}" if namespace else job_id
     if follow:
-        job_ref = f"{namespace}/{job_id}" if namespace else job_id
         out.hint(f"Stream ended. Run `hf jobs inspect {job_ref}` to check the final status (e.g. COMPLETED or ERROR).")
+    else:
+        out.hint(f"Use `hf jobs logs -f {job_ref}` to stream new logs until the job completes.")
 
 
 def _clear_line(n: int) -> None:
