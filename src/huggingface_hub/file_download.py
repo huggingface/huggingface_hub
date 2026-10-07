@@ -649,8 +649,8 @@ class XetRangeReader:
         # A group can't be used anymore once its session was aborted (Ctrl-C) or inherited from a fork
         if self._group is None or not is_xet_session_active(self._session):
             connection_info = refresh_xet_connection_info(file_data=self.xet_file_data, headers=self.headers)
-            self._session = get_xet_session()
-            self._group = self._session.new_download_stream_group(
+            session = get_xet_session()
+            group = session.new_download_stream_group(
                 endpoint=connection_info.endpoint,
                 token=connection_info.access_token,
                 token_expiry_unix_secs=connection_info.expiration_unix_epoch,
@@ -658,6 +658,7 @@ class XetRangeReader:
                 token_refresh_headers=self.headers,
                 custom_headers=xet_headers_without_auth(self.headers),
             )
+            self._session, self._group = session, group
         return self._group
 
 
