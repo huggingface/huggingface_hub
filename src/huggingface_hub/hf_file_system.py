@@ -651,11 +651,12 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
                         "type": "directory",
                         "uploaded_at": path_info.uploaded_at,
                     }
-                if cache_path != path:
+                if cache_path != path:  # listing a bucket file returns the file, not its folder's listing
                     listings.setdefault(self._parent(cache_path), []).append(cache_path_info)
                 depth = cache_path[len(path) :].count("/")
                 if maxdepth is None or depth <= maxdepth:
                     out.append(cache_path_info)
+            # replace cached listings, only once the listing is complete
             self.dircache.update(listings)
         return out
 

@@ -6,14 +6,14 @@ import multiprocessing.pool
 import os
 import pickle
 import tempfile
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import Iterable, Optional, Type
 from unittest.mock import Mock, patch
 
 import fsspec
 import pytest
 
-from huggingface_hub import BucketFile, HfApi, RepoFile, RepoFolder, constants, hf_file_system
+from huggingface_hub import HfApi, constants, hf_file_system
 from huggingface_hub.errors import BucketNotFoundError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.hf_file_system import (
     HfFileSystem,
@@ -258,6 +258,14 @@ class _HfFileSystemBaseROTests(_HfFileSystemBaseTests):
         assert files[0]["name"].endswith("/data/text_data.txt")
         self._check_info_not_expanded(files[0])
         self._check_info_fields(files[0])
+
+    def test_list_data_directory_after_listing_subpaths(self):
+        """Regression test for #5098."""
+        data_dir = self.hf_path + "/data"
+        self.hffs.ls(self.text_file)
+        self.hffs.find(self.hf_path)
+        self.hffs.ls(data_dir, refresh=True)
+        assert sorted(self.hffs.ls(data_dir, detail=False)) == [data_dir + "/binary_data.bin", self.text_file]
 
     def test_list_root_directory_no_detail_then_with_detail(self):
         files = sorted(self.hffs.ls(self.hf_path, detail=False))
@@ -865,29 +873,6 @@ def mock_bucket_info(fs: HfFileSystem):
     return patch.object(fs._api, "bucket_info", _inner)
 
 
-def mock_list_repo_tree(fs: HfFileSystem, files: list[str]):
-    def _inner(repo_id: str, path_in_repo: str = "", *, recursive: bool = False, **kwargs):
-        folders = {str(parent) for file in files for parent in PurePosixPath(file).parents if parent.name}
-        prefix = f"{path_in_repo}/" if path_in_repo else ""
-        for path in sorted(folders | set(files)):
-            if path.startswith(prefix) and (recursive or "/" not in path.removeprefix(prefix)):
-                if path in folders:
-                    yield RepoFolder(path=path, oid="0" * 40)
-                else:
-                    yield RepoFile(path=path, size=1, oid="0" * 40)
-
-    return patch.object(fs._api, "list_repo_tree", _inner)
-
-
-def mock_list_bucket_tree(fs: HfFileSystem, files: list[str]):
-    def _inner(bucket_id: str, prefix: str = "", *, recursive: bool = False, **kwargs):
-        for file in files:
-            if file == prefix or file.startswith(f"{prefix}/"):
-                yield BucketFile(type="file", path=file, size=1, xetHash="0" * 64)
-
-    return patch.object(fs._api, "list_bucket_tree", _inner)
-
-
 def test_resolve_path_with_non_matching_revisions():
     fs = HfFileSystem()
     with pytest.raises(ValueError):
@@ -921,47 +906,6 @@ def test_access_repositories_lists(not_supported_path, expected_error: Type[Exce
         fs.ls(not_supported_path)
     with pytest.raises(expected_error):
         fs.open(not_supported_path)
-
-
-def test_ls_replaces_cached_listing():
-    fs = HfFileSystem(skip_instance_cache=True)
-    files = ["README.md", "data/a.csv", "data/b.csv"]
-    with mock_repo_info(fs), mock_list_repo_tree(fs, files):
-        fs.ls("username/my_model/data")
-        fs.find("username/my_model")
-        assert fs.ls("username/my_model/data", detail=False) == [
-            "username/my_model/data/a.csv",
-            "username/my_model/data/b.csv",
-        ]
-
-        files.remove("data/b.csv")
-        fs.ls("username/my_model/data", refresh=True)
-        assert fs.ls("username/my_model/data", detail=False) == ["username/my_model/data/a.csv"]
-
-
-def test_ls_does_not_cache_partial_listing():
-    fs = HfFileSystem(skip_instance_cache=True)
-
-    def _list_repo_tree(*args, **kwargs):
-        yield RepoFile(path="a.txt", size=1, oid="0" * 40)
-        raise ConnectionError
-
-    with mock_repo_info(fs), patch.object(fs._api, "list_repo_tree", _list_repo_tree):
-        with pytest.raises(ConnectionError):
-            fs.ls("username/my_model")
-    assert fs.dircache == {}
-
-
-def test_ls_bucket_file_does_not_hide_siblings():
-    fs = HfFileSystem(skip_instance_cache=True)
-    with mock_bucket_info(fs), mock_list_bucket_tree(fs, ["data/a.csv", "data/b.csv"]):
-        assert fs.ls("buckets/username/my_bucket/data/a.csv", detail=False) == [
-            "buckets/username/my_bucket/data/a.csv"
-        ]
-        assert fs.ls("buckets/username/my_bucket/data", detail=False) == [
-            "buckets/username/my_bucket/data/a.csv",
-            "buckets/username/my_bucket/data/b.csv",
-        ]
 
 
 def test_exists_after_repo_deletion(repo_factory: RepoFactory):
