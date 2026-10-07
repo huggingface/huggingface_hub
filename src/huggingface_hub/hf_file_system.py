@@ -658,6 +658,9 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
                     out.append(cache_path_info)
             # replace cached listings, only once the listing is complete
             self.dircache.update(listings)
+            if not out:
+                # Empty bucket: `info()` on a child path reads `dircache[parent]`
+                self.dircache[path] = []
         return out
 
     def _list_bucket_tree_with_folders(
@@ -701,7 +704,9 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
                     ):
                         bucket_folder.uploaded_at = parent_bucket_folder.uploaded_at
 
-        if not out:
+        # An empty listing is only a "not found" when a specific prefix was requested. Listing the
+        # bucket root itself is valid even with zero objects (e.g. freshly created bucket).
+        if prefix and not out:
             raise EntryNotFoundError(f"File not found in bucket '{bucket_id}': '{prefix}'")
         return out
 
