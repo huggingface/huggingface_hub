@@ -269,14 +269,33 @@ def snapshot_download(
     elif REGEX_COMMIT_HASH.fullmatch(revision):
         commit_hash = revision
 
+    tree_entries = read_tree_cache(tree_cache_folder, commit_hash) if commit_hash is not None else None
     api_call_error: Exception | None = None
-    if commit_hash is None and not local_files_only:
+    if tree_entries is None and not local_files_only:
         # try/except logic to handle different errors => taken from `hf_hub_download`
         try:
-            # if we have internet connection we want to list files to download
-            repo_info = api.repo_info(repo_id=repo_id, repo_type=repo_type, revision=revision)
-            assert repo_info.sha is not None, "Repo info returned from server must have a revision sha."
-            commit_hash = repo_info.sha
+            if commit_hash is None:
+                # if we have internet connection we want to list files to download
+                repo_info = api.repo_info(repo_id=repo_id, repo_type=repo_type, revision=revision)
+                assert repo_info.sha is not None, "Repo info returned from server must have a revision sha."
+                commit_hash = repo_info.sha
+                tree_entries = read_tree_cache(tree_cache_folder, commit_hash)
+            if tree_entries is None:
+                tree_entries = {
+                    f.path: TreeCacheEntry(
+                        size=f.size,
+                        blob_id=f.blob_id,
+                        lfs_sha256=f.lfs.sha256 if f.lfs is not None else None,
+                        lfs_size=f.lfs.size if f.lfs is not None else None,
+                        xet_hash=f.xet_hash,
+                    )
+                    for f in api.list_repo_tree(
+                        repo_id=repo_id, recursive=True, revision=commit_hash, repo_type=repo_type
+                    )
+                    if isinstance(f, RepoFile)
+                }
+                if not dry_run:
+                    write_tree_cache(tree_cache_folder, commit_hash, tree_entries)
         except httpx2.ProxyError:
             # Actually raise on proxy error
             raise
@@ -298,7 +317,7 @@ def snapshot_download(
             api_call_error = error
             pass
 
-    # At this stage, if the commit hash is unknown it means either:
+    # At this stage, if the tree listing is unknown it means either:
     # - internet connection is down
     # - internet connection is deactivated (local_files_only=True or HF_HUB_OFFLINE=True)
     # - repo is private/gated and invalid/missing token sent
@@ -307,7 +326,7 @@ def snapshot_download(
     #    - if the specified revision is a commit hash, look inside "snapshots".
     #    - f the specified revision is a branch or tag, look inside "refs".
     # => if local_dir is not None, we will return the path to the local folder if it exists.
-    if commit_hash is None or local_files_only:
+    if tree_entries is None or local_files_only:
         if dry_run:
             raise DryRunError(
                 "Dry run cannot be performed as the repository cannot be accessed. Please check your internet connection or authentication token."
@@ -388,23 +407,6 @@ def snapshot_download(
     # At this stage, the commit hash is known and internet connection is up and running
     # => let's download the files!
     assert commit_hash is not None
-
-    # Retrieve /tree listing from cache or fetch it
-    tree_entries = read_tree_cache(tree_cache_folder, commit_hash)
-    if tree_entries is None:
-        tree_entries = {
-            f.path: TreeCacheEntry(
-                size=f.size,
-                blob_id=f.blob_id,
-                lfs_sha256=f.lfs.sha256 if f.lfs is not None else None,
-                lfs_size=f.lfs.size if f.lfs is not None else None,
-                xet_hash=f.xet_hash,
-            )
-            for f in api.list_repo_tree(repo_id=repo_id, recursive=True, revision=commit_hash, repo_type=repo_type)
-            if isinstance(f, RepoFile)
-        }
-        if not dry_run:
-            write_tree_cache(tree_cache_folder, commit_hash, tree_entries)
 
     filtered_repo_files = list(
         filter_repo_objects(
