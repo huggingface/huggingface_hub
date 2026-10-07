@@ -1242,6 +1242,11 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
         self._xet_reader: XetRangeReader | None = None
         super().__init__(fs, self.resolved_path.unresolve(), **kwargs)
         self.fs: HfFileSystem
+        if (
+            self.mode == "rb"
+            and (xet_file_data := fs._get_xet_file_data(self.resolved_path, self.details)) is not None
+        ):
+            self._xet_reader = XetRangeReader(xet_file_data, headers=fs._api._build_hf_headers(), file_size=self.size)
 
     def __del__(self):
         if not hasattr(self, "resolved_path"):
@@ -1256,13 +1261,6 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
         super().close()
 
     def _fetch_range(self, start: int, end: int) -> bytes:
-        if (
-            self._xet_reader is None
-            and (xet_file_data := self.fs._get_xet_file_data(self.resolved_path, self.details)) is not None
-        ):
-            self._xet_reader = XetRangeReader(
-                xet_file_data, headers=self.fs._api._build_hf_headers(), file_size=self.size
-            )
         if self._xet_reader is not None:
             return self._xet_reader.read(start, end)
         headers = {

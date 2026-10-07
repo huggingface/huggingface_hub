@@ -639,7 +639,7 @@ class TestHfFileSystemRepositoryRO(_HfFileSystemRepositoryChecks, _HfFileSystemB
     @pytest.mark.xet
     def test_read_range_with_xet(self):
         with patch.object(hf_file_system, "XetRangeReader", wraps=hf_file_system.XetRangeReader) as reader_mock:
-            with self.hffs.open(self.hf_path + "/data/binary_data.bin", "rb") as f:
+            with self.hffs.open(self.hf_path + "/data/binary_data.bin", "rb", cache_type="none") as f:
                 f.seek(6)
                 assert f.read(6) == b"binary"
                 f.seek(13)

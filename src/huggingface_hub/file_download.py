@@ -574,7 +574,6 @@ def xet_get(
     if len(displayed_filename) > 40:
         displayed_filename = f"{displayed_filename[:40]}(…)"
 
-    from .utils._xet import abort_xet_session, get_xet_session, refresh_xet_connection_info, xet_headers_without_auth
     from .utils._xet_progress_reporting import XetDownloadProgressReporter
 
     xet_headers = xet_headers_without_auth(headers)
@@ -616,7 +615,7 @@ class XetRangeReader:
     """Read byte ranges of a Xet file, like `http_get` with a `Range` header but through Xet storage.
 
     All reads share one download stream group, created on the first read: a new group for each range would be much
-    slower. Call `close()` once done to finish the group.
+    slower. Call `close()` once done to release the group.
     """
 
     def __init__(self, xet_file_data: XetFileData, *, headers: dict[str, str], file_size: int) -> None:
@@ -641,8 +640,6 @@ class XetRangeReader:
             raise
 
     def close(self) -> None:
-        if self._group is not None and is_xet_session_active(self._session):
-            self._group.finish()
         self._group = None
 
     def _get_group(self) -> Any:
