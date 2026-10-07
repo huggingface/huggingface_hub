@@ -64,13 +64,16 @@ _CANDIDATES = {
 
 def _get_version(package_name: str) -> str:
     if package_name not in _package_versions:
-        _package_versions[package_name] = "N/A"
+        # Resolve into a local variable and assign once: a placeholder written to the shared cache before
+        # the lookup finishes is read as "not installed" by concurrent callers (e.g. parallel downloads).
+        version = "N/A"
         for distribution_name in _CANDIDATES.get(package_name, (package_name,)):
             try:
-                _package_versions[package_name] = importlib.metadata.version(distribution_name)
+                version = importlib.metadata.version(distribution_name)
                 break
             except importlib.metadata.PackageNotFoundError:
                 pass
+        _package_versions[package_name] = version
     return _package_versions[package_name]
 
 
