@@ -655,9 +655,8 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
                 depth = cache_path[len(path) :].count("/")
                 if maxdepth is None or depth <= maxdepth:
                     out.append(cache_path_info)
-            if path not in self.dircache:
-                # Empty listing (e.g. a bucket with zero objects): still register the directory as
-                # listed so callers reading `dircache` directly don't miss the key.
+            if not out:
+                # Empty bucket: `info()` on a child path reads `dircache[parent]`
                 self.dircache[path] = []
         return out
 
