@@ -370,8 +370,17 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         if not path:
             self.dircache.clear()
             self._repo_and_revision_exists_cache.clear()
+            self._bucket_exists_cache.clear()
         else:
-            resolved_path = self.resolve_path(path)
+            try:
+                resolved_path = self.resolve_path(path)
+            except FileNotFoundError:
+                # repo, revision or bucket cached as missing: forget misses so the next lookup hits the Hub
+                self._repo_and_revision_exists_cache = {
+                    k: v for k, v in self._repo_and_revision_exists_cache.items() if v[0]
+                }
+                self._bucket_exists_cache = {k: v for k, v in self._bucket_exists_cache.items() if v[0]}
+                return
             path = resolved_path.unresolve()
             while path:
                 self.dircache.pop(path, None)

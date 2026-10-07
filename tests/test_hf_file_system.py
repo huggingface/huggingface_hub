@@ -24,7 +24,7 @@ from huggingface_hub.hf_file_system import (
 )
 
 from .conftest import RepoFactory
-from .testing_constants import ENDPOINT_STAGING, TOKEN
+from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
 from .testing_utils import OfflineSimulationMode, offline, repo_name
 
 
@@ -916,6 +916,15 @@ def test_access_repositories_lists(not_supported_path, expected_error: Type[Exce
         fs.ls(not_supported_path)
     with pytest.raises(expected_error):
         fs.open(not_supported_path)
+
+
+def test_exists_after_repo_creation(repo_factory: RepoFactory):
+    """Regression test for #1945."""
+    hffs = HfFileSystem(endpoint=ENDPOINT_STAGING, token=TOKEN, skip_instance_cache=True)
+    repo_id = f"{USER}/{repo_name()}"
+    assert not hffs.exists(repo_id)
+    repo_factory(repo_id=repo_id)
+    assert hffs.exists(repo_id, refresh=True)
 
 
 def test_exists_after_repo_deletion(repo_factory: RepoFactory):
