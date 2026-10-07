@@ -259,6 +259,14 @@ class _HfFileSystemBaseROTests(_HfFileSystemBaseTests):
         self._check_info_not_expanded(files[0])
         self._check_info_fields(files[0])
 
+    def test_list_data_directory_after_listing_subpaths(self):
+        """Regression test for #5098."""
+        data_dir = self.hf_path + "/data"
+        self.hffs.ls(self.text_file)
+        self.hffs.find(self.hf_path)
+        self.hffs.ls(data_dir, refresh=True)
+        assert sorted(self.hffs.ls(data_dir, detail=False)) == [data_dir + "/binary_data.bin", self.text_file]
+
     def test_list_root_directory_no_detail_then_with_detail(self):
         files = sorted(self.hffs.ls(self.hf_path, detail=False))
         assert len(files) == 2
