@@ -64,8 +64,7 @@ _CANDIDATES = {
 
 def _get_version(package_name: str) -> str:
     if package_name not in _package_versions:
-        # Resolve into a local variable and assign once: a placeholder written to the shared cache before
-        # the lookup finishes is read as "not installed" by concurrent callers (e.g. parallel downloads).
+        # Write once after the lookup: concurrent callers would read a placeholder as "not installed".
         version = "N/A"
         for distribution_name in _CANDIDATES.get(package_name, (package_name,)):
             try:
