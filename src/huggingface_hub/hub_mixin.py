@@ -825,6 +825,7 @@ class PyTorchModelHubMixin(ModelHubMixin):
 def _load_dataclass(datacls: type[DataclassInstance], data: dict) -> DataclassInstance:
     """Load a dataclass instance from a dictionary.
 
-    Fields not expected by the dataclass are ignored.
+    Fields not expected by the dataclass constructor are ignored, including `init=False` fields.
     """
-    return datacls(**{k: v for k, v in data.items() if k in datacls.__dataclass_fields__})
+    init_fields = {name for name, f in datacls.__dataclass_fields__.items() if f.init}
+    return datacls(**{k: v for k, v in data.items() if k in init_fields})
