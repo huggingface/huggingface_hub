@@ -442,6 +442,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
     def _ensure_bucket_follower(self, bucket_id: str) -> None:
         """Subscribe to the live-follow thread of a bucket, shared by all instances with the same endpoint and token."""
         key = (self.endpoint, self.token, bucket_id)
+        subscribers: weakref.WeakValueDictionary[int, HfFileSystem]
         with BUCKET_FOLLOWERS_LOCK:
             if key in BUCKET_FOLLOWERS and (subscribers := BUCKET_FOLLOWERS[key][1]):
                 if id(self) not in subscribers:
@@ -451,7 +452,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
                 return
             # Keyed by id: fsspec instances with the same options compare equal. Weak values: the thread ends once
             # every instance following the bucket is garbage collected.
-            subscribers: weakref.WeakValueDictionary[int, HfFileSystem] = weakref.WeakValueDictionary({id(self): self})
+            subscribers = weakref.WeakValueDictionary({id(self): self})
 
             def push(changes: list[BucketFileChange] | None) -> None:
                 with BUCKET_FOLLOWERS_LOCK:

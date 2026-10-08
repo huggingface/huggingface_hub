@@ -330,7 +330,7 @@ class TestFollowerLifetime:
     def test_thread_ends_when_the_file_system_is_garbage_collected(self, quiet_stream):
         fs = HfFileSystem(endpoint="https://hf.co", token=False, skip_instance_cache=True, live_follow=True)
         fs._ensure_bucket_follower("user/bucket")
-        follower = BUCKET_FOLLOWERS[(fs.endpoint, fs.token, "user/bucket")]
+        follower = BUCKET_FOLLOWERS[(fs.endpoint, fs.token, "user/bucket")][0]
         assert follower.is_alive()
 
         reference = weakref.ref(fs)
@@ -342,7 +342,7 @@ class TestFollowerLifetime:
     def test_thread_ends_on_stop_even_though_the_stream_is_quiet(self, quiet_stream):
         fs = HfFileSystem(endpoint="https://hf.co", token=False, skip_instance_cache=True, live_follow=True)
         fs._ensure_bucket_follower("user/bucket")
-        follower = BUCKET_FOLLOWERS[(fs.endpoint, fs.token, "user/bucket")]
+        follower = BUCKET_FOLLOWERS[(fs.endpoint, fs.token, "user/bucket")][0]
 
         follower.stop()
         assert self._wait_for(lambda: not follower.is_alive())
