@@ -56,6 +56,23 @@ class TestHfFileSystemBucketRO(_HfFileSystemBucketChecks, _HfFileSystemBaseROTes
         with pytest.raises(FileNotFoundError):
             self.hffs.ls(colliding_path)
 
+    def test_list_empty_bucket(self):
+        bucket_id = self.api.create_bucket(repo_name()).bucket_id
+        try:
+            root = f"hf://buckets/{bucket_id}"
+            assert self.hffs.exists(root)
+            assert self.hffs.isdir(root)
+            assert self.hffs.ls(root) == []
+            assert self.hffs.ls(root, recursive=True) == []
+            assert self.hffs.glob(f"{root}/*") == []
+            assert self.hffs.find(root) == []
+            assert not self.hffs.exists(f"{root}/nope")
+            assert self.hffs.glob(f"{root}/nope/*") == []
+            with pytest.raises(FileNotFoundError):
+                self.hffs.ls(f"{root}/nope")
+        finally:
+            self.api.delete_bucket(bucket_id)
+
 
 class TestHfFileSystemBucketRW(_HfFileSystemBucketChecks, _HfFileSystemBaseRWTests):
     __test__ = True

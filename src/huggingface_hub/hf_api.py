@@ -24,7 +24,8 @@ from collections import defaultdict
 from collections.abc import Callable, Iterable, Iterator
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from email.utils import parsedate_to_datetime
 from functools import wraps
 from itertools import islice
 from pathlib import Path
@@ -39,6 +40,7 @@ from tqdm import tqdm as base_tqdm
 from . import constants
 from ._eval_results import EvalResultEntry, parse_eval_result_entries
 from ._inference_endpoints import (
+    InferenceCatalogModel,
     InferenceEndpoint,
     InferenceEndpointHardware,
     InferenceEndpointScalingMetric,
@@ -55,6 +57,7 @@ from ._jobs_api import (
     JobSpec,
     JobStage,
     ScheduledJobInfo,
+    _build_expose_payload,
     _create_job_spec,
     _default_job_name_from_image,
     _default_job_name_from_script,
@@ -70,6 +73,7 @@ from ._space_api import (
     SpaceTemplate,
     SpaceVariable,
     Volume,
+    ZeroGpuQuota,
 )
 from .community import (
     Discussion,
@@ -565,6 +569,18 @@ class RepoUrl(str):
 
     def __repr__(self) -> str:
         return f"RepoUrl('{self}', endpoint='{self.endpoint}', repo_type='{self.repo_type}', repo_id='{self.repo_id}')"
+
+
+class DuplicatedRepoUrl(RepoUrl):
+    """[`RepoUrl`] returned by [`duplicate_repo`].
+
+    Attributes:
+        files_copy_pending (`bool`):
+            `True` if the LFS/Xet files of the new repo are still being copied in the background. Until the copy is
+            complete, downloading these files may fail.
+    """
+
+    files_copy_pending: bool = False
 
 
 def _resolve_copy_target_path(
@@ -1880,7 +1896,7 @@ class LFSFileInfo:
         >>> api = HfApi()
         >>> lfs_files = api.list_lfs_files("username/my-cool-repo")
 
-        # Filter files files to delete based on a combination of `filename`, `pushed_at`, `ref` or `size`.
+        # Filter files to delete based on a combination of `filename`, `pushed_at`, `ref` or `size`.
         # e.g. select only LFS files in the "checkpoints" folder
         >>> lfs_files_to_delete = (lfs_file for lfs_file in lfs_files if lfs_file.filename.startswith("checkpoints/"))
 
@@ -4380,7 +4396,7 @@ class HfApi:
             >>> api = HfApi()
             >>> lfs_files = api.list_lfs_files("username/my-cool-repo")
 
-            # Filter files files to delete based on a combination of `filename`, `pushed_at`, `ref` or `size`.
+            # Filter files to delete based on a combination of `filename`, `pushed_at`, `ref` or `size`.
             # e.g. select only LFS files in the "checkpoints" folder
             >>> lfs_files_to_delete = (lfs_file for lfs_file in lfs_files if lfs_file.filename.startswith("checkpoints/"))
 
@@ -4438,7 +4454,7 @@ class HfApi:
             >>> api = HfApi()
             >>> lfs_files = api.list_lfs_files("username/my-cool-repo")
 
-            # Filter files files to delete based on a combination of `filename`, `pushed_at`, `ref` or `size`.
+            # Filter files to delete based on a combination of `filename`, `pushed_at`, `ref` or `size`.
             # e.g. select only LFS files in the "checkpoints" folder
             >>> lfs_files_to_delete = (lfs_file for lfs_file in lfs_files if lfs_file.filename.startswith("checkpoints/"))
 
@@ -4547,6 +4563,9 @@ class HfApi:
                 created in the default region. Requires Team plan or above.
             space_sdk (`str`, *optional*):
                 Choice of SDK to use if repo_type is "space". Can be "streamlit", "gradio", "docker", or "static".
+                `"static"` Spaces are free for everyone. Other SDKs run on compute: on the free `cpu-basic` hardware,
+                they require a subscription (PRO for users, Team or Enterprise for organizations), while paid hardware
+                only requires billing (a payment method and prepaid credits).
             space_hardware (`SpaceHardware` or `str`, *optional*):
                 Choice of Hardware if repo_type is "space". See [`SpaceHardware`] for a complete list.
             space_sleep_time (`int`, *optional*):
@@ -8089,6 +8108,46 @@ class HfApi:
         hf_raise_for_status(response)
         return [JobHardwareInfo(**hardware) for hardware in response.json()]
 
+    def get_zero_gpu_quota(self, *, token: bool | str | None = None) -> ZeroGpuQuota:
+        """Get the ZeroGPU quota of the authenticated user.
+
+        Useful to track ZeroGPU usage when calling ZeroGPU Spaces programmatically (e.g. from an app, an agent or
+        an MCP server). See https://huggingface.co/docs/hub/spaces-zerogpu for more details.
+
+        Args:
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                A fine-grained token must have the "Billing > Read billing usage and payment method status"
+                permission and an OAuth token must have the `read-billing` scope.
+
+        Returns:
+            [`ZeroGpuQuota`]: The ZeroGPU quota of the authenticated user.
+
+        Example:
+            ```py
+            >>> from huggingface_hub import get_zero_gpu_quota
+            >>> quota = get_zero_gpu_quota()
+            >>> quota
+            ZeroGpuQuota(base=2400, remaining=1810, resets_at=datetime.datetime(2026, 9, 30, 9, 12, 3, tzinfo=datetime.timezone.utc), overquota_used=0)
+            >>> print(f"{quota.remaining / 60:.1f} minutes left")
+            30.2 minutes left
+            ```
+        """
+        r = get_session().get(
+            f"{self.endpoint}/api/spaces/zero-gpu/quota", headers=self._build_hf_headers(token=token)
+        )
+        if r.status_code == 401:
+            # Handled before `hf_raise_for_status` which would treat it as a missing 'zero-gpu/quota' Space repo.
+            raise HfHubHTTPError(
+                "401 Unauthorized: a valid token is required to get the ZeroGPU quota. Log in with `hf auth login` or"
+                " pass a token. See https://huggingface.co/settings/tokens.",
+                response=r,
+            )
+        hf_raise_for_status(r)
+        return ZeroGpuQuota(r.json())
+
     @validate_hf_hub_args
     def request_space_hardware(
         self,
@@ -8273,8 +8332,9 @@ class HfApi:
         """Disable dev mode on a Space.
 
         Spaces Dev Mode eases the debugging of your application and makes iterating on Spaces faster by allowing you
-        to restart your application without stopping the Space container itself. This feature is available as part of
-        a PRO or Team & Enterprise plan. See https://huggingface.co/docs/hub/spaces-dev-mode for more details.
+        to restart your application without stopping the Space container itself. Enabling dev mode requires a PRO or
+        Team & Enterprise plan, but disabling it is always allowed (e.g. after a subscription has expired). See
+        https://huggingface.co/docs/hub/spaces-dev-mode for more details.
 
         Args:
             repo_id (`str`):
@@ -8395,6 +8455,10 @@ class HfApi:
                     params=params,
                 ) as response:
                     if response.status_code == 200:
+                        # no-follow: stop at the first event logged after the server's Date (1s resolution)
+                        replay_end = None
+                        if not follow and (date := response.headers.get("date")):
+                            replay_end = parsedate_to_datetime(date) + timedelta(seconds=1)
                         event_idx = -1
                         for line in response.iter_lines():
                             if line and line.startswith("data: {"):
@@ -8402,7 +8466,14 @@ class HfApi:
                                 if event_idx >= start_event_idx:
                                     if skip_previous_events_on_retry:
                                         start_event_idx += 1
-                                    yield json.loads(line[len("data: ") :])
+                                    event = json.loads(line[len("data: ") :])
+                                    if (
+                                        replay_end
+                                        and (ts := event.get("timestamp"))
+                                        and parse_datetime(ts) > replay_end
+                                    ):
+                                        break
+                                    yield event
                         break
                     elif response.status_code not in tolerated_status_codes:
                         hf_raise_for_status(response)
@@ -8444,7 +8515,8 @@ class HfApi:
             # Drop params after the first attempt: the start_event_idx dedup
             # requires a stable replay prefix, which `tail` would break.
             params = None
-            if on_iteration_end is not None and on_iteration_end():
+            # no-follow: a single attempt, never loop back
+            if not follow or (on_iteration_end is not None and on_iteration_end()):
                 break
 
     def _fetch_space_logs_sse(
@@ -8602,16 +8674,21 @@ class HfApi:
         visibility: RepoVisibility_T | None = None,
         token: bool | str | None = None,
         exist_ok: bool = False,
+        resource_group_id: str | None = None,
         space_hardware: SpaceHardware | None = None,
         space_sleep_time: int | None = None,
         space_secrets: list[dict[str, str]] | None = None,
         space_variables: list[dict[str, str]] | None = None,
         space_volumes: list[Volume] | None = None,
-    ) -> RepoUrl:
+    ) -> DuplicatedRepoUrl:
         """Duplicate a repo on the Hub (model, dataset, or Space).
 
         This performs a server-side copy that preserves full git history and LFS objects
         without requiring a local download/upload round-trip.
+
+        The git history is copied right away, but the LFS/Xet files may still be copied in the background once this
+        method returns. In that case, `files_copy_pending` is `True` on the returned value and downloading these files
+        from the new repo may fail until the copy is complete.
 
         Args:
             from_id (`str`):
@@ -8635,6 +8712,11 @@ class HfApi:
                 To disable authentication, pass `False`.
             exist_ok (`bool`, *optional*, defaults to `False`):
                 If `True`, do not raise an error if repo already exists.
+            resource_group_id (`str`, *optional*):
+                Resource group in which to create the new repo. Resource groups is only available for Enterprise Hub organizations and
+                allow to define which members of the organization can access the resource. The ID of a resource group
+                can be found in the URL of the resource's page on the Hub (e.g. `"66670e5163145ca562cb1988"`).
+                To learn more about resource groups, see https://huggingface.co/docs/hub/en/security-resource-groups.
             space_hardware (`SpaceHardware` or `str`, *optional*):
                 Choice of Hardware if repo_type is "space". Example: `"t4-medium"`. See
                 [`SpaceHardware`] for a complete list.
@@ -8661,8 +8743,8 @@ class HfApi:
                 Only applicable if repo_type is "space".
 
         Returns:
-            [`RepoUrl`]: URL to the newly created repo. Value is a subclass of `str` containing
-            attributes like `endpoint`, `repo_type` and `repo_id`.
+            [`DuplicatedRepoUrl`]: URL to the newly created repo. Value is a subclass of [`RepoUrl`] (and of `str`)
+            containing attributes like `endpoint`, `repo_type`, `repo_id` and `files_copy_pending`.
 
         Raises:
             [`~utils.RepositoryNotFoundError`]:
@@ -8676,8 +8758,11 @@ class HfApi:
         >>> from huggingface_hub import duplicate_repo
 
         # Duplicate a model to your account
-        >>> duplicate_repo("google/gemma-7b")
+        >>> repo_url = duplicate_repo("google/gemma-7b")
+        >>> repo_url
         RepoUrl('https://huggingface.co/nateraw/gemma-7b',...)
+        >>> repo_url.files_copy_pending
+        True
 
         # Duplicate a dataset with a custom name
         >>> duplicate_repo("openai/gdpval", to_id="myorg/my-gdpval", repo_type="dataset")
@@ -8725,6 +8810,8 @@ class HfApi:
 
         if resolved_visibility is not None:
             payload["visibility"] = resolved_visibility
+        if resource_group_id is not None:
+            payload["resourceGroupId"] = resource_group_id
 
         # Space-specific options
         space_args: list[tuple[str, str, Any]] = [
@@ -8765,7 +8852,10 @@ class HfApi:
             else:
                 raise
 
-        return RepoUrl(r.json()["url"], endpoint=self.endpoint)
+        data = r.json()
+        repo_url = DuplicatedRepoUrl(data["url"], endpoint=self.endpoint)
+        repo_url.files_copy_pending = data.get("filesCopyPending", False)
+        return repo_url
 
     @validate_hf_hub_args
     def set_space_volumes(
@@ -9216,27 +9306,41 @@ class HfApi:
     @validate_hf_hub_args
     def create_inference_endpoint_from_catalog(
         self,
-        repo_id: str,
+        repo_id: str | None = None,
         *,
+        recipe_id: str | None = None,
         name: str | None = None,
         accelerator: Literal["cpu", "gpu", "neuron"] | str | None = None,
+        gguf_file: str | None = None,
         token: bool | str | None = None,
         namespace: str | None = None,
     ) -> InferenceEndpoint:
-        """Create a new Inference Endpoint from a model in the Hugging Face Inference Catalog.
+        """Create a new Inference Endpoint from the Hugging Face Inference Catalog.
 
         The goal of the Inference Catalog is to provide a curated list of models that are optimized for inference
         and for which default configurations have been tested. See https://endpoints.huggingface.co/catalog for a list
         of available models in the catalog.
 
+        Each catalog model is deployed through a *recipe*: a hardware and engine combination that has been tested for
+        it. Pass `repo_id` to deploy the default recipe of a model, optionally narrowed down with `accelerator` and
+        `gguf_file`, or pass `recipe_id` to deploy an exact recipe listed by [`list_inference_catalog`].
+
         Args:
-            repo_id (`str`):
-                The ID of the model in the catalog to deploy as an Inference Endpoint.
+            repo_id (`str`, *optional*):
+                The ID of the model in the catalog to deploy as an Inference Endpoint. Mutually exclusive with
+                `recipe_id`.
+            recipe_id (`str`, *optional*):
+                The ID of the catalog recipe to deploy (see [`InferenceCatalogRecipe`]). Mutually exclusive with
+                `repo_id`.
             name (`str`, *optional*):
                 The unique name for the new Inference Endpoint. If not provided, a random name will be generated.
             accelerator (`str`, *optional*):
                 The hardware accelerator to be used for inference. Possible values include `"cpu"`, `"gpu"`, and
-                `"neuron"`. If not provided, the server will use a default appropriate for the model.
+                `"neuron"`. If not provided, the server will use a default appropriate for the model. Only valid
+                with `repo_id`.
+            gguf_file (`str`, *optional*):
+                The GGUF file to deploy, for models that have one recipe per quant (e.g.
+                `"Qwen2.5-Coder-32B-Instruct-Q4_K_M.gguf"`). Only valid with `repo_id`.
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -9255,54 +9359,105 @@ class HfApi:
             raise ValueError(
                 "Cannot use `token=False` with `create_inference_endpoint_from_catalog` as it requires authentication."
             )
-        token = token or self.token or get_token()
-        payload: dict = {
-            "namespace": namespace or self._get_namespace(token=token),
-            "repoId": repo_id,
-        }
-        if name is not None:
-            payload["endpointName"] = name
-        if accelerator is not None:
-            payload["accelerator"] = accelerator
+        if (repo_id is None) == (recipe_id is None):
+            raise ValueError("Provide exactly one of `repo_id` or `recipe_id`.")
+        if recipe_id is not None and (accelerator is not None or gguf_file is not None):
+            # `accelerator` and `gguf_file` pick a recipe among the ones of a model. A `recipe_id` already is one, so
+            # the server would silently ignore them.
+            raise ValueError(
+                "`accelerator` and `gguf_file` cannot be used with `recipe_id`, which already is a recipe."
+            )
 
-        response = get_session().post(
-            f"{constants.INFERENCE_CATALOG_ENDPOINT}/deploy",
-            headers=self._build_hf_headers(token=token),
-            json=payload,
-        )
+        token = token or self.token or get_token()
+        namespace = namespace or self._get_namespace(token=token)
+        payload: dict = {"namespace": namespace}
+        if name is not None:
+            payload["config"] = {"name": name}
+
+        if recipe_id is not None:
+            url = f"{constants.INFERENCE_CATALOG_ENDPOINT}/recipe/{recipe_id}/deploy"
+        else:
+            url = f"{constants.INFERENCE_CATALOG_ENDPOINT}/model/{repo_id}/deploy"
+            if accelerator is not None:
+                payload["accelerator"] = accelerator
+            if gguf_file is not None:
+                payload["ggufFile"] = gguf_file
+
+        response = get_session().post(url, headers=self._build_hf_headers(token=token), json=payload)
         hf_raise_for_status(response)
-        data = response.json()["endpoint"]
-        return InferenceEndpoint.from_raw(data, namespace=data["name"], token=token)
+        return InferenceEndpoint.from_raw(response.json()["endpoint"], namespace=namespace, token=token)
 
     @experimental
     @validate_hf_hub_args
-    def list_inference_catalog(self, *, token: bool | str | None = None) -> list[str]:
+    def list_inference_catalog(
+        self,
+        *,
+        accelerator: Literal["cpu", "gpu", "neuron"] | str | None = None,
+        engine: Literal["llamacpp", "sglang", "tei", "vllm"] | str | None = None,
+        license: str | None = None,
+        task: str | None = None,
+        search: str | None = None,
+        limit: int | None = None,
+        token: bool | str | None = None,
+    ) -> list[InferenceCatalogModel]:
         """List models available in the Hugging Face Inference Catalog.
 
         The goal of the Inference Catalog is to provide a curated list of models that are optimized for inference
         and for which default configurations have been tested. See https://endpoints.huggingface.co/catalog for a list
         of available models in the catalog.
 
-        Use [`create_inference_endpoint_from_catalog`] to deploy a model from the catalog.
+        Use [`create_inference_endpoint_from_catalog`] to deploy a model or a recipe from the catalog.
 
         Args:
+            accelerator (`str`, *optional*):
+                Only return models that have a recipe for this accelerator (`"cpu"`, `"gpu"` or `"neuron"`).
+            engine (`str`, *optional*):
+                Only return models that have a recipe for this inference engine (e.g. `"vllm"`, `"llamacpp"`,
+                `"tei"`, `"sglang"`).
+            license (`str`, *optional*):
+                Only return models under this license (e.g. `"Apache 2.0"`).
+            task (`str`, *optional*):
+                Only return models for this task (e.g. `"text-generation"`).
+            search (`str`, *optional*):
+                Only return models matching this search query.
+            limit (`int`, *optional*):
+                The maximum number of models to return.
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
 
         Returns:
-            List[`str`]: A list of model IDs available in the catalog.
+            `list[InferenceCatalogModel]`: The models available in the catalog, each with its tested recipes.
+
+        Example:
+        ```python
+        >>> from huggingface_hub import HfApi
+        >>> api = HfApi()
+        >>> catalog = api.list_inference_catalog(task="text-generation", accelerator="neuron")
+        >>> [(model.repo_id, [recipe.id for recipe in model.recipes]) for model in catalog]
+        [('meta-llama/Llama-3.1-8B-Instruct', ['sizzling-biryani-g4xsi1ac', 'artisanal-quinoa-yz9ynamx']), ...]
+        ```
+
         > [!WARNING]
         > `list_inference_catalog` is experimental. Its API is subject to change in the future. Please provide feedback
         > if you have any suggestions or requests.
         """
+        params = {
+            "accelerator": accelerator,
+            "engine": engine,
+            "license": license,
+            "task": task,
+            "search": search,
+            "limit": limit,
+        }
         response = get_session().get(
-            f"{constants.INFERENCE_CATALOG_ENDPOINT}/repo-list",
+            f"{constants.INFERENCE_CATALOG_ENDPOINT}/list",
             headers=self._build_hf_headers(token=token),
+            params={key: value for key, value in params.items() if value is not None},
         )
         hf_raise_for_status(response)
-        return response.json()["models"]
+        return [InferenceCatalogModel.from_raw(item) for item in response.json()["items"]]
 
     def get_inference_endpoint(
         self, name: str, *, namespace: str | None = None, token: bool | str | None = None
@@ -11739,10 +11894,12 @@ class HfApi:
         secrets: dict[str, Any] | None = None,
         flavor: JobHardware | str | None = None,
         timeout: int | float | str | None = None,
+        attempts: int | None = None,
         name: str | None = None,
         labels: dict[str, str] | None = None,
         volumes: list[Volume] | None = None,
         expose: list[int] | None = None,
+        expose_public: list[int] | None = None,
         ssh: bool = False,
         network_group: str | None = None,
         network_aliases: list[str] | None = None,
@@ -11776,6 +11933,10 @@ class HfApi:
                 Max duration for the Job: int with s (seconds, default), m (minutes), h (hours) or d (days).
                 Example: `300` or `"5m"` for 5 minutes.
 
+            attempts (`int`, *optional*):
+                Maximum number of attempts, including the initial run. Defaults to 1. For example, 3 retries a
+                failed Job up to 2 times.
+
             name (`str`, *optional*):
                 A name for the Job. Stored as the `name` label. Cannot be passed together with a `name` key in
                 `labels`. Names do not have to be unique. Defaults to a name derived from image and command (with a short hash suffix).
@@ -11791,7 +11952,12 @@ class HfApi:
             expose (`list[int]`, *optional*):
                 Container ports to expose through the jobs proxy. Each listed port is reachable
                 on the public jobs domain (e.g. `https://<job_id>--8000.hf.jobs`). Access always
-                requires an HF token with read access to the job's namespace.
+                requires an HF token with read access to the job's namespace. Use `expose_public` for
+                unauthenticated access.
+
+            expose_public (`list[int]`, *optional*):
+                Ports to expose through the Jobs proxy without authentication. They don't need to be listed in
+                `expose`.
 
             ssh (`bool`, *optional*):
                 If True, the job's container is reachable over SSH at the URL given by `job.status.ssh_url`
@@ -11863,10 +12029,12 @@ class HfApi:
             secrets=secrets,
             flavor=flavor,
             timeout=timeout,
+            attempts=attempts,
             name=name,
             labels=labels,
             volumes=volumes,
             expose=expose,
+            expose_public=expose_public,
             ssh=ssh,
             network_group=network_group,
             network_aliases=network_aliases,
@@ -12007,10 +12175,11 @@ class HfApi:
         *,
         job_id: str,
         namespace: str | None = None,
+        follow: bool = False,
         token: bool | str | None = None,
     ) -> Iterable[dict[str, Any]]:
         """
-        Fetch all the live metrics from a compute Job on Hugging Face infrastructure.
+        Fetch the live metrics from a compute Job on Hugging Face infrastructure.
 
         Args:
             job_id (`str`):
@@ -12018,6 +12187,10 @@ class HfApi:
 
             namespace (`str`, *optional*):
                 The namespace where the Job is running. Defaults to the current user's namespace.
+
+            follow (`bool`, *optional*):
+                If `True`, stream metrics in real-time until the job completes (blocking).
+                If `False` (default), fetch only the current metrics and return (non-blocking).
 
             token (`bool` or `str`, *optional*):
                 A valid user access token. If not provided, the locally saved token will be used, which is the
@@ -12047,6 +12220,10 @@ class HfApi:
                 },
                 "replica": "57vr7"
             }
+
+            >>> # Stream metrics until the job completes
+            >>> for metrics in fetch_job_metrics(job_id=job.id, follow=True):
+            ...     print(metrics)
             ```
         """
         # - there is one "metric" event every second, like this:
@@ -12054,19 +12231,24 @@ class HfApi:
         # data: {"cpu_usage_pct":0,"cpu_millicores":3500,"memory_used_bytes":1417216,"memory_total_bytes":15032385536,"rx_bps":0,"tx_bps":0,"gpus":{"d901cd7f":{"utilization":0,"memory_used_bytes":0,"memory_total_bytes":22836000000}},"replica":"j6qz9"}
         # - the stream doesn't end when the job finishes, so we rely on timeouts (httpx2.NetworkError with Timeout as cause)
         # - httpx2.ReadTimeout can happen if the job is marked as running but the hardware is not available yet, that we can ignore
-        # - it returns an internal error 500 if the job has already finished, we simply ignore it
+        # - it returns a 406 (previously a 500) if the job has already finished, we simply ignore it
         # - ChunkedEncodingError can happen in case of stopped logging in the middle of streaming
         # - there is a ": keep-alive" every 30 seconds
         seconds_between_events = 1
-        yield from self._fetch_running_job_sse(
+        metrics_stream = self._fetch_running_job_sse(
             job_id=job_id,
             route="metrics",
             timeout=10 * seconds_between_events,
             skip_previous_events_on_retry=False,
-            tolerated_status_codes=(500,),
+            tolerated_status_codes=(406, 500),
             namespace=namespace,
             token=token,
+            follow=follow,
         )
+        if follow:
+            yield from metrics_stream
+        else:  # the stream has no history: its first sample is the current one
+            yield from itertools.islice(metrics_stream, 1)
 
     def list_jobs(
         self,
@@ -12309,6 +12491,35 @@ class HfApi:
             return _wait_single(job_id)
         return [_wait_single(single_job_id) for single_job_id in job_id]
 
+    def rerun_job(
+        self,
+        *,
+        job_id: str,
+        namespace: str | None = None,
+        token: bool | str | None = None,
+    ) -> JobInfo:
+        """Run a new Job using the existing Job's spec, including its retry and resource settings.
+
+        Args:
+            job_id (`str`):
+                ID of the Job to rerun.
+            namespace (`str`, *optional*):
+                Namespace of the Job. Defaults to the current user's namespace.
+            token (`bool` or `str`, *optional*):
+                User access token. Defaults to the locally saved token.
+
+        Returns:
+            [`JobInfo`]: The newly started Job.
+        """
+        if namespace is None:
+            namespace = self.whoami(token=token)["name"]
+        response = get_session().post(
+            f"{self.endpoint}/api/jobs/{namespace}/{job_id}/duplicate",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+        return JobInfo(**response.json(), endpoint=self.endpoint)
+
     def cancel_job(
         self,
         *,
@@ -12338,6 +12549,47 @@ class HfApi:
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
+
+    def update_job_expose(
+        self,
+        *,
+        job_id: str,
+        expose: list[int] | None = None,
+        expose_public: list[int] | None = None,
+        namespace: str | None = None,
+        token: bool | str | None = None,
+    ) -> JobInfo:
+        """Replace a running Job's exposed ports without rerunning it.
+
+        `expose` and `expose_public` together form the complete port configuration: ports that are in neither list
+        are closed. Pass neither to close all exposed ports.
+
+        Args:
+            job_id (`str`):
+                ID of the running Job.
+            expose (`list[int]`, *optional*):
+                Ports to expose through the Jobs proxy. Access requires an HF token with read access to the Job's
+                namespace.
+            expose_public (`list[int]`, *optional*):
+                Ports to expose through the Jobs proxy without authentication. They don't need to be listed in
+                `expose`.
+            namespace (`str`, *optional*):
+                Namespace of the Job. Defaults to the current user's namespace.
+            token (`bool` or `str`, *optional*):
+                User access token. Defaults to the locally saved token.
+
+        Returns:
+            [`JobInfo`]: The updated Job.
+        """
+        if namespace is None:
+            namespace = self.whoami(token=token)["name"]
+        response = get_session().put(
+            f"{self.endpoint}/api/jobs/{namespace}/{job_id}/expose",
+            json=_build_expose_payload(expose, expose_public),
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+        return JobInfo(**response.json(), endpoint=self.endpoint)
 
     def update_job_labels(
         self,
@@ -12395,10 +12647,12 @@ class HfApi:
         secrets: dict[str, Any] | None = None,
         flavor: JobHardware | str | None = None,
         timeout: int | float | str | None = None,
+        attempts: int | None = None,
         name: str | None = None,
         labels: dict[str, str] | None = None,
         volumes: list[Volume] | None = None,
         expose: list[int] | None = None,
+        expose_public: list[int] | None = None,
         ssh: bool = False,
         network_group: str | None = None,
         network_aliases: list[str] | None = None,
@@ -12444,6 +12698,9 @@ class HfApi:
                 Max duration for the Job: int with s (seconds, default), m (minutes), h (hours) or d (days).
                 Example: `300` or `"5m"` for 5 minutes.
 
+            attempts (`int`, *optional*):
+                Maximum number of attempts, including the initial run. Defaults to 1.
+
             name (`str`, *optional*):
                 A name for the Job. Stored as the `name` label. Cannot be passed together with a `name` key in
                 `labels`. Names do not have to be unique. Defaults to a name derived from script and its arguments (with a short hash suffix).
@@ -12459,7 +12716,12 @@ class HfApi:
             expose (`list[int]`, *optional*):
                 Container ports to expose through the jobs proxy. Each listed port is reachable
                 on the public jobs domain (e.g. `https://<job_id>--8000.hf.jobs`). Access always
-                requires an HF token with read access to the job's namespace.
+                requires an HF token with read access to the job's namespace. Use `expose_public` for
+                unauthenticated access.
+
+            expose_public (`list[int]`, *optional*):
+                Ports to expose through the Jobs proxy without authentication. They don't need to be listed in
+                `expose`.
 
             ssh (`bool`, *optional*):
                 If True, the job's container is reachable over SSH at the URL given by `job.status.ssh_url`
@@ -12559,10 +12821,12 @@ class HfApi:
             secrets=secrets,
             flavor=flavor,
             timeout=timeout,
+            attempts=attempts,
             name=name,
             labels=labels,
             volumes=volumes,
             expose=expose,
+            expose_public=expose_public,
             ssh=ssh,
             network_group=network_group,
             network_aliases=network_aliases,
@@ -12583,10 +12847,12 @@ class HfApi:
         secrets: dict[str, Any] | None = None,
         flavor: JobHardware | str | None = None,
         timeout: int | float | str | None = None,
+        attempts: int | None = None,
         name: str | None = None,
         labels: dict[str, str] | None = None,
         volumes: list[Volume] | None = None,
         expose: list[int] | None = None,
+        expose_public: list[int] | None = None,
         resource_group_id: str | None = None,
         namespace: str | None = None,
         token: bool | str | None = None,
@@ -12627,6 +12893,9 @@ class HfApi:
                 Max duration for the Job: int with s (seconds, default), m (minutes), h (hours) or d (days).
                 Example: `300` or `"5m"` for 5 minutes.
 
+            attempts (`int`, *optional*):
+                Maximum number of attempts for each run, including the initial attempt. Defaults to 1.
+
             name (`str`, *optional*):
                 A name for the scheduled Job. Stored as the `name` label. Cannot be passed together with a `name`
                 key in `labels`. Names do not have to be unique. Defaults to a name derived from image and command (with a short hash suffix).
@@ -12642,7 +12911,12 @@ class HfApi:
             expose (`list[int]`, *optional*):
                 Container ports to expose through the jobs proxy. Each listed port is reachable
                 on the public jobs domain (e.g. `https://<job_id>--8000.hf.jobs`). Access always
-                requires an HF token with read access to the job's namespace.
+                requires an HF token with read access to the job's namespace. Use `expose_public` for
+                unauthenticated access.
+
+            expose_public (`list[int]`, *optional*):
+                Ports to expose through the Jobs proxy without authentication. They don't need to be listed in
+                `expose`.
 
             resource_group_id (`str`, *optional*):
                 The ID of the resource group to create the scheduled Job in. Used to control access to resources
@@ -12695,10 +12969,12 @@ class HfApi:
             secrets=secrets,
             flavor=flavor,
             timeout=timeout,
+            attempts=attempts,
             name=name,
             labels=labels,
             volumes=volumes,
             expose=expose,
+            expose_public=expose_public,
             resource_group_id=resource_group_id,
         )
         input_json: dict[str, Any] = {
@@ -12901,6 +13177,58 @@ class HfApi:
         )
         hf_raise_for_status(response)
 
+    def update_scheduled_job_schedule(
+        self,
+        *,
+        scheduled_job_id: str,
+        schedule: str,
+        namespace: str | None = None,
+        token: bool | str | None = None,
+    ) -> ScheduledJobInfo:
+        """
+        Change when an existing scheduled Job runs.
+
+        Only the schedule is updated: the Job spec, labels and suspended state are kept. To run the scheduled Job once
+        right now without changing its schedule, use [`trigger_scheduled_job`] instead.
+
+        Args:
+            scheduled_job_id (`str`):
+                ID of the scheduled Job.
+
+            schedule (`str`):
+                One of "@annually", "@yearly", "@monthly", "@weekly", "@daily", "@hourly", or a
+                CRON schedule expression (e.g., '0 9 * * 1' for 9 AM every Monday).
+
+            namespace (`str`, *optional*):
+                The namespace where the scheduled Job is. Defaults to the current user's namespace.
+
+            token (`bool` or `str`, *optional*):
+                A valid user access token. If not provided, the locally saved token will be used, which is the
+                recommended authentication method. Set to `False` to disable authentication.
+                Refer to: https://huggingface.co/docs/huggingface_hub/quick-start#authentication.
+
+        Returns:
+            [`ScheduledJobInfo`]: The updated scheduled Job info.
+
+        Example:
+
+            ```python
+            >>> from huggingface_hub import update_scheduled_job_schedule
+            >>> scheduled_job = update_scheduled_job_schedule(scheduled_job_id="6abb8dc9c617607c354d45f4", schedule="@daily")
+            >>> scheduled_job.schedule
+            '@daily'
+            ```
+        """
+        if namespace is None:
+            namespace = self.whoami(token=token)["name"]
+        response = get_session().post(
+            f"{self.endpoint}/api/scheduled-jobs/{namespace}/{scheduled_job_id}/schedule",
+            json={"schedule": schedule},
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+        return ScheduledJobInfo(**response.json())
+
     def trigger_scheduled_job(
         self,
         *,
@@ -13002,10 +13330,12 @@ class HfApi:
         secrets: dict[str, Any] | None = None,
         flavor: JobHardware | str | None = None,
         timeout: int | float | str | None = None,
+        attempts: int | None = None,
         name: str | None = None,
         labels: dict[str, str] | None = None,
         volumes: list[Volume] | None = None,
         expose: list[int] | None = None,
+        expose_public: list[int] | None = None,
         resource_group_id: str | None = None,
         namespace: str | None = None,
         token: bool | str | None = None,
@@ -13058,6 +13388,9 @@ class HfApi:
                 Max duration for the Job: int with s (seconds, default), m (minutes), h (hours) or d (days).
                 Example: `300` or `"5m"` for 5 minutes.
 
+            attempts (`int`, *optional*):
+                Maximum number of attempts for each run, including the initial attempt. Defaults to 1.
+
             name (`str`, *optional*):
                 A name for the scheduled Job. Stored as the `name` label. Cannot be passed together with a `name`
                 key in `labels`. Names do not have to be unique. Defaults to a name derived from script and its arguments (with a short hash suffix).
@@ -13073,7 +13406,12 @@ class HfApi:
             expose (`list[int]`, *optional*):
                 Container ports to expose through the jobs proxy. Each listed port is reachable
                 on the public jobs domain (e.g. `https://<job_id>--8000.hf.jobs`). Access always
-                requires an HF token with read access to the job's namespace.
+                requires an HF token with read access to the job's namespace. Use `expose_public` for
+                unauthenticated access.
+
+            expose_public (`list[int]`, *optional*):
+                Ports to expose through the Jobs proxy without authentication. They don't need to be listed in
+                `expose`.
 
             resource_group_id (`str`, *optional*):
                 The ID of the resource group to create the scheduled Job in. Used to control access to resources
@@ -13146,10 +13484,12 @@ class HfApi:
             secrets=secrets,
             flavor=flavor,
             timeout=timeout,
+            attempts=attempts,
             name=name,
             labels=labels,
             volumes=volumes,
             expose=expose,
+            expose_public=expose_public,
             resource_group_id=resource_group_id,
             namespace=namespace,
             token=token,
@@ -13379,6 +13719,7 @@ class HfApi:
         bucket_id: str,
         *,
         private: bool | None = None,
+        visibility: Literal["public", "private"] | None = None,
         resource_group_id: str | None = None,
         region: REPO_REGIONS | None = None,
         exist_ok: bool = False,
@@ -13392,7 +13733,10 @@ class HfApi:
                 If no namespace is provided, the bucket will be created in the current user's namespace.
             private (`bool`, *optional*):
                 Whether to make the bucket private. If `None` (default), the bucket will be public unless the
-                organization's default is private.
+                organization's default is private. Cannot be passed together with `visibility`.
+            visibility (`Literal["public", "private"]`, *optional*):
+                Visibility of the bucket. Can be `"public"` or `"private"`. If `None` (default), the bucket will be
+                public unless the organization's default is private.
             resource_group_id (`str`, *optional*):
                 Resource group in which to create the bucket. Resource groups are only available for Enterprise Hub
                 organizations and allow to define which members of the organization can access the resource. The ID
@@ -13435,9 +13779,11 @@ class HfApi:
         """
         from ._buckets import BucketUrl, _parse_bucket_uri
 
+        resolved_visibility = _resolve_repo_visibility(private=private, visibility=visibility, repo_type="bucket")
+
         payload: dict[str, Any] = {}
-        if private is not None:
-            payload["private"] = private
+        if resolved_visibility is not None:
+            payload["visibility"] = resolved_visibility
         if resource_group_id is not None:
             payload["resourceGroupId"] = resource_group_id
         if region is not None:
@@ -15017,6 +15363,7 @@ add_space_variable = api.add_space_variable
 delete_space_variable = api.delete_space_variable
 get_space_runtime = api.get_space_runtime
 list_spaces_hardware = api.list_spaces_hardware
+get_zero_gpu_quota = api.get_zero_gpu_quota
 request_space_hardware = api.request_space_hardware
 set_space_sleep_time = api.set_space_sleep_time
 pause_space = api.pause_space
@@ -15089,8 +15436,10 @@ list_jobs = api.list_jobs
 list_jobs_hardware = api.list_jobs_hardware
 inspect_job = api.inspect_job
 wait_for_job = api.wait_for_job
+rerun_job = api.rerun_job
 cancel_job = api.cancel_job
 update_job_labels = api.update_job_labels
+update_job_expose = api.update_job_expose
 run_uv_job = api.run_uv_job
 create_scheduled_job = api.create_scheduled_job
 list_scheduled_jobs = api.list_scheduled_jobs
@@ -15099,6 +15448,7 @@ delete_scheduled_job = api.delete_scheduled_job
 suspend_scheduled_job = api.suspend_scheduled_job
 resume_scheduled_job = api.resume_scheduled_job
 trigger_scheduled_job = api.trigger_scheduled_job
+update_scheduled_job_schedule = api.update_scheduled_job_schedule
 update_scheduled_job_labels = api.update_scheduled_job_labels
 create_scheduled_uv_job = api.create_scheduled_uv_job
 sync_job_volume = api.sync_job_volume

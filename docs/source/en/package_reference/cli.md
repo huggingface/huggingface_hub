@@ -1661,7 +1661,7 @@ $ hf endpoints [OPTIONS] COMMAND [ARGS]...
 * `describe`: Get information about an existing endpoint.
 * `hardware`: List the hardware available to deploy an Inference Endpoint on.
 * `list`: Lists all Inference Endpoints for the given namespace. [alias: ls]
-* `list-catalog`: List available Catalog models.
+* `list-catalog`: List the models available in the Model Catalog.
 * `pause`: Pause an Inference Endpoint.
 * `resume`: Resume an Inference Endpoint.
 * `scale-to-zero`: Scale an Inference Endpoint to zero.
@@ -1684,11 +1684,15 @@ $ hf endpoints catalog [OPTIONS] COMMAND [ARGS]...
 **Commands**:
 
 * `deploy`: Deploy an Inference Endpoint from the Model Catalog.
-* `list`: List available Catalog models. [alias: ls]
+* `list`: List the models available in the Model Catalog. [alias: ls]
 
 #### `hf endpoints catalog deploy`
 
 Deploy an Inference Endpoint from the Model Catalog.
+
+Catalog models are deployed through a recipe: a hardware and engine combination that has been tested for them.
+Pass --repo to deploy the default recipe of a model, optionally narrowed down with --accelerator and
+--gguf-file, or pass --recipe to deploy an exact recipe listed by `hf endpoints catalog ls`.
 
 **Usage**:
 
@@ -1698,15 +1702,18 @@ $ hf endpoints catalog deploy [OPTIONS]
 
 **Options**:
 
-* `--repo TEXT`: The name of the model repository associated with the Inference Endpoint (e.g. 'openai/gpt-oss-120b').  [required]
+* `--repo TEXT`: The name of the model repository associated with the Inference Endpoint (e.g. 'openai/gpt-oss-120b'). Deploys its default recipe. Mutually exclusive with --recipe.
+* `--recipe TEXT`: The id of the catalog recipe to deploy, as listed by 'hf endpoints catalog ls'. Mutually exclusive with --repo.
 * `--name TEXT`: Endpoint name.
-* `--accelerator TEXT`: The hardware accelerator to be used for inference (e.g. 'cpu', 'gpu', 'neuron').
+* `--accelerator [cpu|gpu|neuron]`: The hardware accelerator to be used for inference. Only with --repo.
+* `--gguf-file TEXT`: The GGUF file to deploy, for models that have one recipe per quant. Only with --repo.
 * `--namespace TEXT`: The namespace associated with the Inference Endpoint. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
 Examples
   $ hf endpoints catalog deploy --repo meta-llama/Llama-3.2-1B-Instruct
+  $ hf endpoints catalog deploy --recipe sizzling-biryani-g4xsi1ac
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -1715,7 +1722,10 @@ Learn more
 
 #### `hf endpoints catalog list`
 
-List available Catalog models. [alias: ls]
+List the models available in the Model Catalog. [alias: ls]
+
+One row per recipe, i.e. per tested way of deploying a model. Deploy one with
+`hf endpoints catalog deploy --recipe <RECIPE_ID>`.
 
 **Usage**:
 
@@ -1725,11 +1735,18 @@ $ hf endpoints catalog list [OPTIONS]
 
 **Options**:
 
+* `--accelerator [cpu|gpu|neuron]`: Only show recipes running on this accelerator.
+* `--engine [llamacpp|sglang|tei|vllm]`: Only show recipes running this inference engine.
+* `--license TEXT`: Only show models under this license (e.g. 'Apache 2.0').
+* `--task TEXT`: Only show models for this task (e.g. 'text-generation').
+* `--search TEXT`: Search query.
+* `--limit INTEGER`: Limit the number of models to return.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
 Examples
   $ hf endpoints catalog ls
+  $ hf endpoints catalog ls --engine vllm
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -1917,7 +1934,10 @@ Learn more
 
 ### `hf endpoints list-catalog`
 
-List available Catalog models.
+List the models available in the Model Catalog.
+
+One row per recipe, i.e. per tested way of deploying a model. Deploy one with
+`hf endpoints catalog deploy --recipe <RECIPE_ID>`.
 
 **Usage**:
 
@@ -1927,6 +1947,12 @@ $ hf endpoints list-catalog [OPTIONS]
 
 **Options**:
 
+* `--accelerator [cpu|gpu|neuron]`: Only show recipes running on this accelerator.
+* `--engine [llamacpp|sglang|tei|vllm]`: Only show recipes running this inference engine.
+* `--license TEXT`: Only show models under this license (e.g. 'Apache 2.0').
+* `--task TEXT`: Only show models for this task (e.g. 'text-generation').
+* `--search TEXT`: Search query.
+* `--limit INTEGER`: Limit the number of models to return.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -2278,15 +2304,17 @@ $ hf jobs [OPTIONS] COMMAND [ARGS]...
 **Commands**:
 
 * `cancel`: Cancel a Job
+* `expose`: Replace exposed ports on a running Job.
 * `hardware`: List available hardware options for Jobs
 * `inspect`: Display detailed information on one or more Jobs
 * `labels`: Update labels on a Job.
 * `list`: List Jobs. [alias: ls, ps]
 * `logs`: Fetch the logs of a Job.
+* `rerun`: Run a new Job with an existing Job's spec.
 * `run`: Run a Job.
 * `scheduled`: Create and manage scheduled Jobs on the Hub.
 * `ssh`: SSH into a running Job.
-* `stats`: Fetch the resource usage statistics and metrics of Jobs
+* `stats`: Fetch the resource usage statistics and metrics of Jobs.
 * `uv`: Run UV scripts (Python with inline dependencies) on HF infrastructure.
 * `wait`: Wait for one or more Jobs to reach a terminal state.
 
@@ -2312,6 +2340,39 @@ $ hf jobs cancel [OPTIONS] JOB_ID
 
 Examples
   $ hf jobs cancel <job_id>
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf jobs expose`
+
+Replace exposed ports on a running Job.
+
+**Usage**:
+
+```console
+$ hf jobs expose [OPTIONS] JOB_ID [PORTS]...
+```
+
+**Arguments**:
+
+* `JOB_ID`: Job ID (or 'namespace/job_id')  [required]
+* `[PORTS]...`: Ports to expose through the jobs proxy. Access requires an HF token with read access to the job's namespace.
+
+**Options**:
+
+* `--public INTEGER`: Expose a port without authentication. Repeat the flag for multiple ports. No need to also pass the port as a positional argument.
+* `--clear`: Close all exposed ports.
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf jobs expose <job_id> 8000
+  $ hf jobs expose <job_id> 8000 --public 9000
+  $ hf jobs expose <job_id> --clear
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -2478,6 +2539,36 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
+### `hf jobs rerun`
+
+Run a new Job with an existing Job's spec.
+
+**Usage**:
+
+```console
+$ hf jobs rerun [OPTIONS] JOB_ID
+```
+
+**Arguments**:
+
+* `JOB_ID`: Job ID (or 'namespace/job_id')  [required]
+
+**Options**:
+
+* `-d, --detach`: Run the Job in the background and print the Job ID.
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf jobs rerun <job_id>
+  $ hf jobs rerun --detach <job_id>
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
 ### `hf jobs run`
 
 Run a Job.
@@ -2504,9 +2595,11 @@ $ hf jobs run [OPTIONS] IMAGE COMMAND...
 * `--secrets-file TEXT`: Read in a file of secret environment variables. Use `-` to read them from stdin.
 * `--flavor [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|rtx-pro-6000|rtx-pro-6000x2|rtx-pro-6000x4|rtx-pro-6000x8]`: Flavor for the hardware. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.
 * `--timeout TEXT`: Max duration: int with s (seconds, default), m (minutes), h (hours) or d (days).
+* `--attempts INTEGER RANGE`: Maximum attempts, including the first run. Defaults to 1.  [x>=1]
 * `-d, --detach`: Run the Job in the background and print the Job ID.
 * `--dry-run`: Print the resolved Job configuration without submitting the Job.
 * `--expose INTEGER`: Expose a container port through the jobs proxy. Repeat the flag for multiple ports (e.g. `--expose 8000 --expose 8001`). Each exposed port is reachable on the public jobs domain; access requires an HF token with read access to the job's namespace.
+* `--expose-public INTEGER`: Expose a container port through the jobs proxy without authentication. Repeat the flag for multiple ports. No need to also pass the port with `--expose`.
 * `--ssh`: Make the job's container reachable over SSH. Connect with `hf jobs ssh <job_id>`. Requires an SSH public key registered on https://huggingface.co/settings/keys.
 * `--network-group TEXT`: Join a network group. Jobs in the same namespace and resource group sharing a group are placed together and reach each other on every port. Inside each member, `$HF_NETWORK_GROUP_HOSTNAME` resolves to every member. Lowercase alphanumerics and dashes, 46 characters max.
 * `--network-alias TEXT`: Claim an alias in the network group. Members reach the jobs claiming it at `${HF_NETWORK_GROUP_PREFIX}<alias>`. Repeat the flag for several aliases. Lowercase alphanumerics and dashes, 34 characters max, unique within the job. Requires `--network-group`.
@@ -2550,6 +2643,7 @@ $ hf jobs scheduled [OPTIONS] COMMAND [ARGS]...
 * `inspect`: Display detailed information on one or more scheduled Jobs
 * `labels`: Update labels on a scheduled Job.
 * `list`: List scheduled Jobs. [alias: ls, ps]
+* `reschedule`: Change when a scheduled Job runs.
 * `resume`: Resume (unpause) a scheduled Job.
 * `run`: Schedule a Job.
 * `suspend`: Suspend (pause) a scheduled Job.
@@ -2680,6 +2774,35 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
+#### `hf jobs scheduled reschedule`
+
+Change when a scheduled Job runs.
+
+**Usage**:
+
+```console
+$ hf jobs scheduled reschedule [OPTIONS] SCHEDULED_JOB_ID SCHEDULE
+```
+
+**Arguments**:
+
+* `SCHEDULED_JOB_ID`: Scheduled Job ID (or 'namespace/scheduled_job_id')  [required]
+* `SCHEDULE`: One of @annually, @yearly, @monthly, @weekly, @daily, @hourly, or a CRON schedule expression.  [required]
+
+**Options**:
+
+* `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf jobs scheduled reschedule <id> "0 9 * * 1"
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
 #### `hf jobs scheduled resume`
 
 Resume (unpause) a scheduled Job.
@@ -2720,7 +2843,7 @@ $ hf jobs scheduled run [OPTIONS] SCHEDULE IMAGE COMMAND...
 
 **Arguments**:
 
-* `SCHEDULE`: One of annually, yearly, monthly, weekly, daily, hourly, or a CRON schedule expression.  [required]
+* `SCHEDULE`: One of @annually, @yearly, @monthly, @weekly, @daily, @hourly, or a CRON schedule expression.  [required]
 * `IMAGE`: The Docker image to use.  [required]
 * `COMMAND...`: The command to run.  [required]
 
@@ -2737,8 +2860,10 @@ $ hf jobs scheduled run [OPTIONS] SCHEDULE IMAGE COMMAND...
 * `--secrets-file TEXT`: Read in a file of secret environment variables. Use `-` to read them from stdin.
 * `--flavor [cpu-basic|cpu-upgrade|cpu-performance|cpu-xl|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|h200|h200x2|h200x4|h200x8|rtx-pro-6000|rtx-pro-6000x2|rtx-pro-6000x4|rtx-pro-6000x8]`: Flavor for the hardware. Run 'hf jobs hardware' to list available flavors. Defaults to `cpu-basic`.
 * `--timeout TEXT`: Max duration: int with s (seconds, default), m (minutes), h (hours) or d (days).
+* `--attempts INTEGER RANGE`: Maximum attempts, including the first run. Defaults to 1.  [x>=1]
 * `--dry-run`: Print the resolved Job configuration without submitting the Job.
 * `--expose INTEGER`: Expose a container port through the jobs proxy. Repeat the flag for multiple ports (e.g. `--expose 8000 --expose 8001`). Each exposed port is reachable on the public jobs domain; access requires an HF token with read access to the job's namespace.
+* `--expose-public INTEGER`: Expose a container port through the jobs proxy without authentication. Repeat the flag for multiple ports. No need to also pass the port with `--expose`.
 * `--resource-group-id TEXT`: The ID of the resource group to create the Job in. Used to control access to resources within an organization and for cost attribution/spending-limit features.
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
@@ -2841,7 +2966,7 @@ $ hf jobs scheduled uv run [OPTIONS] SCHEDULE SCRIPT [SCRIPT_ARGS]...
 
 **Arguments**:
 
-* `SCHEDULE`: One of annually, yearly, monthly, weekly, daily, hourly, or a CRON schedule expression.  [required]
+* `SCHEDULE`: One of @annually, @yearly, @monthly, @weekly, @daily, @hourly, or a CRON schedule expression.  [required]
 * `SCRIPT`: UV script to run (local file or URL)  [required]
 * `[SCRIPT_ARGS]...`: Arguments for the script
 
@@ -2859,8 +2984,10 @@ $ hf jobs scheduled uv run [OPTIONS] SCHEDULE SCRIPT [SCRIPT_ARGS]...
 * `--env-file TEXT`: Read in a file of environment variables. Use `-` to read them from stdin.
 * `--secrets-file TEXT`: Read in a file of secret environment variables. Use `-` to read them from stdin.
 * `--timeout TEXT`: Max duration: int with s (seconds, default), m (minutes), h (hours) or d (days).
+* `--attempts INTEGER RANGE`: Maximum attempts, including the first run. Defaults to 1.  [x>=1]
 * `--dry-run`: Print the resolved Job configuration without submitting the Job.
 * `--expose INTEGER`: Expose a container port through the jobs proxy. Repeat the flag for multiple ports (e.g. `--expose 8000 --expose 8001`). Each exposed port is reachable on the public jobs domain; access requires an HF token with read access to the job's namespace.
+* `--expose-public INTEGER`: Expose a container port through the jobs proxy without authentication. Repeat the flag for multiple ports. No need to also pass the port with `--expose`.
 * `--resource-group-id TEXT`: The ID of the resource group to create the Job in. Used to control access to resources within an organization and for cost attribution/spending-limit features.
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
@@ -2918,7 +3045,10 @@ Learn more
 
 ### `hf jobs stats`
 
-Fetch the resource usage statistics and metrics of Jobs
+Fetch the resource usage statistics and metrics of Jobs.
+
+By default, prints a snapshot of the current stats and exits (non-blocking).
+Use --follow/-f to display live stats until the Jobs complete.
 
 **Usage**:
 
@@ -2932,12 +3062,15 @@ $ hf jobs stats [OPTIONS] [JOB_IDS]...
 
 **Options**:
 
+* `-f, --follow`: Follow stats output (live view until the Jobs complete). Without this flag, a single snapshot is printed.
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
 Examples
+  $ hf jobs stats
   $ hf jobs stats <job_id>
+  $ hf jobs stats -f <job_id>
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -2989,9 +3122,11 @@ $ hf jobs uv run [OPTIONS] SCRIPT [SCRIPT_ARGS]...
 * `--env-file TEXT`: Read in a file of environment variables. Use `-` to read them from stdin.
 * `--secrets-file TEXT`: Read in a file of secret environment variables. Use `-` to read them from stdin.
 * `--timeout TEXT`: Max duration: int with s (seconds, default), m (minutes), h (hours) or d (days).
+* `--attempts INTEGER RANGE`: Maximum attempts, including the first run. Defaults to 1.  [x>=1]
 * `-d, --detach`: Run the Job in the background and print the Job ID.
 * `--dry-run`: Print the resolved Job configuration without submitting the Job.
 * `--expose INTEGER`: Expose a container port through the jobs proxy. Repeat the flag for multiple ports (e.g. `--expose 8000 --expose 8001`). Each exposed port is reachable on the public jobs domain; access requires an HF token with read access to the job's namespace.
+* `--expose-public INTEGER`: Expose a container port through the jobs proxy without authentication. Repeat the flag for multiple ports. No need to also pass the port with `--expose`.
 * `--ssh`: Make the job's container reachable over SSH. Connect with `hf jobs ssh <job_id>`. Requires an SSH public key registered on https://huggingface.co/settings/keys.
 * `--network-group TEXT`: Join a network group. Jobs in the same namespace and resource group sharing a group are placed together and reach each other on every port. Inside each member, `$HF_NETWORK_GROUP_HOSTNAME` resolves to every member. Lowercase alphanumerics and dashes, 46 characters max.
 * `--network-alias TEXT`: Claim an alias in the network group. Members reach the jobs claiming it at `${HF_NETWORK_GROUP_PREFIX}<alias>`. Repeat the flag for several aliases. Lowercase alphanumerics and dashes, 34 characters max, unique within the job. Requires `--network-group`.
@@ -3654,6 +3789,7 @@ $ hf repos duplicate [OPTIONS] FROM_ID [TO_ID]
 * `--protected`: Whether to make the Space protected (Spaces only). Ignored if the repo already exists.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--exist-ok / --no-exist-ok`: Do not raise an error if repo already exists.  [default: no-exist-ok]
+* `--resource-group-id TEXT`: Resource group in which to create the new repo. Resource groups is only available for Enterprise Hub organizations.
 * `--flavor [cpu-basic|cpu-upgrade|zero-a10g|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8]`: Space hardware flavor (e.g. 'cpu-basic', 't4-medium', 'l4x4'). Only for Spaces.
 * `--sleep-time INTEGER`: Seconds of inactivity before the Space is put to sleep. Use -1 to disable. Only for Spaces.
 * `-s, --secrets TEXT`: Set secret environment variables. Prefer `--secrets SECRET` to read the value from your environment (e.g. `--secrets HF_TOKEN` to pass your Hugging Face token); `--secrets SECRET=value` puts the value in your shell history.
@@ -4426,6 +4562,7 @@ $ hf spaces [OPTIONS] COMMAND [ARGS]...
 * `variables`: Manage environment variables for a Space on the Hub.
 * `volumes`: Manage volumes for a Space on the Hub.
 * `wait`: Wait for a Space to finish building/starting.
+* `zero-gpu`: Manage your ZeroGPU usage on the Hub.
 
 ### `hf spaces card`
 
@@ -4464,8 +4601,8 @@ Learn more
 Enable or disable dev mode on a Space.
 
 Spaces Dev Mode eases the debugging of your application and makes iterating on Spaces faster by allowing you to
-restart your application without stopping the Space container itself. This feature is available as part of a PRO
-or Team & Enterprise plan.
+restart your application without stopping the Space container itself. Enabling dev mode requires a PRO or Team &
+Enterprise plan. Disabling it (`--stop`) is always allowed.
 
 See docs: https://huggingface.co/docs/hub/spaces-dev-mode
 
@@ -5211,6 +5348,50 @@ Learn more
   Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
 
 
+### `hf spaces zero-gpu`
+
+Manage your ZeroGPU usage on the Hub.
+
+**Usage**:
+
+```console
+$ hf spaces zero-gpu [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `quota`: Show your ZeroGPU quota (remaining GPU time and reset date).
+
+#### `hf spaces zero-gpu quota`
+
+Show your ZeroGPU quota (remaining GPU time and reset date).
+
+Values are in GPU-seconds. With `--quiet`, only the remaining GPU-seconds are printed.
+
+**Usage**:
+
+```console
+$ hf spaces zero-gpu quota [OPTIONS]
+```
+
+**Options**:
+
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf spaces zero-gpu quota
+  $ hf spaces zero-gpu quota --format json
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
 ## `hf sync`
 
 Sync files between local directory and a bucket.
@@ -5259,7 +5440,10 @@ $ hf update [OPTIONS]
 
 ## `hf upload`
 
-Upload a file or a folder to the Hub. Recommended for single-commit uploads.
+Upload a file or a folder to the Hub.
+
+Folders with many files are split into several commits. If a folder upload is interrupted, re-run the same command
+to resume it.
 
 **Usage**:
 

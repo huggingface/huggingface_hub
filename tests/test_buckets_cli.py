@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import json
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Optional
 
@@ -25,7 +26,7 @@ from huggingface_hub.cli.hf import app
 from huggingface_hub.errors import BucketNotFoundError, HfHubHTTPError
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
-from .testing_utils import repo_name
+from .testing_utils import repo_name, wait_for_bucket_files
 
 
 pytestmark = pytest.mark.xet
@@ -68,17 +69,27 @@ def api() -> HfApi:
 
 
 @pytest.fixture(scope="module")
-def bucket_read(api: HfApi) -> str:
+def bucket_read(api: HfApi) -> Iterator[str]:
     """Module-scoped bucket for read-only tests (info, list)."""
-    bucket_url = api.create_bucket(bucket_name())
-    return bucket_url.bucket_id
+    bucket_id = api.create_bucket(bucket_name()).bucket_id
+    yield bucket_id
+    api.delete_bucket(bucket_id, missing_ok=True)
 
 
 @pytest.fixture
-def bucket_write(api: HfApi) -> str:
+def bucket_write(api: HfApi) -> Iterator[str]:
     """Function-scoped bucket for destructive tests (delete)."""
-    bucket_url = api.create_bucket(bucket_name())
-    return bucket_url.bucket_id
+    bucket_id = api.create_bucket(bucket_name()).bucket_id
+    yield bucket_id
+    api.delete_bucket(bucket_id, missing_ok=True)
+
+
+@pytest.fixture
+def new_bucket_name(api: HfApi) -> Iterator[str]:
+    """Name of a bucket that doesn't exist yet. Deleted at the end of the test if the test created it."""
+    name = bucket_name()
+    yield name
+    api.delete_bucket(f"{USER}/{name}", missing_ok=True)
 
 
 # =============================================================================
@@ -94,8 +105,8 @@ def _uri_to_bucket_id(uri: str) -> str:
     return uri
 
 
-def test_create_bucket(api: HfApi):
-    name = bucket_name()
+def test_create_bucket(api: HfApi, new_bucket_name: str):
+    name = new_bucket_name
     result = cli(f"hf buckets create {name} --quiet")
     assert result.exit_code == 0
     uri = result.output.strip()
@@ -107,8 +118,8 @@ def test_create_bucket(api: HfApi):
     assert info.id == bucket_id
 
 
-def test_create_bucket_private(api: HfApi):
-    name = bucket_name()
+def test_create_bucket_private(api: HfApi, new_bucket_name: str):
+    name = new_bucket_name
     result = cli(f"hf buckets create {name} --private --quiet")
     assert result.exit_code == 0
     bucket_id = _uri_to_bucket_id(result.output.strip())
@@ -117,8 +128,8 @@ def test_create_bucket_private(api: HfApi):
     assert info.private is True
 
 
-def test_create_bucket_exist_ok():
-    name = bucket_name()
+def test_create_bucket_exist_ok(new_bucket_name: str):
+    name = new_bucket_name
 
     # First create succeeds
     result1 = cli(f"hf buckets create {name} --quiet")
@@ -136,8 +147,8 @@ def test_create_bucket_exist_ok():
     assert result3.output.strip() == f"hf://buckets/{USER}/{name}"
 
 
-def test_create_bucket_with_hf_prefix(api: HfApi):
-    name = bucket_name()
+def test_create_bucket_with_hf_prefix(api: HfApi, new_bucket_name: str):
+    name = new_bucket_name
     hf_uri = f"hf://buckets/{USER}/{name}"
     result = cli(f"hf buckets create {hf_uri} --quiet")
     assert result.exit_code == 0
@@ -314,6 +325,7 @@ def test_rm_recursive_path_boundary(api: HfApi, bucket_write: str):
             (b"x", "logsx/c.log"),
         ],
     )
+    wait_for_bucket_files(api, bucket_write, ["logs/a.log", "logs/b.log"])
 
     result = cli(f"hf buckets rm {bucket_write}/logs --recursive --yes")
     assert result.exit_code == 0
@@ -455,9 +467,9 @@ def test_rm_error_exclude_without_recursive():
 # =============================================================================
 
 
-def test_move_bucket(api: HfApi, bucket_write: str):
+def test_move_bucket(api: HfApi, bucket_write: str, new_bucket_name: str):
     """Test renaming a bucket via CLI."""
-    new_bucket_id = f"{USER}/{bucket_name()}"
+    new_bucket_id = f"{USER}/{new_bucket_name}"
     result = cli(f"hf buckets move {bucket_write} {new_bucket_id}")
     assert result.exit_code == 0
     assert "Bucket moved" in result.output
@@ -465,9 +477,6 @@ def test_move_bucket(api: HfApi, bucket_write: str):
     # Verify move worked - new bucket should exist
     info = api.bucket_info(new_bucket_id)
     assert info.id == new_bucket_id
-
-    # Clean up
-    api.delete_bucket(new_bucket_id)
 
 
 # =============================================================================
@@ -580,19 +589,22 @@ def _check_list_output(command: str, expected_lines: list[str]) -> None:
 
 
 @pytest.fixture(scope="module")
-def _populated_bucket(api: HfApi) -> str:
+def _populated_bucket(api: HfApi) -> Iterator[str]:
     """Module-scoped bucket with files for list files tests (root files, nested dirs)."""
-    bucket_url = api.create_bucket(bucket_name())
-    api.batch_bucket_files(
-        bucket_url.bucket_id,
-        add=[
-            (b"hello", "file.txt"),
-            (b"x" * 2048, "big.bin"),
-            (b"nested content", "sub/nested.txt"),
-            (b"deep", "sub/deep/file.txt"),
-        ],
-    )
-    return bucket_url.bucket_id
+    bucket_id = api.create_bucket(bucket_name()).bucket_id
+    try:
+        api.batch_bucket_files(
+            bucket_id,
+            add=[
+                (b"hello", "file.txt"),
+                (b"x" * 2048, "big.bin"),
+                (b"nested content", "sub/nested.txt"),
+                (b"deep", "sub/deep/file.txt"),
+            ],
+        )
+        yield bucket_id
+    finally:
+        api.delete_bucket(bucket_id, missing_ok=True)
 
 
 @pytest.fixture
@@ -737,10 +749,9 @@ def test_list_files_with_web_url(tree_bucket: str):
     )
 
 
-def test_list_files_empty_bucket(api: HfApi):
+def test_list_files_empty_bucket(bucket_write: str):
     """Empty bucket prints '(empty)'."""
-    bucket_url = api.create_bucket(bucket_name())
-    _check_list_output(f"hf buckets list {bucket_url.bucket_id}", ["(empty)"])
+    _check_list_output(f"hf buckets list {bucket_write}", ["(empty)"])
 
 
 def test_list_files_quiet(tree_bucket: str):

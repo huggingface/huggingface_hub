@@ -23,7 +23,7 @@ from huggingface_hub._buckets import BucketFile, BucketFolder
 from huggingface_hub.hf_api import RepoFile, RepoFolder
 
 from ._cli_utils import get_hf_api
-from ._output import OutputFormat, _ascii_safe, _dataclass_to_dict, out
+from ._output import OutputFormat, _ascii_safe, _dataclass_to_dict, _escape_control_chars, out
 
 
 BucketItem = BucketFile | BucketFolder
@@ -147,9 +147,9 @@ def _render_tree(
                     prefix = f"{size_str:>{max_size_width}}  {date_str}"
                 else:
                     prefix = " " * prefix_width
-            lines.append(f"{prefix}  {indent}{connector}{name}{'/' if is_dir else ''}")
+            lines.append(f"{prefix}  {indent}{connector}{_escape_control_chars(name)}{'/' if is_dir else ''}")
         else:
-            lines.append(f"{indent}{connector}{name}{'/' if is_dir else ''}")
+            lines.append(f"{indent}{connector}{_escape_control_chars(name)}{'/' if is_dir else ''}")
 
         if children:
             child_indent = indent + ("    " if is_last else _ascii_safe("│   ", "|   "))
@@ -208,18 +208,18 @@ def print_file_listing(
     elif out.mode == OutputFormat.quiet:
         for item in items:
             if isinstance(item, BucketFolder | RepoFolder):
-                print(f"{item.path}/")
+                print(f"{_escape_control_chars(item.path)}/")
             else:
-                print(item.path)
+                print(_escape_control_chars(item.path))
     else:
         for item in items:
             if isinstance(item, BucketFolder | RepoFolder):
                 date_str = format_date(get_item_date(item), human_readable)
-                print(f"{'':>12}  {date_str:>19}  {item.path}/")
+                print(f"{'':>12}  {date_str:>19}  {_escape_control_chars(item.path)}/")
             else:
                 size_str = format_size(item.size, human_readable)
                 date_str = format_date(get_item_date(item), human_readable)
-                print(f"{size_str:>12}  {date_str:>19}  {item.path}")
+                print(f"{size_str:>12}  {date_str:>19}  {_escape_control_chars(item.path)}")
 
     if not recursive and has_directories:
         out.hint("Use -R to list files recursively.")

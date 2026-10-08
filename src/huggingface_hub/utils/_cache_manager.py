@@ -500,6 +500,7 @@ class HFCacheInfo:
 
             # Some revisions of the repo will be deleted but not all. We need to filter
             # which blob files will not be linked anymore.
+            other_blob_paths = {rev_file.blob_path for revision in other_revisions for rev_file in revision.files}
             for revision_to_delete in revisions_to_delete:
                 # Snapshot dir
                 delete_strategy_snapshots.add(revision_to_delete.snapshot_path)
@@ -519,20 +520,10 @@ class HFCacheInfo:
                         blobs_to_unlink[file.blob_path] = file.size_on_disk
                         continue
 
-                    if file.blob_path not in delete_strategy_blobs:
-                        is_file_alone = True
-                        for revision in other_revisions:
-                            for rev_file in revision.files:
-                                if file.blob_path == rev_file.blob_path:
-                                    is_file_alone = False
-                                    break
-                            if not is_file_alone:
-                                break
-
-                        # Blob file not referenced by remaining revisions -> delete
-                        if is_file_alone:
-                            delete_strategy_blobs.add(file.blob_path)
-                            blobs_to_unlink[file.blob_path] = file.size_on_disk
+                    # Blob file not referenced by remaining revisions -> delete
+                    if file.blob_path not in other_blob_paths:
+                        delete_strategy_blobs.add(file.blob_path)
+                        blobs_to_unlink[file.blob_path] = file.size_on_disk
 
         # Return the strategy instead of executing it.
         return DeleteCacheStrategy(

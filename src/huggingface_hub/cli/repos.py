@@ -281,6 +281,12 @@ def repo_duplicate(
             help="Do not raise an error if repo already exists.",
         ),
     ] = False,
+    resource_group_id: Annotated[
+        str | None,
+        Option(
+            help="Resource group in which to create the new repo. Resource groups is only available for Enterprise Hub organizations.",
+        ),
+    ] = None,
     hardware: SpaceHardwareOpt = None,
     sleep_time: SpaceSleepTimeOpt = None,
     secrets: SecretsOpt = None,
@@ -298,6 +304,7 @@ def repo_duplicate(
         visibility="private" if private else "public" if public else "protected" if protected else None,  # type: ignore [arg-type]
         token=token,
         exist_ok=exist_ok,
+        resource_group_id=resource_group_id,
         space_hardware=cast(SpaceHardware | None, hardware),
         space_sleep_time=sleep_time,
         space_secrets=env_map_to_key_value_list(parse_env_map(secrets, secrets_file)),
@@ -305,6 +312,11 @@ def repo_duplicate(
         space_volumes=parse_volumes(volume),
     )
     out.result("Repo duplicated", from_id=from_id, to_id=repo_url.repo_id, url=str(repo_url))
+    if repo_url.files_copy_pending:
+        out.warning(
+            f"LFS/Xet files are still being copied in the background. Downloading them from '{repo_url.repo_id}'"
+            " may fail until the copy is complete."
+        )
 
 
 @repos_cli.command("delete", examples=["hf repos delete my-model"])

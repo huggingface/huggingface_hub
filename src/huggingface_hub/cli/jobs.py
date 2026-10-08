@@ -28,7 +28,7 @@ from queue import Empty, Queue
 from typing import Annotated, Any, TypeVar
 from urllib.parse import urlsplit
 
-from huggingface_hub import HfApi, JobHardware, JobInfo, JobStage, Volume, constants
+from huggingface_hub import HfApi, JobHardware, JobInfo, JobNetwork, JobStage, Volume, constants
 from huggingface_hub._jobs_api import (
     DEFAULT_UV_IMAGE,
     TERMINAL_JOB_STAGES,
@@ -62,7 +62,7 @@ from ._cli_utils import (
     typer_factory,
 )
 from ._framework import Argument, Option
-from ._output import _dataclass_to_dict, out
+from ._output import OutputFormat, _dataclass_to_dict, out
 from ._uv_script_header import TABLE_NAME, UvScriptHeader, load_uv_script
 
 
@@ -181,6 +181,7 @@ def _resolve_uv_job_config(
     secrets: list[str] | None,
     secrets_file: str | None,
     timeout: str | None,
+    attempts: int | None,
     name: str | None,
     label: list[str] | None,
     volume: list[str] | None,
@@ -228,7 +229,7 @@ def _resolve_uv_job_config(
         from_script.update(f"env.{key}" for key in script_env)
         env_map = {**script_env, **env_map}
 
-        secrets_map = parse_env_map(secrets, secrets_file)
+        secrets_map = _parse_secrets_map(secrets, secrets_file, dry_run=dry_run)
         script_secrets = _resolve_script_secrets(header.secrets, secrets_map, dry_run=dry_run)
         from_script.update(f"secrets.{key}" for key in script_secrets)
         secrets_map = {**script_secrets, **secrets_map}
@@ -276,10 +277,33 @@ def _resolve_uv_job_config(
                     volume_specs=config.volume_specs,
                     network_group=config.network_group,
                     network_aliases=config.network_aliases,
-                    extra=[config.image or DEFAULT_UV_IMAGE, config.python or "", *(dependencies or [])],
+                    extra=[
+                        config.image or DEFAULT_UV_IMAGE,
+                        config.python or "",
+                        *(dependencies or []),
+                        *([str(attempts)] if attempts is not None else []),
+                    ],
                 ),
             )
         yield config
+
+
+def _parse_secrets_map(
+    secrets: list[str] | None, secrets_file: str | None, *, dry_run: bool = False
+) -> dict[str, str | None]:
+    """Parse `--secrets`/`--secrets-file`, failing if a bare `--secrets NAME` is not set locally.
+
+    Same behavior as for the secrets requested by a script (see `_resolve_script_secrets`): a missing secret
+    is an error rather than silently dropped, except in `--dry-run` where it is displayed as `<not set>`.
+    """
+    secrets_map = parse_env_map(secrets, secrets_file)
+    missing = [name for value in secrets or [] if "=" not in value and (name := value.strip()) not in secrets_map]
+    if missing and not dry_run:
+        raise CLIError(
+            f"The following secret(s) are not set in your environment: {', '.join(missing)}."
+            f" Export them locally (e.g. `export {missing[0]}=...`) or use `--secrets-file` otherwise."
+        )
+    return {**secrets_map, **dict.fromkeys(missing)}
 
 
 def _resolve_script_secrets(
@@ -311,8 +335,7 @@ def _resolve_script_secrets(
     if missing and not dry_run:
         raise CLIError(
             f"The script requires the following secret(s), which are not set in your environment: {', '.join(missing)}."
-            f" Export them locally (e.g. `export {missing[0]}=...`) or pass them explicitly"
-            f" (e.g. `--secrets {missing[0]}=...`)."
+            f" Export them locally (e.g. `export {missing[0]}=...`) or use `--secrets-file` otherwise."
         )
     if resolved:
         out.warning(
@@ -462,6 +485,11 @@ TimeoutOpt = Annotated[
     ),
 ]
 
+AttemptsOpt = Annotated[
+    int | None,
+    Option("--attempts", min=1, help="Maximum attempts, including the first run. Defaults to 1."),
+]
+
 DetachOpt = Annotated[
     bool,
     Option(
@@ -501,6 +529,15 @@ ExposeOpt = Annotated[
         help="Expose a container port through the jobs proxy. Repeat the flag for multiple ports (e.g. `--expose 8000 --expose 8001`). Each exposed port is reachable on the public jobs domain; access requires an HF token with read access to the job's namespace.",
     ),
 ]
+
+ExposePublicOpt = Annotated[
+    list[int] | None,
+    Option(
+        "--expose-public",
+        help="Expose a container port through the jobs proxy without authentication. Repeat the flag for multiple ports. No need to also pass the port with `--expose`.",
+    ),
+]
+
 
 SshEnabledOpt = Annotated[
     bool,
@@ -560,7 +597,7 @@ ConcurrencyOpt = Annotated[
 ScheduleArg = Annotated[
     str,
     Argument(
-        help="One of annually, yearly, monthly, weekly, daily, hourly, or a CRON schedule expression.",
+        help="One of @annually, @yearly, @monthly, @weekly, @daily, @hourly, or a CRON schedule expression.",
     ),
 ]
 
@@ -637,6 +674,28 @@ def _stream_logs_and_check_status(api: HfApi, job: JobInfo) -> None:
     out.text(f"Job {final.id} completed")
 
 
+def _hint_or_follow_started_job(api: HfApi, job: JobInfo, *, detach: bool) -> None:
+    """Print hints about how to reach a started Job, then stream its logs unless `detach` is set."""
+    job_ref = f"{job.owner.name}/{job.id}"
+    if isinstance(job.status.expose_urls, list):
+        urls = "\n".join(f"  {url}" for url in job.status.expose_urls)
+        out.hint(f"Exposed ports are reachable at:\n{urls}")
+    if isinstance(job.status.ssh_url, str):
+        out.hint(f"Use `hf jobs ssh {job_ref}` to open an SSH session into the job.")
+    if isinstance(job.network, JobNetwork):
+        group = job.network.group
+        out.hint(
+            f"Joined network group '{group}'. Jobs of this namespace and resource group started with "
+            f"`--network-group {group}` reach each other at `$HF_NETWORK_GROUP_HOSTNAME` (every member) "
+            "or `${HF_NETWORK_GROUP_PREFIX}<alias>` (members claiming an alias)."
+        )
+    if detach:
+        out.hint(f"Use `hf jobs logs -f {job_ref}` to stream logs, or `hf jobs inspect {job_ref}` to check status.")
+        out.hint(f"Use `hf jobs wait {job_ref}` to block until it finishes.")
+        return
+    _stream_logs_and_check_status(api, job)
+
+
 @jobs_cli.command(
     "run",
     context_settings={"ignore_unknown_options": True},
@@ -660,9 +719,11 @@ def jobs_run(
     secrets_file: SecretsFileOpt = None,
     flavor: FlavorOpt = None,
     timeout: TimeoutOpt = None,
+    attempts: AttemptsOpt = None,
     detach: DetachOpt = False,
     dry_run: DryRunOpt = False,
     expose: ExposeOpt = None,
+    expose_public: ExposePublicOpt = None,
     ssh: SshEnabledOpt = False,
     network_group: NetworkGroupOpt = None,
     network_alias: NetworkAliasOpt = None,
@@ -676,7 +737,7 @@ def jobs_run(
     """Run a Job."""
     set_output_format(format, json_output, quiet)
     env_map = parse_env_map(env, env_file)
-    secrets_map = parse_env_map(secrets, secrets_file)
+    secrets_map = _parse_secrets_map(secrets, secrets_file, dry_run=dry_run)
     labels_map = _parse_labels_map(label, name=name) or {}
     labels_map.setdefault(
         "name",
@@ -686,6 +747,7 @@ def jobs_run(
             config_parts=_name_hash_parts(
                 flavor=flavor,
                 timeout=timeout,
+                extra=[str(attempts)] if attempts is not None else None,
                 namespace=namespace,
                 env=env_map,
                 secrets=secrets_map,
@@ -704,11 +766,13 @@ def jobs_run(
             "command": shlex.join(command),
             "flavor": flavor or JobHardware.CPU_BASIC.value,
             "timeout": timeout,
+            "attempts": attempts,
             "env": env_map,
             "secrets": secrets_map,
             "volumes": volume or [],
             "labels": labels_map,
             "expose": " ".join(str(port) for port in expose or []),
+            "expose_public": " ".join(str(port) for port in expose_public or []),
             "ssh": ssh,
             "network_group": network_group,
             "network_aliases": " ".join(network_alias or []),
@@ -728,7 +792,9 @@ def jobs_run(
         volumes=volumes,
         flavor=flavor,
         timeout=timeout,
+        attempts=attempts,
         expose=expose,
+        expose_public=expose_public,
         ssh=ssh,
         network_group=network_group,
         network_aliases=network_alias,
@@ -742,23 +808,7 @@ def jobs_run(
             f"Job auto-named '{auto_name}'. Pass `--name` or run "
             f"`hf jobs labels {job.owner.name}/{job.id} --name NAME` to rename it."
         )
-    if isinstance(job.status.expose_urls, list):
-        urls = "\n".join(f"  {url}" for url in job.status.expose_urls)
-        out.hint(f"Exposed ports are reachable at (requires an HF token with read access to the job):\n{urls}")
-    if isinstance(job.status.ssh_url, str):
-        out.hint(f"Use `hf jobs ssh {job.owner.name}/{job.id}` to open an SSH session into the job.")
-    if network_group:
-        out.hint(
-            f"Joined network group '{network_group}'. Jobs of this namespace and resource group started with "
-            f"`--network-group {network_group}` reach each other at `$HF_NETWORK_GROUP_HOSTNAME` (every member) "
-            "or `${HF_NETWORK_GROUP_PREFIX}<alias>` (members claiming an alias)."
-        )
-    if detach:
-        job_ref = f"{job.owner.name}/{job.id}"
-        out.hint(f"Use `hf jobs logs -f {job_ref}` to stream logs, or `hf jobs inspect {job_ref}` to check status.")
-        out.hint(f"Use `hf jobs wait {job_ref}` to block until it finishes.")
-        return
-    _stream_logs_and_check_status(api, job)
+    _hint_or_follow_started_job(api, job, detach=detach)
 
 
 @jobs_cli.command(
@@ -806,9 +856,13 @@ def jobs_logs(
     logs = api.fetch_job_logs(job_id=job_id, namespace=namespace, follow=follow, tail=tail)
     for log in logs:
         out.text(log)
+    job_ref = f"{namespace}/{job_id}" if namespace else job_id
     if follow:
-        job_ref = f"{namespace}/{job_id}" if namespace else job_id
         out.hint(f"Stream ended. Run `hf jobs inspect {job_ref}` to check the final status (e.g. COMPLETED or ERROR).")
+    else:
+        out.hint(
+            f"If the job is still running, use `hf jobs logs -f {job_ref}` to stream new logs until it completes."
+        )
 
 
 def _clear_line(n: int) -> None:
@@ -818,41 +872,68 @@ def _clear_line(n: int) -> None:
         print(LINE_UP, end=LINE_CLEAR)
 
 
+def _format_job_stats_rows(job_id: str, metrics: dict[str, Any], table_headers: list[str]) -> list[list[str | int]]:
+    row: list[str | int] = [
+        job_id,
+        f"{metrics['cpu_usage_pct']}%",
+        round(metrics["cpu_millicores"] / 1000.0, 1),
+        f"{round(100 * metrics['memory_used_bytes'] / metrics['memory_total_bytes'], 2)}%",
+        f"{_format_size(metrics['memory_used_bytes'])}B / {_format_size(metrics['memory_total_bytes'])}B",
+        f"{_format_size(metrics['rx_bps'])}bps / {_format_size(metrics['tx_bps'])}bps",
+    ]
+    if metrics["gpus"] and isinstance(metrics["gpus"], dict):
+        rows: list[list[str | int]] = [row] + [[""] * len(row) for _ in range(len(metrics["gpus"]) - 1)]
+        for row, gpu_id in zip(rows, sorted(metrics["gpus"])):
+            gpu = metrics["gpus"][gpu_id]
+            row += [
+                f"{gpu['utilization']}%",
+                f"{round(100 * gpu['memory_used_bytes'] / gpu['memory_total_bytes'], 2)}%",
+                f"{_format_size(gpu['memory_used_bytes'])}B / {_format_size(gpu['memory_total_bytes'])}B",
+            ]
+        return rows
+    row += ["N/A"] * (len(table_headers) - len(row))
+    return [row]
+
+
 def _get_jobs_stats_rows(
     job_id: str, metrics_stream: Iterable[dict[str, Any]], table_headers: list[str]
 ) -> Iterable[tuple[bool, str, list[list[str | int]]]]:
     for metrics in metrics_stream:
-        row = [
-            job_id,
-            f"{metrics['cpu_usage_pct']}%",
-            round(metrics["cpu_millicores"] / 1000.0, 1),
-            f"{round(100 * metrics['memory_used_bytes'] / metrics['memory_total_bytes'], 2)}%",
-            f"{_format_size(metrics['memory_used_bytes'])}B / {_format_size(metrics['memory_total_bytes'])}B",
-            f"{_format_size(metrics['rx_bps'])}bps / {_format_size(metrics['tx_bps'])}bps",
-        ]
-        if metrics["gpus"] and isinstance(metrics["gpus"], dict):
-            rows = [row] + [[""] * len(row) for _ in range(len(metrics["gpus"]) - 1)]
-            for row, gpu_id in zip(rows, sorted(metrics["gpus"])):
-                gpu = metrics["gpus"][gpu_id]
-                row += [
-                    f"{gpu['utilization']}%",
-                    f"{round(100 * gpu['memory_used_bytes'] / gpu['memory_total_bytes'], 2)}%",
-                    f"{_format_size(gpu['memory_used_bytes'])}B / {_format_size(gpu['memory_total_bytes'])}B",
-                ]
-        else:
-            row += ["N/A"] * (len(table_headers) - len(row))
-            rows = [row]
-        yield False, job_id, rows
+        yield False, job_id, _format_job_stats_rows(job_id, metrics, table_headers)
     yield True, job_id, []
 
 
-@jobs_cli.command("stats", examples=["hf jobs stats <job_id>"])
+@jobs_cli.command(
+    "stats",
+    examples=[
+        "hf jobs stats",
+        "hf jobs stats <job_id>",
+        "hf jobs stats -f <job_id>",
+    ],
+)
 def jobs_stats(
     job_ids: JobIdsArg = None,
+    follow: Annotated[
+        bool,
+        Option(
+            "-f",
+            "--follow",
+            help="Follow stats output (live view until the Jobs complete). Without this flag, a single snapshot is printed.",
+        ),
+    ] = False,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
-    """Fetch the resource usage statistics and metrics of Jobs"""
+    """Fetch the resource usage statistics and metrics of Jobs.
+
+    By default, prints a snapshot of the current stats and exits (non-blocking).
+    Use --follow/-f to display live stats until the Jobs complete.
+    """
+    if follow and out.mode != OutputFormat.human:
+        raise CLIError(
+            f"`--follow` displays a live terminal view and is not supported with '{out.mode.value}' output."
+            " Run without `--follow` to get a snapshot."
+        )
     if job_ids is not None:
         parsed_ids = []
         for job_id in job_ids:
@@ -869,7 +950,8 @@ def jobs_stats(
             if (job.status.stage if job.status else "UNKNOWN") in ("RUNNING", "UPDATING")
         ]
     if len(job_ids) == 0:
-        out.text("No running jobs found")
+        out.table([])
+        out.hint("No running jobs. Use `hf jobs ps -a` to list finished (and failed) jobs.")
         return
     table_headers = [
         "JOB ID",
@@ -882,6 +964,27 @@ def jobs_stats(
         "GPU MEM %",
         "GPU MEM USAGE",
     ]
+    if not follow:
+
+        def fetch_latest_metrics(job_id: str) -> dict[str, Any] | None:
+            return next(iter(api.fetch_job_metrics(job_id=job_id, namespace=namespace)), None)
+
+        with multiprocessing.pool.ThreadPool(len(job_ids)) as pool:
+            latest_metrics = pool.map(fetch_latest_metrics, job_ids)
+        items = []
+        for job_id, metrics in zip(job_ids, latest_metrics):
+            if metrics is None:
+                out.warning(f"No stats available for Job {job_id}. Is it running?")
+            else:
+                items.append({"job_id": job_id, **metrics})
+        if out.mode == OutputFormat.human and items:
+            rows = [row for item in items for row in _format_job_stats_rows(item["job_id"], item, table_headers)]
+            out.text(_tabulate(rows, headers=table_headers))
+            job_refs = " ".join(f"{namespace}/{item['job_id']}" for item in items)
+            out.hint(f"Use `hf jobs stats -f {job_refs}` to follow live stats.")
+        else:
+            out.table(items, id_key="job_id")
+        return
     with multiprocessing.pool.ThreadPool(len(job_ids)) as pool:
         rows_per_job_id: dict[str, list[list[str | int]]] = {}
         for job_id in job_ids:
@@ -897,7 +1000,7 @@ def jobs_stats(
         kwargs_list = [
             {
                 "job_id": job_id,
-                "metrics_stream": api.fetch_job_metrics(job_id=job_id, namespace=namespace),
+                "metrics_stream": api.fetch_job_metrics(job_id=job_id, namespace=namespace, follow=True),
                 "table_headers": table_headers,
             }
             for job_id in job_ids
@@ -913,6 +1016,8 @@ def jobs_stats(
                 total_rows = [row for job_id in rows_per_job_id for row in rows_per_job_id[job_id]]
                 print(_tabulate(total_rows, headers=table_headers))
                 last_update_time = now
+    job_refs = " ".join(f"{namespace}/{job_id}" for job_id in job_ids)
+    out.hint(f"Stream ended. Run `hf jobs inspect {job_refs}` to check the final status (e.g. COMPLETED or ERROR).")
 
 
 @jobs_cli.command(
@@ -1097,6 +1202,59 @@ def jobs_inspect(
     api = get_hf_api(token=token)
     jobs = [api.inspect_job(job_id=job_id, namespace=namespace) for job_id in job_ids]
     out.table([_surface_name(_dataclass_to_dict(job), labels=job.labels) for job in jobs], id_key="id")
+
+
+@jobs_cli.command("rerun", examples=["hf jobs rerun <job_id>", "hf jobs rerun --detach <job_id>"])
+def jobs_rerun(
+    job_id: JobIdArg,
+    detach: DetachOpt = False,
+    namespace: NamespaceOpt = None,
+    token: TokenOpt = None,
+) -> None:
+    """Run a new Job with an existing Job's spec."""
+    job_id, namespace = _parse_namespace_from_job_id(job_id, namespace)
+    api = get_hf_api(token=token)
+    job = api.rerun_job(job_id=job_id, namespace=namespace)
+    out.result("Job started", id=job.id, name=(job.labels or {}).get("name"), url=job.url)
+    _hint_or_follow_started_job(api, job, detach=detach)
+
+
+@jobs_cli.command(
+    "expose",
+    examples=[
+        "hf jobs expose <job_id> 8000",
+        "hf jobs expose <job_id> 8000 --public 9000",
+        "hf jobs expose <job_id> --clear",
+    ],
+)
+def jobs_expose(
+    job_id: JobIdArg,
+    ports: Annotated[
+        list[int] | None,
+        Argument(
+            help="Ports to expose through the jobs proxy. Access requires an HF token with read access to the job's namespace."
+        ),
+    ] = None,
+    public: Annotated[
+        list[int] | None,
+        Option(
+            "--public",
+            help="Expose a port without authentication. Repeat the flag for multiple ports. No need to also pass the port as a positional argument.",
+        ),
+    ] = None,
+    clear: Annotated[bool, Option("--clear", help="Close all exposed ports.")] = False,
+    namespace: NamespaceOpt = None,
+    token: TokenOpt = None,
+) -> None:
+    """Replace exposed ports on a running Job."""
+    if clear and (ports or public):
+        raise CLIError("`--clear` cannot be combined with ports or `--public`.")
+    if not clear and not ports and not public:
+        raise CLIError("Pass at least one port or `--public` port, or `--clear` to close all ports.")
+    job_id, namespace = _parse_namespace_from_job_id(job_id, namespace)
+    api = get_hf_api(token=token)
+    job = api.update_job_expose(job_id=job_id, expose=ports, expose_public=public, namespace=namespace)
+    out.result("Exposed ports updated", id=job.id, ports=job.expose or [], public_ports=job.expose_public or [])
 
 
 @jobs_cli.command("cancel", examples=["hf jobs cancel <job_id>"])
@@ -1287,9 +1445,11 @@ def jobs_uv_run(
     env_file: EnvFileOpt = None,
     secrets_file: SecretsFileOpt = None,
     timeout: TimeoutOpt = None,
+    attempts: AttemptsOpt = None,
     detach: DetachOpt = False,
     dry_run: DryRunOpt = False,
     expose: ExposeOpt = None,
+    expose_public: ExposePublicOpt = None,
     ssh: SshEnabledOpt = False,
     network_group: NetworkGroupOpt = None,
     network_alias: NetworkAliasOpt = None,
@@ -1318,6 +1478,7 @@ def jobs_uv_run(
         secrets=secrets,
         secrets_file=secrets_file,
         timeout=timeout,
+        attempts=attempts,
         name=name,
         label=label,
         volume=volume,
@@ -1335,11 +1496,13 @@ def jobs_uv_run(
                 "flavor": config.flavor or JobHardware.CPU_BASIC.value,
                 "python": config.python,
                 "timeout": config.timeout,
+                "attempts": attempts,
                 "env": config.env,
                 "secrets": config.secrets,
                 "volumes": config.volume_specs,
                 "labels": config.labels,
                 "expose": " ".join(str(port) for port in expose or []),
+                "expose_public": " ".join(str(port) for port in expose_public or []),
                 "ssh": ssh,
                 "network_group": config.network_group,
                 "network_aliases": " ".join(config.network_aliases),
@@ -1363,7 +1526,9 @@ def jobs_uv_run(
             volumes=config.volumes,
             flavor=config.flavor,
             timeout=config.timeout,
+            attempts=attempts,
             expose=expose,
+            expose_public=expose_public,
             ssh=ssh,
             network_group=config.network_group,
             network_aliases=config.network_aliases or None,
@@ -1377,23 +1542,7 @@ def jobs_uv_run(
             f"Job auto-named '{auto_name}'. Pass `--name` or run "
             f"`hf jobs labels {job.owner.name}/{job.id} --name NAME` to rename it."
         )
-    if isinstance(job.status.expose_urls, list):
-        urls = "\n".join(f"  {url}" for url in job.status.expose_urls)
-        out.hint(f"Exposed ports are reachable at (requires an HF token with read access to the job):\n{urls}")
-    if isinstance(job.status.ssh_url, str):
-        out.hint(f"Use `hf jobs ssh {job.owner.name}/{job.id}` to open an SSH session into the job.")
-    if group := config.network_group:
-        out.hint(
-            f"Joined network group '{group}'. Jobs of this namespace and resource group started with "
-            f"`--network-group {group}` reach each other at `$HF_NETWORK_GROUP_HOSTNAME` (every member) "
-            "or `${HF_NETWORK_GROUP_PREFIX}<alias>` (members claiming an alias)."
-        )
-    if detach:
-        job_ref = f"{job.owner.name}/{job.id}"
-        out.hint(f"Use `hf jobs logs -f {job_ref}` to stream logs, or `hf jobs inspect {job_ref}` to check status.")
-        out.hint(f"Use `hf jobs wait {job_ref}` to block until it finishes.")
-        return
-    _stream_logs_and_check_status(api, job)
+    _hint_or_follow_started_job(api, job, detach=detach)
 
 
 class ScheduledJobStatusFilter(str, Enum):
@@ -1430,8 +1579,10 @@ def scheduled_run(
     secrets_file: SecretsFileOpt = None,
     flavor: FlavorOpt = None,
     timeout: TimeoutOpt = None,
+    attempts: AttemptsOpt = None,
     dry_run: DryRunOpt = False,
     expose: ExposeOpt = None,
+    expose_public: ExposePublicOpt = None,
     resource_group_id: ResourceGroupIdOpt = None,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
@@ -1442,7 +1593,7 @@ def scheduled_run(
     """Schedule a Job."""
     set_output_format(format, json_output, quiet)
     env_map = parse_env_map(env, env_file)
-    secrets_map = parse_env_map(secrets, secrets_file)
+    secrets_map = _parse_secrets_map(secrets, secrets_file, dry_run=dry_run)
     labels_map = _parse_labels_map(label, name=name) or {}
     labels_map.setdefault(
         "name",
@@ -1452,6 +1603,7 @@ def scheduled_run(
             config_parts=_name_hash_parts(
                 flavor=flavor,
                 timeout=timeout,
+                extra=[str(attempts)] if attempts is not None else None,
                 namespace=namespace,
                 env=env_map,
                 secrets=secrets_map,
@@ -1471,11 +1623,13 @@ def scheduled_run(
             "command": shlex.join(command),
             "flavor": flavor or JobHardware.CPU_BASIC.value,
             "timeout": timeout,
+            "attempts": attempts,
             "env": env_map,
             "secrets": secrets_map,
             "volumes": volume or [],
             "labels": labels_map,
             "expose": " ".join(str(port) for port in expose or []),
+            "expose_public": " ".join(str(port) for port in expose_public or []),
             "resource_group_id": resource_group_id,
             "namespace": namespace,
         },
@@ -1495,7 +1649,9 @@ def scheduled_run(
         volumes=volumes,
         flavor=flavor,
         timeout=timeout,
+        attempts=attempts,
         expose=expose,
+        expose_public=expose_public,
         resource_group_id=resource_group_id,
         namespace=namespace,
     )
@@ -1716,6 +1872,21 @@ def scheduled_resume(
     out.result("Scheduled Job resumed", id=scheduled_job_id)
 
 
+@scheduled_app.command("reschedule", examples=['hf jobs scheduled reschedule <id> "0 9 * * 1"'])
+def scheduled_reschedule(
+    scheduled_job_id: ScheduledJobIdArg,
+    schedule: ScheduleArg,
+    namespace: NamespaceOpt = None,
+    token: TokenOpt = None,
+) -> None:
+    """Change when a scheduled Job runs."""
+    scheduled_job_id, namespace = _parse_namespace_from_job_id(scheduled_job_id, namespace)
+    api = get_hf_api(token=token)
+    job = api.update_scheduled_job_schedule(scheduled_job_id=scheduled_job_id, schedule=schedule, namespace=namespace)
+    out.result("Scheduled Job rescheduled", id=job.id, schedule=job.schedule)
+    out.hint(f"Use `hf jobs scheduled inspect {job.owner.name}/{job.id}` to see its next run.")
+
+
 @scheduled_app.command("trigger", examples=["hf jobs scheduled trigger <id>"])
 def scheduled_trigger(
     scheduled_job_id: ScheduledJobIdArg,
@@ -1799,8 +1970,10 @@ def scheduled_uv_run(
     env_file: EnvFileOpt = None,
     secrets_file: SecretsFileOpt = None,
     timeout: TimeoutOpt = None,
+    attempts: AttemptsOpt = None,
     dry_run: DryRunOpt = False,
     expose: ExposeOpt = None,
+    expose_public: ExposePublicOpt = None,
     resource_group_id: ResourceGroupIdOpt = None,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
@@ -1826,6 +1999,7 @@ def scheduled_uv_run(
         secrets=secrets,
         secrets_file=secrets_file,
         timeout=timeout,
+        attempts=attempts,
         name=name,
         label=label,
         volume=volume,
@@ -1852,11 +2026,13 @@ def scheduled_uv_run(
                 "flavor": config.flavor or JobHardware.CPU_BASIC.value,
                 "python": config.python,
                 "timeout": config.timeout,
+                "attempts": attempts,
                 "env": config.env,
                 "secrets": config.secrets,
                 "volumes": config.volume_specs,
                 "labels": config.labels,
                 "expose": " ".join(str(port) for port in expose or []),
+                "expose_public": " ".join(str(port) for port in expose_public or []),
                 "resource_group_id": resource_group_id,
                 "namespace": config.namespace,
             },
@@ -1880,7 +2056,9 @@ def scheduled_uv_run(
             volumes=config.volumes,
             flavor=config.flavor,
             timeout=config.timeout,
+            attempts=attempts,
             expose=expose,
+            expose_public=expose_public,
             resource_group_id=resource_group_id,
             namespace=config.namespace,
         )
