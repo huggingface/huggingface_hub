@@ -364,7 +364,9 @@ def _build_strict_cls_from_typed_dict(schema: type[TypedDictType]) -> Type:
     for key, value in type_hints.items():
         if get_origin(value) is Annotated:
             base, *meta = get_args(value)
-            validator = _skip_if_missing(meta[0]) if callable(meta[0]) else meta[0]
+            validator = meta[0]
+            if callable(validator) and get_origin(base) is NotRequired:
+                validator = _skip_if_missing(validator)
             fields.append((key, base, field(default=_TYPED_DICT_DEFAULT_VALUE, metadata={"validator": validator})))
         else:
             fields.append((key, value, field(default=_TYPED_DICT_DEFAULT_VALUE)))
@@ -374,7 +376,7 @@ def _build_strict_cls_from_typed_dict(schema: type[TypedDictType]) -> Type:
 
 
 def _skip_if_missing(validator: Validator_T) -> Validator_T:
-    """Don't run a TypedDict field validator when the key is missing, like the type check already does."""
+    """Don't run the validator of a NotRequired TypedDict key when it's missing, like the type check already does."""
 
     @wraps(validator)
     def _inner(value: Any) -> None:

@@ -944,6 +944,13 @@ def test_typed_dict_total_false_skips_validator_of_missing_key():
     validate_typed_dict(ConfigDictIncomplete, {})
 
 
+def test_typed_dict_missing_required_forward_ref_is_rejected():
+    # The type check can't reject a missing forward ref, so the validator must still run
+    ConfigDictForwardRef = TypedDict("ConfigDictForwardRef", {"value": Annotated["ForwardDtype", positive_int]})
+    with pytest.raises(StrictDataclassFieldValidationError):
+        validate_typed_dict(ConfigDictForwardRef, {})
+
+
 @pytest.mark.skipif(sys.version_info < (3, 11), reason="Requires Python 3.11+")
 @pytest.mark.parametrize("annotated_inside", [True, False])
 def test_typed_dict_annotated_not_required(annotated_inside: bool):
