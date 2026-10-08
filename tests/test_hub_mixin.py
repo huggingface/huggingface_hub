@@ -1,7 +1,7 @@
 import inspect
 import json
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional, Union, get_type_hints
 from unittest.mock import Mock, patch
@@ -116,6 +116,43 @@ class DummyModelSavingConfig(ModelHubMixin):
 class DummyModelThatIsAlsoADataclass(ModelHubMixin):
     foo: int
     bar: str
+
+    @classmethod
+    def _from_pretrained(
+        cls,
+        *,
+        model_id: str,
+        revision: Optional[str],
+        cache_dir: Optional[Union[str, Path]],
+        force_download: bool,
+        local_files_only: bool,
+        token: Optional[Union[str, bool]],
+        **model_kwargs,
+    ):
+        return cls(**model_kwargs)
+
+
+@dataclass
+class ConfigWithDerivedField:
+    hidden_size: int = 128
+    derived_dim: int = field(init=False, default=0)
+
+    def __post_init__(self) -> None:
+        self.derived_dim = self.hidden_size * 2
+
+
+class DummyModelWithDerivedFieldConfig(BaseModel, ModelHubMixin):
+    def __init__(self, config: ConfigWithDerivedField):
+        self.config = config
+
+
+@dataclass
+class DummyDataclassModelWithDerivedField(ModelHubMixin):
+    hidden_size: int = 128
+    derived_dim: int = field(init=False, default=0)
+
+    def __post_init__(self) -> None:
+        self.derived_dim = self.hidden_size * 2
 
     @classmethod
     def _from_pretrained(
@@ -418,6 +455,33 @@ class TestHubMixin:
         assert model.foo == 42
         assert model.bar == "baz"
         assert not hasattr(model, "other")
+
+    def test_from_pretrained_dataclass_config_with_init_false_field(self, tmp_path):
+        """Regression test for #5110.
+
+        A dataclass config with an `init=False` field (a derived value) is serialized to `config.json` by
+        `save_pretrained` but must not be passed back to the constructor by `from_pretrained`.
+        """
+        model = DummyModelWithDerivedFieldConfig(ConfigWithDerivedField())
+        model.save_pretrained(tmp_path)
+
+        # derived field is saved in config.json
+        assert json.loads((tmp_path / "config.json").read_text())["derived_dim"] == 256
+
+        reloaded = DummyModelWithDerivedFieldConfig.from_pretrained(tmp_path)
+        assert reloaded.config.hidden_size == 128
+        assert reloaded.config.derived_dim == 256
+
+    def test_from_pretrained_when_cls_is_a_dataclass_with_init_false_field(self, tmp_path):
+        """Regression test for #5110.
+
+        Same as above but when the ModelHubMixin class itself is a dataclass: config keys matching an
+        `init=False` field must not be forwarded to the constructor.
+        """
+        (tmp_path / "config.json").write_text('{"hidden_size": 256, "derived_dim": 512}')
+        model = DummyDataclassModelWithDerivedField.from_pretrained(tmp_path)
+        assert model.hidden_size == 256
+        assert model.derived_dim == 512
 
     def test_from_cls_with_custom_type(self, tmp_path):
         model = DummyModelWithCustomTypes(

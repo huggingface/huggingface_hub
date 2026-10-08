@@ -535,8 +535,8 @@ class ModelHubMixin:
 
             # Inject config if `**kwargs` are expected
             if is_dataclass(cls):
-                for key in cls.__dataclass_fields__:
-                    if key not in model_kwargs and key in config:
+                for key, cls_field in cls.__dataclass_fields__.items():
+                    if cls_field.init and key not in model_kwargs and key in config:
                         model_kwargs[key] = config[key]
             elif any(param.kind == inspect.Parameter.VAR_KEYWORD for param in cls._hub_mixin_init_parameters.values()):
                 for key, value in config.items():  # type: ignore[union-attr]
@@ -825,6 +825,8 @@ class PyTorchModelHubMixin(ModelHubMixin):
 def _load_dataclass(datacls: type[DataclassInstance], data: dict) -> DataclassInstance:
     """Load a dataclass instance from a dictionary.
 
-    Fields not expected by the dataclass are ignored.
+    Fields not expected by the dataclass are ignored, as well as fields declared with `init=False` (they are
+    derived values and cannot be passed to the constructor).
     """
-    return datacls(**{k: v for k, v in data.items() if k in datacls.__dataclass_fields__})
+    fields = datacls.__dataclass_fields__
+    return datacls(**{k: v for k, v in data.items() if k in fields and fields[k].init})
