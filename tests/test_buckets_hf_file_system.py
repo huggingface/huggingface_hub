@@ -2,6 +2,7 @@ import time
 
 import pytest
 
+from huggingface_hub._bucket_live_follow import BUCKET_FOLLOWERS
 from huggingface_hub.hf_api import HfApi
 from huggingface_hub.hf_file_system import HfFileSystem
 
@@ -128,18 +129,23 @@ class TestHfFileSystemBucketLiveFollow:
 
     @pytest.fixture
     def hffs(self):
+        global BUCKET_FOLLOWERS
+
         fs = HfFileSystem(endpoint=ENDPOINT_STAGING, token=TOKEN, skip_instance_cache=True, live_follow=True)
         yield fs
-        for follower in fs._bucket_followers.values():
+        for follower, _ in BUCKET_FOLLOWERS.values():
             follower.stop()
+        BUCKET_FOLLOWERS = {}
 
     def _followed(self, hffs, bucket_id, timeout=15):
         """Whether the feed of a bucket is actually being followed (the `ls` calls start the follower)."""
         deadline = time.time() + timeout
         while time.time() < deadline:
-            follower = hffs._bucket_followers.get(bucket_id)
+            follower, subscribers = BUCKET_FOLLOWERS.get((hffs.endpoint, hffs.token, bucket_id), (None, {}))
             if follower is not None:
                 if follower.subscribed:
+                    if id(hffs) not in subscribers:
+                        return False
                     return True
                 follower.join(timeout=0.2)
                 if not follower.is_alive():
@@ -152,7 +158,7 @@ class TestHfFileSystemBucketLiveFollow:
         bucket_id, hf_path = bucket
         hffs = HfFileSystem(endpoint=ENDPOINT_STAGING, token=TOKEN, skip_instance_cache=True)
         assert hffs.ls(hf_path, detail=False) == [f"{hf_path}/data"]
-        assert hffs._bucket_followers == {}
+        assert BUCKET_FOLLOWERS == {}
 
     def test_cached_listing_is_refreshed_on_remote_changes(self, hffs, bucket):
         bucket_id, hf_path = bucket
