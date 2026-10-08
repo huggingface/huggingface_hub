@@ -235,9 +235,8 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         self.block_size = block_size
         self.expand_info = expand_info
         self.live_follow = live_follow
-        # One live-follow thread per followed bucket (buckets are listed through `dircache` like repos)
-        self._bucket_followers: dict[str, BucketFollower] = {}
-        self._bucket_followers_lock = threading.Lock()
+        # Filled by the live-follow threads, applied by `_ls_tree` so that `dircache` is only mutated by its owner
+        self._pending_bucket_changes: deque[tuple[str, list[BucketFileChange] | None]] = deque()
         # Maps (repo_type, repo_id, revision) to a 2-tuple with:
         #  * the 1st element indicating whether the repository and the revision exist
         #  * the 2nd element being the exception raised if the repository or revision doesn't exist
@@ -431,32 +430,35 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
                 self.dircache.pop(cached_path, None)
             self._invalidate_dircache_ancestors(path)
 
-    def _ensure_bucket_follower(self, bucket_id: str) -> None:
-        """Start (once) the live-follow thread for a bucket that is being listed."""
-        with self._bucket_followers_lock:
-            if bucket_id in self._bucket_followers:
+        def _ensure_bucket_follower(self, bucket_id: str) -> None:
+        """Subscribe to the live-follow thread of a bucket, shared by all instances with the same endpoint and token."""
+        key = (self.endpoint, self.token, bucket_id)
+        with BUCKET_FOLLOWERS_LOCK:
+            if key in BUCKET_FOLLOWERS and (subscribers := BUCKET_FOLLOWERS[key][1]):
+                if id(self) not in subscribers:
+                    # Joining a running follower: drop the listings this instance may have copied from a sibling
+                    subscribers[id(self)] = self
+                    self._invalidate_bucket_tree(bucket_id)
                 return
-            # Hold the filesystem with a weak reference: the thread must not keep it (and therefore its
-            # open connection) alive once nobody refers to it anymore.
-            fs_ref: weakref.ref[HfFileSystem] = weakref.ref(self)
+            # Keyed by id: fsspec instances with the same options compare equal. Weak values: the thread ends once
+            # every instance following the bucket is garbage collected.
+            subscribers: weakref.WeakValueDictionary[int, HfFileSystem] = weakref.WeakValueDictionary({id(self): self})
 
-            def notify(changes: list[BucketFileChange]) -> None:
-                if (fs := fs_ref()) is not None:
-                    fs._apply_bucket_changes(bucket_id, changes)
-
-            def reconcile() -> None:
-                if (fs := fs_ref()) is not None:
-                    fs._invalidate_bucket_tree(bucket_id)
+            def push(changes: list[BucketFileChange] | None) -> None:
+                with BUCKET_FOLLOWERS_LOCK:
+                    targets = list(subscribers.values())
+                for fs in targets:
+                    fs._pending_bucket_changes.append((bucket_id, changes))
 
             follower = BucketFollower(
                 endpoint=self.endpoint,
                 bucket_id=bucket_id,
                 token=self.token,
-                on_changes=notify,
-                on_reconcile=reconcile,
-                is_alive=lambda: fs_ref() is not None,
+                on_changes=push,
+                on_reconcile=lambda: push(None),
+                is_alive=lambda: len(subscribers) > 0,
             )
-            self._bucket_followers[bucket_id] = follower
+            BUCKET_FOLLOWERS[key] = (follower, subscribers)
             follower.start()
 
     def _open(  # type: ignore
@@ -605,6 +607,12 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
 
         if self.live_follow and isinstance(resolved_path, HfFileSystemResolvedBucketPath):
             self._ensure_bucket_follower(resolved_path.bucket_id)
+            while self._pending_bucket_changes:
+                match self._pending_bucket_changes.popleft():
+                    case (bucket_id, None):
+                        self._invalidate_bucket_tree(bucket_id)
+                    case (bucket_id, changes):
+                        self._apply_bucket_changes(bucket_id, changes)
 
         out = []
         if path in self.dircache and not refresh:

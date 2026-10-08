@@ -70,7 +70,12 @@ MAX_SESSIONS_WITHOUT_READY = 3
 
 # Statuses meaning the feed cannot be followed for this bucket, as opposed to "retry later": not served by
 # this deployment (404, 501, 503) or refused for this token (401, 403).
-_UNFOLLOWABLE_STATUS_CODES = (401, 403, 404, 501, 503)
+_UNFOLLOWABLE_STATUS_CODES = (401, 403, 404, 501)
+
+# Live-follow threads and the consumers they notify, keyed by (endpoint, token, bucket_id). Shared because
+# `HfFileSystem` creates (and keeps) one instance per thread.
+BUCKET_FOLLOWERS: dict[tuple[str, bool | str | None, str], tuple["BucketFollower", weakref.WeakValueDictionary]] = {}
+BUCKET_FOLLOWERS_LOCK = threading.Lock()
 
 
 class BucketEventsUnavailable(Exception):
@@ -370,7 +375,7 @@ class BucketFollower(threading.Thread):
             try:
                 healthy = self._follow_once()
             except BucketEventsUnavailable as e:
-                logger.debug("live-follow: not following bucket %s (%s)", self.bucket_id, e)
+                logger.warning(f"Cannot live-follow bucket '{self.bucket_id}' ({e}): its listings won't be refreshed.")
                 return
             except Exception as e:
                 if _status_code(e) == 400:
