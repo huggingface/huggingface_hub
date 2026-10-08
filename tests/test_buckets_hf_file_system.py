@@ -129,13 +129,13 @@ class TestHfFileSystemBucketLiveFollow:
 
     @pytest.fixture
     def hffs(self):
-        global BUCKET_FOLLOWERS
-
         fs = HfFileSystem(endpoint=ENDPOINT_STAGING, token=TOKEN, skip_instance_cache=True, live_follow=True)
         yield fs
-        for follower, _ in BUCKET_FOLLOWERS.values():
+        for key, (follower, subcribers) in list(BUCKET_FOLLOWERS.items()):
             follower.stop()
-        BUCKET_FOLLOWERS = {}
+            for subcriber_id in list(subcribers):
+                del subcribers[subcriber_id]
+            del BUCKET_FOLLOWERS[key]
 
     def _followed(self, hffs, bucket_id, timeout=15):
         """Whether the feed of a bucket is actually being followed (the `ls` calls start the follower)."""
