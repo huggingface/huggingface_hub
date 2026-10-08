@@ -163,7 +163,8 @@ def main():
             check_skill_update()
 
     try:
-        app()
+        # Click glob-expands args on Windows by default, even quoted ones like `--exclude "*.bin"`.
+        app(windows_expand_args=False)
     except Exception as e:
         from ._errors import format_known_exception
 
