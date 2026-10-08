@@ -396,8 +396,8 @@ def raise_text_generation_error(http_error: HfHubHTTPError) -> NoReturn:
     Try to parse text-generation-inference error message and raise HTTPError in any case.
 
     Args:
-        error (`HTTPError`):
-            The HTTPError that have been raised.
+        http_error (`HfHubHTTPError`):
+            The HTTPError that has been raised.
     """
     # Try to parse a Text Generation Inference error
     if http_error.response is None:
