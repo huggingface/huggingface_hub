@@ -269,9 +269,9 @@ def snapshot_download(
     elif REGEX_COMMIT_HASH.fullmatch(revision):
         commit_hash = revision
 
-    tree_entries = read_tree_cache(tree_cache_folder, commit_hash) if commit_hash is not None else None
+    tree_entries: dict[str, TreeCacheEntry] | None = None
     api_call_error: Exception | None = None
-    if tree_entries is None and not local_files_only:
+    if not local_files_only:
         # try/except logic to handle different errors => taken from `hf_hub_download`
         try:
             if commit_hash is None:
@@ -279,7 +279,7 @@ def snapshot_download(
                 repo_info = api.repo_info(repo_id=repo_id, repo_type=repo_type, revision=revision)
                 assert repo_info.sha is not None, "Repo info returned from server must have a revision sha."
                 commit_hash = repo_info.sha
-                tree_entries = read_tree_cache(tree_cache_folder, commit_hash)
+            tree_entries = read_tree_cache(tree_cache_folder, commit_hash)
             if tree_entries is None:
                 tree_entries = {
                     f.path: TreeCacheEntry(

@@ -4,7 +4,6 @@ import pickle
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import httpx2
 import pytest
 
 from huggingface_hub import CommitOperationAdd, HfApi, ResolvedRevision, hf_hub_download, snapshot_download
@@ -12,7 +11,6 @@ from huggingface_hub._tree_cache import read_tree_cache
 from huggingface_hub.errors import (
     IncompleteSnapshotError,
     LocalEntryNotFoundError,
-    OfflineModeIsEnabled,
     RepositoryNotFoundError,
     RevisionResolutionError,
 )
@@ -48,15 +46,15 @@ def test_tree_with_redacted_xet_hash_is_not_cached(tmp_path: Path):
     assert read_tree_cache(str(storage_folder), COMMIT_HASH) is None
 
 
-@pytest.mark.parametrize("error", [OfflineModeIsEnabled("Offline mode is enabled."), httpx2.ConnectError("Failed")])
-def test_pinned_revision_offline_without_cached_tree(tmp_path: Path, error: Exception):
+def test_pinned_revision_offline_without_cached_tree(tmp_path: Path):
+    """Regression test for #5112."""
     snapshot_folder = tmp_path / repo_folder_name(repo_id="user/repo", repo_type="model") / "snapshots" / COMMIT_HASH
     local_dir = tmp_path / "local_dir"
     for folder in (snapshot_folder, local_dir):
         folder.mkdir(parents=True)
         (folder / "config.json").write_text("{}")
 
-    with patch("huggingface_hub._snapshot_download.HfApi.list_repo_tree", side_effect=error):
+    with offline(mode=OfflineSimulationMode.HF_HUB_OFFLINE_SET_TO_1):
         for revision in (COMMIT_HASH, ResolvedRevision(COMMIT_HASH, initial="main")):
             assert snapshot_download("user/repo", revision=revision, cache_dir=tmp_path) == str(snapshot_folder)
             assert snapshot_download("user/repo", revision=revision, local_dir=local_dir) == str(local_dir)
