@@ -86,7 +86,6 @@ class BucketInfo:
     created_at: datetime
     size: int
     total_files: int
-    updated_at: datetime | None = None
 
     def __init__(self, **kwargs):
         self.id = kwargs.pop("id")

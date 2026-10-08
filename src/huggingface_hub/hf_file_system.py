@@ -20,7 +20,7 @@ from fsspec.config import apply_config
 from fsspec.utils import isfilelike
 
 from . import constants
-from ._bucket_live_follow import BucketFileChange, BucketFollower
+from ._bucket_live_follow import BUCKET_FOLLOWERS, BUCKET_FOLLOWERS_LOCK, BucketFileChange, BucketFollower
 from ._buckets import BucketFile, BucketFolder
 from ._commit_api import CommitOperationCopy, CommitOperationDelete
 from ._local_folder import _validate_relative_filename
@@ -439,7 +439,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
                 self.dircache.pop(cached_path, None)
             self._invalidate_dircache_ancestors(path)
 
-        def _ensure_bucket_follower(self, bucket_id: str) -> None:
+    def _ensure_bucket_follower(self, bucket_id: str) -> None:
         """Subscribe to the live-follow thread of a bucket, shared by all instances with the same endpoint and token."""
         key = (self.endpoint, self.token, bucket_id)
         with BUCKET_FOLLOWERS_LOCK:

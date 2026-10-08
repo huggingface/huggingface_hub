@@ -44,6 +44,7 @@ Event vocabulary:
 
 import json
 import threading
+import weakref
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from datetime import datetime
