@@ -938,3 +938,36 @@ def test_typed_dict_total_false():
     ConfigDictTotalFalse = TypedDict("ConfigDictTotalFalse", {"value": int}, total=False)
     validate_typed_dict(ConfigDictTotalFalse, {})
     validate_typed_dict(ConfigDictTotalFalse, {"value": 1})
+
+
+def test_typed_dict_total_false_skips_validator_of_missing_key():
+    validate_typed_dict(ConfigDictIncomplete, {})
+
+
+@pytest.mark.skipif(sys.version_info < (3, 11), reason="Requires Python 3.11+")
+@pytest.mark.parametrize("annotated_inside", [True, False])
+def test_typed_dict_annotated_not_required(annotated_inside: bool):
+    # Both nesting orders are equivalent (PEP 655)
+    if annotated_inside:
+        annotation = NotRequired[Annotated[int, positive_int]]
+    else:
+        annotation = Annotated[NotRequired[int], positive_int]
+    ConfigDictAnnotated = TypedDict("ConfigDictAnnotated", {"value": annotation})
+
+    validate_typed_dict(ConfigDictAnnotated, {"value": 1})
+    validate_typed_dict(ConfigDictAnnotated, {})  # validator is not run on a missing key
+    with pytest.raises(StrictDataclassFieldValidationError):
+        validate_typed_dict(ConfigDictAnnotated, {"value": -1})
+
+
+@pytest.mark.skipif(sys.version_info < (3, 11), reason="Requires Python 3.11+")
+def test_typed_dict_required_annotated_in_total_false():
+    ConfigDictRequired = TypedDict(
+        "ConfigDictRequired", {"value": Required[Annotated[int, positive_int]]}, total=False
+    )
+
+    validate_typed_dict(ConfigDictRequired, {"value": 1})
+    with pytest.raises(StrictDataclassFieldValidationError):
+        validate_typed_dict(ConfigDictRequired, {})  # still required
+    with pytest.raises(StrictDataclassFieldValidationError):
+        validate_typed_dict(ConfigDictRequired, {"value": -1})

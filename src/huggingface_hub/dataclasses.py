@@ -338,6 +338,14 @@ def _build_strict_cls_from_typed_dict(schema: type[TypedDictType]) -> Type:
     # Extract type hints from the TypedDict class
     type_hints = _get_typed_dict_annotations(schema)
 
+    # `NotRequired[Annotated[T, ...]]` and `Annotated[NotRequired[T], ...]` are equivalent (PEP 655).
+    # Move `Annotated` to the outside so that both are handled the same way below.
+    for key, value in type_hints.items():
+        origin = get_origin(value)
+        if origin in (Required, NotRequired) and get_origin(inner := get_args(value)[0]) is Annotated:
+            base, *meta = get_args(inner)
+            type_hints[key] = Annotated[tuple([origin[base]] + meta)]  # type: ignore
+
     # If the TypedDict is not total, wrap fields as NotRequired (unless explicitly Required or NotRequired)
     if not getattr(schema, "__total__", True):
         for key, value in type_hints.items():
@@ -356,12 +364,24 @@ def _build_strict_cls_from_typed_dict(schema: type[TypedDictType]) -> Type:
     for key, value in type_hints.items():
         if get_origin(value) is Annotated:
             base, *meta = get_args(value)
-            fields.append((key, base, field(default=_TYPED_DICT_DEFAULT_VALUE, metadata={"validator": meta[0]})))
+            validator = _skip_if_missing(meta[0]) if callable(meta[0]) else meta[0]
+            fields.append((key, base, field(default=_TYPED_DICT_DEFAULT_VALUE, metadata={"validator": validator})))
         else:
             fields.append((key, value, field(default=_TYPED_DICT_DEFAULT_VALUE)))
 
     # Create a strict dataclass from the TypedDict fields
     return strict(make_dataclass(schema.__name__, fields))
+
+
+def _skip_if_missing(validator: Validator_T) -> Validator_T:
+    """Don't run a TypedDict field validator when the key is missing, like the type check already does."""
+
+    @wraps(validator)
+    def _inner(value: Any) -> None:
+        if value is not _TYPED_DICT_DEFAULT_VALUE:
+            validator(value)
+
+    return _inner
 
 
 def _get_typed_dict_annotations(schema: type[TypedDictType]) -> dict[str, Any]:
