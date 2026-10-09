@@ -45,6 +45,45 @@ The optional `revision` argument can be passed to run an operation from a specif
 
 Unlike Python's built-in `open`, `fsspec`'s `open` defaults to binary mode, `"rb"`. This means you must explicitly set mode as `"r"` for reading and `"w"` for writing in text mode. Appending to a file (modes `"a"` and `"ab"`) is not supported yet.
 
+## Keep listings fresh
+
+Directories are listed once and their content is cached, so a directory that someone else just changed is not
+picked up automatically. [`HfFileSystem.invalidate_cache`] drops cached listings, either for one path (and its
+parents) or everywhere when called without argument:
+
+```python
+>>> hffs.ls("buckets/my-username/my-bucket/data", detail=False)  # listing is cached
+>>> # ... another process uploads a file to the bucket ...
+>>> hffs.invalidate_cache("buckets/my-username/my-bucket/data")
+>>> hffs.ls("buckets/my-username/my-bucket/data", detail=False)  # listed again
+['buckets/my-username/my-bucket/data/train.csv', 'buckets/my-username/my-bucket/data/new-file.csv']
+```
+
+For buckets, `huggingface_hub` can do that for you: the Hub streams the file changes of a bucket as they happen
+and [`HfFileSystem`] drops the listings affected by a change as soon as it arrives. Enable it with
+`live_follow=True`:
+
+```python
+>>> from huggingface_hub import HfFileSystem
+>>> hffs = HfFileSystem(live_follow=True)
+>>> hffs.ls("buckets/my-username/my-bucket/data", detail=False)  # starts following that bucket
+>>> # ... another process uploads a file to the bucket ...
+>>> hffs.ls("buckets/my-username/my-bucket/data", detail=False)  # refreshed as changes arrive
+['buckets/my-username/my-bucket/data/train.csv', 'buckets/my-username/my-bucket/data/new-file.csv']
+```
+
+It can also be passed through fsspec, with `fsspec.filesystem("hf", live_follow=True)` or through the
+`storage_options` argument of the libraries accepting one (pandas, arrow, ...).
+
+A few things to know about it:
+
+- **Buckets only.** Model, dataset and space repositories are git repositories and the Hub does not stream their
+  changes: pass `refresh=True` to [`HfFileSystem.ls`] (or use [`HfApi.list_repo_tree`]) to see a new commit.
+- **Only listings and the metadata they carry are refreshed.** Reading a file always requests its content from
+  the Hub, so live following only affects what `ls`, `info`, `exists`, `glob`, ... report.
+- Following starts as soon as a bucket is listed, and each [`HfFileSystem`] instance keeps one background
+  connection open per followed bucket. That is why the option is opt-in.
+
 ## Integrations
 
 The [`HfFileSystem`] can be used with any library that integrates `fsspec`, provided the URL follows the scheme:

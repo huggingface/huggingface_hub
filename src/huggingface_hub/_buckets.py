@@ -77,6 +77,8 @@ class BucketInfo:
             Size of the bucket in bytes.
         total_files (`int`):
             Total number of files in the bucket.
+        updated_at (`datetime`, *optional*):
+            Date at which the bucket was last updated.
     """
 
     id: str
@@ -91,6 +93,8 @@ class BucketInfo:
         self.created_at = parse_datetime(kwargs.pop("createdAt"))
         self.size = kwargs.pop("size")
         self.total_files = kwargs.pop("totalFiles")
+        updated_at = kwargs.pop("updatedAt", None)
+        self.updated_at = parse_datetime(updated_at) if updated_at else None
         self.__dict__.update(**kwargs)
 
 

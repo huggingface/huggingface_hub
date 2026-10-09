@@ -1,6 +1,7 @@
 import os
 import tempfile
 import threading
+import weakref
 from collections import deque
 from collections.abc import Iterable, Iterator
 from contextlib import ExitStack
@@ -19,6 +20,7 @@ from fsspec.config import apply_config
 from fsspec.utils import isfilelike
 
 from . import constants
+from ._bucket_live_follow import BUCKET_FOLLOWERS, BUCKET_FOLLOWERS_LOCK, BucketFileChange, BucketFollower
 from ._buckets import BucketFile, BucketFolder
 from ._commit_api import CommitOperationCopy, CommitOperationDelete
 from ._local_folder import _validate_relative_filename
@@ -180,6 +182,11 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
             Block size for reading and writing files.
         expand_info (`bool`, *optional*):
             Whether to expand the information of the files.
+        live_follow (`bool`, *optional*):
+            Whether to follow file changes in buckets as they happen on the Hub, so that cached listings stay
+            fresh without manual [`HfFileSystem.invalidate_cache`] calls.
+            When enabled, listing a bucket opens a background connection to the Hub event feed for that bucket.
+            Has no effect on model, dataset and space repositories (the Hub does not feed changes for those).
         **storage_options (`dict`, *optional*):
             Additional options for the filesystem. See [fsspec documentation](https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.spec.AbstractFileSystem.__init__).
 
@@ -218,6 +225,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         token: bool | str | None = None,
         block_size: int | None = None,
         expand_info: bool | None = None,
+        live_follow: bool | None = None,
         **storage_options,
     ):
         super().__init__(*args, **storage_options)
@@ -226,6 +234,9 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         self._api = HfApi(endpoint=endpoint, token=token)
         self.block_size = block_size
         self.expand_info = expand_info
+        self.live_follow = live_follow
+        # Filled by the live-follow threads, applied by `_ls_tree` so that `dircache` is only mutated by its owner
+        self._pending_bucket_changes: deque[tuple[str, list[BucketFileChange] | None]] = deque()
         # Maps (repo_type, repo_id, revision) to a 2-tuple with:
         #  * the 1st element indicating whether the repository and the revision exist
         #  * the 2nd element being the exception raised if the repository or revision doesn't exist
@@ -382,9 +393,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
                 self._bucket_exists_cache = {k: v for k, v in self._bucket_exists_cache.items() if v[0]}
                 return
             path = resolved_path.unresolve()
-            while path:
-                self.dircache.pop(path, None)
-                path = self._parent(path)
+            self._invalidate_dircache_ancestors(path)
 
             # Only clear repo cache if path is to repo root
             if not resolved_path.path:
@@ -397,6 +406,70 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
                     )
                 else:
                     self._bucket_exists_cache.pop(resolved_path.bucket_id, None)
+
+    def _invalidate_dircache_ancestors(self, path: str) -> None:
+        """Drop the cached listing of a path (unresolved) and of every one of its parent directories."""
+        while path:
+            self.dircache.pop(path, None)
+            path = self._parent(path)
+
+    def _invalidate_bucket_tree(self, bucket_id: str) -> None:
+        """Drop every cached listing belonging to a bucket."""
+        root = f"buckets/{bucket_id}"
+        for cached_path in [path for path in self.dircache if path == root or path.startswith(root + "/")]:
+            self.dircache.pop(cached_path, None)
+
+    def _apply_bucket_changes(self, bucket_id: str, changes: Iterable[BucketFileChange]) -> None:
+        """
+        Apply a batch of live-follow changes to the dircache. Only called from the live-follow thread.
+
+        A change is applied as an invalidation of the cached listings of every parent directory of the changed
+        path (up to the bucket root), plus the subtree under that path in case it was itself listed as a
+        directory. Dropping a cached listing is always safe: the next call to
+        [`HfFileSystem.ls`] re-lists just that directory. Directories that were never
+        listed need nothing, their first listing is fresh.
+
+        Removing keys is deliberately the only mutation performed here: it is atomic from the point of view of
+        the main thread, which only ever appends to a list of entries it has in hand.
+        """
+        root = f"buckets/{bucket_id}"
+        for change in changes:
+            path = f"{root}/{change.path}"
+            for cached_path in [cached for cached in self.dircache if cached.startswith(path + "/")]:
+                self.dircache.pop(cached_path, None)
+            self._invalidate_dircache_ancestors(path)
+
+    def _ensure_bucket_follower(self, bucket_id: str) -> None:
+        """Subscribe to the live-follow thread of a bucket, shared by all instances with the same endpoint and token."""
+        key = (self.endpoint, self.token, bucket_id)
+        subscribers: weakref.WeakValueDictionary[int, HfFileSystem]
+        with BUCKET_FOLLOWERS_LOCK:
+            if key in BUCKET_FOLLOWERS and (subscribers := BUCKET_FOLLOWERS[key][1]):
+                if id(self) not in subscribers:
+                    # Joining a running follower: drop the listings this instance may have copied from a sibling
+                    subscribers[id(self)] = self
+                    self._invalidate_bucket_tree(bucket_id)
+                return
+            # Keyed by id: fsspec instances with the same options compare equal. Weak values: the thread ends once
+            # every instance following the bucket is garbage collected.
+            subscribers = weakref.WeakValueDictionary({id(self): self})
+
+            def push(changes: list[BucketFileChange] | None) -> None:
+                with BUCKET_FOLLOWERS_LOCK:
+                    targets = list(subscribers.values())
+                for fs in targets:
+                    fs._pending_bucket_changes.append((bucket_id, changes))
+
+            follower = BucketFollower(
+                endpoint=self.endpoint,
+                bucket_id=bucket_id,
+                token=self.token,
+                on_changes=push,
+                on_reconcile=lambda: push(None),
+                is_alive=lambda: len(subscribers) > 0,
+            )
+            BUCKET_FOLLOWERS[key] = (follower, subscribers)
+            follower.start()
 
     def _open(  # type: ignore
         self,
@@ -541,6 +614,15 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         path = resolved_path.unresolve()
         root_path = resolved_path.root
         maxdepth = maxdepth if recursive else 1
+
+        if self.live_follow and isinstance(resolved_path, HfFileSystemResolvedBucketPath):
+            self._ensure_bucket_follower(resolved_path.bucket_id)
+            while self._pending_bucket_changes:
+                match self._pending_bucket_changes.popleft():
+                    case (bucket_id, None):
+                        self._invalidate_bucket_tree(bucket_id)
+                    case (bucket_id, changes):
+                        self._apply_bucket_changes(bucket_id, changes)
 
         out = []
         if path in self.dircache and not refresh:
