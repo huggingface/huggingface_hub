@@ -832,7 +832,27 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         """
         resolved_path1 = self.resolve_path(path1, revision=revision)
         resolved_path2 = self.resolve_path(path2, revision=revision)
-        if isinstance(resolved_path1, HfFileSystemResolvedBucketPath) or isinstance(
+        if isinstance(resolved_path1, HfFileSystemResolvedBucketPath) and isinstance(
+            resolved_path2, HfFileSystemResolvedBucketPath
+        ):
+            if resolved_path1.bucket_id != resolved_path2.bucket_id:
+                raise NotImplementedError("Copy between buckets is not available yet")
+            source_metadata = self._api.get_bucket_file_metadata(resolved_path1.bucket_id, resolved_path1.path)
+            self._api.batch_bucket_files(
+                resolved_path1.bucket_id,
+                copy=[
+                    (
+                        "bucket",
+                        resolved_path1.bucket_id,
+                        source_metadata.xet_file_data.file_hash,
+                        resolved_path2.path,
+                    )
+                ],
+            )
+            self.invalidate_cache(path=resolved_path1.unresolve())
+            self.invalidate_cache(path=resolved_path2.unresolve())
+            return
+        elif isinstance(resolved_path1, HfFileSystemResolvedBucketPath) or isinstance(
             resolved_path2, HfFileSystemResolvedBucketPath
         ):
             raise NotImplementedError("Copy from/to buckets is not available yet")
