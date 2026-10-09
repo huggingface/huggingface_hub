@@ -272,9 +272,9 @@ Hub에 데이터(잠재적으로 수백만 개의 사용자 피드백)를 저장
 class ZipScheduler(CommitScheduler):
     def push_to_hub(self):
         # 1. PNG 파일들을 나열합니다.
-          png_files = list(self.folder_path.glob("*.png"))
-          if len(png_files) == 0:
-              return None  # 커밋할 것이 없다면 일찍 리턴합니다.
+        png_files = list(self.folder_path.glob("*.png"))
+        if len(png_files) == 0:
+            return None  # 커밋할 것이 없다면 일찍 리턴합니다.
 
         # 2. png 파일들을 단일 Zip 파일로 압축합니다.
         with tempfile.TemporaryDirectory() as tmpdir:

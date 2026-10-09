@@ -354,9 +354,9 @@ overloading the repo on the Hub:
 class ZipScheduler(CommitScheduler):
     def push_to_hub(self):
         # 1. List PNG files
-          png_files = list(self.folder_path.glob("*.png"))
-          if len(png_files) == 0:
-              return None  # return early if nothing to commit
+        png_files = list(self.folder_path.glob("*.png"))
+        if len(png_files) == 0:
+            return None  # return early if nothing to commit
 
         # 2. Zip png files in a single archive
         with tempfile.TemporaryDirectory() as tmpdir:
