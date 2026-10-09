@@ -643,7 +643,7 @@ def _is_validator(validator: Any) -> bool:
     """Check if a function is a validator.
 
     A validator is a Callable that can be called with a single positional argument.
-    The validator can have more arguments with default values.
+    The validator can have more arguments with default values, as well as `*args` and `**kwargs`.
 
     Basically, returns True if `validator(value)` is possible.
     """
@@ -661,6 +661,8 @@ def _is_validator(validator: Any) -> bool:
     ):
         return False
     for parameter in parameters[1:]:
+        if parameter.kind in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD):
+            continue
         if parameter.default == inspect.Parameter.empty:
             return False
     return True

@@ -406,6 +406,9 @@ class DummyValidator:
         lambda value, factor=2: None,
         lambda value=1, factor=2: value * factor,
         lambda *values: None,
+        lambda value, *args: None,
+        lambda value, **kwargs: None,
+        lambda value, *args, **kwargs: None,
         DummyValidator(threshold=10),  # callable object
         DummyValidator(threshold=10).compare,  # callable method
     ],
@@ -422,6 +425,7 @@ def test_is_validator(obj):
         lambda: None,  # no argument
         lambda value1, value2: None,  # more than one argument with default values
         lambda *, value: None,  # keyword-only argument
+        lambda value, *args, flag: None,  # required keyword-only argument after *args
     ],
 )
 def test_not_a_validator(obj):
