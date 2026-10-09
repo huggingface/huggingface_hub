@@ -9,6 +9,7 @@ from typing import (
     Any,
     ForwardRef,
     Literal,
+    Tuple,
     Type,
     TypeVar,
     Union,
@@ -459,6 +460,11 @@ def as_validated_field(validator: Validator_T):
 
 def type_validator(name: str, value: Any, expected_type: Any) -> None:
     """Validate that 'value' matches 'expected_type'."""
+    # Bare `typing.Tuple` (no type arguments) accepts any tuple, like the builtin `tuple`.
+    # Normalizing keeps `Tuple[()]` distinct, since `get_args(Tuple)` and `get_args(Tuple[()])` are both `()`.
+    if expected_type is Tuple:
+        expected_type = tuple
+
     origin = get_origin(expected_type)
     args = get_args(expected_type)
 

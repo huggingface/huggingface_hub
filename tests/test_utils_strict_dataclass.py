@@ -1,7 +1,20 @@
 import inspect
 import sys
 from dataclasses import asdict, astuple, dataclass, is_dataclass
-from typing import Annotated, Any, Dict, List, Literal, Optional, Sequence, Set, TypedDict, Union, get_type_hints
+from typing import (
+    Annotated,
+    Any,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+    TypedDict,
+    Union,
+    get_type_hints,
+)
 
 import jedi
 import pytest
@@ -264,6 +277,12 @@ def test_custom_validator_must_be_callable():
         ({"a": 1, 2: "b"}, Dict),
         ({1, "2"}, Set),
         ([1, 2], Optional[List]),
+        # Bare typing.Tuple without type parameters (accept any tuple)
+        ((1, "2", None), Tuple),
+        ((), Tuple),
+        ((1, 2), Optional[Tuple]),
+        (None, Optional[Tuple]),
+        ([(1, 2), (3, "4")], List[Tuple]),
         # Custom classes
         (DummyClass(), DummyClass),
         # Any
@@ -348,6 +367,12 @@ def test_type_validator_valid(value, type_annotation):
         ((1, 2), List),
         ([("a", 1)], Dict),
         ([1, 2], Set),
+        # Bare typing.Tuple without type parameters (still reject non-tuples)
+        ([1, 2], Tuple),
+        ("abc", Tuple),
+        (5, Tuple),
+        ({1, 2}, Tuple),
+        ([1, 2], Optional[Tuple]),
         # Bool should not be accepted as int in containers
         ([True, 1], list[int]),
         ((True,), tuple[int]),
@@ -362,6 +387,18 @@ def test_type_validator_valid(value, type_annotation):
 def test_type_validator_invalid(value, type_annotation):
     with pytest.raises(TypeError):
         type_validator("dummy", value, type_annotation)
+
+
+@pytest.mark.skipif(sys.version_info < (3, 11), reason="`get_args(Tuple[()])` is empty only since Python 3.11")
+def test_bare_tuple_keeps_empty_tuple_semantics():
+    # Relaxing bare `Tuple` must not change `Tuple[()]` / `tuple[()]`, which still only accept the empty tuple.
+    type_validator("dummy", (), Tuple[()])
+    type_validator("dummy", (), tuple[()])
+
+    with pytest.raises(TypeError):
+        type_validator("dummy", (1,), Tuple[()])
+    with pytest.raises(TypeError):
+        type_validator("dummy", (1,), tuple[()])
 
 
 @pytest.mark.skipif(sys.version_info < (3, 10), reason="Requires Python 3.10+")
