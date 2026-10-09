@@ -39,11 +39,21 @@ In addition to the [`HfApi`], the `huggingface_hub` library provides [`HfFileSys
 >>> with hffs.open("datasets/my-username/my-dataset-repo/data/validation.csv", "w") as f:
 ...     f.write("text,label")
 ...     f.write("Fantastic movie!,good")
+
+>>> # Append to a remote file (uses Xet to only send the new data without downloading the file - only for buckets)
+>>> with hffs.open("buckets/my-username/my-bucket/validation.csv", "ab") as f:
+...     f.write(b"Another fantastic review,good\n")
+
+>>> # Edit a remote file (uses Xet to only send the new data without downloading the file - only for buckets)
+>>> with hffs.open("buckets/my-username/my-bucket/validation.csv", "eb") as f:
+...     f.edit((f.size - 5, f.size), b"bad\n")
 ```
 
 The optional `revision` argument can be passed to run an operation from a specific commit such as a branch, tag name, or a commit hash. Note that `revision` is not compatible with Buckets. 
 
-Unlike Python's built-in `open`, `fsspec`'s `open` defaults to binary mode, `"rb"`. This means you must explicitly set mode as `"r"` for reading and `"w"` for writing in text mode. Appending to a file (modes `"a"` and `"ab"`) is not supported yet.
+Unlike Python's built-in `open`, `fsspec`'s `open` defaults to binary mode, `"rb"`. This means you must explicitly set mode as `"r"` for reading and `"w"` for writing in text mode.
+
+Appending to a file (mode `"ab"`) is supported and very efficient thanks to Xet. Similarly, editing a file in place (edit mode `"eb"` - not available in Python built-in `open`) allows efficient `append`, `edit`, `insert`, `delete` and `truncate` operations via [`huggingface_hub.hf_file_system.HfFileSystemEditFile`]. Both modes are only available for [Storage Buckets](/docs/huggingface_hub/guides/buckets) and only in binary mode: encode/decode text yourself if needed.
 
 ## Integrations
 
