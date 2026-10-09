@@ -322,9 +322,9 @@ Hugging Face Hub, data को save और version करना आसान ब�
 class ZipScheduler(CommitScheduler):
     def push_to_hub(self):
         # 1. PNG फ़ाइलें सूचीबद्ध करें
-          png_files = list(self.folder_path.glob("*.png"))
-          if len(png_files) == 0:
-              return None  # अगर commit करने के लिए कुछ नहीं है तो जल्दी return करें
+        png_files = list(self.folder_path.glob("*.png"))
+        if len(png_files) == 0:
+            return None  # अगर commit करने के लिए कुछ नहीं है तो जल्दी return करें
 
         # 2. png फ़ाइलों को एक single archive में zip करें
         with tempfile.TemporaryDirectory() as tmpdir:
