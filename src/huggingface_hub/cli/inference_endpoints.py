@@ -881,6 +881,26 @@ def scale_to_zero(
     out.dict(endpoint.raw)
 
 
+@ie_cli.command(examples=["hf endpoints logs my-endpoint", "hf endpoints logs my-endpoint -n 50"])
+def logs(
+    name: NameArg,
+    namespace: NamespaceOpt = None,
+    tail: Annotated[
+        int | None,
+        Option("-n", "--tail", help="Number of lines to show from the end of the logs (default 1000, max 5000)."),
+    ] = None,
+    token: TokenOpt = None,
+) -> None:
+    """Fetch the most recent logs of an Inference Endpoint."""
+    api = get_hf_api(token=token)
+    found_logs = False
+    for line in api.fetch_inference_endpoint_logs(name=name, namespace=namespace, tail=tail, token=token):
+        out.text(line)
+        found_logs = True
+    if not found_logs:
+        out.hint(f"No logs found for endpoint '{name}'. Use 'hf endpoints describe {name}' to check its status.")
+
+
 def _build_custom_image(
     custom_image: str | None,
     *,

@@ -265,6 +265,7 @@ _SUBMOD_ATTRS = {
         "edit_discussion_comment",
         "enable_space_dev_mode",
         "enable_webhook",
+        "fetch_inference_endpoint_logs",
         "fetch_job_logs",
         "fetch_job_metrics",
         "fetch_space_logs",
@@ -1010,6 +1011,7 @@ __all__ = [
     "eval_result_entries_to_yaml",
     "export_entries_as_dduf",
     "export_folder_as_dduf",
+    "fetch_inference_endpoint_logs",
     "fetch_job_logs",
     "fetch_job_metrics",
     "fetch_space_logs",
@@ -1475,6 +1477,7 @@ if TYPE_CHECKING:  # pragma: no cover
         edit_discussion_comment,  # noqa: F401
         enable_space_dev_mode,  # noqa: F401
         enable_webhook,  # noqa: F401
+        fetch_inference_endpoint_logs,  # noqa: F401
         fetch_job_logs,  # noqa: F401
         fetch_job_metrics,  # noqa: F401
         fetch_space_logs,  # noqa: F401
