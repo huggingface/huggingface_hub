@@ -7,8 +7,8 @@
 # - https://github.com/huggingface/huggingface_hub/pull/4964
 #
 # Security model:
-# - A maintainer authorizes an exact commit with `@bot /style <full commit SHA>`.
-#   The SHA comes from the comment event, never from a mutable API head lookup.
+# - A maintainer approves a commit and requests `@bot /style`.
+#   The SHA comes from that maintainer's immutable review record.
 # - issue_comment runs trusted workflow definitions and supports fork PRs.
 # - Checkout and execution always use that SHA. The mutable PR branch name is never
 #   used as a git ref for fetch/checkout (that was the TOCTOU: check one object,
@@ -65,6 +65,8 @@ jobs:
       startsWith(github.event.comment.body, '@bot /style') &&
       contains(fromJSON('["MEMBER", "OWNER", "COLLABORATOR"]'), github.event.comment.author_association)
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
     outputs:
       is_authorized: ${{ steps.check_user_permission.outputs.has_permission }}
       approvedSha: ${{ steps.check_user_permission.outputs.approvedSha }}
@@ -84,10 +86,20 @@ jobs:
             const authorized = ['admin', 'maintain', 'push', 'write'].includes(permission.permission);
             console.log(`User ${reviewer} has permission level: ${permission.permission}, authorized: ${authorized} (only users with at least write access are allowed to run this action)`);
             core.setOutput('has_permission', authorized);
-            if (authorized) {
-              const command = context.payload.comment.body.trim().match(/^@bot \/style[ \t]+([0-9a-fA-F]{40})$/);
-              if (command) {
-                core.setOutput('approvedSha', command[1].toLowerCase());
+            if (authorized && context.payload.comment.body.trim() === '@bot /style') {
+              const reviews = await github.paginate(github.rest.pulls.listReviews, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.payload.issue.number,
+                per_page: 100,
+              });
+              const decisions = reviews.filter(review =>
+                review.user?.login === reviewer &&
+                ['APPROVED', 'CHANGES_REQUESTED', 'DISMISSED'].includes(review.state)
+              );
+              const review = decisions.at(-1);
+              if (review?.state === 'APPROVED' && /^[0-9a-f]{40}$/i.test(review.commit_id || '')) {
+                core.setOutput('approvedSha', review.commit_id.toLowerCase());
               }
             }
 
@@ -114,8 +126,7 @@ jobs:
               issue_number: context.payload.issue.number,
               body: process.env.APPROVED_SHA
                 ? `Style checks are starting for \`${process.env.APPROVED_SHA}\`. [View workflow run](${runUrl}).`
-                : 'Please review the commit, then post `@bot /style <full 40-character commit SHA>`. '
-                  + 'A command without an explicit SHA does not authorize execution.',
+                : 'Please submit an approving review for the current commit, then post `@bot /style`.',
             });
             core.setOutput('comment_id', botComment.id);
 
@@ -190,7 +201,7 @@ jobs:
       - name: Fetch the reviewed commit into an isolated directory
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
-          repository: ${{ steps.pr_info.outputs.headRepoFullName }}
+          repository: ${{ github.repository }}
           ref: ${{ needs.check-permissions.outputs.approvedSha }}
           persist-credentials: false
           path: pr-repo
@@ -429,7 +440,7 @@ jobs:
             } else if (STYLE_RESULT !== 'success') {
               body = 'Style checks did not complete successfully. See the workflow run for the cause.';
             } else if (BRANCH_MOVED === 'true') {
-              body = 'Style fixes were not pushed because the branch moved. Review the current commit and post `@bot /style <full commit SHA>`.';
+              body = 'Style fixes were not pushed because the branch moved. Review the current commit again, then post `@bot /style`.';
             } else if (CHANGES_DETECTED === 'true') {
               body = PUSH_RESULT === 'success'
                 ? 'Style bot fixed some files and pushed the changes.'

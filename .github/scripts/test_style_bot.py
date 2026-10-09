@@ -116,9 +116,9 @@ class StyleBotTests(unittest.TestCase):
         outputs = self.output.read_text() if self.output.exists() else ""
         return result, outputs
 
-    def javascript(self, job, name, *, body=None, permission="write", pr=None, **environment):
+    def javascript(self, job, name, *, body=None, permission="write", pr=None, reviews=None, **environment):
         payload = {"issue": {"number": 17}, "comment": {"body": body, "user": {"login": "maintainer"}}}
-        fixture = {"permission": permission, "pr": pr, "payload": payload}
+        fixture = {"permission": permission, "pr": pr, "reviews": reviews or [], "payload": payload}
         script = (
             """
 const fixture = JSON.parse(process.env.FIXTURE);
@@ -126,9 +126,15 @@ const result = {outputs: {}, errors: [], comments: [], requests: []};
 const core = {setOutput: (k,v) => result.outputs[k] = v, setFailed: v => result.errors.push(v)};
 const console = {log: () => {}};
 const context = {repo: {owner: 'base', repo: 'repo'}, payload: fixture.payload};
-const github = {rest: {
+const github = {paginate: async (method, args) => {
+  result.requests.push(args);
+  return fixture.reviews;
+}, rest: {
   repos: {getCollaboratorPermissionLevel: async () => ({data: {permission: fixture.permission}})},
-  pulls: {get: async args => {result.requests.push(args); return {data: fixture.pr};}},
+  pulls: {
+    listReviews: Symbol('listReviews'),
+    get: async args => {result.requests.push(args); return {data: fixture.pr};},
+  },
   issues: {
     createComment: async args => {result.comments.push(args); return {data: {id: 42}};},
     updateComment: async args => {result.comments.push(args);},
@@ -148,22 +154,21 @@ const github = {rest: {
         )
         return json.loads(result.stdout)
 
-    def test_only_an_authorized_exact_sha_command_is_accepted(self):
-        for body, permission, expected in [
-            (f"@bot /style {SHA}", "write", SHA),
-            (f"@bot /style {SHA.upper()}\n", "maintain", SHA),
-            (f"@bot /style\t{SHA}", "admin", SHA),
-            (f"@bot /style {SHA}", "read", None),
-            ("@bot /style", "write", None),
-            (f"@bot /style {SHA[:7]}", "write", None),
-            (f"@bot /style {SHA}\nextra text", "write", None),
-            (f"@bot /style\n{SHA}", "write", None),
-            (f"@bot /stylesheet {SHA}", "write", None),
-            (f"@bot /style {SHA}; false", "write", None),
+    def test_only_an_approved_review_and_exact_command_are_accepted(self):
+        approved = [{"state": "APPROVED", "commit_id": SHA, "user": {"login": "maintainer"}}]
+        for body, permission, reviews, expected in [
+            ("@bot /style", "write", approved, SHA),
+            ("@bot /style\n", "maintain", approved, SHA),
+            ("@bot /style", "admin", [], None),
+            ("@bot /style", "read", approved, None),
+            (f"@bot /style {SHA}", "write", approved, None),
+            ("@bot /style", "write", [{"state": "DISMISSED", "commit_id": SHA, "user": {"login": "maintainer"}}], None),
+            ("@bot /style", "write", approved + [{"state": "CHANGES_REQUESTED", "commit_id": SHA, "user": {"login": "maintainer"}}], None),
+            ("@bot /style", "write", [{"state": "APPROVED", "commit_id": SHA, "user": {"login": "someone-else"}}], None),
         ]:
-            with self.subTest(body=body, permission=permission):
+            with self.subTest(body=body, permission=permission, reviews=reviews):
                 result = self.javascript(
-                    "check-permissions", "Check user permission", body=body, permission=permission
+                    "check-permissions", "Check user permission", body=body, permission=permission, reviews=reviews
                 )
                 self.assertEqual(result["outputs"].get("approvedSha"), expected)
 
@@ -280,9 +285,9 @@ const github = {rest: {
         self.assertEqual((self.pr / "utils" / "check.py").read_text(), before)
         self.assertTrue((self.pr / ".style-bot.Makefile").is_symlink())
 
-    def test_invalid_command_gets_usage_instead_of_authorizing_a_run(self):
+    def test_missing_approval_gets_usage_instead_of_authorizing_a_run(self):
         result = self.javascript("init-comment", "Comment on PR with workflow run link", APPROVED_SHA="")
-        self.assertIn("full 40-character commit SHA", result["comments"][0]["body"])
+        self.assertIn("approving review", result["comments"][0]["body"])
         self.assertEqual(result["comments"][0]["issue_number"], 17)
 
     def test_push_lease_rejects_a_move_after_the_api_check(self):
