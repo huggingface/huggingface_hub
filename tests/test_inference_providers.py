@@ -62,6 +62,7 @@ from huggingface_hub.inference._providers.together import (
     TogetherFeatureExtractionTask,
     TogetherImageToImageTask,
     TogetherImageToVideoTask,
+    TogetherTextGenerationTask,
     TogetherTextToImageTask,
     TogetherTextToSpeechTask,
     TogetherTextToVideoTask,
@@ -1260,6 +1261,23 @@ class TestHFInferenceProvider:
 
 
 class TestNovitaProvider:
+    def test_text_generation_renames_max_new_tokens(self):
+        # Novita's completion endpoint is OpenAI-compatible and expects `max_tokens`.
+        helper = NovitaTextGenerationTask()
+        payload = helper._prepare_payload_as_dict(
+            "Hello",
+            {"max_new_tokens": 50, "temperature": 0.7},
+            InferenceProviderMapping(
+                provider="novita",
+                hf_model_id="meta-llama/Llama-3.1-8B-Instruct",
+                providerId="meta-llama/llama-3.1-8b-instruct",
+                task="text-generation",
+                status="live",
+            ),
+        )
+        assert "max_new_tokens" not in payload
+        assert payload["max_tokens"] == 50
+
     def test_prepare_url_text_generation(self):
         helper = NovitaTextGenerationTask()
         url = helper._prepare_url("novita_token", "username/repo_name")
@@ -1671,6 +1689,23 @@ class TestReplicateProvider:
 
 
 class TestTogetherProvider:
+    def test_text_generation_renames_max_new_tokens(self):
+        # Together's completion endpoint is OpenAI-compatible and expects `max_tokens`.
+        helper = TogetherTextGenerationTask()
+        payload = helper._prepare_payload_as_dict(
+            "Hello",
+            {"max_new_tokens": 50, "temperature": 0.7},
+            InferenceProviderMapping(
+                provider="together",
+                hf_model_id="meta-llama/Llama-3.3-70B-Instruct",
+                providerId="meta-llama/Llama-3.3-70B-Instruct-Turbo",
+                task="text-generation",
+                status="live",
+            ),
+        )
+        assert "max_new_tokens" not in payload
+        assert payload["max_tokens"] == 50
+
     def test_conversational_json_schema_flattens_envelope(self):
         # Together accepts `{type: "json_schema", schema: <schema>}`; unwrap the OpenAI
         # `{type: "json_schema", json_schema: {schema}}` envelope.
