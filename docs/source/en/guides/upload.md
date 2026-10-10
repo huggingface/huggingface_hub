@@ -321,16 +321,46 @@ For more details about the [`CommitScheduler`], here is what you need to know:
     The scheduler will commit the folder every `every` minutes. To avoid polluting the git repository too much, it is
     recommended to set a minimal value of 5 minutes. Besides, the scheduler is designed to avoid empty commits. If no
     new content is detected in the folder, the scheduled commit is dropped.
+- **lifecycle:**
+    The scheduler starts a background thread when you instantiate it. Call `scheduler.stop()` to stop scheduling
+    uploads. Stopping does not upload pending changes, and a stopped scheduler cannot be restarted. For a script
+    with a bounded lifetime, use the context manager shown below to wait for a final upload before stopping.
 - **errors:**
-    The scheduler run as background thread. It is started when you instantiate the class and never stops. In particular,
-    if an error occurs during the upload (example: connection issue), the scheduler will silently ignore it and retry
-    at the next scheduled commit.
+    If a background upload fails (for example, due to a connection issue), the error is logged and the scheduler
+    retries at the next scheduled commit. Calling `scheduler.trigger().result()` lets you wait for an upload and
+    receive any exception it raises.
 - **thread-safety:**
     In most cases it is safe to assume that you can write to a file without having to worry about a lock file. The
     scheduler will not crash or be corrupted if you write content to the folder while it's uploading. In practice,
     _it is possible_ that concurrency issues happen for heavy-loaded apps. In this case, we advice to use the
     `scheduler.lock` lock to ensure thread-safety. The lock is blocked only when the scheduler scans the folder for
     changes, not when it uploads data. You can safely assume that it will not affect the user experience on your Space.
+
+#### Upload at the end of a script
+
+For a training or data-collection script, use [`CommitScheduler`] as a context manager. Periodic uploads start
+when the scheduler is created, and leaving the `with` block triggers one final upload and waits for it to finish:
+
+```py
+from pathlib import Path
+
+from huggingface_hub import CommitScheduler
+
+with CommitScheduler(
+    repo_id="username/training-logs",
+    repo_type="dataset",
+    folder_path="training_logs",
+    every=5,
+) as scheduler:
+    # Append metrics as the script runs.
+    with scheduler.lock:
+        with (Path("training_logs") / "metrics.jsonl").open("a") as f:
+            f.write('{"step": 1, "loss": 0.5}\n')
+```
+
+The scheduler stops only after the final upload succeeds. If that upload fails, the exception propagates out of
+the `with` block and the scheduler is not stopped. If you handle the exception, you can retry with
+`scheduler.trigger().result()` before calling `scheduler.stop()`.
 
 #### Space persistence demo
 
