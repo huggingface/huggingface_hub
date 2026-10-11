@@ -28,6 +28,7 @@ from typing import Optional, Union, get_args
 from unittest.mock import Mock, patch
 from urllib.parse import urlparse
 
+import httpx2
 import pytest
 
 from huggingface_hub import HfApi, SpaceHardware, SpaceStage, constants
@@ -82,6 +83,7 @@ from huggingface_hub.utils import (
     SafetensorsRepoMetadata,
     SoftTemporaryDirectory,
     TensorInfo,
+    _http,
     get_session,
     hf_raise_for_status,
     logging,
@@ -121,6 +123,163 @@ model-index: foo
 
 This is a modelcard with an invalid metadata section.
 """
+
+
+class TestHfApiEndpointRouting:
+    @pytest.fixture(params=[None, "https://private-hub.example/base"])
+    def client(self, request):
+        return HfApi(endpoint=request.param, token="hf_instance_token")
+
+    @pytest.fixture
+    def transport(self, monkeypatch):
+        clients = []
+
+        def setup(body, *, next_page=None):
+            requests = []
+
+            def handle(request):
+                requests.append(request)
+                headers = {"Link": f'<{next_page}>; rel="next"'} if next_page and len(requests) == 1 else {}
+                return httpx2.Response(200, json=body, headers=headers)
+
+            client = httpx2.Client(transport=httpx2.MockTransport(handle))
+            clients.append(client)
+            monkeypatch.setattr(_http, "_GLOBAL_CLIENT", client)
+            return requests
+
+        yield setup
+        for client in clients:
+            client.close()
+
+    @pytest.mark.parametrize(
+        "method,kwargs,http_method,suffix",
+        [
+            ("get_webhook", {"webhook_id": "hook-id"}, "GET", "/hook-id"),
+            ("list_webhooks", {}, "GET", ""),
+            (
+                "create_webhook",
+                {"url": "https://callback.example", "watched": [{"type": "user", "name": "alice"}]},
+                "POST",
+                "",
+            ),
+            ("update_webhook", {"webhook_id": "hook-id", "url": "https://callback.example"}, "POST", "/hook-id"),
+            ("enable_webhook", {"webhook_id": "hook-id"}, "POST", "/hook-id/enable"),
+            ("disable_webhook", {"webhook_id": "hook-id"}, "POST", "/hook-id/disable"),
+            ("delete_webhook", {"webhook_id": "hook-id"}, "DELETE", "/hook-id"),
+        ],
+    )
+    def test_webhooks_use_instance_endpoint(self, client, transport, method, kwargs, http_method, suffix):
+        webhook = {
+            "id": "hook-id",
+            "url": "https://callback.example",
+            "watched": [{"type": "user", "name": "alice"}],
+            "domains": ["repo"],
+            "disabled": method == "disable_webhook",
+        }
+        requests = transport([webhook] if method == "list_webhooks" else {"webhook": webhook})
+        result = getattr(client, method)(**kwargs)
+
+        assert len(requests) == 1
+        assert requests[0].method == http_method
+        assert str(requests[0].url) == f"{client.endpoint}/api/settings/webhooks{suffix}"
+        assert requests[0].headers["authorization"] == "Bearer hf_instance_token"
+        if method == "delete_webhook":
+            assert result is None
+        else:
+            webhook_info = result[0] if method == "list_webhooks" else result
+            assert isinstance(webhook_info, WebhookInfo)
+            assert webhook_info.id == "hook-id"
+            assert webhook_info.watched == [WebhookWatchedItem(type="user", name="alice")]
+            assert webhook_info.disabled == (method == "disable_webhook")
+
+    @pytest.mark.parametrize("status", ["pending", "accepted", "rejected"])
+    def test_access_request_pagination_uses_instance_endpoint(self, client, transport, status):
+        path = f"{client.endpoint}/api/datasets/owner/repo/user-access-request/{status}"
+        requests = transport(
+            [{"user": {"user": "alice", "fullname": "Alice"}, "status": status, "timestamp": "2024-01-01T00:00:00Z"}],
+            next_page=f"{path}?cursor=next",
+        )
+        result = list(getattr(client, f"list_{status}_access_requests")("owner/repo", repo_type="dataset"))
+
+        assert [str(request.url) for request in requests] == [path, f"{path}?cursor=next"]
+        assert all(request.headers["authorization"] == "Bearer hf_instance_token" for request in requests)
+        assert len(result) == 2
+        assert all(
+            isinstance(item, AccessRequest) and item.username == "alice" and item.status == status for item in result
+        )
+
+    @pytest.mark.parametrize(
+        "method,status",
+        [
+            ("accept_access_request", "accepted"),
+            ("reject_access_request", "rejected"),
+            ("cancel_access_request", "pending"),
+            ("grant_access", None),
+        ],
+    )
+    @pytest.mark.parametrize("repo_type", [None, "dataset"])
+    def test_access_updates_use_instance_endpoint(self, client, transport, method, status, repo_type):
+        requests = transport({})
+        kwargs = {"repo_type": repo_type}
+        if method == "reject_access_request":
+            kwargs["rejection_reason"] = "Not eligible"
+        getattr(client, method)("owner/repo", "alice", **kwargs)
+
+        repo_kind = "model" if repo_type is None else repo_type
+        action = "grant" if method == "grant_access" else "handle"
+        assert len(requests) == 1
+        assert requests[0].method == "POST"
+        assert str(requests[0].url) == f"{client.endpoint}/api/{repo_kind}s/owner/repo/user-access-request/{action}"
+        assert requests[0].headers["authorization"] == "Bearer hf_instance_token"
+        expected_payload = {"user": "alice"}
+        if status is not None:
+            expected_payload["status"] = status
+        if method == "reject_access_request":
+            expected_payload["rejectionReason"] = "Not eligible"
+        assert requests[0].read() == httpx2.Request("POST", "https://unused.example", json=expected_payload).read()
+
+    @pytest.mark.parametrize(
+        "kind,method", [("users", "get_user_overview"), ("organizations", "get_organization_overview")]
+    )
+    def test_overviews_use_instance_endpoint(self, client, transport, kind, method):
+        requests = transport({"user": "alice", "name": "alice", "fullname": "Alice"})
+        result = getattr(client, method)("alice")
+
+        assert len(requests) == 1
+        assert str(requests[0].url) == f"{client.endpoint}/api/{kind}/alice/overview"
+        assert requests[0].headers["authorization"] == "Bearer hf_instance_token"
+        assert isinstance(result, User if kind == "users" else Organization)
+        assert result.fullname == "Alice"
+
+    @pytest.mark.parametrize(
+        "method,kind,relation",
+        [
+            ("list_organization_followers", "organizations", "followers"),
+            ("list_organization_members", "organizations", "members"),
+            ("list_user_followers", "users", "followers"),
+            ("list_user_following", "users", "following"),
+        ],
+    )
+    def test_social_pagination_uses_instance_endpoint(self, client, transport, method, kind, relation):
+        path = f"{client.endpoint}/api/{kind}/alice/{relation}"
+        requests = transport([{"user": "bob", "fullname": "Bob"}], next_page=f"{path}?cursor=next")
+        result = list(getattr(client, method)("alice"))
+
+        assert [str(request.url) for request in requests] == [path, f"{path}?cursor=next"]
+        assert all(request.headers["authorization"] == "Bearer hf_instance_token" for request in requests)
+        assert len(result) == 2
+        assert all(isinstance(item, User) and item.username == "bob" for item in result)
+
+    @pytest.mark.parametrize(
+        "token,authorization",
+        [(None, "Bearer hf_instance_token"), ("hf_override_token", "Bearer hf_override_token"), (False, None)],
+    )
+    def test_endpoint_routing_preserves_token_override(self, client, transport, token, authorization):
+        requests = transport({"user": "alice"})
+        client.get_user_overview("alice", token=token)
+
+        assert str(requests[0].url) == f"{client.endpoint}/api/users/alice/overview"
+        assert requests[0].headers.get("authorization") == authorization
 
 
 class TestHfApiRepoFileExists:
