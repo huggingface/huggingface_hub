@@ -20,6 +20,7 @@ import time
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import httpx2
 import numpy as np
 import pytest
 from PIL import Image
@@ -33,6 +34,7 @@ from huggingface_hub import (
     ImageClassificationOutputElement,
     ImageToTextOutput,
     InferenceClient,
+    InferenceTimeoutError,
     ObjectDetectionBoundingBox,
     ObjectDetectionOutputElement,
     QuestionAnsweringOutputElement,
@@ -907,6 +909,15 @@ class TestHeadersAndCookies(TestBase):
 
         headers = get_session_mock().stream.call_args_list[0].kwargs["headers"]
         assert headers["Accept"] == "image/png"
+
+
+class TestTimeout(TestBase):
+    @patch("huggingface_hub.inference._client.get_session")
+    def test_httpx_timeout_raises_inference_timeout_error(self, get_session_mock: MagicMock) -> None:
+        get_session_mock().stream.side_effect = httpx2.ReadTimeout("timed out")
+        client = InferenceClient(model=LOCAL_TGI_URL, timeout=1)
+        with pytest.raises(InferenceTimeoutError):
+            client.text_generation("test")
 
 
 @pytest.mark.production

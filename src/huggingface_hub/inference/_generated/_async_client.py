@@ -291,7 +291,7 @@ class AsyncInferenceClient:
                 )
                 hf_raise_for_status(response)
                 return response.content
-        except asyncio.TimeoutError as error:
+        except (asyncio.TimeoutError, httpx2.TimeoutException) as error:
             # Convert any `TimeoutError` to a `InferenceTimeoutError`
             raise InferenceTimeoutError(f"Inference call timed out: {request_parameters.url}") from error  # type: ignore
         except HfHubHTTPError as error:

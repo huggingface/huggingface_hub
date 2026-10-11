@@ -27,6 +27,7 @@ import asyncio
 import inspect
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
+import httpx2
 import numpy as np
 import pytest
 
@@ -319,9 +320,10 @@ def test_sync_vs_async_signatures() -> None:
 
 
 @pytest.mark.asyncio
-async def test_async_generate_timeout_error(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("timeout_error", [asyncio.TimeoutError, httpx2.ReadTimeout("timed out")])
+async def test_async_generate_timeout_error(monkeypatch: pytest.MonkeyPatch, timeout_error) -> None:
     async def _mock_client_post(*args, **kwargs):
-        raise asyncio.TimeoutError
+        raise timeout_error
 
     def mock_check_supported_task(*args, **kwargs):
         return None
