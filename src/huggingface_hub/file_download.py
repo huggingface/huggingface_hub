@@ -1999,17 +1999,38 @@ def _download_to_tmp_and_move(
     # process, a broken lock costs only duplicated bandwidth: each process downloads the full
     # file and atomically renames it to the final destination.
     # See https://github.com/huggingface/huggingface_hub/pull/4228.
-    # Re-check the length on Windows: the suffix can push a path just under the limit above MAX_PATH.
-    tmp_path = incomplete_path.with_name(f"{incomplete_path.stem}.{uuid.uuid4().hex[:8]}.incomplete")
-    tmp_path = Path(as_extended_path(tmp_path))
+    #
+    # Opt-in exception: HF_HUB_ENABLE_RESUMABLE_DOWNLOADS reuses the stable `incomplete_path`
+    # (keyed by etag, so safe to resume regardless of which process left it behind) so a later
+    # call can continue a download a previous process didn't finish, at the cost of reintroducing
+    # the cross-process corruption risk above for users who opt in. This only applies to the plain
+    # HTTP path below; Xet downloads are unaffected and always use a process-unique file.
+    resuming = constants.HF_HUB_ENABLE_RESUMABLE_DOWNLOADS and not (xet_file_data is not None and is_xet_available())
+    if resuming:
+        tmp_path = Path(as_extended_path(incomplete_path))
+    else:
+        # Re-check the length on Windows: the suffix can push a path just under the limit above MAX_PATH.
+        tmp_path = incomplete_path.with_name(f"{incomplete_path.stem}.{uuid.uuid4().hex[:8]}.incomplete")
+        tmp_path = Path(as_extended_path(tmp_path))
+
+    resume_size = 0
+    if resuming and tmp_path.exists():
+        resume_size = tmp_path.stat().st_size
+        if expected_size is not None and resume_size >= expected_size:
+            # Stale or unexpectedly large leftover (e.g. the remote file shrank) -- start over.
+            resume_size = 0
+
     try:
-        with tmp_path.open("wb") as f:
-            logger.debug(f"Downloading '{filename}' to '{tmp_path}'")
+        with tmp_path.open("ab" if resume_size > 0 else "wb") as f:
+            logger.debug(
+                f"Downloading '{filename}' to '{tmp_path}'"
+                + (f" (resuming from byte {resume_size})" if resume_size else "")
+            )
 
             if expected_size is not None:  # might be None if HTTP header not set correctly
                 # Check disk space in both tmp and destination path
-                _check_disk_space(expected_size, tmp_path.parent)
-                _check_disk_space(expected_size, destination_path.parent)
+                _check_disk_space(expected_size - resume_size, tmp_path.parent)
+                _check_disk_space(expected_size - resume_size, destination_path.parent)
 
             if xet_file_data is not None and is_xet_available():
                 logger.debug("Xet Storage is enabled for this repo. Downloading file from Xet Storage..")
@@ -2032,6 +2053,7 @@ def _download_to_tmp_and_move(
                 http_get(
                     url_to_download,
                     f,
+                    resume_size=resume_size,
                     headers=headers,
                     expected_size=expected_size,
                     tqdm_class=tqdm_class,
@@ -2039,10 +2061,12 @@ def _download_to_tmp_and_move(
 
         logger.debug(f"Download complete. Moving file to {destination_path}")
         _chmod_and_move(tmp_path, destination_path)
-    finally:
-        # No-op on success (file has been moved). On failure, do not keep a partial file around:
-        # it could not be reused anyway since the temporary name is unique to this download.
-        tmp_path.unlink(missing_ok=True)
+    except BaseException:
+        # Keep the partial file around when resuming is enabled, so a later call can continue it;
+        # it could not be reused anyway otherwise, since the temporary name is unique per download.
+        if not resuming:
+            tmp_path.unlink(missing_ok=True)
+        raise
 
 
 def _int_or_none(value: str | None) -> int | None:

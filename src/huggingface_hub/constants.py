@@ -345,5 +345,13 @@ HF_HUB_DISABLE_XET: bool = _is_true(os.environ.get("HF_HUB_DISABLE_XET"))
 # Disable the cache-wide shared blob store (see `huggingface_hub.utils._shared_blobs`).
 HF_HUB_DISABLE_SHARED_BLOBS: bool = _is_true(os.environ.get("HF_HUB_DISABLE_SHARED_BLOBS"))
 
+# Opt-in: resume an interrupted download from a previous process instead of starting over.
+# Off by default because it reuses a stable (non-process-unique) ".incomplete" file name, which
+# reintroduces the cross-process corruption risk that PR #4228 fixed on filesystems where
+# `flock(2)` is a silent no-op (some Lustre/GPFS/NFS mounts): two processes could then both
+# resume-write into the same file. Only enable this if you're not downloading the same file
+# concurrently from multiple processes on such a filesystem.
+HF_HUB_ENABLE_RESUMABLE_DOWNLOADS: bool = _is_true(os.environ.get("HF_HUB_ENABLE_RESUMABLE_DOWNLOADS"))
+
 # Bucket hosting the static sandbox server binary (see huggingface_hub.Sandbox)
 SANDBOX_SERVER_BUCKET: str = "huggingface/sbx-server"

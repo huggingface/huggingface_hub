@@ -633,6 +633,73 @@ class TestCachedDownload:
             hf_hub_download(DUMMY_MODEL_ID, filename="pytorch_model.bin", cache_dir=tmpdir)
             assert not list(Path(tmpdir).rglob("*.incomplete"))
 
+    @staticmethod
+    def _force_non_xet_metadata(*args, **kwargs):
+        # pytorch_model.bin on DUMMY_MODEL_ID is Xet-backed; force the plain HTTP path so these
+        # tests exercise `_download_to_tmp_and_move`'s http_get branch, not `xet_get`.
+        metadata = get_hf_file_metadata(*args, **kwargs)
+        return HfFileMetadata(
+            commit_hash=metadata.commit_hash,
+            etag=metadata.etag,
+            location=metadata.location,
+            size=metadata.size,
+            xet_file_data=None,
+        )
+
+    def test_resumable_download_continues_from_partial_file(self):
+        """Regression test for #4196.
+
+        With HF_HUB_ENABLE_RESUMABLE_DOWNLOADS enabled, a `.incomplete` file left behind by a
+        previous (interrupted) process must be resumed from, not silently discarded -- and the
+        resulting file must be byte-identical to a normal, non-resumed download.
+        """
+        with (
+            SoftTemporaryDirectory() as tmpdir,
+            patch("huggingface_hub.file_download.get_hf_file_metadata", self._force_non_xet_metadata),
+        ):
+            # Download the file once to learn its real content and its blob path.
+            filepath = Path(hf_hub_download(DUMMY_MODEL_ID, filename="pytorch_model.bin", cache_dir=tmpdir))
+            full_content = filepath.read_bytes()
+            assert len(full_content) > 10, "test file is too small to meaningfully test partial resume"
+
+            # Fake an interrupted download: only the first half of the real content made it to disk,
+            # at the *stable* (non-process-unique) incomplete path that resuming relies on.
+            incomplete_filepath = Path(str(filepath.resolve()) + ".incomplete")
+            half = len(full_content) // 2
+            incomplete_filepath.write_bytes(full_content[:half])
+            filepath.resolve().unlink()
+
+            # Delete snapshot folder to re-trigger a download.
+            shutil.rmtree(filepath.parents[2] / "snapshots")
+
+            with patch("huggingface_hub.file_download.constants.HF_HUB_ENABLE_RESUMABLE_DOWNLOADS", True):
+                new_filepath = Path(hf_hub_download(DUMMY_MODEL_ID, filename="pytorch_model.bin", cache_dir=tmpdir))
+
+            assert new_filepath.read_bytes() == full_content
+            assert not list(Path(tmpdir).rglob("*.incomplete"))
+
+    def test_resumable_download_disabled_by_default_ignores_partial_file(self):
+        """Without the opt-in flag, a leftover `.incomplete` file at the stable path must not be
+        treated as resumable -- the existing process-unique-filename behavior must be unaffected."""
+        with (
+            SoftTemporaryDirectory() as tmpdir,
+            patch("huggingface_hub.file_download.get_hf_file_metadata", self._force_non_xet_metadata),
+        ):
+            filepath = Path(hf_hub_download(DUMMY_MODEL_ID, filename="pytorch_model.bin", cache_dir=tmpdir))
+            full_content = filepath.read_bytes()
+
+            incomplete_filepath = Path(str(filepath.resolve()) + ".incomplete")
+            incomplete_filepath.write_bytes(full_content[: len(full_content) // 2])
+            filepath.resolve().unlink()
+            shutil.rmtree(filepath.parents[2] / "snapshots")
+
+            new_filepath = Path(hf_hub_download(DUMMY_MODEL_ID, filename="pytorch_model.bin", cache_dir=tmpdir))
+
+            assert new_filepath.read_bytes() == full_content
+            # The stale partial file at the stable path must be left untouched (we never read or
+            # wrote to it); only the process-unique temp file involved in this download is cleaned up.
+            assert incomplete_filepath.read_bytes() == full_content[: len(full_content) // 2]
+
     def test_keep_lock_file(self):
         """Downloading should acquire locks under `.locks`."""
         with SoftTemporaryDirectory() as tmpdir:
