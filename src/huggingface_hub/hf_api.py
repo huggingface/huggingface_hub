@@ -10605,7 +10605,7 @@ class HfApi:
             repo_type = constants.REPO_TYPE_MODEL
 
         for request in paginate(
-            f"{constants.ENDPOINT}/api/{repo_type}s/{repo_id}/user-access-request/{status}",
+            f"{self.endpoint}/api/{repo_type}s/{repo_id}/user-access-request/{status}",
             params={},
             headers=self._build_hf_headers(token=token),
         ):
@@ -10775,7 +10775,7 @@ class HfApi:
             payload["rejectionReason"] = rejection_reason
 
         response = get_session().post(
-            f"{constants.ENDPOINT}/api/{repo_type}s/{repo_id}/user-access-request/handle",
+            f"{self.endpoint}/api/{repo_type}s/{repo_id}/user-access-request/handle",
             headers=self._build_hf_headers(token=token),
             json=payload,
         )
@@ -10825,7 +10825,7 @@ class HfApi:
             repo_type = constants.REPO_TYPE_MODEL
 
         response = get_session().post(
-            f"{constants.ENDPOINT}/api/{repo_type}s/{repo_id}/user-access-request/grant",
+            f"{self.endpoint}/api/{repo_type}s/{repo_id}/user-access-request/grant",
             headers=self._build_hf_headers(token=token),
             json={"user": user},
         )
@@ -10869,7 +10869,7 @@ class HfApi:
             ```
         """
         response = get_session().get(
-            f"{constants.ENDPOINT}/api/settings/webhooks/{webhook_id}",
+            f"{self.endpoint}/api/settings/webhooks/{webhook_id}",
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
@@ -10921,7 +10921,7 @@ class HfApi:
             ```
         """
         response = get_session().get(
-            f"{constants.ENDPOINT}/api/settings/webhooks",
+            f"{self.endpoint}/api/settings/webhooks",
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
@@ -11062,7 +11062,7 @@ class HfApi:
             post_webhooks_json["secrets"] = secrets
 
         response = get_session().post(
-            f"{constants.ENDPOINT}/api/settings/webhooks",
+            f"{self.endpoint}/api/settings/webhooks",
             json=post_webhooks_json,
             headers=self._build_hf_headers(token=token),
         )
@@ -11165,7 +11165,7 @@ class HfApi:
             update_json["secrets"] = secrets
 
         response = get_session().post(
-            f"{constants.ENDPOINT}/api/settings/webhooks/{webhook_id}",
+            f"{self.endpoint}/api/settings/webhooks/{webhook_id}",
             json=update_json,
             headers=self._build_hf_headers(token=token),
         )
@@ -11219,7 +11219,7 @@ class HfApi:
             ```
         """
         response = get_session().post(
-            f"{constants.ENDPOINT}/api/settings/webhooks/{webhook_id}/enable",
+            f"{self.endpoint}/api/settings/webhooks/{webhook_id}/enable",
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
@@ -11272,7 +11272,7 @@ class HfApi:
             ```
         """
         response = get_session().post(
-            f"{constants.ENDPOINT}/api/settings/webhooks/{webhook_id}/disable",
+            f"{self.endpoint}/api/settings/webhooks/{webhook_id}/disable",
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
@@ -11314,7 +11314,7 @@ class HfApi:
             ```
         """
         response = get_session().delete(
-            f"{constants.ENDPOINT}/api/settings/webhooks/{webhook_id}",
+            f"{self.endpoint}/api/settings/webhooks/{webhook_id}",
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
@@ -11505,7 +11505,7 @@ class HfApi:
                 HTTP 404 If the user does not exist on the Hub.
         """
         r = get_session().get(
-            f"{constants.ENDPOINT}/api/users/{username}/overview", headers=self._build_hf_headers(token=token)
+            f"{self.endpoint}/api/users/{username}/overview", headers=self._build_hf_headers(token=token)
         )
         hf_raise_for_status(r)
         return User(**r.json())
@@ -11531,7 +11531,7 @@ class HfApi:
                 HTTP 404 If the organization does not exist on the Hub.
         """
         r = get_session().get(
-            f"{constants.ENDPOINT}/api/organizations/{organization}/overview",
+            f"{self.endpoint}/api/organizations/{organization}/overview",
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(r)
@@ -11560,7 +11560,7 @@ class HfApi:
 
         """
         for follower in paginate(
-            path=f"{constants.ENDPOINT}/api/organizations/{organization}/followers",
+            path=f"{self.endpoint}/api/organizations/{organization}/followers",
             params={},
             headers=self._build_hf_headers(token=token),
         ):
@@ -11588,7 +11588,7 @@ class HfApi:
 
         """
         for member in paginate(
-            path=f"{constants.ENDPOINT}/api/organizations/{organization}/members",
+            path=f"{self.endpoint}/api/organizations/{organization}/members",
             params={},
             headers=self._build_hf_headers(token=token),
         ):
@@ -11616,7 +11616,7 @@ class HfApi:
 
         """
         for follower in paginate(
-            path=f"{constants.ENDPOINT}/api/users/{username}/followers",
+            path=f"{self.endpoint}/api/users/{username}/followers",
             params={},
             headers=self._build_hf_headers(token=token),
         ):
@@ -11644,7 +11644,7 @@ class HfApi:
 
         """
         for followed_user in paginate(
-            path=f"{constants.ENDPOINT}/api/users/{username}/following",
+            path=f"{self.endpoint}/api/users/{username}/following",
             params={},
             headers=self._build_hf_headers(token=token),
         ):
