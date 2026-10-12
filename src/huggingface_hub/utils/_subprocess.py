@@ -118,7 +118,7 @@ def run_interactive_subprocess(
     ```python
     with run_interactive_subprocess("git credential-store get") as (stdin, stdout):
         # Write to stdin
-        stdin.write("url=https://huggingface.co\nusername=hf_user\n\n")
+        stdin.write("url=https://huggingface.co\\nusername=hf_user\\n\\n")
         stdin.flush()
 
         # Read from stdout
