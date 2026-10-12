@@ -84,6 +84,10 @@ Integer value to define the number of seconds to wait for server response when f
 
 Integer value to define the number of seconds to wait for server response when downloading a file. If the request times out, a TimeoutError is raised. Setting a higher value is beneficial on machine with a slow connection. A smaller value makes the process fail quicker in case of complete network outage. Default to 10s.
 
+### HF_HUB_FS_MAX_THREADS
+
+Integer value to define the maximum number of concurrent requests used by [`HfFileSystem`] when it lists a large directory recursively. Listing is split between sub-directories and run in parallel to avoid waiting on thousands of sequential pages. A higher value lists large repos faster at the cost of more concurrent requests. Setting it to 1 disables parallel listings. Default to 16.
+
 ## Xet 
 
 ### Other Xet environment variables
