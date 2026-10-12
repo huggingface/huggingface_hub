@@ -17,7 +17,6 @@
 # Any change in InferenceClient will be automatically reflected in AsyncInferenceClient.
 # To re-generate the code, run `make style` or `python ./utils/generate_async_inference_client.py --update`.
 # WARNING
-import asyncio
 import base64
 import logging
 import os
@@ -291,8 +290,8 @@ class AsyncInferenceClient:
                 )
                 hf_raise_for_status(response)
                 return response.content
-        except asyncio.TimeoutError as error:
-            # Convert any `TimeoutError` to a `InferenceTimeoutError`
+        except httpx2.TimeoutException as error:
+            # Convert any httpx timeout to a `InferenceTimeoutError`
             raise InferenceTimeoutError(f"Inference call timed out: {request_parameters.url}") from error  # type: ignore
         except HfHubHTTPError as error:
             if error.response.status_code == 422 and request_parameters.task != "unknown":
