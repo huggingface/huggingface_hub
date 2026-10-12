@@ -39,7 +39,7 @@ def chunk_iterable(iterable: Iterable[T], chunk_size: int) -> Iterable[Iterable[
     >>> from huggingface_hub.utils import chunk_iterable
 
     >>> for items in chunk_iterable(range(17), chunk_size=8):
-    ...     print(items)
+    ...     print(list(items))
     # [0, 1, 2, 3, 4, 5, 6, 7]
     # [8, 9, 10, 11, 12, 13, 14, 15]
     # [16] # smaller last chunk
