@@ -1601,9 +1601,6 @@ Delete cache entries selected with `hf cache ls --q` by piping the IDs into `hf 
 About to delete 2 repo(s) totalling 5.31G.
   - model/meta-llama/Llama-3.2-1B-Instruct (entire repo)
   - model/hexgrad/Kokoro-82M (entire repo)
-Delete repo: ~/.cache/huggingface/hub/models--meta-llama--Llama-3.2-1B-Instruct
-Delete repo: ~/.cache/huggingface/hub/models--hexgrad--Kokoro-82M
-Cache deletion done. Saved 5.31G.
 Deleted 2 repo(s) and 2 revision(s); freed 5.31G.
 ```
 
@@ -1616,8 +1613,6 @@ Deleted 2 repo(s) and 2 revision(s); freed 5.31G.
 About to delete 1 repo(s) totalling 3.2G.
   - model/LiquidAI/LFM2-VL-1.6B (entire repo)
 Proceed with deletion? [y/N]: y
-Delete repo: ~/.cache/huggingface/hub/models--LiquidAI--LFM2-VL-1.6B
-Cache deletion done. Saved 3.2G.
 Deleted 1 repo(s) and 2 revision(s); freed 3.2G.
 ```
 
