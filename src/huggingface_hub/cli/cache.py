@@ -578,6 +578,14 @@ def ls(
             "Remove them with 'hf cache prune'."
         )
 
+    if hf_cache_info.cache_dir is not None and (
+        unreferenced_blobs := _shared_blobs.unreferenced_shared_blobs(hf_cache_info.cache_dir)
+    ):
+        out.hint(
+            f"Found {len(unreferenced_blobs)} unreferenced shared blob(s) totalling "
+            f"{_format_size(sum(unreferenced_blobs.values()))}. Remove them with 'hf cache prune'."
+        )
+
 
 @cache_cli.command(
     examples=[
