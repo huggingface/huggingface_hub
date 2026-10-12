@@ -137,6 +137,26 @@ def test_oauth_workflow(client: TestClient):
     }
 
 
+def _session_secret_key(signing_secret: str | None) -> str:
+    app = FastAPI()
+    with (
+        patch("huggingface_hub.constants.SPACE_SIGNING_SECRET", signing_secret),
+        patch("huggingface_hub._oauth._add_mocked_oauth_routes"),
+    ):
+        attach_huggingface_oauth(app)
+    return app.user_middleware[0].kwargs["secret_key"]
+
+
+def test_session_secret_key_derived_from_space_signing_secret():
+    # Stable across restarts/replicas when SPACE_SIGNING_SECRET is set
+    assert _session_secret_key("space-secret") == _session_secret_key("space-secret")
+    assert _session_secret_key("space-secret") != _session_secret_key("other-secret")
+
+
+def test_session_secret_key_random_without_space_signing_secret():
+    assert _session_secret_key(None) != _session_secret_key(None)
+
+
 def test_get_oauth_uris_default():
     login_uri, callback_uri, logout_uri = _get_oauth_uris()
     assert login_uri == "/oauth/huggingface/login"
