@@ -213,7 +213,7 @@ Each shared file has a `<xet_hash>.refs` manifest listing the repo blobs that us
 Per-repo sizes stay logical, so a shared file is counted for every repo that uses it. The cache-wide `size_on_disk` is physical: each shared file is counted once, including files no repo uses anymore.
 
 Older clients (`huggingface_hub`, `huggingface.js`, `hf-hub`, `llama.cpp`, and anything that follows symlinks) keep reading and downloading normally, in the same repo folders. Two limitations:
-- Their cache deletion tools may delete a shared file still used by other repos. Affected files are re-downloaded on next use. Older `huggingface_hub` versions do the opposite: deleting a repo leaves its shared files in the store, where `hf cache ls` flags them and `hf cache prune` removes them. Use an up-to-date `huggingface_hub` for `hf cache rm`, `hf cache prune`, and programmatic deletion.
+- Older `huggingface_hub` versions leave a deleted repo's shared files in the store, where `hf cache ls` flags them and `hf cache prune` removes them. Other clients' cache deletion tools may instead delete a shared file still used by other repos; affected files are re-downloaded on next use. Use an up-to-date `huggingface_hub` for `hf cache rm`, `hf cache prune`, and programmatic deletion.
 - Their cache scanners may report the top-level `blobs` directory as an unknown entry.
 
 The store requires the symlink-based cache layout and is disabled by `HF_HUB_DISABLE_XET=1`. Any failure to share a file, such as an unsupported filesystem, a permission error, or a pre-existing unmarked `blobs` directory, silently falls back to regular repo-local storage. Set [`HF_HUB_DISABLE_SHARED_BLOBS=1`](../package_reference/environment_variables#hfhubdisablesharedblobs) to opt out entirely.
