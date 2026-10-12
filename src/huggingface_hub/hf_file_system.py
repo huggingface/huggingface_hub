@@ -1,4 +1,5 @@
 import os
+import posixpath
 import tempfile
 import threading
 from collections import deque
@@ -7,7 +8,6 @@ from contextlib import ExitStack
 from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime
-from itertools import chain
 from pathlib import Path, PurePosixPath
 from typing import Any, NoReturn, Union
 from urllib.parse import quote, unquote
@@ -578,15 +578,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
             if (recursive and dirs_not_in_dircache) or (expand_info and dirs_not_expanded):
                 # If the dircache is incomplete, find the common path of the missing and non-expanded entries
                 # and extend the output with the result of `_ls_tree(common_path, recursive=True)`
-                common_prefix = os.path.commonprefix(dirs_not_in_dircache + dirs_not_expanded)
-                # Get the parent directory if the common prefix itself is not a directory
-                common_path = (
-                    common_prefix.rstrip("/")
-                    if common_prefix.endswith("/")
-                    or common_prefix == root_path
-                    or common_prefix in chain(dirs_not_in_dircache, dirs_not_expanded)
-                    else self._parent(common_prefix)
-                )
+                common_path = posixpath.commonpath(dirs_not_in_dircache + dirs_not_expanded)
                 if maxdepth is not None:
                     common_path_depth = common_path[len(path) :].count("/")
                     maxdepth -= common_path_depth
