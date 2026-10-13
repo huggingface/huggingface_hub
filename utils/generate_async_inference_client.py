@@ -142,7 +142,6 @@ def _add_imports(code: str) -> str:
             + "from typing import AsyncIterable\n"
             + "from contextlib import AsyncExitStack\n"
             + "from typing import Set\n"
-            + "import asyncio\n"
             + "import httpx2\n"
         ),
         string=code,
@@ -189,8 +188,8 @@ ASYNC_INNER_POST_CODE = """
                 )
                 hf_raise_for_status(response)
                 return response.content
-        except asyncio.TimeoutError as error:
-            # Convert any `TimeoutError` to a `InferenceTimeoutError`
+        except httpx2.TimeoutException as error:
+            # Convert any httpx timeout to a `InferenceTimeoutError`
             raise InferenceTimeoutError(f"Inference call timed out: {request_parameters.url}") from error  # type: ignore
         except HfHubHTTPError as error:
             if error.response.status_code == 422 and request_parameters.task != "unknown":
