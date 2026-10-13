@@ -151,8 +151,8 @@ Secrets and variables can be set when creating or duplicating a space:
 ...     repo_id=repo_id,
 ...     repo_type="space",
 ...     space_sdk="gradio",
-...     space_secrets=[{"key"="HF_TOKEN", "value"="hf_api_***"}, ...],
-...     space_variables=[{"key"="MODEL_REPO_ID", "value"="user/repo"}, ...],
+...     space_secrets=[{"key": "HF_TOKEN", "value": "hf_api_***"}, ...],
+...     space_variables=[{"key": "MODEL_REPO_ID", "value": "user/repo"}, ...],
 ... )
 ```
 
@@ -160,8 +160,8 @@ Secrets and variables can be set when creating or duplicating a space:
 >>> api.duplicate_repo(
 ...     from_id=repo_id,
 ...     repo_type="space",
-...     space_secrets=[{"key"="HF_TOKEN", "value"="hf_api_***"}, ...],
-...     space_variables=[{"key"="MODEL_REPO_ID", "value"="user/repo"}, ...],
+...     space_secrets=[{"key": "HF_TOKEN", "value": "hf_api_***"}, ...],
+...     space_variables=[{"key": "MODEL_REPO_ID", "value": "user/repo"}, ...],
 ... )
 ```
 
@@ -202,7 +202,7 @@ Upgraded hardware will be automatically assigned to your Space once it's built.
 >>> api.create_repo(
 ...     repo_id=repo_id,
 ...     repo_type="space",
-...     space_sdk="gradio"
+...     space_sdk="gradio",
 ...     space_hardware="cpu-upgrade",
 ...     space_sleep_time="7200", # 2 hours in secs
 ... )
@@ -273,7 +273,7 @@ Upgraded hardware will be automatically assigned to your Space once it's built.
 >>> api.create_repo(
 ...     repo_id=repo_id,
 ...     repo_type="space",
-...     space_sdk="gradio"
+...     space_sdk="gradio",
 ...     space_hardware="t4-medium",
 ...     space_sleep_time="3600",
 ... )
