@@ -2509,6 +2509,7 @@ class TestDatasetsParquetCommand:
         assert "No results found." in result.stdout
 
 
+@pytest.mark.skipif(sys.version_info >= (3, 15), reason="duckdb has no Python 3.15 wheels yet.")
 class TestDatasetsSqlCommand:
     # count number of rows by sector in the GDPVAL dataset train split
     # https://huggingface.co/datasets/openai/gdpval
