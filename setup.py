@@ -68,7 +68,7 @@ extras["testing"] = (
         "soundfile",
         "Pillow",
         "numpy",  # for embeddings
-        "duckdb",  # for datasets SQL end-to-end tests
+        "duckdb; python_version < '3.15'",  # for datasets SQL end-to-end tests (no 3.15 wheels yet)
         "fastapi",  # To build the documentation
     ]
 )
