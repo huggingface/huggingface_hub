@@ -456,9 +456,12 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
 
             def push(changes: list[BucketFileChange] | None) -> None:
                 with BUCKET_FOLLOWERS_LOCK:
-                    targets = list(subscribers.values())
-                for fs in targets:
-                    fs._pending_bucket_changes.append((bucket_id, changes))
+                    for fs_id, fs in list(subscribers.items()):
+                        if len(fs._pending_bucket_changes) >= 10_000:
+                            # Not listed in a long time: unsubscribe it, it re-joins with a fresh view on its next listing
+                            del subscribers[fs_id]
+                        else:
+                            fs._pending_bucket_changes.append((bucket_id, changes))
 
             follower = BucketFollower(
                 endpoint=self.endpoint,

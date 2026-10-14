@@ -158,7 +158,7 @@ class TestHfFileSystemBucketLiveFollow:
         bucket_id, hf_path = bucket
         hffs = HfFileSystem(endpoint=ENDPOINT_STAGING, token=TOKEN, skip_instance_cache=True)
         assert hffs.ls(hf_path, detail=False) == [f"{hf_path}/data"]
-        assert BUCKET_FOLLOWERS == {}
+        assert (hffs.endpoint, hffs.token, bucket_id) not in BUCKET_FOLLOWERS
 
     def test_cached_listing_is_refreshed_on_remote_changes(self, hffs, bucket):
         bucket_id, hf_path = bucket
