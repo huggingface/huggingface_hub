@@ -460,7 +460,6 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
                         if len(fs._pending_bucket_changes) >= 10_000:
                             # Not listed in a long time: unsubscribe it, it re-joins with a fresh view on its next listing
                             del subscribers[fs_id]
-                            self._invalidate_bucket_tree(bucket_id)
                         else:
                             fs._pending_bucket_changes.append((bucket_id, changes))
 
@@ -474,6 +473,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
             )
             BUCKET_FOLLOWERS[key] = (follower, subscribers)
             follower.start()
+            self._invalidate_bucket_tree(bucket_id)
 
     def _open(  # type: ignore
         self,
