@@ -28,6 +28,8 @@ from queue import Empty, Queue
 from typing import Annotated, Any, TypeVar
 from urllib.parse import urlsplit
 
+import httpx2
+
 from huggingface_hub import HfApi, JobHardware, JobInfo, JobNetwork, JobStage, Volume, constants
 from huggingface_hub._jobs_api import (
     DEFAULT_UV_IMAGE,
@@ -662,8 +664,27 @@ JobVolumesOpt = Annotated[
 jobs_cli = typer_factory(help="Run and manage Jobs on the Hub.")
 
 
+def _show_scheduling_status(api: HfApi, job: JobInfo) -> None:
+    """While the Job is scheduling, show why it isn't running yet (e.g. waiting for hardware) and for how long."""
+    status = out.status()
+    start = time.monotonic()
+    try:
+        while job.status.stage == JobStage.SCHEDULING:
+            for _ in range(2):  # refresh the timer every second, poll the Job every 2s
+                status.update(
+                    f"{job.status.message or 'Scheduling'} ({format_duration(int(time.monotonic() - start))})"
+                )
+                time.sleep(1)
+            job = api.inspect_job(job_id=job.id, namespace=job.owner.name)
+    except httpx2.HTTPError:
+        pass  # best effort: if a poll fails, start streaming the logs right away
+    finally:
+        status.update("")
+
+
 def _stream_logs_and_check_status(api: HfApi, job: JobInfo) -> None:
     """Stream Job logs until the Job ends, then fail the command if the Job did not complete successfully."""
+    _show_scheduling_status(api, job)
     for log in api.fetch_job_logs(job_id=job.id, namespace=job.owner.name, follow=True):
         out.text(log)
     # The log stream can end while the Job is still scheduling or shutting down: settle the final state.
