@@ -3,11 +3,12 @@ import posixpath
 import tempfile
 import threading
 from collections import deque
-from collections.abc import Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from contextlib import ExitStack
 from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime
+from functools import cached_property, partial
 from pathlib import Path, PurePosixPath
 from typing import Any, NoReturn, Union
 from urllib.parse import quote, unquote
@@ -33,13 +34,7 @@ from .file_download import hf_hub_url, http_get, xet_get
 from .hf_api import SPECIAL_REFS_REVISION_REGEX, HfApi, LastCommitInfo, RepoFile, RepoFolder
 from .utils import HFValidationError, XetFileData, hf_raise_for_status, http_backoff, http_stream_backoff, parse_hf_uri
 from .utils._runtime import is_xet_available
-from .utils._xet import (
-    XetTokenType,
-    get_xet_session,
-    refresh_xet_connection_info,
-    xet_connection_info_refresh_url,
-    xet_headers_without_auth,
-)
+from .utils._xet import XetTokenType, get_xet_session, xet_connection_info_refresh_url, xet_download_group_kwargs
 from .utils.insecure_hashlib import md5
 
 
@@ -1115,23 +1110,18 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         )
         return XetFileData(file_hash=xet_hash, refresh_route=refresh_route)
 
-    def _open_xet_stream(
-        self, xet_file_data: XetFileData, size: int, start: int, end: int | None = None
-    ) -> Iterator[bytes]:
-        """Stream the bytes `[start, end)` of a file from Xet storage."""
+    def _xet_stream_opener(
+        self, resolved_path: HfFileSystemResolvedRepositoryPath | HfFileSystemResolvedBucketPath, info: dict[str, Any]
+    ) -> Callable[..., Iterator[bytes]] | None:
+        """Return `open(start=..., end=...)`, which streams bytes of the file from Xet storage, or None if the file is not in Xet."""
+        if (xet_file_data := self._get_xet_file_data(resolved_path, info)) is None:
+            return None
         from hf_xet import XetFileInfo
 
-        headers = self._api._build_hf_headers()
-        connection_info = refresh_xet_connection_info(file_data=xet_file_data, headers=headers)
         group = get_xet_session().new_download_stream_group(
-            endpoint=connection_info.endpoint,
-            token=connection_info.access_token,
-            token_expiry_unix_secs=connection_info.expiration_unix_epoch,
-            token_refresh_url=xet_file_data.refresh_route,
-            token_refresh_headers=headers,
-            custom_headers=xet_headers_without_auth(headers),
+            **xet_download_group_kwargs(xet_file_data, self._api._build_hf_headers())
         )
-        return group.download_stream(XetFileInfo(xet_file_data.file_hash, size), start=start, end=end)
+        return partial(group.download_stream, XetFileInfo(xet_file_data.file_hash, info["size"]))
 
     def get_file(self, rpath, lpath=None, callback=_DEFAULT_CALLBACK, outfile=None, **kwargs) -> None:
         """
@@ -1265,8 +1255,8 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
         return super().__del__()
 
     def _fetch_range(self, start: int, end: int) -> bytes:
-        if (xet_file_data := self.fs._get_xet_file_data(self.resolved_path, self.details)) is not None:
-            return b"".join(self.fs._open_xet_stream(xet_file_data, self.size, start=start, end=end))
+        if self._open_xet_stream is not None:
+            return b"".join(self._open_xet_stream(start=start, end=end))
         headers = {
             "range": f"bytes={start}-{end - 1}",
             **self.fs._api._build_hf_headers(),
@@ -1275,6 +1265,10 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
         r = http_backoff("GET", url, headers=headers, timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT)
         hf_raise_for_status(r)
         return r.content
+
+    @cached_property
+    def _open_xet_stream(self) -> Callable[..., Iterator[bytes]] | None:
+        return self.fs._xet_stream_opener(self.resolved_path, self.details)
 
     def _initiate_upload(self) -> None:
         self.temp_file = tempfile.NamedTemporaryFile(prefix="hffs-", delete=False)
@@ -1436,13 +1430,15 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
     def __reduce__(self):
         return reopen, (self.fs, self.path, self.mode, self.blocksize, self.cache.name)
 
-    def _get_xet_file_data(self) -> XetFileData | None:
+    @cached_property
+    def _open_xet_stream(self) -> Callable[..., Iterator[bytes]] | None:
+        # Checked first to skip the `info()` call when hf_xet is not installed
         if not is_xet_available():
             return None
         if self.size is None:
             self.details = self.fs.info(self.path)
             self.size = self.details["size"]
-        return self.fs._get_xet_file_data(self.resolved_path, self.details)
+        return self.fs._xet_stream_opener(self.resolved_path, self.details)
 
     def _open_connection(self):
         """Open a connection to the remote file."""
@@ -1450,9 +1446,9 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
         self._stream_buffer.clear()
         self._stream_iterator = None
 
-        if (xet_file_data := self._get_xet_file_data()) is not None:
+        if self._open_xet_stream is not None:
             if self.loc < self.size:
-                self._stream_iterator = self.fs._open_xet_stream(xet_file_data, self.size, start=self.loc)
+                self._stream_iterator = self._open_xet_stream(start=self.loc)
             return
 
         url = self.url()

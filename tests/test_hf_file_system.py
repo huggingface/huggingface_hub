@@ -639,7 +639,7 @@ class TestHfFileSystemRepositoryRO(_HfFileSystemRepositoryChecks, _HfFileSystemB
     @pytest.mark.xet
     def test_read_range_with_xet(self):
         with (
-            patch.object(self.hffs, "_open_xet_stream", wraps=self.hffs._open_xet_stream) as xet_mock,
+            patch.object(self.hffs, "_xet_stream_opener", wraps=self.hffs._xet_stream_opener) as xet_mock,
             patch.object(hf_file_system, "http_backoff") as http_mock,
         ):
             with self.hffs.open(self.hf_path + "/data/binary_data.bin", "rb", block_size=4) as f:
@@ -651,7 +651,7 @@ class TestHfFileSystemRepositoryRO(_HfFileSystemRepositoryChecks, _HfFileSystemB
     @pytest.mark.xet
     def test_stream_with_xet(self):
         with (
-            patch.object(self.hffs, "_open_xet_stream", wraps=self.hffs._open_xet_stream) as xet_mock,
+            patch.object(self.hffs, "_xet_stream_opener", wraps=self.hffs._xet_stream_opener) as xet_mock,
             patch.object(hf_file_system, "http_stream_backoff") as http_mock,
         ):
             with self.hffs.open(self.hf_path + "/data/binary_data.bin", "rb", block_size=0) as f:
