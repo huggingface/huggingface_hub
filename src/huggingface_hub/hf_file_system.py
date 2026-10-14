@@ -36,7 +36,6 @@ from .utils import HFValidationError, XetFileData, hf_raise_for_status, http_bac
 from .utils._runtime import is_xet_available
 from .utils._xet import (
     XetTokenType,
-    _cache_key,
     abort_xet_session,
     get_xet_session,
     xet_connection_info_refresh_url,
@@ -240,8 +239,8 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         self._repo_and_revision_exists_cache: dict[tuple[str, str, str | None], tuple[bool, Exception | None]] = {}
         # Same for buckets
         self._bucket_exists_cache: dict[str, tuple[bool, Exception | None]] = {}
-        # Xet session and download stream group per process, repo revision and token
-        self._xet_stream_groups: dict[str, tuple[Any, Any]] = {}
+        # (Xet session, token, download stream group) per process and repo revision
+        self._xet_stream_groups: dict[tuple[int, str], tuple[Any, str, Any]] = {}
         # Note: special case for buckets: revision is always None
         # Maps parent directory path to path infos
         self.dircache: dict[str, list[dict[str, Any]]] = {}
@@ -1123,18 +1122,20 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         """Stream the bytes `[start, end)` of a file from Xet storage."""
         from hf_xet import XetFileInfo
 
-        # Files of a revision share one group, so they share its connection pool. The key holds the PID so that a
-        # forked process never drops the groups of its parent (a group is not fork-safe), and the token so that a
-        # new token gets a group with up-to-date refresh headers. The group is rebuilt after `abort_xet_session`.
+        # Files of a revision share one group, so they share its connection pool. The group is replaced when the
+        # session changes (after `abort_xet_session`) or the token changes (its refresh headers hold the token).
+        # The key holds the PID so that a forked process never drops the groups of its parent: a group is not
+        # fork-safe.
         headers = self._api._build_hf_headers()
-        key = f"{os.getpid()}|{_cache_key(xet_file_data.refresh_route, headers)}"
+        token = headers.get("authorization", "")
         session = get_xet_session()
+        key = (os.getpid(), xet_file_data.refresh_route)
         cached = self._xet_stream_groups.get(key)
-        if cached is None or cached[0] is not session:
+        if cached is None or cached[0] is not session or cached[1] != token:
             group = session.new_download_stream_group(**xet_download_group_kwargs(xet_file_data, headers))
-            cached = self._xet_stream_groups[key] = (session, group)
+            cached = self._xet_stream_groups[key] = (session, token, group)
         try:
-            yield from cached[1].download_stream(XetFileInfo(xet_file_data.file_hash, size), start=start, end=end)
+            yield from cached[2].download_stream(XetFileInfo(xet_file_data.file_hash, size), start=start, end=end)
         except KeyboardInterrupt:
             abort_xet_session()
             raise
