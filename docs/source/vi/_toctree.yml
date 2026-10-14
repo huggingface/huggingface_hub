@@ -1,0 +1,8 @@
+- title: "Bắt đầu"
+  sections:
+    - local: index
+      title: Tổng quan
+    - local: quick-start
+      title: Bắt đầu nhanh
+    - local: installation
+      title: Cài đặt
