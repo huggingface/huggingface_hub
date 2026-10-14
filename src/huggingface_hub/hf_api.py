@@ -8431,8 +8431,8 @@ class HfApi:
         # Used by Spaces logs and Jobs logs/metrics. Two retry styles:
         #   - on_iteration_end is None: retries are the only backstop (Spaces).
         #   - on_iteration_end is set: it polls authoritative state after every
-        #     failed iteration; ReadTimeouts/tolerated errors fall through to it
-        #     instead of consuming retries (Jobs).
+        #     iteration, including clean stream ends; ReadTimeouts/tolerated errors
+        #     fall through to it instead of consuming retries (Jobs).
         nb_tries = 0
         max_retries = 5 if follow else 0
         min_wait_time = 1
@@ -8473,8 +8473,12 @@ class HfApi:
                                         and parse_datetime(ts) > replay_end
                                     ):
                                         break
+                                    # New data: retries only count consecutive failures
+                                    nb_tries = sleep_time = 0
                                     yield event
-                        break
+                        # Jobs: the stream can end before the Job does, so the stage check below decides
+                        if on_iteration_end is None:
+                            break
                     elif response.status_code not in tolerated_status_codes:
                         hf_raise_for_status(response)
             except HfHubHTTPError:
@@ -8482,8 +8486,6 @@ class HfApi:
                 raise
             except httpx2.DecodingError:
                 # Response ended prematurely.
-                break
-            except KeyboardInterrupt:
                 break
             except (httpx2.HTTPError, httpcore2.TimeoutException) as err:
                 is_no_new_line_timeout = isinstance(err, (httpx2.ReadTimeout, httpcore2.ReadTimeout))
@@ -8516,8 +8518,15 @@ class HfApi:
             # requires a stable replay prefix, which `tail` would break.
             params = None
             # no-follow: a single attempt, never loop back
-            if not follow or (on_iteration_end is not None and on_iteration_end()):
+            if not follow:
                 break
+            if on_iteration_end is not None:
+                if error_to_retry is None:
+                    # Stream ended or went silent: back off first, the Job's stage can lag behind its last log line
+                    sleep_time = min(max_wait_time, max(min_wait_time, sleep_time * 2))
+                    time.sleep(sleep_time)
+                if on_iteration_end():
+                    break
 
     def _fetch_space_logs_sse(
         self,
@@ -12075,7 +12084,7 @@ class HfApi:
             )
             hf_raise_for_status(job_status_response)
             job_status = job_status_response.json()
-            return "status" in job_status and job_status["status"]["stage"] not in ("RUNNING", "UPDATING")
+            return "status" in job_status and job_status["status"]["stage"] in TERMINAL_JOB_STAGES
 
         yield from self._stream_sse_events(
             url=f"{self.endpoint}/api/jobs/{namespace}/{job_id}/{route}",
