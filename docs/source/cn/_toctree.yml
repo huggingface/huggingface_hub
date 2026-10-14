@@ -20,4 +20,6 @@
       title: 概览
     - local: guides/hf_file_system
       title: Hugging Face 文件系统
+    - local: guides/manage-spaces
+      title: 管理你的 Space
 
