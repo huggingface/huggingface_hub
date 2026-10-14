@@ -239,6 +239,8 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         self._repo_and_revision_exists_cache: dict[tuple[str, str, str | None], tuple[bool, Exception | None]] = {}
         # Same for buckets
         self._bucket_exists_cache: dict[str, tuple[bool, Exception | None]] = {}
+        # Xet session and download stream group per token refresh route (i.e. per repo revision)
+        self._xet_stream_groups: dict[str, tuple[Any, Any]] = {}
         # Note: special case for buckets: revision is always None
         # Maps parent directory path to path infos
         self.dircache: dict[str, list[dict[str, Any]]] = {}
@@ -1120,11 +1122,17 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         """Stream the bytes `[start, end)` of a file from Xet storage."""
         from hf_xet import XetFileInfo
 
-        group = get_xet_session().new_download_stream_group(
-            **xet_download_group_kwargs(xet_file_data, self._api._build_hf_headers())
-        )
+        # Files of a revision share one group, so they share its connection pool. The group is rebuilt when the
+        # session changes (after `abort_xet_session` or in a forked process).
+        session = get_xet_session()
+        cached = self._xet_stream_groups.get(xet_file_data.refresh_route)
+        if cached is None or cached[0] is not session:
+            group = session.new_download_stream_group(
+                **xet_download_group_kwargs(xet_file_data, self._api._build_hf_headers())
+            )
+            cached = self._xet_stream_groups[xet_file_data.refresh_route] = (session, group)
         try:
-            yield from group.download_stream(XetFileInfo(xet_file_data.file_hash, size), start=start, end=end)
+            yield from cached[1].download_stream(XetFileInfo(xet_file_data.file_hash, size), start=start, end=end)
         except KeyboardInterrupt:
             abort_xet_session()
             raise
