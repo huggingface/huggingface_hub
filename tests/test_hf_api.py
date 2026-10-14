@@ -2552,6 +2552,13 @@ class TestHfApiPublicProduction:
 
         assert info.parameter_count == {"BF16": 7241732096}
 
+    def test_get_safetensors_metadata_sharded_model_in_one_request(self, api: HfApi) -> None:
+        # On `main`, the shard headers come from a single request instead of one per shard
+        with patch.object(api, "parse_safetensors_file_metadata", side_effect=AssertionError("parsed shard by shard")):
+            info = api.get_safetensors_metadata("HuggingFaceH4/zephyr-7b-beta")
+        assert len(info.files_metadata) == 8
+        assert info.parameter_count == {"BF16": 7241732096}
+
     def test_not_a_safetensors_repo(self, api: HfApi) -> None:
         with pytest.raises(NotASafetensorsRepoError):
             api.get_safetensors_metadata("huggingface-hub-ci/test_safetensors_metadata")
