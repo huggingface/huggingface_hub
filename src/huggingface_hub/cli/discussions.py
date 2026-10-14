@@ -14,6 +14,7 @@
 """Contains commands to interact with discussions and pull requests on the Hugging Face Hub."""
 
 import enum
+import re
 import sys
 from pathlib import Path
 from typing import Annotated
@@ -21,6 +22,8 @@ from typing import Annotated
 import click
 
 from huggingface_hub import constants
+from huggingface_hub.errors import CLIError
+from huggingface_hub.hf_api import _ATTACHMENT_CONTENT_TYPES, HfApi
 
 from ._cli_utils import (
     AuthorOpt,
@@ -75,6 +78,61 @@ def _read_body(body: str | None, body_file: Path | None) -> str | None:
             return sys.stdin.read()
         return body_file.read_text(encoding="utf-8")
     return body
+
+
+AttachOpt = Annotated[
+    list[str] | None,
+    Option(
+        "--attach",
+        help=(
+            "Attach an image, video or audio file, as 'FILE' or 'FILE#alt text'. A '![alt](FILE)' reference in the"
+            " body is replaced by the uploaded file, other files are appended. Can be used multiple times."
+        ),
+    ),
+]
+
+_IMAGE_EMBED_REGEX = re.compile(r"!\[([^\]]*)\]\(([^)\s]+)\)")
+
+
+def _media_markdown(path: Path, url: str, alt: str) -> str:
+    """Markdown inserted by the Hub web editor for an uploaded file."""
+    match _ATTACHMENT_CONTENT_TYPES[path.suffix.lower()].partition("/")[0]:
+        case "image":
+            return f"![{alt}]({url})"
+        case "audio":
+            return f'<audio controls src="{url}"></audio>'
+        case _:
+            # the Hub renders uploaded video URLs as players
+            return url
+
+
+def _attach_files(api: HfApi, body: str | None, attach: list[str] | None) -> str | None:
+    """Upload --attach files and embed them in the body: replace `![alt](FILE)` references, append the others."""
+    if not attach:
+        return body
+    alts: dict[Path, str] = {}
+    for value in attach:
+        file, _, alt = (value, "", "") if Path(value).is_file() else value.partition("#")
+        path = Path(file).resolve()
+        if not path.is_file():
+            raise CLIError(f"Attachment not found: '{file}'.")
+        if path.suffix.lower() not in _ATTACHMENT_CONTENT_TYPES:
+            raise CLIError(f"Cannot attach '{file}': supported formats are {', '.join(_ATTACHMENT_CONTENT_TYPES)}.")
+        alts[path] = alt or path.stem
+    urls = {path: api.upload_attachment(path) for path in alts}
+
+    referenced = set()
+
+    def _replace(match: re.Match[str]) -> str:
+        path = Path(match.group(2)).resolve()
+        if path not in urls:
+            return match.group(0)
+        referenced.add(path)
+        return _media_markdown(path, urls[path], alt=match.group(1))
+
+    parts = [_IMAGE_EMBED_REGEX.sub(_replace, body or "").strip()]
+    parts += [_media_markdown(path, urls[path], alt) for path, alt in alts.items() if path not in referenced]
+    return "\n\n".join(part for part in parts if part)
 
 
 discussions_cli = typer_factory(help="Manage discussions and pull requests on the Hub.")
@@ -181,6 +239,7 @@ def discussion_info(
         'hf discussions create username/my-model --title "Feature request" --body "Please add X"',
         'hf discussions create username/my-model --title "Fix typo" --pull-request',
         'hf discussions create username/my-dataset --type dataset --title "Data quality issue"',
+        'hf discussions create username/my-model --title "Fix rendering" --pr --attach "./before.png#Before the fix" --attach ./after.png',
     ],
 )
 def discussion_create(
@@ -214,12 +273,13 @@ def discussion_create(
             help="Create a pull request instead of a discussion.",
         ),
     ] = False,
+    attach: AttachOpt = None,
     repo_type: RepoTypeOpt = RepoType.model,
     token: TokenOpt = None,
 ) -> None:
     """Create a new discussion or pull request on a repo."""
-    description = _read_body(body, body_file)
     api = get_hf_api(token=token)
+    description = _attach_files(api, _read_body(body, body_file), attach)
     discussion = api.create_discussion(
         repo_id=repo_id,
         title=title,
@@ -237,6 +297,7 @@ def discussion_create(
     examples=[
         'hf discussions comment username/my-model 5 --body "Thanks for reporting!"',
         'hf discussions comment username/my-model 5 --body "LGTM!"',
+        'hf discussions comment username/my-model 5 --body "Here is a demo:" --attach demo.mp4',
     ],
 )
 def discussion_comment(
@@ -256,14 +317,15 @@ def discussion_comment(
             help="Read the comment from a file. Use '-' for stdin.",
         ),
     ] = None,
+    attach: AttachOpt = None,
     repo_type: RepoTypeOpt = RepoType.model,
     token: TokenOpt = None,
 ) -> None:
     """Comment on a discussion or pull request."""
-    comment = _read_body(body, body_file)
-    if comment is None:
-        raise click.BadParameter("Either --body or --body-file is required.")
     api = get_hf_api(token=token)
+    comment = _attach_files(api, _read_body(body, body_file), attach)
+    if comment is None:
+        raise click.BadParameter("Either --body, --body-file or --attach is required.")
     api.comment_discussion(
         repo_id=repo_id,
         discussion_num=num,
@@ -278,6 +340,7 @@ def discussion_comment(
     examples=[
         'hf discussions edit username/my-model 5 abc123 --body "Updated comment."',
         "hf discussions edit username/my-model 5 abc123 --body-file fixed.md",
+        'hf discussions edit username/my-model 5 abc123 --body "Fixed: ![result](./after.png)" --attach ./after.png',
     ],
 )
 def discussion_edit(
@@ -303,14 +366,15 @@ def discussion_edit(
             help="Read the new comment from a file. Use '-' for stdin.",
         ),
     ] = None,
+    attach: AttachOpt = None,
     repo_type: RepoTypeOpt = RepoType.model,
     token: TokenOpt = None,
 ) -> None:
     """Edit an existing comment on a discussion or pull request."""
-    new_content = _read_body(body, body_file)
-    if new_content is None:
-        raise click.BadParameter("Either --body or --body-file is required.")
     api = get_hf_api(token=token)
+    new_content = _attach_files(api, _read_body(body, body_file), attach)
+    if new_content is None:
+        raise click.BadParameter("Either --body, --body-file or --attach is required.")
     api.edit_discussion_comment(
         repo_id=repo_id,
         discussion_num=num,
