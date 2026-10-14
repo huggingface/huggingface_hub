@@ -1,0 +1,4 @@
+- title: "Guías prácticas"
+  sections:
+    - local: guides/search
+      title: Buscar en el Hub
