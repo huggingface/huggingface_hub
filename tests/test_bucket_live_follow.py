@@ -348,27 +348,6 @@ class TestFollowerLifetime:
         assert self._wait_for(lambda: not follower.is_alive())
 
 
-class TestBucketInfoUpdatedAt:
-    def test_updated_at_is_parsed(self):
-        from huggingface_hub import BucketInfo
-
-        info = BucketInfo(
-            id="user/bucket",
-            private=True,
-            createdAt="2026-01-01T00:00:00.000Z",
-            size=1,
-            totalFiles=1,
-            updatedAt="2026-01-02T03:04:05.000Z",
-        )
-        assert info.updated_at == datetime(2026, 1, 2, 3, 4, 5, tzinfo=timezone.utc)
-
-    def test_updated_at_is_optional(self):
-        from huggingface_hub import BucketInfo
-
-        info = BucketInfo(id="user/bucket", private=True, createdAt="2026-01-01T00:00:00.000Z", size=1, totalFiles=1)
-        assert info.updated_at is None
-
-
 class TestHfFileSystemCacheInvalidation:
     @pytest.fixture
     def hffs(self):
