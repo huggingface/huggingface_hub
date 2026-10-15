@@ -20,4 +20,6 @@
       title: 概览
     - local: guides/hf_file_system
       title: Hugging Face 文件系统
+    - local: guides/integrations
+      title: 集成其他机器学习框架
 
