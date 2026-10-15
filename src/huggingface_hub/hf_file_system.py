@@ -7,6 +7,7 @@ from contextlib import ExitStack
 from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime
+from functools import cached_property
 from itertools import chain
 from pathlib import PurePosixPath
 from typing import Any, NoReturn, Union
@@ -31,7 +32,15 @@ from .errors import (
 )
 from .file_download import hf_hub_url, http_get
 from .hf_api import SPECIAL_REFS_REVISION_REGEX, HfApi, LastCommitInfo, RepoFile, RepoFolder
-from .utils import HFValidationError, hf_raise_for_status, http_backoff, http_stream_backoff, parse_hf_uri
+from .utils import HFValidationError, XetFileData, hf_raise_for_status, http_backoff, http_stream_backoff, parse_hf_uri
+from .utils._runtime import is_xet_available
+from .utils._xet import (
+    XetTokenType,
+    abort_xet_session,
+    get_xet_session,
+    xet_connection_info_refresh_url,
+    xet_download_group_kwargs,
+)
 from .utils.insecure_hashlib import md5
 
 
@@ -230,6 +239,8 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         self._repo_and_revision_exists_cache: dict[tuple[str, str, str | None], tuple[bool, Exception | None]] = {}
         # Same for buckets
         self._bucket_exists_cache: dict[str, tuple[bool, Exception | None]] = {}
+        # (Xet session, token, download stream group) per process and repo revision
+        self._xet_stream_groups: dict[tuple[int, str], tuple[Any, str, Any]] = {}
         # Note: special case for buckets: revision is always None
         # Maps parent directory path to path infos
         self.dircache: dict[str, list[dict[str, Any]]] = {}
@@ -1077,6 +1088,49 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
             url = url.replace("/resolve/", "/tree/", 1)
         return url
 
+    def _get_xet_file_data(
+        self, resolved_path: HfFileSystemResolvedRepositoryPath | HfFileSystemResolvedBucketPath, info: dict[str, Any]
+    ) -> XetFileData | None:
+        """Build the Xet metadata of a file from its `info()` entry, or return None if it can't be downloaded with Xet."""
+        if not is_xet_available() or (xet_hash := info.get("xet_hash")) is None:
+            return None
+        if isinstance(resolved_path, HfFileSystemResolvedBucketPath):
+            repo_id, repo_type, revision = resolved_path.bucket_id, "bucket", None
+        else:
+            # Special refs (e.g. "refs/pr/1") must be quoted in the token route
+            repo_id, repo_type = resolved_path.repo_id, resolved_path.repo_type
+            revision = quote(resolved_path.revision, safe="")
+        refresh_route = xet_connection_info_refresh_url(
+            token_type=XetTokenType.READ,
+            repo_id=repo_id,
+            repo_type=repo_type,
+            revision=revision,
+            endpoint=self.endpoint,
+        )
+        return XetFileData(file_hash=xet_hash, refresh_route=refresh_route)
+
+    def _read_xet(self, xet_file_data: XetFileData, size: int, start: int, end: int | None = None) -> Iterator[bytes]:
+        """Stream the bytes `[start, end)` of a file from Xet storage."""
+        from hf_xet import XetFileInfo
+
+        # Files of a revision share one group, so they share its connection pool. The group is replaced when the
+        # session changes (after `abort_xet_session`) or the token changes (its refresh headers hold the token).
+        # The key holds the PID so that a forked process never drops the groups of its parent: a group is not
+        # fork-safe.
+        headers = self._api._build_hf_headers()
+        token = headers.get("authorization", "")
+        session = get_xet_session()
+        key = (os.getpid(), xet_file_data.refresh_route)
+        cached = self._xet_stream_groups.get(key)
+        if cached is None or cached[0] is not session or cached[1] != token:
+            group = session.new_download_stream_group(**xet_download_group_kwargs(xet_file_data, headers))
+            cached = self._xet_stream_groups[key] = (session, token, group)
+        try:
+            yield from cached[2].download_stream(XetFileInfo(xet_file_data.file_hash, size), start=start, end=end)
+        except KeyboardInterrupt:
+            abort_xet_session()
+            raise
+
     def get_file(self, rpath, lpath=None, callback=_DEFAULT_CALLBACK, outfile=None, **kwargs) -> None:
         """
         Copy single remote file to local.
@@ -1195,6 +1249,8 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
         return super().__del__()
 
     def _fetch_range(self, start: int, end: int) -> bytes:
+        if self._xet_file_data is not None:
+            return b"".join(self.fs._read_xet(self._xet_file_data, self.size, start=start, end=end))
         headers = {
             "range": f"bytes={start}-{end - 1}",
             **self.fs._api._build_hf_headers(),
@@ -1203,6 +1259,10 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
         r = http_backoff("GET", url, headers=headers, timeout=constants.HF_HUB_DOWNLOAD_TIMEOUT)
         hf_raise_for_status(r)
         return r.content
+
+    @cached_property
+    def _xet_file_data(self) -> XetFileData | None:
+        return self.fs._get_xet_file_data(self.resolved_path, self.details)
 
     def _initiate_upload(self) -> None:
         self.temp_file = tempfile.NamedTemporaryFile(prefix="hffs-", delete=False)
@@ -1297,13 +1357,13 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
 
         If reading the stream fails, we retry with a new connection.
         """
-        if self.response is None:
+        if self._stream_iterator is None:
             self._open_connection()
 
         retried_once = False
         while True:
             try:
-                if self.response is None or self._stream_iterator is None:
+                if self._stream_iterator is None:
                     return b""  # Already read the entire file
                 out = self._read_from_stream(self._stream_iterator, length)
                 self.loc += len(out)
@@ -1364,11 +1424,26 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
     def __reduce__(self):
         return reopen, (self.fs, self.path, self.mode, self.blocksize, self.cache.name)
 
+    @cached_property
+    def _xet_file_data(self) -> XetFileData | None:
+        # Checked first to skip the `info()` call when hf_xet is not installed
+        if not is_xet_available():
+            return None
+        if self.size is None:
+            self.details = self.fs.info(self.path)
+            self.size = self.details["size"]
+        return self.fs._get_xet_file_data(self.resolved_path, self.details)
+
     def _open_connection(self):
         """Open a connection to the remote file."""
         # reset streaming state
         self._stream_buffer.clear()
         self._stream_iterator = None
+
+        if self._xet_file_data is not None:
+            if self.loc < self.size:
+                self._stream_iterator = self.fs._read_xet(self._xet_file_data, self.size, start=self.loc)
+            return
 
         url = self.url()
         headers = self.fs._api._build_hf_headers()
