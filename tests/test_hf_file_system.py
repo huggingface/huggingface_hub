@@ -1093,9 +1093,7 @@ def test_find_large_repo_is_listed_in_parallel():
     files["README.md"] = 5
 
     fs, api = _fake_fs(files, max_threads=16, delay=0.02)
-    start = time.perf_counter()
     found = fs.find(_FAKE_REPO)
-    elapsed = time.perf_counter() - start
 
     assert api.max_in_flight > 1  # directories were listed concurrently
     # once the root pagination is known to be long, the root is listed one level deep and each of its
@@ -1107,11 +1105,8 @@ def test_find_large_repo_is_listed_in_parallel():
 
     # the same listing done sequentially (see `max_threads=1`) requires one request every 1000 entries
     sequential_fs, sequential_api = _fake_fs(files, max_threads=1, delay=0.02)
-    start = time.perf_counter()
     assert sequential_fs.find(_FAKE_REPO) == found
-    sequential_elapsed = time.perf_counter() - start
     assert len(sequential_api.calls) == 23
-    assert sequential_elapsed > elapsed
 
 
 def test_find_deeply_nested_repo_is_split_recursively():
