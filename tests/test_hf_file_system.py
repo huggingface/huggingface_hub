@@ -1057,7 +1057,8 @@ class FakeTreeApi:
                     self.calls.append((path, recursive))
                 if self.delay:
                     time.sleep(self.delay)
-                yield entries[i : i + page_size]
+                page = entries[i : i + page_size]
+                yield page, i + page_size >= len(entries)
         finally:
             with self._lock:
                 self.in_flight -= 1
@@ -1067,7 +1068,7 @@ class FakeTreeApi:
         yield from self._paginate(path, recursive=True, expand=expand)
 
     def list_repo_tree(self, repo_id, path=None, recursive=False, expand=False, revision=None, repo_type=None):
-        for page in self._paginate(path, recursive=recursive, expand=expand):
+        for page, _ in self._paginate(path, recursive=recursive, expand=expand):
             yield from page
 
 
