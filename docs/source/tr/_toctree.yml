@@ -1,0 +1,6 @@
+- title: "Başlarken"
+  sections:
+    - local: index
+      title: Ana sayfa
+    - local: quick-start
+      title: Hızlı başlangıç
