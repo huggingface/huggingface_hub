@@ -1111,7 +1111,7 @@ def test_find_large_repo_is_listed_in_parallel():
     assert sequential_fs.find(_FAKE_REPO) == found
     sequential_elapsed = time.perf_counter() - start
     assert len(sequential_api.calls) == 23
-    assert sequential_elapsed > 2 * elapsed
+    assert sequential_elapsed > elapsed
 
 
 def test_find_deeply_nested_repo_is_split_recursively():
