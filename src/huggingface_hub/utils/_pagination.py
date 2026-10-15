@@ -24,8 +24,14 @@ from . import hf_raise_for_status, http_backoff, logging
 logger = logging.get_logger(__name__)
 
 
-def paginate(path: str, params: dict | list[tuple[str, Any]], headers: dict, timeout: float | None = None) -> Iterable:
-    """Fetch a list of models/datasets/spaces and paginate through results.
+def _paginate_pages(
+    path: str, params: dict | list[tuple[str, Any]], headers: dict, timeout: float | None = None
+) -> Iterable[tuple[list, bool]]:
+    """Fetch a list of models/datasets/spaces and paginate through results, page by page.
+
+    Same as [`paginate`] but results are yielded one page at a time as a tuple (page, finished).
+    It allows a caller to stop early (the remaining pages are then never requested) or to make
+    a decision in between two pages based on what has been fetched so far.
 
     This is using the same "Link" header format as GitHub.
     See:
@@ -34,17 +40,29 @@ def paginate(path: str, params: dict | list[tuple[str, Any]], headers: dict, tim
     """
     r = http_backoff("GET", path, params=params, headers=headers, timeout=timeout)
     hf_raise_for_status(r)
-    yield from r.json()
-
     # Follow pages
     # Next link already contains query params
     next_page = _get_next_page(r)
+    yield r.json(), next_page is None
+
     while next_page is not None:
         logger.debug(f"Pagination detected. Requesting next page: {next_page}")
         r = http_backoff("GET", next_page, headers=headers, timeout=timeout)
         hf_raise_for_status(r)
-        yield from r.json()
         next_page = _get_next_page(r)
+        yield r.json(), next_page is None
+
+
+def paginate(path: str, params: dict | list[tuple[str, Any]], headers: dict, timeout: float | None = None) -> Iterable:
+    """Fetch a list of models/datasets/spaces and paginate through results.
+
+    This is using the same "Link" header format as GitHub.
+    See:
+    - https://requests.readthedocs.io/en/latest/api/#requests.Response.links
+    - https://docs.github.com/en/rest/guides/traversing-with-pagination#link-header
+    """
+    for page, _ in _paginate_pages(path, params, headers, timeout=timeout):
+        yield from page
 
 
 def _get_next_page(response: httpx2.Response) -> str | None:

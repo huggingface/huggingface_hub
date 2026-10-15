@@ -4,9 +4,10 @@ import tempfile
 import threading
 from collections import deque
 from collections.abc import Iterable, Iterator
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import ExitStack
 from copy import deepcopy
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from pathlib import Path, PurePosixPath
 from typing import Any, NoReturn, Union
@@ -86,6 +87,234 @@ class HfFileSystemResolvedBucketPath(HfFileSystemResolvedPath):
 
 # We need to improve fsspec.spec._Cached which is AbstractFileSystem's metaclass
 _cached_base: Any = type(fsspec.AbstractFileSystem)
+
+
+def _cache_info_from_path_info(
+    path_info: RepoFile | RepoFolder | BucketFile | BucketFolder, cache_path: str
+) -> dict[str, Any]:
+    """Convert an API path info into the dict format used in `HfFileSystem.dircache`."""
+    if isinstance(path_info, RepoFile):
+        return {
+            "name": cache_path,
+            "size": path_info.size,
+            "type": "file",
+            "blob_id": path_info.blob_id,
+            "lfs": path_info.lfs,
+            "xet_hash": path_info.xet_hash,
+            "last_commit": path_info.last_commit,
+            "security": path_info.security,
+        }
+    if isinstance(path_info, BucketFile):
+        return {
+            "name": cache_path,
+            "size": path_info.size,
+            "type": "file",
+            "xet_hash": path_info.xet_hash,
+            "mtime": path_info.mtime,
+            "uploaded_at": path_info.uploaded_at,
+        }
+    if isinstance(path_info, RepoFolder):
+        return {
+            "name": cache_path,
+            "size": 0,
+            "type": "directory",
+            "tree_id": path_info.tree_id,
+            "last_commit": path_info.last_commit,
+        }
+    return {
+        "name": cache_path,
+        "size": 0,
+        "type": "directory",
+        "uploaded_at": path_info.uploaded_at,
+    }
+
+
+# Number of pages that must be fetched through a single (paginated) `tree` request before the listing
+# of a sub-tree is considered for splitting into one listing per sub-directory.
+_MIN_PAGES_BEFORE_SPLIT = 2
+
+
+class _ParallelRepoTreeListing:
+    """List a repo tree recursively, listing independent directories in parallel.
+
+    The Hub `tree` endpoint returns at most 1000 entries per request (50 when `expand=True`) and
+    pagination is cursor-based: a page can only be fetched once the previous one has been received.
+    Listing a repo with 800k files through a single request therefore requires ~800 *sequential*
+    requests, which takes many minutes.
+
+    To work around this, the listing is split into independent sub-trees listed concurrently by a
+    thread pool. Since sub-directories can only be known by listing their parent, a sub-tree is split
+    lazily while it is being paginated:
+
+    - A sub-tree that fits in a single page is kept as-is: it costs one request, exactly like it would
+      without parallelization. Small sub-trees are therefore never split (no request is wasted).
+    - Once `_MIN_PAGES_BEFORE_SPLIT` pages have been fetched without reaching the end of the sub-tree,
+      the sub-tree is split if (and only if) the sub-directories seen so far hold enough entries to
+      "pay" for their own request (see `_is_worth_splitting`). In that case the directory is listed
+      one level deep, and each of its sub-directories is dispatched to a new task applying the same
+      logic recursively. If splitting is not worth it, the pagination is simply followed to its end.
+
+    The number of requests stays close to the theoretical minimum (one request per 1000 entries)
+    while independent directories are listed concurrently. Listing `datasets/allenai/objaverse`
+    (~800k files spread in 160 sub-directories) goes from ~20 minutes to a few seconds.
+    """
+
+    def __init__(self, fs: "HfFileSystem", expand_info: bool, maxdepth: int | None):
+        self.fs = fs
+        self.expand_info = expand_info
+        self.maxdepth = maxdepth
+        self.max_threads = fs.max_threads
+        self.pool = ThreadPoolExecutor(max_workers=self.max_threads, thread_name_prefix="hf-ls-tree")
+        # Lock protecting the shared state below (and signaling task completion)
+        self.lock = threading.Condition()
+        self.pending_tasks = 0
+        self.error: BaseException | None = None
+        self.out: list[dict[str, Any]] = []
+        self.listings: dict[str, list[dict[str, Any]]] = {}
+
+    def run(self, resolved_path: HfFileSystemResolvedRepositoryPath) -> list[dict[str, Any]]:
+        """List the full tree below `resolved_path` and return the path infos (in any order)."""
+        self._submit(resolved_path, depth=1)
+        try:
+            with self.lock:
+                while self.pending_tasks:
+                    self.lock.wait()
+        finally:
+            # On the happy path all tasks are done (`pending_tasks` reached 0). Otherwise, e.g. on a
+            # keyboard interrupt, cancel the tasks that haven't started yet and wait for the in-flight
+            # requests to complete.
+            self.pool.shutdown(wait=True, cancel_futures=True)
+        if self.error is not None:
+            raise self.error
+        return self.out
+
+    def _submit(self, resolved_path: HfFileSystemResolvedRepositoryPath, depth: int) -> None:
+        """Dispatch the listing of a sub-tree to the thread pool (no-op if the listing already failed)."""
+        with self.lock:
+            if self.error is not None:
+                return
+            self.pending_tasks += 1
+        self.pool.submit(self._run_task, resolved_path, depth)
+
+    def _run_task(self, resolved_path: HfFileSystemResolvedRepositoryPath, depth: int) -> None:
+        try:
+            with self.lock:
+                failed = self.error is not None
+            if not failed:
+                self._list_subtree(resolved_path, depth)
+        except BaseException as exc:
+            with self.lock:
+                if self.error is None:
+                    self.error = exc
+        finally:
+            with self.lock:
+                self.pending_tasks -= 1
+                self.lock.notify_all()
+
+    def _list_subtree(self, resolved_path: HfFileSystemResolvedRepositoryPath, depth: int) -> None:
+        """List a single sub-tree, splitting it in sub-directories if it is worth it.
+
+        `depth` is the depth (relative to the root of the listing) of the direct children of
+        `resolved_path`.
+        """
+        if self.maxdepth is not None and depth >= self.maxdepth:
+            # Entries below the direct children are not requested: listing one level deep is enough.
+            # Note the Hub `tree` endpoint knows nothing about `maxdepth`, so a recursive listing would
+            # fetch the full sub-tree (potentially millions of entries) just to drop most of them.
+            self._list_children(resolved_path, depth)
+            return
+
+        entries: list[RepoFile | RepoFolder] = []
+        entries_per_folder: dict[str, int] = {}  # number of entries listed below each direct sub-directory
+        max_page_size = 0
+        prefix = resolved_path.path + "/" if resolved_path.path else ""
+
+        pages = self.fs._api._iter_repo_tree_pages(
+            resolved_path.repo_id,
+            resolved_path.path_in_repo or None,
+            recursive=True,
+            expand=self.expand_info,
+            revision=resolved_path.revision,
+            repo_type=resolved_path.repo_type,
+        )
+        for page_nb, (page, finished) in enumerate(pages, start=1):
+            entries.extend(page)
+            max_page_size = max(max_page_size, len(page))
+            for path_info in page:
+                if not path_info.path.startswith(prefix):
+                    continue
+                folder, sep, _ = path_info.path[len(prefix) :].partition("/")
+                if sep:  # entry located in a sub-directory of the listed directory
+                    entries_per_folder[folder] = entries_per_folder.get(folder, 0) + 1
+            if (
+                not finished
+                and page_nb >= _MIN_PAGES_BEFORE_SPLIT
+                and self._is_worth_splitting(entries_per_folder, max_page_size)
+            ):
+                self._list_children(resolved_path, depth)
+                return
+
+        # Pagination went through: `entries` contains the full sub-tree
+        self._record(resolved_path, depth, entries)
+
+    def _is_worth_splitting(self, entries_per_folder: dict[str, int], page_size: int) -> bool:
+        """Whether a sub-tree should be listed directory by directory instead of page by page.
+
+        Splitting a directory holding `S` sub-directories costs about `2 * S` extra requests (at least
+        one request per sub-directory, plus rounding up the pages). It only pays off once each
+        sub-directory holds enough entries for the parallelization to win over a single sequential
+        pagination, that is roughly `2 * page_size / max_threads` entries each.
+        """
+        if not entries_per_folder:
+            return False
+        min_entries_per_folder = max(8, 2 * page_size // (self.max_threads - 1))
+        return sum(entries_per_folder.values()) >= min_entries_per_folder * len(entries_per_folder)
+
+    def _list_children(self, resolved_path: HfFileSystemResolvedRepositoryPath, depth: int) -> None:
+        """List the direct children of a directory and dispatch each sub-directory to a new task.
+
+        Sub-directories are only dispatched as long as their content is at a depth that is still
+        requested (see `maxdepth`).
+        """
+        children = list(
+            self.fs._api.list_repo_tree(
+                resolved_path.repo_id,
+                resolved_path.path_in_repo or None,
+                recursive=False,
+                expand=self.expand_info,
+                revision=resolved_path.revision,
+                repo_type=resolved_path.repo_type,
+            )
+        )
+        self._record(resolved_path, depth, children)
+        if self.maxdepth is not None and depth + 1 > self.maxdepth:
+            return
+        for path_info in children:
+            if isinstance(path_info, RepoFolder):
+                self._submit(replace(resolved_path, path_in_repo=path_info.path), depth + 1)
+
+    def _record(
+        self,
+        resolved_path: HfFileSystemResolvedRepositoryPath,
+        depth: int,
+        path_infos: Iterable[RepoFile | RepoFolder],
+    ) -> None:
+        """Store freshly listed entries in the (shared) output and directory cache."""
+        path = resolved_path.unresolve()
+        out: list[dict[str, Any]] = []
+        listings: dict[str, list[dict[str, Any]]] = {}
+        for path_info in path_infos:
+            cache_path = resolved_path.root + "/" + path_info.path
+            cache_path_info = _cache_info_from_path_info(path_info, cache_path)
+            if cache_path != path:  # listing a file returns the file itself, not its folder's listing
+                listings.setdefault(self.fs._parent(cache_path), []).append(cache_path_info)
+            entry_depth = depth + cache_path[len(path) :].count("/") - 1
+            if self.maxdepth is None or entry_depth <= self.maxdepth:
+                out.append(cache_path_info)
+        with self.lock:
+            self.out.extend(out)
+            for parent, path_infos_ in listings.items():
+                self.listings.setdefault(parent, []).extend(path_infos_)
 
 
 class _Cached(_cached_base):
@@ -180,6 +409,10 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
             Block size for reading and writing files.
         expand_info (`bool`, *optional*):
             Whether to expand the information of the files.
+        max_threads (`int`, *optional*):
+            Maximum number of concurrent requests used to list large directories in parallel (see
+            [`~HfFileSystem.find`]). Defaults to the `HF_HUB_FS_MAX_THREADS` environment variable, or 16.
+            Set it to 1 to disable parallel listings.
         **storage_options (`dict`, *optional*):
             Additional options for the filesystem. See [fsspec documentation](https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.spec.AbstractFileSystem.__init__).
 
@@ -218,6 +451,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         token: bool | str | None = None,
         block_size: int | None = None,
         expand_info: bool | None = None,
+        max_threads: int | None = None,
         **storage_options,
     ):
         super().__init__(*args, **storage_options)
@@ -226,6 +460,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         self._api = HfApi(endpoint=endpoint, token=token)
         self.block_size = block_size
         self.expand_info = expand_info
+        self.max_threads = max(1, max_threads or constants.HF_HUB_FS_MAX_THREADS)
         # Maps (repo_type, repo_id, revision) to a 2-tuple with:
         #  * the 1st element indicating whether the repository and the revision exist
         #  * the 2nd element being the exception raised if the repository or revision doesn't exist
@@ -540,6 +775,9 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         resolved_path = self.resolve_path(path, revision=revision)
         path = resolved_path.unresolve()
         root_path = resolved_path.root
+        if recursive and maxdepth == 1:
+            # Only the direct children are requested: no need to list (and paginate through) the full tree
+            recursive = False
         maxdepth = maxdepth if recursive else 1
 
         out = []
@@ -605,6 +843,18 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
                     prefix=resolved_path.path,
                     recursive=recursive,
                 )
+            elif recursive and self.max_threads > 1:
+                # A `tree` request returns at most one page of entries and pages are cursor-based: they
+                # can only be fetched one after the other. Large repos are therefore listed sub-tree by
+                # sub-tree, in parallel, to avoid waiting on thousands of sequential requests.
+                listing = _ParallelRepoTreeListing(self, expand_info=expand_info, maxdepth=maxdepth)
+                out = listing.run(resolved_path)
+                # replace cached listings, only once the listing is complete
+                self.dircache.update(listing.listings)
+                if not out and not listing.listings:
+                    # Empty directory: `info()` on a child path reads `dircache[parent]`
+                    self.dircache[path] = []
+                return out
             else:
                 tree = self._api.list_repo_tree(
                     resolved_path.repo_id,
@@ -617,41 +867,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
             listings: dict[str, list[dict[str, Any]]] = {}
             for path_info in tree:
                 cache_path = root_path + "/" + path_info.path
-                if isinstance(path_info, RepoFile):
-                    cache_path_info = {
-                        "name": cache_path,
-                        "size": path_info.size,
-                        "type": "file",
-                        "blob_id": path_info.blob_id,
-                        "lfs": path_info.lfs,
-                        "xet_hash": path_info.xet_hash,
-                        "last_commit": path_info.last_commit,
-                        "security": path_info.security,
-                    }
-                elif isinstance(path_info, BucketFile):
-                    cache_path_info = {
-                        "name": cache_path,
-                        "size": path_info.size,
-                        "type": "file",
-                        "xet_hash": path_info.xet_hash,
-                        "mtime": path_info.mtime,
-                        "uploaded_at": path_info.uploaded_at,
-                    }
-                elif isinstance(path_info, RepoFolder):
-                    cache_path_info = {
-                        "name": cache_path,
-                        "size": 0,
-                        "type": "directory",
-                        "tree_id": path_info.tree_id,
-                        "last_commit": path_info.last_commit,
-                    }
-                else:
-                    cache_path_info = {
-                        "name": cache_path,
-                        "size": 0,
-                        "type": "directory",
-                        "uploaded_at": path_info.uploaded_at,
-                    }
+                cache_path_info = _cache_info_from_path_info(path_info, cache_path)
                 if cache_path != path:  # listing a bucket file returns the file, not its folder's listing
                     listings.setdefault(self._parent(cache_path), []).append(cache_path_info)
                 depth = cache_path[len(path) :].count("/")
@@ -759,6 +975,11 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         List all files below path.
 
         For more details, refer to [fsspec documentation](https://filesystem-spec.readthedocs.io/en/latest/api.html#fsspec.spec.AbstractFileSystem.find).
+
+        > [!TIP]
+        > Large repositories are listed directory by directory, in parallel, to work around the
+        > cursor-based pagination of the Hub `tree` endpoint. Tune this with the `max_threads`
+        > argument of [`HfFileSystem`] or the `HF_HUB_FS_MAX_THREADS` environment variable.
 
         Args:
             path (`str`):
