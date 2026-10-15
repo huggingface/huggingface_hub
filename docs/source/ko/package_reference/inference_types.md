@@ -332,6 +332,16 @@ rendered properly in your Markdown viewer.
 
 
 
+## text_ranking[[huggingface_hub.TextRankingInput]]
+
+[[autodoc]] huggingface_hub.TextRankingInput
+
+[[autodoc]] huggingface_hub.TextRankingInputData
+
+[[autodoc]] huggingface_hub.TextRankingOutputElement
+
+
+
 ## text_to_audio[[huggingface_hub.TextToAudioGenerationParameters]]
 
 [[autodoc]] huggingface_hub.TextToAudioGenerationParameters
