@@ -325,9 +325,9 @@ class RepoCard:
         kwargs.update(template_kwargs)  # Template_kwargs have priority
 
         if template_path is not None:
-            template_str = Path(template_path).read_text()
+            template_str = Path(template_path).read_text(encoding="utf-8")
         if template_str is None:
-            template_str = Path(cls.default_template_path).read_text()
+            template_str = Path(cls.default_template_path).read_text(encoding="utf-8")
         template = jinja2.Template(template_str)
         content = template.render(card_data=card_data.to_yaml(), **kwargs)
         return cls(content)
