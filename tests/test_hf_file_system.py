@@ -855,6 +855,26 @@ def test_resolve_path_with_refs_revision() -> None:
         assert resolved.unresolve() == "username/my_model@refs/pr/10"
 
 
+@pytest.mark.parametrize(
+    "path,expected_url",
+    [
+        ("my-org/resolve/data", "https://huggingface.co/my-org/resolve/tree/main/data"),
+        ("resolve/my-model/data", "https://huggingface.co/resolve/my-model/tree/main/data"),
+        ("datasets/my-org/resolve/data", "https://huggingface.co/datasets/my-org/resolve/tree/main/data"),
+        ("buckets/my-org/resolve/data", "https://huggingface.co/buckets/my-org/resolve/tree/data"),
+    ],
+)
+def test_url_directory_with_resolve_in_id(path: str, expected_url: str) -> None:
+    """Only the '/resolve/' route segment is rewritten to '/tree/', not a 'resolve' namespace or repo name."""
+    fs = HfFileSystem(endpoint="https://huggingface.co")
+    with (
+        patch.object(fs, "_repo_and_revision_exist", return_value=(True, None)),
+        patch.object(fs, "_bucket_exists", return_value=(True, None)),
+        patch.object(fs, "isdir", return_value=True),
+    ):
+        assert fs.url(path) == expected_url
+
+
 def mock_repo_info(fs: HfFileSystem):
     def _inner(repo_id: str, *, revision: str, repo_type: str, **kwargs):
         if repo_id not in ["username/my_dataset", "username/my_model"]:

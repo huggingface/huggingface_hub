@@ -1075,8 +1075,11 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         """
         resolved_path = self.resolve_path(path)
         if isinstance(resolved_path, HfFileSystemResolvedBucketPath):
-            url = f"{self.endpoint}/buckets/{resolved_path.bucket_id}/resolve/{quote(resolved_path.path)}"
+            base_url = f"{self.endpoint}/buckets/{resolved_path.bucket_id}"
+            url = f"{base_url}/resolve/{quote(resolved_path.path)}"
         else:
+            repo_type_prefix = constants.REPO_TYPES_URL_PREFIXES.get(resolved_path.repo_type, "")
+            base_url = f"{self.endpoint}/{repo_type_prefix}{resolved_path.repo_id}"
             url = hf_hub_url(
                 resolved_path.repo_id,
                 resolved_path.path_in_repo,
@@ -1085,7 +1088,8 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
                 endpoint=self.endpoint,
             )
         if self.isdir(path):
-            url = url.replace("/resolve/", "/tree/", 1)
+            # Only rewrite the route segment: the repo/bucket id itself may contain "resolve"
+            url = base_url + url[len(base_url) :].replace("/resolve/", "/tree/", 1)
         return url
 
     def _get_xet_file_data(
