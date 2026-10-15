@@ -246,7 +246,11 @@ class _ParallelRepoTreeListing:
                 folder, sep, _ = path_info.path[len(prefix) :].partition("/")
                 if sep:  # entry located in a sub-directory of the listed directory
                     entries_per_folder[folder] = entries_per_folder.get(folder, 0) + 1
-            if not finished and page_nb >= _MIN_PAGES_BEFORE_SPLIT and self._is_worth_splitting(entries_per_folder, max_page_size):
+            if (
+                not finished
+                and page_nb >= _MIN_PAGES_BEFORE_SPLIT
+                and self._is_worth_splitting(entries_per_folder, max_page_size)
+            ):
                 self._list_children(resolved_path, depth)
                 return
 
