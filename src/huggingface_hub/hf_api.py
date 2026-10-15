@@ -6615,8 +6615,7 @@ class HfApi:
 
         We first check if the repo has a single safetensors file or a sharded safetensors repo. If it's a single
         safetensors file, we parse the metadata from this file. If it's a sharded safetensors repo, we parse the
-        metadata from the index file and then parse the metadata from each shard (fetched in a single request for
-        models on `main`).
+        metadata from the index file and then parse the metadata from each shard.
 
         To parse metadata from a single safetensors file, use [`parse_safetensors_file_metadata`].
 
@@ -6721,10 +6720,8 @@ class HfApi:
 
             weight_map = index.get("weight_map", {})
 
-            # Fetch metadata per shard: for models on `main`, the Hub serves every shard header in a single request
+            # Fetch metadata per shard
             files_metadata = {}
-            if repo_type in (None, constants.REPO_TYPE_MODEL) and revision in (None, constants.DEFAULT_REVISION):
-                files_metadata = self._fetch_safetensors_shard_headers(repo_id, token=token, timeout=timeout)
 
             def _parse(filename: str) -> None:
                 files_metadata[filename] = self.parse_safetensors_file_metadata(
@@ -6739,15 +6736,12 @@ class HfApi:
             from .utils import hf_thread_map
             from .utils import tqdm as hf_tqdm
 
-            # Otherwise (other revision, `main` updated since the index was downloaded...), parse each shard header
-            if set(files_metadata) != set(weight_map.values()):
-                files_metadata.clear()
-                hf_thread_map(
-                    _parse,
-                    set(weight_map.values()),
-                    desc="Parse safetensors files",
-                    tqdm_class=hf_tqdm,
-                )
+            hf_thread_map(
+                _parse,
+                set(weight_map.values()),
+                desc="Parse safetensors files",
+                tqdm_class=hf_tqdm,
+            )
 
             return SafetensorsRepoMetadata(
                 metadata=index.get("metadata", None),
@@ -6761,25 +6755,75 @@ class HfApi:
                 f"'{repo_id}' is not a safetensors repo. Couldn't find '{constants.SAFETENSORS_INDEX_FILE}' or '{constants.SAFETENSORS_SINGLE_FILE}' files."
             )
 
-    def _fetch_safetensors_shard_headers(
-        self, repo_id: str, *, token: bool | str | None, timeout: float | None
-    ) -> dict[str, SafetensorsFileMetadata]:
-        """Headers of every shard of a sharded model on `main` in one request, or an empty dict if unavailable."""
+    def fetch_sharded_headers_from_hub(
+        self,
+        repo_id: str,
+        *,
+        filename: str = constants.SAFETENSORS_INDEX_FILE,
+        revision: str | None = None,
+        token: bool | str | None = None,
+        timeout: float | None = constants.HF_HUB_DOWNLOAD_TIMEOUT,
+    ) -> SafetensorsRepoMetadata | None:
+        """
+        Get the metadata of every shard of a sharded safetensors model on `main` from the Hub in a single request,
+        instead of [`get_safetensors_metadata`] parsing each shard header. Hugging Face Hub only.
+
+        Args:
+            repo_id (`str`):
+                A user or an organization name and a repo name separated by a `/`.
+            filename (`str`, *optional*):
+                Path of the safetensors index file in the repo. Defaults to `"model.safetensors.index.json"`.
+            revision (`str`, *optional*):
+                Only the `"main"` branch (the default) is served: other revisions return `None`.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+            timeout (`float`, *optional*, defaults to 10):
+                How many seconds to wait for the server to send data before giving up. Set to `None` to disable the
+                timeout (not recommended, as a stalled connection can hang the call indefinitely).
+
+        Returns:
+            [`SafetensorsRepoMetadata`] or `None`: the same metadata as [`get_safetensors_metadata`], or `None` if the
+            Hub can't serve it (other revision, files it can't parse...).
+
+        Example:
+            ```py
+            >>> metadata = fetch_sharded_headers_from_hub("HuggingFaceH4/zephyr-7b-beta")
+            >>> len(metadata.files_metadata)
+            8
+            ```
+        """
+        if revision not in (None, constants.DEFAULT_REVISION):
+            return None
         try:
             response = get_session().get(
-                f"{self.endpoint}/api/models/{repo_id}/safetensors-metadata/{constants.SAFETENSORS_INDEX_FILE}",
+                f"{self.endpoint}/api/models/{repo_id}/safetensors-metadata/{quote(filename, safe='/')}",
                 headers=self._build_hf_headers(token=token),
                 timeout=timeout,
             )
             hf_raise_for_status(response)
+            content = response.json()
             context_msg = f"repo '{repo_id}', revision '{constants.DEFAULT_REVISION}'"
-            return {
-                filename: _safetensors_file_metadata_from_header(header, filename, context_msg)
-                for filename, header in response.json()["headers"].items()
+            files_metadata = {
+                shard: _safetensors_file_metadata_from_header(header, shard, context_msg)
+                for shard, header in content["headers"].items()
             }
-        except Exception as e:  # The caller falls back to parsing each shard
-            logger.debug(f"Couldn't fetch the safetensors shard headers of '{repo_id}' in one request: {e}")
-            return {}
+            return SafetensorsRepoMetadata(
+                metadata=content["index"].get("metadata"),
+                sharded=True,
+                # The response leaves out the index's weight_map, which repeats the tensor names of the shard headers
+                weight_map={
+                    tensor: shard
+                    for shard, file_metadata in files_metadata.items()
+                    for tensor in file_metadata.tensors
+                },
+                files_metadata=files_metadata,
+            )
+        except Exception as e:
+            logger.debug(f"Couldn't fetch the safetensors headers of '{repo_id}' from the Hub: {e}")
+            return None
 
     def parse_safetensors_file_metadata(
         self,
@@ -15364,6 +15408,7 @@ permanently_delete_lfs_files = api.permanently_delete_lfs_files
 
 # Safetensors helpers
 get_safetensors_metadata = api.get_safetensors_metadata
+fetch_sharded_headers_from_hub = api.fetch_sharded_headers_from_hub
 parse_safetensors_file_metadata = api.parse_safetensors_file_metadata
 
 # Background jobs
