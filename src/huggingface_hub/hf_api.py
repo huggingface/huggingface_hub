@@ -107,6 +107,7 @@ from .utils import (
     SafetensorsParsingError,
     SafetensorsRepoMetadata,
     TensorInfo,
+    _paginate_pages,
     build_hf_headers,
     chunk_iterable,
     experimental,
@@ -118,7 +119,6 @@ from .utils import (
     http_backoff,
     logging,
     paginate,
-    paginate_pages,
     parse_datetime,
     parse_hf_uri,
     parse_xet_file_data_from_response,
@@ -3961,7 +3961,7 @@ class HfApi:
             ]
             ```
         """
-        for page in self._iter_repo_tree_pages(
+        for page, _ in self._iter_repo_tree_pages(
             repo_id,
             path_in_repo,
             recursive=recursive,
@@ -3982,8 +3982,8 @@ class HfApi:
         revision: str | None = None,
         repo_type: str | None = None,
         token: str | bool | None = None,
-    ) -> Iterable[list[RepoFile | RepoFolder]]:
-        """Same as [`HfApi.list_repo_tree`] but yields the results page by page.
+    ) -> Iterable[tuple[list[RepoFile | RepoFolder], bool]]:
+        """Same as [`HfApi.list_repo_tree`] but yields the results page by page and with a `finished` boolean.
 
         Internal method: pagination is capped by the Hub (1000 entries per page, 50 when `expand=True`)
         and is cursor-based, so listing a large tree requires to follow the pages one by one. Yielding
@@ -3996,10 +3996,16 @@ class HfApi:
 
         encoded_path_in_repo = "/" + quote(path_in_repo, safe="") if path_in_repo else ""
         tree_url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/tree/{revision}{encoded_path_in_repo}"
-        for page in paginate_pages(path=tree_url, headers=headers, params={"recursive": recursive, "expand": expand}):
-            yield [
-                RepoFile(**path_info) if path_info["type"] == "file" else RepoFolder(**path_info) for path_info in page
-            ]
+        for page, finished in _paginate_pages(
+            path=tree_url, headers=headers, params={"recursive": recursive, "expand": expand}
+        ):
+            yield (
+                [
+                    RepoFile(**path_info) if path_info["type"] == "file" else RepoFolder(**path_info)
+                    for path_info in page
+                ],
+                finished,
+            )
 
     @validate_hf_hub_args
     def verify_repo_checksums(

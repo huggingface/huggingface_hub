@@ -103,8 +103,8 @@ _SUBMOD_ATTRS = {
         "set_client_factory",
     ],
     "_pagination": [
+        "_paginate_pages",
         "paginate",
-        "paginate_pages",
     ],
     "_paths": [
         "DEFAULT_IGNORE_PATTERNS",
@@ -339,8 +339,8 @@ if TYPE_CHECKING:  # pragma: no cover
         set_client_factory,  # noqa: F401
     )
     from ._pagination import (
+        _paginate_pages,  # noqa: F401
         paginate,  # noqa: F401
-        paginate_pages,  # noqa: F401
     )
     from ._paths import (
         DEFAULT_IGNORE_PATTERNS,  # noqa: F401

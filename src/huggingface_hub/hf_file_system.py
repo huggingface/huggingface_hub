@@ -237,7 +237,7 @@ class _ParallelRepoTreeListing:
             revision=resolved_path.revision,
             repo_type=resolved_path.repo_type,
         )
-        for page_nb, page in enumerate(pages, start=1):
+        for page_nb, (page, finished) in enumerate(pages, start=1):
             entries.extend(page)
             max_page_size = max(max_page_size, len(page))
             for path_info in page:
@@ -246,7 +246,7 @@ class _ParallelRepoTreeListing:
                 folder, sep, _ = path_info.path[len(prefix) :].partition("/")
                 if sep:  # entry located in a sub-directory of the listed directory
                     entries_per_folder[folder] = entries_per_folder.get(folder, 0) + 1
-            if page_nb >= _MIN_PAGES_BEFORE_SPLIT and self._is_worth_splitting(entries_per_folder, max_page_size):
+            if not finished and page_nb >= _MIN_PAGES_BEFORE_SPLIT and self._is_worth_splitting(entries_per_folder, max_page_size):
                 self._list_children(resolved_path, depth)
                 return
 
