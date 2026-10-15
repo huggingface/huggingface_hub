@@ -2552,6 +2552,21 @@ class TestHfApiPublicProduction:
 
         assert info.parameter_count == {"BF16": 7241732096}
 
+    def test_fetch_sharded_headers_from_hub(self, api: HfApi) -> None:
+        info = api.fetch_sharded_headers_from_hub("HuggingFaceH4/zephyr-7b-beta")
+        assert info is not None
+        assert info.sharded
+        assert info.parameter_count == {"BF16": 7241732096}
+
+        # Same as parsing each shard header
+        parsed = api.get_safetensors_metadata("HuggingFaceH4/zephyr-7b-beta")
+        assert info.files_metadata == parsed.files_metadata
+        assert info.weight_map == parsed.weight_map
+        assert info.metadata == parsed.metadata
+
+    def test_fetch_sharded_headers_from_hub_other_revision(self, api: HfApi) -> None:
+        assert api.fetch_sharded_headers_from_hub("HuggingFaceH4/zephyr-7b-beta", revision="refs/pr/1") is None
+
     def test_not_a_safetensors_repo(self, api: HfApi) -> None:
         with pytest.raises(NotASafetensorsRepoError):
             api.get_safetensors_metadata("huggingface-hub-ci/test_safetensors_metadata")
