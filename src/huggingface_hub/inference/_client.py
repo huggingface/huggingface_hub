@@ -257,9 +257,22 @@ class InferenceClient:
             request_parameters.headers["Accept"] = "image/png"
 
         try:
-            response = self.exit_stack.enter_context(
-                get_session().stream(
-                    "POST",
+            if stream:
+                response = self.exit_stack.enter_context(
+                    get_session().stream(
+                        "POST",
+                        request_parameters.url,
+                        json=request_parameters.json,
+                        content=request_parameters.data,
+                        headers=request_parameters.headers,
+                        cookies=self.cookies,
+                        timeout=self.timeout,
+                    )
+                )
+                hf_raise_for_status(response)
+                return response.iter_lines()
+            else:
+                response = get_session().post(
                     request_parameters.url,
                     json=request_parameters.json,
                     content=request_parameters.data,
@@ -267,12 +280,8 @@ class InferenceClient:
                     cookies=self.cookies,
                     timeout=self.timeout,
                 )
-            )
-            hf_raise_for_status(response)
-            if stream:
-                return response.iter_lines()
-            else:
-                return response.read()
+                hf_raise_for_status(response)
+                return response.content
         except httpx2.TimeoutException as error:
             # Convert any httpx timeout to a `InferenceTimeoutError`
             raise InferenceTimeoutError(f"Inference call timed out: {request_parameters.url}") from error  # type: ignore
