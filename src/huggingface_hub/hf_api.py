@@ -11373,8 +11373,11 @@ class HfApi:
         filenames = self.list_repo_files(repo_id=repo_id, revision=revision, repo_type=repo_type, token=token)
 
         # Compute relative path in repo
-        if path_in_repo and path_in_repo not in (".", "./"):
-            path_in_repo = path_in_repo.strip("/") + "/"  # harmonize
+        # Harmonize `path_in_repo` the same way `CommitOperationAdd` does, so that files are deleted from the folder
+        # they are uploaded to: "sub", "/sub/" and "./sub" all mean "sub/", while "", ".", "./" and "/" mean the root.
+        path_in_repo = path_in_repo.strip("/").removeprefix("./")
+        if path_in_repo and path_in_repo != ".":
+            path_in_repo += "/"
             relpath_to_abspath = {
                 file[len(path_in_repo) :]: file for file in filenames if file.startswith(path_in_repo)
             }
