@@ -20,6 +20,7 @@ import time
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import httpx2
 import numpy as np
 import pytest
 from PIL import Image
@@ -47,6 +48,7 @@ from huggingface_hub import (
 from huggingface_hub.errors import HfHubHTTPError, ValidationError
 from huggingface_hub.inference._common import (
     MimeBytes,
+    RequestParameters,
     _as_url,
     _open_as_mime_bytes,
     _stream_chat_completion_response,
@@ -1279,3 +1281,59 @@ def test_as_url_with_pil_image(image_file: str):
     pil_image.save(buffer, format="PNG")
     b64_encoded = base64.b64encode(buffer.getvalue()).decode()
     assert png_url == f"data:image/png;base64,{b64_encoded}"
+
+
+def test_inner_post_exit_stack_leak_prevention(mocker):
+    """Test that non-streaming requests do not leak callbacks into client.exit_stack.
+
+    See https://github.com/huggingface/huggingface_hub/issues/5169
+    """
+    client = InferenceClient()
+    request_params = RequestParameters(
+        url="http://127.0.0.1:8000/v1/chat/completions",
+        task="conversational",
+        model=None,
+        json={"messages": [{"role": "user", "content": "hi"}]},
+        data=None,
+        headers={"Authorization": "Bearer token"},
+    )
+
+    mock_response = mocker.MagicMock(spec=httpx2.Response)
+    mock_response.status_code = 200
+    mock_response.content = b'{"choices": []}'
+    mock_response.read.return_value = b'{"choices": []}'
+    mock_response.headers = {}
+    mock_response.cookies = {}
+
+    mock_session = mocker.MagicMock()
+    mock_session.post.return_value = mock_response
+    mock_session.stream.return_value.__enter__.return_value = mock_response
+
+    mocker.patch("huggingface_hub.inference._client.get_session", return_value=mock_session)
+
+    # 1. Non-streaming call should NOT add any callback to exit_stack
+    res = client._inner_post(request_params, stream=False)
+    assert res == b'{"choices": []}'
+    mock_session.post.assert_called_once_with(
+        request_params.url,
+        json=request_params.json,
+        content=request_params.data,
+        headers=request_params.headers,
+        cookies=client.cookies,
+        timeout=client.timeout,
+    )
+    assert len(client.exit_stack._exit_callbacks) == 0
+
+    # 2. Multiple non-streaming calls still keep exit_stack clean
+    for _ in range(5):
+        client._inner_post(request_params, stream=False)
+    assert len(client.exit_stack._exit_callbacks) == 0
+
+    # 3. Streaming call DOES register into exit_stack
+    client._inner_post(request_params, stream=True)
+    mock_session.stream.assert_called_once()
+    assert len(client.exit_stack._exit_callbacks) == 1
+
+    # 4. Closing client clears exit_stack
+    client.close()
+    assert len(client.exit_stack._exit_callbacks) == 0
