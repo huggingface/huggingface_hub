@@ -234,6 +234,12 @@ class HfMount:
                 uri=raw,
                 msg=f"Mount path must be a non-empty absolute path starting with '/', got '{self.mount_path}'.",
             )
+        if self.read_only is None and self.mount_path.endswith((":ro", ":rw")):
+            raise HfUriError(
+                uri=raw,
+                msg="Mount path cannot end with ':ro' or ':rw' when read_only is None; "
+                "these suffixes are reserved for read-only/read-write flags.",
+            )
 
     def to_uri(self) -> str:
         """Render the mount as a canonical 'hf://' string.

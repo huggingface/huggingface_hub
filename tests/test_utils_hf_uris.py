@@ -598,6 +598,14 @@ MOUNT_FAILURE_CASES: list[tuple[str, str]] = [
 MOUNT_DIRECT_INIT_INVALID_CASES: list[tuple[dict, str]] = [
     ({"source": HfUri(type="model", id="org/repo"), "mount_path": "relative"}, "absolute path"),
     ({"source": HfUri(type="model", id="org/repo"), "mount_path": "/"}, "absolute path"),
+    (
+        {"source": HfUri(type="model", id="org/repo"), "mount_path": "/data:ro"},
+        "reserved for read-only/read-write flags",
+    ),
+    (
+        {"source": HfUri(type="model", id="org/repo"), "mount_path": "/data:rw"},
+        "reserved for read-only/read-write flags",
+    ),
 ]
 
 
@@ -699,3 +707,21 @@ def test_parse_hf_mount_failure(mount_str: str, error_substring: str) -> None:
 def test_hf_mount_direct_init_invalid(kwargs: dict, error_substring: str) -> None:
     with pytest.raises(HfUriError, match=error_substring):
         HfMount(**kwargs)
+
+
+@pytest.mark.parametrize(
+    ("mount_path", "read_only"),
+    [
+        ("/data:ro", True),
+        ("/data:ro", False),
+        ("/data:rw", True),
+        ("/data:rw", False),
+        ("/data:ro/file", None),
+        ("/data:rw/file", None),
+        ("/data:logs", None),
+        ("/data", None),
+    ],
+)
+def test_hf_mount_to_uri_roundtrip(mount_path: str, read_only: bool | None) -> None:
+    mount = HfMount(source=HfUri(type="model", id="org/repo"), mount_path=mount_path, read_only=read_only)
+    assert parse_hf_mount(mount.to_uri()) == mount
