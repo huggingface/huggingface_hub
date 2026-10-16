@@ -18,7 +18,8 @@ import shutil
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from stat import S_ISDIR
+from typing import Iterator, Literal
 
 from huggingface_hub.errors import CacheNotFound, CorruptedCacheException
 
@@ -791,16 +792,18 @@ def scan_cache_dir(cache_dir: str | Path | None = None) -> HFCacheInfo:
     # Per-repo sizes stay logical. The cache-wide total counts each shared payload once, including
     # store-only payloads no repo references anymore.
     store_marked = _shared_blobs.is_shared_blobs_dir(_shared_blobs.shared_blobs_dir(cache_dir))
-    repo_blob_paths = {
-        file.blob_path
+    # Repo blobs were just stat-ed by `_scan_cached_repo`: reuse their size instead of stat-ing them again.
+    repo_blob_sizes = {
+        file.blob_path: file.size_on_disk
         for repo in repos
         for revision in repo.revisions
         for file in revision.files
         if not store_marked or _shared_blobs.shared_blob_target(file.blob_path, cache_dir) is None
     }
-    physical_blob_paths = repo_blob_paths | _shared_blobs.shared_store_blob_paths(cache_dir)
-    physical_size = 0
-    for blob_path in physical_blob_paths:
+    physical_size = sum(repo_blob_sizes.values())
+    for blob_path in _shared_blobs.shared_store_blob_paths(cache_dir):
+        if blob_path in repo_blob_sizes:
+            continue
         try:
             physical_size += blob_path.stat().st_size
         except OSError:
@@ -852,7 +855,8 @@ def _scan_cached_repo(repo_path: Path) -> CachedRepoInfo:
         )
     repo_type = REPO_TYPES_MAPPING[repo_type_prefix]  # "models" -> "model"
 
-    blob_stats: dict[Path, os.stat_result] = {}  # Key is blob_path, value is blob stats
+    # Key is the blob path as a string (cheaper to hash than a `Path`), value is the blob `Path` and its stats
+    blob_stats: dict[str, tuple[Path, os.stat_result]] = {}
 
     snapshots_path = repo_path / "snapshots"
     refs_path = repo_path / "refs"
@@ -895,38 +899,45 @@ def _scan_cached_repo(repo_path: Path) -> CachedRepoInfo:
             raise CorruptedCacheException(f"Snapshots folder corrupted. Found a file: {revision_path}")
 
         cached_files = set()
-        for file_path in revision_path.glob("**/*"):
-            # glob("**/*") iterates over all files and directories -> skip directories
-            if file_path.is_dir():
-                continue
-
+        revision_blob_stats: dict[str, os.stat_result] = {}
+        for file_entry in _iter_dir_files(revision_path):
             # Keep the first symlink hop: a repo blob may itself point into the shared store, and
             # deletion must unlink the repo reference, not the shared payload.
-            if file_path.is_symlink():
-                blob_path = Path(os.path.abspath(file_path.parent / os.readlink(file_path)))
+            if file_entry.is_symlink():
+                blob_key = os.path.abspath(
+                    os.path.join(os.path.dirname(file_entry.path), os.readlink(file_entry.path))
+                )
             else:
-                blob_path = file_path
-            if not blob_path.exists():
-                raise CorruptedCacheException(f"Blob missing (broken symlink): {blob_path}")
+                blob_key = file_entry.path
 
-            if blob_path not in blob_stats:
-                blob_stats[blob_path] = blob_path.stat()
+            if blob_key in blob_stats:
+                blob_path, blob_stat = blob_stats[blob_key]
+            else:
+                try:
+                    blob_stat = os.stat(blob_key)
+                except OSError:
+                    raise CorruptedCacheException(f"Blob missing (broken symlink): {Path(blob_key)}") from None
+                if S_ISDIR(blob_stat.st_mode):
+                    continue  # symlink to a directory => skip it, like other directories
+                blob_path = Path(blob_key)
+                blob_stats[blob_key] = (blob_path, blob_stat)
+            revision_blob_stats[blob_key] = blob_stat
 
             cached_files.add(
                 CachedFileInfo(
-                    file_name=file_path.name,
-                    file_path=file_path,
-                    size_on_disk=blob_stats[blob_path].st_size,
+                    file_name=file_entry.name,
+                    file_path=Path(file_entry.path),
+                    size_on_disk=blob_stat.st_size,
                     blob_path=blob_path,
-                    blob_last_accessed=blob_stats[blob_path].st_atime,
-                    blob_last_modified=blob_stats[blob_path].st_mtime,
+                    blob_last_accessed=blob_stat.st_atime,
+                    blob_last_modified=blob_stat.st_mtime,
                 )
             )
 
         # Last modified is either the last modified blob file or the revision folder
         # itself if it is empty
         if len(cached_files) > 0:
-            revision_last_modified = max(blob_stats[file.blob_path].st_mtime for file in cached_files)
+            revision_last_modified = max(blob_stat.st_mtime for blob_stat in revision_blob_stats.values())
         else:
             revision_last_modified = revision_path.stat().st_mtime
 
@@ -935,9 +946,7 @@ def _scan_cached_repo(repo_path: Path) -> CachedRepoInfo:
                 commit_hash=revision_path.name,
                 files=frozenset(cached_files),
                 refs=frozenset(refs_by_hash.pop(revision_path.name, set())),
-                size_on_disk=sum(
-                    blob_stats[blob_path].st_size for blob_path in {file.blob_path for file in cached_files}
-                ),
+                size_on_disk=sum(blob_stat.st_size for blob_stat in revision_blob_stats.values()),
                 snapshot_path=revision_path,
                 last_modified=revision_last_modified,
             )
@@ -952,8 +961,8 @@ def _scan_cached_repo(repo_path: Path) -> CachedRepoInfo:
     # Last modified is either the last modified blob file or the repo folder itself if
     # no blob files has been found. Same for last accessed.
     if len(blob_stats) > 0:
-        repo_last_accessed = max(stat.st_atime for stat in blob_stats.values())
-        repo_last_modified = max(stat.st_mtime for stat in blob_stats.values())
+        repo_last_accessed = max(blob_stat.st_atime for _, blob_stat in blob_stats.values())
+        repo_last_modified = max(blob_stat.st_mtime for _, blob_stat in blob_stats.values())
     else:
         repo_stats = repo_path.stat()
         repo_last_accessed = repo_stats.st_atime
@@ -966,10 +975,30 @@ def _scan_cached_repo(repo_path: Path) -> CachedRepoInfo:
         repo_path=repo_path,
         repo_type=repo_type,  # type: ignore
         revisions=frozenset(cached_revisions),
-        size_on_disk=sum(stat.st_size for stat in blob_stats.values()),
+        size_on_disk=sum(blob_stat.st_size for _, blob_stat in blob_stats.values()),
         last_accessed=repo_last_accessed,
         last_modified=repo_last_modified,
     )
+
+
+def _iter_dir_files(directory: Path) -> Iterator[os.DirEntry]:
+    """Recursively yield every entry under `directory` that is not a real directory.
+
+    Same entries as `directory.glob("**/*")` minus the directories, but `os.scandir` gives the entry type for
+    free instead of one `stat` call per entry. Like `glob`, symlinks to directories are yielded (not followed)
+    and unreadable directories are skipped.
+    """
+    stack = [os.fspath(directory)]
+    while stack:
+        try:
+            with os.scandir(stack.pop()) as entries:
+                for entry in entries:
+                    if entry.is_dir(follow_symlinks=False):
+                        stack.append(entry.path)
+                    else:
+                        yield entry
+        except OSError:
+            continue
 
 
 def _format_size(num: int) -> str:
