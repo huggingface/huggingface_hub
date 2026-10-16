@@ -14,6 +14,7 @@
 import json
 import os
 import time
+from types import SimpleNamespace
 
 import pytest
 
@@ -100,6 +101,121 @@ class TestDetectAgent:
         monkeypatch.setattr(_detect_agent, "_registry", {"standardEnvVars": None, "harnesses": None})
         assert _detect_agent.detect_agent() is None
         assert _detect_agent.is_agent() is False
+
+
+class TestAllEnvironmentConditions:
+    @pytest.fixture
+    def registry_and_env(self, monkeypatch):
+        # Synthetic alternatives motivated by a user-reported Grok Bot shell context.
+        # No vendor process is launched, and detection reads neither host env nor network.
+        registry = {
+            "standardEnvVars": ["AI_AGENT", "AGENT"],
+            "harnesses": {
+                "grok-bot": {
+                    "envVars": {"SAND_AGENT": "1"},
+                    "envVarsAll": {
+                        "CURSOR_AGENT": "*",
+                        "SAND_MANIFEST_V2": "1",
+                        "SAND_SUPERVISOR_ENABLED": "1",
+                    },
+                },
+                "cursor-cli": {"envVars": {"CURSOR_AGENT": "*"}},
+                "devin": {},
+            },
+        }
+        env = {}
+        monkeypatch.setattr(_detect_agent, "_registry", registry)
+        monkeypatch.setattr(_detect_agent, "os", SimpleNamespace(environ=env))
+        return registry, env
+
+    @pytest.fixture
+    def cloud_env(self):
+        return {"CURSOR_AGENT": "1", "SAND_MANIFEST_V2": "1", "SAND_SUPERVISOR_ENABLED": "1"}
+
+    @pytest.mark.parametrize("cloud_marker", [None, "0"])
+    def test_any_branch_does_not_require_all_branch(self, registry_and_env, cloud_marker):
+        _, env = registry_and_env
+        env["SAND_AGENT"] = "1"
+        if cloud_marker is not None:
+            env["SAND_MANIFEST_V2"] = cloud_marker
+        assert _detect_agent.detect_agent() == "grok-bot"
+
+    def test_all_branch_precedes_shared_cursor_marker(self, registry_and_env, cloud_env):
+        _, env = registry_and_env
+        env.update(cloud_env)
+        assert _detect_agent.detect_agent() == "grok-bot"
+        assert _detect_agent.is_agent() is True
+
+    @pytest.mark.parametrize("name", ["CURSOR_AGENT", "SAND_MANIFEST_V2", "SAND_SUPERVISOR_ENABLED"])
+    @pytest.mark.parametrize("value", [None, ""])
+    def test_all_branch_requires_every_non_empty_value(self, registry_and_env, cloud_env, name, value):
+        _, env = registry_and_env
+        env.update(cloud_env)
+        if value is None:
+            del env[name]
+        else:
+            env[name] = value
+        expected = None if name == "CURSOR_AGENT" else "cursor-cli"
+        assert _detect_agent.detect_agent() == expected
+
+    @pytest.mark.parametrize("name", ["SAND_MANIFEST_V2", "SAND_SUPERVISOR_ENABLED"])
+    @pytest.mark.parametrize("value", ["0", "true", "2"])
+    def test_all_branch_requires_exact_sentinels(self, registry_and_env, cloud_env, name, value):
+        _, env = registry_and_env
+        env.update(cloud_env)
+        env[name] = value
+        assert _detect_agent.detect_agent() == "cursor-cli"
+
+    def test_all_branch_keeps_non_empty_wildcard_semantics(self, registry_and_env, cloud_env):
+        _, env = registry_and_env
+        env.update(cloud_env)
+        env["CURSOR_AGENT"] = "0"
+        assert _detect_agent.detect_agent() == "grok-bot"
+
+    def test_all_branch_without_any_branch(self, registry_and_env, cloud_env):
+        registry, env = registry_and_env
+        del registry["harnesses"]["grok-bot"]["envVars"]
+        env.update(cloud_env)
+        assert _detect_agent.detect_agent() == "grok-bot"
+
+    @pytest.mark.parametrize("group", [{}, None])
+    def test_empty_or_null_all_group_does_not_match(self, registry_and_env, group):
+        registry, env = registry_and_env
+        registry["harnesses"]["grok-bot"]["envVarsAll"] = group
+        assert _detect_agent.detect_agent() is None
+        env["CURSOR_AGENT"] = "1"
+        assert _detect_agent.detect_agent() == "cursor-cli"
+
+    def test_legacy_registry_without_all_group(self, registry_and_env, cloud_env):
+        registry, env = registry_and_env
+        del registry["harnesses"]["grok-bot"]["envVarsAll"]
+        env.update(cloud_env)
+        assert _detect_agent.detect_agent() == "cursor-cli"
+        env["SAND_AGENT"] = "1"
+        assert _detect_agent.detect_agent() == "grok-bot"
+
+    @pytest.mark.parametrize("standard_var", ["AI_AGENT", "AGENT"])
+    def test_standard_declaration_still_matches_when_all_group_fails(self, registry_and_env, standard_var):
+        _, env = registry_and_env
+        env.update({standard_var: "grok-bot", "CURSOR_AGENT": "1"})
+        assert _detect_agent.detect_agent() == "grok-bot"
+
+    def test_standard_declaration_does_not_override_earlier_match(self, registry_and_env, cloud_env):
+        _, env = registry_and_env
+        env.update(cloud_env)
+        env["AI_AGENT"] = "cursor-cli"
+        assert _detect_agent.detect_agent() == "grok-bot"
+
+    def test_unknown_standard_declaration_still_returns_unknown(self, registry_and_env):
+        _, env = registry_and_env
+        env["AGENT"] = "unregistered-harness"
+        assert _detect_agent.detect_agent() == "unknown"
+
+    def test_all_branch_does_not_add_prefix_matching(self, registry_and_env):
+        registry, env = registry_and_env
+        registry["harnesses"]["grok-bot"]["envVarsAll"] = {"PREFIX_VAR": "foo*"}
+        env["PREFIX_VAR"] = "foobar"
+        assert _detect_agent.detect_agent() is None
 
 
 class TestRegistryLoading:

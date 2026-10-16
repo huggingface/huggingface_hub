@@ -259,6 +259,37 @@ user as possible.
 
 [[autodoc]] huggingface_hub.errors.OfflineModeIsEnabled
 
+## Agent harness registry matching
+
+Agent detection uses the [Hub's harness registry](https://huggingface.co/docs/hub/agents-overview#register-your-agent-harness).
+An entry can contain `envVars`, where any matching variable identifies the harness, and an optional
+`envVarsAll`, where every variable must match. These are alternatives: either group can identify the harness.
+An empty `envVarsAll` group never matches. Both groups use `"*"` for a non-empty value and otherwise require
+an exact string match; this Python client does not implement prefix patterns.
+
+For example, the following registry entry keeps a local shell marker while requiring three shared markers
+together for another execution environment:
+
+```json
+{
+  "envVars": { "SAND_AGENT": "1" },
+  "envVarsAll": {
+    "CURSOR_AGENT": "*",
+    "SAND_MANIFEST_V2": "1",
+    "SAND_SUPERVISOR_ENABLED": "1"
+  }
+}
+```
+
+This example is based on user-provided Grok Bot shell observations, not an independently reproduced run or a
+vendor guarantee of a stable interface. It contains no session identifiers or endpoint values. A match identifies
+inherited environment context, not an authenticated immediate caller.
+
+Entries remain ordered: each harness's environment groups are checked before its `AI_AGENT` / `AGENT` declaration
+fallback. Registries without `envVarsAll` behave as before. Older clients ignore the new field and can still match
+`envVars`; matching the combined group requires the registry API to preserve the new field and a client with
+`envVarsAll` support.
+
 ## Telemetry
 
 `huggingface_hub` includes a helper to send telemetry data. This information helps us debug issues and prioritize new features.

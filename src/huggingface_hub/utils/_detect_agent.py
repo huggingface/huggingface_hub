@@ -50,9 +50,13 @@ _REGISTRY_FETCH_TIMEOUT = 3
 
 
 class HarnessInfo(TypedDict, total=False):
-    """A single harness entry. `envVars` maps an env var name to a match pattern (see `_env_vars_match`)."""
+    """A harness matches any `envVars` entry or every entry in a non-empty `envVarsAll` group.
+
+    Both mappings use the patterns supported by `_env_vars_match`.
+    """
 
     envVars: dict[str, str]
+    envVarsAll: dict[str, str]
 
 
 class Registry(TypedDict):
@@ -85,6 +89,9 @@ def detect_agent() -> Optional[str]:
     for harness_id, info in harnesses.items():
         env_vars = (info or {}).get("envVars")
         if env_vars and _env_vars_match(env_vars):
+            return harness_id
+        env_vars_all = (info or {}).get("envVarsAll")
+        if env_vars_all and all(_env_vars_match({var: pattern}) for var, pattern in env_vars_all.items()):
             return harness_id
         for var in standard_vars:
             if os.environ.get(var, "").strip() == harness_id:
