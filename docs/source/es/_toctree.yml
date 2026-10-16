@@ -1,0 +1,4 @@
+- title: "Guías prácticas"
+  sections:
+    - local: guides/overview
+      title: Descripción general
