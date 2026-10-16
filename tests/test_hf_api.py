@@ -2809,6 +2809,25 @@ class TestUploadFolderMocked:
         deleted_files = {op.path_in_repo for op in operations if isinstance(op, CommitOperationDelete)}
         assert deleted_files == {"file1.txt", "sub/file1.txt"}  # all the 'old' files
 
+    @pytest.mark.parametrize("path_in_repo", ["sub", "sub/", "/sub", "./sub", "./sub/"])
+    def test_delete_txt_in_sub_equivalent_path_in_repo(self, tmp_path, path_in_repo):
+        # Every spelling of the same folder must upload to and delete from "sub/".
+        operations = self._upload_folder_alias(
+            tmp_path, path_in_repo=path_in_repo, folder_path=tmp_path / "sub", delete_patterns="*.txt"
+        )
+        added_files = {op.path_in_repo for op in operations if isinstance(op, CommitOperationAdd)}
+        deleted_files = {op.path_in_repo for op in operations if isinstance(op, CommitOperationDelete)}
+        assert added_files == {"sub/file.txt", "sub/lfs_in_sub.bin"}
+        assert deleted_files == {"sub/file1.txt"}
+
+    @pytest.mark.parametrize("path_in_repo", ["./", "/"])
+    def test_delete_if_path_in_repo_is_root(self, tmp_path, path_in_repo):
+        operations = self._upload_folder_alias(
+            tmp_path, path_in_repo=path_in_repo, folder_path=tmp_path, delete_patterns="*"
+        )
+        deleted_files = {op.path_in_repo for op in operations if isinstance(op, CommitOperationDelete)}
+        assert deleted_files == {"file1.txt", "sub/file1.txt"}  # all the 'old' files
+
 
 @pytest.mark.skip(
     # See https://huggingface.slack.com/archives/C02EMARJ65P/p1772636713600769 for more details (private link)
