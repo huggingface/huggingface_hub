@@ -12,9 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import copy
+import locale
 import os
 import re
 import time
+from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
@@ -186,6 +188,25 @@ Custom template passed as a string.
 require_jinja = pytest.mark.skipif(not is_jinja_available(), reason="test requires Jinja2.")
 
 
+@contextmanager
+def c_locale():
+    """Run a block with the C locale, then restore the previous one.
+
+    A native library can leave the process in this locale. Path.read_text()
+    then decodes with ASCII unless an encoding is passed.
+    """
+    previous = locale.setlocale(locale.LC_CTYPE)
+    try:
+        locale.setlocale(locale.LC_CTYPE, "C")
+    except locale.Error:
+        locale.setlocale(locale.LC_CTYPE, previous)
+        pytest.skip("C locale is not available")
+    try:
+        yield
+    finally:
+        locale.setlocale(locale.LC_CTYPE, previous)
+
+
 class TestRepocardMetadata:
     @pytest.fixture(autouse=True)
     def _setup(self, tmp_path) -> None:
@@ -195,6 +216,12 @@ class TestRepocardMetadata:
         self.filepath.write_text(DUMMY_MODELCARD)
         data = metadata_load(self.filepath)
         assert data == {"license": "mit", "datasets": ["foo", "bar"]}
+
+    def test_metadata_load_utf8_under_c_locale(self):
+        self.filepath.write_text("---\nlicense: mit\n---\n\n# Café\n", encoding="utf-8")
+        with c_locale():
+            data = metadata_load(self.filepath)
+        assert data == {"license": "mit"}
 
     def test_metadata_save(self):
         self.filepath.write_text(DUMMY_MODELCARD)
@@ -583,6 +610,22 @@ class TestRepoCard:
         assert card.text.strip().startswith("# Model Card for my-cool-model"), (
             "model_id not properly set in card template"
         )
+
+    @require_jinja
+    def test_repo_card_from_template_utf8_under_c_locale(self):
+        with SoftTemporaryDirectory() as tempdir:
+            template_path = Path(tempdir) / "template.md"
+            template_path.write_text(
+                "---\n{{ card_data }}\n---\n\n# Café {{ model_name }}\n",
+                encoding="utf-8",
+            )
+            with c_locale():
+                card = ModelCard.from_template(
+                    ModelCardData(),
+                    template_path=template_path,
+                    model_name="test",
+                )
+        assert "Café" in str(card)
 
     @require_jinja
     def test_repo_card_from_custom_template_path(self):
