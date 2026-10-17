@@ -24,7 +24,8 @@ from collections import defaultdict
 from collections.abc import Callable, Iterable, Iterator
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from email.utils import parsedate_to_datetime
 from functools import wraps
 from itertools import islice
 from pathlib import Path
@@ -8454,6 +8455,10 @@ class HfApi:
                     params=params,
                 ) as response:
                     if response.status_code == 200:
+                        # no-follow: stop at the first event logged after the server's Date (1s resolution)
+                        replay_end = None
+                        if not follow and (date := response.headers.get("date")):
+                            replay_end = parsedate_to_datetime(date) + timedelta(seconds=1)
                         event_idx = -1
                         for line in response.iter_lines():
                             if line and line.startswith("data: {"):
@@ -8461,7 +8466,14 @@ class HfApi:
                                 if event_idx >= start_event_idx:
                                     if skip_previous_events_on_retry:
                                         start_event_idx += 1
-                                    yield json.loads(line[len("data: ") :])
+                                    event = json.loads(line[len("data: ") :])
+                                    if (
+                                        replay_end
+                                        and (ts := event.get("timestamp"))
+                                        and parse_datetime(ts) > replay_end
+                                    ):
+                                        break
+                                    yield event
                         break
                     elif response.status_code not in tolerated_status_codes:
                         hf_raise_for_status(response)
@@ -8503,7 +8515,8 @@ class HfApi:
             # Drop params after the first attempt: the start_event_idx dedup
             # requires a stable replay prefix, which `tail` would break.
             params = None
-            if on_iteration_end is not None and on_iteration_end():
+            # no-follow: a single attempt, never loop back
+            if not follow or (on_iteration_end is not None and on_iteration_end()):
                 break
 
     def _fetch_space_logs_sse(
@@ -10592,7 +10605,7 @@ class HfApi:
             repo_type = constants.REPO_TYPE_MODEL
 
         for request in paginate(
-            f"{constants.ENDPOINT}/api/{repo_type}s/{repo_id}/user-access-request/{status}",
+            f"{self.endpoint}/api/{repo_type}s/{repo_id}/user-access-request/{status}",
             params={},
             headers=self._build_hf_headers(token=token),
         ):
@@ -10762,7 +10775,7 @@ class HfApi:
             payload["rejectionReason"] = rejection_reason
 
         response = get_session().post(
-            f"{constants.ENDPOINT}/api/{repo_type}s/{repo_id}/user-access-request/handle",
+            f"{self.endpoint}/api/{repo_type}s/{repo_id}/user-access-request/handle",
             headers=self._build_hf_headers(token=token),
             json=payload,
         )
@@ -10812,7 +10825,7 @@ class HfApi:
             repo_type = constants.REPO_TYPE_MODEL
 
         response = get_session().post(
-            f"{constants.ENDPOINT}/api/{repo_type}s/{repo_id}/user-access-request/grant",
+            f"{self.endpoint}/api/{repo_type}s/{repo_id}/user-access-request/grant",
             headers=self._build_hf_headers(token=token),
             json={"user": user},
         )
@@ -10856,7 +10869,7 @@ class HfApi:
             ```
         """
         response = get_session().get(
-            f"{constants.ENDPOINT}/api/settings/webhooks/{webhook_id}",
+            f"{self.endpoint}/api/settings/webhooks/{webhook_id}",
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
@@ -10908,7 +10921,7 @@ class HfApi:
             ```
         """
         response = get_session().get(
-            f"{constants.ENDPOINT}/api/settings/webhooks",
+            f"{self.endpoint}/api/settings/webhooks",
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
@@ -11049,7 +11062,7 @@ class HfApi:
             post_webhooks_json["secrets"] = secrets
 
         response = get_session().post(
-            f"{constants.ENDPOINT}/api/settings/webhooks",
+            f"{self.endpoint}/api/settings/webhooks",
             json=post_webhooks_json,
             headers=self._build_hf_headers(token=token),
         )
@@ -11152,7 +11165,7 @@ class HfApi:
             update_json["secrets"] = secrets
 
         response = get_session().post(
-            f"{constants.ENDPOINT}/api/settings/webhooks/{webhook_id}",
+            f"{self.endpoint}/api/settings/webhooks/{webhook_id}",
             json=update_json,
             headers=self._build_hf_headers(token=token),
         )
@@ -11206,7 +11219,7 @@ class HfApi:
             ```
         """
         response = get_session().post(
-            f"{constants.ENDPOINT}/api/settings/webhooks/{webhook_id}/enable",
+            f"{self.endpoint}/api/settings/webhooks/{webhook_id}/enable",
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
@@ -11259,7 +11272,7 @@ class HfApi:
             ```
         """
         response = get_session().post(
-            f"{constants.ENDPOINT}/api/settings/webhooks/{webhook_id}/disable",
+            f"{self.endpoint}/api/settings/webhooks/{webhook_id}/disable",
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
@@ -11301,7 +11314,7 @@ class HfApi:
             ```
         """
         response = get_session().delete(
-            f"{constants.ENDPOINT}/api/settings/webhooks/{webhook_id}",
+            f"{self.endpoint}/api/settings/webhooks/{webhook_id}",
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
@@ -11492,7 +11505,7 @@ class HfApi:
                 HTTP 404 If the user does not exist on the Hub.
         """
         r = get_session().get(
-            f"{constants.ENDPOINT}/api/users/{username}/overview", headers=self._build_hf_headers(token=token)
+            f"{self.endpoint}/api/users/{username}/overview", headers=self._build_hf_headers(token=token)
         )
         hf_raise_for_status(r)
         return User(**r.json())
@@ -11518,7 +11531,7 @@ class HfApi:
                 HTTP 404 If the organization does not exist on the Hub.
         """
         r = get_session().get(
-            f"{constants.ENDPOINT}/api/organizations/{organization}/overview",
+            f"{self.endpoint}/api/organizations/{organization}/overview",
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(r)
@@ -11547,7 +11560,7 @@ class HfApi:
 
         """
         for follower in paginate(
-            path=f"{constants.ENDPOINT}/api/organizations/{organization}/followers",
+            path=f"{self.endpoint}/api/organizations/{organization}/followers",
             params={},
             headers=self._build_hf_headers(token=token),
         ):
@@ -11575,7 +11588,7 @@ class HfApi:
 
         """
         for member in paginate(
-            path=f"{constants.ENDPOINT}/api/organizations/{organization}/members",
+            path=f"{self.endpoint}/api/organizations/{organization}/members",
             params={},
             headers=self._build_hf_headers(token=token),
         ):
@@ -11603,7 +11616,7 @@ class HfApi:
 
         """
         for follower in paginate(
-            path=f"{constants.ENDPOINT}/api/users/{username}/followers",
+            path=f"{self.endpoint}/api/users/{username}/followers",
             params={},
             headers=self._build_hf_headers(token=token),
         ):
@@ -11631,7 +11644,7 @@ class HfApi:
 
         """
         for followed_user in paginate(
-            path=f"{constants.ENDPOINT}/api/users/{username}/following",
+            path=f"{self.endpoint}/api/users/{username}/following",
             params={},
             headers=self._build_hf_headers(token=token),
         ):
@@ -12162,10 +12175,11 @@ class HfApi:
         *,
         job_id: str,
         namespace: str | None = None,
+        follow: bool = False,
         token: bool | str | None = None,
     ) -> Iterable[dict[str, Any]]:
         """
-        Fetch all the live metrics from a compute Job on Hugging Face infrastructure.
+        Fetch the live metrics from a compute Job on Hugging Face infrastructure.
 
         Args:
             job_id (`str`):
@@ -12173,6 +12187,10 @@ class HfApi:
 
             namespace (`str`, *optional*):
                 The namespace where the Job is running. Defaults to the current user's namespace.
+
+            follow (`bool`, *optional*):
+                If `True`, stream metrics in real-time until the job completes (blocking).
+                If `False` (default), fetch only the current metrics and return (non-blocking).
 
             token (`bool` or `str`, *optional*):
                 A valid user access token. If not provided, the locally saved token will be used, which is the
@@ -12202,6 +12220,10 @@ class HfApi:
                 },
                 "replica": "57vr7"
             }
+
+            >>> # Stream metrics until the job completes
+            >>> for metrics in fetch_job_metrics(job_id=job.id, follow=True):
+            ...     print(metrics)
             ```
         """
         # - there is one "metric" event every second, like this:
@@ -12209,19 +12231,24 @@ class HfApi:
         # data: {"cpu_usage_pct":0,"cpu_millicores":3500,"memory_used_bytes":1417216,"memory_total_bytes":15032385536,"rx_bps":0,"tx_bps":0,"gpus":{"d901cd7f":{"utilization":0,"memory_used_bytes":0,"memory_total_bytes":22836000000}},"replica":"j6qz9"}
         # - the stream doesn't end when the job finishes, so we rely on timeouts (httpx2.NetworkError with Timeout as cause)
         # - httpx2.ReadTimeout can happen if the job is marked as running but the hardware is not available yet, that we can ignore
-        # - it returns an internal error 500 if the job has already finished, we simply ignore it
+        # - it returns a 406 (previously a 500) if the job has already finished, we simply ignore it
         # - ChunkedEncodingError can happen in case of stopped logging in the middle of streaming
         # - there is a ": keep-alive" every 30 seconds
         seconds_between_events = 1
-        yield from self._fetch_running_job_sse(
+        metrics_stream = self._fetch_running_job_sse(
             job_id=job_id,
             route="metrics",
             timeout=10 * seconds_between_events,
             skip_previous_events_on_retry=False,
-            tolerated_status_codes=(500,),
+            tolerated_status_codes=(406, 500),
             namespace=namespace,
             token=token,
+            follow=follow,
         )
+        if follow:
+            yield from metrics_stream
+        else:  # the stream has no history: its first sample is the current one
+            yield from itertools.islice(metrics_stream, 1)
 
     def list_jobs(
         self,

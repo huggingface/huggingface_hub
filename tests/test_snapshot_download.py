@@ -46,6 +46,20 @@ def test_tree_with_redacted_xet_hash_is_not_cached(tmp_path: Path):
     assert read_tree_cache(str(storage_folder), COMMIT_HASH) is None
 
 
+def test_pinned_revision_offline_without_cached_tree(tmp_path: Path):
+    """Regression test for #5112."""
+    snapshot_folder = tmp_path / repo_folder_name(repo_id="user/repo", repo_type="model") / "snapshots" / COMMIT_HASH
+    local_dir = tmp_path / "local_dir"
+    for folder in (snapshot_folder, local_dir):
+        folder.mkdir(parents=True)
+        (folder / "config.json").write_text("{}")
+
+    with offline(mode=OfflineSimulationMode.HF_HUB_OFFLINE_SET_TO_1):
+        for revision in (COMMIT_HASH, ResolvedRevision(COMMIT_HASH, initial="main")):
+            assert snapshot_download("user/repo", revision=revision, cache_dir=tmp_path) == str(snapshot_folder)
+            assert snapshot_download("user/repo", revision=revision, local_dir=local_dir) == str(local_dir)
+
+
 class TestSnapshotDownload:
     @pytest.fixture(scope="class", autouse=True)
     def _shared_repo(self, request, api: HfApi):

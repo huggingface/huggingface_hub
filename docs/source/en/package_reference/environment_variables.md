@@ -210,7 +210,7 @@ To learn more about the benefits of Xet storage and `hf_xet`, refer to this [sec
 
 ### HF_XET_RECONSTRUCT_WRITE_SEQUENTIALLY
 
-To have `hf-xet` write sequentially to local disk, instead of in parallel. `hf-xet` is designed for SSD/NVMe disks (using parallel writes with direct addressing). If you are using an HDD (spinning hard disk), setting this will change disk writes to be sequential instead of parallel. For slower hard disks, this can improve overall write performance, as the disk is not spinning to seek for parallel writes.
+This variable is no longer used. Since `hf_xet` 1.3.0, files are always written to local disk sequentially (see the [file writer in v1.3.0](https://github.com/huggingface/xet-core/blob/v1.3.0/file_reconstruction/src/data_writer/data_writer.rs#L76-L91)).
 
 ## Deprecated environment variables
 

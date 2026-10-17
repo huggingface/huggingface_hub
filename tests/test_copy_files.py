@@ -34,7 +34,7 @@ from huggingface_hub.hf_api import _resolve_copy_target_path
 from huggingface_hub.utils import SoftTemporaryDirectory
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
-from .testing_utils import repo_name
+from .testing_utils import repo_name, wait_for_bucket_files
 
 
 pytestmark = pytest.mark.xet
@@ -401,6 +401,7 @@ def test_cp_upload_file_to_bucket_root(api: HfApi, bucket_write: str, tmp_path: 
     assert result.exit_code == 0
     assert "Uploaded" in result.output
 
+    wait_for_bucket_files(api, bucket_write, ["local.txt"])
     # Verify file exists in bucket with basename as remote path
     assert "local.txt" in _remote_files(api, bucket_write)
 
@@ -413,6 +414,7 @@ def test_cp_upload_file_to_bucket_prefix(api: HfApi, bucket_write: str, tmp_path
     result = cli(f"hf cp {local_file} hf://buckets/{bucket_write}/logs/")
     assert result.exit_code == 0
 
+    wait_for_bucket_files(api, bucket_write, ["logs/data.csv"])
     assert "logs/data.csv" in _remote_files(api, bucket_write)
 
 
@@ -424,6 +426,7 @@ def test_cp_upload_file_with_remote_name(api: HfApi, bucket_write: str, tmp_path
     result = cli(f"hf cp {local_file} hf://buckets/{bucket_write}/remote-name.txt")
     assert result.exit_code == 0
 
+    wait_for_bucket_files(api, bucket_write, ["remote-name.txt"])
     assert "remote-name.txt" in _remote_files(api, bucket_write)
 
 

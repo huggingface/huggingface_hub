@@ -23,6 +23,7 @@ from huggingface_hub.utils._http import (
     _WARNED_TOPICS,
     RateLimitInfo,
     _adjust_range_header,
+    _is_same_or_hub_host,
     _parse_bucket_id_from_url,
     _parse_repo_info_from_url,
     _parse_retry_after,
@@ -904,3 +905,22 @@ def test_flag_as_download_call_decorator():
             assert is_flagged(response)
         else:
             assert not is_flagged(response)
+
+
+@pytest.mark.parametrize(
+    ("url", "target", "expected"),
+    [
+        (
+            "https://huggingface.co/org/repo/resolve/main/file.bin",
+            "https://huggingface.co/org/renamed/resolve/main/file.bin",
+            True,
+        ),
+        ("https://huggingface.co/resolve/main/file.bin", "https://huggingface.co:443/resolve/main/file.bin", True),
+        ("https://example.com/resolve/main/file.bin", "https://huggingface.co/resolve/main/file.bin", True),
+        ("http://localhost:15564/resolve/main/file.bin", "http://localhost:14886/blob/deadbeef?signature=abc", False),
+        ("https://example.com/resolve/main/file.bin", "https://huggingface.co:8443/resolve/main/file.bin", False),
+        ("https://huggingface.co/org/repo/resolve/main/file.bin", "https://cdn-lfs.hf.co/abc", False),
+    ],
+)
+def test_is_same_or_hub_host(url, target, expected):
+    assert _is_same_or_hub_host(url, target) is expected

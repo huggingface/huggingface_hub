@@ -225,9 +225,9 @@ Im folgenden (vereinfachten) Beispiel überschreiben wir `push_to_hub`, um alle 
 class ZipScheduler(CommitScheduler):
     def push_to_hub(self):
         # 1. Liste PNG-Dateien auf
-          png_files = list(self.folder_path.glob("*.png"))
-          if len(png_files) == 0:
-              return None  # kehre früh zurück, wenn nichts zu committen ist
+        png_files = list(self.folder_path.glob("*.png"))
+        if len(png_files) == 0:
+            return None  # kehre früh zurück, wenn nichts zu committen ist
 
         # 2. Zippe PNG-Dateien in ein einzelnes Archiv
         with tempfile.TemporaryDirectory() as tmpdir:

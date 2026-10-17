@@ -2314,7 +2314,7 @@ $ hf jobs [OPTIONS] COMMAND [ARGS]...
 * `run`: Run a Job.
 * `scheduled`: Create and manage scheduled Jobs on the Hub.
 * `ssh`: SSH into a running Job.
-* `stats`: Fetch the resource usage statistics and metrics of Jobs
+* `stats`: Fetch the resource usage statistics and metrics of Jobs.
 * `uv`: Run UV scripts (Python with inline dependencies) on HF infrastructure.
 * `wait`: Wait for one or more Jobs to reach a terminal state.
 
@@ -3045,7 +3045,10 @@ Learn more
 
 ### `hf jobs stats`
 
-Fetch the resource usage statistics and metrics of Jobs
+Fetch the resource usage statistics and metrics of Jobs.
+
+By default, prints a snapshot of the current stats and exits (non-blocking).
+Use --follow/-f to display live stats until the Jobs complete.
 
 **Usage**:
 
@@ -3059,12 +3062,15 @@ $ hf jobs stats [OPTIONS] [JOB_IDS]...
 
 **Options**:
 
+* `-f, --follow`: Follow stats output (live view until the Jobs complete). Without this flag, a single snapshot is printed.
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
 Examples
+  $ hf jobs stats
   $ hf jobs stats <job_id>
+  $ hf jobs stats -f <job_id>
 
 Learn more
   Use `hf <command> --help` for more information about a command.

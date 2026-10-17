@@ -147,13 +147,12 @@ class CommitScheduler:
         self.lock = Lock()
         self.every = every
         self.squash_history = squash_history
+        self.__stopped = False
 
         logger.info(f"Scheduled job to push '{self.folder_path}' to '{self.repo_id}' every {self.every} minutes.")
         self._scheduler_thread = Thread(target=self._run_scheduler, daemon=True)
         self._scheduler_thread.start()
         atexit.register(self._push_to_hub)
-
-        self.__stopped = False
 
     def stop(self) -> None:
         """Stop the scheduler.

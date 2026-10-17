@@ -26,7 +26,7 @@ from huggingface_hub.cli.hf import app
 from huggingface_hub.errors import BucketNotFoundError, HfHubHTTPError
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
-from .testing_utils import repo_name
+from .testing_utils import repo_name, wait_for_bucket_files
 
 
 pytestmark = pytest.mark.xet
@@ -325,6 +325,7 @@ def test_rm_recursive_path_boundary(api: HfApi, bucket_write: str):
             (b"x", "logsx/c.log"),
         ],
     )
+    wait_for_bucket_files(api, bucket_write, ["logs/a.log", "logs/b.log"])
 
     result = cli(f"hf buckets rm {bucket_write}/logs --recursive --yes")
     assert result.exit_code == 0

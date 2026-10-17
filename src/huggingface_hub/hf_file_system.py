@@ -1,4 +1,5 @@
 import os
+import posixpath
 import tempfile
 import threading
 from collections import deque
@@ -7,7 +8,6 @@ from contextlib import ExitStack
 from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime
-from itertools import chain
 from pathlib import Path, PurePosixPath
 from typing import Any, NoReturn, Union
 from urllib.parse import quote, unquote
@@ -370,8 +370,17 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         if not path:
             self.dircache.clear()
             self._repo_and_revision_exists_cache.clear()
+            self._bucket_exists_cache.clear()
         else:
-            resolved_path = self.resolve_path(path)
+            try:
+                resolved_path = self.resolve_path(path)
+            except FileNotFoundError:
+                # repo, revision or bucket cached as missing: forget misses so the next lookup hits the Hub
+                self._repo_and_revision_exists_cache = {
+                    k: v for k, v in self._repo_and_revision_exists_cache.items() if v[0]
+                }
+                self._bucket_exists_cache = {k: v for k, v in self._bucket_exists_cache.items() if v[0]}
+                return
             path = resolved_path.unresolve()
             while path:
                 self.dircache.pop(path, None)
@@ -569,15 +578,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
             if (recursive and dirs_not_in_dircache) or (expand_info and dirs_not_expanded):
                 # If the dircache is incomplete, find the common path of the missing and non-expanded entries
                 # and extend the output with the result of `_ls_tree(common_path, recursive=True)`
-                common_prefix = os.path.commonprefix(dirs_not_in_dircache + dirs_not_expanded)
-                # Get the parent directory if the common prefix itself is not a directory
-                common_path = (
-                    common_prefix.rstrip("/")
-                    if common_prefix.endswith("/")
-                    or common_prefix == root_path
-                    or common_prefix in chain(dirs_not_in_dircache, dirs_not_expanded)
-                    else self._parent(common_prefix)
-                )
+                common_path = posixpath.commonpath(dirs_not_in_dircache + dirs_not_expanded)
                 if maxdepth is not None:
                     common_path_depth = common_path[len(path) :].count("/")
                     maxdepth -= common_path_depth
@@ -613,6 +614,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
                     revision=resolved_path.revision,
                     repo_type=resolved_path.repo_type,
                 )
+            listings: dict[str, list[dict[str, Any]]] = {}
             for path_info in tree:
                 cache_path = root_path + "/" + path_info.path
                 if isinstance(path_info, RepoFile):
@@ -650,11 +652,16 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
                         "type": "directory",
                         "uploaded_at": path_info.uploaded_at,
                     }
-                parent_path = self._parent(cache_path_info["name"])
-                self.dircache.setdefault(parent_path, []).append(cache_path_info)
+                if cache_path != path:  # listing a bucket file returns the file, not its folder's listing
+                    listings.setdefault(self._parent(cache_path), []).append(cache_path_info)
                 depth = cache_path[len(path) :].count("/")
                 if maxdepth is None or depth <= maxdepth:
                     out.append(cache_path_info)
+            # replace cached listings, only once the listing is complete
+            self.dircache.update(listings)
+            if not out:
+                # Empty bucket: `info()` on a child path reads `dircache[parent]`
+                self.dircache[path] = []
         return out
 
     def _list_bucket_tree_with_folders(
@@ -698,7 +705,9 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
                     ):
                         bucket_folder.uploaded_at = parent_bucket_folder.uploaded_at
 
-        if not out:
+        # An empty listing is only a "not found" when a specific prefix was requested. Listing the
+        # bucket root itself is valid even with zero objects (e.g. freshly created bucket).
+        if prefix and not out:
             raise EntryNotFoundError(f"File not found in bucket '{bucket_id}': '{prefix}'")
         return out
 

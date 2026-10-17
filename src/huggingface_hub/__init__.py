@@ -46,7 +46,7 @@ import sys
 from typing import TYPE_CHECKING
 
 
-__version__ = "2.2.0.dev0"
+__version__ = "2.3.0.dev0"
 
 # Alphabetical order of definitions is ensured in tests
 # WARNING: any comment added in this dictionary definition will be lost when
@@ -318,6 +318,7 @@ _SUBMOD_ATTRS = {
         "list_repo_likers",
         "list_repo_refs",
         "list_repo_tree",
+        "list_scheduled_jobs",
         "list_space_templates",
         "list_spaces",
         "list_spaces_hardware",
@@ -1077,6 +1078,7 @@ __all__ = [
     "list_repo_likers",
     "list_repo_refs",
     "list_repo_tree",
+    "list_scheduled_jobs",
     "list_space_templates",
     "list_spaces",
     "list_spaces_hardware",
@@ -1528,6 +1530,7 @@ if TYPE_CHECKING:  # pragma: no cover
         list_repo_likers,  # noqa: F401
         list_repo_refs,  # noqa: F401
         list_repo_tree,  # noqa: F401
+        list_scheduled_jobs,  # noqa: F401
         list_space_templates,  # noqa: F401
         list_spaces,  # noqa: F401
         list_spaces_hardware,  # noqa: F401

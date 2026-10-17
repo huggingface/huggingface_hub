@@ -24,7 +24,7 @@ from huggingface_hub.hf_file_system import (
 )
 
 from .conftest import RepoFactory
-from .testing_constants import ENDPOINT_STAGING, TOKEN
+from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
 from .testing_utils import OfflineSimulationMode, offline, repo_name
 
 
@@ -258,6 +258,14 @@ class _HfFileSystemBaseROTests(_HfFileSystemBaseTests):
         assert files[0]["name"].endswith("/data/text_data.txt")
         self._check_info_not_expanded(files[0])
         self._check_info_fields(files[0])
+
+    def test_list_data_directory_after_listing_subpaths(self):
+        """Regression test for #5098."""
+        data_dir = self.hf_path + "/data"
+        self.hffs.ls(self.text_file)
+        self.hffs.find(self.hf_path)
+        self.hffs.ls(data_dir, refresh=True)
+        assert sorted(self.hffs.ls(data_dir, detail=False)) == [data_dir + "/binary_data.bin", self.text_file]
 
     def test_list_root_directory_no_detail_then_with_detail(self):
         files = sorted(self.hffs.ls(self.hf_path, detail=False))
@@ -898,6 +906,15 @@ def test_access_repositories_lists(not_supported_path, expected_error: Type[Exce
         fs.ls(not_supported_path)
     with pytest.raises(expected_error):
         fs.open(not_supported_path)
+
+
+def test_exists_after_repo_creation(repo_factory: RepoFactory):
+    """Regression test for #1945."""
+    hffs = HfFileSystem(endpoint=ENDPOINT_STAGING, token=TOKEN, skip_instance_cache=True)
+    repo_id = f"{USER}/{repo_name()}"
+    assert not hffs.exists(repo_id)
+    repo_factory(repo_id=repo_id)
+    assert hffs.exists(repo_id, refresh=True)
 
 
 def test_exists_after_repo_deletion(repo_factory: RepoFactory):
