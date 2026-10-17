@@ -383,3 +383,16 @@ class TestTreeCacheOffline:
         with patch("huggingface_hub.file_download.is_xet_available", return_value=True), offline(mode=offline_mode):
             with pytest.raises(LocalEntryNotFoundError):
                 hf_hub_download("user/repo", "model.safetensors", revision=COMMIT_HASH, cache_dir=tmp_path)
+
+    def test_cache_links_existing_blob(
+        self, _sleep, tmp_path: Path, tree_cache_folder: str, offline_mode: OfflineSimulationMode
+    ):
+        blob_path = Path(tree_cache_folder) / "blobs" / "sha256-model"
+        blob_path.parent.mkdir()
+        blob_path.write_bytes(b"weights shared with another commit")
+
+        with patch("huggingface_hub.file_download.is_xet_available", return_value=True), offline(mode=offline_mode):
+            path = hf_hub_download("user/repo", "model.safetensors", revision=COMMIT_HASH, cache_dir=tmp_path)
+
+        assert Path(path) == Path(tree_cache_folder) / "snapshots" / COMMIT_HASH / "model.safetensors"
+        assert Path(path).read_bytes() == b"weights shared with another commit"
