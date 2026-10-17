@@ -1,10 +1,18 @@
+import json
+
+import httpx2
 import pytest
 
+from huggingface_hub import HfApi
 from huggingface_hub._commit_api import (
     CommitOperationAdd,
+    CommitOperationCopy,
     CommitOperationDelete,
     _warn_on_overwriting_operations,
 )
+from huggingface_hub.utils import set_client_factory
+from huggingface_hub.utils._http import default_client_factory
+from huggingface_hub.utils.sha import git_hash
 
 
 class TestCommitOperationDelete:
@@ -146,3 +154,108 @@ class TestWarnOnOverwritingOperations:
 
     def test_delete_folder_then_add(self) -> None:
         _warn_on_overwriting_operations([self.delete_folder_a, self.add_file_ab, self.add_file_abc])
+
+
+class TestCreateCommitNoOpFilter:
+    def test_readd_unchanged_file_after_delete_not_dropped(self) -> None:
+        content = b"keep me\n"
+        sent_commits = []
+
+        def handler(request: httpx2.Request) -> httpx2.Response:
+            path = request.url.path
+            if "/paths-info/" in path:
+                return httpx2.Response(
+                    200,
+                    json=[
+                        {"path": "src.txt", "type": "file", "oid": git_hash(content), "size": len(content)},
+                        {"path": "x/copy.txt", "type": "file", "oid": git_hash(content), "size": len(content)},
+                        {"path": "unrelated_copy.txt", "type": "file", "oid": git_hash(content), "size": len(content)},
+                    ],
+                )
+            if "/preupload/" in path:
+                files = json.loads(request.content)["files"]
+                return httpx2.Response(
+                    200,
+                    json={
+                        "files": [
+                            {
+                                "path": f["path"],
+                                "uploadMode": "regular",
+                                "shouldIgnore": False,
+                                "oid": git_hash(content),
+                            }
+                            for f in files
+                        ]
+                    },
+                )
+            if "/resolve/" in path:
+                return httpx2.Response(200, content=content)
+            if "/commit/" in path:
+                lines = [json.loads(line) for line in request.content.decode().splitlines() if line]
+                sent_commits.append([line for line in lines if line["key"] != "header"])
+                return httpx2.Response(
+                    200,
+                    json={"commitUrl": "https://huggingface.co/u/r/commit/" + "a" * 40, "commitOid": "a" * 40},
+                )
+            return httpx2.Response(404, json={"error": f"unexpected {request.method} {path}"})
+
+        client = httpx2.Client(transport=httpx2.MockTransport(handler))
+        set_client_factory(lambda: client)
+        try:
+            api = HfApi(endpoint="https://huggingface.co", token="hf_fake")
+
+            # Case 1: Folder delete + unchanged add under that folder
+            sent_commits.clear()
+            api.create_commit(
+                "u/r",
+                operations=[
+                    CommitOperationDelete("x/", is_folder=True),
+                    CommitOperationAdd("x/a.txt", content),
+                ],
+                commit_message="folder delete + add",
+            )
+            sent = [(op["key"], op["value"]["path"]) for op in sent_commits[0]]
+            assert sent == [("deletedFolder", "x/"), ("file", "x/a.txt")]
+
+            # Case 2: File delete + unchanged add of same file
+            sent_commits.clear()
+            api.create_commit(
+                "u/r",
+                operations=[
+                    CommitOperationDelete("x/a.txt"),
+                    CommitOperationAdd("x/a.txt", content),
+                ],
+                commit_message="file delete + add",
+            )
+            sent = [(op["key"], op["value"]["path"]) for op in sent_commits[0]]
+            assert sent == [("deletedFile", "x/a.txt"), ("file", "x/a.txt")]
+
+            # Case 3: Folder delete + unchanged copy into that folder
+            sent_commits.clear()
+            api.create_commit(
+                "u/r",
+                operations=[
+                    CommitOperationDelete("x/", is_folder=True),
+                    CommitOperationCopy("src.txt", "x/copy.txt"),
+                    CommitOperationCopy("src.txt", "unrelated_copy.txt"),
+                ],
+                commit_message="folder delete + copy",
+            )
+            sent = [(op["key"], op["value"]["path"]) for op in sent_commits[0]]
+            assert sent == [("deletedFolder", "x/"), ("file", "x/copy.txt")]
+
+            # Case 4: Unchanged add without delete is still dropped as no-op
+            sent_commits.clear()
+            api.create_commit(
+                "u/r",
+                operations=[
+                    CommitOperationDelete("x/", is_folder=True),
+                    CommitOperationAdd("x/a.txt", content),
+                    CommitOperationAdd("unrelated.txt", content),
+                ],
+                commit_message="mixed",
+            )
+            sent = [(op["key"], op["value"]["path"]) for op in sent_commits[0]]
+            assert sent == [("deletedFolder", "x/"), ("file", "x/a.txt")]
+        finally:
+            set_client_factory(default_client_factory)
