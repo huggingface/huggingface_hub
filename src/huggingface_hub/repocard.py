@@ -324,10 +324,12 @@ class RepoCard:
         kwargs = card_data.to_dict().copy()
         kwargs.update(template_kwargs)  # Template_kwargs have priority
 
+        # Cards are UTF-8 on the Hub. Path.read_text() otherwise follows the
+        # process locale, which a native library can leave as ASCII (see #5170).
         if template_path is not None:
-            template_str = Path(template_path).read_text()
+            template_str = Path(template_path).read_text(encoding="utf-8")
         if template_str is None:
-            template_str = Path(cls.default_template_path).read_text()
+            template_str = Path(cls.default_template_path).read_text(encoding="utf-8")
         template = jinja2.Template(template_str)
         content = template.render(card_data=card_data.to_yaml(), **kwargs)
         return cls(content)
@@ -513,7 +515,9 @@ def _detect_line_ending(content: str) -> Literal["\r", "\n", "\r\n", None]:  # n
 
 
 def metadata_load(local_path: str | Path) -> dict | None:
-    content = Path(local_path).read_text()
+    # Same UTF-8 contract as RepoCard.load / metadata_save. A non-UTF-8 locale
+    # (for example LC_CTYPE=C after a native library call) must not fail here.
+    content = Path(local_path).read_text(encoding="utf-8")
     match = REGEX_YAML_BLOCK.search(content)
     if match:
         yaml_block = match.group(2)
