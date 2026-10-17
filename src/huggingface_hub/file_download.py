@@ -1282,18 +1282,21 @@ def _hf_hub_download_to_cache_dir(
         blob_is_shared = blob_reused_from_store
         if not blob_reused_from_store:
             will_download = force_download or not os.path.exists(blob_path)
-            _download_to_tmp_and_move(
-                incomplete_path=Path(blob_path + ".incomplete"),
-                destination_path=Path(blob_path),
-                url_to_download=url_to_download,
-                headers=headers,
-                expected_size=expected_size,
-                filename=filename,
-                force_download=force_download,
-                etag=etag,
-                xet_file_data=xet_file_data,
-                tqdm_class=tqdm_class,
-            )
+            try:
+                _download_to_tmp_and_move(
+                    incomplete_path=Path(blob_path + ".incomplete"),
+                    destination_path=Path(blob_path),
+                    url_to_download=url_to_download,
+                    headers=headers,
+                    expected_size=expected_size,
+                    filename=filename,
+                    force_download=force_download,
+                    etag=etag,
+                    xet_file_data=xet_file_data,
+                    tqdm_class=tqdm_class,
+                )
+            except (httpx2.ConnectError, httpx2.TimeoutException, OfflineModeIsEnabled) as error:
+                _raise_on_head_call_error(error, force_download, local_files_only)
             if shared_blob_hash is not None and will_download and is_xet_available():
                 # Only Xet-verified downloads are published, never the plain HTTP fallback.
                 blob_is_shared = publish_blob_to_shared_store(
@@ -1500,20 +1503,28 @@ def _hf_hub_download_to_local_dir(
         )
 
     # Otherwise, let's download the file!
+    # The outdated file, if any, is replaced only once the download succeeded.
     with WeakFileLock(paths.lock_path):
-        paths.file_path.unlink(missing_ok=True)  # delete outdated file first
-        _download_to_tmp_and_move(
-            incomplete_path=paths.incomplete_path(etag),
-            destination_path=paths.file_path,
-            url_to_download=url_to_download,
-            headers=headers,
-            expected_size=expected_size,
-            filename=filename,
-            force_download=force_download,
-            etag=etag,
-            xet_file_data=xet_file_data,
-            tqdm_class=tqdm_class,
-        )
+        try:
+            _download_to_tmp_and_move(
+                incomplete_path=paths.incomplete_path(etag),
+                destination_path=paths.file_path,
+                url_to_download=url_to_download,
+                headers=headers,
+                expected_size=expected_size,
+                filename=filename,
+                force_download=True,
+                etag=etag,
+                xet_file_data=xet_file_data,
+                tqdm_class=tqdm_class,
+            )
+        except (httpx2.ConnectError, httpx2.TimeoutException, OfflineModeIsEnabled) as error:
+            if paths.file_path.is_file() and not force_download:
+                logger.warning(
+                    f"Couldn't access the Hub to download the file but local file already exists. Defaulting to existing file. (error: {error})"
+                )
+                return str(paths.file_path)
+            _raise_on_head_call_error(error, force_download, local_files_only)
 
     write_download_metadata(local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag)
     return str(paths.file_path)
@@ -1734,7 +1745,8 @@ def _get_metadata_or_catch_error(
         )
 
     # Skip the per-file HEAD call when the file metadata can be rebuilt from a tree listing cached on disk.
-    if tree_cache_folder is not None and REGEX_COMMIT_HASH.fullmatch(revision):
+    # Not in offline mode: the HEAD error is what triggers the fallback to a local file.
+    if tree_cache_folder is not None and not constants.is_offline_mode() and REGEX_COMMIT_HASH.fullmatch(revision):
         tree_metadata = _xet_file_metadata_from_tree_cache(
             tree_cache_folder=tree_cache_folder,
             repo_id=repo_id,
