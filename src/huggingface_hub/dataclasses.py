@@ -14,6 +14,7 @@ from typing import (
     Union,
     get_args,
     get_origin,
+    get_type_hints,
     overload,
 )
 
@@ -117,9 +118,10 @@ def strict(cls: Type[T] | None = None, *, accept_kwargs: bool = False) -> Type[T
 
         # List and store validators
         field_validators: dict[str, list[Validator_T]] = {}
+        string_annotation_types = _resolve_string_annotations(cls)
         for f in fields(cls):  # type: ignore
             validators = []
-            validators.append(_create_type_validator(f))
+            validators.append(_create_type_validator(f, string_annotation_types.get(f.name, f.type)))
             custom_validator = f.metadata.get("validator")
             if custom_validator is not None:
                 if not isinstance(custom_validator, list):
@@ -629,12 +631,26 @@ def _validate_simple_type(name: str, value: Any, expected_type: type) -> None:
         )
 
 
-def _create_type_validator(field: Field) -> Validator_T:
+def _resolve_string_annotations(cls: type) -> dict[str, Any]:
+    """Evaluate the class annotations if some of them are strings, e.g. with `from __future__ import annotations`.
+
+    Returns an empty dict if no annotation is a string, or if they cannot be evaluated yet (e.g. a forward reference to
+    a class defined later). String annotations are then not validated.
+    """
+    if not any(isinstance(f.type, str) for f in fields(cls)):  # type: ignore
+        return {}
+    try:
+        return get_type_hints(cls, include_extras=True)
+    except Exception:
+        return {}
+
+
+def _create_type_validator(field: Field, expected_type: Any) -> Validator_T:
     """Create a type validator function for a field."""
     # Hacky: we cannot use a lambda here because of reference issues
 
     def validator(value: Any) -> None:
-        type_validator(field.name, value, field.type)
+        type_validator(field.name, value, expected_type)
 
     return validator
 

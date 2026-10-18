@@ -71,6 +71,16 @@ class ForwardDtype(str):
 
 @strict
 @dataclass
+class ConfigStringAnnotations:
+    """Annotations written as strings, as `from __future__ import annotations` makes every annotation."""
+
+    model_type: "str"
+    hidden_size: "int" = 1024
+    layers: "list[int] | None" = None
+
+
+@strict
+@dataclass
 class Config:
     model_type: str
     hidden_size: int = validated_field(validator=[positive_int, multiple_of_64])
@@ -150,6 +160,19 @@ def test_forward_ref_validation_is_skipped():
     # The `forward_ref` type is not validated => user can input anything
     ConfigForwardRef(forward_ref=-1, forward_ref_validated="float32")
     ConfigForwardRef(forward_ref=["float32"], forward_ref_validated="float32")
+
+
+def test_string_annotations_are_validated():
+    config = ConfigStringAnnotations(model_type="bert", layers=[1, 2])
+
+    with pytest.raises(StrictDataclassFieldValidationError):
+        ConfigStringAnnotations(model_type=42)
+    with pytest.raises(StrictDataclassFieldValidationError):
+        ConfigStringAnnotations(model_type="bert", hidden_size="1024")
+    with pytest.raises(StrictDataclassFieldValidationError):
+        ConfigStringAnnotations(model_type="bert", layers=["a"])
+    with pytest.raises(StrictDataclassFieldValidationError):
+        config.hidden_size = "1024"
 
 
 def test_invalid_type_initialization():
