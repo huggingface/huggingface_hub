@@ -23,7 +23,10 @@ For completeness we also run a test on a simple task (`test_async_sentence_simil
 work as well.
 """
 
+import asyncio
+import contextlib
 import inspect
+import time
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import httpx2
@@ -269,6 +272,41 @@ async def test_async_feature_extraction_accepts_list_inputs() -> None:
     helper.prepare_request.assert_called_once()
     assert helper.prepare_request.call_args.kwargs["inputs"] == ["Hi, who are you?", "How are you?"]
     np.testing.assert_array_equal(embedding, np.array([[1.0, 2.0], [3.0, 4.0]], dtype="float32"))
+
+
+@pytest.mark.asyncio
+async def test_async_provider_get_response_does_not_block_event_loop() -> None:
+    def slow_get_response(*args, **kwargs):
+        time.sleep(0.1)
+        return b"fake-video-bytes"
+
+    helper = MagicMock()
+    helper.prepare_request.return_value = MagicMock()
+    helper.get_response.side_effect = slow_get_response
+    async_client = AsyncInferenceClient(provider="fal-ai", api_key="test")
+
+    ticks = 0
+
+    async def ticker():
+        nonlocal ticks
+        while True:
+            await asyncio.sleep(0.02)
+            ticks += 1
+
+    ticker_task = asyncio.create_task(ticker())
+    try:
+        with (
+            patch("huggingface_hub.inference._generated._async_client.get_provider_helper", return_value=helper),
+            patch.object(AsyncInferenceClient, "_inner_post", AsyncMock(return_value=b"ignored")),
+        ):
+            video = await async_client.text_to_video("a prompt", model="org/video-model")
+            assert video == b"fake-video-bytes"
+    finally:
+        ticker_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await ticker_task
+
+    assert ticks >= 2
 
 
 def test_sync_vs_async_signatures() -> None:
