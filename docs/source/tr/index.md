@@ -4,7 +4,7 @@ rendered properly in your Markdown viewer.
 
 # 🤗 Hub istemci kütüphanesi
 
-`huggingface_hub` kütüphanesi; üreticiler ve iş birliği yapanlar için
+`huggingface_hub` kütüphanesi, içerik üretenler ve iş birliği yapanlar için
 bir makine öğrenmesi platformu olan [Hugging Face Hub](https://hf.co) ile etkileşim
 kurmanı sağlar. Projelerin için önceden eğitilmiş modelleri ve veri kümelerini
 keşfedebilir veya Hub'da barındırılan yüzlerce makine öğrenmesi uygulamasını
@@ -33,7 +33,7 @@ daha fazla bilgi edinmek için okumaya devam et.
 
     <a class="!no-underline border dark:border-gray-700 p-5 rounded-lg shadow hover:shadow-lg" href="./concepts/git_vs_http">
       <div class="w-full text-center bg-gradient-to-br from-pink-400 to-pink-500 rounded-lg py-1.5 font-semibold mb-5 text-white text-lg leading-relaxed">Kavramsal rehberler</div>
-      <p class="text-gray-700">huggingface_hub yaklaşımını daha iyi anlamanı sağlayacak üst düzey açıklamalar.</p>
+      <p class="text-gray-700">huggingface_hub yaklaşımını daha iyi anlamanı sağlayacak genel açıklamalar.</p>
     </a>
 
   </div>

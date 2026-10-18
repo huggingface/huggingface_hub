@@ -13,7 +13,7 @@ edinebilirsin.
 
 ## Kurulum
 
-Başlamak için `huggingface_hub` kütüphanesini yükle:
+Başlamak için `huggingface_hub` kütüphanesini kur:
 
 ```bash
 pip install --upgrade huggingface_hub
@@ -24,12 +24,10 @@ Daha fazla bilgi için [kurulum](installation) rehberine göz at.
 > [!TIP]
 > `huggingface_hub`, Hub ile doğrudan terminalden etkileşim kurmanı sağlayan bir
 > [`hf` CLI](./guides/cli) ile birlikte gelir. Yapay zekâ ajanları (Claude Code,
-> Codex, Cursor, ...) kullanıyorsan ajanının CLI'ı kullanabilmesi için Skill'i yükle:
+> Codex, Cursor, ...) kullanıyorsan ajanının CLI'ı kullanabilmesi için Skill'i kur:
 > ```bash
-> # Codex, Cursor, OpenCode, Pi ve skill dosyalarını `.agents/skills` içinden yükleyen diğer ajanlar için
+> # Claude Code, Codex, Cursor, OpenCode, Pi ve skill dosyalarını `.agents/skills` içinden yükleyen tüm ajanlarla çalışır
 > hf skills add
-> # yukarıdakilere ek olarak Claude Code'u da kapsar
-> hf skills add --claude
 > ```
 > Daha fazla bilgi için [Yapay zekâ ajanları için Hugging Face
 > CLI](https://huggingface.co/docs/hub/agents-cli) rehberine göz at.
@@ -39,8 +37,8 @@ Daha fazla bilgi için [kurulum](installation) rehberine göz at.
 Hub'daki depolar Git ile sürüm kontrolü altındadır. Kullanıcılar tek bir dosyayı
 veya tüm depoyu indirebilir. Dosya indirmek için [`hf_hub_download`] fonksiyonunu
 kullanabilirsin. Bu fonksiyon dosyayı indirir ve yerel diskinde önbelleğe alır.
-Aynı dosyaya bir sonraki ihtiyaç duyduğunda dosya önbellekten yüklenir; böylece
-dosyayı tekrar indirmen gerekmez.
+Bir dahaki sefere bu dosyaya ihtiyaç duyduğunda önbellekten yüklenir; böylece
+tekrar indirmen gerekmez.
 
 İndirmek istediğin dosyanın depo kimliğine ve dosya adına ihtiyacın vardır. Örneğin
 [Pegasus](https://huggingface.co/google/pegasus-xsum) modelinin yapılandırma
@@ -72,7 +70,7 @@ Daha fazla bilgi ve seçenek için [`hf_hub_download`] API referansına bak.
 
 Çoğu durumda Hub ile etkileşim kurmak için Hugging Face hesabınla kimliğini
 doğrulaman gerekir. Buna özel depoları indirmek, dosya yüklemek ve PR oluşturmak
-dahildir. Henüz hesabın yoksa [bir hesap oluştur](https://huggingface.co/join).
+dâhildir. Henüz hesabın yoksa [bir hesap oluştur](https://huggingface.co/join).
 
 ### Oturum açma komutu
 
@@ -86,7 +84,7 @@ Zaten oturum açtıysan komut hemen tamamlanır. Yeniden oturum açmaya zorlamak
 `hf auth login --force` komutunu kullan. Oturum açmadıysan tarayıcı üzerinden oturum
 açman istenir: terminalde gösterilen URL'yi aç, kısa kodu gir ve isteği onayla. Bir
 erişim token'ı alınarak `HF_HOME` dizinine kaydedilir (varsayılan konum
-`~/.cache/huggingface/token`). Token'ın süresi bir süre sonra dolar ancak Hub'ı
+`~/.cache/huggingface/token`). Token'ın geçerliliği bir süre sonra sona erer ancak
 kullanmaya devam ettiğin sürece otomatik olarak yenilenir. Hub ile etkileşim kuran
 tüm betikler ve kütüphaneler istek gönderirken bu token'ı kullanır. Alternatif
 olarak [Ayarlar sayfasından](https://huggingface.co/settings/tokens) oluşturduğun
@@ -112,7 +110,7 @@ Aynı anda yalnızca bir hesapta oturum açabilirsin. Yeni bir hesapta oturum a�
 `hf auth whoami` komutunu çalıştırman yeterlidir.
 
 > [!WARNING]
-> Oturum açtıktan sonra, kimlik doğrulaması gerektirmeyen metotlar da dahil olmak
+> Oturum açtıktan sonra, kimlik doğrulaması gerektirmeyen metotlar da dâhil olmak
 > üzere Hub'a yapılan tüm istekler varsayılan olarak erişim token'ını kullanır.
 > Token'ın örtük kullanımını devre dışı bırakmak için `HF_HUB_DISABLE_IMPLICIT_TOKEN=1`
 > ortam değişkenini ayarla ([referansa](../package_reference/environment_variables#hfhubdisableimplicittoken)
@@ -128,10 +126,10 @@ Her token ile [`login`] komutunu kullanarak ayrı ayrı oturum açabilir ve maki
 hf auth switch
 ```
 
-Bu komut, kayıtlı token listesinden birini seçmeni ister. Seçtiğin token etkin hâle
+Bu komut, kayıtlı token listesinden birini adıyla seçmeni ister. Seçtiğin token etkin hâle
 gelir ve Hub ile yapılan tüm etkileşimlerde kullanılır.
 
-Kullanılabilir tüm erişim token'larını `hf auth list` komutuyla listeleyebilirsin.
+Makinende kayıtlı tüm erişim token'larını `hf auth list` komutuyla listeleyebilirsin.
 
 ### Ortam değişkeni
 
@@ -163,7 +161,7 @@ Token'ı kalıcı olarak saklamak istemediğin veya aynı anda birden fazla toke
 yönetmen gereken ortamlar dışında bu yöntem genellikle önerilmez.
 
 > [!WARNING]
-> Token'ları parametre olarak geçirirken dikkatli ol. Token'ı koduna sabitlemek
+> Token'ları parametre olarak geçirirken dikkatli ol. Token'ı koduna veya notebook'una sabitlemek
 > yerine güvenli bir kasadan yüklemek her zaman daha iyi bir uygulamadır. Koda
 > sabitlenmiş token'lar, kodunu yanlışlıkla paylaşman hâlinde ciddi bir sızıntı
 > riski oluşturur.
