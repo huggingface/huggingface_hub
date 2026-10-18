@@ -1,11 +1,14 @@
 name: Style Bot
 
+# Comment `@bot /style <full commit SHA>` after reviewing that commit.
+# issue_comment uses the trusted default-branch workflow and supports fork PRs.
+# The SHA in the comment is the authorization; the API may only reject it.
 on:
   issue_comment:
     types: [created]
 
 permissions:
-  contents: write
+  contents: read
   pull-requests: write
 
 jobs:
