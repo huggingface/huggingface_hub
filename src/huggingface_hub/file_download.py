@@ -1493,7 +1493,7 @@ def _hf_hub_download_to_local_dir(
                     tmp_path = Path(tmp_file.name)
                 try:
                     shutil.copyfile(cached_path, tmp_path)
-                    os.replace(tmp_path, paths.file_path)
+                    _chmod_and_move(tmp_path, paths.file_path)
                 finally:
                     tmp_path.unlink(missing_ok=True)
             write_download_metadata(local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag)
