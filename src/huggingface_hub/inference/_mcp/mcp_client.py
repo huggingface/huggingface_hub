@@ -216,7 +216,7 @@ class MCPClient:
         while response.nextCursor:
             response = await session.list_tools(cursor=response.nextCursor)
             tools.extend(response.tools)
-        logger.debug("Connected to server with tools:", [tool.name for tool in tools])
+        logger.debug("Connected to server with tools: %s", [tool.name for tool in tools])
 
         # Filter tools based on allowed_tools configuration
         filtered_tools = tools

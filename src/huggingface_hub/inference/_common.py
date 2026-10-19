@@ -292,7 +292,7 @@ def _format_text_generation_stream_output(line: str, details: bool) -> str | Tex
         raise StopIteration("[DONE] signal received.")
 
     # Decode payload
-    payload = line.lstrip("data:").rstrip("/n")
+    payload = line.lstrip("data:").rstrip("\n")
     json_payload = json.loads(payload)
 
     # Either an error as being returned
