@@ -70,7 +70,7 @@ RECONNECT_MIN_DELAY = 1.0
 MAX_SESSIONS_WITHOUT_READY = 3
 
 # Statuses meaning the feed cannot be followed for this bucket, as opposed to "retry later": not served by
-# this deployment (404, 501, 503) or refused for this token (401, 403).
+# this deployment (404, 501) or refused for this token (401, 403).
 _UNFOLLOWABLE_STATUS_CODES = (401, 403, 404, 501)
 
 # Live-follow threads and the consumers they notify, keyed by (endpoint, token, bucket_id). Shared because

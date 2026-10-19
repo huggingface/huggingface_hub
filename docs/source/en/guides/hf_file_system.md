@@ -81,8 +81,8 @@ A few things to know about it:
   changes: pass `refresh=True` to [`HfFileSystem.ls`] (or use [`HfApi.list_repo_tree`]) to see a new commit.
 - **Only listings and the metadata they carry are refreshed.** Reading a file always requests its content from
   the Hub, so live following only affects what `ls`, `info`, `exists`, `glob`, ... report.
-- Following starts as soon as a bucket is listed, and each [`HfFileSystem`] instance keeps one background
-  connection open per followed bucket. That is why the option is opt-in.
+- Following starts as soon as a bucket is listed, and one background connection is kept open per followed
+  bucket, shared by all [`HfFileSystem`] instances. That is why the option is opt-in.
 
 ## Integrations
 
