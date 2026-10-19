@@ -98,6 +98,8 @@ The same workflow can also be used for [Dask](https://docs.dask.org/en/stable/ho
 
 * Using the Hub as an array store with [Zarr](https://zarr.readthedocs.io/en/stable/tutorial.html#io-with-fsspec):
 
+  When using Zarr 3, `fsspec>=2024.12.0` is required to wrap the synchronous `HfFileSystem`.
+
   ```python
   >>> import numpy as np
   >>> import zarr
@@ -105,14 +107,14 @@ The same workflow can also be used for [Dask](https://docs.dask.org/en/stable/ho
   >>> embeddings = np.random.randn(50000, 1000).astype("float32")
 
   >>> # Write an array to a repo
-  >>> with zarr.open_group("hf://my-username/my-model-repo/array-store", mode="w") as root:
-  ...    foo = root.create_group("embeddings")
-  ...    foobar = foo.zeros('experiment_0', shape=(50000, 1000), chunks=(10000, 1000), dtype='f4')
-  ...    foobar[:] = embeddings
+  >>> root = zarr.open_group("hf://my-username/my-model-repo/array-store", mode="w")
+  >>> foo = root.create_group("embeddings")
+  >>> foobar = foo.zeros(name='experiment_0', shape=(50000, 1000), chunks=(10000, 1000), dtype='f4')
+  >>> foobar[:] = embeddings
 
   >>> # Read an array from a repo
-  >>> with zarr.open_group("hf://my-username/my-model-repo/array-store", mode="r") as root:
-  ...    first_row = root["embeddings/experiment_0"][0]
+  >>> root = zarr.open_group("hf://my-username/my-model-repo/array-store", mode="r")
+  >>> first_row = root["embeddings/experiment_0"][0]
   ```
 
 ## Authentication
