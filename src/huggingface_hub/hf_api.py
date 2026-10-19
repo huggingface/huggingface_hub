@@ -6618,6 +6618,7 @@ class HfApi:
         metadata from the index file and then parse the metadata from each shard.
 
         To parse metadata from a single safetensors file, use [`parse_safetensors_file_metadata`].
+        To get every shard header of a sharded model on `main` in a single request, use [`get_sharded_safetensors_metadata`].
 
         For more details regarding the safetensors format, check out https://huggingface.co/docs/safetensors/index#format.
 
