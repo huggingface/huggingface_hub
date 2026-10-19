@@ -6785,8 +6785,8 @@ class HfApi:
                 timeout (not recommended, as a stalled connection can hang the call indefinitely).
 
         Returns:
-            [`SafetensorsRepoMetadata`] or `None`: the same metadata as [`get_safetensors_metadata`], or `None` if the
-            Hub can't serve it (other revision, files it can't parse...).
+            [`SafetensorsRepoMetadata`] or `None`: the same metadata as [`get_safetensors_metadata`], or `None` for a
+            revision other than `"main"`.
 
         Example:
             ```py
@@ -6797,33 +6797,27 @@ class HfApi:
         """
         if revision not in (None, constants.DEFAULT_REVISION):
             return None
-        try:
-            response = get_session().get(
-                f"{self.endpoint}/api/models/{repo_id}/safetensors-metadata/{quote(filename, safe='/')}",
-                headers=self._build_hf_headers(token=token),
-                timeout=timeout,
-            )
-            hf_raise_for_status(response)
-            content = response.json()
-            context_msg = f"repo '{repo_id}', revision '{constants.DEFAULT_REVISION}'"
-            files_metadata = {
-                shard: _safetensors_file_metadata_from_header(header, shard, context_msg)
-                for shard, header in content["headers"].items()
-            }
-            return SafetensorsRepoMetadata(
-                metadata=content["index"].get("metadata"),
-                sharded=True,
-                # The response leaves out the index's weight_map, which repeats the tensor names of the shard headers
-                weight_map={
-                    tensor: shard
-                    for shard, file_metadata in files_metadata.items()
-                    for tensor in file_metadata.tensors
-                },
-                files_metadata=files_metadata,
-            )
-        except Exception as e:
-            logger.debug(f"Couldn't fetch the safetensors headers of '{repo_id}' from the Hub: {e}")
-            return None
+        response = get_session().get(
+            f"{self.endpoint}/api/models/{repo_id}/safetensors-metadata/{quote(filename, safe='/')}",
+            headers=self._build_hf_headers(token=token),
+            timeout=timeout,
+        )
+        hf_raise_for_status(response)
+        content = response.json()
+        context_msg = f"repo '{repo_id}', revision '{constants.DEFAULT_REVISION}'"
+        files_metadata = {
+            shard: _safetensors_file_metadata_from_header(header, shard, context_msg)
+            for shard, header in content["headers"].items()
+        }
+        return SafetensorsRepoMetadata(
+            metadata=content["index"].get("metadata"),
+            sharded=True,
+            # The response leaves out the index's weight_map, which repeats the tensor names of the shard headers
+            weight_map={
+                tensor: shard for shard, file_metadata in files_metadata.items() for tensor in file_metadata.tensors
+            },
+            files_metadata=files_metadata,
+        )
 
     def parse_safetensors_file_metadata(
         self,
