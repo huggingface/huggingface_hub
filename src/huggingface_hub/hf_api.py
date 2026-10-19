@@ -28,7 +28,7 @@ from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 from functools import wraps
 from itertools import islice
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from secrets import token_hex
 from typing import TYPE_CHECKING, Any, BinaryIO, Literal, TypeVar, cast, overload
 from urllib.parse import quote
@@ -5066,6 +5066,7 @@ class HfApi:
         from ._commit_api import (
             CommitOperationAdd,
             CommitOperationCopy,
+            CommitOperationDelete,
             _fetch_files_to_copy,
             _send_commit,
             _warn_on_overwriting_operations,
@@ -5155,13 +5156,19 @@ class HfApi:
             repo_id=repo_id, copies=copies, files_to_copy=files_to_copy, token=token, repo_type=repo_type
         )
 
-        # Remove no-op operations (files that have not changed)
+        # Remove no-op operations (files that have not changed), except files deleted in the same commit
+        deleted_paths = {op.path_in_repo.rstrip("/") for op in operations if isinstance(op, CommitOperationDelete)}
+
+        def _is_deleted(path: str) -> bool:
+            return path in deleted_paths or any(str(parent) in deleted_paths for parent in PurePosixPath(path).parents)
+
         operations_without_no_op = []
         for operation in operations:
             if (
                 isinstance(operation, CommitOperationAdd)
                 and operation._remote_oid is not None
                 and operation._remote_oid == operation._local_oid
+                and not _is_deleted(operation.path_in_repo)
             ):
                 # File already exists on the Hub and has not changed: we can skip it.
                 logger.debug(f"Skipping upload for '{operation.path_in_repo}' as the file has not changed.")
@@ -5170,6 +5177,7 @@ class HfApi:
                 isinstance(operation, CommitOperationCopy)
                 and operation._dest_oid is not None
                 and operation._dest_oid == operation._src_oid
+                and not _is_deleted(operation.path_in_repo)
             ):
                 # Source and destination files are identical - skip
                 logger.debug(
