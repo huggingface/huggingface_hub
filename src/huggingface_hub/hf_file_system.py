@@ -422,7 +422,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
     def _apply_bucket_changes(self, bucket_id: str, changes: Iterable[BucketFileChange]) -> None:
         """
         Apply a batch of live-follow changes to the dircache. Called by `_ls_tree`, on the thread owning the instance.
-        
+
         A change is applied as an invalidation of the cached listings of every parent directory of the changed
         path (up to the bucket root), plus the subtree under that path in case it was itself listed as a
         directory. Dropping a cached listing is always safe: the next call to
