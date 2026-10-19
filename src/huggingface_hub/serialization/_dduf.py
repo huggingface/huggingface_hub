@@ -218,6 +218,11 @@ def export_entries_as_dduf(dduf_path: str | os.PathLike, entries: Iterable[tuple
     index = None
     with zipfile.ZipFile(str(dduf_path), "w", zipfile.ZIP_STORED) as archive:
         for filename, content in entries:
+            try:
+                filename = _validate_dduf_entry_name(filename)
+            except DDUFInvalidEntryNameError as e:
+                raise DDUFExportError(f"Invalid entry name: {filename}") from e
+
             if filename in filenames:
                 raise DDUFExportError(f"Can't add duplicate entry: {filename}")
             filenames.add(filename)
@@ -228,10 +233,6 @@ def export_entries_as_dduf(dduf_path: str | os.PathLike, entries: Iterable[tuple
                 except json.JSONDecodeError as e:
                     raise DDUFExportError("Failed to parse 'model_index.json'.") from e
 
-            try:
-                filename = _validate_dduf_entry_name(filename)
-            except DDUFInvalidEntryNameError as e:
-                raise DDUFExportError(f"Invalid entry name: {filename}") from e
             logger.debug(f"Adding entry '{filename}' to DDUF file")
             _dump_content_in_archive(archive, filename, content)
 

@@ -185,6 +185,23 @@ class TestExportEntries:
                 ],
             )
 
+    def test_export_entries_leading_slash_normalized(self, tmp_path: Path):
+        export_entries_as_dduf(
+            tmp_path / "dummy.dduf",
+            [
+                ("/model_index.json", json.dumps({"vae": ["diffusers", "AutoencoderKL"]}).encode()),
+                ("/vae/config.json", b"{}"),
+            ],
+        )
+        assert set(read_dduf_file(tmp_path / "dummy.dduf")) == {"model_index.json", "vae/config.json"}
+
+    def test_export_entries_no_duplicate_after_normalization(self, tmp_path: Path):
+        with pytest.raises(DDUFExportError, match="Can't add duplicate entry"):
+            export_entries_as_dduf(
+                tmp_path / "dummy.dduf",
+                [("model_index.json", b"{}"), ("hello.txt", b"hello"), ("/hello.txt", b"world")],
+            )
+
     def test_export_entries_model_index_required(self, tmp_path: Path):
         with pytest.raises(DDUFExportError, match="Missing required 'model_index.json' entry"):
             export_entries_as_dduf(tmp_path / "dummy.dduf", [("model.safetensors", b"content")])
