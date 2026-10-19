@@ -1734,7 +1734,7 @@ def _get_metadata_or_catch_error(
         )
 
     # Skip the per-file HEAD call when the file metadata can be rebuilt from a tree listing cached on disk.
-    if tree_cache_folder is not None and REGEX_COMMIT_HASH.fullmatch(revision):
+    if tree_cache_folder is not None and not constants.is_offline_mode() and REGEX_COMMIT_HASH.fullmatch(revision):
         tree_metadata = _xet_file_metadata_from_tree_cache(
             tree_cache_folder=tree_cache_folder,
             repo_id=repo_id,
