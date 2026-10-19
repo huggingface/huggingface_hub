@@ -2552,8 +2552,8 @@ class TestHfApiPublicProduction:
 
         assert info.parameter_count == {"BF16": 7241732096}
 
-    def test_fetch_sharded_headers_from_hub(self, api: HfApi) -> None:
-        info = api.fetch_sharded_headers_from_hub("HuggingFaceH4/zephyr-7b-beta")
+    def test_get_sharded_safetensors_metadata(self, api: HfApi) -> None:
+        info = api.get_sharded_safetensors_metadata("HuggingFaceH4/zephyr-7b-beta")
         assert info is not None
         assert info.sharded
         assert info.parameter_count == {"BF16": 7241732096}

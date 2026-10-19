@@ -267,7 +267,6 @@ _SUBMOD_ATTRS = {
         "enable_webhook",
         "fetch_job_logs",
         "fetch_job_metrics",
-        "fetch_sharded_headers_from_hub",
         "fetch_space_logs",
         "file_exists",
         "get_bucket_file_metadata",
@@ -284,6 +283,7 @@ _SUBMOD_ATTRS = {
         "get_paths_info",
         "get_repo_discussions",
         "get_safetensors_metadata",
+        "get_sharded_safetensors_metadata",
         "get_space_runtime",
         "get_space_secrets",
         "get_space_variables",
@@ -1014,7 +1014,6 @@ __all__ = [
     "export_folder_as_dduf",
     "fetch_job_logs",
     "fetch_job_metrics",
-    "fetch_sharded_headers_from_hub",
     "fetch_space_logs",
     "file_exists",
     "from_pretrained_fastai",
@@ -1036,6 +1035,7 @@ __all__ = [
     "get_repo_discussions",
     "get_safetensors_metadata",
     "get_session",
+    "get_sharded_safetensors_metadata",
     "get_space_runtime",
     "get_space_secrets",
     "get_space_variables",
@@ -1481,7 +1481,6 @@ if TYPE_CHECKING:  # pragma: no cover
         enable_webhook,  # noqa: F401
         fetch_job_logs,  # noqa: F401
         fetch_job_metrics,  # noqa: F401
-        fetch_sharded_headers_from_hub,  # noqa: F401
         fetch_space_logs,  # noqa: F401
         file_exists,  # noqa: F401
         get_bucket_file_metadata,  # noqa: F401
@@ -1498,6 +1497,7 @@ if TYPE_CHECKING:  # pragma: no cover
         get_paths_info,  # noqa: F401
         get_repo_discussions,  # noqa: F401
         get_safetensors_metadata,  # noqa: F401
+        get_sharded_safetensors_metadata,  # noqa: F401
         get_space_runtime,  # noqa: F401
         get_space_secrets,  # noqa: F401
         get_space_variables,  # noqa: F401

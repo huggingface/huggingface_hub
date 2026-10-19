@@ -6755,7 +6755,7 @@ class HfApi:
                 f"'{repo_id}' is not a safetensors repo. Couldn't find '{constants.SAFETENSORS_INDEX_FILE}' or '{constants.SAFETENSORS_SINGLE_FILE}' files."
             )
 
-    def fetch_sharded_headers_from_hub(
+    def get_sharded_safetensors_metadata(
         self,
         repo_id: str,
         *,
@@ -6786,7 +6786,7 @@ class HfApi:
 
         Example:
             ```py
-            >>> metadata = fetch_sharded_headers_from_hub("HuggingFaceH4/zephyr-7b-beta")
+            >>> metadata = get_sharded_safetensors_metadata("HuggingFaceH4/zephyr-7b-beta")
             >>> len(metadata.files_metadata)
             8
             ```
@@ -15396,7 +15396,7 @@ permanently_delete_lfs_files = api.permanently_delete_lfs_files
 
 # Safetensors helpers
 get_safetensors_metadata = api.get_safetensors_metadata
-fetch_sharded_headers_from_hub = api.fetch_sharded_headers_from_hub
+get_sharded_safetensors_metadata = api.get_sharded_safetensors_metadata
 parse_safetensors_file_metadata = api.parse_safetensors_file_metadata
 
 # Background jobs
