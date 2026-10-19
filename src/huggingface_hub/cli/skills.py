@@ -466,8 +466,11 @@ def skills_add(
     print(f"Installed '{name}' to central location: {central_skill_path}")
 
     claude_path = constants.CLAUDE_SKILLS_GLOBAL_PATH if global_ else constants.CLAUDE_SKILLS_LOCAL_PATH
-    link_path = _create_symlink(claude_path, name, central_skill_path, force)
-    print(f"Created symlink: {link_path}" if link_path.is_symlink() else f"Copied '{name}' to {link_path}")
+    if claude_path.expanduser().resolve() == central_path.expanduser().resolve():
+        print(f"{claude_path.expanduser()} already points to {central_path.expanduser()}, skipping symlink.")
+    else:
+        link_path = _create_symlink(claude_path, name, central_skill_path, force)
+        print(f"Created symlink: {link_path}" if link_path.is_symlink() else f"Copied '{name}' to {link_path}")
     if not global_:
         out.hint(f"Run `hf skills add {name} --global` to install the skill globally instead.")
 
