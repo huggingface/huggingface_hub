@@ -4,6 +4,7 @@ import os
 import re
 import shutil
 import stat
+import tempfile
 import time
 import uuid
 import warnings
@@ -1484,7 +1485,17 @@ def _hf_hub_download_to_local_dir(
                 )
             with WeakFileLock(paths.lock_path):
                 paths.file_path.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copyfile(cached_path, paths.file_path)
+                with tempfile.NamedTemporaryFile(
+                    dir=paths.file_path.parent,
+                    prefix=f".{paths.file_path.name}.",
+                    delete=False,
+                ) as tmp_file:
+                    tmp_path = Path(tmp_file.name)
+                try:
+                    shutil.copyfile(cached_path, tmp_path)
+                    os.replace(tmp_path, paths.file_path)
+                finally:
+                    tmp_path.unlink(missing_ok=True)
             write_download_metadata(local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag)
             return str(paths.file_path)
 
@@ -1501,7 +1512,6 @@ def _hf_hub_download_to_local_dir(
 
     # Otherwise, let's download the file!
     with WeakFileLock(paths.lock_path):
-        paths.file_path.unlink(missing_ok=True)  # delete outdated file first
         _download_to_tmp_and_move(
             incomplete_path=paths.incomplete_path(etag),
             destination_path=paths.file_path,
@@ -1509,7 +1519,7 @@ def _hf_hub_download_to_local_dir(
             headers=headers,
             expected_size=expected_size,
             filename=filename,
-            force_download=force_download,
+            force_download=True,
             etag=etag,
             xet_file_data=xet_file_data,
             tqdm_class=tqdm_class,
