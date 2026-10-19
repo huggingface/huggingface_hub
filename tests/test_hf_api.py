@@ -2564,9 +2564,6 @@ class TestHfApiPublicProduction:
         assert info.weight_map == parsed.weight_map
         assert info.metadata == parsed.metadata
 
-    def test_fetch_sharded_headers_from_hub_other_revision(self, api: HfApi) -> None:
-        assert api.fetch_sharded_headers_from_hub("HuggingFaceH4/zephyr-7b-beta", revision="refs/pr/1") is None
-
     def test_not_a_safetensors_repo(self, api: HfApi) -> None:
         with pytest.raises(NotASafetensorsRepoError):
             api.get_safetensors_metadata("huggingface-hub-ci/test_safetensors_metadata")

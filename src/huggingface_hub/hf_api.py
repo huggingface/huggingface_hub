@@ -6760,10 +6760,9 @@ class HfApi:
         repo_id: str,
         *,
         filename: str = constants.SAFETENSORS_INDEX_FILE,
-        revision: str | None = None,
         token: bool | str | None = None,
         timeout: float | None = constants.HF_HUB_DOWNLOAD_TIMEOUT,
-    ) -> SafetensorsRepoMetadata | None:
+    ) -> SafetensorsRepoMetadata:
         """
         Get the metadata of every shard of a sharded safetensors model on `main` from the Hub in a single request,
         instead of [`get_safetensors_metadata`] parsing each shard header. Hugging Face Hub only.
@@ -6773,8 +6772,6 @@ class HfApi:
                 A user or an organization name and a repo name separated by a `/`.
             filename (`str`, *optional*):
                 Path of the safetensors index file in the repo. Defaults to `"model.safetensors.index.json"`.
-            revision (`str`, *optional*):
-                Only the `"main"` branch (the default) is served: other revisions return `None`.
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -6785,8 +6782,7 @@ class HfApi:
                 timeout (not recommended, as a stalled connection can hang the call indefinitely).
 
         Returns:
-            [`SafetensorsRepoMetadata`] or `None`: the same metadata as [`get_safetensors_metadata`], or `None` for a
-            revision other than `"main"`.
+            [`SafetensorsRepoMetadata`]: the same metadata as [`get_safetensors_metadata`].
 
         Example:
             ```py
@@ -6795,8 +6791,6 @@ class HfApi:
             8
             ```
         """
-        if revision not in (None, constants.DEFAULT_REVISION):
-            return None
         response = get_session().get(
             f"{self.endpoint}/api/models/{repo_id}/safetensors-metadata/{quote(filename, safe='/')}",
             headers=self._build_hf_headers(token=token),
