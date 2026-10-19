@@ -784,7 +784,7 @@ def scan_cache_dir(cache_dir: str | Path | None = None) -> HFCacheInfo:
         if repo_path.name == _shared_blobs.SHARED_BLOBS_DIR_NAME and _shared_blobs.is_shared_blobs_dir(repo_path):
             continue
         try:
-            repos.add(_scan_cached_repo(repo_path))
+            repos.add(_scan_cached_repo(repo_path, repo_warnings=warnings))
         except CorruptedCacheException as e:
             warnings.append(e)
 
@@ -832,10 +832,12 @@ def _scan_incomplete_files(cache_dir: Path) -> frozenset[CachedIncompleteFileInf
     return frozenset(files)
 
 
-def _scan_cached_repo(repo_path: Path) -> CachedRepoInfo:
+def _scan_cached_repo(repo_path: Path, repo_warnings: list[CorruptedCacheException] | None = None) -> CachedRepoInfo:
     """Scan a single cache repo and return information about it.
 
-    Any unexpected behavior will raise a [`~CorruptedCacheException`].
+    Any unexpected behavior will raise a [`~CorruptedCacheException`], except refs
+    pointing to missing snapshots: when `repo_warnings` is provided, those stale
+    refs are reported there and the valid revisions are still returned.
     """
     if not repo_path.is_dir():
         raise CorruptedCacheException(f"Repo path is not a directory: {repo_path}")
@@ -943,11 +945,14 @@ def _scan_cached_repo(repo_path: Path) -> CachedRepoInfo:
             )
         )
 
-    # Check that all refs referred to an existing revision
+    # Refs that point to a missing snapshot are stale. Keep the repo and its valid
+    # revisions, and report the stale refs as scan warnings instead of dropping the
+    # whole repo. When no `repo_warnings` collector is provided, keep raising.
     if len(refs_by_hash) > 0:
-        raise CorruptedCacheException(
-            f"Reference(s) refer to missing commit hashes: {dict(refs_by_hash)} ({repo_path})."
-        )
+        message = f"Reference(s) refer to missing commit hashes: {dict(refs_by_hash)} ({repo_path})."
+        if repo_warnings is None:
+            raise CorruptedCacheException(message)
+        repo_warnings.append(CorruptedCacheException(message))
 
     # Last modified is either the last modified blob file or the repo folder itself if
     # no blob files has been found. Same for last accessed.

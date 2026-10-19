@@ -360,13 +360,17 @@ class TestCorruptedCacheUtils:
         assert repo_report.last_accessed == self.repo_path.stat().st_atime
 
     def test_ref_to_missing_revision(self, tmp_path) -> None:
-        """Test if a `refs` points to a missing revision."""
+        """Test if a `refs` points to a missing revision.
+
+        The repo is not dropped: valid revisions are kept and the stale refs are
+        reported as scan warnings instead.
+        """
         new_ref = self.repo_path / "refs" / "not_main"
         with new_ref.open("w") as f:
             f.write("revision_hash_that_does_not_exist")
 
         report = scan_cache_dir(tmp_path)
-        assert len(report.repos) == 0  # Failed
+        assert len(report.repos) == 1  # Scan still worked !
 
         assert len(report.warnings) == 1
         assert (
@@ -374,6 +378,33 @@ class TestCorruptedCacheUtils:
             == "Reference(s) refer to missing commit hashes: {'revision_hash_that_does_not_exist': {'not_main'}} "
             + f"({self.repo_path})."
         )
+
+        # The valid revision is kept, with only its valid refs attached
+        repo_report = list(report.repos)[0]
+        assert {rev.commit_hash for rev in repo_report.revisions} == {REPO_A_MAIN_HASH}
+        main_revision = list(repo_report.revisions)[0]
+        assert main_revision.refs == {"main"}
+        assert set(repo_report.refs.keys()) == {"main"}
+
+        # The kept revision stays deletable
+        strategy = report.delete_revisions(REPO_A_MAIN_HASH)
+        assert strategy.expected_freed_size == repo_report.size_on_disk
+
+    def test_all_refs_to_missing_revisions(self, tmp_path) -> None:
+        """Repo is kept even when every ref points to a missing revision."""
+        (self.refs_path / "main").write_text("revision_hash_that_does_not_exist")
+
+        report = scan_cache_dir(tmp_path)
+        assert len(report.repos) == 1  # Scan still worked !
+
+        assert len(report.warnings) == 1
+
+        repo_report = list(report.repos)[0]
+        assert len(repo_report.revisions) == 1
+        revision = list(repo_report.revisions)[0]
+        assert revision.commit_hash == REPO_A_MAIN_HASH
+        assert revision.refs == frozenset()
+        assert repo_report.refs == {}
 
     @pytest.mark.skipif(os.name == "nt", reason="Last modified/last accessed work a bit differently on Windows.")
     def test_scan_cache_last_modified_and_last_accessed(self, tmp_path) -> None:
