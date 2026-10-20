@@ -2232,9 +2232,10 @@ class TestHfApiPublicProduction:
         assert isinstance(entry.value, (int, float))
         assert isinstance(entry.filename, str)
         assert isinstance(entry.verified, bool)
-        assert isinstance(entry.source, dict)
         assert isinstance(entry.author, (User, Organization))
         # Optional fields should be accessible (may be None)
+        # `source` is optional: the top entry of this live leaderboard can lack it (e.g. SoMarkAI/OXR-1.0)
+        assert entry.source is None or isinstance(entry.source, dict)
         assert entry.pull_request is None or isinstance(entry.pull_request, int)
         assert entry.notes is None or isinstance(entry.notes, str)
 
@@ -2551,6 +2552,13 @@ class TestHfApiPublicProduction:
             assert isinstance(file_metadata, SafetensorsFileMetadata)
 
         assert info.parameter_count == {"BF16": 7241732096}
+
+    def test_get_sharded_safetensors_metadata(self, api: HfApi) -> None:
+        info = api.get_sharded_safetensors_metadata("HuggingFaceH4/zephyr-7b-beta")
+        parsed = api.get_safetensors_metadata("HuggingFaceH4/zephyr-7b-beta")
+        assert info.files_metadata == parsed.files_metadata
+        assert info.weight_map == parsed.weight_map
+        assert info.metadata == parsed.metadata
 
     def test_not_a_safetensors_repo(self, api: HfApi) -> None:
         with pytest.raises(NotASafetensorsRepoError):
