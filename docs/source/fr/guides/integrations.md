@@ -206,7 +206,8 @@ class PyTorchModelHubMixin(ModelHubMixin):
          # ...
       )
       (save_directory / "README.md").write_text(str(model_card))
-      torch.save(obj=self.module.state_dict(), f=save_directory / "pytorch_model.bin")
+      model_to_save = self.module if hasattr(self, "module") else self
+      torch.save(obj=model_to_save.state_dict(), f=save_directory / "pytorch_model.bin")
 ```
 
 3. Implémentez la méthode `_from_pretrained`:

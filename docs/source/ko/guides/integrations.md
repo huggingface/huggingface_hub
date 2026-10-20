@@ -193,7 +193,8 @@ class PyTorchModelHubMixin(ModelHubMixin):
 
     def _save_pretrained(self, save_directory: Path) -> None:
         """PyTorch 모델의 가중치를 로컬 디렉터리에 저장합니다."""
-        save_model_as_safetensor(self.module, str(save_directory / SAFETENSORS_SINGLE_FILE))
+        model_to_save = self.module if hasattr(self, "module") else self
+        save_model_as_safetensor(model_to_save, str(save_directory / SAFETENSORS_SINGLE_FILE))
 
 ```
 
