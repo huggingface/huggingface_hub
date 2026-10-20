@@ -29,7 +29,7 @@ jobs:
         run: pip install --upgrade uv
 
       - name: Install dependencies
-        run: uv pip install --system "huggingface_hub[dev] @ ."
+        run: uv pip install --prerelease=allow --system "huggingface_hub[dev] @ ."
 
       - name: Check and update hardware flavors
         run: python utils/check_hardware_flavors.py --update
