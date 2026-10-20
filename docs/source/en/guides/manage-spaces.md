@@ -52,7 +52,7 @@ Here is an end-to-end example to create and set up a Space on the Hub.
 
 ### Create a Space from a template
 
-Instead of starting from an empty Space, you can seed a new Space from one of the official templates offered on the Hub (e.g. JupyterLab, a Gradio chatbot, a Streamlit app, etc.). List the available templates with [`list_space_templates`], then pass a template's `repo_id` (or its short `name`) as `space_template` to [`create_repo`]. Note that `space_sdk` is still required: the template seeds the files while the SDK sets the card metadata.
+Instead of starting from an empty Space, you can seed a new Space from one of the official templates offered on the Hub (e.g. JupyterLab, a Gradio chatbot, a Streamlit app, etc.). List the available templates with [`list_space_templates`], then pass a template's `repo_id` (or its short `name`) as `space_template` to [`create_repo`]. The SDK is inferred from the template. You can also pass `space_sdk` explicitly, but it must match the template's SDK.
 
 ```py
 >>> from huggingface_hub import HfApi
