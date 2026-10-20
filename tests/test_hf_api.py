@@ -2232,9 +2232,10 @@ class TestHfApiPublicProduction:
         assert isinstance(entry.value, (int, float))
         assert isinstance(entry.filename, str)
         assert isinstance(entry.verified, bool)
-        assert isinstance(entry.source, dict)
         assert isinstance(entry.author, (User, Organization))
         # Optional fields should be accessible (may be None)
+        # `source` is optional: the top entry of this live leaderboard can lack it (e.g. SoMarkAI/OXR-1.0)
+        assert entry.source is None or isinstance(entry.source, dict)
         assert entry.pull_request is None or isinstance(entry.pull_request, int)
         assert entry.notes is None or isinstance(entry.notes, str)
 
