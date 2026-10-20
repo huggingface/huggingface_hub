@@ -4175,7 +4175,7 @@ class HfApi:
         )
 
         # Create an empty branch by deriving from initial commit
-        >>> api.create_branch("gpt2", "new_empty_branch", revision=initial_commit.commit_id)
+        >>> api.create_branch("gpt2", branch="new_empty_branch", revision=initial_commit.commit_id)
         ```
 
         Returns:
@@ -12426,7 +12426,7 @@ class HfApi:
             ```python
             >>> from huggingface_hub import inspect_job, run_job
             >>> job = run_job(image="python:3.12", command=["python", "-c" ,"print('Hello from HF compute!')"])
-            >>> inspect_job(job.id)
+            >>> inspect_job(job_id=job.id)
             JobInfo(
                 id='68780d00bbe36d38803f645f',
                 created_at=datetime.datetime(2025, 7, 16, 20, 35, 12, 808000, tzinfo=datetime.timezone.utc),
@@ -13146,9 +13146,9 @@ class HfApi:
         Example:
 
             ```python
-            >>> from huggingface_hub import inspect_job, create_scheduled_job
+            >>> from huggingface_hub import inspect_scheduled_job, create_scheduled_job
             >>> scheduled_job = create_scheduled_job(image="python:3.12", command=["python", "-c" ,"print('Hello from HF compute!')"], schedule="@hourly")
-            >>> inspect_scheduled_job(scheduled_job.id)
+            >>> inspect_scheduled_job(scheduled_job_id=scheduled_job.id)
             ```
         """
         if namespace is None:
