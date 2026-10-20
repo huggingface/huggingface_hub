@@ -360,7 +360,7 @@ Example:
 
 ```py
 class MyModel(ModelHubMixin):
-   def __init__(value: str, size: int = 3):
+   def __init__(self, value: str, size: int = 3):
       self.value = value
       self.size = size
 
