@@ -92,7 +92,7 @@ gnomealone/need-to-test-652007226c6ce4cdacf9c233
 Crataco/favorite-7b-models-651944072b4fffcb41f8b568
 ```
 
-`sort` 매개변수는 `"last_modified"`, `"trending"` 또는 `"upvotes"` 중 하나여야 합니다. `item` 매개변수는 특정 항목을 받습니다. 예를 들면 다음과 같습니다:
+`sort` 매개변수는 `"lastModified"`, `"trending"` 또는 `"upvotes"` 중 하나여야 합니다. `item` 매개변수는 특정 항목을 받습니다. 예를 들면 다음과 같습니다:
 * `"models/teknium/OpenHermes-2.5-Mistral-7B"`
 * `"spaces/julien-c/open-gpt-rhyming-robot"`
 * `"datasets/squad"`
