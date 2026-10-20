@@ -8512,6 +8512,8 @@ class HfApi:
         max_wait_time = 10
         sleep_time = 0
         start_event_idx = 0
+        last_line: str | None = None
+        resume_after: str | None = None  # last event of a `tail` request, whose index in the full log is unknown
         error_to_retry: Exception | None = None
         while True:
             if error_to_retry is not None:
@@ -8536,6 +8538,10 @@ class HfApi:
                         for line in response.iter_lines():
                             if line and line.startswith("data: {"):
                                 event_idx += 1
+                                if resume_after is not None:
+                                    if line == resume_after:
+                                        resume_after, start_event_idx = None, event_idx + 1
+                                    continue
                                 if event_idx >= start_event_idx:
                                     if skip_previous_events_on_retry:
                                         start_event_idx += 1
@@ -8548,6 +8554,7 @@ class HfApi:
                                         break
                                     # New data: retries only count consecutive failures
                                     nb_tries = sleep_time = 0
+                                    last_line = line
                                     yield event
                         # Jobs: the stream can end before the Job does, so the stage check below decides
                         if on_iteration_end is None:
@@ -8587,8 +8594,9 @@ class HfApi:
                     nb_tries += 1
                     sleep_time = min(max_wait_time, max(min_wait_time, sleep_time * 2))
                     error_to_retry = err
-            # Drop params after the first attempt: the start_event_idx dedup
-            # requires a stable replay prefix, which `tail` would break.
+            # Drop params after the first attempt: the full replay resumes after the last `tail` event
+            if params is not None:
+                resume_after = last_line
             params = None
             # no-follow: a single attempt, never loop back
             if not follow:
