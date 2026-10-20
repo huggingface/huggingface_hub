@@ -380,6 +380,8 @@ Here is a concrete example where a class expects a `argparse.Namespace` config a
 ```py
 class VoiceCraft(nn.Module):
     def __init__(self, args):
+      super().__init__()
+      self.args = args
       self.pattern = self.args.pattern
       self.hidden_size = self.args.hidden_size
       ...
@@ -403,6 +405,8 @@ class VoiceCraft(
    }
 ):
     def __init__(self, args: Namespace): # annotate `args`
+      super().__init__()
+      self.args = args
       self.pattern = self.args.pattern
       self.hidden_size = self.args.hidden_size
       ...

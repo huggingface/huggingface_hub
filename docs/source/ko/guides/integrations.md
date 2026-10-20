@@ -347,6 +347,8 @@ model.save_pretrained(...)
 ```py
 class VoiceCraft(nn.Module):
     def __init__(self, args):
+      super().__init__()
+      self.args = args
       self.pattern = self.args.pattern
       self.hidden_size = self.args.hidden_size
       ...
@@ -370,6 +372,8 @@ class VoiceCraft(
    }
 ):
     def __init__(self, args: Namespace): # `args`에 주석을 답니다.
+      super().__init__()
+      self.args = args
       self.pattern = self.args.pattern
       self.hidden_size = self.args.hidden_size
       ...
