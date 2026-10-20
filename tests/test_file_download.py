@@ -116,6 +116,51 @@ def test_download_without_head_content_length(tmp_path: Path, use_local_dir: boo
     assert Path(path).read_bytes() == content
 
 
+def test_dry_run_local_dir_outdated_file_will_download(tmp_path: Path) -> None:
+    """Regression test for #5215: dry-run must report a stale local file as a download."""
+    content = b"new content"
+    url = "https://huggingface.co/user/repo/resolve/main/file.txt"
+    local_dir = tmp_path / "local"
+    local_dir.mkdir()
+    local_path = local_dir / "file.txt"
+    local_path.write_bytes(b"old content")
+    write_download_metadata(local_dir, "file.txt", "d" * 40, "old-etag")
+
+    def _mock_download(url: str, file, **kwargs) -> None:
+        file.write(content)
+
+    with (
+        patch(
+            "huggingface_hub.file_download._get_metadata_or_catch_error",
+            return_value=(url, "new-etag", "a" * 40, len(content), None, None),
+        ),
+        patch("huggingface_hub.file_download.http_get", side_effect=_mock_download),
+    ):
+        dry_run_info = hf_hub_download(
+            repo_id="user/repo",
+            filename="file.txt",
+            cache_dir=str(tmp_path / "cache"),
+            local_dir=str(local_dir),
+            token=False,
+            dry_run=True,
+        )
+
+        assert dry_run_info.is_cached
+        assert dry_run_info.will_download
+        assert dry_run_info.file_size == len(content)
+        assert local_path.read_bytes() == b"old content"
+
+        path = hf_hub_download(
+            repo_id="user/repo",
+            filename="file.txt",
+            cache_dir=str(tmp_path / "cache"),
+            local_dir=str(local_dir),
+            token=False,
+        )
+
+    assert Path(path).read_bytes() == content
+
+
 class TestDiskUsageWarning:
     @pytest.fixture(scope="class", autouse=True)
     def setup(self, request):
