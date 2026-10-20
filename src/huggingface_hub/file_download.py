@@ -1496,7 +1496,7 @@ def _hf_hub_download_to_local_dir(
             filename=filename,
             is_cached=is_cached,
             local_path=str(paths.file_path),
-            will_download=force_download or not is_cached,
+            will_download=True,
         )
 
     # Otherwise, let's download the file!
