@@ -28,15 +28,15 @@ Hugging Face Hub는 커뮤니티와 모델을 공유하는 것을 쉽게 만들�
 
 ```python
 def from_pretrained(model_id: str) -> MyModelClass:
-   # Hub로부터 모델을 다운로드
-   cached_model = hf_hub_download(
-      repo_id=repo_id,
-      filename="model.pkl",
-      library_name="fastai",
-      library_version=get_fastai_version(),
-   )
+    # Hub로부터 모델을 다운로드
+    cached_model = hf_hub_download(
+        repo_id=model_id,
+        filename="model.pkl",
+        library_name="fastai",
+        library_version=get_fastai_version(),
+    )
 
-   # 모델 가져오기
+    # 모델 가져오기
     return load_model(cached_model)
 ```
 

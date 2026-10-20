@@ -31,15 +31,15 @@ So sieht eine `from_pretrained` Methode normalerweise aus:
 
 ```python
 def from_pretrained(model_id: str) -> MyModelClass:
-   # Modell vom Hub herunterladen
-   cached_model = hf_hub_download(
-      repo_id=repo_id,
-      filename="model.pkl",
-      library_name="fastai",
-      library_version=get_fastai_version(),
-   )
+    # Modell vom Hub herunterladen
+    cached_model = hf_hub_download(
+        repo_id=model_id,
+        filename="model.pkl",
+        library_name="fastai",
+        library_version=get_fastai_version(),
+    )
 
-   # Modell laden
+    # Modell laden
     return load_model(cached_model)
 ```
 

@@ -32,15 +32,15 @@ Voici un exemple classique pour implémenter la méthode `from_pretrained`:
 
 ```python
 def from_pretrained(model_id: str) -> MyModelClass:
-   # Téléchargement des paramètres depuis le Hub
-   cached_model = hf_hub_download(
-      repo_id=repo_id,
-      filename="model.pkl",
-      library_name="fastai",
-      library_version=get_fastai_version(),
-   )
+    # Téléchargement des paramètres depuis le Hub
+    cached_model = hf_hub_download(
+        repo_id=model_id,
+        filename="model.pkl",
+        library_name="fastai",
+        library_version=get_fastai_version(),
+    )
 
-   # Instanciation du modèle
+    # Instanciation du modèle
     return load_model(cached_model)
 ```
 
