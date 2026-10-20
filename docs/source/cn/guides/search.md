@@ -31,9 +31,9 @@
 让我们看一个示例，获取所有在 Hub 上进行图像分类的模型，这些模型已在 imagenet 数据集上训练，并使用 PyTorch 运行。
 
 ```py
-models = hf_api.list_models(
-	task="image-classification",
-	library="pytorch",
+models = api.list_models(
+	pipeline_tag="image-classification",
+	filter="pytorch",
 	trained_dataset="imagenet",
 )
 ```
