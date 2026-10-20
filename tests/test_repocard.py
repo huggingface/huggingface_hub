@@ -196,6 +196,17 @@ class TestRepocardMetadata:
         data = metadata_load(self.filepath)
         assert data == {"license": "mit", "datasets": ["foo", "bar"]}
 
+    def test_metadata_load_with_bom(self):
+        self.filepath.write_text(DUMMY_MODELCARD, encoding="utf-8-sig")
+        data = metadata_load(self.filepath)
+        assert data == {"license": "mit", "datasets": ["foo", "bar"]}
+
+    def test_metadata_save_with_bom(self):
+        self.filepath.write_text(DUMMY_MODELCARD, encoding="utf-8-sig")
+        metadata_save(self.filepath, {"meaning_of_life": 42})
+        content = self.filepath.read_text(encoding="utf-8")
+        assert content == DUMMY_MODELCARD_TARGET
+
     def test_metadata_save(self):
         self.filepath.write_text(DUMMY_MODELCARD)
         metadata_save(self.filepath, {"meaning_of_life": 42})
@@ -538,6 +549,14 @@ class TestRepoCard:
             "metrics": ["acc"],
         }
         assert card.text.strip().startswith("# my-cool-model"), "Card text not loaded properly"
+
+    def test_load_repocard_from_file_with_bom(self, tmp_path):
+        card_path = tmp_path / "README.md"
+        card_path.write_text("---\nlicense: mit\n---\n# Title\n", encoding="utf-8-sig")
+        card = RepoCard.load(card_path)
+        assert card.data.to_dict() == {"license": "mit"}
+        card.save(card_path)
+        assert card_path.read_text(encoding="utf-8") == "---\nlicense: mit\n---\n# Title\n"
 
     def test_change_repocard_data(self):
         sample_path = SAMPLE_CARDS_DIR / "sample_simple.md"
