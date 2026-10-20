@@ -47,7 +47,7 @@ models = hf_api.list_models(num_parameters="min:6B,max:128B")
 नीचे दिया गया उदाहरण Hub पर सबसे ज़्यादा डाउनलोड किए गए top 5 Datasets प्राप्त करता है:
 
 ```py
->>> list(list_datasets(sort="downloads", limit=5))
+>>> list(api.list_datasets(sort="downloads", limit=5))
 [DatasetInfo(
 	id='argilla/databricks-dolly-15k-curated-en',
 	author='argilla',
