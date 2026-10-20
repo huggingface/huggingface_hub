@@ -211,7 +211,6 @@ class PyTorchModelHubMixin(ModelHubMixin):
         revision: str,
         cache_dir: str,
         force_download: bool,
-        proxies: Optional[dict],
         local_files_only: bool,
         token: Union[str, bool, None],
         map_location: str = "cpu", # 추가 인자
