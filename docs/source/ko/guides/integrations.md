@@ -201,31 +201,31 @@ class PyTorchModelHubMixin(ModelHubMixin):
 
 ```python
 class PyTorchModelHubMixin(ModelHubMixin):
-   (...)
+    (...)
 
-   @classmethod # 반드시 클래스 메소드여야 합니다!
-   def _from_pretrained(
-      cls,
-      *,
-      model_id: str,
-      revision: str,
-      cache_dir: str,
-      force_download: bool,
-      proxies: Optional[dict],
-      local_files_only: bool,
-      token: Union[str, bool, None],
-      map_location: str = "cpu", # 추가 인자
-      strict: bool = False, # 추가 인자
-      **model_kwargs,
-   ):
-      """PyTorch의 사전 학습된 가중치와 모델을 반환합니다."""
+    @classmethod # 반드시 클래스 메소드여야 합니다!
+    def _from_pretrained(
+        cls,
+        *,
+        model_id: str,
+        revision: str,
+        cache_dir: str,
+        force_download: bool,
+        proxies: Optional[dict],
+        local_files_only: bool,
+        token: Union[str, bool, None],
+        map_location: str = "cpu", # 추가 인자
+        strict: bool = False, # 추가 인자
+        **model_kwargs,
+    ):
+        """PyTorch의 사전 학습된 가중치와 모델을 반환합니다."""
         model = cls(**model_kwargs)
         if os.path.isdir(model_id):
             print("Loading weights from local directory")
             model_file = os.path.join(model_id, SAFETENSORS_SINGLE_FILE)
             return cls._load_as_safetensor(model, model_file, map_location, strict)
 
-         model_file = hf_hub_download(
+        model_file = hf_hub_download(
             repo_id=model_id,
             filename=SAFETENSORS_SINGLE_FILE,
             revision=revision,
@@ -233,8 +233,8 @@ class PyTorchModelHubMixin(ModelHubMixin):
             force_download=force_download,
             token=token,
             local_files_only=local_files_only,
-            )
-         return cls._load_as_safetensor(model, model_file, map_location, strict)
+        )
+        return cls._load_as_safetensor(model, model_file, map_location, strict)
 ```
 
 이게 전부입니다! 이제 라이브러리를 통해 Hub로부터 파일을 업로드하고 다운로드할 수 있습니다.

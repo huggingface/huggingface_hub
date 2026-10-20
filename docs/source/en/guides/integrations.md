@@ -234,30 +234,30 @@ class PyTorchModelHubMixin(ModelHubMixin):
 
 ```python
 class PyTorchModelHubMixin(ModelHubMixin):
-   (...)
+    (...)
 
-   @classmethod # Must be a classmethod!
-   def _from_pretrained(
-      cls,
-      *,
-      model_id: str,
-      revision: str,
-      cache_dir: str,
-      force_download: bool,
-      local_files_only: bool,
-      token: Union[str, bool, None],
-      map_location: str = "cpu", # additional argument
-      strict: bool = False, # additional argument
-      **model_kwargs,
-   ):
-      """Load Pytorch pretrained weights and return the loaded model."""
+    @classmethod # Must be a classmethod!
+    def _from_pretrained(
+        cls,
+        *,
+        model_id: str,
+        revision: str,
+        cache_dir: str,
+        force_download: bool,
+        local_files_only: bool,
+        token: Union[str, bool, None],
+        map_location: str = "cpu", # additional argument
+        strict: bool = False, # additional argument
+        **model_kwargs,
+    ):
+        """Load Pytorch pretrained weights and return the loaded model."""
         model = cls(**model_kwargs)
         if os.path.isdir(model_id):
             print("Loading weights from local directory")
             model_file = os.path.join(model_id, SAFETENSORS_SINGLE_FILE)
             return cls._load_as_safetensor(model, model_file, map_location, strict)
 
-         model_file = hf_hub_download(
+        model_file = hf_hub_download(
             repo_id=model_id,
             filename=SAFETENSORS_SINGLE_FILE,
             revision=revision,
@@ -265,8 +265,8 @@ class PyTorchModelHubMixin(ModelHubMixin):
             force_download=force_download,
             token=token,
             local_files_only=local_files_only,
-            )
-         return cls._load_as_safetensor(model, model_file, map_location, strict)
+        )
+        return cls._load_as_safetensor(model, model_file, map_location, strict)
 ```
 
 And that's it! Your library now enables users to upload and download files to and from the Hub.
