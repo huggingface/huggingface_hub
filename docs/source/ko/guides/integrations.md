@@ -189,7 +189,7 @@ class PyTorchModelHubMixin(ModelHubMixin):
 from huggingface_hub import ModelHubMixin
 
 class PyTorchModelHubMixin(ModelHubMixin):
-   (...)
+    (...)
 
     def _save_pretrained(self, save_directory: Path) -> None:
         """PyTorch 모델의 가중치를 로컬 디렉터리에 저장합니다."""

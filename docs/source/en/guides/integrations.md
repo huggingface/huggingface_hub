@@ -222,7 +222,7 @@ class PyTorchModelHubMixin(ModelHubMixin):
 from huggingface_hub import ModelHubMixin
 
 class PyTorchModelHubMixin(ModelHubMixin):
-   (...)
+    (...)
 
     def _save_pretrained(self, save_directory: Path) -> None:
         """Save weights from a Pytorch model to a local directory."""
