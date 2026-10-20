@@ -178,13 +178,13 @@ class PyTorchModelHubMixin(ModelHubMixin):
          card_data=ModelCardData(
             license='mit',
             library_name="pytorch",
-            ...
+            # ...
          ),
          model_summary=...,
          model_type=...,
-         ...
+         # ...
       )
-      (save_directory / "README.md").write_text(str(model))
+      (save_directory / "README.md").write_text(str(model_card))
       torch.save(obj=self.module.state_dict(), f=save_directory / "pytorch_model.bin")
 ```
 
