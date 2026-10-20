@@ -52,7 +52,7 @@ def push_to_hub(model: MyModelClass, repo_name: str) -> None:
    api = HfApi()
 
    # Repo erstellen, wenn noch nicht vorhanden und die zugehörige repo_id erhalten
-   repo_id = api.create_repo(repo_name, exist_ok=True)
+   repo_id = api.create_repo(repo_name, exist_ok=True).repo_id
 
    # Modell in temporärem Ordner speichern und in einem enzigen Commit pushen
    with TemporaryDirectory() as tmpdir:

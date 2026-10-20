@@ -64,7 +64,7 @@ def push_to_hub(model: MyModelClass, repo_name: str) -> None:
    api = HfApi()
 
    # Create repo if not existing yet and get the associated repo_id
-   repo_id = api.create_repo(repo_name, exist_ok=True)
+   repo_id = api.create_repo(repo_name, exist_ok=True).repo_id
 
    # Save all files in a temporary directory and push them in a single commit
    with TemporaryDirectory() as tmpdir:

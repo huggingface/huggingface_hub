@@ -49,7 +49,7 @@ def push_to_hub(model: MyModelClass, repo_name: str) -> None:
    api = HfApi()
 
    # 해당 리포지토리가 아직 없다면 리포지토리를 생성하고 관련된 리포지토리 ID를 가져옵니다.
-   repo_id = api.create_repo(repo_name, exist_ok=True)
+   repo_id = api.create_repo(repo_name, exist_ok=True).repo_id
 
    # 모든 파일을 임시 디렉토리에 저장하고 이를 단일 커밋으로 푸시합니다.
    with TemporaryDirectory() as tmpdir:
