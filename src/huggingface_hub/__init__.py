@@ -283,6 +283,7 @@ _SUBMOD_ATTRS = {
         "get_paths_info",
         "get_repo_discussions",
         "get_safetensors_metadata",
+        "get_sharded_safetensors_metadata",
         "get_space_runtime",
         "get_space_secrets",
         "get_space_variables",
@@ -1034,6 +1035,7 @@ __all__ = [
     "get_repo_discussions",
     "get_safetensors_metadata",
     "get_session",
+    "get_sharded_safetensors_metadata",
     "get_space_runtime",
     "get_space_secrets",
     "get_space_variables",
@@ -1495,6 +1497,7 @@ if TYPE_CHECKING:  # pragma: no cover
         get_paths_info,  # noqa: F401
         get_repo_discussions,  # noqa: F401
         get_safetensors_metadata,  # noqa: F401
+        get_sharded_safetensors_metadata,  # noqa: F401
         get_space_runtime,  # noqa: F401
         get_space_secrets,  # noqa: F401
         get_space_variables,  # noqa: F401
