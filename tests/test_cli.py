@@ -4933,6 +4933,8 @@ class TestWebhooksCommand:
                     "org:HuggingFace",
                     "--domain",
                     "repo",
+                    "--domain",
+                    "discussion",
                     "--secret",
                     "mysecret",
                 ],
@@ -4944,7 +4946,7 @@ class TestWebhooksCommand:
             url="https://example.com/hook",
             job_id=None,
             watched=[WebhookWatchedItem(type="org", name="HuggingFace")],
-            domains=["repo"],
+            domains=["repo", "discussion"],
             secret="mysecret",
             secrets=None,
         )
