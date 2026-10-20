@@ -42,6 +42,7 @@ def generate_async_client_code(code: str) -> str:
     # Refactor `.post` method to be async + adapt calls
     code = _make_inner_post_async(code)
     code = _await_inner_post_method_call(code)
+    code = _await_provider_helper_get_response(code)
 
     # Handle __enter__, __exit__, close
     code = _remove_enter_exit_stack(code)
@@ -137,6 +138,7 @@ def _add_imports(code: str) -> str:
         r"(\nimport .*?\n)",
         repl=(
             r"\1"
+            + "import asyncio\n"
             + "from .._common import _async_yield_from\n"
             + "from huggingface_hub.utils import get_async_session\n"
             + "from typing import AsyncIterable\n"
@@ -327,6 +329,10 @@ def _adapt_chat_completion_to_async(code: str) -> str:
 
 def _await_inner_post_method_call(code: str) -> str:
     return code.replace("self._inner_post(", "await self._inner_post(")
+
+
+def _await_provider_helper_get_response(code: str) -> str:
+    return code.replace("provider_helper.get_response(", "await asyncio.to_thread(provider_helper.get_response, ")
 
 
 def _update_example_code_block(code_block: str) -> str:

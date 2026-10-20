@@ -28,7 +28,7 @@ from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 from functools import wraps
 from itertools import islice
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from secrets import token_hex
 from typing import TYPE_CHECKING, Any, BinaryIO, Literal, TypeVar, cast, overload
 from urllib.parse import quote
@@ -2077,7 +2077,13 @@ def _parse_safetensors_header(metadata_as_bytes: bytes, filename: str, context_m
             f"Failed to parse safetensors header for '{filename}' ({context_msg}): header is not json-encoded string. "
             "Please make sure this is a correctly formatted safetensors file."
         ) from e
+    return _safetensors_file_metadata_from_header(metadata_as_dict, filename, context_msg)
 
+
+def _safetensors_file_metadata_from_header(
+    metadata_as_dict: dict, filename: str, context_msg: str
+) -> SafetensorsFileMetadata:
+    """Build a [`SafetensorsFileMetadata`] from a safetensors header already decoded from JSON."""
     try:
         return SafetensorsFileMetadata(
             metadata=metadata_as_dict.get("__metadata__", {}),
@@ -4169,7 +4175,7 @@ class HfApi:
         )
 
         # Create an empty branch by deriving from initial commit
-        >>> api.create_branch("gpt2", "new_empty_branch", revision=initial_commit.commit_id)
+        >>> api.create_branch("gpt2", branch="new_empty_branch", revision=initial_commit.commit_id)
         ```
 
         Returns:
@@ -5066,6 +5072,7 @@ class HfApi:
         from ._commit_api import (
             CommitOperationAdd,
             CommitOperationCopy,
+            CommitOperationDelete,
             _fetch_files_to_copy,
             _send_commit,
             _warn_on_overwriting_operations,
@@ -5155,13 +5162,19 @@ class HfApi:
             repo_id=repo_id, copies=copies, files_to_copy=files_to_copy, token=token, repo_type=repo_type
         )
 
-        # Remove no-op operations (files that have not changed)
+        # Remove no-op operations (files that have not changed), except files deleted in the same commit
+        deleted_paths = {op.path_in_repo.rstrip("/") for op in operations if isinstance(op, CommitOperationDelete)}
+
+        def _is_deleted(path: str) -> bool:
+            return path in deleted_paths or any(str(parent) in deleted_paths for parent in PurePosixPath(path).parents)
+
         operations_without_no_op = []
         for operation in operations:
             if (
                 isinstance(operation, CommitOperationAdd)
                 and operation._remote_oid is not None
                 and operation._remote_oid == operation._local_oid
+                and not _is_deleted(operation.path_in_repo)
             ):
                 # File already exists on the Hub and has not changed: we can skip it.
                 logger.debug(f"Skipping upload for '{operation.path_in_repo}' as the file has not changed.")
@@ -5170,6 +5183,7 @@ class HfApi:
                 isinstance(operation, CommitOperationCopy)
                 and operation._dest_oid is not None
                 and operation._dest_oid == operation._src_oid
+                and not _is_deleted(operation.path_in_repo)
             ):
                 # Source and destination files are identical - skip
                 logger.debug(
@@ -6612,6 +6626,7 @@ class HfApi:
         metadata from the index file and then parse the metadata from each shard.
 
         To parse metadata from a single safetensors file, use [`parse_safetensors_file_metadata`].
+        To get every shard header of a sharded model on `main` in a single request, use [`get_sharded_safetensors_metadata`].
 
         For more details regarding the safetensors format, check out https://huggingface.co/docs/safetensors/index#format.
 
@@ -6748,6 +6763,64 @@ class HfApi:
             raise NotASafetensorsRepoError(
                 f"'{repo_id}' is not a safetensors repo. Couldn't find '{constants.SAFETENSORS_INDEX_FILE}' or '{constants.SAFETENSORS_SINGLE_FILE}' files."
             )
+
+    def get_sharded_safetensors_metadata(
+        self,
+        repo_id: str,
+        *,
+        filename: str = constants.SAFETENSORS_INDEX_FILE,
+        token: bool | str | None = None,
+        timeout: float | None = constants.HF_HUB_DOWNLOAD_TIMEOUT,
+    ) -> SafetensorsRepoMetadata:
+        """
+        Get the metadata of every shard of a sharded safetensors model on `main` from the Hub in a single request,
+        instead of [`get_safetensors_metadata`] parsing each shard header. Hugging Face Hub only.
+
+        Args:
+            repo_id (`str`):
+                A user or an organization name and a repo name separated by a `/`.
+            filename (`str`, *optional*):
+                Path of the safetensors index file in the repo. Defaults to `"model.safetensors.index.json"`.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+            timeout (`float`, *optional*, defaults to 10):
+                How many seconds to wait for the server to send data before giving up. Set to `None` to disable the
+                timeout (not recommended, as a stalled connection can hang the call indefinitely).
+
+        Returns:
+            [`SafetensorsRepoMetadata`]: the same metadata as [`get_safetensors_metadata`].
+
+        Example:
+            ```py
+            >>> metadata = get_sharded_safetensors_metadata("HuggingFaceH4/zephyr-7b-beta")
+            >>> len(metadata.files_metadata)
+            8
+            ```
+        """
+        response = get_session().get(
+            f"{self.endpoint}/api/models/{repo_id}/safetensors-metadata/{quote(filename, safe='/')}",
+            headers=self._build_hf_headers(token=token),
+            timeout=timeout,
+        )
+        hf_raise_for_status(response)
+        content = response.json()
+        context_msg = f"repo '{repo_id}', revision '{constants.DEFAULT_REVISION}'"
+        files_metadata = {
+            shard: _safetensors_file_metadata_from_header(header, shard, context_msg)
+            for shard, header in content["headers"].items()
+        }
+        return SafetensorsRepoMetadata(
+            metadata=content["index"].get("metadata"),
+            sharded=True,
+            # The response leaves out the index's weight_map, which repeats the tensor names of the shard headers
+            weight_map={
+                tensor: shard for shard, file_metadata in files_metadata.items() for tensor in file_metadata.tensors
+            },
+            files_metadata=files_metadata,
+        )
 
     def parse_safetensors_file_metadata(
         self,
@@ -12353,7 +12426,7 @@ class HfApi:
             ```python
             >>> from huggingface_hub import inspect_job, run_job
             >>> job = run_job(image="python:3.12", command=["python", "-c" ,"print('Hello from HF compute!')"])
-            >>> inspect_job(job.id)
+            >>> inspect_job(job_id=job.id)
             JobInfo(
                 id='68780d00bbe36d38803f645f',
                 created_at=datetime.datetime(2025, 7, 16, 20, 35, 12, 808000, tzinfo=datetime.timezone.utc),
@@ -13073,9 +13146,9 @@ class HfApi:
         Example:
 
             ```python
-            >>> from huggingface_hub import inspect_job, create_scheduled_job
+            >>> from huggingface_hub import inspect_scheduled_job, create_scheduled_job
             >>> scheduled_job = create_scheduled_job(image="python:3.12", command=["python", "-c" ,"print('Hello from HF compute!')"], schedule="@hourly")
-            >>> inspect_scheduled_job(scheduled_job.id)
+            >>> inspect_scheduled_job(scheduled_job_id=scheduled_job.id)
             ```
         """
         if namespace is None:
@@ -15332,6 +15405,7 @@ permanently_delete_lfs_files = api.permanently_delete_lfs_files
 
 # Safetensors helpers
 get_safetensors_metadata = api.get_safetensors_metadata
+get_sharded_safetensors_metadata = api.get_sharded_safetensors_metadata
 parse_safetensors_file_metadata = api.parse_safetensors_file_metadata
 
 # Background jobs
