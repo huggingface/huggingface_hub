@@ -12,6 +12,8 @@
       title: 储存库
     - local: guides/search
       title: 搜索
+    - local: guides/inference
+      title: 运行推理
     - local: guides/collections
       title: 集合
     - local: guides/community
@@ -20,4 +22,3 @@
       title: 概览
     - local: guides/hf_file_system
       title: Hugging Face 文件系统
-
