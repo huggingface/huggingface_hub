@@ -43,7 +43,11 @@ from huggingface_hub import (
     TextGenerationOutputPrefillToken,
 )
 from huggingface_hub.inference._common import ValidationError as TextGenerationValidationError
-from huggingface_hub.inference._common import _get_unsupported_text_generation_kwargs
+from huggingface_hub.inference._common import (
+    _async_stream_chat_completion_response,
+    _async_stream_text_generation_response,
+    _get_unsupported_text_generation_kwargs,
+)
 
 from .test_inference_client import CHAT_COMPLETE_NON_TGI_MODEL, CHAT_COMPLETION_MESSAGES, CHAT_COMPLETION_MODEL
 
@@ -437,3 +441,37 @@ async def test_use_async_with_inference_client():
         async with AsyncInferenceClient():
             pass
     mock_close.assert_called_once()
+
+
+async def _async_lines(lines: list[str]):
+    for line in lines:
+        yield line
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stop_signal", ["data: [DONE]", "data:[DONE]"])
+async def test_async_stream_chat_completion_response_stops_on_done(stop_signal: str):
+    chunk = (
+        'data: {"object":"chat.completion.chunk","id":"","created":1721737661,"model":"","system_fingerprint":"",'
+        '"choices":[{"index":0,"delta":{"role":"assistant","content":"Both"},"logprobs":null,"finish_reason":null}]}'
+    )
+    lines = [chunk, stop_signal, chunk]  # lines after the stop signal are not parsed
+
+    output = [item async for item in _async_stream_chat_completion_response(_async_lines(lines))]
+
+    assert len(output) == 1
+    assert output[0].choices[0].delta.content == "Both"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stop_signal", ["data: [DONE]", "data:[DONE]"])
+async def test_async_stream_text_generation_response_stops_on_done(stop_signal: str):
+    token = (
+        'data: {"index":1,"token":{"id":4560,"text":" trying","logprob":-2.078125,"special":false},'
+        '"generated_text":null,"details":null}'
+    )
+    lines = [token, stop_signal, token]
+
+    output = [item async for item in _async_stream_text_generation_response(_async_lines(lines), details=False)]
+
+    assert output == [" trying"]

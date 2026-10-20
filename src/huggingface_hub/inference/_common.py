@@ -288,7 +288,7 @@ def _format_text_generation_stream_output(line: str, details: bool) -> str | Tex
     if not line.startswith("data:"):
         return None  # empty line
 
-    if line.strip() == "data: [DONE]":
+    if line[len("data:") :].strip() == "[DONE]":
         raise StopIteration("[DONE] signal received.")
 
     # Decode payload
@@ -336,7 +336,7 @@ def _format_chat_completion_stream_output(
     if not line.startswith("data:"):
         return None  # empty line
 
-    if line.strip() == "data: [DONE]":
+    if line[len("data:") :].strip() == "[DONE]":
         raise StopIteration("[DONE] signal received.")
 
     # Decode payload

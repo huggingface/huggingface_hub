@@ -996,6 +996,7 @@ class TestOpenAICompatibility(TestBase):
         "data: [DONE]",
         "data: [DONE]\n",
         "data: [DONE] ",
+        "data:[DONE]",  # the space after the colon is optional in SSE
     ],
 )
 def test_stream_text_generation_response(stop_signal: bytes):
@@ -1019,6 +1020,7 @@ def test_stream_text_generation_response(stop_signal: bytes):
         "data: [DONE]",
         "data: [DONE]\n",
         "data: [DONE] ",
+        "data:[DONE]",  # the space after the colon is optional in SSE
     ],
 )
 def test_stream_chat_completion_response(stop_signal: bytes):
