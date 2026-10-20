@@ -82,7 +82,7 @@ Number of upvotes: 5
 고급 필터링을 수행할 수 있습니다. 예를 들어 모델 [TheBloke/OpenHermes-2.5-Mistral-7B-GGUF](https://huggingface.co/TheBloke/OpenHermes-2.5-Mistral-7B-GGUF)를 포함하는 트렌딩 순으로 정렬된 Collections를 5개까지만 가져올 수 있습니다.
 
 ```py
->>> collections = list_collections(item="models/TheBloke/OpenHermes-2.5-Mistral-7B-GGUF", sort="trending", limit=5):
+>>> collections = list_collections(item="models/TheBloke/OpenHermes-2.5-Mistral-7B-GGUF", sort="trending", limit=5)
 >>> for collection in collections:
 ...   print(collection.slug)
 teknium/quantized-models-6544690bb978e0b0f7328748
