@@ -8603,8 +8603,8 @@ class HfApi:
                 break
             if on_iteration_end is not None:
                 if error_to_retry is None:
-                    # Stream ended or went silent: back off first, the Job's stage can lag behind its last log line
-                    sleep_time = min(max_wait_time, max(min_wait_time, sleep_time * 2))
+                    # Stream ended or went silent: back off first, the Job's stage lags ~1.3s behind its last log line
+                    sleep_time = min(max_wait_time, max(2 * min_wait_time, sleep_time * 2))
                     time.sleep(sleep_time)
                 if on_iteration_end():
                     break
