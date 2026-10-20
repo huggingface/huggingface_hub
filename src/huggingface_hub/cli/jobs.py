@@ -664,8 +664,8 @@ JobVolumesOpt = Annotated[
 jobs_cli = typer_factory(help="Run and manage Jobs on the Hub.")
 
 
-def _show_scheduling_status(api: HfApi, job: JobInfo) -> None:
-    """While the Job is scheduling, show why it isn't running yet (e.g. waiting for hardware) and for how long."""
+def _wait_while_scheduling(api: HfApi, job: JobInfo) -> None:
+    """Wait while the Job is scheduling, showing why (e.g. waiting for hardware) and for how long."""
     status = out.status()
     start = time.monotonic()
     try:
@@ -684,7 +684,7 @@ def _show_scheduling_status(api: HfApi, job: JobInfo) -> None:
 
 def _stream_logs_and_check_status(api: HfApi, job: JobInfo) -> None:
     """Stream Job logs until the Job ends, then fail the command if the Job did not complete successfully."""
-    _show_scheduling_status(api, job)
+    _wait_while_scheduling(api, job)
     for log in api.fetch_job_logs(job_id=job.id, namespace=job.owner.name, follow=True):
         out.text(log)
     # The log stream can end while the Job is still scheduling or shutting down: settle the final state.
