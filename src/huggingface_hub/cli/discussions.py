@@ -106,7 +106,7 @@ def _media_markdown(path: Path, url: str, alt: str) -> str:
             return url
 
 
-def _attach_files(api: HfApi, body: str | None, attach: list[str] | None) -> str | None:
+def _attach_files(api: HfApi, body: str, attach: list[str] | None) -> str:
     """Upload --attach files and embed them in the body: replace `![alt](FILE)` references, append the others."""
     if not attach:
         return body
@@ -130,7 +130,7 @@ def _attach_files(api: HfApi, body: str | None, attach: list[str] | None) -> str
         referenced.add(path)
         return _media_markdown(path, urls[path], alt=match.group(1))
 
-    parts = [_IMAGE_EMBED_REGEX.sub(_replace, body or "").strip()]
+    parts = [_IMAGE_EMBED_REGEX.sub(_replace, body).strip()]
     parts += [_media_markdown(path, urls[path], alt) for path, alt in alts.items() if path not in referenced]
     return "\n\n".join(part for part in parts if part)
 
@@ -279,7 +279,7 @@ def discussion_create(
 ) -> None:
     """Create a new discussion or pull request on a repo."""
     api = get_hf_api(token=token)
-    description = _attach_files(api, _read_body(body, body_file), attach)
+    description = _attach_files(api, _read_body(body, body_file) or "", attach)
     discussion = api.create_discussion(
         repo_id=repo_id,
         title=title,
@@ -323,8 +323,8 @@ def discussion_comment(
 ) -> None:
     """Comment on a discussion or pull request."""
     api = get_hf_api(token=token)
-    comment = _attach_files(api, _read_body(body, body_file), attach)
-    if comment is None:
+    comment = _attach_files(api, _read_body(body, body_file) or "", attach)
+    if not comment:
         raise click.BadParameter("Either --body, --body-file or --attach is required.")
     api.comment_discussion(
         repo_id=repo_id,
