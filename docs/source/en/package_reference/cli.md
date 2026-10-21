@@ -1328,6 +1328,7 @@ $ hf discussions comment [OPTIONS] REPO_ID NUM
 
 * `--body TEXT`: The comment text (supports Markdown).
 * `--body-file PATH`: Read the comment from a file. Use '-' for stdin.
+* `--attach TEXT`: Attach an image, video or audio file, as 'FILE' or 'FILE#alt text'. A '![alt](FILE)' reference in the body is replaced by the uploaded file, other files are appended. Can be used multiple times.
 * `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
@@ -1335,6 +1336,7 @@ $ hf discussions comment [OPTIONS] REPO_ID NUM
 Examples
   $ hf discussions comment username/my-model 5 --body "Thanks for reporting!"
   $ hf discussions comment username/my-model 5 --body "LGTM!"
+  $ hf discussions comment username/my-model 5 --body "Here is a demo:" --attach demo.mp4
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -1361,6 +1363,7 @@ $ hf discussions create [OPTIONS] REPO_ID
 * `--body TEXT`: The description (supports Markdown).
 * `--body-file PATH`: Read the description from a file. Use '-' for stdin.
 * `--pull-request, --pr`: Create a pull request instead of a discussion.
+* `--attach TEXT`: Attach an image, video or audio file, as 'FILE' or 'FILE#alt text'. A '![alt](FILE)' reference in the body is replaced by the uploaded file, other files are appended. Can be used multiple times.
 * `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
@@ -1370,6 +1373,7 @@ Examples
   $ hf discussions create username/my-model --title "Feature request" --body "Please add X"
   $ hf discussions create username/my-model --title "Fix typo" --pull-request
   $ hf discussions create username/my-dataset --type dataset --title "Data quality issue"
+  $ hf discussions create username/my-model --title "Fix rendering" --pr --attach "./before.png#Before the fix" --attach ./after.png
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -1425,6 +1429,7 @@ $ hf discussions edit [OPTIONS] REPO_ID NUM COMMENT_ID
 
 * `--body TEXT`: The new comment text (supports Markdown).
 * `--body-file PATH`: Read the new comment from a file. Use '-' for stdin.
+* `--attach TEXT`: Attach an image, video or audio file, as 'FILE' or 'FILE#alt text'. A '![alt](FILE)' reference in the body is replaced by the uploaded file, other files are appended. Can be used multiple times.
 * `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
@@ -1432,6 +1437,7 @@ $ hf discussions edit [OPTIONS] REPO_ID NUM COMMENT_ID
 Examples
   $ hf discussions edit username/my-model 5 abc123 --body "Updated comment."
   $ hf discussions edit username/my-model 5 abc123 --body-file fixed.md
+  $ hf discussions edit username/my-model 5 abc123 --body "Fixed: ![result](./after.png)" --attach ./after.png
 
 Learn more
   Use `hf <command> --help` for more information about a command.
