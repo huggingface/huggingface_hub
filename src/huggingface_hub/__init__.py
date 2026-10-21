@@ -375,6 +375,7 @@ _SUBMOD_ATTRS = {
         "update_scheduled_job_labels",
         "update_scheduled_job_schedule",
         "update_webhook",
+        "upload_attachment",
         "upload_file",
         "upload_folder",
         "verify_repo_checksums",
@@ -1161,6 +1162,7 @@ __all__ = [
     "update_scheduled_job_labels",
     "update_scheduled_job_schedule",
     "update_webhook",
+    "upload_attachment",
     "upload_file",
     "upload_folder",
     "verify_repo_checksums",
@@ -1589,6 +1591,7 @@ if TYPE_CHECKING:  # pragma: no cover
         update_scheduled_job_labels,  # noqa: F401
         update_scheduled_job_schedule,  # noqa: F401
         update_webhook,  # noqa: F401
+        upload_attachment,  # noqa: F401
         upload_file,  # noqa: F401
         upload_folder,  # noqa: F401
         verify_repo_checksums,  # noqa: F401

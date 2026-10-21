@@ -259,6 +259,20 @@ _BUCKET_BATCH_ADD_CHUNK_SIZE = 1000
 _BUCKET_BATCH_DELETE_CHUNK_SIZE = 1000
 _BUCKET_BATCH_MAX_LISTED_FAILURES = 10  # in the error message; the full list is on `BucketBatchError.failures`
 
+# Same formats as the Hub web editor accepts for Discussion and Pull Request attachments
+_ATTACHMENT_CONTENT_TYPES = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".webp": "image/webp",
+    ".mp4": "video/mp4",
+    ".mov": "video/quicktime",
+    ".webm": "video/webm",
+    ".mp3": "audio/mpeg",
+    ".wav": "audio/wav",
+}
+
 # Regex used to match special revisions with "/" in them (see #1710)
 SPECIAL_REFS_REVISION_REGEX = re.compile(
     r"""
@@ -7942,6 +7956,49 @@ class HfApi:
         return deserialize_event(resp.json()["updatedComment"])  # type: ignore
 
     @validate_hf_hub_args
+    def upload_attachment(self, path: str | Path, *, token: bool | str | None = None) -> str:
+        """Uploads an image, video or audio file to the Hub and returns its URL.
+
+        This is what the Hub web editor does when you drag a file into a Discussion or Pull Request comment box. Embed
+        the returned URL in a description or a comment: `![alt text](url)` for an image, the bare URL for a video and
+        `<audio controls src="url"></audio>` for an audio file.
+
+        Args:
+            path (`str` or `Path`):
+                Path to the file to upload. Supported formats are PNG, JPEG, GIF, WebP, MP4, MOV, WebM, MP3 and WAV.
+                Files must be smaller than 10MB (50MB for videos).
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                The token needs the `discussion.write` permission. To upload anonymously, pass `False`.
+
+        Returns:
+            `str`: the URL of the uploaded file.
+
+        Raises:
+            [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+                If the file format is not supported.
+
+        Example:
+            ```python
+            >>> from huggingface_hub import HfApi
+            >>> api = HfApi()
+            >>> url = api.upload_attachment("screenshot.png")
+            >>> api.create_discussion("username/my-model", title="Rendering bug", description=f"![screenshot]({url})")
+            ```
+        """
+        path = Path(path)
+        content_type = _ATTACHMENT_CONTENT_TYPES.get(path.suffix.lower())
+        if content_type is None:
+            raise ValueError(f"Cannot upload '{path}': supported formats are {', '.join(_ATTACHMENT_CONTENT_TYPES)}.")
+        headers = self._build_hf_headers(token=token)
+        headers["Content-Type"] = content_type
+        resp = get_session().post(f"{self.endpoint}/uploads", headers=headers, content=path.read_bytes())
+        hf_raise_for_status(resp)
+        return resp.text.strip()
+
+    @validate_hf_hub_args
     def add_space_secret(
         self,
         repo_id: str,
@@ -15427,6 +15484,7 @@ comment_discussion = api.comment_discussion
 edit_discussion_comment = api.edit_discussion_comment
 rename_discussion = api.rename_discussion
 merge_pull_request = api.merge_pull_request
+upload_attachment = api.upload_attachment
 
 # Space API
 get_space_secrets = api.get_space_secrets
