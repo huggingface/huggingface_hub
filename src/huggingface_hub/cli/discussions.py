@@ -91,7 +91,7 @@ AttachOpt = Annotated[
     ),
 ]
 
-_IMAGE_EMBED_REGEX = re.compile(r"!\[([^\]]*)\]\(([^)\s]+)\)")
+_IMAGE_EMBED_REGEX = re.compile(r"!\[([^\]]*)\]\(<?([^)<>]+?)>?\)")
 
 
 def _media_markdown(path: Path, url: str, alt: str) -> str:
@@ -371,10 +371,11 @@ def discussion_edit(
     token: TokenOpt = None,
 ) -> None:
     """Edit an existing comment on a discussion or pull request."""
-    api = get_hf_api(token=token)
-    new_content = _attach_files(api, _read_body(body, body_file), attach)
+    new_content = _read_body(body, body_file)
     if new_content is None:
-        raise click.BadParameter("Either --body, --body-file or --attach is required.")
+        raise click.BadParameter("Either --body or --body-file is required.")
+    api = get_hf_api(token=token)
+    new_content = _attach_files(api, new_content, attach)
     api.edit_discussion_comment(
         repo_id=repo_id,
         discussion_num=num,
