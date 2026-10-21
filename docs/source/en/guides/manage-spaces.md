@@ -446,7 +446,7 @@ we will see one solution using a Dataset as "task scheduler".
 
 ### App skeleton
 
-Here is what your app would look like. On startup, check if a task is scheduled and if yes, run it on the correct hardware. Once done, set back hardware to the free `cpu-basic` CPU and prompt the user for a new task.
+Define the task scheduler helpers from the next section before running this startup code. Here is what your app would look like. On startup, check if a task is scheduled and if yes, run it on the correct hardware. Once done, set back hardware to the free `cpu-basic` CPU and prompt the user for a new task.
 
 > [!WARNING]
 > Such a workflow does not support concurrent access as normal demos.
@@ -500,51 +500,48 @@ Scheduling tasks can be done in many ways. Here is an example how it could be do
 a simple CSV stored as a Dataset.
 
 ```py
+import csv
+import io
+
+from huggingface_hub import hf_hub_download
+
 # Dataset ID in which a `tasks.csv` file contains the tasks to perform.
-# Here is a basic example for `tasks.csv` containing inputs (base model and dataset)
-# and status (PENDING or DONE).
+# Each row contains the base model, dataset, and status (PENDING or DONE):
 #     multimodalart/sd-fine-tunable,Wauplin/concept-1,DONE
 #     multimodalart/sd-fine-tunable,Wauplin/concept-2,PENDING
 TASK_DATASET_ID = "Wauplin/dreambooth-task-scheduler"
 
-def _get_csv_file():
-    return hf_hub_download(repo_id=TASK_DATASET_ID, filename="tasks.csv", repo_type="dataset", token=HF_TOKEN)
+def _get_tasks():
+    path = hf_hub_download(repo_id=TASK_DATASET_ID, filename="tasks.csv", repo_type="dataset", token=HF_TOKEN)
+    with open(path, newline="", encoding="utf-8") as csv_file:
+        return [row for row in csv.reader(csv_file) if row]
+
+def _save_tasks(tasks):
+    buffer = io.StringIO(newline="")
+    csv.writer(buffer).writerows(tasks)
+    api.upload_file(
+        repo_id=TASK_DATASET_ID,
+        repo_type="dataset",
+        path_in_repo="tasks.csv",
+        path_or_fileobj=buffer.getvalue().encode("utf-8"),
+    )
 
 def get_task():
-    with open(_get_csv_file()) as csv_file:
-        csv_reader = csv.reader(csv_file, delimiter=',')
-        for row in csv_reader:
-            if row[2] == "PENDING":
-                return row[0], row[1] # model_id, dataset_id
+    for model_id, dataset_id, status in _get_tasks():
+        if status == "PENDING":
+            return model_id, dataset_id
 
 def add_task(task):
-    model_id, dataset_id = task
-    with open(_get_csv_file()) as csv_file:
-        with open(csv_file, "r") as f:
-            tasks = f.read()
-
-    api.upload_file(
-        repo_id=repo_id,
-        repo_type=repo_type,
-        path_in_repo="tasks.csv",
-        # Quick and dirty way to add a task
-        path_or_fileobj=(tasks + f"\n{model_id},{dataset_id},PENDING").encode()
-    )
+    tasks = _get_tasks()
+    tasks.append([*task, "PENDING"])
+    _save_tasks(tasks)
 
 def mark_as_done(task):
-    model_id, dataset_id = task
-    with open(_get_csv_file()) as csv_file:
-        with open(csv_file, "r") as f:
-            tasks = f.read()
+    tasks = _get_tasks()
+    for row in tasks:
+        if tuple(row[:2]) == tuple(task) and row[2] == "PENDING":
+            row[2] = "DONE"
+            break
+    _save_tasks(tasks)
 
-    api.upload_file(
-        repo_id=repo_id,
-        repo_type=repo_type,
-        path_in_repo="tasks.csv",
-        # Quick and dirty way to set the task as DONE
-        path_or_fileobj=tasks.replace(
-            f"{model_id},{dataset_id},PENDING",
-            f"{model_id},{dataset_id},DONE"
-        ).encode()
-    )
 ```
