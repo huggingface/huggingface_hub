@@ -806,6 +806,10 @@ class TestOpenAsMimeBytes:
         assert isinstance(mime_bytes, MimeBytes)
         assert mime_bytes.mime_type == "image/png"
 
+    def test_open_as_mime_bytes_from_url_not_found(self) -> None:
+        with pytest.raises(HfHubHTTPError):
+            _open_as_mime_bytes("https://huggingface.co/datasets/Narsil/image_dummy/resolve/main/missing.png")
+
     def test_open_as_mime_bytes_opened_file(self) -> None:
         with Path(self.image_file).open("rb") as f:
             mime_bytes = _open_as_mime_bytes(f)

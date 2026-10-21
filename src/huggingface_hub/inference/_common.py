@@ -35,7 +35,7 @@ from huggingface_hub.errors import (
     ValidationError,
 )
 
-from ..utils import get_session, is_numpy_available, is_pillow_available
+from ..utils import get_session, hf_raise_for_status, is_numpy_available, is_pillow_available
 from ._generated.types import ChatCompletionStreamOutput, TextGenerationStreamOutput
 
 
@@ -154,6 +154,7 @@ def _open_as_mime_bytes(content: ContentT | None) -> MimeBytes | None:
         if content.startswith("https://") or content.startswith("http://"):
             logger.debug(f"Downloading content from {content}")
             response = get_session().get(content)
+            hf_raise_for_status(response)
             mime_type = response.headers.get("Content-Type")
             if mime_type is None:
                 mime_type = mimetypes.guess_type(content)[0]
