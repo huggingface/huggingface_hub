@@ -454,6 +454,10 @@ Here is what your app would look like. On startup, check if a task is scheduled 
 > It is preferable to set your repo as private to ensure you are the only user.
 
 ```py
+import os
+
+import gradio as gr
+
 # Space will need your token to request hardware: set it as a Secret !
 HF_TOKEN = os.environ.get("HF_TOKEN")
 
@@ -468,12 +472,12 @@ api = HfApi(token=HF_TOKEN)
 task = get_task()
 if task is None:
     # Start Gradio app
-    def gradio_fn(task):
+    def gradio_fn(model_id, dataset_id):
         # On user request, add task and request hardware
-        add_task(task)
+        add_task((model_id, dataset_id))
         api.request_space_hardware(repo_id=TRAINING_SPACE_ID, hardware=SpaceHardware.T4_MEDIUM)
 
-    gr.Interface(fn=gradio_fn, ...).launch()
+    gr.Interface(fn=gradio_fn, inputs=["text", "text"], outputs=None).launch()
 else:
     runtime = api.get_space_runtime(repo_id=TRAINING_SPACE_ID)
     # Check if Space is loaded with a GPU.
