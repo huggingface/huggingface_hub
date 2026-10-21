@@ -18,6 +18,7 @@ import re
 import sys
 from pathlib import Path
 from typing import Annotated
+from urllib.parse import unquote
 
 import click
 
@@ -91,7 +92,7 @@ AttachOpt = Annotated[
     ),
 ]
 
-_IMAGE_EMBED_REGEX = re.compile(r"!\[([^\]]*)\]\(<?([^)<>]+?)>?\)")
+_IMAGE_EMBED_REGEX = re.compile(r'!\[([^\]]*)\]\(<?((?:[^()<>\n]|\([^()<>\n]*\))+?)>?(?:\s+"[^"]*")?\)')
 
 
 def _media_markdown(path: Path, url: str, alt: str) -> str:
@@ -124,7 +125,7 @@ def _attach_files(api: HfApi, body: str, attach: list[str] | None) -> str:
     referenced = set()
 
     def _replace(match: re.Match[str]) -> str:
-        path = Path(match.group(2)).resolve()
+        path = Path(unquote(match.group(2))).resolve()
         if path not in urls:
             return match.group(0)
         referenced.add(path)
