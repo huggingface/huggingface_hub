@@ -204,7 +204,7 @@ Upgraded hardware will be automatically assigned to your Space once it's built.
 ...     repo_type="space",
 ...     space_sdk="gradio",
 ...     space_hardware="cpu-upgrade",
-...     space_sleep_time="7200", # 2 hours in secs
+...     space_sleep_time=7200, # 2 hours in secs
 ... )
 ```
 ```py
@@ -212,7 +212,7 @@ Upgraded hardware will be automatically assigned to your Space once it's built.
 ...     from_id=repo_id,
 ...     repo_type="space",
 ...     space_hardware="cpu-upgrade",
-...     space_sleep_time="7200", # 2 hours in secs
+...     space_sleep_time=7200, # 2 hours in secs
 ... )
 ```
 
@@ -275,7 +275,7 @@ Upgraded hardware will be automatically assigned to your Space once it's built.
 ...     repo_type="space",
 ...     space_sdk="gradio",
 ...     space_hardware="t4-medium",
-...     space_sleep_time="3600",
+...     space_sleep_time=3600,
 ... )
 ```
 ```py
@@ -283,7 +283,7 @@ Upgraded hardware will be automatically assigned to your Space once it's built.
 ...     from_id=repo_id,
 ...     repo_type="space",
 ...     space_hardware="t4-medium",
-...     space_sleep_time="3600",
+...     space_sleep_time=3600,
 ... )
 ```
 
