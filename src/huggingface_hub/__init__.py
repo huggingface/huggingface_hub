@@ -46,7 +46,7 @@ import sys
 from typing import TYPE_CHECKING
 
 
-__version__ = "2.1.0.dev0"
+__version__ = "2.3.0.dev0"
 
 # Alphabetical order of definitions is ensured in tests
 # WARNING: any comment added in this dictionary definition will be lost when
@@ -76,6 +76,8 @@ _SUBMOD_ATTRS = {
         "parse_eval_result_entries",
     ],
     "_inference_endpoints": [
+        "InferenceCatalogModel",
+        "InferenceCatalogRecipe",
         "InferenceEndpoint",
         "InferenceEndpointError",
         "InferenceEndpointHardware",
@@ -131,6 +133,7 @@ _SUBMOD_ATTRS = {
         "SpaceStorage",
         "SpaceVariable",
         "Volume",
+        "ZeroGpuQuota",
     ],
     "_tensorboard_logger": [
         "HFSummaryWriter",
@@ -196,6 +199,7 @@ _SUBMOD_ATTRS = {
         "CommitInfo",
         "DatasetInfo",
         "DatasetLeaderboardEntry",
+        "DuplicatedRepoUrl",
         "GitCommitInfo",
         "GitRefInfo",
         "GitRefs",
@@ -279,11 +283,13 @@ _SUBMOD_ATTRS = {
         "get_paths_info",
         "get_repo_discussions",
         "get_safetensors_metadata",
+        "get_sharded_safetensors_metadata",
         "get_space_runtime",
         "get_space_secrets",
         "get_space_variables",
         "get_user_overview",
         "get_webhook",
+        "get_zero_gpu_quota",
         "grant_access",
         "inspect_job",
         "inspect_scheduled_job",
@@ -313,6 +319,7 @@ _SUBMOD_ATTRS = {
         "list_repo_likers",
         "list_repo_refs",
         "list_repo_tree",
+        "list_scheduled_jobs",
         "list_space_templates",
         "list_spaces",
         "list_spaces_hardware",
@@ -368,6 +375,7 @@ _SUBMOD_ATTRS = {
         "update_scheduled_job_labels",
         "update_scheduled_job_schedule",
         "update_webhook",
+        "upload_attachment",
         "upload_file",
         "upload_folder",
         "verify_repo_checksums",
@@ -735,6 +743,7 @@ __all__ = [
     "DocumentQuestionAnsweringOutputElement",
     "DocumentQuestionAnsweringParameters",
     "DryRunFileInfo",
+    "DuplicatedRepoUrl",
     "EvalResult",
     "EvalResultEntry",
     "FLAX_WEIGHTS_NAME",
@@ -786,6 +795,8 @@ __all__ = [
     "ImageToVideoOutput",
     "ImageToVideoParameters",
     "ImageToVideoTargetSize",
+    "InferenceCatalogModel",
+    "InferenceCatalogRecipe",
     "InferenceClient",
     "InferenceEndpoint",
     "InferenceEndpointError",
@@ -932,6 +943,7 @@ __all__ = [
     "WebhookPayloadWebhook",
     "WebhookWatchedItem",
     "WebhooksServer",
+    "ZeroGpuQuota",
     "ZeroShotClassificationInput",
     "ZeroShotClassificationOutputElement",
     "ZeroShotClassificationParameters",
@@ -1024,6 +1036,7 @@ __all__ = [
     "get_repo_discussions",
     "get_safetensors_metadata",
     "get_session",
+    "get_sharded_safetensors_metadata",
     "get_space_runtime",
     "get_space_secrets",
     "get_space_variables",
@@ -1032,6 +1045,7 @@ __all__ = [
     "get_torch_storage_size",
     "get_user_overview",
     "get_webhook",
+    "get_zero_gpu_quota",
     "grant_access",
     "hf_hub_download",
     "hf_hub_url",
@@ -1067,6 +1081,7 @@ __all__ = [
     "list_repo_likers",
     "list_repo_refs",
     "list_repo_tree",
+    "list_scheduled_jobs",
     "list_space_templates",
     "list_spaces",
     "list_spaces_hardware",
@@ -1147,6 +1162,7 @@ __all__ = [
     "update_scheduled_job_labels",
     "update_scheduled_job_schedule",
     "update_webhook",
+    "upload_attachment",
     "upload_file",
     "upload_folder",
     "verify_repo_checksums",
@@ -1280,6 +1296,8 @@ if TYPE_CHECKING:  # pragma: no cover
         parse_eval_result_entries,  # noqa: F401
     )
     from ._inference_endpoints import (
+        InferenceCatalogModel,  # noqa: F401
+        InferenceCatalogRecipe,  # noqa: F401
         InferenceEndpoint,  # noqa: F401
         InferenceEndpointError,  # noqa: F401
         InferenceEndpointHardware,  # noqa: F401
@@ -1333,6 +1351,7 @@ if TYPE_CHECKING:  # pragma: no cover
         SpaceStorage,  # noqa: F401
         SpaceVariable,  # noqa: F401
         Volume,  # noqa: F401
+        ZeroGpuQuota,  # noqa: F401
     )
     from ._tensorboard_logger import HFSummaryWriter  # noqa: F401
     from ._webhooks_payload import (
@@ -1396,6 +1415,7 @@ if TYPE_CHECKING:  # pragma: no cover
         CommitInfo,  # noqa: F401
         DatasetInfo,  # noqa: F401
         DatasetLeaderboardEntry,  # noqa: F401
+        DuplicatedRepoUrl,  # noqa: F401
         GitCommitInfo,  # noqa: F401
         GitRefInfo,  # noqa: F401
         GitRefs,  # noqa: F401
@@ -1479,11 +1499,13 @@ if TYPE_CHECKING:  # pragma: no cover
         get_paths_info,  # noqa: F401
         get_repo_discussions,  # noqa: F401
         get_safetensors_metadata,  # noqa: F401
+        get_sharded_safetensors_metadata,  # noqa: F401
         get_space_runtime,  # noqa: F401
         get_space_secrets,  # noqa: F401
         get_space_variables,  # noqa: F401
         get_user_overview,  # noqa: F401
         get_webhook,  # noqa: F401
+        get_zero_gpu_quota,  # noqa: F401
         grant_access,  # noqa: F401
         inspect_job,  # noqa: F401
         inspect_scheduled_job,  # noqa: F401
@@ -1513,6 +1535,7 @@ if TYPE_CHECKING:  # pragma: no cover
         list_repo_likers,  # noqa: F401
         list_repo_refs,  # noqa: F401
         list_repo_tree,  # noqa: F401
+        list_scheduled_jobs,  # noqa: F401
         list_space_templates,  # noqa: F401
         list_spaces,  # noqa: F401
         list_spaces_hardware,  # noqa: F401
@@ -1568,6 +1591,7 @@ if TYPE_CHECKING:  # pragma: no cover
         update_scheduled_job_labels,  # noqa: F401
         update_scheduled_job_schedule,  # noqa: F401
         update_webhook,  # noqa: F401
+        upload_attachment,  # noqa: F401
         upload_file,  # noqa: F401
         upload_folder,  # noqa: F401
         verify_repo_checksums,  # noqa: F401

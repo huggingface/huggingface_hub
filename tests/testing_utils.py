@@ -11,6 +11,8 @@ from unittest.mock import Mock, patch
 
 import httpx2
 
+from huggingface_hub import HfApi
+
 
 def repo_name(id: Optional[str] = None, prefix: str = "repo") -> str:
     """
@@ -28,6 +30,14 @@ def repo_name(id: Optional[str] = None, prefix: str = "repo") -> str:
         id = uuid.uuid4().hex[:6]
     ts = int(time.time() * 10e3)
     return f"{prefix}-{id}-{ts}"
+
+
+def wait_for_bucket_files(api: HfApi, bucket_id: str, paths: list[str]) -> None:
+    """Wait up to ~10s until `paths` are listed in the bucket: listings are read from replicas and can lag behind writes."""
+    for _ in range(10):
+        if set(paths) <= {f.path for f in api.list_bucket_tree(bucket_id, recursive=True)}:
+            return
+        time.sleep(1)
 
 
 class RequestWouldHangIndefinitelyError(Exception):

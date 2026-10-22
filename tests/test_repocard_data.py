@@ -200,6 +200,10 @@ class TestModelCardData:
         assert eval_results[0].source_name is None
         assert eval_results[0].source_url is None
 
+    def test_model_index_to_eval_results_empty(self):
+        with pytest.raises(ValueError, match="`model_index` must be a non-empty list."):
+            model_index_to_eval_results([])
+
     def test_card_data_requires_model_name_for_eval_results(self):
 
         with pytest.raises(ValueError, match="`eval_results` requires `model_name` to be set."):

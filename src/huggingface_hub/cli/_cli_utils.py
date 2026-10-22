@@ -969,7 +969,8 @@ def _read_env_file(env_file: str) -> str:
         _warn_secret_hygiene(
             f"'{env_file}' is readable by other users (mode {mode:o}). Run `chmod 600 {env_file}` to restrict it."
         )
-    return path.read_text()
+    # "utf-8-sig" drops the BOM that Windows tools (e.g. PowerShell 5.1) write at the start of the file
+    return path.read_text(encoding="utf-8-sig")
 
 
 def parse_env_map(

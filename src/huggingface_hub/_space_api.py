@@ -100,6 +100,12 @@ class SpaceHardware(str, Enum):
     A100X4 = "a100x4"
     A100X8 = "a100x8"
 
+    # New (auto-added by utils/check_hardware_flavors.py)
+    RTX_PRO_6000 = "rtx-pro-6000"
+    RTX_PRO_6000X2 = "rtx-pro-6000x2"
+    RTX_PRO_6000X4 = "rtx-pro-6000x4"
+    RTX_PRO_6000X8 = "rtx-pro-6000x8"
+
 
 class SpaceStorage(str, Enum):
     """
@@ -394,3 +400,37 @@ class SpaceTemplate:
         self.repo_id = data["repoId"]
         self.sdk = data["sdk"]
         self.preferred_private = data["preferredPrivate"]
+
+
+@dataclass
+class ZeroGpuQuota:
+    """
+    Contains information about the ZeroGPU quota of the authenticated user.
+
+    The ZeroGPU quota is consumed each time you use a ZeroGPU Space (from the UI or through its API) and is reset
+    periodically. See https://huggingface.co/docs/hub/spaces-zerogpu for more details.
+
+    Returned by [`HfApi.get_zero_gpu_quota`].
+
+    Args:
+        base (`float`):
+            Total quota, in GPU-seconds.
+        remaining (`float`):
+            Remaining quota, in GPU-seconds.
+        resets_at (`datetime` or `None`):
+            Date at which the quota will be reset. `None` if the quota has not been used yet.
+        overquota_used (`float` or `None`):
+            Overquota (paid) GPU-seconds consumed once the base quota is exhausted. PRO, Team and Enterprise users
+            can purchase credits to go beyond the base quota at https://huggingface.co/settings/billing?add-credits=true.
+    """
+
+    base: float
+    remaining: float
+    resets_at: datetime | None
+    overquota_used: float | None
+
+    def __init__(self, data: dict) -> None:
+        self.base = data["base"]
+        self.remaining = data["current"]
+        self.resets_at = parse_datetime(resets_at) if (resets_at := data.get("resetsAt")) is not None else None
+        self.overquota_used = data.get("overquotaUsed")

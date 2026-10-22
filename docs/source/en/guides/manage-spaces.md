@@ -151,8 +151,8 @@ Secrets and variables can be set when creating or duplicating a space:
 ...     repo_id=repo_id,
 ...     repo_type="space",
 ...     space_sdk="gradio",
-...     space_secrets=[{"key"="HF_TOKEN", "value"="hf_api_***"}, ...],
-...     space_variables=[{"key"="MODEL_REPO_ID", "value"="user/repo"}, ...],
+...     space_secrets=[{"key": "HF_TOKEN", "value": "hf_api_***"}, ...],
+...     space_variables=[{"key": "MODEL_REPO_ID", "value": "user/repo"}, ...],
 ... )
 ```
 
@@ -160,8 +160,8 @@ Secrets and variables can be set when creating or duplicating a space:
 >>> api.duplicate_repo(
 ...     from_id=repo_id,
 ...     repo_type="space",
-...     space_secrets=[{"key"="HF_TOKEN", "value"="hf_api_***"}, ...],
-...     space_variables=[{"key"="MODEL_REPO_ID", "value"="user/repo"}, ...],
+...     space_secrets=[{"key": "HF_TOKEN", "value": "hf_api_***"}, ...],
+...     space_variables=[{"key": "MODEL_REPO_ID", "value": "user/repo"}, ...],
 ... )
 ```
 
@@ -202,7 +202,7 @@ Upgraded hardware will be automatically assigned to your Space once it's built.
 >>> api.create_repo(
 ...     repo_id=repo_id,
 ...     repo_type="space",
-...     space_sdk="gradio"
+...     space_sdk="gradio",
 ...     space_hardware="cpu-upgrade",
 ...     space_sleep_time="7200", # 2 hours in secs
 ... )
@@ -215,6 +215,22 @@ Upgraded hardware will be automatically assigned to your Space once it's built.
 ...     space_sleep_time="7200", # 2 hours in secs
 ... )
 ```
+
+### Track your ZeroGPU quota
+
+[ZeroGPU](https://huggingface.co/docs/hub/spaces-zerogpu) Spaces run on shared GPUs allocated on demand. Each time you use a ZeroGPU Space (from the UI or through its API), some GPU time is deducted from your personal quota, which is reset periodically. If you are building an app, an agent or an MCP server on top of ZeroGPU Spaces, you can track your usage with [`get_zero_gpu_quota`]. Values are expressed in GPU-seconds.
+
+```py
+>>> quota = api.get_zero_gpu_quota()
+>>> quota
+ZeroGpuQuota(base=2400, remaining=1810, resets_at=datetime.datetime(2026, 9, 30, 9, 12, 3, tzinfo=datetime.timezone.utc), overquota_used=0)
+>>> if quota.remaining < 60:
+...     print(f"Less than 1 minute of ZeroGPU left. Quota resets at {quota.resets_at}.")
+```
+
+`resets_at` is `None` if you haven't used ZeroGPU since the last reset. If you use a fine-grained token, it must have the "Billing > Read billing usage and payment method status" permission. The same information is available from the CLI with `hf spaces zero-gpu quota`.
+
+Once the quota is exhausted, PRO, Team and Enterprise users can keep using ZeroGPU Spaces by consuming pre-paid credits. You can purchase credits from your [billing settings](https://huggingface.co/settings/billing?add-credits=true). See [Extending quota with credits](https://huggingface.co/docs/hub/spaces-zerogpu#extending-quota-with-credits) for more details.
 
 ### Pause and restart your Space
 
@@ -257,7 +273,7 @@ Upgraded hardware will be automatically assigned to your Space once it's built.
 >>> api.create_repo(
 ...     repo_id=repo_id,
 ...     repo_type="space",
-...     space_sdk="gradio"
+...     space_sdk="gradio",
 ...     space_hardware="t4-medium",
 ...     space_sleep_time="3600",
 ... )

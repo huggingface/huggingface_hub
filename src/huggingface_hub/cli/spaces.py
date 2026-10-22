@@ -89,9 +89,11 @@ spaces_cli = typer_factory(help="Interact with spaces on the Hub.")
 volumes_cli = typer_factory(help="Manage volumes for a Space on the Hub.")
 secrets_cli = typer_factory(help="Manage secrets for a Space on the Hub.")
 variables_cli = typer_factory(help="Manage environment variables for a Space on the Hub.")
+zero_gpu_cli = typer_factory(help="Manage your ZeroGPU usage on the Hub.")
 spaces_cli.add_group(volumes_cli, name="volumes")
 spaces_cli.add_group(secrets_cli, name="secrets")
 spaces_cli.add_group(variables_cli, name="variables")
+spaces_cli.add_group(zero_gpu_cli, name="zero-gpu")
 
 
 @spaces_cli.command(
@@ -514,6 +516,35 @@ def spaces_hardware(token: TokenOpt = None) -> None:
         )
     out.table(items)
     out.hint("Use `hf spaces settings <space_id> --hardware <name>` to request hardware for a Space.")
+
+
+@zero_gpu_cli.command(
+    "quota",
+    examples=[
+        "hf spaces zero-gpu quota",
+        "hf spaces zero-gpu quota --format json",
+    ],
+)
+def spaces_zero_gpu_quota(token: TokenOpt = None) -> None:
+    """Show your ZeroGPU quota (remaining GPU time and reset date).
+
+    Values are in GPU-seconds. With `--quiet`, only the remaining GPU-seconds are printed.
+    """
+    api = get_hf_api(token=token)
+    quota = api.get_zero_gpu_quota()
+    out.result(
+        "ZeroGPU quota (in GPU-seconds)",
+        remaining=quota.remaining,
+        base=quota.base,
+        resets_at=quota.resets_at.isoformat() if quota.resets_at else None,
+        overquota_used=quota.overquota_used,
+    )
+    if quota.remaining < 0.1 * quota.base:
+        status = "exhausted" if quota.remaining <= 0 else "running low"
+        out.hint(
+            f"Your ZeroGPU quota is {status}. PRO, Team and Enterprise users can purchase credits to keep using"
+            " ZeroGPU beyond the daily quota: https://huggingface.co/settings/billing?add-credits=true"
+        )
 
 
 @spaces_cli.command(

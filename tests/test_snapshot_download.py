@@ -46,6 +46,20 @@ def test_tree_with_redacted_xet_hash_is_not_cached(tmp_path: Path):
     assert read_tree_cache(str(storage_folder), COMMIT_HASH) is None
 
 
+def test_pinned_revision_offline_without_cached_tree(tmp_path: Path):
+    """Regression test for #5112."""
+    snapshot_folder = tmp_path / repo_folder_name(repo_id="user/repo", repo_type="model") / "snapshots" / COMMIT_HASH
+    local_dir = tmp_path / "local_dir"
+    for folder in (snapshot_folder, local_dir):
+        folder.mkdir(parents=True)
+        (folder / "config.json").write_text("{}")
+
+    with offline(mode=OfflineSimulationMode.HF_HUB_OFFLINE_SET_TO_1):
+        for revision in (COMMIT_HASH, ResolvedRevision(COMMIT_HASH, initial="main")):
+            assert snapshot_download("user/repo", revision=revision, cache_dir=tmp_path) == str(snapshot_folder)
+            assert snapshot_download("user/repo", revision=revision, local_dir=local_dir) == str(local_dir)
+
+
 class TestSnapshotDownload:
     @pytest.fixture(scope="class", autouse=True)
     def _shared_repo(self, request, api: HfApi):
@@ -53,41 +67,43 @@ class TestSnapshotDownload:
         Share this valid token in all tests below.
         """
         repo_id = api.create_repo(repo_name("snapshot-download")).repo_id
-        request.cls.repo_id = repo_id
+        try:
+            request.cls.repo_id = repo_id
 
-        # First commit on `main`
-        request.cls.first_commit_hash = api.create_commit(
-            repo_id=repo_id,
-            operations=[
-                CommitOperationAdd(path_in_repo="dummy_file.txt", path_or_fileobj=b"v1"),
-                CommitOperationAdd(path_in_repo="subpath/file.txt", path_or_fileobj=b"content in subpath"),
-            ],
-            commit_message="Add file to main branch",
-        ).oid
+            # First commit on `main`
+            request.cls.first_commit_hash = api.create_commit(
+                repo_id=repo_id,
+                operations=[
+                    CommitOperationAdd(path_in_repo="dummy_file.txt", path_or_fileobj=b"v1"),
+                    CommitOperationAdd(path_in_repo="subpath/file.txt", path_or_fileobj=b"content in subpath"),
+                ],
+                commit_message="Add file to main branch",
+            ).oid
 
-        # Second commit on `main`
-        request.cls.second_commit_hash = api.create_commit(
-            repo_id=repo_id,
-            operations=[
-                CommitOperationAdd(path_in_repo="dummy_file.txt", path_or_fileobj=b"v2"),
-                CommitOperationAdd(path_in_repo="file.bin", path_or_fileobj=os.urandom(1 * 1024 * 1024)),
-            ],
-            commit_message="Add file to main branch",
-        ).oid
+            # Second commit on `main`
+            request.cls.second_commit_hash = api.create_commit(
+                repo_id=repo_id,
+                operations=[
+                    CommitOperationAdd(path_in_repo="dummy_file.txt", path_or_fileobj=b"v2"),
+                    CommitOperationAdd(path_in_repo="file.bin", path_or_fileobj=os.urandom(1 * 1024 * 1024)),
+                ],
+                commit_message="Add file to main branch",
+            ).oid
 
-        # Third commit on `other`
-        api.create_branch(repo_id=repo_id, branch="other")
-        request.cls.third_commit_hash = api.create_commit(
-            repo_id=repo_id,
-            operations=[
-                CommitOperationAdd(path_in_repo="dummy_file_2.txt", path_or_fileobj=b"v4"),
-            ],
-            commit_message="Add file to other branch",
-            revision="other",
-        ).oid
+            # Third commit on `other`
+            api.create_branch(repo_id=repo_id, branch="other")
+            request.cls.third_commit_hash = api.create_commit(
+                repo_id=repo_id,
+                operations=[
+                    CommitOperationAdd(path_in_repo="dummy_file_2.txt", path_or_fileobj=b"v4"),
+                ],
+                commit_message="Add file to other branch",
+                revision="other",
+            ).oid
 
-        yield
-        api.delete_repo(repo_id=repo_id)
+            yield
+        finally:
+            api.delete_repo(repo_id=repo_id, missing_ok=True)
 
     def test_download_model(self):
         # Test `main` branch
@@ -379,14 +395,16 @@ class TestResolveRevision:
     @pytest.fixture(scope="class", autouse=True)
     def _shared_repo(self, request, api: HfApi):
         repo_id = api.create_repo(repo_name("resolve-revision")).repo_id
-        request.cls.repo_id = repo_id
-        request.cls.commit_hash = api.create_commit(
-            repo_id=repo_id,
-            operations=[CommitOperationAdd(path_in_repo="dummy_file.txt", path_or_fileobj=b"v1")],
-            commit_message="Add file to main branch",
-        ).oid
-        yield
-        api.delete_repo(repo_id=repo_id)
+        try:
+            request.cls.repo_id = repo_id
+            request.cls.commit_hash = api.create_commit(
+                repo_id=repo_id,
+                operations=[CommitOperationAdd(path_in_repo="dummy_file.txt", path_or_fileobj=b"v1")],
+                commit_message="Add file to main branch",
+            ).oid
+            yield
+        finally:
+            api.delete_repo(repo_id=repo_id, missing_ok=True)
 
     def test_resolve_revision(self, api: HfApi, tmp_path: Path):
         revision = api.resolve_revision(self.repo_id, cache_dir=tmp_path)

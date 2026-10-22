@@ -15,7 +15,7 @@ from huggingface_hub.hub_mixin import ModelHubMixin, PyTorchModelHubMixin
 from huggingface_hub.serialization._torch import storage_ptr
 from huggingface_hub.utils import SoftTemporaryDirectory, is_torch_available
 
-from .testing_constants import TOKEN, USER
+from .testing_constants import TOKEN
 from .testing_utils import repo_name
 
 
@@ -286,8 +286,8 @@ class TestPytorchHubMixin:
             "`PyTorchModelHubMixin.from_pretrained` return type annotation is not a TypeVar bound by `ModelHubMixin`."
         )
 
-    def test_push_to_hub(self, api: HfApi, tmp_path):
-        repo_id = f"{USER}/{repo_name('push_to_hub')}"
+    def test_push_to_hub(self, api: HfApi, new_repo_id: str, tmp_path):
+        repo_id = new_repo_id
         DummyModel().push_to_hub(repo_id=repo_id, token=TOKEN, config=CONFIG)
 
         # Test model id exists
@@ -297,9 +297,6 @@ class TestPytorchHubMixin:
         tmp_config_path = hf_hub_download(repo_id=repo_id, filename="config.json", token=TOKEN, cache_dir=tmp_path)
         with open(tmp_config_path) as f:
             assert json.load(f) == CONFIG
-
-        # Delete repo
-        api.delete_repo(repo_id=repo_id)
 
     def test_generate_model_card(self, tmp_path):
         model = DummyModelWithModelCard()
