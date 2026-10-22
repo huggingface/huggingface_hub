@@ -45,6 +45,7 @@ from huggingface_hub.inference._providers.hf_inference import (
     HFInferenceFeatureExtractionTask,
     HFInferenceTask,
 )
+from huggingface_hub.inference._providers.infraxsky import InfraxskyConversationalTask
 from huggingface_hub.inference._providers.novita import NovitaConversationalTask, NovitaTextGenerationTask
 from huggingface_hub.inference._providers.nscale import NscaleConversationalTask, NscaleTextToImageTask
 from huggingface_hub.inference._providers.openai import OpenAIConversationalTask
@@ -1257,6 +1258,15 @@ class TestHFInferenceProvider:
         assert isinstance(request.data, bytes)
         assert request.headers["authorization"] == "Bearer hf_test_token"
         assert request.headers["content-type"] == "image/jpeg"  # based on filename
+
+
+class TestInfraxskyProvider:
+    def test_prepare_url(self):
+        helper = InfraxskyConversationalTask()
+        assert (
+            helper._prepare_url("infraxsky_key", "username/repo_name")
+            == "https://kencloudapi.duckdns.org/hf/v1/chat/completions"
+        )
 
 
 class TestNovitaProvider:
