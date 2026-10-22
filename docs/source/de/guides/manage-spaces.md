@@ -132,7 +132,7 @@ Aktualisierte Hardware wird Ihrem Space automatisch zugewiesen, sobald er erstel
 ...     space_sdk="gradio",
 ...     space_hardware="cpu-upgrade",
 ...     space_storage="small",
-...     space_sleep_time="7200", # 2 hours in secs
+...     space_sleep_time=7200, # 2 hours in secs
 ... )
 ```
 
@@ -141,7 +141,7 @@ Aktualisierte Hardware wird Ihrem Space automatisch zugewiesen, sobald er erstel
 ...     from_id=repo_id,
 ...     hardware="cpu-upgrade",
 ...     storage="small",
-...     sleep_time="7200", # 2 hours in secs
+...     sleep_time=7200, # 2 hours in secs
 ... )
 ```
 
@@ -188,7 +188,7 @@ Aufgewertete Hardware wird Ihrem Space automatisch zugewiesen, sobald er erstell
 ...     repo_type="space",
 ...     space_sdk="gradio",
 ...     space_hardware="t4-medium",
-...     space_sleep_time="3600",
+...     space_sleep_time=3600,
 ... )
 ```
 
@@ -196,7 +196,7 @@ Aufgewertete Hardware wird Ihrem Space automatisch zugewiesen, sobald er erstell
 >>> api.duplicate_space(
 ...     from_id=repo_id,
 ...     hardware="t4-medium",
-...     sleep_time="3600",
+...     sleep_time=3600,
 ... )
 ```
 

@@ -120,7 +120,7 @@ Space가 구축되면 업그레이드된 하드웨어가 자동으로 할당됩�
 ...     space_sdk="gradio",
 ...     space_hardware="cpu-upgrade",
 ...     space_storage="small",
-...     space_sleep_time="7200", # 2시간을 초로 환산
+...     space_sleep_time=7200, # 2시간을 초로 환산
 ... )
 ```
 ```py
@@ -128,7 +128,7 @@ Space가 구축되면 업그레이드된 하드웨어가 자동으로 할당됩�
 ...     from_id=repo_id,
 ...     hardware="cpu-upgrade",
 ...     storage="small",
-...     sleep_time="7200", # 2시간을 초로 환산
+...     sleep_time=7200, # 2시간을 초로 환산
 ... )
 ```
 
@@ -169,14 +169,14 @@ Space가 구축되면 업그레이드된 하드웨어가 자동으로 할당됩�
 ...     repo_type="space",
 ...     space_sdk="gradio",
 ...     space_hardware="t4-medium",
-...     space_sleep_time="3600",
+...     space_sleep_time=3600,
 ... )
 ```
 ```py
 >>> api.duplicate_space(
 ...     from_id=repo_id,
 ...     hardware="t4-medium",
-...     sleep_time="3600",
+...     sleep_time=3600,
 ... )
 ```
 
