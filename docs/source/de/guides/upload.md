@@ -122,7 +122,7 @@ Auch wenn Hintergrundaufgaben hauptsächlich dazu dienen, Daten hochzuladen/Comm
 ```py
 >>> from huggingface_hub import HfApi
 >>> api = HfApi()
->>> api.run_as_future(api.create_repo, "username/my-model", exists_ok=True)
+>>> api.run_as_future(api.create_repo, "username/my-model", exist_ok=True)
 Future(...)
 >>> api.upload_file(
 ...     repo_id="username/my-model",
