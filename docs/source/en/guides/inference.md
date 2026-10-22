@@ -103,10 +103,10 @@ What if you want to use a specific model? You can specify it either as a paramet
 >>> from huggingface_hub import InferenceClient
 # Initialize client for a specific model
 >>> client = InferenceClient(provider="together", model="meta-llama/Llama-3.1-8B-Instruct")
->>> client.text_to_image(...)
+>>> client.chat_completion(messages=[{"role": "user", "content": "Hello!"}])
 # Or use a generic client but pass your model as an argument
 >>> client = InferenceClient(provider="together")
->>> client.text_to_image(..., model="meta-llama/Llama-3.1-8B-Instruct")
+>>> client.chat_completion(messages=[{"role": "user", "content": "Hello!"}], model="meta-llama/Llama-3.1-8B-Instruct")
 ```
 
 > [!TIP]
