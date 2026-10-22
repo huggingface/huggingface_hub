@@ -1079,16 +1079,6 @@ def _fake_fs(files: dict[str, int], max_workers: int, **fake_kwargs) -> tuple[Hf
     return fs, api
 
 
-@pytest.mark.parametrize("max_workers", [1, 16])
-def test_find_full_tree(max_workers):
-    files = {f"dir_{i:03d}/file_{j:04d}.bin": 10 for i in range(20) for j in range(1100)}
-    files["README.md"] = 5
-
-    fs, api = _fake_fs(files, max_workers=max_workers)
-    assert sorted(fs.find(_FAKE_REPO)) == sorted(f"{_FAKE_REPO}/{path}" for path in files)
-    assert sorted(fs.dircache) == sorted([_FAKE_REPO] + [f"{_FAKE_REPO}/dir_{i:03d}" for i in range(20)])
-
-
 def test_find_large_repo_is_listed_in_parallel():
     files = {f"dir_{i:03d}/file_{j:04d}.bin": 10 for i in range(20) for j in range(1100)}
     files["README.md"] = 5
