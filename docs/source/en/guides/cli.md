@@ -1486,12 +1486,12 @@ Datasets and Spaces:
 
 ```bash
 >>> hf repos settings Wauplin/my-cool-model --gated auto
->>> hf repos settings Wauplin/my-cool-model --private true
->>> hf repos settings Wauplin/my-cool-model --private false
+>>> hf repos settings Wauplin/my-cool-model --private
+>>> hf repos settings Wauplin/my-cool-model --public
 ```
 
 - `--gated`: one of `auto`, `manual`, `false`
-- `--private true|false`: set repository privacy
+- `--private` / `--public`: set repository privacy
 
 ### Delete files from a repo
 

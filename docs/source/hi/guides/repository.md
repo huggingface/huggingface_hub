@@ -273,7 +273,7 @@ Repositories कुछ settings के साथ आती हैं जिन�
 या CLI के माध्यम से:
 
 ```bash
->>> hf repos settings lysandre/test-private --private true
+>>> hf repos settings lysandre/test-private --private
 ```
 
 ### Gated access सेट करें
