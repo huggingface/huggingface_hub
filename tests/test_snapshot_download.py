@@ -1,4 +1,5 @@
 import copy
+import logging
 import os
 import pickle
 from pathlib import Path
@@ -58,6 +59,70 @@ def test_pinned_revision_offline_without_cached_tree(tmp_path: Path):
         for revision in (COMMIT_HASH, ResolvedRevision(COMMIT_HASH, initial="main")):
             assert snapshot_download("user/repo", revision=revision, cache_dir=tmp_path) == str(snapshot_folder)
             assert snapshot_download("user/repo", revision=revision, local_dir=local_dir) == str(local_dir)
+
+
+@pytest.mark.parametrize(
+    ("offline_mode", "expected_cause", "expected_remedy"),
+    [
+        (
+            OfflineSimulationMode.CONNECTION_FAILS,
+            "Got: ConnectError: Connection failed",
+            "Check your internet connection",
+        ),
+        (
+            OfflineSimulationMode.CONNECTION_TIMES_OUT,
+            "Got: ConnectTimeout: Connection timed out",
+            "Check your internet connection",
+        ),
+        (
+            OfflineSimulationMode.HF_HUB_OFFLINE_SET_TO_1,
+            "Got: OfflineModeIsEnabled:",
+            "Unset the `HF_HUB_OFFLINE` environment variable",
+        ),
+    ],
+)
+def test_offline_fallback_warning_explains_the_failure(
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+    offline_mode: OfflineSimulationMode,
+    expected_cause: str,
+    expected_remedy: str,
+):
+    """Regression test for #3533: the offline fallback warning must be actionable."""
+    local_dir = tmp_path / "local_dir"
+    local_dir.mkdir()
+    (local_dir / "config.json").write_text("{}")
+
+    with caplog.at_level(logging.WARNING, logger="huggingface_hub._snapshot_download"):
+        with offline(mode=offline_mode):
+            # Behaviour is unchanged: the existing local_dir is returned.
+            assert snapshot_download("user/repo", local_dir=local_dir) == str(local_dir.resolve())
+
+    message = caplog.text
+    # What failed, with which exception type.
+    assert expected_cause in message
+    # What the client did.
+    assert f"Returning the existing local_dir `{local_dir}`" in message
+    # What the user should check next.
+    assert "It may be incomplete or out of date." in message
+    assert expected_remedy in message
+    # The old garbled sentence (cause and effect inverted) is gone.
+    assert "as remote repo cannot be accessed" not in message
+
+
+def test_local_files_only_fallback_warning_explains_the_failure(tmp_path: Path, caplog: pytest.LogCaptureFixture):
+    """The fallback warning must not report a `None` error when the Hub was never queried."""
+    local_dir = tmp_path / "local_dir"
+    local_dir.mkdir()
+    (local_dir / "config.json").write_text("{}")
+
+    with caplog.at_level(logging.WARNING, logger="huggingface_hub._snapshot_download"):
+        assert snapshot_download("user/repo", local_dir=local_dir, local_files_only=True) == str(local_dir.resolve())
+
+    message = caplog.text
+    assert "The Hub was not queried (`local_files_only=True`)." in message
+    assert "Re-run without `local_files_only`" in message
+    assert "NoneType" not in message
 
 
 class TestSnapshotDownload:
