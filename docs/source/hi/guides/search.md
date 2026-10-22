@@ -34,13 +34,13 @@ list helpers में कई attributes होते हैं, जैसे:
 चलिए एक उदाहरण देखते हैं जिसमें Hub पर मौजूद वे सभी Models प्राप्त किए जाते हैं जो image classification करते हैं, imagenet dataset पर ट्रेन किए गए हैं और PyTorch के साथ चलते हैं।
 
 ```py
-models = hf_api.list_models(filter=["image-classification", "pytorch", "imagenet"])
+models = api.list_models(filter=["image-classification", "pytorch", "imagenet"])
 ```
 
 आप Hub UI जैसी ही range syntax का उपयोग करके Models को parameter count के आधार पर भी फ़िल्टर कर सकते हैं:
 
 ```py
-models = hf_api.list_models(num_parameters="min:6B,max:128B")
+models = api.list_models(num_parameters="min:6B,max:128B")
 ```
 
 फ़िल्टर करते समय, आप Models को sort भी कर सकते हैं और केवल top results ही ले सकते हैं। उदाहरण के लिए,
