@@ -684,11 +684,19 @@ def _wait_while_scheduling(api: HfApi, job: JobInfo) -> None:
 
 def _stream_logs_and_check_status(api: HfApi, job: JobInfo) -> None:
     """Stream Job logs until the Job ends, then fail the command if the Job did not complete successfully."""
-    _wait_while_scheduling(api, job)
-    for log in api.fetch_job_logs(job_id=job.id, namespace=job.owner.name, follow=True):
-        out.text(log)
-    # The log stream can end while the Job is still scheduling or shutting down: settle the final state.
-    final = api.wait_for_job(job_id=job.id, namespace=job.owner.name)
+    try:
+        _wait_while_scheduling(api, job)
+        for log in api.fetch_job_logs(job_id=job.id, namespace=job.owner.name, follow=True):
+            out.text(log)
+        # The stream can still end before the Job does (e.g. on a malformed response): settle the final state.
+        final = api.wait_for_job(job_id=job.id, namespace=job.owner.name)
+    except KeyboardInterrupt:
+        job_ref = f"{job.owner.name}/{job.id}"
+        out.hint(
+            f"Job {job_ref} was not canceled. Use `hf jobs logs -f {job_ref}` to follow it again,"
+            f" or `hf jobs cancel {job_ref}` to cancel it."
+        )
+        raise
     if final.status.stage != JobStage.COMPLETED:
         message = f": {final.status.message}" if final.status.message else ""
         raise CLIError(f"Job {final.id} finished with stage '{final.status.stage}'{message}")
