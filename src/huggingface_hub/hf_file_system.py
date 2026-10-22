@@ -265,17 +265,8 @@ class _ParallelRepoTreeListing:
         self._record(resolved_path, depth, entries)
 
     def _is_worth_splitting(self, entries_per_folder: dict[str, int], page_size: int) -> bool:
-        """Whether a sub-tree should be listed directory by directory instead of page by page.
-
-        Splitting a directory holding `S` sub-directories costs about `2 * S` extra requests (at least
-        one request per sub-directory, plus rounding up the pages). It only pays off once each
-        sub-directory holds enough entries for the parallelization to win over a single sequential
-        pagination, that is roughly `2 * page_size / max_threads` entries each.
-        """
-        if not entries_per_folder:
-            return False
-        min_entries_per_folder = max(8, 2 * page_size // (self.max_threads - 1))
-        return sum(entries_per_folder.values()) >= min_entries_per_folder * len(entries_per_folder)
+        """Split only if sub-directories hold at least a full page of entries on average."""
+        return bool(entries_per_folder) and sum(entries_per_folder.values()) >= page_size * len(entries_per_folder)
 
     def _list_children(self, resolved_path: HfFileSystemResolvedRepositoryPath, depth: int) -> None:
         """List the direct children of a directory and dispatch each sub-directory to a new task.

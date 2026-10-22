@@ -1101,8 +1101,8 @@ def test_find_large_repo_is_listed_in_parallel():
     # directories is listed by its own task: no task ever lists below a direct sub-directory
     assert all(path is None or "/" not in path for path, recursive in api.calls)
     assert {path for path, recursive in api.calls if path and recursive} == {f"dir_{i:03d}" for i in range(20)}
-    # 2 root pages + 1 root listing + 2 pages per directory, i.e. less than 3 pages per directory
-    assert len(api.calls) <= 50
+    # root pages until the split + 1 root listing + 2 pages per directory
+    assert len(api.calls) <= 52
 
     # the same listing done sequentially (see `max_threads=1`) requires one request every 1000 entries
     sequential_fs, sequential_api = _fake_fs(files, max_threads=1, delay=0.02)
