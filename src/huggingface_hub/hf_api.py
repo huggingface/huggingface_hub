@@ -446,13 +446,17 @@ class AccessRequest:
     """Data structure containing information about a user access request.
 
     Attributes:
-        username (`str`):
-            Username of the user who requested access.
-        fullname (`str`):
-            Fullname of the user who requested access.
-        email (`Optional[str]`):
-            Email of the user who requested access.
-            Can only be `None` in the /accepted list if the user was granted access manually.
+        username (`str`, *optional*):
+            Username of the user who requested access. `None` if the repo is configured to not share usernames of
+            requesters. In that case, use `request_id` to accept, reject or cancel the request.
+        request_id (`str`):
+            Id of the access request. Always set, even if the username is not shared.
+        fullname (`str`, *optional*):
+            Fullname of the user who requested access. `None` if the repo is configured to not share usernames of
+            requesters.
+        email (`str`, *optional*):
+            Email of the user who requested access. `None` if the user was granted access manually or if the repo is
+            configured to not share emails of requesters.
         timestamp (`datetime`):
             Timestamp of the request.
         status (`Literal["pending", "accepted", "rejected"]`):
@@ -461,8 +465,9 @@ class AccessRequest:
             Additional fields filled by the user in the gate form.
     """
 
-    username: str
-    fullname: str
+    username: str | None
+    request_id: str
+    fullname: str | None
     email: str | None
     timestamp: datetime
     status: Literal["pending", "accepted", "rejected"]
@@ -10623,9 +10628,9 @@ class HfApi:
                 To disable authentication, pass `False`.
 
         Returns:
-            `Iterable[AccessRequest]`: An iterable of [`AccessRequest`] objects. Each time contains a `username`, `email`,
-            `status` and `timestamp` attribute. If the gated repo has a custom form, the `fields` attribute will
-            be populated with user's answers.
+            `Iterable[AccessRequest]`: An iterable of [`AccessRequest`] objects. Each item contains a `username`,
+            `request_id`, `email`, `status` and `timestamp` attribute. If the gated repo has a custom form, the `fields`
+            attribute will be populated with user's answers.
 
         Raises:
             [`HfHubHTTPError`]:
@@ -10646,6 +10651,7 @@ class HfApi:
         [
             AccessRequest(
                 username='clem',
+                request_id='655f3a1c9e6b2d4f8a7c1e05',
                 fullname='Clem 🤗',
                 email='***',
                 timestamp=datetime.datetime(2023, 11, 23, 18, 4, 53, 828000, tzinfo=datetime.timezone.utc),
@@ -10689,9 +10695,9 @@ class HfApi:
                 To disable authentication, pass `False`.
 
         Returns:
-            `Iterable[AccessRequest]`: An iterable of [`AccessRequest`] objects. Each time contains a `username`, `email`,
-            `status` and `timestamp` attribute. If the gated repo has a custom form, the `fields` attribute will
-            be populated with user's answers.
+            `Iterable[AccessRequest]`: An iterable of [`AccessRequest`] objects. Each item contains a `username`,
+            `request_id`, `email`, `status` and `timestamp` attribute. If the gated repo has a custom form, the `fields`
+            attribute will be populated with user's answers.
 
         Raises:
             [`HfHubHTTPError`]:
@@ -10711,6 +10717,7 @@ class HfApi:
         [
             AccessRequest(
                 username='clem',
+                request_id='655f3a1c9e6b2d4f8a7c1e05',
                 fullname='Clem 🤗',
                 email='***',
                 timestamp=datetime.datetime(2023, 11, 23, 18, 4, 53, 828000, tzinfo=datetime.timezone.utc),
@@ -10751,9 +10758,9 @@ class HfApi:
                 To disable authentication, pass `False`.
 
         Returns:
-            `Iterable[AccessRequest]`: An iterable of [`AccessRequest`] objects. Each time contains a `username`, `email`,
-            `status` and `timestamp` attribute. If the gated repo has a custom form, the `fields` attribute will
-            be populated with user's answers.
+            `Iterable[AccessRequest]`: An iterable of [`AccessRequest`] objects. Each item contains a `username`,
+            `request_id`, `email`, `status` and `timestamp` attribute. If the gated repo has a custom form, the `fields`
+            attribute will be populated with user's answers.
 
         Raises:
             [`HfHubHTTPError`]:
@@ -10773,6 +10780,7 @@ class HfApi:
         [
             AccessRequest(
                 username='clem',
+                request_id='655f3a1c9e6b2d4f8a7c1e05',
                 fullname='Clem 🤗',
                 email='***',
                 timestamp=datetime.datetime(2023, 11, 23, 18, 4, 53, 828000, tzinfo=datetime.timezone.utc),
@@ -10802,10 +10810,12 @@ class HfApi:
             params={},
             headers=self._build_hf_headers(token=token),
         ):
+            user = request.get("user", {})  # not shared if repo is configured to hide usernames
             yield AccessRequest(
-                username=request["user"]["user"],
-                fullname=request["user"]["fullname"],
-                email=request["user"].get("email"),
+                username=user.get("user"),
+                request_id=request["requestId"],
+                fullname=user.get("fullname"),
+                email=user.get("email"),
                 status=request["status"],
                 timestamp=parse_datetime(request["timestamp"]),
                 fields=request.get("fields"),  # only if custom fields in form
@@ -10813,7 +10823,13 @@ class HfApi:
 
     @validate_hf_hub_args
     def cancel_access_request(
-        self, repo_id: str, user: str, *, repo_type: str | None = None, token: bool | str | None = None
+        self,
+        repo_id: str,
+        user: str | None = None,
+        *,
+        request_id: str | None = None,
+        repo_type: str | None = None,
+        token: bool | str | None = None,
     ) -> None:
         """
         Cancel an access request from a user for a given gated repo.
@@ -10825,8 +10841,12 @@ class HfApi:
         Args:
             repo_id (`str`):
                 The id of the repo to cancel access request for.
-            user (`str`):
-                The username of the user which access request should be cancelled.
+            user (`str`, *optional*):
+                The username of the user which access request should be cancelled. Exactly one of `user` or
+                `request_id` must be provided.
+            request_id (`str`, *optional*):
+                The id of the access request to cancel (see [`AccessRequest`]). Required when the repo is configured
+                to not share usernames of requesters. Exactly one of `user` or `request_id` must be provided.
             repo_type (`str`, *optional*):
                 The type of the repo to cancel access request for. Must be one of `model`, `dataset` or `space`.
                 Defaults to `model`.
@@ -10849,11 +10869,17 @@ class HfApi:
             [`HfHubHTTPError`]:
                 HTTP 404 if the user access request is already in the pending list.
         """
-        self._handle_access_request(repo_id, user, "pending", repo_type=repo_type, token=token)
+        self._handle_access_request(repo_id, user, request_id, "pending", repo_type=repo_type, token=token)
 
     @validate_hf_hub_args
     def accept_access_request(
-        self, repo_id: str, user: str, *, repo_type: str | None = None, token: bool | str | None = None
+        self,
+        repo_id: str,
+        user: str | None = None,
+        *,
+        request_id: str | None = None,
+        repo_type: str | None = None,
+        token: bool | str | None = None,
     ) -> None:
         """
         Accept an access request from a user for a given gated repo.
@@ -10867,8 +10893,12 @@ class HfApi:
         Args:
             repo_id (`str`):
                 The id of the repo to accept access request for.
-            user (`str`):
-                The username of the user which access request should be accepted.
+            user (`str`, *optional*):
+                The username of the user which access request should be accepted. Exactly one of `user` or
+                `request_id` must be provided.
+            request_id (`str`, *optional*):
+                The id of the access request to accept (see [`AccessRequest`]). Required when the repo is configured
+                to not share usernames of requesters. Exactly one of `user` or `request_id` must be provided.
             repo_type (`str`, *optional*):
                 The type of the repo to accept access request for. Must be one of `model`, `dataset` or `space`.
                 Defaults to `model`.
@@ -10891,14 +10921,15 @@ class HfApi:
             [`HfHubHTTPError`]:
                 HTTP 404 if the user access request is already in the accepted list.
         """
-        self._handle_access_request(repo_id, user, "accepted", repo_type=repo_type, token=token)
+        self._handle_access_request(repo_id, user, request_id, "accepted", repo_type=repo_type, token=token)
 
     @validate_hf_hub_args
     def reject_access_request(
         self,
         repo_id: str,
-        user: str,
+        user: str | None = None,
         *,
+        request_id: str | None = None,
         repo_type: str | None = None,
         rejection_reason: str | None,
         token: bool | str | None = None,
@@ -10915,8 +10946,12 @@ class HfApi:
         Args:
             repo_id (`str`):
                 The id of the repo to reject access request for.
-            user (`str`):
-                The username of the user which access request should be rejected.
+            user (`str`, *optional*):
+                The username of the user which access request should be rejected. Exactly one of `user` or
+                `request_id` must be provided.
+            request_id (`str`, *optional*):
+                The id of the access request to reject (see [`AccessRequest`]). Required when the repo is configured
+                to not share usernames of requesters. Exactly one of `user` or `request_id` must be provided.
             repo_type (`str`, *optional*):
                 The type of the repo to reject access request for. Must be one of `model`, `dataset` or `space`.
                 Defaults to `model`.
@@ -10942,14 +10977,15 @@ class HfApi:
                 HTTP 404 if the user access request is already in the rejected list.
         """
         self._handle_access_request(
-            repo_id, user, "rejected", repo_type=repo_type, rejection_reason=rejection_reason, token=token
+            repo_id, user, request_id, "rejected", repo_type=repo_type, rejection_reason=rejection_reason, token=token
         )
 
     @validate_hf_hub_args
     def _handle_access_request(
         self,
         repo_id: str,
-        user: str,
+        user: str | None,
+        request_id: str | None,
         status: Literal["accepted", "rejected", "pending"],
         repo_type: str | None = None,
         rejection_reason: str | None = None,
@@ -10960,7 +10996,12 @@ class HfApi:
         if repo_type is None:
             repo_type = constants.REPO_TYPE_MODEL
 
-        payload = {"user": user, "status": status}
+        if user is None and request_id is None:
+            raise ValueError("One of `user` or `request_id` must be provided.")
+        if user is not None and request_id is not None:
+            raise ValueError("Cannot provide both `user` and `request_id`.")
+        payload: dict[str, str | None] = {"user": user} if user is not None else {"requestId": request_id}
+        payload["status"] = status
 
         if rejection_reason is not None:
             if status != "rejected":
