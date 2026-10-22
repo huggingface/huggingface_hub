@@ -377,7 +377,7 @@ class ZipScheduler(CommitScheduler):
 1. किसी फ़ाइल को add या delete करने और किसी फ़ोल्डर को delete करने के लिए उपयुक्त `CommitOperation` का उपयोग करें:
 
 ```py
->>> from huggingface_hub import HfApi, CommitOperationAdd, CommitOperationDelete
+>>> from huggingface_hub import HfApi, CommitOperationAdd, CommitOperationCopy, CommitOperationDelete
 >>> api = HfApi()
 >>> operations = [
 ...     CommitOperationAdd(path_in_repo="LICENSE.md", path_or_fileobj="~/repo/LICENSE.md"),
