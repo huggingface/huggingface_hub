@@ -60,12 +60,12 @@ Geben Sie die `repo_id` des Repositories an, das Sie löschen möchten:
 
 ### Ein Repository duplizieren (nur für Spaces)
 
-In einigen Fällen möchten Sie möglicherweise das Repo von jemand anderem kopieren, um es an Ihren Anwendungsfall anzupassen. Dies ist für Spaces mit der Methode [`duplicate_space`] möglich. Es wird das gesamte Repository dupliziert.
+In einigen Fällen möchten Sie möglicherweise das Repo von jemand anderem kopieren, um es an Ihren Anwendungsfall anzupassen. Dies ist für Spaces mit der Methode [`duplicate_repo`] möglich. Es wird das gesamte Repository dupliziert.
 Sie müssen jedoch noch Ihre eigenen Einstellungen konfigurieren (Hardware, Schlafzeit, Speicher, Variablen und Geheimnisse). Weitere Informationen finden Sie in unserem Leitfaden [Verwalten Ihres Spaces](./manage-spaces).
 
 ```py
->>> from huggingface_hub import duplicate_space
->>> duplicate_space("multimodalart/dreambooth-training", private=False)
+>>> from huggingface_hub import duplicate_repo
+>>> duplicate_repo("multimodalart/dreambooth-training", repo_type="space", private=False)
 RepoUrl('https://huggingface.co/spaces/nateraw/dreambooth-training',...)
 ```
 

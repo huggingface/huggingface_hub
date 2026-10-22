@@ -26,10 +26,10 @@ Hier ist ein End-to-End-Beispiel, um einen Space auf dem Hub zu erstellen und ei
 **1. (bis) Duplizieren eines Space.**
 
 Das kann nützlich sein, wenn Sie auf einem bestehenden Space aufbauen möchten, anstatt von Grund auf neu zu beginnen.
-Es ist auch nützlich, wenn Sie die Kontrolle über die Konfiguration/Einstellungen eines öffentlichen Space haben möchten. Siehe [`duplicate_space`] für weitere Details.
+Es ist auch nützlich, wenn Sie die Kontrolle über die Konfiguration/Einstellungen eines öffentlichen Space haben möchten. Siehe [`duplicate_repo`] für weitere Details.
 
 ```py
->>> api.duplicate_space("multimodalart/dreambooth-training")
+>>> api.duplicate_repo("multimodalart/dreambooth-training", repo_type="space")
 ```
 
 **2. Code mit bevorzugter Lösung hochladen.**
@@ -82,10 +82,11 @@ Geheimnisse und Variablen können beim Erstellen oder Duplizieren eines Space ge
 ```
 
 ```py
->>> api.duplicate_space(
+>>> api.duplicate_repo(
 ...     from_id=repo_id,
-...     secrets=[{"key": "HF_TOKEN", "value": "hf_api_***"}, ...],
-...     variables=[{"key": "MODEL_REPO_ID", "value": "user/repo"}, ...],
+...     repo_type="space",
+...     space_secrets=[{"key": "HF_TOKEN", "value": "hf_api_***"}, ...],
+...     space_variables=[{"key": "MODEL_REPO_ID", "value": "user/repo"}, ...],
 ... )
 ```
 
@@ -131,17 +132,16 @@ Aktualisierte Hardware wird Ihrem Space automatisch zugewiesen, sobald er erstel
 ...     repo_type="space",
 ...     space_sdk="gradio",
 ...     space_hardware="cpu-upgrade",
-...     space_storage="small",
 ...     space_sleep_time=7200, # 2 hours in secs
 ... )
 ```
 
 ```py
->>> api.duplicate_space(
+>>> api.duplicate_repo(
 ...     from_id=repo_id,
-...     hardware="cpu-upgrade",
-...     storage="small",
-...     sleep_time=7200, # 2 hours in secs
+...     repo_type="space",
+...     space_hardware="cpu-upgrade",
+...     space_sleep_time=7200, # 2 hours in secs
 ... )
 ```
 
@@ -193,10 +193,11 @@ Aufgewertete Hardware wird Ihrem Space automatisch zugewiesen, sobald er erstell
 ```
 
 ```py
->>> api.duplicate_space(
+>>> api.duplicate_repo(
 ...     from_id=repo_id,
-...     hardware="t4-medium",
-...     sleep_time=3600,
+...     repo_type="space",
+...     space_hardware="t4-medium",
+...     space_sleep_time=3600,
 ... )
 ```
 
@@ -223,14 +224,13 @@ Hinweis: Nachdem Ihnen ein Speicher-Tier zugewiesen wurde, können Sie diesen ni
 ...     repo_id=repo_id,
 ...     repo_type="space",
 ...     space_sdk="gradio",
-...     space_storage="large",
 ... )
 ```
 
 ```py
->>> api.duplicate_space(
+>>> api.duplicate_repo(
 ...     from_id=repo_id,
-...     storage="large",
+...     repo_type="space",
 ... )
 ```
 

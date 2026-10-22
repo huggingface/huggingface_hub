@@ -23,10 +23,10 @@ rendered properly in your Markdown viewer.
 
 **1. (bis) Space 복제하기.**
 
-기존의 Space에서부터 시작하는 대신 새로운 Space를 구축하고 싶을 때 유용할 수 있습니다. 또한 공개된 Space의 구성/설정을 제어하고 싶을 때도 유용합니다. 자세한 내용은 [`duplicate_space`]를 참조하세요.
+기존의 Space에서부터 시작하는 대신 새로운 Space를 구축하고 싶을 때 유용할 수 있습니다. 또한 공개된 Space의 구성/설정을 제어하고 싶을 때도 유용합니다. 자세한 내용은 [`duplicate_repo`]를 참조하세요.
 
 ```py
->>> api.duplicate_space("multimodalart/dreambooth-training")
+>>> api.duplicate_repo("multimodalart/dreambooth-training", repo_type="space")
 ```
 
 **2. 선호하는 솔루션을 사용하여 코드 업로드하기.**
@@ -75,10 +75,11 @@ Space를 생성하거나 복제할 때 보안 정보와 변수를 설정할 수 
 ```
 
 ```py
->>> api.duplicate_space(
+>>> api.duplicate_repo(
 ...     from_id=repo_id,
-...     secrets=[{"key": "HF_TOKEN", "value": "hf_api_***"}, ...],
-...     variables=[{"key": "MODEL_REPO_ID", "value": "user/repo"}, ...],
+...     repo_type="space",
+...     space_secrets=[{"key": "HF_TOKEN", "value": "hf_api_***"}, ...],
+...     space_variables=[{"key": "MODEL_REPO_ID", "value": "user/repo"}, ...],
 ... )
 ```
 
@@ -119,16 +120,15 @@ Space가 구축되면 업그레이드된 하드웨어가 자동으로 할당됩�
 ...     repo_type="space",
 ...     space_sdk="gradio",
 ...     space_hardware="cpu-upgrade",
-...     space_storage="small",
 ...     space_sleep_time=7200, # 2시간을 초로 환산
 ... )
 ```
 ```py
->>> api.duplicate_space(
+>>> api.duplicate_repo(
 ...     from_id=repo_id,
-...     hardware="cpu-upgrade",
-...     storage="small",
-...     sleep_time=7200, # 2시간을 초로 환산
+...     repo_type="space",
+...     space_hardware="cpu-upgrade",
+...     space_sleep_time=7200, # 2시간을 초로 환산
 ... )
 ```
 
@@ -173,10 +173,11 @@ Space가 구축되면 업그레이드된 하드웨어가 자동으로 할당됩�
 ... )
 ```
 ```py
->>> api.duplicate_space(
+>>> api.duplicate_repo(
 ...     from_id=repo_id,
-...     hardware="t4-medium",
-...     sleep_time=3600,
+...     repo_type="space",
+...     space_hardware="t4-medium",
+...     space_sleep_time=3600,
 ... )
 ```
 
@@ -203,13 +204,12 @@ Space를 다시 시작할 때 지속적으로 디스크 공간에 접근할 수 
 ...     repo_id=repo_id,
 ...     repo_type="space",
 ...     space_sdk="gradio",
-...     space_storage="large",
 ... )
 ```
 ```py
->>> api.duplicate_space(
+>>> api.duplicate_repo(
 ...     from_id=repo_id,
-...     storage="large",
+...     repo_type="space",
 ... )
 ```
 
