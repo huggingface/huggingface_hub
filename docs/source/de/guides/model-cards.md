@@ -51,7 +51,9 @@ Eine andere Möglichkeit besteht darin, dies mit f-Strings zu tun. Im folgenden 
 - Zeigen wir, wie Sie eine Vorlagenvariable über Python f-Strings verwenden könnten.
 
 ```python
-card_data = ModelCardData(language='en', license='mit', library='timm')
+from huggingface_hub import ModelCardData
+
+card_data = ModelCardData(language='en', license='mit', library_name='timm')
 
 example_template_var = 'nateraw'
 content = f"""
@@ -74,7 +76,7 @@ Das obige Beispiel würde uns eine Karte hinterlassen, die so aussieht:
 ---
 language: en
 license: mit
-library: timm
+library_name: timm
 ---
 
 # My Model Card
