@@ -181,6 +181,9 @@ class _ParallelRepoTreeListing:
             with self.lock:
                 while self.pending_tasks:
                     self.lock.wait()
+        except BaseException as exc:  # e.g. KeyboardInterrupt
+            self.error = self.error or exc
+            raise
         finally:
             # On the happy path all tasks are done (`pending_tasks` reached 0). Otherwise, e.g. on a
             # keyboard interrupt, cancel the tasks that haven't started yet and wait for the in-flight
@@ -240,6 +243,8 @@ class _ParallelRepoTreeListing:
             repo_type=resolved_path.repo_type,
         )
         for page_nb, (page, finished) in enumerate(pages, start=1):
+            if self.error is not None:
+                return
             entries.extend(page)
             max_page_size = max(max_page_size, len(page))
             for path_info in page:
