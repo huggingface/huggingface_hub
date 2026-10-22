@@ -301,6 +301,11 @@ Das Planen von Aufgaben kann auf viele Arten erfolgen. Hier ist ein Beispiel,
 wie es mit einer einfachen CSV gemacht werden könnte, die als Datensatz gespeichert ist.
 
 ```py
+import csv
+import io
+
+from huggingface_hub import hf_hub_download
+
 # Dataset-ID, in der eine `tasks.csv` Datei die auszuführenden Aufgaben enthält.
 # Hier ist ein einfaches Beispiel für `tasks.csv`, das Eingaben (Basis-Modell und Datensatz)
 # und Status (PENDING / AUSSTEHEND oder DONE / ERLEDIGT) enthält.
@@ -308,44 +313,36 @@ wie es mit einer einfachen CSV gemacht werden könnte, die als Datensatz gespeic
 #     multimodalart/sd-fine-tunable,Wauplin/concept-2,PENDING
 TASK_DATASET_ID = "Wauplin/dreambooth-task-scheduler"
 
-def _get_csv_file():
-    return hf_hub_download(repo_id=TASK_DATASET_ID, filename="tasks.csv", repo_type="dataset", token=HF_TOKEN)
+def _get_tasks():
+    path = hf_hub_download(repo_id=TASK_DATASET_ID, filename="tasks.csv", repo_type="dataset", token=HF_TOKEN)
+    with open(path, newline="", encoding="utf-8") as csv_file:
+        return [row for row in csv.reader(csv_file) if row]
+
+def _save_tasks(tasks):
+    buffer = io.StringIO(newline="")
+    csv.writer(buffer).writerows(tasks)
+    api.upload_file(
+        repo_id=TASK_DATASET_ID,
+        repo_type="dataset",
+        path_in_repo="tasks.csv",
+        path_or_fileobj=buffer.getvalue().encode("utf-8"),
+    )
 
 def get_task():
-    with open(_get_csv_file()) as csv_file:
-        csv_reader = csv.reader(csv_file, delimiter=',')
-        for row in csv_reader:
-            if row[2] == "PENDING":
-                return row[0], row[1] # model_id, dataset_id
+    for model_id, dataset_id, status in _get_tasks():
+        if status == "PENDING":
+            return model_id, dataset_id
 
 def add_task(task):
-    model_id, dataset_id = task
-    with open(_get_csv_file()) as csv_file:
-        with open(csv_file, "r") as f:
-            tasks = f.read()
-
-    api.upload_file(
-        repo_id=repo_id,
-        repo_type=repo_type,
-        path_in_repo="tasks.csv",
-        # Schnelle und einfache Möglichkeit, eine Aufgabe hinzuzufügen
-        path_or_fileobj=(tasks + f"\n{model_id},{dataset_id},PENDING").encode()
-    )
+    tasks = _get_tasks()
+    tasks.append([*task, "PENDING"])
+    _save_tasks(tasks)
 
 def mark_as_done(task):
-    model_id, dataset_id = task
-    with open(_get_csv_file()) as csv_file:
-        with open(csv_file, "r") as f:
-            tasks = f.read()
-
-    api.upload_file(
-        repo_id=repo_id,
-        repo_type=repo_type,
-        path_in_repo="tasks.csv",
-        # Schnelle und einfache Möglichkeit, die Aufgabe als DONE / ERLEDIGT zu markieren
-        path_or_fileobj=tasks.replace(
-            f"{model_id},{dataset_id},PENDING",
-            f"{model_id},{dataset_id},DONE"
-        ).encode()
-    )
+    tasks = _get_tasks()
+    for row in tasks:
+        if tuple(row[:2]) == tuple(task) and row[2] == "PENDING":
+            row[2] = "DONE"
+            break
+    _save_tasks(tasks)
 ```

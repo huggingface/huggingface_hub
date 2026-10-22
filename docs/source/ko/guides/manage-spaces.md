@@ -265,50 +265,47 @@ else:
 작업 스케줄링은 여러 가지 방법으로 수행할 수 있습니다. 여기에는 간단한 CSV 파일을 데이터 세트로 사용하여 작업 스케줄링을 하는 예시입니다.
 
 ```py
+import csv
+import io
+
+from huggingface_hub import hf_hub_download
+
 # 'tasks.csv' 파일을 포함하는 데이터 세트의 Dataset ID.
 # 여기서는 입력(기본 모델 및 데이터 세트)과 상태(PENDING 또는 DONE)가 포함된 'tasks.csv' 기본 예제가 주어집니다.
 #     multimodalart/sd-fine-tunable,Wauplin/concept-1,DONE
 #     multimodalart/sd-fine-tunable,Wauplin/concept-2,PENDING
 TASK_DATASET_ID = "Wauplin/dreambooth-task-scheduler"
 
-def _get_csv_file():
-    return hf_hub_download(repo_id=TASK_DATASET_ID, filename="tasks.csv", repo_type="dataset", token=HF_TOKEN)
+def _get_tasks():
+    path = hf_hub_download(repo_id=TASK_DATASET_ID, filename="tasks.csv", repo_type="dataset", token=HF_TOKEN)
+    with open(path, newline="", encoding="utf-8") as csv_file:
+        return [row for row in csv.reader(csv_file) if row]
+
+def _save_tasks(tasks):
+    buffer = io.StringIO(newline="")
+    csv.writer(buffer).writerows(tasks)
+    api.upload_file(
+        repo_id=TASK_DATASET_ID,
+        repo_type="dataset",
+        path_in_repo="tasks.csv",
+        path_or_fileobj=buffer.getvalue().encode("utf-8"),
+    )
 
 def get_task():
-    with open(_get_csv_file()) as csv_file:
-        csv_reader = csv.reader(csv_file, delimiter=',')
-        for row in csv_reader:
-            if row[2] == "PENDING":
-                return row[0], row[1] # model_id, dataset_id
+    for model_id, dataset_id, status in _get_tasks():
+        if status == "PENDING":
+            return model_id, dataset_id
 
 def add_task(task):
-    model_id, dataset_id = task
-    with open(_get_csv_file()) as csv_file:
-        with open(csv_file, "r") as f:
-            tasks = f.read()
-
-    api.upload_file(
-        repo_id=repo_id,
-        repo_type=repo_type,
-        path_in_repo="tasks.csv",
-        # 작업을 추가하기 위한 빠르고 더러운 방법
-        path_or_fileobj=(tasks + f"\n{model_id},{dataset_id},PENDING").encode()
-    )
+    tasks = _get_tasks()
+    tasks.append([*task, "PENDING"])
+    _save_tasks(tasks)
 
 def mark_as_done(task):
-    model_id, dataset_id = task
-    with open(_get_csv_file()) as csv_file:
-        with open(csv_file, "r") as f:
-            tasks = f.read()
-
-    api.upload_file(
-        repo_id=repo_id,
-        repo_type=repo_type,
-        path_in_repo="tasks.csv",
-        # 작업을 DONE으로 설정하는 빠르고 더러운 방법
-        path_or_fileobj=tasks.replace(
-            f"{model_id},{dataset_id},PENDING",
-            f"{model_id},{dataset_id},DONE"
-        ).encode()
-    )
+    tasks = _get_tasks()
+    for row in tasks:
+        if tuple(row[:2]) == tuple(task) and row[2] == "PENDING":
+            row[2] = "DONE"
+            break
+    _save_tasks(tasks)
 ```
