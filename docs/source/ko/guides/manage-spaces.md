@@ -69,16 +69,16 @@ Space를 생성하거나 복제할 때 보안 정보와 변수를 설정할 수 
 ...     repo_id=repo_id,
 ...     repo_type="space",
 ...     space_sdk="gradio",
-...     space_secrets=[{"key"="HF_TOKEN", "value"="hf_api_***"}, ...],
-...     space_variables=[{"key"="MODEL_REPO_ID", "value"="user/repo"}, ...],
+...     space_secrets=[{"key": "HF_TOKEN", "value": "hf_api_***"}, ...],
+...     space_variables=[{"key": "MODEL_REPO_ID", "value": "user/repo"}, ...],
 ... )
 ```
 
 ```py
 >>> api.duplicate_space(
 ...     from_id=repo_id,
-...     secrets=[{"key"="HF_TOKEN", "value"="hf_api_***"}, ...],
-...     variables=[{"key"="MODEL_REPO_ID", "value"="user/repo"}, ...],
+...     secrets=[{"key": "HF_TOKEN", "value": "hf_api_***"}, ...],
+...     variables=[{"key": "MODEL_REPO_ID", "value": "user/repo"}, ...],
 ... )
 ```
 
@@ -117,7 +117,7 @@ Space가 구축되면 업그레이드된 하드웨어가 자동으로 할당됩�
 >>> api.create_repo(
 ...     repo_id=repo_id,
 ...     repo_type="space",
-...     space_sdk="gradio"
+...     space_sdk="gradio",
 ...     space_hardware="cpu-upgrade",
 ...     space_storage="small",
 ...     space_sleep_time="7200", # 2시간을 초로 환산
@@ -167,7 +167,7 @@ Space가 구축되면 업그레이드된 하드웨어가 자동으로 할당됩�
 >>> api.create_repo(
 ...     repo_id=repo_id,
 ...     repo_type="space",
-...     space_sdk="gradio"
+...     space_sdk="gradio",
 ...     space_hardware="t4-medium",
 ...     space_sleep_time="3600",
 ... )
@@ -202,7 +202,7 @@ Space를 다시 시작할 때 지속적으로 디스크 공간에 접근할 수 
 >>> api.create_repo(
 ...     repo_id=repo_id,
 ...     repo_type="space",
-...     space_sdk="gradio"
+...     space_sdk="gradio",
 ...     space_storage="large",
 ... )
 ```

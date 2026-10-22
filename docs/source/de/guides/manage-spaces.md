@@ -76,16 +76,16 @@ Geheimnisse und Variablen können beim Erstellen oder Duplizieren eines Space ge
 ...     repo_id=repo_id,
 ...     repo_type="space",
 ...     space_sdk="gradio",
-...     space_secrets=[{"key"="HF_TOKEN", "value"="hf_api_***"}, ...],
-...     space_variables=[{"key"="MODEL_REPO_ID", "value"="user/repo"}, ...],
+...     space_secrets=[{"key": "HF_TOKEN", "value": "hf_api_***"}, ...],
+...     space_variables=[{"key": "MODEL_REPO_ID", "value": "user/repo"}, ...],
 ... )
 ```
 
 ```py
 >>> api.duplicate_space(
 ...     from_id=repo_id,
-...     secrets=[{"key"="HF_TOKEN", "value"="hf_api_***"}, ...],
-...     variables=[{"key"="MODEL_REPO_ID", "value"="user/repo"}, ...],
+...     secrets=[{"key": "HF_TOKEN", "value": "hf_api_***"}, ...],
+...     variables=[{"key": "MODEL_REPO_ID", "value": "user/repo"}, ...],
 ... )
 ```
 
@@ -129,7 +129,7 @@ Aktualisierte Hardware wird Ihrem Space automatisch zugewiesen, sobald er erstel
 >>> api.create_repo(
 ...     repo_id=repo_id,
 ...     repo_type="space",
-...     space_sdk="gradio"
+...     space_sdk="gradio",
 ...     space_hardware="cpu-upgrade",
 ...     space_storage="small",
 ...     space_sleep_time="7200", # 2 hours in secs
@@ -186,7 +186,7 @@ Aufgewertete Hardware wird Ihrem Space automatisch zugewiesen, sobald er erstell
 >>> api.create_repo(
 ...     repo_id=repo_id,
 ...     repo_type="space",
-...     space_sdk="gradio"
+...     space_sdk="gradio",
 ...     space_hardware="t4-medium",
 ...     space_sleep_time="3600",
 ... )
@@ -222,7 +222,7 @@ Hinweis: Nachdem Ihnen ein Speicher-Tier zugewiesen wurde, können Sie diesen ni
 >>> api.create_repo(
 ...     repo_id=repo_id,
 ...     repo_type="space",
-...     space_sdk="gradio"
+...     space_sdk="gradio",
 ...     space_storage="large",
 ... )
 ```
