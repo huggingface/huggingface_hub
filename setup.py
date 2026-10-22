@@ -68,7 +68,7 @@ extras["testing"] = (
         "soundfile",
         "Pillow",
         "numpy",  # for embeddings
-        "duckdb",  # for datasets SQL end-to-end tests
+        "duckdb; python_version < '3.15'",  # for datasets SQL end-to-end tests (no 3.15 wheels yet)
         "fastapi",  # To build the documentation
     ]
 )
@@ -136,6 +136,7 @@ setup(
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
         "Programming Language :: Python :: 3.14",
+        "Programming Language :: Python :: 3.15",
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
     ],
     include_package_data=True,

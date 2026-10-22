@@ -358,7 +358,7 @@ class DeleteCacheStrategy:
             for store_path in shared_store_paths:
                 _shared_blobs.sweep_shared_blob(store_path, cache_dir=self.cache_dir)
 
-        logger.info(f"Cache deletion done. Saved {self.expected_freed_size_str}.")
+        logger.debug(f"Cache deletion done. Saved {self.expected_freed_size_str}.")
 
 
 @dataclass(frozen=True)
@@ -447,7 +447,6 @@ class HFCacheInfo:
         >>> print(f"Will free {delete_strategy.expected_freed_size_str}.")
         Will free 7.9K.
         >>> delete_strategy.execute()
-        Cache deletion done. Saved 7.9K.
         ```
 
         ```py
@@ -457,7 +456,6 @@ class HFCacheInfo:
         ...     "e2983b237dccf3ab4937c97fa717319a9ca1a96d",
         ...     "6c0e6080953db56375760c0471a8c5f2929baf11",
         ... ).execute()
-        Cache deletion done. Saved 8.6G.
         ```
 
         > [!WARNING]
@@ -559,7 +557,6 @@ class HFCacheInfo:
         >>> print(f"Will free {delete_strategy.expected_freed_size_str}.")
         Will free 4.9G.
         >>> delete_strategy.execute()
-        Cache deletion done. Saved 4.9G.
         ```
         """
         selected = set(files)

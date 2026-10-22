@@ -497,8 +497,6 @@ class HfArgument(click.Argument):
 class HfOption(click.Option):
     """Option whose help record ports Typer's default/metavar rendering verbatim."""
 
-    show_default: bool | str
-
     def get_help_record(self, ctx: click.Context) -> tuple[str, str] | None:
         if self.hidden:
             return None
@@ -606,7 +604,7 @@ class HfGroup(click.Group):
     """
 
     #: Command class used by ``@group.command()`` unless overridden per call.
-    command_class: type[click.Command] = HfCommand
+    command_class: type[click.Command] | None = HfCommand
 
     def format_arguments(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
         # See `HfCommand.format_arguments`.

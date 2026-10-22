@@ -46,7 +46,7 @@ import sys
 from typing import TYPE_CHECKING
 
 
-__version__ = "2.2.0.dev0"
+__version__ = "2.3.0.dev0"
 
 # Alphabetical order of definitions is ensured in tests
 # WARNING: any comment added in this dictionary definition will be lost when
@@ -283,6 +283,7 @@ _SUBMOD_ATTRS = {
         "get_paths_info",
         "get_repo_discussions",
         "get_safetensors_metadata",
+        "get_sharded_safetensors_metadata",
         "get_space_runtime",
         "get_space_secrets",
         "get_space_variables",
@@ -318,6 +319,7 @@ _SUBMOD_ATTRS = {
         "list_repo_likers",
         "list_repo_refs",
         "list_repo_tree",
+        "list_scheduled_jobs",
         "list_space_templates",
         "list_spaces",
         "list_spaces_hardware",
@@ -373,6 +375,7 @@ _SUBMOD_ATTRS = {
         "update_scheduled_job_labels",
         "update_scheduled_job_schedule",
         "update_webhook",
+        "upload_attachment",
         "upload_file",
         "upload_folder",
         "verify_repo_checksums",
@@ -1033,6 +1036,7 @@ __all__ = [
     "get_repo_discussions",
     "get_safetensors_metadata",
     "get_session",
+    "get_sharded_safetensors_metadata",
     "get_space_runtime",
     "get_space_secrets",
     "get_space_variables",
@@ -1077,6 +1081,7 @@ __all__ = [
     "list_repo_likers",
     "list_repo_refs",
     "list_repo_tree",
+    "list_scheduled_jobs",
     "list_space_templates",
     "list_spaces",
     "list_spaces_hardware",
@@ -1157,6 +1162,7 @@ __all__ = [
     "update_scheduled_job_labels",
     "update_scheduled_job_schedule",
     "update_webhook",
+    "upload_attachment",
     "upload_file",
     "upload_folder",
     "verify_repo_checksums",
@@ -1493,6 +1499,7 @@ if TYPE_CHECKING:  # pragma: no cover
         get_paths_info,  # noqa: F401
         get_repo_discussions,  # noqa: F401
         get_safetensors_metadata,  # noqa: F401
+        get_sharded_safetensors_metadata,  # noqa: F401
         get_space_runtime,  # noqa: F401
         get_space_secrets,  # noqa: F401
         get_space_variables,  # noqa: F401
@@ -1528,6 +1535,7 @@ if TYPE_CHECKING:  # pragma: no cover
         list_repo_likers,  # noqa: F401
         list_repo_refs,  # noqa: F401
         list_repo_tree,  # noqa: F401
+        list_scheduled_jobs,  # noqa: F401
         list_space_templates,  # noqa: F401
         list_spaces,  # noqa: F401
         list_spaces_hardware,  # noqa: F401
@@ -1583,6 +1591,7 @@ if TYPE_CHECKING:  # pragma: no cover
         update_scheduled_job_labels,  # noqa: F401
         update_scheduled_job_schedule,  # noqa: F401
         update_webhook,  # noqa: F401
+        upload_attachment,  # noqa: F401
         upload_file,  # noqa: F401
         upload_folder,  # noqa: F401
         verify_repo_checksums,  # noqa: F401
