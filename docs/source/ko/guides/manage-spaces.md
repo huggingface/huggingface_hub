@@ -181,37 +181,26 @@ Space가 구축되면 업그레이드된 하드웨어가 자동으로 할당됩�
 ... )
 ```
 
-**6. Space에 지속적으로 저장소 추가하기**
+**6. Space에 볼륨 마운트하기**
 
-Space를 다시 시작할 때 지속적으로 디스크 공간에 접근할 수 있는 원하는 저장소 계층을 선택할 수 있습니다. 이는 기존의 하드 드라이브와 같이 디스크에서 읽고 쓸 수 있음을 의미합니다. 자세한 내용은 [문서](https://huggingface.co/docs/hub/spaces-storage#persistent-storage)를 참조하세요.
-
-```py
->>> from huggingface_hub import SpaceStorage
->>> api.request_space_storage(repo_id=repo_id, storage=SpaceStorage.LARGE)
-```
-
-또한 모든 데이터를 영구적으로 삭제하여 저장소를 삭제할 수 있습니다.
-```py
->>> api.delete_space_storage(repo_id=repo_id)
-```
-
-참고: 한 번 승인된 저장소의 저장소 계층을 낮출 수 없습니다. 그렇게 하려면, 먼저 저장소를 삭제한 다음 새로운 원하는 계층을 요청해야 합니다.
-
-**보너스: Space를 생성하거나 복제할 때 저장소 요청하기!**
+[`set_space_volumes`]를 사용하면 Hub 리소스를 Space에 마운트할 수 있습니다. 다음 예시는 기존 버킷을 `/data`에 마운트합니다.
 
 ```py
->>> api.create_repo(
+>>> from huggingface_hub import Volume
+>>> api.set_space_volumes(
 ...     repo_id=repo_id,
-...     repo_type="space",
-...     space_sdk="gradio",
+...     volumes=[Volume(type="bucket", source="username/my-bucket", mount_path="/data")],
 ... )
 ```
+
 ```py
->>> api.duplicate_repo(
-...     from_id=repo_id,
-...     repo_type="space",
-... )
+>>> api.delete_space_volumes(repo_id=repo_id)
 ```
+
+> [!WARNING]
+> 볼륨 설정은 기존 마운트 목록 전체를 대체합니다. 기존 볼륨을 유지하려면 먼저 `api.get_space_runtime(repo_id=repo_id).volumes`를 읽고 새 목록에 포함하세요. `delete_space_volumes`는 마운트만 해제하며 원본 데이터를 삭제하지 않습니다.
+
+모델, 데이터 세트, Space는 읽기 전용이며 버킷만 쓰기를 지원합니다. Space 생성 또는 복제 시에는 `space_volumes`로 목록을 전달할 수 있습니다.
 
 ## 고급 기능: Space를 일시적으로 업그레이드하기![[more-advanced-temporarily-upgrade-your-space-]]
 

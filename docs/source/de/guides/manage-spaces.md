@@ -201,38 +201,26 @@ Aufgewertete Hardware wird Ihrem Space automatisch zugewiesen, sobald er erstell
 ... )
 ```
 
-**6. Dem Space dauerhaften Speicherplatz hinzufügen**
+**6. Volumes im Space einbinden**
 
-Sie können den Speicher-Tier Ihrer Wahl auswählen, um auf Festplattenspeicher zuzugreifen, der Neustarts Ihres Space überdauert. Dies bedeutet, dass Sie von der Festplatte lesen und darauf schreiben können, wie Sie es von einer herkömmlichen Festplatte gewöhnt sind. Weitere Informationen finden Sie in der [Dokumentation](https://huggingface.co/docs/hub/spaces-storage#persistent-storage) .
-
-```py
->>> from huggingface_hub import SpaceStorage
->>> api.request_space_storage(repo_id=repo_id, storage=SpaceStorage.LARGE)
-```
-
-Sie können auch Ihren Speicher löschen und dabei alle Daten dauerhaft verlieren.
-```py
->>> api.delete_space_storage(repo_id=repo_id)
-```
-
-Hinweis: Nachdem Ihnen ein Speicher-Tier zugewiesen wurde, können Sie diesen nicht mehr herabsetzen. Um dies zu tun, müssen Sie zuerst den Speicher löschen und dann den gewünschten Tier anfordern.
-
-**Bonus: Speicher beim Erstellen oder Duplizieren des Space anfordern!**
+Verwenden Sie [`set_space_volumes`], um Hub-Ressourcen im Space einzubinden. Ein Bucket kann beispielsweise unter `/data` bereitgestellt werden. Der Bucket muss bereits existieren.
 
 ```py
->>> api.create_repo(
+>>> from huggingface_hub import Volume
+>>> api.set_space_volumes(
 ...     repo_id=repo_id,
-...     repo_type="space",
-...     space_sdk="gradio",
+...     volumes=[Volume(type="bucket", source="username/my-bucket", mount_path="/data")],
 ... )
 ```
 
 ```py
->>> api.duplicate_repo(
-...     from_id=repo_id,
-...     repo_type="space",
-... )
+>>> api.delete_space_volumes(repo_id=repo_id)
 ```
+
+> [!WARNING]
+> Das Setzen von Volumes ersetzt alle zuvor eingebundenen Volumes. Lesen Sie zuerst `api.get_space_runtime(repo_id=repo_id).volumes`, wenn Sie vorhandene Einbindungen beibehalten möchten. `delete_space_volumes` entfernt die Einbindungen, ohne die Quelldaten zu löschen.
+
+Modelle, Datensätze und Spaces sind schreibgeschützt; nur Buckets unterstützen Schreibzugriffe. Beim Erstellen oder Duplizieren eines Space können Sie die Liste mit `space_volumes` übergeben.
 
 ## Fortgeschritten: Temporäres Space Upgrade
 
