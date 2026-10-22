@@ -222,6 +222,13 @@ Das Speichern von Daten aus einem Space in einem Dataset auf dem Hub ist der Hau
 Im folgenden (vereinfachten) Beispiel überschreiben wir `push_to_hub`, um alle PNG-Dateien in einem einzigen Archiv zu zippen, um das Repo auf dem Hub nicht zu überladen:
 
 ```py
+import tempfile
+import uuid
+import zipfile
+from pathlib import Path
+
+from huggingface_hub import CommitScheduler
+
 class ZipScheduler(CommitScheduler):
     def push_to_hub(self):
         # 1. Liste PNG-Dateien auf
@@ -231,13 +238,20 @@ class ZipScheduler(CommitScheduler):
 
         # 2. Zippe PNG-Dateien in ein einzelnes Archiv
         with tempfile.TemporaryDirectory() as tmpdir:
-            archive_path = Path(tmpdir) / "train.zip"
+            archive_path = Path(tmpdir) / f"train-{uuid.uuid4()}.zip"
             with zipfile.ZipFile(archive_path, "w", zipfile.ZIP_DEFLATED) as zip:
                 for png_file in png_files:
                     zip.write(filename=png_file, arcname=png_file.name)
 
             # 3. Lade das Archiv hoch
-            self.api.upload_file(..., path_or_fileobj=archive_path)
+            path_in_repo = f"{self.path_in_repo}/{archive_path.name}".lstrip("/")
+            self.api.upload_file(
+                repo_id=self.repo_id,
+                repo_type=self.repo_type,
+                revision=self.revision,
+                path_in_repo=path_in_repo,
+                path_or_fileobj=archive_path,
+            )
 
         # 4. Lösche lokale PNG-Dateien, um späteres erneutes Hochladen zu vermeiden
         for png_file in png_files:
