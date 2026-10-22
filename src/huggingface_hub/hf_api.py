@@ -5070,8 +5070,8 @@ class HfApi:
                 To disable authentication, pass `False`.
 
             repo_type (`str`, *optional*):
-                Set to `"dataset"` or `"space"` if uploading to a dataset or
-                space, `None` or `"model"` if uploading to a model. Default is
+                Set to `"dataset"`, `"space"` or `"kernel"` if uploading to a dataset,
+                space or kernel repo, `None` or `"model"` if uploading to a model. Default is
                 `None`.
 
             revision (`str`, *optional*):
@@ -5140,8 +5140,8 @@ class HfApi:
 
         commit_description = commit_description if commit_description is not None else ""
         repo_type = repo_type if repo_type is not None else constants.REPO_TYPE_MODEL
-        if repo_type not in constants.REPO_TYPES:
-            raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
+        if repo_type not in constants.REPO_TYPES_WITH_KERNEL:
+            raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES_WITH_KERNEL}")
         unquoted_revision = revision or constants.DEFAULT_REVISION
         revision = quote(unquoted_revision, safe="")
         create_pr = create_pr if create_pr is not None else False
@@ -5346,7 +5346,7 @@ class HfApi:
                 To disable authentication, pass `False`.
 
             repo_type (`str`, *optional*):
-                The type of repository to upload to (e.g. `"model"` -default-, `"dataset"` or `"space"`).
+                The type of repository to upload to (e.g. `"model"` -default-, `"dataset"`, `"space"` or `"kernel"`).
 
             revision (`str`, *optional*):
                 The git revision to commit from. Defaults to the head of the `"main"` branch.
@@ -5391,8 +5391,8 @@ class HfApi:
         from ._commit_api import _fetch_upload_modes, _upload_files
 
         repo_type = repo_type if repo_type is not None else constants.REPO_TYPE_MODEL
-        if repo_type not in constants.REPO_TYPES:
-            raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
+        if repo_type not in constants.REPO_TYPES_WITH_KERNEL:
+            raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES_WITH_KERNEL}")
         revision = quote(revision, safe="") if revision is not None else constants.DEFAULT_REVISION
         create_pr = create_pr if create_pr is not None else False
         headers = self._build_hf_headers(token=token)
@@ -5514,8 +5514,8 @@ class HfApi:
         from ._commit_api import DUPLICATE_LFS_BATCH_SIZE, _CopySource
 
         repo_type = repo_type if repo_type is not None else constants.REPO_TYPE_MODEL
-        if repo_type not in constants.REPO_TYPES:
-            raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
+        if repo_type not in constants.REPO_TYPES_WITH_KERNEL:
+            raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES_WITH_KERNEL}")
         headers = self._build_hf_headers(token=token)
 
         copies = list(copies)
@@ -5652,8 +5652,8 @@ class HfApi:
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
             repo_type (`str`, *optional*):
-                Set to `"dataset"` or `"space"` if uploading to a dataset or
-                space, `None` or `"model"` if uploading to a model. Default is
+                Set to `"dataset"`, `"space"` or `"kernel"` if uploading to a dataset,
+                space or kernel repo, `None` or `"model"` if uploading to a model. Default is
                 `None`.
             revision (`str`, *optional*):
                 The git revision to commit from. Defaults to the head of the `"main"` branch.
@@ -5736,8 +5736,8 @@ class HfApi:
 
         from ._commit_api import CommitOperationAdd
 
-        if repo_type not in constants.REPO_TYPES:
-            raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
+        if repo_type not in constants.REPO_TYPES_WITH_KERNEL:
+            raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES_WITH_KERNEL}")
 
         commit_message = (
             commit_message if commit_message is not None else f"Upload {path_in_repo} with huggingface_hub"
@@ -5863,8 +5863,8 @@ class HfApi:
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
             repo_type (`str`, *optional*):
-                Set to `"dataset"` or `"space"` if uploading to a dataset or
-                space, `None` or `"model"` if uploading to a model. Default is
+                Set to `"dataset"`, `"space"` or `"kernel"` if uploading to a dataset,
+                space or kernel repo, `None` or `"model"` if uploading to a model. Default is
                 `None`.
             revision (`str`, *optional*):
                 The git revision to commit from. Defaults to the head of the `"main"` branch.
@@ -5951,8 +5951,8 @@ class HfApi:
         ... )
         ```
         """
-        if repo_type not in constants.REPO_TYPES:
-            raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
+        if repo_type not in constants.REPO_TYPES_WITH_KERNEL:
+            raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES_WITH_KERNEL}")
         if create_pr and revision is not None and revision != constants.DEFAULT_REVISION:
             raise ValueError(
                 f"Cannot use `create_pr=True` with `revision='{revision}'`: pull requests created by"
