@@ -45,6 +45,27 @@ The optional `revision` argument can be passed to run an operation from a specif
 
 Unlike Python's built-in `open`, `fsspec`'s `open` defaults to binary mode, `"rb"`. This means you must explicitly set mode as `"r"` for reading and `"w"` for writing in text mode. Appending to a file (modes `"a"` and `"ab"`) is not supported yet.
 
+## Listing large repositories
+
+Operations listing files recursively, such as `find` and `glob`, need to fetch the whole
+content of the repository. The Hub returns those entries page by page, and a page can only be requested once the
+previous one has been received: listing a repository holding 800k files requires ~800 sequential requests, and
+therefore about 30 minutes.
+
+To avoid that, [`HfFileSystem`] lists large repositories directory by directory, in parallel:
+
+```python
+>>> from huggingface_hub import hffs
+
+>>> # Takes ~30s on a repository holding 800k files
+>>> files = hffs.glob("datasets/allenai/objaverse/**/*.glb", maxdepth=3)
+```
+
+The number of concurrent requests is controlled by the `max_workers` argument of [`HfFileSystem`]. It defaults to 16
+and can be set to 1 to disable parallel listings.
+Note that passing a `maxdepth` also significantly speeds listings up, since the Hub then only returns the entries
+that are actually requested.
+
 ## Keep listings fresh
 
 Directories are listed once and their content is cached, so a directory that someone else just changed is not
