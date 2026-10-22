@@ -30,7 +30,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
         with:
-          python-version: "3.14"
+          python-version: "3.15"
       - name: Install base dependencies only
         run: |
           pip install --upgrade uv
@@ -55,7 +55,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.14"]
+        python-version: ["3.10", "3.15"]
         # Test suites are defined in tests/conftest.py (`pytest_collection_modifyitems`).
         test_name: ["api", "transfer (hf_xet)", "transfer (no hf_xet)", "inference"]
         include:
@@ -63,7 +63,7 @@ jobs:
             test_name: "Python 3.10, torch_1.11"
           - python-version: "3.12" # test torch latest on python 3.12 only.
             test_name: "torch_latest"
-          - python-version: "3.13" # gradio not supported on 3.14 -> test it on 3.13
+          - python-version: "3.13" # test gradio on python 3.13 only.
             test_name: "gradio"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -146,7 +146,7 @@ jobs:
 
       # Upload code coverage
       - name: Upload coverage reports to Codecov with GitHub Action
-        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f  # v7.0.0
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5  # v7.1.1
         with:
           files: ./coverage.xml
           verbose: true
@@ -165,7 +165,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.14"]
+        python-version: ["3.10", "3.15"]
         test_name: ["api", "transfer (hf_xet)", "transfer (no hf_xet)", "inference"]
 
     steps:
@@ -218,7 +218,7 @@ jobs:
 
       # Upload code coverage
       - name: Upload coverage reports to Codecov with GitHub Action
-        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f  # v7.0.0
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5  # v7.1.1
         with:
           files: ./coverage.xml
           verbose: true
