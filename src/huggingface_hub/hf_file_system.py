@@ -158,7 +158,7 @@ class _ParallelRepoTreeListing:
 
     The number of requests stays close to the theoretical minimum (one request per 1000 entries)
     while independent directories are listed concurrently. Listing `datasets/allenai/objaverse`
-    (~800k files spread in 160 sub-directories) goes from ~20 minutes to a few seconds.
+    (~800k files spread in 160 sub-directories) goes from ~30 minutes to ~30 seconds.
     """
 
     def __init__(self, fs: "HfFileSystem", expand_info: bool, maxdepth: int | None):

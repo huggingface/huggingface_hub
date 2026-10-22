@@ -49,15 +49,15 @@ Unlike Python's built-in `open`, `fsspec`'s `open` defaults to binary mode, `"rb
 
 Operations listing files recursively, such as `find` and `glob`, need to fetch the whole
 content of the repository. The Hub returns those entries page by page, and a page can only be requested once the
-previous one has been received: listing a repository holding 800k files would require thousands of sequential
-requests, and therefore several minutes.
+previous one has been received: listing a repository holding 800k files requires ~800 sequential requests, and
+therefore about 30 minutes.
 
 To avoid that, [`HfFileSystem`] lists large repositories directory by directory, in parallel:
 
 ```python
 >>> from huggingface_hub import hffs
 
->>> # Takes a few seconds on a repository holding 800k files
+>>> # Takes ~30s on a repository holding 800k files
 >>> files = hffs.glob("datasets/allenai/objaverse/**/*.glb", maxdepth=3)
 ```
 
