@@ -8569,8 +8569,9 @@ class HfApi:
         max_wait_time = 10
         sleep_time = 0
         start_event_idx = 0
-        last_line: str | None = None
-        resume_after: str | None = None  # last event of a `tail` request, whose index in the full log is unknown
+        last_event: dict[str, Any] | None = None
+        # Last event of a `tail` request, whose index in the full log is unknown
+        resume_after: dict[str, Any] | None = None
         error_to_retry: Exception | None = None
         while True:
             if error_to_retry is not None:
@@ -8596,9 +8597,14 @@ class HfApi:
                             if line and line.startswith("data: {"):
                                 event_idx += 1
                                 if resume_after is not None:
-                                    if line == resume_after:
+                                    event = json.loads(line[len("data: ") :])
+                                    if event == resume_after:
                                         resume_after, start_event_idx = None, event_idx + 1
-                                    continue
+                                        continue
+                                    if parse_datetime(event["timestamp"]) <= parse_datetime(resume_after["timestamp"]):
+                                        continue
+                                    # The last `tail` event is missing from the replay: resume at the first later one
+                                    resume_after, start_event_idx = None, event_idx
                                 if event_idx >= start_event_idx:
                                     if skip_previous_events_on_retry:
                                         start_event_idx += 1
@@ -8611,7 +8617,7 @@ class HfApi:
                                         break
                                     # New data: retries only count consecutive failures
                                     nb_tries = sleep_time = 0
-                                    last_line = line
+                                    last_event = event
                                     yield event
                         # Jobs: the stream can end before the Job does, so the stage check below decides
                         if on_iteration_end is None:
@@ -8653,7 +8659,7 @@ class HfApi:
                     error_to_retry = err
             # Drop params after the first attempt: the full replay resumes after the last `tail` event
             if params is not None:
-                resume_after = last_line
+                resume_after = last_event
             params = None
             # no-follow: a single attempt, never loop back
             if not follow:
