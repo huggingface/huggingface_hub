@@ -1072,19 +1072,19 @@ class FakeTreeApi:
             yield from page
 
 
-def _fake_fs(files: dict[str, int], max_threads: int, **fake_kwargs) -> tuple[HfFileSystem, FakeTreeApi]:
+def _fake_fs(files: dict[str, int], max_workers: int, **fake_kwargs) -> tuple[HfFileSystem, FakeTreeApi]:
     api = FakeTreeApi(files, **fake_kwargs)
-    fs = HfFileSystem(endpoint="https://fake.example.com", skip_instance_cache=True, max_threads=max_threads)
+    fs = HfFileSystem(endpoint="https://fake.example.com", skip_instance_cache=True, max_workers=max_workers)
     fs._api = api
     return fs, api
 
 
-@pytest.mark.parametrize("max_threads", [1, 16])
-def test_find_full_tree(max_threads):
+@pytest.mark.parametrize("max_workers", [1, 16])
+def test_find_full_tree(max_workers):
     files = {f"dir_{i:03d}/file_{j:04d}.bin": 10 for i in range(20) for j in range(1100)}
     files["README.md"] = 5
 
-    fs, api = _fake_fs(files, max_threads=max_threads)
+    fs, api = _fake_fs(files, max_workers=max_workers)
     assert sorted(fs.find(_FAKE_REPO)) == sorted(f"{_FAKE_REPO}/{path}" for path in files)
     assert sorted(fs.dircache) == sorted([_FAKE_REPO] + [f"{_FAKE_REPO}/dir_{i:03d}" for i in range(20)])
 
@@ -1093,7 +1093,7 @@ def test_find_large_repo_is_listed_in_parallel():
     files = {f"dir_{i:03d}/file_{j:04d}.bin": 10 for i in range(20) for j in range(1100)}
     files["README.md"] = 5
 
-    fs, api = _fake_fs(files, max_threads=16, delay=0.02)
+    fs, api = _fake_fs(files, max_workers=16, delay=0.02)
     found = fs.find(_FAKE_REPO)
 
     assert api.max_in_flight > 1  # directories were listed concurrently
@@ -1104,8 +1104,8 @@ def test_find_large_repo_is_listed_in_parallel():
     # root pages until the split + 1 root listing + 2 pages per directory
     assert len(api.calls) <= 52
 
-    # the same listing done sequentially (see `max_threads=1`) requires one request every 1000 entries
-    sequential_fs, sequential_api = _fake_fs(files, max_threads=1, delay=0.02)
+    # the same listing done sequentially (see `max_workers=1`) requires one request every 1000 entries
+    sequential_fs, sequential_api = _fake_fs(files, max_workers=1, delay=0.02)
     assert sequential_fs.find(_FAKE_REPO) == found
     assert len(sequential_api.calls) == 23
 
@@ -1114,7 +1114,7 @@ def test_find_deeply_nested_repo_is_split_recursively():
     # 10 directories, each holding 10 sub-directories with 1100 files in them
     files = {f"dir_{i}/sub_{j}/file_{k:04d}.bin": 10 for i in range(10) for j in range(10) for k in range(1100)}
 
-    fs, api = _fake_fs(files, max_threads=16)
+    fs, api = _fake_fs(files, max_workers=16)
     assert sorted(fs.find(_FAKE_REPO)) == sorted(f"{_FAKE_REPO}/{path}" for path in files)
 
     # each directory is listed on its own, one level deep
@@ -1132,7 +1132,7 @@ def test_find_deeply_nested_repo_is_split_recursively():
 def test_find_small_repo_is_listed_with_a_single_request():
     files = {"README.md": 3, "data/file.txt": 1, "data/sub/file2.txt": 2}
 
-    fs, api = _fake_fs(files, max_threads=16)
+    fs, api = _fake_fs(files, max_workers=16)
     assert fs.find(_FAKE_REPO) == sorted(f"{_FAKE_REPO}/{path}" for path in files)
     assert api.calls == [(None, True)]  # a single page: nothing to split
 
@@ -1152,7 +1152,7 @@ def test_find_many_small_directories_is_not_split():
     # splitting a directory in (tiny) sub-directories would cost more requests than it would save
     files = {f"dir_{i:03d}/file_{j}.bin": 10 for i in range(400) for j in range(3)}
 
-    fs, api = _fake_fs(files, max_threads=16)
+    fs, api = _fake_fs(files, max_workers=16)
     assert sorted(fs.find(_FAKE_REPO)) == sorted(f"{_FAKE_REPO}/{path}" for path in files)
     assert api.calls == [(None, True), (None, True)]  # 1600 entries listed through 2 pages
 
@@ -1162,7 +1162,7 @@ def test_find_maxdepth_does_not_list_deeper(maxdepth):
     files = {f"dir_{i:03d}/sub/file_{j:04d}.bin": 10 for i in range(20) for j in range(1100)}
     files["README.md"] = 5
 
-    fs, api = _fake_fs(files, max_threads=16)
+    fs, api = _fake_fs(files, max_workers=16)
     found = fs.find(_FAKE_REPO, maxdepth=maxdepth, withdirs=True)
     expected = ["README.md"] + [f"dir_{i:03d}" for i in range(20)]
     if maxdepth >= 2:
@@ -1178,12 +1178,12 @@ def test_find_maxdepth_does_not_list_deeper(maxdepth):
 def test_find_expand_info():
     files = {f"dir_{i}/file_{j}.bin": 10 for i in range(5) for j in range(60)}
 
-    fs, api = _fake_fs(files, max_threads=16)
+    fs, api = _fake_fs(files, max_workers=16)
     found = fs.find(_FAKE_REPO, detail=True, expand_info=True)
     assert sorted(found) == sorted(f"{_FAKE_REPO}/{path}" for path in files)
     assert all(info["last_commit"] is not None for info in found.values())
 
-    fs, api = _fake_fs(files, max_threads=16)
+    fs, api = _fake_fs(files, max_workers=16)
     found = fs.find(_FAKE_REPO, detail=True)
     assert all(info["last_commit"] is None for info in found.values())
 
@@ -1191,6 +1191,6 @@ def test_find_expand_info():
 def test_find_propagates_errors():
     files = {f"dir_{i:02d}/file_{j}.bin": 10 for i in range(10) for j in range(1100)}
 
-    fs, api = _fake_fs(files, max_threads=4, error_paths=["dir_03"])
+    fs, api = _fake_fs(files, max_workers=4, error_paths=["dir_03"])
     with pytest.raises(RuntimeError):
         fs.find(_FAKE_REPO)

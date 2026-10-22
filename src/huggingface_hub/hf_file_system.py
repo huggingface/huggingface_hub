@@ -165,8 +165,7 @@ class _ParallelRepoTreeListing:
         self.fs = fs
         self.expand_info = expand_info
         self.maxdepth = maxdepth
-        self.max_threads = fs.max_threads
-        self.pool = ThreadPoolExecutor(max_workers=self.max_threads, thread_name_prefix="hf-ls-tree")
+        self.pool = ThreadPoolExecutor(max_workers=fs.max_workers, thread_name_prefix="hf-ls-tree")
         # Lock protecting the shared state below (and signaling task completion)
         self.lock = threading.Condition()
         self.pending_tasks = 0
@@ -407,10 +406,9 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
             Block size for reading and writing files.
         expand_info (`bool`, *optional*):
             Whether to expand the information of the files.
-        max_threads (`int`, *optional*):
+        max_workers (`int`, *optional*):
             Maximum number of concurrent requests used to list large directories in parallel (see
-            [`~HfFileSystem.find`]). Defaults to the `HF_HUB_FS_MAX_THREADS` environment variable, or 16.
-            Set it to 1 to disable parallel listings.
+            [`~HfFileSystem.find`]). Defaults to 16. Set it to 1 to disable parallel listings.
         live_follow (`bool`, *optional*):
             Whether to follow file changes in buckets as they happen on the Hub, so that cached listings stay
             fresh without manual [`HfFileSystem.invalidate_cache`] calls.
@@ -454,7 +452,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         token: bool | str | None = None,
         block_size: int | None = None,
         expand_info: bool | None = None,
-        max_threads: int | None = None,
+        max_workers: int = 16,
         live_follow: bool | None = None,
         **storage_options,
     ):
@@ -464,7 +462,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         self._api = HfApi(endpoint=endpoint, token=token)
         self.block_size = block_size
         self.expand_info = expand_info
-        self.max_threads = max(1, max_threads or constants.HF_HUB_FS_MAX_THREADS)
+        self.max_workers = max_workers
         self.live_follow = live_follow
         # Filled by the live-follow threads, applied by `_ls_tree` so that `dircache` is only mutated by its owner
         self._pending_bucket_changes: deque[tuple[str, list[BucketFileChange] | None]] = deque()
@@ -922,7 +920,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
                     prefix=resolved_path.path,
                     recursive=recursive,
                 )
-            elif recursive and self.max_threads > 1:
+            elif recursive and self.max_workers > 1:
                 # A `tree` request returns at most one page of entries and pages are cursor-based: they
                 # can only be fetched one after the other. Large repos are therefore listed sub-tree by
                 # sub-tree, in parallel, to avoid waiting on thousands of sequential requests.
@@ -1057,8 +1055,8 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
 
         > [!TIP]
         > Large repositories are listed directory by directory, in parallel, to work around the
-        > cursor-based pagination of the Hub `tree` endpoint. Tune this with the `max_threads`
-        > argument of [`HfFileSystem`] or the `HF_HUB_FS_MAX_THREADS` environment variable.
+        > cursor-based pagination of the Hub `tree` endpoint. Tune this with the `max_workers`
+        > argument of [`HfFileSystem`].
 
         Args:
             path (`str`):

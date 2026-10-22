@@ -61,8 +61,8 @@ To avoid that, [`HfFileSystem`] lists large repositories directory by directory,
 >>> files = hffs.glob("datasets/allenai/objaverse/**/*.glb", maxdepth=3)
 ```
 
-The number of concurrent requests is controlled by the `max_threads` argument of [`HfFileSystem`] (or by the
-`HF_HUB_FS_MAX_THREADS` environment variable). It defaults to 16 and can be set to 1 to disable parallel listings.
+The number of concurrent requests is controlled by the `max_workers` argument of [`HfFileSystem`]. It defaults to 16
+and can be set to 1 to disable parallel listings.
 Note that passing a `maxdepth` also significantly speeds listings up, since the Hub then only returns the entries
 that are actually requested.
 
