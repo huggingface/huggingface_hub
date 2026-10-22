@@ -55,17 +55,17 @@ Group-based control:
     >>> disable_progress_bars("peft.foo")
 
     # Check state of different groups
-    >>> assert not are_progress_bars_disabled("peft"))
+    >>> assert not are_progress_bars_disabled("peft")
     >>> assert not are_progress_bars_disabled("peft.something")
-    >>> assert are_progress_bars_disabled("peft.foo"))
-    >>> assert are_progress_bars_disabled("peft.foo.bar"))
+    >>> assert are_progress_bars_disabled("peft.foo")
+    >>> assert are_progress_bars_disabled("peft.foo.bar")
 
     # Enable progress bars for a subgroup
     >>> enable_progress_bars("peft.foo.bar")
 
     # Check if enabling a subgroup affects the parent group
-    >>> assert are_progress_bars_disabled("peft.foo"))
-    >>> assert not are_progress_bars_disabled("peft.foo.bar"))
+    >>> assert are_progress_bars_disabled("peft.foo")
+    >>> assert not are_progress_bars_disabled("peft.foo.bar")
 
     # No progress bar for `name="peft.foo"`
     >>> for _ in tqdm(range(5), name="peft.foo"):
@@ -290,7 +290,7 @@ def tqdm_stream_file(path: Path | str) -> Iterator[io.BufferedReader]:
     Example:
     ```py
     >>> with tqdm_stream_file("config.json") as f:
-    >>>     httpx2.put(url, data=f)
+    ...     httpx2.put(url, data=f)
     config.json: 100%|█████████████████████████| 8.19k/8.19k [00:02<00:00, 3.72kB/s]
     ```
     """
