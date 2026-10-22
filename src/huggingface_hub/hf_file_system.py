@@ -928,7 +928,9 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
                 out = listing.run(resolved_path)
                 # replace cached listings, only once the listing is complete
                 self.dircache.update(listing.listings)
-                if not out and not listing.listings:
+                if out:
+                    self._drop_outdated_parent_listing(path)
+                elif not listing.listings:
                     # Empty directory: `info()` on a child path reads `dircache[parent]`
                     self.dircache[path] = []
                 return out
@@ -952,10 +954,18 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
                     out.append(cache_path_info)
             # replace cached listings, only once the listing is complete
             self.dircache.update(listings)
-            if not out:
+            if out:
+                self._drop_outdated_parent_listing(path)
+            else:
                 # Empty bucket: `info()` on a child path reads `dircache[parent]`
                 self.dircache[path] = []
         return out
+
+    def _drop_outdated_parent_listing(self, path: str) -> None:
+        # `path` was just listed from the Hub, so a cached parent listing without it is outdated
+        parent_path = self._parent(path)
+        if parent_path in self.dircache and all(o["name"] != path for o in self.dircache[parent_path]):
+            del self.dircache[parent_path]
 
     def _list_bucket_tree_with_folders(
         self, bucket_id: str, prefix: str, recursive: bool
