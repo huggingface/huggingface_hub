@@ -876,6 +876,22 @@ def test_load_torch_model_forwards_mmap_for_single_file(tmp_path, torch_state_di
 
 
 @pytest.mark.skipif(not is_torch_available(), reason="Test requires torch")
+def test_load_torch_model_forwards_mmap_and_map_location_for_sharded_checkpoint(
+    tmp_path, torch_state_dict, dummy_model, mocker
+):
+    """`mmap` and `map_location` must be forwarded when loading sharded checkpoints."""
+    save_torch_state_dict(torch_state_dict, tmp_path, max_shard_size=10)
+    mock_load = mocker.patch("huggingface_hub.serialization._torch.load_state_dict_from_file", return_value={})
+
+    load_torch_model(dummy_model, tmp_path, mmap=True, map_location="cpu")
+
+    assert mock_load.call_count > 1
+    for call in mock_load.call_args_list:
+        assert call.kwargs["mmap"] is True
+        assert call.kwargs["map_location"] == "cpu"
+
+
+@pytest.mark.skipif(not is_torch_available(), reason="Test requires torch")
 def test_load_torch_model_safe_false_falls_back_to_pickle_with_several_safetensors(
     tmp_path, torch_state_dict, dummy_model
 ):

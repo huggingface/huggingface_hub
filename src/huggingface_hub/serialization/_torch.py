@@ -470,8 +470,10 @@ def load_torch_model(
         return _load_sharded_checkpoint(
             model=model,
             save_directory=checkpoint_path,
+            map_location=map_location,
             strict=strict,
             weights_only=weights_only,
+            mmap=mmap,
             safe=safe,
             filename_pattern=filename_pattern,
         )
@@ -505,8 +507,10 @@ def _load_sharded_checkpoint(
     model: "torch.nn.Module",
     save_directory: os.PathLike,
     *,
+    map_location: Union[str, "torch.device", dict[str, str]] | None = "cpu",
     strict: bool = False,
     weights_only: bool = True,
+    mmap: bool = False,
     safe: bool = True,
     filename_pattern: str = constants.SAFETENSORS_WEIGHTS_FILE_PATTERN,
 ) -> NamedTuple:
@@ -520,6 +524,8 @@ def _load_sharded_checkpoint(
             The model in which to load the checkpoint.
         save_directory (`str` or `os.PathLike`):
             A path to a folder containing the sharded checkpoint.
+        map_location (`str`, `torch.device`, or `dict`, *optional*, defaults to `"cpu"`):
+            A `torch.device` object, string or a dict specifying how to remap storage locations.
         strict (`bool`, *optional*, defaults to `False`):
             Whether to strictly enforce that the keys in the model state dict match the keys in the sharded checkpoint.
             As with [`torch.nn.Module.load_state_dict`], the check happens once every shard has been loaded, so the
@@ -529,6 +535,8 @@ def _load_sharded_checkpoint(
             restricted unpickler. Set to False to allow arbitrary Python objects in a pickle checkpoint (this
             executes arbitrary code at load time). Has no effect on PyTorch < 1.13, which has no restricted
             unpickler and always unpickles without restriction.
+        mmap (`bool`, *optional*, defaults to `False`):
+            Whether to use memory-mapped file loading.
         safe (`bool`, *optional*, defaults to `True`):
             If True, every shard is loaded with the safetensors loader. If False, shards are loaded as safetensors
             when their name says so and with `torch.load` otherwise.
@@ -604,8 +612,9 @@ def _load_sharded_checkpoint(
         shard_path = os.path.join(save_directory, shard_file)
         state_dict = load_state_dict_from_file(
             shard_path,
-            map_location="cpu",
+            map_location=map_location if map_location is not None else "cpu",
             weights_only=weights_only,
+            mmap=mmap,
             safe=safe,
         )
         loaded_keys.update(state_dict.keys())
