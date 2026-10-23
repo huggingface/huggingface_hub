@@ -34,6 +34,7 @@ from .hf_inference import (
     HFInferenceFeatureExtractionTask,
     HFInferenceTask,
 )
+from .highreso import HighresoConversationalTask
 from .novita import NovitaConversationalTask, NovitaTextGenerationTask, NovitaTextToVideoTask
 from .nscale import NscaleConversationalTask, NscaleTextToImageTask
 from .openai import OpenAIConversationalTask
@@ -79,6 +80,7 @@ PROVIDER_T = Literal[
     "fireworks-ai",
     "groq",
     "hf-inference",
+    "highreso",
     "novita",
     "nscale",
     "openai",
@@ -158,6 +160,9 @@ PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
         "translation": HFInferenceTask("translation"),
         "summarization": HFInferenceTask("summarization"),
         "visual-question-answering": HFInferenceBinaryInputTask("visual-question-answering"),
+    },
+    "highreso": {
+        "conversational": HighresoConversationalTask(),
     },
     "novita": {
         "text-generation": NovitaTextGenerationTask(),

@@ -45,6 +45,7 @@ from huggingface_hub.inference._providers.hf_inference import (
     HFInferenceFeatureExtractionTask,
     HFInferenceTask,
 )
+from huggingface_hub.inference._providers.highreso import HighresoConversationalTask
 from huggingface_hub.inference._providers.novita import NovitaConversationalTask, NovitaTextGenerationTask
 from huggingface_hub.inference._providers.nscale import NscaleConversationalTask, NscaleTextToImageTask
 from huggingface_hub.inference._providers.openai import OpenAIConversationalTask
@@ -1338,6 +1339,15 @@ class TestScalewayProvider:
             ),
         )
         assert payload == {"input": "Example text to embed", "model": "provider-id", "truncate": True}
+
+
+class TestHighresoProvider:
+    def test_prepare_url(self):
+        helper = HighresoConversationalTask()
+        assert (
+            helper._prepare_url("highreso_token", "username/repo_name")
+            == "https://api.highreso.ai/hf/v1/chat/completions"
+        )
 
 
 class TestPublicAIProvider:
