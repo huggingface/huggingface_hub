@@ -373,8 +373,24 @@ def snapshot_download(
                         revision=revision,
                         api_call_error=api_call_error,
                     )
+                if api_call_error is None:
+                    # `local_files_only=True` => the Hub was never queried.
+                    cause = "The Hub was not queried (`local_files_only=True`)."
+                    remedy = "Re-run without `local_files_only` to download the missing files."
+                else:
+                    cause = f"Got: {api_call_error.__class__.__name__}: {api_call_error}"
+                    if isinstance(api_call_error, OfflineModeIsEnabled):
+                        remedy = "Unset the `HF_HUB_OFFLINE` environment variable to download the missing files."
+                    else:
+                        remedy = (
+                            "Check your internet connection (or your proxy / `HF_ENDPOINT` settings) and re-run to"
+                            " download the missing files."
+                        )
                 logger.warning(
-                    f"Returning existing local_dir `{local_dir}` as remote repo cannot be accessed in `snapshot_download` ({api_call_error})."
+                    f"{cause}\n"
+                    f"Returning the existing local_dir `{local_dir}` instead of downloading the requested files"
+                    " from the Hub.\n"
+                    f"It may be incomplete or out of date. {remedy}"
                 )
                 return str(local_dir.resolve())
         # If we couldn't find the appropriate folder on disk, raise an error.
