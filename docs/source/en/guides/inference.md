@@ -28,15 +28,14 @@ Let's get started with a text-to-image task:
 
 # Example with an external provider (e.g. replicate)
 >>> replicate_client = InferenceClient(
-    provider="replicate",
-    api_key="my_replicate_api_key",
-)
+...     provider="replicate",
+...     api_key="my_replicate_api_key",
+... )
 >>> replicate_image = replicate_client.text_to_image(
-    "A flying car crossing a futuristic cityscape.",
-    model="black-forest-labs/FLUX.1-schnell",
-)
+...     "A flying car crossing a futuristic cityscape.",
+...     model="black-forest-labs/FLUX.1-schnell",
+... )
 >>> replicate_image.save("flying_car.png")
-
 ```
 
 In the example above, we initialized an [`InferenceClient`] with a third-party provider, [Replicate](https://replicate.com/). When using a provider, you must specify the model you want to use. The model id must be the id of the model on the Hugging Face Hub, not the id of the model from the third-party provider.
@@ -47,16 +46,16 @@ Let's now see an example using the [`~InferenceClient.chat_completion`] API. Thi
 ```python
 >>> from huggingface_hub import InferenceClient
 >>> messages = [
-    {
-        "role": "user",
-        "content": "What is the capital of France?",
-    }
-]
+...     {
+...         "role": "user",
+...         "content": "What is the capital of France?",
+...     }
+... ]
 >>> client = InferenceClient(
-    provider="together",
-    model="meta-llama/Meta-Llama-3-8B-Instruct",
-    api_key="my_together_api_key",
-)
+...     provider="together",
+...     model="meta-llama/Meta-Llama-3-8B-Instruct",
+...     api_key="my_together_api_key",
+... )
 >>> client.chat_completion(messages, max_tokens=100)
 ChatCompletionOutput(
     choices=[
@@ -103,10 +102,10 @@ What if you want to use a specific model? You can specify it either as a paramet
 >>> from huggingface_hub import InferenceClient
 # Initialize client for a specific model
 >>> client = InferenceClient(provider="together", model="meta-llama/Llama-3.1-8B-Instruct")
->>> client.text_to_image(...)
+>>> client.chat_completion(messages=[{"role": "user", "content": "Hello!"}])
 # Or use a generic client but pass your model as an argument
 >>> client = InferenceClient(provider="together")
->>> client.text_to_image(..., model="meta-llama/Llama-3.1-8B-Instruct")
+>>> client.chat_completion(messages=[{"role": "user", "content": "Hello!"}], model="meta-llama/Llama-3.1-8B-Instruct")
 ```
 
 > [!TIP]
@@ -164,26 +163,26 @@ You can authenticate using a [User Access Token](https://huggingface.co/docs/hub
 
 ```python
 >>> client = InferenceClient(
-    provider="replicate",
-    api_key="hf_****"  # Your HF token
-)
+...     provider="replicate",
+...     api_key="hf_****"  # Your HF token
+... )
 ```
 
 If you *don't* pass an `api_key`, the client will attempt to find and use a token stored locally on your machine. This typically happens if you've previously logged in. See the [Authentication Guide](https://huggingface.co/docs/huggingface_hub/quick-start#authentication) for details on login.
 
 ```python
 >>> client = InferenceClient(
-    provider="replicate",
-    token="hf_****"  # Your HF token
-)
+...     provider="replicate",
+...     token="hf_****"  # Your HF token
+... )
 ```
 
 **Direct access to provider**: Use your own API key to interact directly with the provider's service:
 ```python
 >>> client = InferenceClient(
-    provider="replicate",
-    api_key="r8_****"  # Your Replicate API key
-)
+...     provider="replicate",
+...     api_key="r8_****"  # Your Replicate API key
+... )
 ```
 
 For more details, refer to the [Inference Providers pricing documentation](https://huggingface.co/docs/inference-providers/pricing#routed-requests-vs-direct-calls).
@@ -331,7 +330,6 @@ response = client.chat.completions.create(
 )
 
 print(response.choices[0].message.tool_calls[0].function.arguments)
-
 ```
 
 > [!TIP]

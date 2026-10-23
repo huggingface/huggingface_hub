@@ -64,7 +64,7 @@ def push_to_hub(model: MyModelClass, repo_name: str) -> None:
    api = HfApi()
 
    # Create repo if not existing yet and get the associated repo_id
-   repo_id = api.create_repo(repo_name, exist_ok=True)
+   repo_id = api.create_repo(repo_name, exist_ok=True).repo_id
 
    # Save all files in a temporary directory and push them in a single commit
    with TemporaryDirectory() as tmpdir:
@@ -222,11 +222,12 @@ class PyTorchModelHubMixin(ModelHubMixin):
 from huggingface_hub import ModelHubMixin
 
 class PyTorchModelHubMixin(ModelHubMixin):
-   (...)
+    (...)
 
     def _save_pretrained(self, save_directory: Path) -> None:
         """Save weights from a Pytorch model to a local directory."""
-        save_model_as_safetensor(self.module, str(save_directory / SAFETENSORS_SINGLE_FILE))
+        model_to_save = self.module if hasattr(self, "module") else self
+        save_model_as_safetensor(model_to_save, str(save_directory / SAFETENSORS_SINGLE_FILE))
 
 ```
 
@@ -234,30 +235,30 @@ class PyTorchModelHubMixin(ModelHubMixin):
 
 ```python
 class PyTorchModelHubMixin(ModelHubMixin):
-   (...)
+    (...)
 
-   @classmethod # Must be a classmethod!
-   def _from_pretrained(
-      cls,
-      *,
-      model_id: str,
-      revision: str,
-      cache_dir: str,
-      force_download: bool,
-      local_files_only: bool,
-      token: Union[str, bool, None],
-      map_location: str = "cpu", # additional argument
-      strict: bool = False, # additional argument
-      **model_kwargs,
-   ):
-      """Load Pytorch pretrained weights and return the loaded model."""
+    @classmethod # Must be a classmethod!
+    def _from_pretrained(
+        cls,
+        *,
+        model_id: str,
+        revision: str,
+        cache_dir: str,
+        force_download: bool,
+        local_files_only: bool,
+        token: Union[str, bool, None],
+        map_location: str = "cpu", # additional argument
+        strict: bool = False, # additional argument
+        **model_kwargs,
+    ):
+        """Load Pytorch pretrained weights and return the loaded model."""
         model = cls(**model_kwargs)
         if os.path.isdir(model_id):
             print("Loading weights from local directory")
             model_file = os.path.join(model_id, SAFETENSORS_SINGLE_FILE)
             return cls._load_as_safetensor(model, model_file, map_location, strict)
 
-         model_file = hf_hub_download(
+        model_file = hf_hub_download(
             repo_id=model_id,
             filename=SAFETENSORS_SINGLE_FILE,
             revision=revision,
@@ -265,8 +266,8 @@ class PyTorchModelHubMixin(ModelHubMixin):
             force_download=force_download,
             token=token,
             local_files_only=local_files_only,
-            )
-         return cls._load_as_safetensor(model, model_file, map_location, strict)
+        )
+        return cls._load_as_safetensor(model, model_file, map_location, strict)
 ```
 
 And that's it! Your library now enables users to upload and download files to and from the Hub.
@@ -324,7 +325,7 @@ class VoiceCraft(
    PyTorchModelHubMixin,
    library_name="voicecraft",
    model_card_template=MODEL_CARD_TEMPLATE,
-   ...
+   # ...
 ):
    ...
 ```
@@ -360,7 +361,7 @@ Example:
 
 ```py
 class MyModel(ModelHubMixin):
-   def __init__(value: str, size: int = 3):
+   def __init__(self, value: str, size: int = 3):
       self.value = value
       self.size = size
 
@@ -380,6 +381,8 @@ Here is a concrete example where a class expects a `argparse.Namespace` config a
 ```py
 class VoiceCraft(nn.Module):
     def __init__(self, args):
+      super().__init__()
+      self.args = args
       self.pattern = self.args.pattern
       self.hidden_size = self.args.hidden_size
       ...
@@ -403,6 +406,8 @@ class VoiceCraft(
    }
 ):
     def __init__(self, args: Namespace): # annotate `args`
+      super().__init__()
+      self.args = args
       self.pattern = self.args.pattern
       self.hidden_size = self.args.hidden_size
       ...

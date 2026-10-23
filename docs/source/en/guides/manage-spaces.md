@@ -52,7 +52,7 @@ Here is an end-to-end example to create and set up a Space on the Hub.
 
 ### Create a Space from a template
 
-Instead of starting from an empty Space, you can seed a new Space from one of the official templates offered on the Hub (e.g. JupyterLab, a Gradio chatbot, a Streamlit app, etc.). List the available templates with [`list_space_templates`], then pass a template's `repo_id` (or its short `name`) as `space_template` to [`create_repo`]. Note that `space_sdk` is still required: the template seeds the files while the SDK sets the card metadata.
+Instead of starting from an empty Space, you can seed a new Space from one of the official templates offered on the Hub (e.g. JupyterLab, a Gradio chatbot, a Streamlit app, etc.). List the available templates with [`list_space_templates`], then pass a template's `repo_id` (or its short `name`) as `space_template` to [`create_repo`]. The SDK is inferred from the template. You can also pass `space_sdk` explicitly, but it must match the template's SDK.
 
 ```py
 >>> from huggingface_hub import HfApi
@@ -204,7 +204,7 @@ Upgraded hardware will be automatically assigned to your Space once it's built.
 ...     repo_type="space",
 ...     space_sdk="gradio",
 ...     space_hardware="cpu-upgrade",
-...     space_sleep_time="7200", # 2 hours in secs
+...     space_sleep_time=7200, # 2 hours in secs
 ... )
 ```
 ```py
@@ -212,7 +212,7 @@ Upgraded hardware will be automatically assigned to your Space once it's built.
 ...     from_id=repo_id,
 ...     repo_type="space",
 ...     space_hardware="cpu-upgrade",
-...     space_sleep_time="7200", # 2 hours in secs
+...     space_sleep_time=7200, # 2 hours in secs
 ... )
 ```
 
@@ -275,7 +275,7 @@ Upgraded hardware will be automatically assigned to your Space once it's built.
 ...     repo_type="space",
 ...     space_sdk="gradio",
 ...     space_hardware="t4-medium",
-...     space_sleep_time="3600",
+...     space_sleep_time=3600,
 ... )
 ```
 ```py
@@ -283,7 +283,7 @@ Upgraded hardware will be automatically assigned to your Space once it's built.
 ...     from_id=repo_id,
 ...     repo_type="space",
 ...     space_hardware="t4-medium",
-...     space_sleep_time="3600",
+...     space_sleep_time=3600,
 ... )
 ```
 
@@ -446,7 +446,7 @@ we will see one solution using a Dataset as "task scheduler".
 
 ### App skeleton
 
-Here is what your app would look like. On startup, check if a task is scheduled and if yes, run it on the correct hardware. Once done, set back hardware to the free `cpu-basic` CPU and prompt the user for a new task.
+Define the task scheduler helpers from the next section before running this startup code. Here is what your app would look like. On startup, check if a task is scheduled and if yes, run it on the correct hardware. Once done, set back hardware to the free `cpu-basic` CPU and prompt the user for a new task.
 
 > [!WARNING]
 > Such a workflow does not support concurrent access as normal demos.
@@ -454,6 +454,10 @@ Here is what your app would look like. On startup, check if a task is scheduled 
 > It is preferable to set your repo as private to ensure you are the only user.
 
 ```py
+import os
+
+import gradio as gr
+
 # Space will need your token to request hardware: set it as a Secret !
 HF_TOKEN = os.environ.get("HF_TOKEN")
 
@@ -468,12 +472,12 @@ api = HfApi(token=HF_TOKEN)
 task = get_task()
 if task is None:
     # Start Gradio app
-    def gradio_fn(task):
+    def gradio_fn(model_id, dataset_id):
         # On user request, add task and request hardware
-        add_task(task)
+        add_task((model_id, dataset_id))
         api.request_space_hardware(repo_id=TRAINING_SPACE_ID, hardware=SpaceHardware.T4_MEDIUM)
 
-    gr.Interface(fn=gradio_fn, ...).launch()
+    gr.Interface(fn=gradio_fn, inputs=["text", "text"], outputs=None).launch()
 else:
     runtime = api.get_space_runtime(repo_id=TRAINING_SPACE_ID)
     # Check if Space is loaded with a GPU.
@@ -496,51 +500,48 @@ Scheduling tasks can be done in many ways. Here is an example how it could be do
 a simple CSV stored as a Dataset.
 
 ```py
+import csv
+import io
+
+from huggingface_hub import hf_hub_download
+
 # Dataset ID in which a `tasks.csv` file contains the tasks to perform.
-# Here is a basic example for `tasks.csv` containing inputs (base model and dataset)
-# and status (PENDING or DONE).
+# Each row contains the base model, dataset, and status (PENDING or DONE):
 #     multimodalart/sd-fine-tunable,Wauplin/concept-1,DONE
 #     multimodalart/sd-fine-tunable,Wauplin/concept-2,PENDING
 TASK_DATASET_ID = "Wauplin/dreambooth-task-scheduler"
 
-def _get_csv_file():
-    return hf_hub_download(repo_id=TASK_DATASET_ID, filename="tasks.csv", repo_type="dataset", token=HF_TOKEN)
+def _get_tasks():
+    path = hf_hub_download(repo_id=TASK_DATASET_ID, filename="tasks.csv", repo_type="dataset", token=HF_TOKEN)
+    with open(path, newline="", encoding="utf-8") as csv_file:
+        return [row for row in csv.reader(csv_file) if row]
+
+def _save_tasks(tasks):
+    buffer = io.StringIO(newline="")
+    csv.writer(buffer).writerows(tasks)
+    api.upload_file(
+        repo_id=TASK_DATASET_ID,
+        repo_type="dataset",
+        path_in_repo="tasks.csv",
+        path_or_fileobj=buffer.getvalue().encode("utf-8"),
+    )
 
 def get_task():
-    with open(_get_csv_file()) as csv_file:
-        csv_reader = csv.reader(csv_file, delimiter=',')
-        for row in csv_reader:
-            if row[2] == "PENDING":
-                return row[0], row[1] # model_id, dataset_id
+    for model_id, dataset_id, status in _get_tasks():
+        if status == "PENDING":
+            return model_id, dataset_id
 
 def add_task(task):
-    model_id, dataset_id = task
-    with open(_get_csv_file()) as csv_file:
-        with open(csv_file, "r") as f:
-            tasks = f.read()
-
-    api.upload_file(
-        repo_id=repo_id,
-        repo_type=repo_type,
-        path_in_repo="tasks.csv",
-        # Quick and dirty way to add a task
-        path_or_fileobj=(tasks + f"\n{model_id},{dataset_id},PENDING").encode()
-    )
+    tasks = _get_tasks()
+    tasks.append([*task, "PENDING"])
+    _save_tasks(tasks)
 
 def mark_as_done(task):
-    model_id, dataset_id = task
-    with open(_get_csv_file()) as csv_file:
-        with open(csv_file, "r") as f:
-            tasks = f.read()
+    tasks = _get_tasks()
+    for row in tasks:
+        if tuple(row[:2]) == tuple(task) and row[2] == "PENDING":
+            row[2] = "DONE"
+            break
+    _save_tasks(tasks)
 
-    api.upload_file(
-        repo_id=repo_id,
-        repo_type=repo_type,
-        path_in_repo="tasks.csv",
-        # Quick and dirty way to set the task as DONE
-        path_or_fileobj=tasks.replace(
-            f"{model_id},{dataset_id},PENDING",
-            f"{model_id},{dataset_id},DONE"
-        ).encode()
-    )
 ```

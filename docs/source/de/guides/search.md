@@ -30,21 +30,15 @@ Die List-Helfer haben mehrere Attribute wie:
 - `search`
 - ...
 
-Zwei dieser Parameter sind intuitiv (`author` und `search`), aber was ist mit diesem `filter`?
-`filter` nimmt als Eingabe ein [`ModelFilter`]-Objekt (oder [`DatasetFilter`]) entgegen.
-Sie können es instanziieren, indem Sie angeben, welche Modelle Sie filtern möchten.
+`filter` akzeptiert einen Tag oder eine Liste von Tags. Für die Aufgabe und den Trainingsdatensatz stehen die Parameter `pipeline_tag` und `trained_dataset` zur Verfügung.
 
-Hier ist ein Beispiel, um alle Modelle auf dem Hub zu erhalten, die Bildklassifizierung durchführen,
-auf dem Imagenet-Datensatz trainiert wurden und mit PyTorch laufen.
-Das kann mit einem einzigen [`ModelFilter`] erreicht werden. Attribute werden als "logisches UND" kombiniert.
+Das folgende Beispiel sucht nach PyTorch-Modellen zur Bildklassifizierung, die mit dem Imagenet-Datensatz trainiert wurden. Die Bedingungen werden als logisches UND kombiniert.
 
 ```py
-models = hf_api.list_models(
-    filter=ModelFilter(
-		task="image-classification",
-		library="pytorch",
-		trained_dataset="imagenet"
-	)
+models = api.list_models(
+    pipeline_tag="image-classification",
+    filter="pytorch",
+    trained_dataset="imagenet",
 )
 ```
 
@@ -52,7 +46,7 @@ Während des Filterns können Sie auch die Modelle sortieren und nur die Top-Erg
 Zum Beispiel holt das folgende Beispiel die 5 am häufigsten heruntergeladenen Datensätze auf dem Hub:
 
 ```py
->>> list(list_datasets(sort="downloads", limit=5))
+>>> list(api.list_datasets(sort="downloads", limit=5))
 [DatasetInfo(
 	id='argilla/databricks-dolly-15k-curated-en',
 	author='argilla',

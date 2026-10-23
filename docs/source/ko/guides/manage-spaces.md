@@ -23,10 +23,10 @@ rendered properly in your Markdown viewer.
 
 **1. (bis) Space 복제하기.**
 
-기존의 Space에서부터 시작하는 대신 새로운 Space를 구축하고 싶을 때 유용할 수 있습니다. 또한 공개된 Space의 구성/설정을 제어하고 싶을 때도 유용합니다. 자세한 내용은 [`duplicate_space`]를 참조하세요.
+기존의 Space에서부터 시작하는 대신 새로운 Space를 구축하고 싶을 때 유용할 수 있습니다. 또한 공개된 Space의 구성/설정을 제어하고 싶을 때도 유용합니다. 자세한 내용은 [`duplicate_repo`]를 참조하세요.
 
 ```py
->>> api.duplicate_space("multimodalart/dreambooth-training")
+>>> api.duplicate_repo("multimodalart/dreambooth-training", repo_type="space")
 ```
 
 **2. 선호하는 솔루션을 사용하여 코드 업로드하기.**
@@ -69,16 +69,17 @@ Space를 생성하거나 복제할 때 보안 정보와 변수를 설정할 수 
 ...     repo_id=repo_id,
 ...     repo_type="space",
 ...     space_sdk="gradio",
-...     space_secrets=[{"key"="HF_TOKEN", "value"="hf_api_***"}, ...],
-...     space_variables=[{"key"="MODEL_REPO_ID", "value"="user/repo"}, ...],
+...     space_secrets=[{"key": "HF_TOKEN", "value": "hf_api_***"}, ...],
+...     space_variables=[{"key": "MODEL_REPO_ID", "value": "user/repo"}, ...],
 ... )
 ```
 
 ```py
->>> api.duplicate_space(
+>>> api.duplicate_repo(
 ...     from_id=repo_id,
-...     secrets=[{"key"="HF_TOKEN", "value"="hf_api_***"}, ...],
-...     variables=[{"key"="MODEL_REPO_ID", "value"="user/repo"}, ...],
+...     repo_type="space",
+...     space_secrets=[{"key": "HF_TOKEN", "value": "hf_api_***"}, ...],
+...     space_variables=[{"key": "MODEL_REPO_ID", "value": "user/repo"}, ...],
 ... )
 ```
 
@@ -117,18 +118,17 @@ Space가 구축되면 업그레이드된 하드웨어가 자동으로 할당됩�
 >>> api.create_repo(
 ...     repo_id=repo_id,
 ...     repo_type="space",
-...     space_sdk="gradio"
+...     space_sdk="gradio",
 ...     space_hardware="cpu-upgrade",
-...     space_storage="small",
-...     space_sleep_time="7200", # 2시간을 초로 환산
+...     space_sleep_time=7200, # 2시간을 초로 환산
 ... )
 ```
 ```py
->>> api.duplicate_space(
+>>> api.duplicate_repo(
 ...     from_id=repo_id,
-...     hardware="cpu-upgrade",
-...     storage="small",
-...     sleep_time="7200", # 2시간을 초로 환산
+...     repo_type="space",
+...     space_hardware="cpu-upgrade",
+...     space_sleep_time=7200, # 2시간을 초로 환산
 ... )
 ```
 
@@ -167,51 +167,40 @@ Space가 구축되면 업그레이드된 하드웨어가 자동으로 할당됩�
 >>> api.create_repo(
 ...     repo_id=repo_id,
 ...     repo_type="space",
-...     space_sdk="gradio"
+...     space_sdk="gradio",
 ...     space_hardware="t4-medium",
-...     space_sleep_time="3600",
+...     space_sleep_time=3600,
 ... )
 ```
 ```py
->>> api.duplicate_space(
+>>> api.duplicate_repo(
 ...     from_id=repo_id,
-...     hardware="t4-medium",
-...     sleep_time="3600",
-... )
-```
-
-**6. Space에 지속적으로 저장소 추가하기**
-
-Space를 다시 시작할 때 지속적으로 디스크 공간에 접근할 수 있는 원하는 저장소 계층을 선택할 수 있습니다. 이는 기존의 하드 드라이브와 같이 디스크에서 읽고 쓸 수 있음을 의미합니다. 자세한 내용은 [문서](https://huggingface.co/docs/hub/spaces-storage#persistent-storage)를 참조하세요.
-
-```py
->>> from huggingface_hub import SpaceStorage
->>> api.request_space_storage(repo_id=repo_id, storage=SpaceStorage.LARGE)
-```
-
-또한 모든 데이터를 영구적으로 삭제하여 저장소를 삭제할 수 있습니다.
-```py
->>> api.delete_space_storage(repo_id=repo_id)
-```
-
-참고: 한 번 승인된 저장소의 저장소 계층을 낮출 수 없습니다. 그렇게 하려면, 먼저 저장소를 삭제한 다음 새로운 원하는 계층을 요청해야 합니다.
-
-**보너스: Space를 생성하거나 복제할 때 저장소 요청하기!**
-
-```py
->>> api.create_repo(
-...     repo_id=repo_id,
 ...     repo_type="space",
-...     space_sdk="gradio"
-...     space_storage="large",
+...     space_hardware="t4-medium",
+...     space_sleep_time=3600,
 ... )
 ```
+
+**6. Space에 볼륨 마운트하기**
+
+[`set_space_volumes`]를 사용하면 Hub 리소스를 Space에 마운트할 수 있습니다. 다음 예시는 기존 버킷을 `/data`에 마운트합니다.
+
 ```py
->>> api.duplicate_space(
-...     from_id=repo_id,
-...     storage="large",
+>>> from huggingface_hub import Volume
+>>> api.set_space_volumes(
+...     repo_id=repo_id,
+...     volumes=[Volume(type="bucket", source="username/my-bucket", mount_path="/data")],
 ... )
 ```
+
+```py
+>>> api.delete_space_volumes(repo_id=repo_id)
+```
+
+> [!WARNING]
+> 볼륨 설정은 기존 마운트 목록 전체를 대체합니다. 기존 볼륨을 유지하려면 먼저 `api.get_space_runtime(repo_id=repo_id).volumes`를 읽고 새 목록에 포함하세요. `delete_space_volumes`는 마운트만 해제하며 원본 데이터를 삭제하지 않습니다.
+
+모델, 데이터 세트, Space는 읽기 전용이며 버킷만 쓰기를 지원합니다. Space 생성 또는 복제 시에는 `space_volumes`로 목록을 전달할 수 있습니다.
 
 ## 고급 기능: Space를 일시적으로 업그레이드하기![[more-advanced-temporarily-upgrade-your-space-]]
 
@@ -276,50 +265,47 @@ else:
 작업 스케줄링은 여러 가지 방법으로 수행할 수 있습니다. 여기에는 간단한 CSV 파일을 데이터 세트로 사용하여 작업 스케줄링을 하는 예시입니다.
 
 ```py
+import csv
+import io
+
+from huggingface_hub import hf_hub_download
+
 # 'tasks.csv' 파일을 포함하는 데이터 세트의 Dataset ID.
 # 여기서는 입력(기본 모델 및 데이터 세트)과 상태(PENDING 또는 DONE)가 포함된 'tasks.csv' 기본 예제가 주어집니다.
 #     multimodalart/sd-fine-tunable,Wauplin/concept-1,DONE
 #     multimodalart/sd-fine-tunable,Wauplin/concept-2,PENDING
 TASK_DATASET_ID = "Wauplin/dreambooth-task-scheduler"
 
-def _get_csv_file():
-    return hf_hub_download(repo_id=TASK_DATASET_ID, filename="tasks.csv", repo_type="dataset", token=HF_TOKEN)
+def _get_tasks():
+    path = hf_hub_download(repo_id=TASK_DATASET_ID, filename="tasks.csv", repo_type="dataset", token=HF_TOKEN)
+    with open(path, newline="", encoding="utf-8") as csv_file:
+        return [row for row in csv.reader(csv_file) if row]
+
+def _save_tasks(tasks):
+    buffer = io.StringIO(newline="")
+    csv.writer(buffer).writerows(tasks)
+    api.upload_file(
+        repo_id=TASK_DATASET_ID,
+        repo_type="dataset",
+        path_in_repo="tasks.csv",
+        path_or_fileobj=buffer.getvalue().encode("utf-8"),
+    )
 
 def get_task():
-    with open(_get_csv_file()) as csv_file:
-        csv_reader = csv.reader(csv_file, delimiter=',')
-        for row in csv_reader:
-            if row[2] == "PENDING":
-                return row[0], row[1] # model_id, dataset_id
+    for model_id, dataset_id, status in _get_tasks():
+        if status == "PENDING":
+            return model_id, dataset_id
 
 def add_task(task):
-    model_id, dataset_id = task
-    with open(_get_csv_file()) as csv_file:
-        with open(csv_file, "r") as f:
-            tasks = f.read()
-
-    api.upload_file(
-        repo_id=repo_id,
-        repo_type=repo_type,
-        path_in_repo="tasks.csv",
-        # 작업을 추가하기 위한 빠르고 더러운 방법
-        path_or_fileobj=(tasks + f"\n{model_id},{dataset_id},PENDING").encode()
-    )
+    tasks = _get_tasks()
+    tasks.append([*task, "PENDING"])
+    _save_tasks(tasks)
 
 def mark_as_done(task):
-    model_id, dataset_id = task
-    with open(_get_csv_file()) as csv_file:
-        with open(csv_file, "r") as f:
-            tasks = f.read()
-
-    api.upload_file(
-        repo_id=repo_id,
-        repo_type=repo_type,
-        path_in_repo="tasks.csv",
-        # 작업을 DONE으로 설정하는 빠르고 더러운 방법
-        path_or_fileobj=tasks.replace(
-            f"{model_id},{dataset_id},PENDING",
-            f"{model_id},{dataset_id},DONE"
-        ).encode()
-    )
+    tasks = _get_tasks()
+    for row in tasks:
+        if tuple(row[:2]) == tuple(task) and row[2] == "PENDING":
+            row[2] = "DONE"
+            break
+    _save_tasks(tasks)
 ```

@@ -80,7 +80,7 @@ Number of upvotes: 5
 
 我们可以进行更高级的过滤。例如，让我们获取所有包含模型 [TheBloke/OpenHermes-2.5-Mistral-7B-GGUF](https://huggingface.co/TheBloke/OpenHermes-2.5-Mistral-7B-GGUF) 的集合，并按照趋势（trending）进行排序，同时将结果限制为 5 个。
 ```py
->>> collections = list_collections(item="models/TheBloke/OpenHermes-2.5-Mistral-7B-GGUF", sort="trending", limit=5):
+>>> collections = list_collections(item="models/TheBloke/OpenHermes-2.5-Mistral-7B-GGUF", sort="trending", limit=5)
 >>> for collection in collections:
 ...   print(collection.slug)
 teknium/quantized-models-6544690bb978e0b0f7328748
@@ -90,7 +90,7 @@ gnomealone/need-to-test-652007226c6ce4cdacf9c233
 Crataco/favorite-7b-models-651944072b4fffcb41f8b568
 ```
 
-`sort` 参数必须是 `"last_modified"`、`"trending"` 或 `"upvotes"` 之一。`item` 参数接受任意特定条目，例如：
+`sort` 参数必须是 `"lastModified"`、`"trending"` 或 `"upvotes"` 之一。`item` 参数接受任意特定条目，例如：
 * `"models/teknium/OpenHermes-2.5-Mistral-7B"`
 * `"spaces/julien-c/open-gpt-rhyming-robot"`
 * `"datasets/squad"`

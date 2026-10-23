@@ -31,15 +31,15 @@ So sieht eine `from_pretrained` Methode normalerweise aus:
 
 ```python
 def from_pretrained(model_id: str) -> MyModelClass:
-   # Modell vom Hub herunterladen
-   cached_model = hf_hub_download(
-      repo_id=repo_id,
-      filename="model.pkl",
-      library_name="fastai",
-      library_version=get_fastai_version(),
-   )
+    # Modell vom Hub herunterladen
+    cached_model = hf_hub_download(
+        repo_id=model_id,
+        filename="model.pkl",
+        library_name="fastai",
+        library_version=get_fastai_version(),
+    )
 
-   # Modell laden
+    # Modell laden
     return load_model(cached_model)
 ```
 
@@ -52,7 +52,7 @@ def push_to_hub(model: MyModelClass, repo_name: str) -> None:
    api = HfApi()
 
    # Repo erstellen, wenn noch nicht vorhanden und die zugehörige repo_id erhalten
-   repo_id = api.create_repo(repo_name, exist_ok=True)
+   repo_id = api.create_repo(repo_name, exist_ok=True).repo_id
 
    # Modell in temporärem Ordner speichern und in einem enzigen Commit pushen
    with TemporaryDirectory() as tmpdir:
@@ -178,14 +178,15 @@ class PyTorchModelHubMixin(ModelHubMixin):
          card_data=ModelCardData(
             license='mit',
             library_name="pytorch",
-            ...
+            # ...
          ),
          model_summary=...,
          model_type=...,
-         ...
+         # ...
       )
-      (save_directory / "README.md").write_text(str(model))
-      torch.save(obj=self.module.state_dict(), f=save_directory / "pytorch_model.bin")
+      (save_directory / "README.md").write_text(str(model_card))
+      model_to_save = self.module if hasattr(self, "module") else self
+      torch.save(obj=model_to_save.state_dict(), f=save_directory / "pytorch_model.bin")
 ```
 
 3. Implementieren der `_from_pretrained` Methode:
@@ -202,7 +203,6 @@ class PyTorchModelHubMixin(ModelHubMixin):
       revision: str,
       cache_dir: str,
       force_download: bool,
-      proxies: Optional[dict],
       local_files_only: bool,
       token: Union[str, bool, None],
       map_location: str = "cpu", # zusätzliches Argument

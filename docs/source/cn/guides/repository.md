@@ -66,15 +66,15 @@ Hugging Face Hub是一组 Git 存储库。[Git](https://git-scm.com/)是软件�
 
 ### 克隆一个仓库（仅适用于 Spaces）
 
-在某些情况下，你可能想要复制别人的仓库并根据自己的用例进行调整。对于 Spaces，你可以使用 [`duplicate_space`] 方法来实现。它将复制整个仓库。
+在某些情况下，你可能想要复制别人的仓库并根据自己的用例进行调整。对于 Spaces，你可以使用 [`duplicate_repo`] 方法来实现。它将复制整个仓库。
 
 你仍然需要配置自己的设置（硬件和密钥）。查看我们的[管理你的Space指南](./manage-spaces)以获取更多详细信息。
 
 请运行以下代码：
 
 ```py
->>> from huggingface_hub import duplicate_space
->>> duplicate_space("multimodalart/dreambooth-training", private=False)
+>>> from huggingface_hub import duplicate_repo
+>>> duplicate_repo("multimodalart/dreambooth-training", repo_type="space", private=False)
 RepoUrl('https://huggingface.co/spaces/nateraw/dreambooth-training',...)
 ```
 

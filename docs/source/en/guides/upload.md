@@ -215,7 +215,7 @@ built-in `run_as_future` argument in upload methods is just an alias around it.
 ```py
 >>> from huggingface_hub import HfApi
 >>> api = HfApi()
->>> api.run_as_future(api.create_repo, "username/my-model", exists_ok=True)
+>>> api.run_as_future(api.create_repo, "username/my-model", exist_ok=True)
 Future(...)
 >>> api.upload_file(
 ...     repo_id="username/my-model",
@@ -354,6 +354,13 @@ In the (simplified) example below, we overwrite `push_to_hub` to zip all PNG fil
 overloading the repo on the Hub:
 
 ```py
+import tempfile
+import uuid
+import zipfile
+from pathlib import Path
+
+from huggingface_hub import CommitScheduler
+
 class ZipScheduler(CommitScheduler):
     def push_to_hub(self):
         # 1. List PNG files
@@ -363,13 +370,20 @@ class ZipScheduler(CommitScheduler):
 
         # 2. Zip png files in a single archive
         with tempfile.TemporaryDirectory() as tmpdir:
-            archive_path = Path(tmpdir) / "train.zip"
+            archive_path = Path(tmpdir) / f"train-{uuid.uuid4()}.zip"
             with zipfile.ZipFile(archive_path, "w", zipfile.ZIP_DEFLATED) as zip:
                 for png_file in png_files:
                     zip.write(filename=png_file, arcname=png_file.name)
 
             # 3. Upload archive
-            self.api.upload_file(..., path_or_fileobj=archive_path)
+            path_in_repo = f"{self.path_in_repo}/{archive_path.name}".lstrip("/")
+            self.api.upload_file(
+                repo_id=self.repo_id,
+                repo_type=self.repo_type,
+                revision=self.revision,
+                path_in_repo=path_in_repo,
+                path_or_fileobj=archive_path,
+            )
 
         # 4. Delete local png files to avoid re-uploading them later
         for png_file in png_files:
@@ -414,7 +428,7 @@ For example, if you want to upload two files and delete a file in a Hub reposito
 1. Use the appropriate `CommitOperation` to add or delete a file and to delete a folder:
 
 ```py
->>> from huggingface_hub import HfApi, CommitOperationAdd, CommitOperationDelete
+>>> from huggingface_hub import HfApi, CommitOperationAdd, CommitOperationCopy, CommitOperationDelete
 >>> api = HfApi()
 >>> operations = [
 ...     CommitOperationAdd(path_in_repo="LICENSE.md", path_or_fileobj="~/repo/LICENSE.md"),

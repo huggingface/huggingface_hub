@@ -103,9 +103,9 @@ hf auth login --token $HUGGINGFACE_TOKEN
 >>> from huggingface_hub import HfApi
 >>> api = HfApi()
 >>> api.upload_file(
-...     path_or_fileobj="/home/lysandre/dummy-test/README.md"
-...     path_in_repo="README.md"
-...     repo_id="lysandre/test-model"
+...     path_or_fileobj="/home/lysandre/dummy-test/README.md",
+...     path_in_repo="README.md",
+...     repo_id="lysandre/test-model",
 ... )
 ```
 

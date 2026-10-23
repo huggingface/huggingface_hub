@@ -135,7 +135,7 @@ False
 ```py
 >>> from huggingface_hub import HfApi
 >>> api = HfApi()
->>> api.run_as_future(api.create_repo, "username/my-model", exists_ok=True)
+>>> api.run_as_future(api.create_repo, "username/my-model", exist_ok=True)
 Future(...)
 >>> api.upload_file(
 ...     repo_id="username/my-model",
@@ -269,6 +269,13 @@ Hub에 데이터(잠재적으로 수백만 개의 사용자 피드백)를 저장
 아래의 (단순화된) 예제에서는 `push_to_hub`를 덮어써서 모든 PNG 파일을 단일 아카이브에 압축하여 Hub의 리포지토리에 과부하가 걸리는 것을 방지합니다:.
 
 ```py
+import tempfile
+import uuid
+import zipfile
+from pathlib import Path
+
+from huggingface_hub import CommitScheduler
+
 class ZipScheduler(CommitScheduler):
     def push_to_hub(self):
         # 1. PNG 파일들을 나열합니다.
@@ -278,13 +285,20 @@ class ZipScheduler(CommitScheduler):
 
         # 2. png 파일들을 단일 Zip 파일로 압축합니다.
         with tempfile.TemporaryDirectory() as tmpdir:
-            archive_path = Path(tmpdir) / "train.zip"
+            archive_path = Path(tmpdir) / f"train-{uuid.uuid4()}.zip"
             with zipfile.ZipFile(archive_path, "w", zipfile.ZIP_DEFLATED) as zip:
                 for png_file in png_files:
                     zip.write(filename=png_file, arcname=png_file.name)
 
             # 3. 압축된 파일을 업로드 합니다.
-            self.api.upload_file(..., path_or_fileobj=archive_path)
+            path_in_repo = f"{self.path_in_repo}/{archive_path.name}".lstrip("/")
+            self.api.upload_file(
+                repo_id=self.repo_id,
+                repo_type=self.repo_type,
+                revision=self.revision,
+                path_in_repo=path_in_repo,
+                path_or_fileobj=archive_path,
+            )
 
         # 4. 로컬 png 파일을 삭제하여 다음에 다시 업로드 되는 일을 방지합니다.
         for png_file in png_files:
@@ -326,7 +340,7 @@ class ZipScheduler(CommitScheduler):
 1. 파일을 추가하거나 삭제하고 폴더를 삭제하기 위해 적절한 `CommitOperation`을 사용합니다:
 
 ```py
->>> from huggingface_hub import HfApi, CommitOperationAdd, CommitOperationDelete
+>>> from huggingface_hub import HfApi, CommitOperationAdd, CommitOperationCopy, CommitOperationDelete
 >>> api = HfApi()
 >>> operations = [
 ...     CommitOperationAdd(path_in_repo="LICENSE.md", path_or_fileobj="~/repo/LICENSE.md"),

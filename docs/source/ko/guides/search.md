@@ -30,25 +30,22 @@ rendered properly in your Markdown viewer.
 - `search`
 - ...
 
-이 매개변수 중 두 개는 직관적입니다(`author` 및 `search`). 그렇다면 `filter`는 어떤 것을 나타낼까요?
-`filter`는 [`ModelFilter`] 객체(또는 [`DatasetFilter`])를 입력으로 받습니다. 이를 이용해 필터링 하고 싶은 모델을 지정하여 인스턴스를 생성할 수 있습니다.
+`filter`는 태그 문자열이나 태그 목록을 받습니다. 작업과 훈련 데이터 세트는 각각 `pipeline_tag`와 `trained_dataset`으로 지정합니다.
 
-PyTorch로 작동되고 imagenet 데이터 세트로 훈련된, 이미지 분류를 위한 Hub의 모든 모델을 찾는 방법으로 예를 들어보겠습니다. 이 과정은 단일 [ModelFilter]를 사용하여 수행할 수 있습니다. 이때, 필터링 속성들은 '논리적 AND'로 결합되어, 지정한 모든 조건을 만족하는 모델만 선택됩니다.
+다음 예시는 imagenet 데이터 세트로 훈련된 PyTorch 이미지 분류 모델을 찾습니다. 조건은 논리적 AND로 결합됩니다.
 
 ```py
-models = hf_api.list_models(
-    filter=ModelFilter(
-		task="image-classification",
-		library="pytorch",
-		trained_dataset="imagenet"
-	)
+models = api.list_models(
+    pipeline_tag="image-classification",
+    filter="pytorch",
+    trained_dataset="imagenet",
 )
 ```
 
 필터링하는 과정에서 모델을 정렬하고 상위 결과만 선택할 수도 있습니다. 다음 예제는 Hub에서 가장 많이 다운로드된 상위 5개 데이터 세트를 가져옵니다.
 
 ```py
->>> list(list_datasets(sort="downloads", limit=5))
+>>> list(api.list_datasets(sort="downloads", limit=5))
 [DatasetInfo(
 	id='argilla/databricks-dolly-15k-curated-en',
 	author='argilla',
