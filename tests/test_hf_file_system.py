@@ -311,6 +311,9 @@ class _HfFileSystemBaseROTests(_HfFileSystemBaseTests):
         files = self.hffs.find(self.text_file, detail=False)
         assert files == [self.text_file]
 
+        files = self.hffs.find(self.text_file, detail=True)
+        assert files == {self.text_file: self.hffs.info(self.text_file)}
+
     def test_find_maxdepth(self):
         text_file_depth = self.text_file_path.count("/") + 1
         files = self.hffs.find(self.hf_path, detail=False, maxdepth=text_file_depth - 1)
