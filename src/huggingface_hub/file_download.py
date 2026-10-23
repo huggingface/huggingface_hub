@@ -1577,6 +1577,7 @@ def try_to_load_from_cache(
         raise ValueError(
             f"Invalid repo type: {repo_type}. Accepted repo types are: {str(constants.REPO_TYPES_WITH_KERNEL)}"
         )
+    _validate_relative_filename(filename)
     if cache_dir is None:
         cache_dir = constants.HF_HUB_CACHE
 
