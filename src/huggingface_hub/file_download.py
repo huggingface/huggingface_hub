@@ -1580,7 +1580,7 @@ def try_to_load_from_cache(
     if cache_dir is None:
         cache_dir = constants.HF_HUB_CACHE
 
-    repo_cache = os.path.join(cache_dir, repo_folder_name(repo_id=repo_id, repo_type=repo_type))
+    repo_cache = os.path.join(os.path.expanduser(cache_dir), repo_folder_name(repo_id=repo_id, repo_type=repo_type))
     if not os.path.isdir(repo_cache):
         # No cache for this model
         return None

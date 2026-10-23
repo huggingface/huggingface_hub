@@ -459,6 +459,18 @@ class TestCachedDownload:
         # Same for uncached models
         assert try_to_load_from_cache("bert-base", filename=constants.CONFIG_NAME) is None
 
+    def test_try_to_load_from_cache_expands_user_in_cache_dir(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("HOME", str(tmp_path))
+        monkeypatch.setenv("USERPROFILE", str(tmp_path))
+        commit = "a" * 40
+        cached = tmp_path / "cache" / "models--example--demo" / "snapshots" / commit / "config.json"
+        cached.parent.mkdir(parents=True)
+        cached.write_text("{}")
+
+        assert try_to_load_from_cache("example/demo", "config.json", cache_dir="~/cache", revision=commit) == str(
+            cached
+        )
+
     def test_try_to_load_from_cache_specific_pr_revision_exists(self):
         # Make sure the file is cached
         file_path = hf_hub_download(DUMMY_MODEL_ID, filename=constants.CONFIG_NAME, revision="refs/pr/1")
