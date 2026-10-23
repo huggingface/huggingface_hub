@@ -1094,10 +1094,8 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         except EntryNotFoundError:
             # Path could be a file
             try:
-                if self.info(path, revision=revision, **kwargs)["type"] == "file":
-                    out = {path: {}}
-                else:
-                    out = {}
+                path_info = self.info(path, revision=revision, **kwargs)
+                out = {path: path_info} if path_info["type"] == "file" else {}
             except FileNotFoundError:
                 out = {}
         else:
