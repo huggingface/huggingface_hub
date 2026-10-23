@@ -508,7 +508,7 @@ class WebhookInfo:
         watched (`list[WebhookWatchedItem]`):
             List of items watched by the webhook, see [`WebhookWatchedItem`].
         domains (`list[WEBHOOK_DOMAIN_T]`):
-            List of domains the webhook is watching. Can be one of `["repo", "discussions"]`.
+            List of domains the webhook is watching. Can be one of `["repo", "discussion"]`.
         secret (`str`, *optional*):
             Secret of the webhook.
         disabled (`bool`):
