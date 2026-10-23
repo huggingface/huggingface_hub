@@ -53,6 +53,8 @@ This part of the lib is still under development and will be improved in future r
 
 [[autodoc]] huggingface_hub.ChatCompletionInput
 
+[[autodoc]] huggingface_hub.ChatCompletionInputFunctionCall
+
 [[autodoc]] huggingface_hub.ChatCompletionInputFunctionDefinition
 
 [[autodoc]] huggingface_hub.ChatCompletionInputFunctionName

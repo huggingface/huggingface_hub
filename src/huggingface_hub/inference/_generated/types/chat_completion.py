@@ -24,6 +24,12 @@ class ChatCompletionInputMessageChunk(BaseInferenceType):
 
 
 @dataclass_with_extra
+class ChatCompletionInputFunctionCall(BaseInferenceType):
+    arguments: str
+    name: str
+
+
+@dataclass_with_extra
 class ChatCompletionInputFunctionDefinition(BaseInferenceType):
     name: str
     parameters: Any
@@ -32,7 +38,7 @@ class ChatCompletionInputFunctionDefinition(BaseInferenceType):
 
 @dataclass_with_extra
 class ChatCompletionInputToolCall(BaseInferenceType):
-    function: ChatCompletionInputFunctionDefinition
+    function: ChatCompletionInputFunctionCall
     id: str
     type: str
 

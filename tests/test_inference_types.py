@@ -97,6 +97,31 @@ def test_parse_nested_class():
     assert instance.maybe_items is None
 
 
+def test_chat_completion_tool_call_keeps_arguments():
+    arguments = '{"q": "a"}'
+    message = types.ChatCompletionInputMessage.parse_obj_as_instance(
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "id": "call_0",
+                    "type": "function",
+                    "function": {"name": "lookup", "arguments": arguments},
+                }
+            ],
+        }
+    )
+
+    function = message.tool_calls[0].function
+    assert isinstance(function, types.ChatCompletionInputFunctionCall)
+    assert function["arguments"] == arguments
+    assert function.arguments == arguments
+    assert json.loads(json.dumps(message))["tool_calls"][0]["function"] == {
+        "name": "lookup",
+        "arguments": arguments,
+    }
+
+
 def test_all_fields_are_optional():
     # all fields are optional => silently accept None if server returns less data than expected
     instance = DummyNestedType.parse_obj({"maybe_items": [{}, DUMMY_AS_BYTES]})

@@ -21,6 +21,7 @@ from .automatic_speech_recognition import (
 from .base import BaseInferenceType
 from .chat_completion import (
     ChatCompletionInput,
+    ChatCompletionInputFunctionCall,
     ChatCompletionInputFunctionDefinition,
     ChatCompletionInputFunctionName,
     ChatCompletionInputGrammarType,
