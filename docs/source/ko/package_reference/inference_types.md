@@ -52,6 +52,8 @@ rendered properly in your Markdown viewer.
 
 [[autodoc]] huggingface_hub.ChatCompletionInput
 
+[[autodoc]] huggingface_hub.ChatCompletionInputFunctionCall
+
 [[autodoc]] huggingface_hub.ChatCompletionInputFunctionDefinition
 
 [[autodoc]] huggingface_hub.ChatCompletionInputFunctionName

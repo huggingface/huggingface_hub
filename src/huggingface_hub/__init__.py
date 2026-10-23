@@ -415,6 +415,7 @@ _SUBMOD_ATTRS = {
         "AutomaticSpeechRecognitionOutputChunk",
         "AutomaticSpeechRecognitionParameters",
         "ChatCompletionInput",
+        "ChatCompletionInputFunctionCall",
         "ChatCompletionInputFunctionDefinition",
         "ChatCompletionInputFunctionName",
         "ChatCompletionInputGrammarType",
@@ -680,6 +681,7 @@ __all__ = [
     "CachedRevisionInfo",
     "CardData",
     "ChatCompletionInput",
+    "ChatCompletionInputFunctionCall",
     "ChatCompletionInputFunctionDefinition",
     "ChatCompletionInputFunctionName",
     "ChatCompletionInputGrammarType",
@@ -1629,6 +1631,7 @@ if TYPE_CHECKING:  # pragma: no cover
         AutomaticSpeechRecognitionOutputChunk,  # noqa: F401
         AutomaticSpeechRecognitionParameters,  # noqa: F401
         ChatCompletionInput,  # noqa: F401
+        ChatCompletionInputFunctionCall,  # noqa: F401
         ChatCompletionInputFunctionDefinition,  # noqa: F401
         ChatCompletionInputFunctionName,  # noqa: F401
         ChatCompletionInputGrammarType,  # noqa: F401
