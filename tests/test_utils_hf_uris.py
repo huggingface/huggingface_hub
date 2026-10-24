@@ -699,3 +699,18 @@ def test_parse_hf_mount_failure(mount_str: str, error_substring: str) -> None:
 def test_hf_mount_direct_init_invalid(kwargs: dict, error_substring: str) -> None:
     with pytest.raises(HfUriError, match=error_substring):
         HfMount(**kwargs)
+
+
+@pytest.mark.parametrize("revision", ["release%2Ftest", "release%25", "feature/name%2Fpart"])
+def test_to_uri_preserves_literal_percent_in_revision(revision: str) -> None:
+    uri = HfUri(type="model", id="org/model", revision=revision, path_in_repo="config.json")
+    assert parse_hf_uri(uri.to_uri()) == uri
+    mount = HfMount(source=uri, mount_path="/data", read_only=True)
+    assert parse_hf_mount(mount.to_uri()) == mount
+
+
+@pytest.mark.parametrize("revision", ["refs/pr/123extra", "refs/convert/name!suffix"])
+def test_special_ref_prefix_does_not_consume_partial_segment(revision: str) -> None:
+    result = parse_hf_uri(f"hf://models/org/model@{revision}/config.json")
+    assert result.revision == "refs"
+    assert result.path_in_repo == f"{revision.removeprefix('refs/')}/config.json"

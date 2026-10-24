@@ -60,7 +60,7 @@ _TYPE_TO_PREFIX: dict[str, str] = {v: k for k, v in constants.HF_URI_TYPE_PREFIX
 # (Pull Request refs) and 'refs/convert/<name>' (e.g. parquet conversions).
 # The conversion name allows the typical git ref characters '[a-zA-Z0-9_.-]'
 # so names like 'parquet-v2' or 'duckdb.v1' round-trip correctly.
-_SPECIAL_REFS_REVISION_REGEX = re.compile(r"^refs/(?:convert/[\w.-]+|pr/\d+)")
+_SPECIAL_REFS_REVISION_REGEX = re.compile(r"^refs/(?:convert/[\w.-]+|pr/\d+)(?=/|$)")
 
 # Same as constants.HfUriType, but as a set of strings for easy lookup.)
 _VALID_URI_TYPES: frozenset[str] = frozenset(constants.HF_URI_TYPE_PREFIXES.values())
@@ -144,7 +144,8 @@ class HfUri:
             # Encode '/' as '%2F' for revisions that would otherwise be split as '<revision>/<path>'
             # at parse time. Special refs ('refs/pr/N', 'refs/convert/<name>') are kept verbatim
             # because the parser matches them eagerly.
-            revision = self.revision
+            # Escape literal percent signs before adding encoded path separators.
+            revision = self.revision.replace("%", "%25")
             if "/" in revision and _SPECIAL_REFS_REVISION_REGEX.fullmatch(revision) is None:
                 revision = revision.replace("/", "%2F")
             parts.append(f"@{revision}")
