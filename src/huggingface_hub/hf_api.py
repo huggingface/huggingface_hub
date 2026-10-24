@@ -392,6 +392,10 @@ class CommitInfo(str):
             `create_pr=True` is passed. Can be passed as `discussion_num` in
             [`get_discussion_details`]. Example: `1`.
 
+        num (`int`, *optional*):
+            (property) Alias for `pr_num`, consistent with `num` in [`Discussion`].
+            `None` if no PR was created.
+
         repo_url (`RepoUrl`):
             Repo URL of the commit containing info like repo_id, repo_type, etc.
     """
@@ -439,6 +443,11 @@ class CommitInfo(str):
         else:
             self.pr_revision = None
             self.pr_num = None
+
+    @property
+    def num(self) -> int | None:
+        """Returns the PR discussion number, or `None` if no PR was created."""
+        return self.pr_num
 
 
 @dataclass

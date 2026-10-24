@@ -3753,6 +3753,21 @@ class TestHfApiTokenAttribute:
         assert self.mock_build_hf_headers.call_args[1]["user_agent"] == {"A": "B"}
 
 
+class TestCommitInfo:
+    @pytest.mark.parametrize("pr_num", [None, 123])
+    def test_discussion_num(self, pr_num):
+        info = CommitInfo(
+            commit_url="https://huggingface.co/user/repo/commit/abcdef",
+            commit_message="Add file",
+            commit_description="",
+            oid="abcdef",
+            pr_url=f"https://huggingface.co/user/repo/discussions/{pr_num}" if pr_num is not None else None,
+        )
+
+        assert info.num == pr_num
+        assert info.pr_num == pr_num
+
+
 @pytest.mark.production
 class TestRepoUrl:
     def test_repo_url_class(self):
