@@ -3,7 +3,7 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from typing import Any
+from typing import Any, Optional
 
 from .base import BaseInferenceType, dataclass_with_extra
 
@@ -22,7 +22,7 @@ class VisualQuestionAnsweringInputData(BaseInferenceType):
 class VisualQuestionAnsweringParameters(BaseInferenceType):
     """Additional inference parameters for Visual Question Answering"""
 
-    top_k: int | None = None
+    top_k: Optional[int] = None
     """The number of answers to return (will be chosen by order of likelihood). Note that we
     return less than topk answers if there are not enough options available within the
     context.
@@ -35,7 +35,7 @@ class VisualQuestionAnsweringInput(BaseInferenceType):
 
     inputs: VisualQuestionAnsweringInputData
     """One (image, question) pair to answer"""
-    parameters: VisualQuestionAnsweringParameters | None = None
+    parameters: Optional[VisualQuestionAnsweringParameters] = None
     """Additional inference parameters for Visual Question Answering"""
 
 
@@ -45,5 +45,5 @@ class VisualQuestionAnsweringOutputElement(BaseInferenceType):
 
     score: float
     """The associated score / probability"""
-    answer: str | None = None
+    answer: Optional[str] = None
     """The answer to the question"""
