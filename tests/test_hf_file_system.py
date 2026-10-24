@@ -121,17 +121,17 @@ class _HfFileSystemBaseROTests(_HfFileSystemBaseTests):
             assert isinstance(f, HfFileSystemStreamFile)
             assert f.read(6) == b"dummy "
             # Simulate that streaming fails mid-way
-            f.response = None
+            f._stream_iterator = None
             assert f.read(6) == b"binary"
-            assert f.response is not None  # a new connection has been created
+            assert f._stream_iterator is not None  # a new stream has been opened
 
     def test_stream_file_reuse_response(self):
         with self.hffs.open(self.hf_path + "/data/binary_data.bin", block_size=0) as f:
             assert isinstance(f, HfFileSystemStreamFile)
             assert f.read(6) == b"dummy "
-            first_response = f.response
+            first_stream = f._stream_iterator
             assert f.read(6) == b"binary"
-            assert f.response == first_response
+            assert f._stream_iterator is first_stream
 
     def _make_stream_file_with_fake_response(self, chunks: Iterable[bytes]):
         """Helper: create iterator from specified chunks to simulate a stream response."""
@@ -638,6 +638,31 @@ class TestHfFileSystemRepositoryRO(_HfFileSystemRepositoryChecks, _HfFileSystemB
             assert Path(temp_dir, "main.bin").read_bytes() == b"dummy binary data"
             assert Path(temp_dir, "pr.bin").read_bytes() == b"dummy binary data on pr"
         assert xet_mock.call_count == 2
+
+    @pytest.mark.xet
+    def test_read_range_with_xet(self):
+        with (
+            patch.object(self.hffs, "_read_xet", wraps=self.hffs._read_xet) as xet_mock,
+            patch.object(hf_file_system, "http_backoff") as http_mock,
+        ):
+            with self.hffs.open(self.hf_path + "/data/binary_data.bin", "rb", block_size=4) as f:
+                f.seek(6)
+                assert f.read(6) == b"binary"
+        assert xet_mock.called
+        http_mock.assert_not_called()
+
+    @pytest.mark.xet
+    def test_stream_with_xet(self):
+        with (
+            patch.object(self.hffs, "_read_xet", wraps=self.hffs._read_xet) as xet_mock,
+            patch.object(hf_file_system, "http_stream_backoff") as http_mock,
+        ):
+            with self.hffs.open(self.hf_path + "/data/binary_data.bin", "rb", block_size=0) as f:
+                assert f.read(6) == b"dummy "
+                assert f.read() == b"binary data"
+                assert f.read() == b""
+        assert xet_mock.call_count == 1
+        http_mock.assert_not_called()
 
     def test_list_data_directory_with_revision(self):
         files = self.hffs.ls(self.hf_path + "@refs%2Fpr%2F1" + "/data")
