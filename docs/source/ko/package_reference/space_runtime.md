@@ -6,7 +6,7 @@ rendered properly in your Markdown viewer.
 
 Hub의 Space를 관리하는 메소드에 대한 자세한 설명은 [`HfApi`]페이지를 확인하세요.
 
-- Space 복제: [`duplicate_space`]
+- Space 복제: [`duplicate_repo`] (`repo_type="space"`)
 - 현재 런타임 가져오기: [`get_space_runtime`]
 - 보안 관리: [`add_space_secret`] 및 [`delete_space_secret`]
 - 하드웨어 관리: [`request_space_hardware`]

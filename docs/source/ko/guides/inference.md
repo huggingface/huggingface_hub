@@ -91,7 +91,7 @@ text-to-image 작업을 시작해보겠습니다.
 |             | [제로샷 이미지 분류](https://huggingface.co/tasks/zero-shot-image-classification) | ✅         | [`~InferenceClient.zero_shot_image_classification`] |
 | 멀티모달    | [문서 질의 응답](https://huggingface.co/tasks/document-question-answering)        | ✅         | [`~InferenceClient.document_question_answering`]    |
 |             | [시각적 질의 응답](https://huggingface.co/tasks/visual-question-answering)        | ✅         | [`~InferenceClient.visual_question_answering`]      |
-| 자연어 처리 | [대화형](https://huggingface.co/tasks/conversational)                             | ✅         | [`~InferenceClient.conversational`]                 |
+| 자연어 처리 | [대화형](https://huggingface.co/tasks/text-generation)                             | ✅         | [`~InferenceClient.chat_completion`]                 |
 |             | [특성 추출](https://huggingface.co/tasks/feature-extraction)                      | ✅         | [`~InferenceClient.feature_extraction`]             |
 |             | [마스크 채우기](https://huggingface.co/tasks/fill-mask)                           | ✅         | [`~InferenceClient.fill_mask`]                      |
 |             | [질의 응답](https://huggingface.co/tasks/question-answering)                      | ✅         | [`~InferenceClient.question_answering`]             |
@@ -113,13 +113,7 @@ text-to-image 작업을 시작해보겠습니다.
 
 ## 비동기 클라이언트[[async-client]]
 
-`asyncio`와 `aiohttp`를 기반으로 한 클라이언트의 비동기 버전도 제공됩니다. `aiohttp`를 직접 설치하거나 `[inference]` 추가 옵션을 사용할 수 있습니다:
-
-```sh
-pip install --upgrade huggingface_hub[inference]
-# 또는
-# pip install aiohttp
-```
+`asyncio`와 `httpx2`를 기반으로 한 클라이언트의 비동기 버전도 제공됩니다. 필요한 의존성은 `huggingface_hub`와 함께 설치되므로 `aiohttp`를 별도로 설치할 필요가 없습니다.
 
 설치 후 모든 비동기 API 엔드포인트는 [`AsyncInferenceClient`]를 통해 사용할 수 있습니다. 초기화 및 API는 동기 전용 버전과 완전히 동일합니다.
 

@@ -90,7 +90,7 @@ Das Ziel von [`InferenceClient`] ist es, die einfachste Schnittstelle zum Ausfü
 |                 | [Zero-Shot-Image-Classification](https://huggingface.co/tasks/zero-shot-image-classification) | ✅           | [`~InferenceClient.zero_shot_image_classification`] |
 | Multimodal      | [Documentation Question Answering](https://huggingface.co/tasks/document-question-answering)  | ✅           | [`~InferenceClient.document_question_answering`]    |
 |                 | [Visual Question Answering](https://huggingface.co/tasks/visual-question-answering)           | ✅           | [`~InferenceClient.visual_question_answering`]      |
-| NLP             | [Conversational](https://huggingface.co/tasks/conversational)                                 | ✅           | [`~InferenceClient.conversational`]                 |
+| NLP             | [Conversational](https://huggingface.co/tasks/text-generation)                                 | ✅           | [`~InferenceClient.chat_completion`]                 |
 |                 | [Feature Extraction](https://huggingface.co/tasks/feature-extraction)                         | ✅           | [`~InferenceClient.feature_extraction`]             |
 |                 | [Fill Mask](https://huggingface.co/tasks/fill-mask)                                           | ✅           | [`~InferenceClient.fill_mask`]                      |
 |                 | [Question Answering](https://huggingface.co/tasks/question-answering)                         | ✅           | [`~InferenceClient.question_answering`]             |
@@ -111,13 +111,7 @@ Das Ziel von [`InferenceClient`] ist es, die einfachste Schnittstelle zum Ausfü
 
 ## Asynchroner Client
 
-Eine asynchrone Version des Clients wird ebenfalls bereitgestellt, basierend auf `asyncio` und `aiohttp`. Sie können entweder `aiohttp` direkt installieren oder das `[inference]` Extra verwenden:
-
-```sh
-pip install aiohttp
-# oder
-pip install --upgrade huggingface_hub[inference]
-```
+Eine asynchrone Version des Clients wird ebenfalls bereitgestellt, basierend auf `asyncio` und `httpx2`. Die erforderlichen Abhängigkeiten werden mit `huggingface_hub` installiert; `aiohttp` ist nicht erforderlich.
 
 Nach der Installation sind alle asynchronen API-Endpunkte über [`AsyncInferenceClient`] verfügbar. Seine Initialisierung und APIs sind genau gleich wie die synchronisierte Version.
 
