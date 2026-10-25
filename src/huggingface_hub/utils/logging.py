@@ -89,7 +89,7 @@ def get_logger(name: str | None = None) -> logging.Logger:
     ```python
     >>> from huggingface_hub import logging
 
-    >>> logger = logging.get_logger(__file__)
+    >>> logger = logging.get_logger(__name__)
     >>> logging.set_verbosity_info()
     ```
     """
