@@ -171,7 +171,7 @@ Here is how any user can load/save a PyTorch model from/to the Hub:
 ...     def __init__(self, hidden_size: int = 512, vocab_size: int = 30000, output_size: int = 4):
 ...         super().__init__()
 ...         self.param = nn.Parameter(torch.rand(hidden_size, vocab_size))
-...         self.linear = nn.Linear(output_size, vocab_size)
+...         self.linear = nn.Linear(vocab_size, output_size)
 
 ...     def forward(self, x):
 ...         return self.linear(x + self.param)

@@ -133,28 +133,20 @@ Future(...)
 Future(...)
 ```
 
-### Ordner in Teilen hochladen
+### Große Ordner hochladen
 
-Mit [`upload_folder`] können Sie ganz einfach einen gesamten Ordner ins Hub hochladen. Bei großen Ordnern (Tausende von Dateien oder Hunderte von GB) kann dies jedoch immer noch herausfordernd sein. Wenn Sie einen Ordner mit vielen Dateien haben, möchten Sie ihn möglicherweise in mehreren Commits hochladen. Wenn während des Uploads ein Fehler oder ein Verbindungsproblem auftritt, müssen Sie den Vorgang nicht von Anfang an wiederholen.
-
-Um einen Ordner in mehreren Commits hochzuladen, übergeben Sie einfach `multi_commits=True` als Argument. Intern wird `huggingface_hub` die hochzuladenden/zu löschenden Dateien auflisten und sie in mehrere Commits aufteilen. Die "Strategie" (d.h. wie die Commits aufgeteilt werden) basiert auf der Anzahl und Größe der hochzuladenden Dateien. Ein PR wird im Hub geöffnet, um alle Commits zu pushen. Sobald der PR bereit ist, werden die Commits zu einem einzigen Commit zusammengefasst. Wenn der Prozess unterbrochen wird, bevor er abgeschlossen ist, können Sie Ihr Skript erneut ausführen, um den Upload fortzusetzen. Der erstellte PR wird automatisch erkannt und der Upload setzt dort fort, wo er gestoppt wurde. Es wird empfohlen, `multi_commits_verbose=True` zu übergeben, um ein besseres Verständnis für den Upload und dessen Fortschritt zu erhalten.
-
-Das untenstehende Beispiel lädt den Ordner "checkpoints" in ein Dataset in mehreren Commits hoch. Ein PR wird im Hub erstellt und automatisch zusammengeführt, sobald der Upload abgeschlossen ist. Wenn Sie möchten, dass der PR offen bleibt und Sie ihn manuell überprüfen können, übergeben Sie `create_pr=True`.
+Verwenden Sie [`upload_folder`], um auch große Ordner hochzuladen. Bereits hochgeladene Dateien werden lokal erfasst, damit Sie den Upload nach einer Unterbrechung mit demselben Aufruf fortsetzen können.
 
 ```py
+>>> from huggingface_hub import upload_folder
 >>> upload_folder(
 ...     folder_path="local/checkpoints",
 ...     repo_id="username/my-dataset",
 ...     repo_type="dataset",
-...     multi_commits=True,
-...     multi_commits_verbose=True,
 ... )
 ```
 
-Wenn Sie die Upload-Strategie besser steuern möchten (d.h. die erstellten Commits), können Sie sich die Low-Level-Methoden [`plan_multi_commits`] und [`create_commits_on_pr`] ansehen.
-
-> [!WARNING]
-> `multi_commits` ist noch ein experimentelles Feature. Seine API und sein Verhalten können in Zukunft ohne vorherige Ankündigung geändert werden.
+Die früheren Argumente `multi_commits` und `multi_commits_verbose` sowie die Methoden `plan_multi_commits` und `create_commits_on_pr` wurden entfernt. Übergeben Sie sie nicht an die aktuelle API.
 
 ### Geplante Uploads
 

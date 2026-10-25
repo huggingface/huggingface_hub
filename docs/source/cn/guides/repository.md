@@ -101,7 +101,7 @@ Git存储库通常使用分支来存储同一存储库的不同版本。标签�
 >>> create_branch("Matthijs/speecht5-tts-demo", repo_type="space", branch="handle-dog-speaker")
 
 # Create a tag on a Dataset repo from `v0.1-release` branch
->>> create_branch("bigcode/the-stack", repo_type="dataset", revision="v0.1-release", tag="v0.1.1", tag_message="Bump release version.")
+>>> create_tag("bigcode/the-stack", repo_type="dataset", revision="v0.1-release", tag="v0.1.1", tag_message="Bump release version.")
 ```
 
 同时,你可以以相同的方式使用 [`delete_branch`] 和 [`delete_tag`] 函数来删除分支或标签

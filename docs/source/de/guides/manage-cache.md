@@ -117,7 +117,7 @@ oder `None` (wenn wir es nicht wissen).
 ```python
 from huggingface_hub import try_to_load_from_cache, _CACHED_NO_EXIST
 
-filepath = try_to_load_from_cache()
+filepath = try_to_load_from_cache(repo_id="google-bert/bert-base-cased", filename="config.json")
 if isinstance(filepath, str):
     # file exists and is cached
     ...

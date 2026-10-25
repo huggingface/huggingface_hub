@@ -28,8 +28,8 @@ Zusätzlich zur [`HfApi`] bietet die `huggingface_hub` Bibliothek [`HfFileSystem
 
 >>> # Eine entfernte Datei schreiben
 >>> with hffs.open("datasets/my-username/my-dataset-repo/data/validation.csv", "w") as f:
-...     f.write("text,label")
-...     f.write("Fantastic movie!,good")
+...     f.write("text,label\n")
+...     f.write("Fantastic movie!,good\n")
 ```
 
 Das optionale Argument `revision` kann übergeben werden, um eine Operation von einem spezifischen Commit auszuführen, wie z.B. einem Branch, Tag-Namen oder einem Commit-Hash.
