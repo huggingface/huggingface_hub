@@ -1268,6 +1268,49 @@ class TestInfraxskyProvider:
             == "https://kencloudapi.duckdns.org/hf/v1/chat/completions"
         )
 
+    @pytest.mark.parametrize(
+        "api_key, expected_url",
+        [
+            # Direct call with an InfraXsky key: provider base URL
+            ("infraxsky_key", "https://kencloudapi.duckdns.org/hf/v1/chat/completions"),
+            # HF token: routed through the Hugging Face router
+            ("hf_test_token", "https://router.huggingface.co/infraxsky/v1/chat/completions"),
+        ],
+    )
+    def test_prepare_request(self, mocker, api_key, expected_url):
+        mocker.patch(
+            "huggingface_hub.inference._providers._common._fetch_inference_provider_mapping",
+            return_value=[
+                InferenceProviderMapping(
+                    provider="infraxsky",
+                    hf_model_id="Qwen/Qwen3-30B-A3B",
+                    providerId="nvidia/Qwen3-30B-A3B-NVFP4",
+                    task="conversational",
+                    status="live",
+                )
+            ],
+        )
+        helper = InfraxskyConversationalTask()
+        request = helper.prepare_request(
+            inputs=[{"role": "user", "content": "Hello!"}],
+            parameters={"max_tokens": 16},
+            headers={},
+            model="Qwen/Qwen3-30B-A3B",
+            api_key=api_key,
+        )
+
+        assert request.url == expected_url
+        assert request.task == "conversational"
+        assert request.model == "nvidia/Qwen3-30B-A3B-NVFP4"
+        assert request.headers["authorization"] == f"Bearer {api_key}"
+        assert request.headers["content-type"] == "application/json"
+        assert request.json == {
+            "messages": [{"role": "user", "content": "Hello!"}],
+            "model": "nvidia/Qwen3-30B-A3B-NVFP4",
+            "max_tokens": 16,
+        }
+        assert request.data is None
+
 
 class TestNovitaProvider:
     def test_prepare_url_text_generation(self):
