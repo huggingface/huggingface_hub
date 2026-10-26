@@ -64,7 +64,7 @@ extras["testing"] = (
         # Without it, any flaky fixture (e.g. a 502 from hub-ci) makes the rerun itself crash on pytest>=9.
         "pytest-rerunfailures>=16.2",  # to rerun flaky tests in CI
         "pytest-mock",
-        "urllib3<2.0",  # VCR.py broken with urllib3 2.0 (see https://urllib3.readthedocs.io/en/stable/v2-migration-guide.html)
+        "urllib3>=2.0",  # VCR.py 9.x requires urllib3 2.x (urllib3.HTTPHeaderDict is imported from the top-level package)
         "soundfile",
         "Pillow",
         "numpy",  # for embeddings
