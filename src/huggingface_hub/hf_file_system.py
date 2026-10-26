@@ -1132,30 +1132,68 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         """
         resolved_path1 = self.resolve_path(path1, revision=revision)
         resolved_path2 = self.resolve_path(path2, revision=revision)
-        if isinstance(resolved_path1, HfFileSystemResolvedBucketPath) and isinstance(
-            resolved_path2, HfFileSystemResolvedBucketPath
-        ):
-            if resolved_path1.bucket_id != resolved_path2.bucket_id:
-                raise NotImplementedError("Copy between buckets is not available yet")
-            source_metadata = self._api.get_bucket_file_metadata(resolved_path1.bucket_id, resolved_path1.path)
-            self._api.batch_bucket_files(
-                resolved_path1.bucket_id,
-                copy=[
-                    (
-                        "bucket",
-                        resolved_path1.bucket_id,
-                        source_metadata.xet_file_data.file_hash,
-                        resolved_path2.path,
+
+        # --- Destination is a bucket ---
+        if isinstance(resolved_path2, HfFileSystemResolvedBucketPath):
+            dest_bucket_id = resolved_path2.bucket_id
+            dest_path = resolved_path2.path
+
+            if isinstance(resolved_path1, HfFileSystemResolvedBucketPath):
+                # Bucket -> bucket copy (same or different bucket)
+                source_metadata = self._api.get_bucket_file_metadata(
+                    resolved_path1.bucket_id, resolved_path1.path
+                )
+                self._api.batch_bucket_files(
+                    dest_bucket_id,
+                    copy=[
+                        (
+                            "bucket",
+                            resolved_path1.bucket_id,
+                            source_metadata.xet_file_data.file_hash,
+                            dest_path,
+                        )
+                    ],
+                )
+            else:
+                # Repository -> bucket copy
+                path_infos = self._api.get_paths_info(
+                    repo_id=resolved_path1.repo_id,
+                    paths=[resolved_path1.path_in_repo],
+                    repo_type=resolved_path1.repo_type,
+                    revision=resolved_path1.revision,
+                )
+                if len(path_infos) != 1 or not isinstance(path_infos[0], RepoFile):
+                    raise FileNotFoundError(f"Source file not found: {path1}")
+                source_file = path_infos[0]
+                if source_file.xet_hash is not None:
+                    # Server-side copy by xet hash (no data transfer)
+                    self._api.batch_bucket_files(
+                        dest_bucket_id,
+                        copy=[
+                            (
+                                resolved_path1.repo_type,
+                                resolved_path1.repo_id,
+                                source_file.xet_hash,
+                                dest_path,
+                            )
+                        ],
                     )
-                ],
-            )
+                else:
+                    # Non-Xet file: download and upload via batch_bucket_files add
+                    with self.open(path1, "rb", revision=resolved_path1.revision) as f:
+                        content = f.read()
+                    self._api.batch_bucket_files(
+                        dest_bucket_id,
+                        add=[(content, dest_path)],
+                    )
+
             self.invalidate_cache(path=resolved_path1.unresolve())
             self.invalidate_cache(path=resolved_path2.unresolve())
             return
-        elif isinstance(resolved_path1, HfFileSystemResolvedBucketPath) or isinstance(
-            resolved_path2, HfFileSystemResolvedBucketPath
-        ):
-            raise NotImplementedError("Copy from/to buckets is not available yet")
+
+        # --- Source is a bucket, destination is a repository (unsupported) ---
+        if isinstance(resolved_path1, HfFileSystemResolvedBucketPath):
+            raise NotImplementedError("Copy from buckets to repositories is not available yet")
 
         same_repo = (
             resolved_path1.repo_type == resolved_path2.repo_type and resolved_path1.repo_id == resolved_path2.repo_id

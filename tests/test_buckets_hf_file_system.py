@@ -124,13 +124,40 @@ class TestHfFileSystemBucketRW(_HfFileSystemBucketChecks, _HfFileSystemBaseRWTes
         with self.hffs.open(renamed_file, "r") as f:
             assert f.read() == "dummy text data"
 
-    def test_copy_between_buckets_is_not_supported(self):
+    def test_copy_between_buckets(self):
         other_bucket_id = self.api.create_bucket(repo_name()).bucket_id
         try:
-            with pytest.raises(NotImplementedError, match="between buckets"):
-                self.hffs.cp_file(self.text_file, f"buckets/{other_bucket_id}/copy.txt")
+            self.hffs.cp_file(self.text_file, f"buckets/{other_bucket_id}/data/text_data_copy.txt")
+            with self.hffs.open(f"buckets/{other_bucket_id}/data/text_data_copy.txt", "r") as f:
+                assert f.read() == "dummy text data"
         finally:
             self.api.delete_bucket(other_bucket_id)
+
+    def test_copy_repo_to_bucket(self):
+        repo_id = self.api.create_repo(repo_name(), repo_type="model").repo_id
+        try:
+            self.api.upload_file(
+                path_or_fileobj=b"dummy text data",
+                path_in_repo="data/text_data.txt",
+                repo_id=repo_id,
+                repo_type="model",
+            )
+            self.hffs.cp_file(
+                f"models/{repo_id}/data/text_data.txt",
+                self.hf_path + "/data/text_data_from_repo.txt",
+            )
+            with self.hffs.open(self.hf_path + "/data/text_data_from_repo.txt", "r") as f:
+                assert f.read() == "dummy text data"
+        finally:
+            self.api.delete_repo(repo_id, repo_type="model")
+
+    def test_copy_bucket_to_repo_is_not_supported(self):
+        repo_id = self.api.create_repo(repo_name(), repo_type="model").repo_id
+        try:
+            with pytest.raises(NotImplementedError, match="buckets to repositories"):
+                self.hffs.cp_file(self.text_file, f"models/{repo_id}/data/text_data_copy.txt")
+        finally:
+            self.api.delete_repo(repo_id, repo_type="model")
 
 
 class TestHfFileSystemBucketLiveFollow:
