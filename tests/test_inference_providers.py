@@ -1349,6 +1349,55 @@ class TestHighresoProvider:
             == "https://api.highreso.ai/hf/v1/chat/completions"
         )
 
+    def test_prepare_url_routed_with_hf_token(self):
+        helper = HighresoConversationalTask()
+        assert (
+            helper._prepare_url("hf_test_token", "username/repo_name")
+            == "https://router.huggingface.co/highreso/v1/chat/completions"
+        )
+
+    @pytest.mark.parametrize(
+        "api_key,expected_url",
+        [
+            ("highreso_token", "https://api.highreso.ai/hf/v1/chat/completions"),
+            ("hf_test_token", "https://router.huggingface.co/highreso/v1/chat/completions"),
+        ],
+    )
+    def test_prepare_request(self, mocker, api_key, expected_url):
+        """Direct call (provider key) and routed call (HF token) share the same payload and auth header."""
+        mocker.patch(
+            "huggingface_hub.inference._providers._common._fetch_inference_provider_mapping",
+            return_value=[
+                InferenceProviderMapping(
+                    provider="highreso",
+                    hf_model_id="zai-org/GLM-5.3",
+                    providerId="glm-5.3-hf",
+                    task="conversational",
+                    status="live",
+                )
+            ],
+        )
+        helper = HighresoConversationalTask()
+        request = helper.prepare_request(
+            inputs=[{"role": "user", "content": "Hello!"}],
+            parameters={"max_tokens": 64, "model": "user-supplied-id-must-be-ignored"},
+            headers={},
+            model="zai-org/GLM-5.3",
+            api_key=api_key,
+        )
+
+        assert request.url == expected_url
+        assert request.task == "conversational"
+        # `model` is the provider-side id resolved from the Hub mapping, not the HF model id
+        assert request.model == "glm-5.3-hf"
+        assert request.headers["authorization"] == f"Bearer {api_key}"
+        assert request.headers["content-type"] == "application/json"
+        assert request.json == {
+            "model": "glm-5.3-hf",
+            "messages": [{"role": "user", "content": "Hello!"}],
+            "max_tokens": 64,
+        }
+
 
 class TestPublicAIProvider:
     def test_prepare_url(self):
