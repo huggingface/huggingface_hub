@@ -1,0 +1,4 @@
+- title: 'Guías conceptuales'
+  sections:
+    - local: concepts/git_vs_http
+      title: Paradigma Git frente a HTTP
