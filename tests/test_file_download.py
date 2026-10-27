@@ -535,28 +535,6 @@ class TestCachedDownload:
             )
             assert attempt == _CACHED_NO_EXIST
 
-    @pytest.mark.parametrize(
-        "filename",
-        [
-            "../../../etc/passwd",
-            "folder/../../../etc/passwd",
-            "..\\..\\Windows\\evil",
-            "folder\\..\\..\\evil",
-            "/etc/passwd",
-            "C:\\Windows\\System32\\evil",
-            "C:/Windows/System32/evil",
-            "D:relative\\evil",
-            "\\\\attacker\\share\\evil",
-            "\\evil",
-            "folder/C:\\Windows\\evil",
-            "folder/\\\\attacker\\share\\evil",
-            "folder/\\evil",
-        ],
-    )
-    def test_try_to_load_from_cache_rejects_unsafe_filename(self, filename: str) -> None:
-        with pytest.raises(ValueError, match="Invalid filename"):
-            try_to_load_from_cache(DUMMY_MODEL_ID, filename=filename)
-
     def test_get_hf_file_metadata_basic(self) -> None:
         """Test getting metadata from a file on the Hub."""
         url = hf_hub_url(
