@@ -1094,10 +1094,8 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         except EntryNotFoundError:
             # Path could be a file
             try:
-                if self.info(path, revision=revision, **kwargs)["type"] == "file":
-                    out = {path: {}}
-                else:
-                    out = {}
+                path_info = self.info(path, revision=revision, **kwargs)
+                out = {path: path_info} if path_info["type"] == "file" else {}
             except FileNotFoundError:
                 out = {}
         else:
@@ -1818,7 +1816,11 @@ def safe_quote(s: str) -> str:
 def _raise_file_not_found(path: str, err: Exception | None) -> NoReturn:
     msg = path
     if isinstance(err, RepositoryNotFoundError):
-        msg = f"{path} (repository not found)"
+        msg = (
+            f"{path} (repository not found). "
+            "If the repo is private, make sure you are authenticated "
+            "and your token has the required permissions."
+        )
     elif isinstance(err, RevisionNotFoundError):
         msg = f"{path} (revision not found)"
     elif isinstance(err, HFValidationError):
