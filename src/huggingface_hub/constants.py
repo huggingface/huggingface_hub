@@ -153,7 +153,7 @@ DiscussionStatusFilter = Literal["all", "open", "closed"]
 DISCUSSION_STATUS: tuple[DiscussionTypeFilter, ...] = typing.get_args(DiscussionStatusFilter)
 
 # Webhook subscription types
-WEBHOOK_DOMAIN_T = Literal["repo", "discussions"]
+WEBHOOK_DOMAIN_T = Literal["repo", "discussion"]
 
 # default cache
 default_home = os.path.join(os.path.expanduser("~"), ".cache")
