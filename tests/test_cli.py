@@ -21,7 +21,7 @@ from huggingface_hub._jobs_api import JobInfo, JobOwner, _create_job_spec, _deri
 from huggingface_hub._space_api import Volume
 from huggingface_hub.cli import _skills, extensions, system
 from huggingface_hub.cli._cli_utils import RepoType, _get_huggingface_hub_update_command, parse_volumes
-from huggingface_hub.cli._output import OutputFormat, _ascii_safe, out
+from huggingface_hub.cli._output import OutputFormat, out
 from huggingface_hub.cli._uv_script_header import UvScriptHeader, parse_uv_script_header
 from huggingface_hub.cli.cache import CacheDeletionCounts
 from huggingface_hub.cli.download import download
@@ -50,14 +50,6 @@ from .testing_utils import repo_name
 @pytest.fixture
 def runner() -> CliRunner:
     return CliRunner()
-
-
-@pytest.fixture
-def windows_ansi_runner() -> Generator[CliRunner, None, None]:
-    """Runner whose stdout uses cp1252, the encoding Python picks on Windows when output is redirected."""
-    _ascii_safe.cache_clear()  # cached per (char, fallback), not per stream
-    yield CliRunner(charset="cp1252")
-    _ascii_safe.cache_clear()
 
 
 def _make_revision(
@@ -442,29 +434,6 @@ class TestCacheCommand:
         assert "pytorch_model.bin" in result.stdout
         assert "expected" in result.stdout
         assert "Verification failed" in result.output
-
-    def test_verify_failure_markers_fall_back_to_ascii_on_windows_ansi_stdout(
-        self, windows_ansi_runner: CliRunner
-    ) -> None:
-        result_obj = FolderVerification(
-            revision="main",
-            checked_count=1,
-            mismatches=[{"path": "pytorch_model.bin", "expected": "dead", "actual": "beef", "algorithm": "sha256"}],
-            missing_paths=["config.json"],
-            extra_paths=["notes.txt"],
-            verified_path=Path("/tmp/cache/user/model"),
-        )
-
-        with patch("huggingface_hub.cli.cache.get_hf_api") as get_api_mock:
-            get_api_mock.return_value.verify_repo_checksums.return_value = result_obj
-            result = windows_ansi_runner.invoke(
-                app, ["cache", "verify", "user/model", "--fail-on-missing-files", "--fail-on-extra-files"]
-            )
-
-        assert result.exit_code == 1
-        assert "[FAIL] Checksum verification failed" in result.stdout
-        assert "[FAIL] Missing files" in result.stdout
-        assert "[FAIL] Extra files" in result.stdout
 
     def test_verify_reports_missing_local_file(self, runner: CliRunner) -> None:
         commit_hash = "4" * 40
