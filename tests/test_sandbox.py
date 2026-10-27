@@ -427,6 +427,19 @@ class TestSandboxClient:
         sandbox.kill()
         sandbox._server._api.cancel_job.assert_called_once_with(job_id="job123", namespace="user")
 
+    def test_failed_kill_raises_and_can_be_retried(self, fake_server: str) -> None:
+        sandbox = _make_sandbox(fake_server)
+        sandbox._server._api.cancel_job.side_effect = SandboxError("temporary failure")
+        with pytest.raises(SandboxError, match="temporary failure"):
+            sandbox.kill()
+        assert not sandbox._killed
+        assert not sandbox._server._client.is_closed
+
+        sandbox._server._api.cancel_job.side_effect = None
+        sandbox.kill()
+        assert sandbox._killed
+        assert sandbox._server._api.cancel_job.call_count == 2
+
     def test_kill_classmethod_connects_and_kills(self, monkeypatch) -> None:
         # `Sandbox.kill(id)` is sugar for `connect(id).kill()` (mirrors `hf sandbox kill <id>`),
         # while `sbx.kill()` still works on a live handle — both via the _KillMethod descriptor.
@@ -436,11 +449,38 @@ class TestSandboxClient:
         )
         Sandbox.kill("job-xyz", namespace="org")
         connected.kill.assert_called_once_with()
+        connected.close.assert_called_once_with()
+
+    def test_kill_classmethod_closes_connection_on_failure(self, monkeypatch) -> None:
+        connected = MagicMock()
+        connected.kill.side_effect = SandboxError("kill failed")
+        monkeypatch.setattr(
+            sandbox_mod.Sandbox, "connect", classmethod(lambda cls, sid, namespace=None, token=None: connected)
+        )
+        with pytest.raises(SandboxError, match="kill failed"):
+            Sandbox.kill("job-xyz")
+        connected.close.assert_called_once_with()
 
     def test_context_manager_kills(self, fake_server: str) -> None:
         with _make_sandbox(fake_server) as sandbox:
             pass
         sandbox._server._api.cancel_job.assert_called_once()
+
+    def test_context_manager_preserves_body_error_if_kill_fails(self, fake_server: str) -> None:
+        sandbox = _make_sandbox(fake_server)
+        sandbox._server._api.cancel_job.side_effect = SandboxError("kill failed")
+        with pytest.raises(RuntimeError, match="body failed"):
+            with sandbox:
+                raise RuntimeError("body failed")
+        assert not sandbox._killed
+        assert not sandbox._server._client.is_closed
+
+    def test_context_manager_reports_kill_failure(self, fake_server: str) -> None:
+        sandbox = _make_sandbox(fake_server)
+        sandbox._server._api.cancel_job.side_effect = SandboxError("kill failed")
+        with pytest.raises(SandboxError, match="kill failed"):
+            with sandbox:
+                pass
 
     def test_context_manager_closes_when_reattached(self, fake_server: str) -> None:
         # A sandbox reattached via `connect` (owns_sandbox=False) keeps running on exit: the
@@ -683,6 +723,21 @@ class TestSharedSandbox:
         sandbox.kill()
         sandbox._server._api.cancel_job.assert_not_called()  # host keeps running
         assert "local1" not in _FakeServer.sandboxes
+
+    def test_failed_kill_keeps_pool_slot_until_retry(self, fake_server: str, monkeypatch) -> None:
+        sandbox = self._make_shared(fake_server)
+        request = MagicMock(side_effect=SandboxError("temporary failure"))
+        monkeypatch.setattr(sandbox._server, "request", request)
+        sandbox._on_kill = MagicMock()
+        with pytest.raises(SandboxError, match="temporary failure"):
+            sandbox.kill()
+        assert not sandbox._killed
+        sandbox._on_kill.assert_not_called()
+
+        request.side_effect = None
+        sandbox.kill()
+        assert sandbox._killed
+        sandbox._on_kill.assert_called_once_with(sandbox)
 
     def test_per_sandbox_operations_present_the_sandbox_token(self, fake_server: str) -> None:
         # The fake asserts the scoping itself (host token on management routes, the

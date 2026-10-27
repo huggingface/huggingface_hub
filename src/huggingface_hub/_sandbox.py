@@ -775,7 +775,11 @@ class _KillMethod:
             return instance._kill
 
         def kill(sandbox_id: str, *, namespace: str | None = None, token: str | None = None) -> None:
-            owner.connect(sandbox_id, namespace=namespace, token=token).kill()  # type: ignore[attr-defined]
+            sandbox = owner.connect(sandbox_id, namespace=namespace, token=token)
+            try:
+                sandbox.kill()
+            finally:
+                sandbox.close()
 
         return kill
 
@@ -1003,22 +1007,18 @@ class Sandbox:
     kill = _KillMethod()
 
     def _kill(self) -> None:
-        """Terminate the sandbox. Idempotent.
+        """Terminate the sandbox. Idempotent. Raises if remote termination fails.
 
         Dedicated sandboxes cancel their underlying job; shared sandboxes are
         removed from their host (freeing a slot) while the host keeps running.
+        A failed termination leaves this handle available for another attempt.
         """
         if self._killed:
             return
-        try:
-            if self._local_id is None:
-                self._server.cancel_job()
-            else:
-                self._server.request("DELETE", f"/v1/sandboxes/{self._local_id}", sandbox_token=self._sandbox_token)
-        except Exception as e:
-            # Don't mark as killed: a later kill() call should retry so nothing leaks.
-            logger.warning(f"Failed to kill sandbox {self.id}: {e}")
-            return
+        if self._local_id is None:
+            self._server.cancel_job()
+        else:
+            self._server.request("DELETE", f"/v1/sandboxes/{self._local_id}", sandbox_token=self._sandbox_token)
         self._killed = True
         if self._on_kill is not None:
             self._on_kill(self)
@@ -1038,7 +1038,13 @@ class Sandbox:
 
     def __exit__(self, *exc_info) -> None:
         if self._owns_sandbox:
-            self.kill()
+            if exc_info[0] is None:
+                self.kill()
+            else:
+                try:
+                    self.kill()
+                except Exception as e:
+                    logger.warning(f"Failed to kill sandbox {self.id} while handling another error: {e}")
         else:
             self.close()
 
