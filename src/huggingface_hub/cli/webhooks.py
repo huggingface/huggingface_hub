@@ -158,7 +158,7 @@ def webhooks_create(
         list[WebhookDomain] | None,
         Option(
             "--domain",
-            help="Domain to watch: 'repo' or 'discussions'. Repeatable. Defaults to all domains.",
+            help="Domain to watch: 'repo' or 'discussion'. Repeatable. Defaults to all domains.",
         ),
     ] = None,
     secret: Annotated[
@@ -229,7 +229,7 @@ def webhooks_update(
         list[WebhookDomain] | None,
         Option(
             "--domain",
-            help="New list of domains to watch: 'repo' or 'discussions'. Repeatable.",
+            help="New list of domains to watch: 'repo' or 'discussion'. Repeatable.",
         ),
     ] = None,
     secret: Annotated[

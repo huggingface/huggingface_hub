@@ -30,7 +30,7 @@ from functools import wraps
 from itertools import islice
 from pathlib import Path, PurePosixPath
 from secrets import token_hex
-from typing import TYPE_CHECKING, Any, BinaryIO, Literal, TypeVar, cast, overload
+from typing import TYPE_CHECKING, Any, BinaryIO, Literal, TypeVar, cast, get_args, overload
 from urllib.parse import quote
 
 import httpcore2
@@ -508,7 +508,7 @@ class WebhookInfo:
         watched (`list[WebhookWatchedItem]`):
             List of items watched by the webhook, see [`WebhookWatchedItem`].
         domains (`list[WEBHOOK_DOMAIN_T]`):
-            List of domains the webhook is watching. Can be one of `["repo", "discussions"]`.
+            List of domains the webhook is watching. Can be one of `["repo", "discussion"]`.
         secret (`str`, *optional*):
             Secret of the webhook.
         disabled (`bool`):
@@ -11200,7 +11200,7 @@ class HfApi:
                 List of [`WebhookWatchedItem`] to be watched by the webhook. It can be users, orgs, models, datasets, spaces or buckets.
                 Watched items can also be provided as plain dictionaries.
             domains (`list[Literal["repo", "discussion"]]`, optional):
-                List of domains to watch. It can be "repo", "discussion" or both.
+                List of domains to watch. It can be "repo", "discussion" or both. Defaults to both.
             secret (`str`, optional):
                 A secret to sign the payload with.
             secrets (`dict[str, str]`, optional):
@@ -11276,9 +11276,10 @@ class HfApi:
         """
         watched_dicts = [asdict(item) if isinstance(item, WebhookWatchedItem) else item for item in watched]
 
-        post_webhooks_json: dict = {"watched": watched_dicts}
-        if domains is not None:
-            post_webhooks_json["domains"] = domains
+        post_webhooks_json: dict = {
+            "watched": watched_dicts,
+            "domains": domains if domains is not None else list(get_args(constants.WEBHOOK_DOMAIN_T)),
+        }
         if secret is not None:
             post_webhooks_json["secret"] = secret
         if url is not None and job_id is not None:
