@@ -2319,7 +2319,7 @@ The schedule should be one of `@annually`, `@yearly`, `@monthly`, `@weekly`, `@d
 
 # Schedule with GPU
 >>> hf jobs scheduled run @hourly --flavor a10g-small pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel \
-... python -c "import torch; print(f"This code ran with the following GPU: {torch.cuda.get_device_name()}")"
+... python -c 'import torch; print(f"This code ran with the following GPU: {torch.cuda.get_device_name()}")'
 
 # Schedule a UV script
 >>> hf jobs scheduled uv run @hourly --name hourly-script my_script.py
