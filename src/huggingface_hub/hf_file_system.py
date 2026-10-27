@@ -1760,7 +1760,11 @@ def safe_quote(s: str) -> str:
 def _raise_file_not_found(path: str, err: Exception | None) -> NoReturn:
     msg = path
     if isinstance(err, RepositoryNotFoundError):
-        msg = f"{path} (repository not found)"
+        msg = (
+            f"{path} (repository not found). "
+            "If the repo is private, make sure you are authenticated "
+            "and your token has the required permissions."
+        )
     elif isinstance(err, RevisionNotFoundError):
         msg = f"{path} (revision not found)"
     elif isinstance(err, HFValidationError):
