@@ -7658,7 +7658,7 @@ class HfApi:
 
             >>> HfApi().comment_discussion(
             ...     repo_id="username/repo_name",
-            ...     discussion_num=34
+            ...     discussion_num=34,
             ...     comment=comment
             ... )
             # DiscussionComment(id='deadbeef0000000', type='comment', ...)
@@ -7725,7 +7725,7 @@ class HfApi:
             >>> new_title = "New title, fixing a typo"
             >>> HfApi().rename_discussion(
             ...     repo_id="username/repo_name",
-            ...     discussion_num=34
+            ...     discussion_num=34,
             ...     new_title=new_title
             ... )
             # DiscussionTitleChange(id='deadbeef0000000', type='title-change', ...)
@@ -7792,11 +7792,10 @@ class HfApi:
 
         Examples:
             ```python
-            >>> new_title = "New title, fixing a typo"
-            >>> HfApi().rename_discussion(
+            >>> HfApi().change_discussion_status(
             ...     repo_id="username/repo_name",
-            ...     discussion_num=34
-            ...     new_title=new_title
+            ...     discussion_num=34,
+            ...     new_status="closed"
             ... )
             # DiscussionStatusChange(id='deadbeef0000000', type='status-change', ...)
 
@@ -10305,7 +10304,7 @@ class HfApi:
         >>> from huggingface_hub import update_collection_metadata
         >>> collection = update_collection_metadata(
         ...     collection_slug="username/iccv-2023-64f9a55bb3115b4f513ec026",
-        ...     title="ICCV Oct. 2023"
+        ...     title="ICCV Oct. 2023",
         ...     description="Portfolio of models, datasets, papers and demos I presented at ICCV Oct. 2023",
         ...     private=False,
         ...     theme="pink",
@@ -10469,7 +10468,7 @@ class HfApi:
         >>> add_collection_item(
         ...     collection_slug="davanstrien/climate-64f99dc2a5067f6b65531bab",
         ...     item_id="datasets/climate_fever",
-        ...     item_type="dataset"
+        ...     item_type="dataset",
         ...     note="This dataset adopts the FEVER methodology that consists of 1,535 real-world claims regarding climate-change collected on the internet."
         ... )
         (...)
@@ -10532,7 +10531,7 @@ class HfApi:
         >>> update_collection_item(
         ...     collection_slug="TheBloke/recent-models-64f9a55bb3115b4f513ec026",
         ...     item_object_id=collection.items[-1].item_object_id,
-        ...     note="Newly updated model!"
+        ...     note="Newly updated model!",
         ...     position=0,
         ... )
         ```
@@ -12236,7 +12235,7 @@ class HfApi:
             ```python
             >>> from huggingface_hub import run_job
             >>> image = "pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel"
-            >>> command = ["python", "-c", "import torch; print(f"This code ran with the following GPU: {torch.cuda.get_device_name()}")"]
+            >>> command = ["python", "-c", "import torch; print(f'This code ran with the following GPU: {torch.cuda.get_device_name()}')"]
             >>> run_job(image=image, command=command, flavor="a10g-small")
             ```
 
@@ -13185,8 +13184,8 @@ class HfApi:
             ```python
             >>> from huggingface_hub import create_scheduled_job
             >>> image = "pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel"
-            >>> command = ["python", "-c", "import torch; print(f"This code ran with the following GPU: {torch.cuda.get_device_name()}")"]
-            >>> create_scheduled_job(image, command, flavor="a10g-small", schedule="@hourly")
+            >>> command = ["python", "-c", "import torch; print(f'This code ran with the following GPU: {torch.cuda.get_device_name()}')"]
+            >>> create_scheduled_job(image=image, command=command, flavor="a10g-small", schedule="@hourly")
             ```
 
         """
