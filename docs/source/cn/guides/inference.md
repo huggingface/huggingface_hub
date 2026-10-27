@@ -26,13 +26,13 @@
 
 # Example with an external provider (e.g. replicate)
 >>> replicate_client = InferenceClient(
-    provider="replicate",
-    api_key="my_replicate_api_key",
-)
+...     provider="replicate",
+...     api_key="my_replicate_api_key",
+... )
 >>> replicate_image = replicate_client.text_to_image(
-    "A flying car crossing a futuristic cityscape.",
-    model="black-forest-labs/FLUX.1-schnell",
-)
+...     "A flying car crossing a futuristic cityscape.",
+...     model="black-forest-labs/FLUX.1-schnell",
+... )
 >>> replicate_image.save("flying_car.png")
 
 ```
@@ -45,16 +45,16 @@
 ```python
 >>> from huggingface_hub import InferenceClient
 >>> messages = [
-    {
-        "role": "user",
-        "content": "What is the capital of France?",
-    }
-]
+...     {
+...         "role": "user",
+...         "content": "What is the capital of France?",
+...     }
+... ]
 >>> client = InferenceClient(
-    provider="together",
-    model="meta-llama/Meta-Llama-3-8B-Instruct",
-    api_key="my_together_api_key",
-)
+...     provider="together",
+...     model="meta-llama/Meta-Llama-3-8B-Instruct",
+...     api_key="my_together_api_key",
+... )
 >>> client.chat_completion(messages, max_tokens=100)
 ChatCompletionOutput(
     choices=[
@@ -157,26 +157,26 @@ ChatCompletionOutput(
 
 ```python
 >>> client = InferenceClient(
-    provider="replicate",
-    api_key="hf_****"  # Your HF token
-)
+...     provider="replicate",
+...     api_key="hf_****"  # Your HF token
+... )
 ```
 
 如果不传入 `api_key`，客户端会尝试查找并使用本机保存的令牌。这通常发生在你之前登录过的情况下。有关登录的详情，请参阅[身份验证指南](https://huggingface.co/docs/huggingface_hub/quick-start#authentication)。
 
 ```python
 >>> client = InferenceClient(
-    provider="replicate",
-    token="hf_****"  # Your HF token
-)
+...     provider="replicate",
+...     token="hf_****"  # Your HF token
+... )
 ```
 
 **直接访问服务商**：使用自己的 API 密钥直接与服务商交互：
 ```python
 >>> client = InferenceClient(
-    provider="replicate",
-    api_key="r8_****"  # Your Replicate API key
-)
+...     provider="replicate",
+...     api_key="r8_****"  # Your Replicate API key
+... )
 ```
 
 更多详情请参阅 [Inference Providers 计费文档](https://huggingface.co/docs/inference-providers/pricing#routed-requests-vs-direct-calls)。
