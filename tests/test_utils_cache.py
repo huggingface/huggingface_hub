@@ -1,6 +1,7 @@
 import logging
 import os
 import time
+from functools import partial
 from pathlib import Path
 from unittest.mock import Mock
 
@@ -504,6 +505,7 @@ class TestDeleteRevisionsDryRun:
         cache_info = Mock()
         cache_info.repos = [repo_A]
         cache_info.cache_dir = None
+        cache_info._delete_repo_revisions = partial(HFCacheInfo._delete_repo_revisions, cache_info)
         self.cache_info = cache_info
 
     def test_delete_detached_revision(self) -> None:

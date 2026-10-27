@@ -16,6 +16,7 @@
 import os
 import shutil
 from collections import defaultdict
+from collections.abc import Mapping, Set
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
@@ -476,6 +477,12 @@ class HFCacheInfo:
         if len(hashes_to_delete) > 0:
             logger.warning(f"Revision(s) not found - cannot delete them: {', '.join(hashes_to_delete)}")
 
+        return self._delete_repo_revisions(repos_with_revisions)
+
+    def _delete_repo_revisions(
+        self, repos_with_revisions: Mapping[CachedRepoInfo, Set[CachedRevisionInfo]]
+    ) -> DeleteCacheStrategy:
+        """Same as `delete_revisions`, but with the revisions grouped by repo (two repos can share a commit hash)."""
         delete_strategy_blobs: set[Path] = set()
         delete_strategy_refs: set[Path] = set()
         delete_strategy_repos: set[Path] = set()

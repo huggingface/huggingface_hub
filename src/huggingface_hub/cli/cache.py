@@ -663,7 +663,7 @@ def rm(
         out.text("Nothing to delete.")
         raise click.exceptions.Exit(code=0)
 
-    strategy = hf_cache_info.delete_revisions(*sorted(resolution.revisions))
+    strategy = hf_cache_info._delete_repo_revisions(resolution.selected)
     counts = summarize_deletions(resolution.selected)
 
     summary_parts: list[str] = []
@@ -749,7 +749,7 @@ def prune(
         out.text("No unreferenced revisions, incomplete downloads or shared blobs found. Nothing to prune.")
         return
 
-    strategy = hf_cache_info.delete_revisions(*sorted(revisions))
+    strategy = hf_cache_info._delete_repo_revisions(selected)
     counts = summarize_deletions(selected)
     total_freed = (
         strategy.expected_freed_size + hf_cache_info.incomplete_size_on_disk + sum(unreferenced_blobs.values())
