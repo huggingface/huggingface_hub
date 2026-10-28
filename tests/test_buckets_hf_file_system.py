@@ -1,3 +1,4 @@
+import os
 import time
 
 import pytest
@@ -158,6 +159,26 @@ class TestHfFileSystemBucketRW(_HfFileSystemBucketChecks, _HfFileSystemBaseRWTes
                 self.hffs.cp_file(self.text_file, f"models/{repo_id}/data/text_data_copy.txt")
         finally:
             self.api.delete_repo(repo_id, repo_type="model")
+
+    def test_write_file_in_transaction(self):
+        data = "new text data"
+        with self.hffs.transaction:
+            with self.hffs.open(self.hf_path + "/data/new_text_data.txt", "w") as f:
+                f.write(data)
+            # Not uploaded until the transaction is committed
+            assert self.hf_path + "/data/new_text_data.txt" not in self.hffs.glob(self.hf_path + "/data/*")
+        assert self.hf_path + "/data/new_text_data.txt" in self.hffs.glob(self.hf_path + "/data/*")
+        with self.hffs.open(self.hf_path + "/data/new_text_data.txt", "r") as f:
+            assert f.read() == data
+
+    def test_write_file_in_transaction_discarded_on_error(self):
+        with pytest.raises(ValueError):
+            with self.hffs.transaction:
+                with self.hffs.open(self.hf_path + "/data/new_text_data.txt", "wb") as f:
+                    f.write(b"new text data")
+                raise ValueError("Interrupted")
+        assert not os.path.exists(f.temp_file.name)
+        assert self.hf_path + "/data/new_text_data.txt" not in self.hffs.glob(self.hf_path + "/data/*")
 
 
 class TestHfFileSystemBucketLiveFollow:

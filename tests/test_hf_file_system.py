@@ -754,6 +754,11 @@ class TestHfFileSystemRepositoryRW(_HfFileSystemRepositoryChecks, _HfFileSystemB
         out = self.hffs.find(self.hf_path, detail=True)
         assert out == files
 
+    def test_write_file_in_transaction_not_supported(self):
+        with pytest.raises(NotImplementedError):
+            with self.hffs.transaction:
+                self.hffs.open(self.hf_path + "/data/new_text_data.txt", "w")
+
 
 @pytest.mark.parametrize("path_in_repo", ["", "file.txt", "path/to/file", "path/to/@not-a-revision.txt"])
 @pytest.mark.parametrize(
