@@ -248,7 +248,7 @@ Once an extension is installed, you can update it to the latest version publishe
 
 `hf extensions update` only updates extensions that are already installed. If the extension is not installed, an error is raised. Extensions already up to date are skipped.
 
-An extension's version is the commit it was installed from, shown as a short SHA in the `VERSION` column of `hf extensions list`. The `LATEST` column is checked when no newer commit is available on GitHub, and running an outdated extension prints a hint suggesting `hf extensions update <name>`. To stay within GitHub's rate limits for unauthenticated requests, `hf` looks up the latest commit of each extension at most once a day. Set `HF_HUB_DISABLE_UPDATE_CHECK=1` to disable the hint.
+An extension's version is the commit it was installed from, shown as a short SHA in the `VERSION` column of `hf extensions list`. The `LATEST` column is checked when no newer commit is available on GitHub, and running an outdated extension prints a hint suggesting `hf extensions update <name>`. To stay within GitHub's rate limits for unauthenticated requests, `hf` looks up the latest commit of each extension at most once a day. Set `HF_HUB_DISABLE_UPDATE_CHECK=1` to disable these checks.
 
 ## Naming rules
 

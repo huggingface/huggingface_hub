@@ -262,8 +262,8 @@ def extension_list() -> None:
         for manifest, latest_sha in zip(manifests, latest_shas)
     ]
     out.table(rows, id_key="command")
-    if any(row["latest"] is False for row in rows):
-        out.hint("Run `hf extensions update` to update the outdated extensions.")
+    if outdated := [manifest.short_name for manifest, row in zip(manifests, rows) if row["latest"] is False]:
+        out.hint(f"Run `hf extensions update` to update {', '.join(outdated)}.")
 
 
 @extensions_cli.command("search", examples=["hf extensions search"])
@@ -550,8 +550,10 @@ def _get_latest_commit_sha(manifest: ExtensionManifest) -> str | None:
 
     Shared by `hf extensions list` and the update hint so that running them repeatedly never hits GitHub's rate
     limits for unauthenticated requests. Failures are cached too (as `None`): an offline or rate-limited machine
-    backs off instead of retrying on every call.
+    backs off instead of retrying on every call. Skipped if `HF_HUB_DISABLE_UPDATE_CHECK` is set.
     """
+    if constants.HF_HUB_DISABLE_UPDATE_CHECK:
+        return None
     if _is_latest_commit_cached(manifest.short_name):
         return (_get_extension_dir(manifest.short_name) / _LATEST_COMMIT_FILENAME).read_text() or None
     try:
@@ -569,7 +571,10 @@ def _is_latest_commit_cached(short_name: str) -> bool:
 
 
 def _save_latest_commit_sha(short_name: str, sha: str | None) -> None:
-    (_get_extension_dir(short_name) / _LATEST_COMMIT_FILENAME).write_text(sha or "")
+    try:
+        (_get_extension_dir(short_name) / _LATEST_COMMIT_FILENAME).write_text(sha or "")
+    except OSError as error:
+        logger.debug(f"Could not cache the latest commit of extension '{short_name}': {error}")
 
 
 def _fetch_remote_binary(*, owner: str, repo_name: str, short_name: str) -> bytes:
