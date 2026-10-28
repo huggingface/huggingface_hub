@@ -723,6 +723,9 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         resolved_path = self.resolve_path(path, revision=revision)
         if isinstance(resolved_path, HfFileSystemResolvedBucketPath):
             self._api.batch_bucket_files(resolved_path.bucket_id, delete=[resolved_path.path])
+        elif self._intrans:
+            # See https://github.com/huggingface/huggingface_hub/issues/1733
+            raise NotImplementedError("Transactional commits are only supported for buckets.")
         else:
             self._api.delete_file(
                 path_in_repo=resolved_path.path_in_repo,
@@ -763,6 +766,9 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
 
         """
         resolved_path = self.resolve_path(path, revision=revision)
+        if self._intrans and isinstance(resolved_path, HfFileSystemResolvedRepositoryPath):
+            # See https://github.com/huggingface/huggingface_hub/issues/1733
+            raise NotImplementedError("Transactional commits are only supported for buckets.")
         paths = self.expand_path(path, recursive=recursive, maxdepth=maxdepth, revision=revision)
         if isinstance(resolved_path, HfFileSystemResolvedBucketPath):
             delete = [self.resolve_path(path).path for path in paths if not self.isdir(path)]
@@ -1161,6 +1167,10 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         if isinstance(resolved_path1, HfFileSystemResolvedBucketPath):
             raise NotImplementedError("Copy from buckets to repositories is not available yet")
 
+        if self._intrans:
+            # See https://github.com/huggingface/huggingface_hub/issues/1733
+            raise NotImplementedError("Transactional commits are only supported for buckets.")
+
         same_repo = (
             resolved_path1.repo_type == resolved_path2.repo_type and resolved_path1.repo_id == resolved_path2.repo_id
         )
@@ -1546,7 +1556,11 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
                     f"{e}.\nMake sure the repository and revision exist before writing data."
                 ) from e
             raise
-        if not kwargs.get("autocommit", True) and isinstance(resolved_path, HfFileSystemResolvedRepositoryPath):
+        if (
+            "w" in kwargs.get("mode", "")
+            and not kwargs.get("autocommit", True)
+            and isinstance(resolved_path, HfFileSystemResolvedRepositoryPath)
+        ):
             # See https://github.com/huggingface/huggingface_hub/issues/1733
             raise NotImplementedError("Transactional commits are only supported for buckets.")
         self.resolved_path = resolved_path
@@ -1605,8 +1619,16 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
 
     def discard(self) -> None:
         """Delete the temporary file without uploading it."""
+        # Mark as closed so that a later `close()` does not write to a new temporary file
+        self.closed = True
+        if not hasattr(self, "temp_file"):
+            # Nothing was flushed yet
+            return
         self.temp_file.close()
-        os.remove(self.temp_file.name)
+        try:
+            os.remove(self.temp_file.name)
+        except FileNotFoundError:
+            pass
 
     def read(self, length=-1):
         """Read remote file.

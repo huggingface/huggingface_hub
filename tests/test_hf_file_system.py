@@ -755,8 +755,8 @@ class TestHfFileSystemRepositoryRW(_HfFileSystemRepositoryChecks, _HfFileSystemB
         assert out == files
 
     def test_write_file_in_transaction_not_supported(self):
-        with pytest.raises(NotImplementedError):
-            with self.hffs.transaction:
+        with self.hffs.transaction:
+            with pytest.raises(NotImplementedError):
                 self.hffs.open(self.hf_path + "/data/new_text_data.txt", "w")
 
 
@@ -897,6 +897,25 @@ def test_stream_file_open_if_not_found():
     with patch.object(fs, "resolve_path", side_effect=FileNotFoundError("missing/repo")):
         with pytest.raises(FileNotFoundError):
             HfFileSystemStreamFile(fs, "hf://missing/repo/not_existing_file.txt")
+
+
+def test_repo_operations_in_transaction_not_supported():
+    # Repo deletes and copies must not create commits inside a transaction, since they cannot be deferred
+    fs = HfFileSystem()
+    with (
+        mock_repo_info(fs),
+        patch.object(fs._api, "create_commit") as mock_create_commit,
+        patch.object(fs._api, "delete_file") as mock_delete_file,
+    ):
+        with fs.transaction:
+            with pytest.raises(NotImplementedError):
+                fs.cp_file("username/my_model/file.txt", "username/my_model/file_copy.txt")
+            with pytest.raises(NotImplementedError):
+                fs.rm_file("username/my_model/file.txt")
+            with pytest.raises(NotImplementedError):
+                fs.rm("username/my_model/file.txt")
+    mock_create_commit.assert_not_called()
+    mock_delete_file.assert_not_called()
 
 
 @pytest.mark.parametrize(
