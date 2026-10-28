@@ -250,6 +250,8 @@ Once an extension is installed, you can update it to the latest version publishe
 
 An extension's version is the commit it was installed from, shown as a short SHA in the `VERSION` column of `hf extensions list`. The `LATEST` column is checked when no newer commit is available on GitHub, and running an outdated extension prints a hint suggesting `hf extensions update <name>`. To stay within GitHub's rate limits for unauthenticated requests, `hf` looks up the latest commit of each extension at most once a day. Set `HF_HUB_DISABLE_UPDATE_CHECK=1` to disable these checks.
 
+If a Python extension stops working because the Python it was installed with was removed (e.g. after a Homebrew upgrade), `hf extensions update <name>` recreates its virtual environment.
+
 ## Naming rules
 
 Extension names must follow these rules:

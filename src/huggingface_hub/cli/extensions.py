@@ -439,7 +439,10 @@ def _update_installed_extension(manifest: ExtensionManifest) -> _ExtensionUpdate
         out.warning(f"Could not check updates for '{short_name}' ({owner}/{repo_name}): {error}. Skipping.")
         return _ExtensionUpdateStatus.SKIPPED
 
-    if latest_sha == manifest.commit_sha:
+    # A Python extension whose venv no longer starts is reinstalled even when up to date.
+    if latest_sha == manifest.commit_sha and (
+        manifest.type == "binary" or _can_run(_get_venv_python(_get_extension_dir(short_name)))
+    ):
         _save_latest_commit_sha(short_name, latest_sha)
         return _ExtensionUpdateStatus.UP_TO_DATE
 
@@ -597,17 +600,19 @@ def _install_binary_extension(*, extension_dir: Path, short_name: str, binary: b
 def _install_python_extension(*, extension_dir: Path, owner: str, repo_name: str, short_name: str) -> Path:
     source_url = f"https://github.com/{owner}/{repo_name}/archive/HEAD.zip"
     venv_dir = extension_dir / "venv"
-    venv_python = _get_venv_bin_path(venv_dir, "python.exe" if os.name == "nt" else "python")
+    venv_python = _get_venv_python(extension_dir)
     uv_path = shutil.which("uv")
 
     status = out.status()
-    if not venv_python.is_file():
+    if not _can_run(venv_python):
         status.update(f"Creating virtual environment in {venv_dir}")
+        shutil.rmtree(venv_dir, ignore_errors=True)
         extension_dir.mkdir(parents=True, exist_ok=True)
         if uv_path:
             subprocess.run([uv_path, "venv", str(venv_dir)], check=True)
         else:
-            venv.EnvBuilder(with_pip=True).create(str(venv_dir))
+            # Symlinks like `python -m venv`: a copied Homebrew python breaks on its next patch upgrade.
+            venv.EnvBuilder(with_pip=True, symlinks=os.name != "nt").create(str(venv_dir))
         status.done(f"Virtual environment created in {venv_dir}")
 
     status.update(f"Installing package from {source_url}")
@@ -783,6 +788,18 @@ def _get_venv_bin_path(venv_dir: Path, executable_name: str) -> Path:
     if os.name == "nt":
         return venv_dir / "Scripts" / executable_name
     return venv_dir / "bin" / executable_name
+
+
+def _get_venv_python(extension_dir: Path) -> Path:
+    return _get_venv_bin_path(extension_dir / "venv", "python.exe" if os.name == "nt" else "python")
+
+
+def _can_run(python: Path) -> bool:
+    """Whether `python` starts: a venv's python doesn't once its base interpreter is gone (e.g. Homebrew upgrade)."""
+    try:
+        return subprocess.run([str(python), "-c", ""], capture_output=True).returncode == 0
+    except OSError:
+        return False
 
 
 _ALLOWED_EXTENSION_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
