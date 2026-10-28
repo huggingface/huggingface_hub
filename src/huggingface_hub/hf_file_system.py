@@ -1557,7 +1557,7 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
                 ) from e
             raise
         if (
-            "w" in kwargs.get("mode", "")
+            "r" not in kwargs.get("mode", "")
             and not kwargs.get("autocommit", True)
             and isinstance(resolved_path, HfFileSystemResolvedRepositoryPath)
         ):
@@ -1625,10 +1625,7 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
             # Nothing was flushed yet
             return
         self.temp_file.close()
-        try:
-            os.remove(self.temp_file.name)
-        except FileNotFoundError:
-            pass
+        os.remove(self.temp_file.name)
 
     def read(self, length=-1):
         """Read remote file.

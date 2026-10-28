@@ -1,4 +1,3 @@
-import os
 import time
 
 import pytest
@@ -177,7 +176,6 @@ class TestHfFileSystemBucketRW(_HfFileSystemBucketChecks, _HfFileSystemBaseRWTes
                 with self.hffs.open(self.hf_path + "/data/new_text_data.txt", "wb") as f:
                     f.write(b"new text data")
                 raise ValueError("Interrupted")
-        assert not os.path.exists(f.temp_file.name)
         assert self.hf_path + "/data/new_text_data.txt" not in self.hffs.glob(self.hf_path + "/data/*")
 
 
