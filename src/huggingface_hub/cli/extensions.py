@@ -535,7 +535,8 @@ def _install_python_extension(*, extension_dir: Path, owner: str, repo_name: str
         if uv_path:
             subprocess.run([uv_path, "venv", str(venv_dir)], check=True)
         else:
-            venv.EnvBuilder(with_pip=True).create(str(venv_dir))
+            # Symlinks like `python -m venv`: a copied Homebrew python breaks on its next patch upgrade.
+            venv.EnvBuilder(with_pip=True, symlinks=os.name != "nt").create(str(venv_dir))
         status.done(f"Virtual environment created in {venv_dir}")
 
     status.update(f"Installing package from {source_url}")
