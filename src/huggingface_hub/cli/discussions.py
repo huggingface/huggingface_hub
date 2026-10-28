@@ -92,7 +92,9 @@ AttachOpt = Annotated[
     ),
 ]
 
-_IMAGE_EMBED_REGEX = re.compile(r'!\[([^\]]*)\]\(<?((?:[^()<>\n]|\([^()<>\n]*\))+?)>?(?:\s+"[^"]*")?\)')
+_IMAGE_EMBED_REGEX = re.compile(
+    r"!\[([^\]]*)\]\(<?((?:[^()<>\n]|\([^()<>\n]*\))+?)>?(?:\s+(?:\"[^\"]*\"|'[^']*'|\([^()]*\)))?\)"
+)
 
 
 def _media_markdown(path: Path, url: str, alt: str) -> str:
@@ -113,7 +115,10 @@ def _attach_files(api: HfApi, body: str, attach: list[str] | None) -> str:
         return body
     alts: dict[Path, str] = {}
     for value in attach:
-        file, _, alt = (value, "", "") if Path(value).is_file() else value.partition("#")
+        file = value
+        while not Path(file).is_file() and "#" in file:
+            file = file.rpartition("#")[0]
+        alt = value[len(file) + 1 :]
         path = Path(file).resolve()
         if not path.is_file():
             raise CLIError(f"Attachment not found: '{file}'.")

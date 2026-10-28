@@ -21,6 +21,7 @@ import pytest
 from click.testing import CliRunner, Result
 
 from huggingface_hub import HfApi
+from huggingface_hub.cli.discussions import _attach_files
 from huggingface_hub.cli.hf import app
 
 from .testing_constants import ENDPOINT_STAGING, TOKEN
@@ -337,3 +338,37 @@ def test_diff_pr(repo_with_discussion: tuple):
     repo_id, _, pr_num = repo_with_discussion
     result = cli(f"hf discussions diff {repo_id} {pr_num}")
     assert result.exit_code == 0
+
+
+# =============================================================================
+# Attach
+# =============================================================================
+
+
+class _FakeUploadApi:
+    def upload_attachment(self, path) -> str:
+        return f"https://cdn/{path.name}"
+
+
+@pytest.mark.parametrize(
+    "body", ["![pic](a.png)", '![pic](a.png "title")', "![pic](a.png 'title')", "![pic](<a.png> (title))"]
+)
+def test_attach_replaces_reference_with_title(tmp_path, monkeypatch, body: str):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "a.png").write_bytes(b"")
+    assert _attach_files(_FakeUploadApi(), body, ["a.png"]) == "![pic](https://cdn/a.png)"
+
+
+@pytest.mark.parametrize(
+    "value, expected",
+    [
+        ("shot#1.png", "![shot#1](https://cdn/shot#1.png)"),
+        ("shot#1.png#Before", "![Before](https://cdn/shot#1.png)"),
+        ("a.png#Issue #12", "![Issue #12](https://cdn/a.png)"),
+    ],
+)
+def test_attach_alt_text_with_hash_in_filename(tmp_path, monkeypatch, value: str, expected: str):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "a.png").write_bytes(b"")
+    (tmp_path / "shot#1.png").write_bytes(b"")
+    assert _attach_files(_FakeUploadApi(), "", [value]) == expected
