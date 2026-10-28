@@ -732,6 +732,12 @@ class _SandboxServer:
         data = self.request("GET", f"/v1/sandboxes/{local_id}/token").json()
         return _require_scoped_token(data.get("token"))
 
+    def has_sandbox(self, local_id: str) -> bool:
+        """Whether this host job is still running and still serves the sandbox `local_id`."""
+        if self._api.inspect_job(job_id=self.job_id, namespace=self.owner).status.stage != "RUNNING":
+            return False
+        return local_id in {item["id"] for item in self.request("GET", "/v1/sandboxes").json()}
+
     def close(self) -> None:
         self._client.close()
 
@@ -1007,18 +1013,21 @@ class Sandbox:
 
         Dedicated sandboxes cancel their underlying job; shared sandboxes are
         removed from their host (freeing a slot) while the host keeps running.
+
+        Raises if the sandbox could not be terminated. The handle stays usable, so
+        `kill()` can be retried.
         """
         if self._killed:
             return
-        try:
-            if self._local_id is None:
-                self._server.cancel_job()
-            else:
+        if self._local_id is None:
+            self._server.cancel_job()
+        else:
+            try:
                 self._server.request("DELETE", f"/v1/sandboxes/{self._local_id}", sandbox_token=self._sandbox_token)
-        except Exception as e:
-            # Don't mark as killed: a later kill() call should retry so nothing leaks.
-            logger.warning(f"Failed to kill sandbox {self.id}: {e}")
-            return
+            except SandboxError:
+                # An idle-evicted sandbox, or one whose host stopped, refuses the DELETE but is already gone.
+                if self._server.has_sandbox(self._local_id):
+                    raise
         self._killed = True
         if self._on_kill is not None:
             self._on_kill(self)
@@ -1038,7 +1047,13 @@ class Sandbox:
 
     def __exit__(self, *exc_info) -> None:
         if self._owns_sandbox:
-            self.kill()
+            try:
+                self.kill()
+            except Exception:
+                # Never let a teardown failure mask the exception already propagating out of the `with` block.
+                if exc_info[0] is None:
+                    raise
+                logger.warning(f"Failed to kill sandbox {self.id} while handling another error.", exc_info=True)
         else:
             self.close()
 
