@@ -248,6 +248,8 @@ Once an extension is installed, you can update it to the latest version publishe
 
 `hf extensions update` only updates extensions that are already installed. If the extension is not installed, an error is raised. Extensions already up to date are skipped.
 
+An extension's version is the commit it was installed from, shown as a short SHA in the `VERSION` column of `hf extensions list`. When you run an extension, `hf` checks at most once a day whether a newer commit is available and, if so, prints a hint suggesting `hf extensions update <name>`. Set `HF_HUB_DISABLE_UPDATE_CHECK=1` to disable this check.
+
 ## Naming rules
 
 Extension names must follow these rules:

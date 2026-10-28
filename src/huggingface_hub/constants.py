@@ -233,7 +233,7 @@ AGENTS_SKILLS_GLOBAL_PATH = Path("~/.agents/skills")
 CLAUDE_SKILLS_LOCAL_PATH = Path(".claude/skills")
 CLAUDE_SKILLS_GLOBAL_PATH = Path(os.environ.get("CLAUDE_CONFIG_DIR") or "~/.claude") / "skills"
 
-# Set to skip the CLI update check (PyPI query + "new version available" warning at startup).
+# Set to skip the CLI update checks (PyPI, `hf-cli` skill and installed extensions) and their hints.
 HF_HUB_DISABLE_UPDATE_CHECK = _is_true(os.environ.get("HF_HUB_DISABLE_UPDATE_CHECK"))
 
 # If set, log level will be set to DEBUG and all requests made to the Hub will be logged
