@@ -248,6 +248,8 @@ Once an extension is installed, you can update it to the latest version publishe
 
 `hf extensions update` only updates extensions that are already installed. If the extension is not installed, an error is raised. Extensions already up to date are skipped.
 
+If a Python extension stops working because the Python it was installed with was removed (e.g. after a Homebrew upgrade), `hf extensions update <name>` recreates its virtual environment.
+
 ## Naming rules
 
 Extension names must follow these rules:
