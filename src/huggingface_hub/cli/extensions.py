@@ -21,6 +21,7 @@ import shutil
 import subprocess
 import time
 import venv
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from enum import Enum
@@ -43,6 +44,7 @@ from ._output import out
 DEFAULT_EXTENSION_OWNER = "huggingface"
 EXTENSIONS_ROOT = Path("~/.local/share/hf/extensions")
 MANIFEST_FILENAME = "manifest.json"
+_LATEST_COMMIT_FILENAME = ".latest_commit"
 EXTENSIONS_HELP = (
     "Manage hf CLI extensions.\n\n"
     "Security Warning: extensions are third-party executables or Python packages. "
@@ -244,18 +246,24 @@ def extension_exec(
 @extensions_cli.command("list | ls", examples=["hf extensions list"])
 def extension_list() -> None:
     """List installed extension commands."""
+    manifests = _list_installed_extensions()
+    with ThreadPoolExecutor() as executor:
+        latest_shas = list(executor.map(_get_latest_commit_sha, manifests))
     rows = [
         {
             "command": f"hf {manifest.short_name}",
             "source": str(manifest.repo_id),
             "type": str(manifest.type),
             "version": manifest.commit_sha[:7] if manifest.commit_sha else None,
+            "latest": manifest.commit_sha == latest_sha if latest_sha is not None else None,
             "installed": manifest.installed_at.strftime("%Y-%m-%d"),
             "description": manifest.description,
         }
-        for manifest in _list_installed_extensions()
+        for manifest, latest_sha in zip(manifests, latest_shas)
     ]
     out.table(rows, id_key="command")
+    if any(row["latest"] is False for row in rows):
+        out.hint("Run `hf extensions update` to update the outdated extensions.")
 
 
 @extensions_cli.command("search", examples=["hf extensions search"])
@@ -371,17 +379,14 @@ def _check_extension_update(short_name: str) -> None:
     if constants.HF_HUB_DISABLE_UPDATE_CHECK:
         return
     try:
-        extension_dir = _get_extension_dir(short_name)
-        stamp_path = extension_dir / ".update_check"
-        if stamp_path.exists() and (time.time() - stamp_path.stat().st_mtime) < 24 * 3600:
+        if _is_latest_commit_cached(short_name):
             return
-        manifest = ExtensionManifest.load(extension_dir)
-        stamp_path.touch()
-        latest_sha = _fetch_latest_commit_sha(owner=manifest.owner, repo_name=manifest.repo, timeout=2)
+        manifest = ExtensionManifest.load(_get_extension_dir(short_name))
+        latest_sha = _get_latest_commit_sha(manifest)
     except Exception:
         logger.debug(f"Error while checking for an update of extension '{short_name}'.", exc_info=True)
         return
-    if latest_sha != manifest.commit_sha:
+    if latest_sha is not None and latest_sha != manifest.commit_sha:
         out.hint(
             f"A new version of the '{short_name}' extension is available ({manifest.repo_id})."
             f" Run `hf extensions update {short_name}` to update it."
@@ -435,6 +440,7 @@ def _update_installed_extension(manifest: ExtensionManifest) -> _ExtensionUpdate
         return _ExtensionUpdateStatus.SKIPPED
 
     if latest_sha == manifest.commit_sha:
+        _save_latest_commit_sha(short_name, latest_sha)
         return _ExtensionUpdateStatus.UP_TO_DATE
 
     _install_extension(owner=owner, repo_name=repo_name, short_name=short_name, commit_sha=latest_sha)
@@ -497,6 +503,7 @@ def _install_extension(
             commit_sha=commit_sha,
         )
         manifest.save(extension_dir)
+        _save_latest_commit_sha(short_name, commit_sha)
         installed = True
         return manifest
     except CLIError:
@@ -536,6 +543,33 @@ def _fetch_latest_commit_sha(*, owner: str, repo_name: str, timeout: float = _EX
     if (match := _GIT_HEAD_REF_RE.search(response.text)) is None:
         raise CLIError(f"Could not find the latest commit of '{owner}/{repo_name}'.")
     return match.group(1)
+
+
+def _get_latest_commit_sha(manifest: ExtensionManifest) -> str | None:
+    """Latest commit SHA of an installed extension, requested from GitHub at most once every 24 hours.
+
+    Shared by `hf extensions list` and the update hint so that running them repeatedly never hits GitHub's rate
+    limits for unauthenticated requests. Failures are cached too (as `None`): an offline or rate-limited machine
+    backs off instead of retrying on every call.
+    """
+    if _is_latest_commit_cached(manifest.short_name):
+        return (_get_extension_dir(manifest.short_name) / _LATEST_COMMIT_FILENAME).read_text() or None
+    try:
+        latest_sha = _fetch_latest_commit_sha(owner=manifest.owner, repo_name=manifest.repo, timeout=2)
+    except Exception as error:
+        logger.debug(f"Could not fetch the latest commit of '{manifest.repo_id}': {error}")
+        latest_sha = None
+    _save_latest_commit_sha(manifest.short_name, latest_sha)
+    return latest_sha
+
+
+def _is_latest_commit_cached(short_name: str) -> bool:
+    cache_path = _get_extension_dir(short_name) / _LATEST_COMMIT_FILENAME
+    return cache_path.is_file() and (time.time() - cache_path.stat().st_mtime) < 24 * 3600
+
+
+def _save_latest_commit_sha(short_name: str, sha: str | None) -> None:
+    (_get_extension_dir(short_name) / _LATEST_COMMIT_FILENAME).write_text(sha or "")
 
 
 def _fetch_remote_binary(*, owner: str, repo_name: str, short_name: str) -> bytes:
