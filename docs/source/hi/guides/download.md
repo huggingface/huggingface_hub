@@ -26,8 +26,8 @@
 '/root/.cache/huggingface/hub/models--lysandre--arxiv-nlp/snapshots/894a9adde21d9a3e3843e6d5aeaaf01875c7fade/config.json'
 
 # किसी dataset से डाउनलोड करें
->>> hf_hub_download(repo_id="google/fleurs", filename="fleurs.py", repo_type="dataset")
-'/root/.cache/huggingface/hub/datasets--google--fleurs/snapshots/199e4ae37915137c555b1765c01477c216287d34/fleurs.py'
+>>> hf_hub_download(repo_id="google/fleurs", filename="data/en_us/dev.tsv", repo_type="dataset")
+'/root/.cache/huggingface/hub/datasets--google--fleurs/snapshots/70bb2e84b976b7e960aa89f1c648e09c59f894dd/data/en_us/dev.tsv'
 ```
 
 ### किसी specific version से
@@ -35,14 +35,14 @@
 डिफ़ॉल्ट रूप से `main` branch का latest version डाउनलोड होता है। लेकिन कई बार आप किसी specific version की फ़ाइल चाहते हैं — जैसे किसी खास branch, PR, tag या commit hash से। इसके लिए `revision` parameter का उपयोग करें:
 
 ```python
-# `v1.0` tag से डाउनलोड करें
->>> hf_hub_download(repo_id="lysandre/arxiv-nlp", filename="config.json", revision="v1.0")
+# `gs555750` tag से डाउनलोड करें
+>>> hf_hub_download(repo_id="bigscience/bloom-560m", filename="config.json", revision="gs555750")
 
-# `test-branch` branch से डाउनलोड करें
->>> hf_hub_download(repo_id="lysandre/arxiv-nlp", filename="config.json", revision="test-branch")
+# `step3000` branch से डाउनलोड करें
+>>> hf_hub_download(repo_id="EleutherAI/pythia-70m", filename="config.json", revision="step3000")
 
-# Pull Request #3 से डाउनलोड करें
->>> hf_hub_download(repo_id="lysandre/arxiv-nlp", filename="config.json", revision="refs/pr/3")
+# Pull Request #1 से डाउनलोड करें
+>>> hf_hub_download(repo_id="lysandre/arxiv-nlp", filename="config.json", revision="refs/pr/1")
 
 # किसी specific commit hash से डाउनलोड करें
 >>> hf_hub_download(repo_id="lysandre/arxiv-nlp", filename="config.json", revision="877b84a8f93f2d619faa2a6e514a32beef88ab0a")

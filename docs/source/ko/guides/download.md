@@ -27,8 +27,8 @@ rendered properly in your Markdown viewer.
 '/root/.cache/huggingface/hub/models--lysandre--arxiv-nlp/snapshots/894a9adde21d9a3e3843e6d5aeaaf01875c7fade/config.json'
 
 # 데이터세트의 경우
->>> hf_hub_download(repo_id="google/fleurs", filename="fleurs.py", repo_type="dataset")
-'/root/.cache/huggingface/hub/datasets--google--fleurs/snapshots/199e4ae37915137c555b1765c01477c216287d34/fleurs.py'
+>>> hf_hub_download(repo_id="google/fleurs", filename="data/en_us/dev.tsv", repo_type="dataset")
+'/root/.cache/huggingface/hub/datasets--google--fleurs/snapshots/70bb2e84b976b7e960aa89f1c648e09c59f894dd/data/en_us/dev.tsv'
 ```
 
 ### 특정 버전에서 파일 다운로드하기[[from-specific-version]]
@@ -36,14 +36,14 @@ rendered properly in your Markdown viewer.
 기본적으로 `main` 브랜치의 최신 버전의 파일이 다운로드됩니다. 그러나 특정 버전의 파일을 다운로드하고 싶을 수도 있습니다. 예를 들어, 특정 브랜치, 태그, 커밋 해시 등에서 파일을 다운로드하고 싶을 수 있습니다. 이 경우 `revision` 매개변수를 사용하여 원하는 버전을 지정할 수 있습니다:
 
 ```python
-# `v1.0` 태그에서 다운로드하기
->>> hf_hub_download(repo_id="lysandre/arxiv-nlp", filename="config.json", revision="v1.0")
+# `gs555750` 태그에서 다운로드하기
+>>> hf_hub_download(repo_id="bigscience/bloom-560m", filename="config.json", revision="gs555750")
 
-# `test-branch` 브랜치에서 다운로드하기
->>> hf_hub_download(repo_id="lysandre/arxiv-nlp", filename="config.json", revision="test-branch")
+# `step3000` 브랜치에서 다운로드하기
+>>> hf_hub_download(repo_id="EleutherAI/pythia-70m", filename="config.json", revision="step3000")
 
-# PR #3에서 다운로드하기
->>> hf_hub_download(repo_id="lysandre/arxiv-nlp", filename="config.json", revision="refs/pr/3")
+# PR #1에서 다운로드하기
+>>> hf_hub_download(repo_id="lysandre/arxiv-nlp", filename="config.json", revision="refs/pr/1")
 
 # 특정 커밋 해시에서 다운로드하기
 >>> hf_hub_download(repo_id="lysandre/arxiv-nlp", filename="config.json", revision="877b84a8f93f2d619faa2a6e514a32beef88ab0a")

@@ -27,8 +27,8 @@ Wählen Sie die Datei zum Herunterladen anhand der Parameter `repo_id`, `repo_ty
 '/root/.cache/huggingface/hub/models--lysandre--arxiv-nlp/snapshots/894a9adde21d9a3e3843e6d5aeaaf01875c7fade/config.json'
 
 # Herunterladen von einem Dataset
->>> hf_hub_download(repo_id="google/fleurs", filename="fleurs.py", repo_type="dataset")
-'/root/.cache/huggingface/hub/datasets--google--fleurs/snapshots/199e4ae37915137c555b1765c01477c216287d34/fleurs.py'
+>>> hf_hub_download(repo_id="google/fleurs", filename="data/en_us/dev.tsv", repo_type="dataset")
+'/root/.cache/huggingface/hub/datasets--google--fleurs/snapshots/70bb2e84b976b7e960aa89f1c648e09c59f894dd/data/en_us/dev.tsv'
 ```
 
 ### Von einer spezifischen Version
@@ -36,14 +36,14 @@ Wählen Sie die Datei zum Herunterladen anhand der Parameter `repo_id`, `repo_ty
 Standardmäßig wird die neueste Version vom Hauptzweig `main` heruntergeladen. In einigen Fällen möchten Sie jedoch eine Datei in einer bestimmten Version herunterladen (z. B. aus einem bestimmten Zweig, einem PR, einem Tag oder einem Commit-Hash). Verwenden Sie dazu den Parameter `revision`:
 
 ```python
-# Herunterladen vom Tag `v1.0`
->>> hf_hub_download(repo_id="lysandre/arxiv-nlp", filename="config.json", revision="v1.0")
+# Herunterladen vom Tag `gs555750`
+>>> hf_hub_download(repo_id="bigscience/bloom-560m", filename="config.json", revision="gs555750")
 
-# Herunterladen vom Zweig `test-branch`
->>> hf_hub_download(repo_id="lysandre/arxiv-nlp", filename="config.json", revision="test-branch")
+# Herunterladen vom Zweig `step3000`
+>>> hf_hub_download(repo_id="EleutherAI/pythia-70m", filename="config.json", revision="step3000")
 
-# Herunterladen von Pull Request #3
->>> hf_hub_download(repo_id="lysandre/arxiv-nlp", filename="config.json", revision="refs/pr/3")
+# Herunterladen von Pull Request #1
+>>> hf_hub_download(repo_id="lysandre/arxiv-nlp", filename="config.json", revision="refs/pr/1")
 
 # Herunterladen von einem spezifischen Commit-Hash
 >>> hf_hub_download(repo_id="lysandre/arxiv-nlp", filename="config.json", revision="877b84a8f93f2d619faa2a6e514a32beef88ab0a")
