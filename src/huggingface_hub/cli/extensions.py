@@ -19,7 +19,9 @@ import os
 import re
 import shutil
 import subprocess
+import time
 import venv
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from enum import Enum
@@ -30,6 +32,7 @@ from typing import Annotated, Literal
 import click
 import httpx2
 
+from huggingface_hub import constants
 from huggingface_hub.errors import CLIError, CLIExtensionInstallError, ConfirmationError
 from huggingface_hub.utils import get_session, logging
 
@@ -41,6 +44,7 @@ from ._output import out
 DEFAULT_EXTENSION_OWNER = "huggingface"
 EXTENSIONS_ROOT = Path("~/.local/share/hf/extensions")
 MANIFEST_FILENAME = "manifest.json"
+_LATEST_COMMIT_FILENAME = ".latest_commit"
 EXTENSIONS_HELP = (
     "Manage hf CLI extensions.\n\n"
     "Security Warning: extensions are third-party executables or Python packages. "
@@ -234,6 +238,7 @@ def extension_exec(
     if not executable_path.is_file():
         raise CLIError(f"Extension '{short_name}' is not installed.")
 
+    _check_extension_update(short_name)
     exit_code = _execute_extension_binary(executable_path=executable_path, args=list(ctx.args))
     raise click.exceptions.Exit(code=exit_code)
 
@@ -241,17 +246,24 @@ def extension_exec(
 @extensions_cli.command("list | ls", examples=["hf extensions list"])
 def extension_list() -> None:
     """List installed extension commands."""
+    manifests = _list_installed_extensions()
+    with ThreadPoolExecutor() as executor:
+        latest_shas = list(executor.map(_get_latest_commit_sha, manifests))
     rows = [
         {
             "command": f"hf {manifest.short_name}",
             "source": str(manifest.repo_id),
             "type": str(manifest.type),
+            "version": manifest.commit_sha[:7] if manifest.commit_sha else None,
+            "latest": manifest.commit_sha == latest_sha if latest_sha is not None else None,
             "installed": manifest.installed_at.strftime("%Y-%m-%d"),
             "description": manifest.description,
         }
-        for manifest in _list_installed_extensions()
+        for manifest, latest_sha in zip(manifests, latest_shas)
     ]
     out.table(rows, id_key="command")
+    if outdated := [manifest.short_name for manifest, row in zip(manifests, rows) if row["latest"] is False]:
+        out.hint(f"Run `hf extensions update` to update {', '.join(outdated)}.")
 
 
 @extensions_cli.command("search", examples=["hf extensions search"])
@@ -354,7 +366,31 @@ def dispatch_unknown_top_level_extension(args: list[str], known_commands: set[st
     if executable_path is None or not executable_path.is_file():
         return None
 
+    _check_extension_update(short_name)
     return _execute_extension_binary(executable_path=executable_path, args=list(args[1:]))
+
+
+def _check_extension_update(short_name: str) -> None:
+    """Hint at `hf extensions update` when a newer commit is available, at most once every 24 hours per extension.
+
+    Only prints a hint: updating stays an explicit user action. Skipped entirely if `HF_HUB_DISABLE_UPDATE_CHECK`
+    is set. Called right before running the extension, so any error is caught and logged.
+    """
+    if constants.HF_HUB_DISABLE_UPDATE_CHECK:
+        return
+    try:
+        if _is_latest_commit_cached(short_name):
+            return
+        manifest = ExtensionManifest.load(_get_extension_dir(short_name))
+        latest_sha = _get_latest_commit_sha(manifest)
+    except Exception:
+        logger.debug(f"Error while checking for an update of extension '{short_name}'.", exc_info=True)
+        return
+    if latest_sha is not None and latest_sha != manifest.commit_sha:
+        out.hint(
+            f"A new version of the '{short_name}' extension is available ({manifest.repo_id})."
+            f" Run `hf extensions update {short_name}` to update it."
+        )
 
 
 def _auto_install_official_extension(short_name: str) -> Path | None:
@@ -404,6 +440,7 @@ def _update_installed_extension(manifest: ExtensionManifest) -> _ExtensionUpdate
         return _ExtensionUpdateStatus.SKIPPED
 
     if latest_sha == manifest.commit_sha:
+        _save_latest_commit_sha(short_name, latest_sha)
         return _ExtensionUpdateStatus.UP_TO_DATE
 
     _install_extension(owner=owner, repo_name=repo_name, short_name=short_name, commit_sha=latest_sha)
@@ -466,6 +503,7 @@ def _install_extension(
             commit_sha=commit_sha,
         )
         manifest.save(extension_dir)
+        _save_latest_commit_sha(short_name, commit_sha)
         installed = True
         return manifest
     except CLIError:
@@ -487,18 +525,56 @@ def _install_extension(
             shutil.rmtree(extension_dir, ignore_errors=True)
 
 
-def _fetch_latest_commit_sha(*, owner: str, repo_name: str) -> str:
+_GIT_HEAD_REF_RE = re.compile(r"([0-9a-f]{40}) HEAD\x00")
+
+
+def _fetch_latest_commit_sha(*, owner: str, repo_name: str, timeout: float = _EXTENSIONS_DOWNLOAD_TIMEOUT) -> str:
     """Fetch the latest commit SHA on the default branch, used to detect available updates.
 
-    The only REST API call left in the install and update paths. Raises on failure: callers decide
-    whether a missing SHA is fatal, and report the reason themselves.
+    Read from the git smart HTTP endpoint (the one `git ls-remote` uses), which is not metered like the
+    REST API. Raises on failure: callers decide whether a missing SHA is fatal, and report the reason themselves.
     """
     response = _github_request(
         "GET",
-        f"https://api.github.com/repos/{owner}/{repo_name}/commits/HEAD",
-        headers={"Accept": "application/vnd.github.sha"},
+        f"https://github.com/{owner}/{repo_name}.git/info/refs",
+        params={"service": "git-upload-pack"},
+        timeout=timeout,
     )
-    return response.text.strip()
+    if (match := _GIT_HEAD_REF_RE.search(response.text)) is None:
+        raise CLIError(f"Could not find the latest commit of '{owner}/{repo_name}'.")
+    return match.group(1)
+
+
+def _get_latest_commit_sha(manifest: ExtensionManifest) -> str | None:
+    """Latest commit SHA of an installed extension, requested from GitHub at most once every 24 hours.
+
+    Shared by `hf extensions list` and the update hint so that running them repeatedly never hits GitHub's rate
+    limits for unauthenticated requests. Failures are cached too (as `None`): an offline or rate-limited machine
+    backs off instead of retrying on every call. Skipped if `HF_HUB_DISABLE_UPDATE_CHECK` is set.
+    """
+    if constants.HF_HUB_DISABLE_UPDATE_CHECK:
+        return None
+    if _is_latest_commit_cached(manifest.short_name):
+        return (_get_extension_dir(manifest.short_name) / _LATEST_COMMIT_FILENAME).read_text() or None
+    try:
+        latest_sha = _fetch_latest_commit_sha(owner=manifest.owner, repo_name=manifest.repo, timeout=2)
+    except Exception as error:
+        logger.debug(f"Could not fetch the latest commit of '{manifest.repo_id}': {error}")
+        latest_sha = None
+    _save_latest_commit_sha(manifest.short_name, latest_sha)
+    return latest_sha
+
+
+def _is_latest_commit_cached(short_name: str) -> bool:
+    cache_path = _get_extension_dir(short_name) / _LATEST_COMMIT_FILENAME
+    return cache_path.is_file() and (time.time() - cache_path.stat().st_mtime) < 24 * 3600
+
+
+def _save_latest_commit_sha(short_name: str, sha: str | None) -> None:
+    try:
+        (_get_extension_dir(short_name) / _LATEST_COMMIT_FILENAME).write_text(sha or "")
+    except OSError as error:
+        logger.debug(f"Could not cache the latest commit of extension '{short_name}': {error}")
 
 
 def _fetch_remote_binary(*, owner: str, repo_name: str, short_name: str) -> bytes:
@@ -619,7 +695,7 @@ def _get_extension_dir(short_name: str) -> Path:
 
 
 def _github_request(
-    method: str, url: str, *, params: dict | None = None, headers: dict | None = None
+    method: str, url: str, *, params: dict | None = None, timeout: float = _EXTENSIONS_DOWNLOAD_TIMEOUT
 ) -> httpx2.Response:
     """Perform a GitHub request.
 
@@ -629,16 +705,15 @@ def _github_request(
     Unauthenticated `api.github.com` calls are capped per IP address, and that quota is shared with
     everything else calling GitHub from the same network (NAT, VPN, CI egress). Remote refs are therefore
     always addressed as `HEAD`, which GitHub resolves to the repo's default branch on
-    `raw.githubusercontent.com`, on the archive endpoint and on the REST API alike: no
+    `raw.githubusercontent.com`, on the archive endpoint and in the git refs advertisement alike: no
     `GET /repos/{owner}/{repo}` lookup is needed to discover the branch name.
     """
     response = get_session().request(
         method,
         url,
         params=params,
-        headers=headers,
         follow_redirects=True,
-        timeout=_EXTENSIONS_DOWNLOAD_TIMEOUT,
+        timeout=timeout,
     )
     # Primary limits report an exhausted quota, secondary ones only ask to back off.
     if response.status_code in (403, 429) and (
