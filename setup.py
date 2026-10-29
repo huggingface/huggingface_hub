@@ -49,29 +49,25 @@ extras["hf_xet"] = [HF_XET_VERSION]
 
 extras["mcp"] = ["mcp>=1.9.4, <2.0.0"]  # list_tools(cursor=...) only paginates correctly from 1.9.4
 
-extras["testing"] = (
-    extras["oauth"]
-    + [
-        "jedi",
-        "Jinja2",
-        "pytest>=8.4.2",  # we need https://github.com/pytest-dev/pytest/pull/12436
-        "pytest-cov",
-        "pytest-env",
-        "pytest-xdist",
-        "pytest-vcr",  # to mock Inference
-        "pytest-asyncio",  # for AsyncInferenceClient
-        # 16.2 clears fixture finalizers when rerunning a test whose fixture failed at setup.
-        # Without it, any flaky fixture (e.g. a 502 from hub-ci) makes the rerun itself crash on pytest>=9.
-        "pytest-rerunfailures>=16.2",  # to rerun flaky tests in CI
-        "pytest-mock",
-        "urllib3>=2.0",  # VCR.py 9.x requires urllib3 2.x (urllib3.HTTPHeaderDict is imported from the top-level package)
-        "soundfile",
-        "Pillow",
-        "numpy",  # for embeddings
-        "duckdb; python_version < '3.15'",  # for datasets SQL end-to-end tests (no 3.15 wheels yet)
-        "fastapi",  # To build the documentation
-    ]
-)
+extras["testing"] = extras["oauth"] + [
+    "jedi",
+    "Jinja2",
+    "pytest>=8.4.2",  # we need https://github.com/pytest-dev/pytest/pull/12436
+    "pytest-cov",
+    "pytest-env",
+    "pytest-xdist",
+    "pytest-vcr",  # to mock Inference
+    "pytest-asyncio",  # for AsyncInferenceClient
+    # 16.2 clears fixture finalizers when rerunning a test whose fixture failed at setup.
+    # Without it, any flaky fixture (e.g. a 502 from hub-ci) makes the rerun itself crash on pytest>=9.
+    "pytest-rerunfailures>=16.2",  # to rerun flaky tests in CI
+    "pytest-mock",
+    "soundfile",
+    "Pillow",
+    "numpy",  # for embeddings
+    "duckdb; python_version < '3.15'",  # for datasets SQL end-to-end tests (no 3.15 wheels yet)
+    "fastapi",  # To build the documentation
+]
 
 extras["gradio"] = [
     "gradio>=5.0.0",
