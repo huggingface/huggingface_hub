@@ -151,6 +151,23 @@ class TestHfFileSystemBucketRW(_HfFileSystemBucketChecks, _HfFileSystemBaseRWTes
         finally:
             self.api.delete_repo(repo_id, repo_type="model")
 
+    def test_copy_recursive_bucket_to_bucket(self):
+        other_bucket_id = self.api.create_bucket(repo_name()).bucket_id
+        try:
+            self.hffs.copy(
+                self.hf_path + "/data",
+                f"buckets/{other_bucket_id}/data",
+                recursive=True,
+            )
+            assert self.hffs.cat(
+                f"buckets/{other_bucket_id}/data/text_data.txt"
+            ) == b"dummy text data"
+            assert self.hffs.cat(
+                f"buckets/{other_bucket_id}/data/binary_data.bin"
+            ) == b"dummy binary data"
+        finally:
+            self.api.delete_bucket(other_bucket_id)
+
     def test_copy_bucket_to_repo_is_not_supported(self):
         repo_id = self.api.create_repo(repo_name(), repo_type="model").repo_id
         try:

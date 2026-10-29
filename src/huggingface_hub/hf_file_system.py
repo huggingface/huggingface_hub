@@ -1114,7 +1114,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
 
     def cp_file(self, path1: str, path2: str, revision: str | None = None, **kwargs) -> None:
         """
-        Copy a file within or between repositories.
+        Copy a file within or between repositories, or into a bucket.
 
         > [!WARNING]
         > Note: When possible, use `HfApi.upload_file()` for better performance.
@@ -1134,22 +1134,45 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         # --- Destination is a bucket ---
         if isinstance(resolved_path2, HfFileSystemResolvedBucketPath):
             source_info = self.info(path1, revision=revision)
+
             if source_info["type"] == "directory":
-                return  # folders are implicit in buckets (fsspec's recursive copy calls cp_file on them too)
+                return  # Folders are implicit in buckets (fsspec's recursive copy calls cp_file on them too)
+
+            dest_bucket_id = resolved_path2.bucket_id
+            dest_path = resolved_path2.path
+
             if isinstance(resolved_path1, HfFileSystemResolvedBucketPath):
                 source_type, source_id = "bucket", resolved_path1.bucket_id
+                source_metadata = self._api.get_bucket_file_metadata(
+                    resolved_path1.bucket_id, resolved_path1.path
+                )
+                xet_hash = source_metadata.xet_file_data.file_hash
             else:
+                # Repository -> bucket copy
                 source_type, source_id = resolved_path1.repo_type, resolved_path1.repo_id
-            if (xet_hash := source_info.get("xet_hash")) is not None:
-                # Server-side copy by xet hash (no data transfer)
+                path_infos = self._api.get_paths_info(
+                    repo_id=resolved_path1.repo_id,
+                    paths=[resolved_path1.path_in_repo],
+                    repo_type=resolved_path1.repo_type,
+                    revision=resolved_path1.revision,
+                )
+                if len(path_infos) != 1 or not isinstance(path_infos[0], RepoFile):
+                    raise FileNotFoundError(f"Source file not found: {path1}")
+                source_file = path_infos[0]
+                xet_hash = source_file.xet_hash
+
+            if xet_hash is not None:
                 self._api.batch_bucket_files(
-                    resolved_path2.bucket_id, copy=[(source_type, source_id, xet_hash, resolved_path2.path)]
+                    dest_bucket_id,
+                    copy=[(source_type, source_id, xet_hash, dest_path)],
                 )
             else:
-                # Non-Xet repo file: download and upload via batch_bucket_files add
                 with self.open(path1, "rb", revision=revision) as f:
                     content = f.read()
-                self._api.batch_bucket_files(resolved_path2.bucket_id, add=[(content, resolved_path2.path)])
+                self._api.batch_bucket_files(
+                    dest_bucket_id,
+                    add=[(content, dest_path)],
+                )
 
             self.invalidate_cache(path=resolved_path1.unresolve())
             self.invalidate_cache(path=resolved_path2.unresolve())
