@@ -9,10 +9,10 @@ on:
 
 jobs:
    build:
-    uses: huggingface/doc-builder/.github/workflows/build_main_documentation.yml@8440c79a619b26fbf8444f42262757fbb8718617  # main
+    uses: huggingface/doc-builder/.github/workflows/build_main_documentation.yml@145b9d4f6ab65ad3af87c66773b2c43294e52446  # main
     with:
       commit_sha: ${{ github.sha }}
       package: huggingface_hub
-      languages: cn de fr en hi ko or ta
+      path_to_docs: huggingface_hub/docs/source/en/
     secrets:
       hf_token: ${{ secrets.HF_DOC_BUILD_PUSH }}
