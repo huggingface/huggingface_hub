@@ -122,6 +122,21 @@ class TestErrorUtils:
         assert context.value.response.status_code == 404
         assert context.value.response.url == "https://huggingface.co/fake"
 
+    def test_hf_raise_for_status_non_object_json_body(self) -> None:
+        """Test a JSON list error body (as returned by Gemini's OpenAI-compatible API) still raises BadRequestError."""
+        response = Response(
+            status_code=400,
+            content=b'[{"error": {"code": 400, "message": "Please pass a valid API key", "status": "INVALID_ARGUMENT"}}]',
+            headers={"Content-Type": "application/json", X_REQUEST_ID: "abc123"},
+            request=Request(method="POST", url="https://example.com/v1/chat/completions"),
+        )
+        with pytest.raises(BadRequestError) as context:
+            hf_raise_for_status(response)
+
+        assert context.value.response.status_code == 400
+        assert context.value.request_id == "abc123"
+        assert "Please pass a valid API key" in str(context.value)
+
 
 class TestHfHubHTTPError:
     response: Response
@@ -205,6 +220,30 @@ class TestHfHubHTTPError:
         )
         error = _format(HfHubHTTPError, "this is a message\n\nSome details.", response=self.response)
         assert str(error) == "this is a message\n\nSome details.\nthis is error 1\nthis is error 2"
+
+    def test_hf_hub_http_error_init_with_errors_as_strings(self) -> None:
+        """Test `errors` can be a list of plain strings. Items that are neither strings nor dicts are skipped."""
+        self.response._content = b'{"errors": ["the message field is required", null, 1, "another error"]}'
+        error = _format(HfHubHTTPError, "this is a message", response=self.response)
+        assert str(error) == "this is a message\n\nthe message field is required\nanother error"
+
+    def test_hf_hub_http_error_init_with_errors_as_single_string(self) -> None:
+        """Test `errors` is ignored when it is not a list (iterating a string would split it into characters)."""
+        self.response._content = b'{"errors": "the message field is required"}'
+        error = _format(HfHubHTTPError, "this is a message", response=self.response)
+        assert str(error) == "this is a message"
+        assert error.server_message is None
+
+    @pytest.mark.parametrize(
+        "content",
+        [b'["upstream failure"]', b'"Bad gateway"', b"null"],
+    )
+    def test_hf_hub_http_error_init_with_non_object_json_body(self, content: bytes) -> None:
+        """Server returned valid JSON that is not an object => raw body is added to the exception."""
+        self.response._content = content
+        error = _format(HfHubHTTPError, "this is a message", response=self.response)
+        assert str(error) == f"this is a message\n\n{content.decode()}"
+        assert error.server_message == content.decode()
 
     def test_hf_hub_http_error_init_with_server_error_already_in_message(
         self,

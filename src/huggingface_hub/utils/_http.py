@@ -1053,6 +1053,11 @@ def _format(
                 # Here, we are skipping reading the response to avoid RuntimeError but it happens only if async + stream + used httpx2.AsyncClient directly.
                 data = {}
 
+        if not isinstance(data, dict):
+            # Case valid JSON that is not an object, e.g. '["my error"]' or '"my error"' => keep the raw body
+            server_errors.append(response.text)
+            data = {}
+
         error = data.get("error")
         error_description = data.get("error_description")
         if error is not None:
@@ -1070,10 +1075,13 @@ def _format(
             server_errors.append(error_description)
 
         errors = data.get("errors")
-        if errors is not None:
-            # Case {'errors': [{'message': 'my error 1'}, {'message': 'my error 2'}]}
+        if isinstance(errors, list):
             for error in errors:
-                if "message" in error:
+                if isinstance(error, str):
+                    # Case {'errors': ['my error 1', 'my error 2']}
+                    server_errors.append(error)
+                elif isinstance(error, dict) and "message" in error:
+                    # Case {'errors': [{'message': 'my error 1'}, {'message': 'my error 2'}]}
                     server_errors.append(error["message"])
 
     except json.JSONDecodeError:
