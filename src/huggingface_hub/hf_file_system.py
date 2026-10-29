@@ -622,6 +622,9 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
                 self._bucket_exists_cache = {k: v for k, v in self._bucket_exists_cache.items() if v[0]}
                 return
             path = resolved_path.unresolve()
+            # Drop the listings cached under `path` too (e.g. sub-folders of a folder deleted with `rm(recursive=True)`)
+            for cached_path in [cached for cached in self.dircache if cached.startswith(path + "/")]:
+                self.dircache.pop(cached_path, None)
             self._invalidate_dircache_ancestors(path)
 
             # Only clear repo cache if path is to repo root

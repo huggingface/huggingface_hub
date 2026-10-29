@@ -69,8 +69,8 @@ that are actually requested.
 ## Keep listings fresh
 
 Directories are listed once and their content is cached, so a directory that someone else just changed is not
-picked up automatically. [`HfFileSystem.invalidate_cache`] drops cached listings, either for one path (and its
-parents) or everywhere when called without argument:
+picked up automatically. [`HfFileSystem.invalidate_cache`] drops cached listings, either for one path (with
+everything under it and its parents) or everywhere when called without argument:
 
 ```python
 >>> hffs.ls("buckets/my-username/my-bucket/data", detail=False)  # listing is cached

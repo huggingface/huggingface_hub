@@ -1074,6 +1074,11 @@ class FakeTreeApi:
         for page, _ in self._paginate(path, recursive=recursive, expand=expand):
             yield from page
 
+    def create_commit(self, repo_id, operations, **kwargs):
+        # only deletions are needed (see `HfFileSystem.rm`)
+        for operation in operations:
+            self.files.pop(operation.path_in_repo)
+
 
 def _fake_fs(files: dict[str, int], max_workers: int, **fake_kwargs) -> tuple[HfFileSystem, FakeTreeApi]:
     api = FakeTreeApi(files, **fake_kwargs)
@@ -1187,3 +1192,13 @@ def test_find_propagates_errors():
     fs, api = _fake_fs(files, max_workers=4, error_paths=["dir_03"])
     with pytest.raises(RuntimeError):
         fs.find(_FAKE_REPO)
+
+
+def test_rm_recursive_invalidates_cached_sub_folders():
+    fs, api = _fake_fs({"README.md": 3, "data/file.txt": 1, "data/sub/file2.txt": 2}, max_workers=1)
+    fs.find(_FAKE_REPO)  # caches the listing of every folder, including `data/sub`
+
+    fs.rm(f"{_FAKE_REPO}/data", recursive=True)
+
+    assert api.files == {"README.md": 3}
+    assert not fs.exists(f"{_FAKE_REPO}/data/sub/file2.txt")
