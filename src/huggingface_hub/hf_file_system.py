@@ -717,6 +717,8 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         if block_size == 0:
             return HfFileSystemStreamFile(self, path, mode=mode, revision=revision, **kwargs)
         else:
+            if "x" in mode and self.exists(path, revision=revision, refresh=True):
+                raise FileExistsError(f"File already exists: {path}")
             return HfFileSystemFile(self, path, mode=mode, revision=revision, **kwargs)
 
     def _rm(self, path: str, revision: str | None = None, **kwargs) -> None:
