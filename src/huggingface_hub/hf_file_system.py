@@ -1597,6 +1597,9 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
 
     def commit(self) -> None:
         """Upload the temporary file to its final destination."""
+        if not self.forced:
+            # A transaction can commit a file that was never closed (e.g. under a compression wrapper)
+            self.close()
         if isinstance(self.resolved_path, HfFileSystemResolvedBucketPath):
             self.fs._api.batch_bucket_files(
                 self.resolved_path.bucket_id, add=[(self.temp_file.name, self.resolved_path.path)]

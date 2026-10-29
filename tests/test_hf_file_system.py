@@ -918,6 +918,23 @@ def test_repo_operations_in_transaction_not_supported():
     mock_delete_file.assert_not_called()
 
 
+def test_bucket_file_left_open_in_transaction_is_uploaded():
+    # A file still open when the transaction ends must be flushed before upload
+    fs = HfFileSystem()
+    uploaded = {}
+
+    def _batch_bucket_files(bucket_id, add=None, **kwargs):
+        for src, dst in add or []:
+            with open(src, "rb") as f:
+                uploaded[dst] = f.read()
+
+    with mock_bucket_info(fs), patch.object(fs._api, "batch_bucket_files", side_effect=_batch_bucket_files):
+        with fs.transaction:
+            f = fs.open("hf://buckets/username/my_bucket/file.txt", "wb")
+            f.write(b"hello")
+    assert uploaded == {"file.txt": b"hello"}
+
+
 @pytest.mark.parametrize(
     ("not_supported_path", "expected_error"),
     [
