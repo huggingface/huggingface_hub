@@ -26,10 +26,10 @@ Hier ist ein End-to-End-Beispiel, um einen Space auf dem Hub zu erstellen und ei
 **1. (bis) Duplizieren eines Space.**
 
 Das kann nützlich sein, wenn Sie auf einem bestehenden Space aufbauen möchten, anstatt von Grund auf neu zu beginnen.
-Es ist auch nützlich, wenn Sie die Kontrolle über die Konfiguration/Einstellungen eines öffentlichen Space haben möchten. Siehe [`duplicate_repo`] für weitere Details.
+Es ist auch nützlich, wenn Sie die Kontrolle über die Konfiguration/Einstellungen eines öffentlichen Space haben möchten. Siehe [`duplicate_space`] für weitere Details.
 
 ```py
->>> api.duplicate_repo("multimodalart/dreambooth-training", repo_type="space")
+>>> api.duplicate_space("multimodalart/dreambooth-training")
 ```
 
 **2. Code mit bevorzugter Lösung hochladen.**
@@ -76,17 +76,16 @@ Geheimnisse und Variablen können beim Erstellen oder Duplizieren eines Space ge
 ...     repo_id=repo_id,
 ...     repo_type="space",
 ...     space_sdk="gradio",
-...     space_secrets=[{"key": "HF_TOKEN", "value": "hf_api_***"}, ...],
-...     space_variables=[{"key": "MODEL_REPO_ID", "value": "user/repo"}, ...],
+...     space_secrets=[{"key"="HF_TOKEN", "value"="hf_api_***"}, ...],
+...     space_variables=[{"key"="MODEL_REPO_ID", "value"="user/repo"}, ...],
 ... )
 ```
 
 ```py
->>> api.duplicate_repo(
+>>> api.duplicate_space(
 ...     from_id=repo_id,
-...     repo_type="space",
-...     space_secrets=[{"key": "HF_TOKEN", "value": "hf_api_***"}, ...],
-...     space_variables=[{"key": "MODEL_REPO_ID", "value": "user/repo"}, ...],
+...     secrets=[{"key"="HF_TOKEN", "value"="hf_api_***"}, ...],
+...     variables=[{"key"="MODEL_REPO_ID", "value"="user/repo"}, ...],
 ... )
 ```
 
@@ -130,18 +129,19 @@ Aktualisierte Hardware wird Ihrem Space automatisch zugewiesen, sobald er erstel
 >>> api.create_repo(
 ...     repo_id=repo_id,
 ...     repo_type="space",
-...     space_sdk="gradio",
+...     space_sdk="gradio"
 ...     space_hardware="cpu-upgrade",
-...     space_sleep_time=7200, # 2 hours in secs
+...     space_storage="small",
+...     space_sleep_time="7200", # 2 hours in secs
 ... )
 ```
 
 ```py
->>> api.duplicate_repo(
+>>> api.duplicate_space(
 ...     from_id=repo_id,
-...     repo_type="space",
-...     space_hardware="cpu-upgrade",
-...     space_sleep_time=7200, # 2 hours in secs
+...     hardware="cpu-upgrade",
+...     storage="small",
+...     sleep_time="7200", # 2 hours in secs
 ... )
 ```
 
@@ -186,41 +186,53 @@ Aufgewertete Hardware wird Ihrem Space automatisch zugewiesen, sobald er erstell
 >>> api.create_repo(
 ...     repo_id=repo_id,
 ...     repo_type="space",
-...     space_sdk="gradio",
+...     space_sdk="gradio"
 ...     space_hardware="t4-medium",
-...     space_sleep_time=3600,
+...     space_sleep_time="3600",
 ... )
 ```
 
 ```py
->>> api.duplicate_repo(
+>>> api.duplicate_space(
 ...     from_id=repo_id,
-...     repo_type="space",
-...     space_hardware="t4-medium",
-...     space_sleep_time=3600,
+...     hardware="t4-medium",
+...     sleep_time="3600",
 ... )
 ```
 
-**6. Volumes im Space einbinden**
+**6. Dem Space dauerhaften Speicherplatz hinzufügen**
 
-Verwenden Sie [`set_space_volumes`], um Hub-Ressourcen im Space einzubinden. Ein Bucket kann beispielsweise unter `/data` bereitgestellt werden. Der Bucket muss bereits existieren.
+Sie können den Speicher-Tier Ihrer Wahl auswählen, um auf Festplattenspeicher zuzugreifen, der Neustarts Ihres Space überdauert. Dies bedeutet, dass Sie von der Festplatte lesen und darauf schreiben können, wie Sie es von einer herkömmlichen Festplatte gewöhnt sind. Weitere Informationen finden Sie in der [Dokumentation](https://huggingface.co/docs/hub/spaces-storage#persistent-storage) .
 
 ```py
->>> from huggingface_hub import Volume
->>> api.set_space_volumes(
+>>> from huggingface_hub import SpaceStorage
+>>> api.request_space_storage(repo_id=repo_id, storage=SpaceStorage.LARGE)
+```
+
+Sie können auch Ihren Speicher löschen und dabei alle Daten dauerhaft verlieren.
+```py
+>>> api.delete_space_storage(repo_id=repo_id)
+```
+
+Hinweis: Nachdem Ihnen ein Speicher-Tier zugewiesen wurde, können Sie diesen nicht mehr herabsetzen. Um dies zu tun, müssen Sie zuerst den Speicher löschen und dann den gewünschten Tier anfordern.
+
+**Bonus: Speicher beim Erstellen oder Duplizieren des Space anfordern!**
+
+```py
+>>> api.create_repo(
 ...     repo_id=repo_id,
-...     volumes=[Volume(type="bucket", source="username/my-bucket", mount_path="/data")],
+...     repo_type="space",
+...     space_sdk="gradio"
+...     space_storage="large",
 ... )
 ```
 
 ```py
->>> api.delete_space_volumes(repo_id=repo_id)
+>>> api.duplicate_space(
+...     from_id=repo_id,
+...     storage="large",
+... )
 ```
-
-> [!WARNING]
-> Das Setzen von Volumes ersetzt alle zuvor eingebundenen Volumes. Lesen Sie zuerst `api.get_space_runtime(repo_id=repo_id).volumes`, wenn Sie vorhandene Einbindungen beibehalten möchten. `delete_space_volumes` entfernt die Einbindungen, ohne die Quelldaten zu löschen.
-
-Modelle, Datensätze und Spaces sind schreibgeschützt; nur Buckets unterstützen Schreibzugriffe. Beim Erstellen oder Duplizieren eines Space können Sie die Liste mit `space_volumes` übergeben.
 
 ## Fortgeschritten: Temporäres Space Upgrade
 
@@ -301,11 +313,6 @@ Das Planen von Aufgaben kann auf viele Arten erfolgen. Hier ist ein Beispiel,
 wie es mit einer einfachen CSV gemacht werden könnte, die als Datensatz gespeichert ist.
 
 ```py
-import csv
-import io
-
-from huggingface_hub import hf_hub_download
-
 # Dataset-ID, in der eine `tasks.csv` Datei die auszuführenden Aufgaben enthält.
 # Hier ist ein einfaches Beispiel für `tasks.csv`, das Eingaben (Basis-Modell und Datensatz)
 # und Status (PENDING / AUSSTEHEND oder DONE / ERLEDIGT) enthält.
@@ -313,36 +320,44 @@ from huggingface_hub import hf_hub_download
 #     multimodalart/sd-fine-tunable,Wauplin/concept-2,PENDING
 TASK_DATASET_ID = "Wauplin/dreambooth-task-scheduler"
 
-def _get_tasks():
-    path = hf_hub_download(repo_id=TASK_DATASET_ID, filename="tasks.csv", repo_type="dataset", token=HF_TOKEN)
-    with open(path, newline="", encoding="utf-8") as csv_file:
-        return [row for row in csv.reader(csv_file) if row]
-
-def _save_tasks(tasks):
-    buffer = io.StringIO(newline="")
-    csv.writer(buffer).writerows(tasks)
-    api.upload_file(
-        repo_id=TASK_DATASET_ID,
-        repo_type="dataset",
-        path_in_repo="tasks.csv",
-        path_or_fileobj=buffer.getvalue().encode("utf-8"),
-    )
+def _get_csv_file():
+    return hf_hub_download(repo_id=TASK_DATASET_ID, filename="tasks.csv", repo_type="dataset", token=HF_TOKEN)
 
 def get_task():
-    for model_id, dataset_id, status in _get_tasks():
-        if status == "PENDING":
-            return model_id, dataset_id
+    with open(_get_csv_file()) as csv_file:
+        csv_reader = csv.reader(csv_file, delimiter=',')
+        for row in csv_reader:
+            if row[2] == "PENDING":
+                return row[0], row[1] # model_id, dataset_id
 
 def add_task(task):
-    tasks = _get_tasks()
-    tasks.append([*task, "PENDING"])
-    _save_tasks(tasks)
+    model_id, dataset_id = task
+    with open(_get_csv_file()) as csv_file:
+        with open(csv_file, "r") as f:
+            tasks = f.read()
+
+    api.upload_file(
+        repo_id=repo_id,
+        repo_type=repo_type,
+        path_in_repo="tasks.csv",
+        # Schnelle und einfache Möglichkeit, eine Aufgabe hinzuzufügen
+        path_or_fileobj=(tasks + f"\n{model_id},{dataset_id},PENDING").encode()
+    )
 
 def mark_as_done(task):
-    tasks = _get_tasks()
-    for row in tasks:
-        if tuple(row[:2]) == tuple(task) and row[2] == "PENDING":
-            row[2] = "DONE"
-            break
-    _save_tasks(tasks)
+    model_id, dataset_id = task
+    with open(_get_csv_file()) as csv_file:
+        with open(csv_file, "r") as f:
+            tasks = f.read()
+
+    api.upload_file(
+        repo_id=repo_id,
+        repo_type=repo_type,
+        path_in_repo="tasks.csv",
+        # Schnelle und einfache Möglichkeit, die Aufgabe als DONE / ERLEDIGT zu markieren
+        path_or_fileobj=tasks.replace(
+            f"{model_id},{dataset_id},PENDING",
+            f"{model_id},{dataset_id},DONE"
+        ).encode()
+    )
 ```

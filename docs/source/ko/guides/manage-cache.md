@@ -91,7 +91,7 @@ HTTP 요청을 만들지 않고 로컬로 캐시된 파일이 있는지 테스�
 ```python
 from huggingface_hub import try_to_load_from_cache, _CACHED_NO_EXIST
 
-filepath = try_to_load_from_cache(repo_id="google-bert/bert-base-cased", filename="config.json")
+filepath = try_to_load_from_cache()
 if isinstance(filepath, str):
     # 파일이 존재하고 캐시됩니다
     ...

@@ -31,9 +31,9 @@
 让我们看一个示例，获取所有在 Hub 上进行图像分类的模型，这些模型已在 imagenet 数据集上训练，并使用 PyTorch 运行。
 
 ```py
-models = api.list_models(
-	pipeline_tag="image-classification",
-	filter="pytorch",
+models = hf_api.list_models(
+	task="image-classification",
+	library="pytorch",
 	trained_dataset="imagenet",
 )
 ```
@@ -41,7 +41,7 @@ models = api.list_models(
 在过滤时，您还可以对模型进行排序，并仅获取前几个结果。例如，以下示例获取了 Hub 上下载量最多的前 5 个数据集：
 
 ```py
->>> list(api.list_datasets(sort="downloads", limit=5))
+>>> list(list_datasets(sort="downloads", limit=5))
 [DatasetInfo(
 	id='argilla/databricks-dolly-15k-curated-en',
 	author='argilla',

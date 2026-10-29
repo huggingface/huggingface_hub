@@ -28,15 +28,15 @@ Hugging Face Hub는 커뮤니티와 모델을 공유하는 것을 쉽게 만들�
 
 ```python
 def from_pretrained(model_id: str) -> MyModelClass:
-    # Hub로부터 모델을 다운로드
-    cached_model = hf_hub_download(
-        repo_id=model_id,
-        filename="model.pkl",
-        library_name="fastai",
-        library_version=get_fastai_version(),
-    )
+   # Hub로부터 모델을 다운로드
+   cached_model = hf_hub_download(
+      repo_id=repo_id,
+      filename="model.pkl",
+      library_name="fastai",
+      library_version=get_fastai_version(),
+   )
 
-    # 모델 가져오기
+   # 모델 가져오기
     return load_model(cached_model)
 ```
 
@@ -49,7 +49,7 @@ def push_to_hub(model: MyModelClass, repo_name: str) -> None:
    api = HfApi()
 
    # 해당 리포지토리가 아직 없다면 리포지토리를 생성하고 관련된 리포지토리 ID를 가져옵니다.
-   repo_id = api.create_repo(repo_name, exist_ok=True).repo_id
+   repo_id = api.create_repo(repo_name, exist_ok=True)
 
    # 모든 파일을 임시 디렉토리에 저장하고 이를 단일 커밋으로 푸시합니다.
    with TemporaryDirectory() as tmpdir:
@@ -138,7 +138,7 @@ def push_to_hub(model: MyModelClass, repo_name: str) -> None:
 ...     def __init__(self, hidden_size: int = 512, vocab_size: int = 30000, output_size: int = 4):
 ...         super().__init__()
 ...         self.param = nn.Parameter(torch.rand(hidden_size, vocab_size))
-...         self.linear = nn.Linear(vocab_size, output_size)
+...         self.linear = nn.Linear(output_size, vocab_size)
 
 ...     def forward(self, x):
 ...         return self.linear(x + self.param)
@@ -189,12 +189,11 @@ class PyTorchModelHubMixin(ModelHubMixin):
 from huggingface_hub import ModelHubMixin
 
 class PyTorchModelHubMixin(ModelHubMixin):
-    (...)
+   (...)
 
     def _save_pretrained(self, save_directory: Path) -> None:
         """PyTorch 모델의 가중치를 로컬 디렉터리에 저장합니다."""
-        model_to_save = self.module if hasattr(self, "module") else self
-        save_model_as_safetensor(model_to_save, str(save_directory / SAFETENSORS_SINGLE_FILE))
+        save_model_as_safetensor(self.module, str(save_directory / SAFETENSORS_SINGLE_FILE))
 
 ```
 
@@ -202,30 +201,31 @@ class PyTorchModelHubMixin(ModelHubMixin):
 
 ```python
 class PyTorchModelHubMixin(ModelHubMixin):
-    (...)
+   (...)
 
-    @classmethod # 반드시 클래스 메소드여야 합니다!
-    def _from_pretrained(
-        cls,
-        *,
-        model_id: str,
-        revision: str,
-        cache_dir: str,
-        force_download: bool,
-        local_files_only: bool,
-        token: Union[str, bool, None],
-        map_location: str = "cpu", # 추가 인자
-        strict: bool = False, # 추가 인자
-        **model_kwargs,
-    ):
-        """PyTorch의 사전 학습된 가중치와 모델을 반환합니다."""
+   @classmethod # 반드시 클래스 메소드여야 합니다!
+   def _from_pretrained(
+      cls,
+      *,
+      model_id: str,
+      revision: str,
+      cache_dir: str,
+      force_download: bool,
+      proxies: Optional[dict],
+      local_files_only: bool,
+      token: Union[str, bool, None],
+      map_location: str = "cpu", # 추가 인자
+      strict: bool = False, # 추가 인자
+      **model_kwargs,
+   ):
+      """PyTorch의 사전 학습된 가중치와 모델을 반환합니다."""
         model = cls(**model_kwargs)
         if os.path.isdir(model_id):
             print("Loading weights from local directory")
             model_file = os.path.join(model_id, SAFETENSORS_SINGLE_FILE)
             return cls._load_as_safetensor(model, model_file, map_location, strict)
 
-        model_file = hf_hub_download(
+         model_file = hf_hub_download(
             repo_id=model_id,
             filename=SAFETENSORS_SINGLE_FILE,
             revision=revision,
@@ -233,8 +233,8 @@ class PyTorchModelHubMixin(ModelHubMixin):
             force_download=force_download,
             token=token,
             local_files_only=local_files_only,
-        )
-        return cls._load_as_safetensor(model, model_file, map_location, strict)
+            )
+         return cls._load_as_safetensor(model, model_file, map_location, strict)
 ```
 
 이게 전부입니다! 이제 라이브러리를 통해 Hub로부터 파일을 업로드하고 다운로드할 수 있습니다.
@@ -292,7 +292,7 @@ class VoiceCraft(
    PyTorchModelHubMixin,
    library_name="voicecraft",
    model_card_template=MODEL_CARD_TEMPLATE,
-   # ...
+   ...
 ):
    ...
 ```
@@ -328,7 +328,7 @@ class UniDepthV1(nn.Module, PyTorchModelHubMixin, ...):
 
 ```py
 class MyModel(ModelHubMixin):
-   def __init__(self, value: str, size: int = 3):
+   def __init__(value: str, size: int = 3):
       self.value = value
       self.size = size
 
@@ -348,8 +348,6 @@ model.save_pretrained(...)
 ```py
 class VoiceCraft(nn.Module):
     def __init__(self, args):
-      super().__init__()
-      self.args = args
       self.pattern = self.args.pattern
       self.hidden_size = self.args.hidden_size
       ...
@@ -373,8 +371,6 @@ class VoiceCraft(
    }
 ):
     def __init__(self, args: Namespace): # `args`에 주석을 답니다.
-      super().__init__()
-      self.args = args
       self.pattern = self.args.pattern
       self.hidden_size = self.args.hidden_size
       ...

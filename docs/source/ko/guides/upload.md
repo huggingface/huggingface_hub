@@ -135,7 +135,7 @@ False
 ```py
 >>> from huggingface_hub import HfApi
 >>> api = HfApi()
->>> api.run_as_future(api.create_repo, "username/my-model", exist_ok=True)
+>>> api.run_as_future(api.create_repo, "username/my-model", exists_ok=True)
 Future(...)
 >>> api.upload_file(
 ...     repo_id="username/my-model",
@@ -146,20 +146,38 @@ Future(...)
 Future(...)
 ```
 
-### 대용량 폴더 업로드하기[[upload-a-folder-by-chunks]]
+### 청크 단위로 폴더 업로드하기[[upload-a-folder-by-chunks]]
 
-대용량 폴더도 [`upload_folder`]로 업로드할 수 있습니다. 이미 업로드한 파일을 로컬에 기록하므로, 중단된 경우 같은 호출을 다시 실행하여 업로드를 재개할 수 있습니다.
+[`upload_folder`]를 사용하면 전체 폴더를 Hub에 쉽게 업로드할 수 있지만, 대용량 폴더(수천 개의 파일 또는 수백 GB의 용량)의 경우 문제가 될 수 있습니다.
+파일이 많은 폴더가 있는 경우 여러 커밋에 걸쳐 업로드하는 것이 좋습니다.
+업로드 중에 오류나 연결 문제가 발생해도 처음부터 다시 시작할 필요는 없습니다.
+
+여러 커밋으로 폴더를 업로드하려면 `multi_commits=True`를 인수로 전달하면 됩니다.
+내부적으로 `huggingface_hub`는 업로드/삭제할 파일을 나열하고 여러 커밋으로 분할합니다.
+커밋을 분할하는 전략은 업로드할 파일의 수와 크기에 따라 결정됩니다.
+모든 커밋을 푸시하기 위해 Hub에 PR이 열리게 되며, PR이 준비되면 여러 커밋이 단일 커밋으로 뭉쳐집니다.
+완료하기 전에 프로세스가 중단된 경우 스크립트를 다시 실행하여 업로드를 재개할 수 있습니다. 생성된 PR이 자동으로 감지되고 업로드가 중단된 지점부터 업로드가 재개됩니다.
+업로드 진행 상황을 더 잘 이해하고 싶다면 `multi_commits_verbose=True`를 인수로 전달하면 됩니다.
+
+다음은 여러 커밋으로 체크포인트 폴더를 데이터셋에 업로드하는 예제입니다.
+Hub에 PR이 생성되고 업로드가 완료되면 자동으로 병합됩니다.
+PR을 계속 열어두고 수동으로 검토하려면 `create_pr=True`를 인수로 전달하면 됩니다.
 
 ```py
->>> from huggingface_hub import upload_folder
 >>> upload_folder(
 ...     folder_path="local/checkpoints",
 ...     repo_id="username/my-dataset",
 ...     repo_type="dataset",
+...     multi_commits=True,
+...     multi_commits_verbose=True,
 ... )
 ```
 
-이전의 `multi_commits`, `multi_commits_verbose` 인수와 `plan_multi_commits`, `create_commits_on_pr` 메서드는 삭제되었습니다. 현재 API에는 전달하지 마세요.
+업로드 전략(즉, 생성되는 커밋)을 더 잘 제어하고 싶으면 로우 레벨의 [`plan_multi_commits`] 와 [`create_commits_on_pr`] 메서드를 살펴보세요.
+
+> [!WARNING]
+> `multi_commits`은 아직 실험적인 기능입니다.
+> 해당 API와 동작은 향후 사전 고지 없이 변경될 수 있습니다.
 
 ### 예약된 업로드[[scheduled-uploads]]
 
@@ -251,13 +269,6 @@ Hub에 데이터(잠재적으로 수백만 개의 사용자 피드백)를 저장
 아래의 (단순화된) 예제에서는 `push_to_hub`를 덮어써서 모든 PNG 파일을 단일 아카이브에 압축하여 Hub의 리포지토리에 과부하가 걸리는 것을 방지합니다:.
 
 ```py
-import tempfile
-import uuid
-import zipfile
-from pathlib import Path
-
-from huggingface_hub import CommitScheduler
-
 class ZipScheduler(CommitScheduler):
     def push_to_hub(self):
         # 1. PNG 파일들을 나열합니다.
@@ -267,20 +278,13 @@ class ZipScheduler(CommitScheduler):
 
         # 2. png 파일들을 단일 Zip 파일로 압축합니다.
         with tempfile.TemporaryDirectory() as tmpdir:
-            archive_path = Path(tmpdir) / f"train-{uuid.uuid4()}.zip"
+            archive_path = Path(tmpdir) / "train.zip"
             with zipfile.ZipFile(archive_path, "w", zipfile.ZIP_DEFLATED) as zip:
                 for png_file in png_files:
                     zip.write(filename=png_file, arcname=png_file.name)
 
             # 3. 압축된 파일을 업로드 합니다.
-            path_in_repo = f"{self.path_in_repo}/{archive_path.name}".lstrip("/")
-            self.api.upload_file(
-                repo_id=self.repo_id,
-                repo_type=self.repo_type,
-                revision=self.revision,
-                path_in_repo=path_in_repo,
-                path_or_fileobj=archive_path,
-            )
+            self.api.upload_file(..., path_or_fileobj=archive_path)
 
         # 4. 로컬 png 파일을 삭제하여 다음에 다시 업로드 되는 일을 방지합니다.
         for png_file in png_files:
@@ -322,7 +326,7 @@ class ZipScheduler(CommitScheduler):
 1. 파일을 추가하거나 삭제하고 폴더를 삭제하기 위해 적절한 `CommitOperation`을 사용합니다:
 
 ```py
->>> from huggingface_hub import HfApi, CommitOperationAdd, CommitOperationCopy, CommitOperationDelete
+>>> from huggingface_hub import HfApi, CommitOperationAdd, CommitOperationDelete
 >>> api = HfApi()
 >>> operations = [
 ...     CommitOperationAdd(path_in_repo="LICENSE.md", path_or_fileobj="~/repo/LICENSE.md"),

@@ -30,8 +30,8 @@
 
 >>> # 写入远程文件
 >>> with hffs.open("datasets/my-username/my-dataset-repo/data/validation.csv", "w") as f:
-...     f.write("text,label\n")
-...     f.write("Fantastic movie!,good\n")
+...     f.write("text,label")
+...     f.write("Fantastic movie!,good")
 ```
 
 可以传递可选的 `revision` 参数，以从特定提交（如分支、标签名或提交哈希）运行操作。

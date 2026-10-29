@@ -122,7 +122,7 @@ Auch wenn Hintergrundaufgaben hauptsächlich dazu dienen, Daten hochzuladen/Comm
 ```py
 >>> from huggingface_hub import HfApi
 >>> api = HfApi()
->>> api.run_as_future(api.create_repo, "username/my-model", exist_ok=True)
+>>> api.run_as_future(api.create_repo, "username/my-model", exists_ok=True)
 Future(...)
 >>> api.upload_file(
 ...     repo_id="username/my-model",
@@ -133,20 +133,28 @@ Future(...)
 Future(...)
 ```
 
-### Große Ordner hochladen
+### Ordner in Teilen hochladen
 
-Verwenden Sie [`upload_folder`], um auch große Ordner hochzuladen. Bereits hochgeladene Dateien werden lokal erfasst, damit Sie den Upload nach einer Unterbrechung mit demselben Aufruf fortsetzen können.
+Mit [`upload_folder`] können Sie ganz einfach einen gesamten Ordner ins Hub hochladen. Bei großen Ordnern (Tausende von Dateien oder Hunderte von GB) kann dies jedoch immer noch herausfordernd sein. Wenn Sie einen Ordner mit vielen Dateien haben, möchten Sie ihn möglicherweise in mehreren Commits hochladen. Wenn während des Uploads ein Fehler oder ein Verbindungsproblem auftritt, müssen Sie den Vorgang nicht von Anfang an wiederholen.
+
+Um einen Ordner in mehreren Commits hochzuladen, übergeben Sie einfach `multi_commits=True` als Argument. Intern wird `huggingface_hub` die hochzuladenden/zu löschenden Dateien auflisten und sie in mehrere Commits aufteilen. Die "Strategie" (d.h. wie die Commits aufgeteilt werden) basiert auf der Anzahl und Größe der hochzuladenden Dateien. Ein PR wird im Hub geöffnet, um alle Commits zu pushen. Sobald der PR bereit ist, werden die Commits zu einem einzigen Commit zusammengefasst. Wenn der Prozess unterbrochen wird, bevor er abgeschlossen ist, können Sie Ihr Skript erneut ausführen, um den Upload fortzusetzen. Der erstellte PR wird automatisch erkannt und der Upload setzt dort fort, wo er gestoppt wurde. Es wird empfohlen, `multi_commits_verbose=True` zu übergeben, um ein besseres Verständnis für den Upload und dessen Fortschritt zu erhalten.
+
+Das untenstehende Beispiel lädt den Ordner "checkpoints" in ein Dataset in mehreren Commits hoch. Ein PR wird im Hub erstellt und automatisch zusammengeführt, sobald der Upload abgeschlossen ist. Wenn Sie möchten, dass der PR offen bleibt und Sie ihn manuell überprüfen können, übergeben Sie `create_pr=True`.
 
 ```py
->>> from huggingface_hub import upload_folder
 >>> upload_folder(
 ...     folder_path="local/checkpoints",
 ...     repo_id="username/my-dataset",
 ...     repo_type="dataset",
+...     multi_commits=True,
+...     multi_commits_verbose=True,
 ... )
 ```
 
-Die früheren Argumente `multi_commits` und `multi_commits_verbose` sowie die Methoden `plan_multi_commits` und `create_commits_on_pr` wurden entfernt. Übergeben Sie sie nicht an die aktuelle API.
+Wenn Sie die Upload-Strategie besser steuern möchten (d.h. die erstellten Commits), können Sie sich die Low-Level-Methoden [`plan_multi_commits`] und [`create_commits_on_pr`] ansehen.
+
+> [!WARNING]
+> `multi_commits` ist noch ein experimentelles Feature. Seine API und sein Verhalten können in Zukunft ohne vorherige Ankündigung geändert werden.
 
 ### Geplante Uploads
 
@@ -214,13 +222,6 @@ Das Speichern von Daten aus einem Space in einem Dataset auf dem Hub ist der Hau
 Im folgenden (vereinfachten) Beispiel überschreiben wir `push_to_hub`, um alle PNG-Dateien in einem einzigen Archiv zu zippen, um das Repo auf dem Hub nicht zu überladen:
 
 ```py
-import tempfile
-import uuid
-import zipfile
-from pathlib import Path
-
-from huggingface_hub import CommitScheduler
-
 class ZipScheduler(CommitScheduler):
     def push_to_hub(self):
         # 1. Liste PNG-Dateien auf
@@ -230,20 +231,13 @@ class ZipScheduler(CommitScheduler):
 
         # 2. Zippe PNG-Dateien in ein einzelnes Archiv
         with tempfile.TemporaryDirectory() as tmpdir:
-            archive_path = Path(tmpdir) / f"train-{uuid.uuid4()}.zip"
+            archive_path = Path(tmpdir) / "train.zip"
             with zipfile.ZipFile(archive_path, "w", zipfile.ZIP_DEFLATED) as zip:
                 for png_file in png_files:
                     zip.write(filename=png_file, arcname=png_file.name)
 
             # 3. Lade das Archiv hoch
-            path_in_repo = f"{self.path_in_repo}/{archive_path.name}".lstrip("/")
-            self.api.upload_file(
-                repo_id=self.repo_id,
-                repo_type=self.repo_type,
-                revision=self.revision,
-                path_in_repo=path_in_repo,
-                path_or_fileobj=archive_path,
-            )
+            self.api.upload_file(..., path_or_fileobj=archive_path)
 
         # 4. Lösche lokale PNG-Dateien, um späteres erneutes Hochladen zu vermeiden
         for png_file in png_files:
@@ -280,7 +274,7 @@ Zum Beispiel, wenn Sie zwei Dateien hochladen und eine Datei in einem Hub-Reposi
 1. Verwenden Sie die entsprechende `CommitOperation`, um eine Datei hinzuzufügen oder zu löschen und einen Ordner zu löschen:
 
 ```py
->>> from huggingface_hub import HfApi, CommitOperationAdd, CommitOperationCopy, CommitOperationDelete
+>>> from huggingface_hub import HfApi, CommitOperationAdd, CommitOperationDelete
 >>> api = HfApi()
 >>> operations = [
 ...     CommitOperationAdd(path_in_repo="LICENSE.md", path_or_fileobj="~/repo/LICENSE.md"),

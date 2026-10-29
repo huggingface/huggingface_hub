@@ -52,9 +52,7 @@ card.data.to_dict() == {'language': 'en', 'license': 'mit'}  # True
 - Python f-strings를 통해 템플릿 변수를 사용할 방법을 보여줍니다.
 
 ```python
-from huggingface_hub import ModelCardData
-
-card_data = ModelCardData(language='en', license='mit', library_name='timm')
+card_data = ModelCardData(language='en', license='mit', library='timm')
 
 example_template_var = 'nateraw'
 content = f"""
@@ -64,7 +62,7 @@ content = f"""
 
 # 내 모델 카드
 
-이 모델은 [@{example_template_var}](https://github.com/{example_template_var})에 의해 생성되었습니다
+이 모델은 [@{example_template_var}](https://github.com/ {example_template_var})에 의해 생성되었습니다
 """
 
 card = ModelCard(content)
@@ -77,7 +75,7 @@ print(card)
 ---
 language: en
 license: mit
-library_name: timm
+library: timm
 ---
 
 # 내 모델 카드

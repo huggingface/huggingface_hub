@@ -17,7 +17,14 @@ rendered properly in your Markdown viewer.
 
 ## 비동기 추론 클라이언트[[huggingface_hub.AsyncInferenceClient]]
 
-비동기 버전의 클라이언트도 제공되며, 이는 `asyncio`와 `httpx2`를 기반으로 작동합니다. 필요한 의존성은 `huggingface_hub`와 함께 설치되므로 `aiohttp`를 별도로 설치할 필요가 없습니다.
+비동기 버전의 클라이언트도 제공되며, 이는 `asyncio`와 `aiohttp`를 기반으로 작동합니다. 
+이를 사용하려면 `aiohttp`를 직접 설치하거나 `[inference]` 추가 기능을 사용할 수 있습니다:
+
+```sh
+pip install --upgrade huggingface_hub[inference]
+# 또는
+# pip install aiohttp
+```
 
 [[autodoc]] AsyncInferenceClient
 

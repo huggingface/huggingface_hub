@@ -28,8 +28,8 @@ rendered properly in your Markdown viewer.
 
 >>> # 원격 파일 쓰기
 >>> with hffs.open("datasets/my-username/my-dataset-repo/data/validation.csv", "w") as f:
-...     f.write("text,label\n")
-...     f.write("Fantastic movie!,good\n")
+...     f.write("text,label")
+...     f.write("Fantastic movie!,good")
 ```
 
 선택적 `revision` 인수를 전달하여 브랜치, 태그 이름 또는 커밋 해시와 같은 특정 커밋에서 작업을 실행할 수 있습니다.

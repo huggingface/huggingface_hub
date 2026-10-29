@@ -32,15 +32,15 @@ Voici un exemple classique pour implémenter la méthode `from_pretrained`:
 
 ```python
 def from_pretrained(model_id: str) -> MyModelClass:
-    # Téléchargement des paramètres depuis le Hub
-    cached_model = hf_hub_download(
-        repo_id=model_id,
-        filename="model.pkl",
-        library_name="fastai",
-        library_version=get_fastai_version(),
-    )
+   # Téléchargement des paramètres depuis le Hub
+   cached_model = hf_hub_download(
+      repo_id=repo_id,
+      filename="model.pkl",
+      library_name="fastai",
+      library_version=get_fastai_version(),
+   )
 
-    # Instanciation du modèle
+   # Instanciation du modèle
     return load_model(cached_model)
 ```
 
@@ -199,15 +199,14 @@ class PyTorchModelHubMixin(ModelHubMixin):
          card_data=ModelCardData(
             license='mit',
             library_name="pytorch",
-            # ...
+            ...
          ),
          model_summary=...,
          model_type=...,
-         # ...
+         ...
       )
-      (save_directory / "README.md").write_text(str(model_card))
-      model_to_save = self.module if hasattr(self, "module") else self
-      torch.save(obj=model_to_save.state_dict(), f=save_directory / "pytorch_model.bin")
+      (save_directory / "README.md").write_text(str(model))
+      torch.save(obj=self.module.state_dict(), f=save_directory / "pytorch_model.bin")
 ```
 
 3. Implémentez la méthode `_from_pretrained`:
