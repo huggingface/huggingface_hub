@@ -127,9 +127,9 @@ class TestHfFileSystemBucketRW(_HfFileSystemBucketChecks, _HfFileSystemBaseRWTes
     def test_copy_between_buckets(self):
         other_bucket_id = self.api.create_bucket(repo_name()).bucket_id
         try:
-            self.hffs.cp_file(self.text_file, f"buckets/{other_bucket_id}/data/text_data_copy.txt")
-            with self.hffs.open(f"buckets/{other_bucket_id}/data/text_data_copy.txt", "r") as f:
-                assert f.read() == "dummy text data"
+            self.hffs.copy(self.hf_path + "/data", f"buckets/{other_bucket_id}/data", recursive=True)
+            assert self.hffs.cat(f"buckets/{other_bucket_id}/data/text_data.txt") == b"dummy text data"
+            assert self.hffs.cat(f"buckets/{other_bucket_id}/data/binary_data.bin") == b"dummy binary data"
         finally:
             self.api.delete_bucket(other_bucket_id)
 
