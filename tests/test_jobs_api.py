@@ -1,5 +1,6 @@
 from unittest.mock import patch
 
+import httpx2
 import pytest
 
 from huggingface_hub import HfApi, JobStage
@@ -17,6 +18,44 @@ def _job_info(stage: str, job_id: str = "job-id") -> JobInfo:
         owner={"id": "1234", "name": "user", "type": "user"},
         status={"stage": stage},
     )
+
+
+@pytest.mark.parametrize(
+    "token, namespace",
+    [(None, None), ("hf_override", None), (None, "org")],
+)
+def test_list_jobs_uses_client_token_and_endpoint(token: str | None, namespace: str | None, monkeypatch) -> None:
+    api = HfApi(endpoint="https://hub.example", token="hf_instance")
+    expected_token = token or "hf_instance"
+    expected_namespace = namespace or "user"
+    requests: list[httpx2.Request] = []
+    monkeypatch.setattr("huggingface_hub.hf_api.get_token", lambda: None)
+
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        requests.append(request)
+        assert request.headers["authorization"] == f"Bearer {expected_token}"
+        if request.url.path == "/api/whoami-v2":
+            return httpx2.Response(200, json={"name": "user"})
+        return httpx2.Response(
+            200,
+            json=[
+                {
+                    "id": "job-id",
+                    "owner": {"id": "1234", "name": expected_namespace, "type": "user"},
+                    "status": {"stage": "RUNNING"},
+                }
+            ],
+        )
+
+    with httpx2.Client(transport=httpx2.MockTransport(handler)) as client:
+        monkeypatch.setattr("huggingface_hub.utils._http._GLOBAL_CLIENT", client)
+        jobs = list(api.list_jobs(token=token, namespace=namespace))
+
+    expected_urls = [] if namespace is not None else [f"{api.endpoint}/api/whoami-v2"]
+    expected_urls.append(f"{api.endpoint}/api/jobs/{expected_namespace}")
+    assert [str(request.url) for request in requests] == expected_urls
+    assert [job.id for job in jobs] == ["job-id"]
+    assert jobs[0].url == f"{api.endpoint}/jobs/{expected_namespace}/job-id"
 
 
 class TestWaitForJob:
