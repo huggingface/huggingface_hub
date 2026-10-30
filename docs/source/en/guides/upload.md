@@ -215,7 +215,7 @@ built-in `run_as_future` argument in upload methods is just an alias around it.
 ```py
 >>> from huggingface_hub import HfApi
 >>> api = HfApi()
->>> api.run_as_future(api.create_repo, "username/my-model", exists_ok=True)
+>>> api.run_as_future(api.create_repo, "username/my-model", exist_ok=True)
 Future(...)
 >>> api.upload_file(
 ...     repo_id="username/my-model",
@@ -414,7 +414,7 @@ For example, if you want to upload two files and delete a file in a Hub reposito
 1. Use the appropriate `CommitOperation` to add or delete a file and to delete a folder:
 
 ```py
->>> from huggingface_hub import HfApi, CommitOperationAdd, CommitOperationDelete
+>>> from huggingface_hub import HfApi, CommitOperationAdd, CommitOperationCopy, CommitOperationDelete
 >>> api = HfApi()
 >>> operations = [
 ...     CommitOperationAdd(path_in_repo="LICENSE.md", path_or_fileobj="~/repo/LICENSE.md"),
