@@ -113,6 +113,15 @@ class _HfFileSystemBaseROTests(_HfFileSystemBaseTests):
             assert f.read() == b"dummy binary data"
             assert f.read() == b""
 
+    @pytest.mark.parametrize("mode", ["x", "xb"])
+    def test_stream_file_rejects_exclusive_write_modes(self, mode):
+        with pytest.raises(ValueError, match="only supports reading"):
+            self.hffs.open(
+                self.hf_path + "/data/binary_data.bin",
+                mode=mode,
+                block_size=0,
+            )
+
     def test_stream_file_retry(self):
         with self.hffs.open(self.hf_path + "/data/binary_data.bin", block_size=0) as f:
             assert isinstance(f, HfFileSystemStreamFile)

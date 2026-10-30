@@ -1311,7 +1311,7 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
             raise ValueError(f"HfFileSystemStreamFile only supports block_size=0 but got {block_size}")
         if cache_type != "none":
             raise ValueError(f"HfFileSystemStreamFile only supports cache_type='none' but got {cache_type}")
-        if "w" in mode:
+        if mode != "rb":
             raise ValueError(f"HfFileSystemStreamFile only supports reading but got mode='{mode}'")
         # Let a missing repo/revision/file surface as FileNotFoundError (as the buffered
         # `HfFileSystemFile` does) instead of an AttributeError on `self.resolved_path` below.
