@@ -894,6 +894,111 @@ def test_stream_file_open_if_not_found():
             HfFileSystemStreamFile(fs, "hf://missing/repo/not_existing_file.txt")
 
 
+REPO_X_PATH = "hf://datasets/username/my_dataset/marker.txt"
+BUCKET_X_PATH = "hf://buckets/username/my_bucket/marker.txt"
+
+
+def _mock_x_write_world(fs, exists: bool):
+    """Patchers for an exclusive-create open: file existence + upload calls.
+
+    Each test enters them with `as` to get the underlying mock, e.g.
+    `with mock_repo_info(fs), exists_patch as exists_mock, ...`.
+    """
+    exists_patch = patch.object(fs, "exists", return_value=exists)
+    upload_patch = patch.object(fs._api, "upload_file", return_value=None)
+    batch_patch = patch.object(fs._api, "batch_bucket_files", return_value=None)
+    return exists_patch, upload_patch, batch_patch
+
+
+def test_open_xb_existing_repo_file_raises():
+    fs = HfFileSystem()
+    exists_patch, upload_patch, _ = _mock_x_write_world(fs, exists=True)
+    with mock_repo_info(fs), exists_patch, upload_patch as upload_mock:
+        with pytest.raises(FileExistsError):
+            with fs.open(REPO_X_PATH, "xb") as f:
+                f.write(b"second")
+        upload_mock.assert_not_called()
+
+
+def test_open_x_existing_repo_file_raises():
+    # Text mode "x" is normalized to "xb" by fsspec before reaching _open.
+    fs = HfFileSystem()
+    exists_patch, upload_patch, _ = _mock_x_write_world(fs, exists=True)
+    with mock_repo_info(fs), exists_patch, upload_patch as upload_mock:
+        with pytest.raises(FileExistsError):
+            with fs.open(REPO_X_PATH, "x") as f:
+                f.write("second")
+        upload_mock.assert_not_called()
+
+
+def test_open_xb_existing_bucket_file_raises():
+    fs = HfFileSystem()
+    exists_patch, _, batch_patch = _mock_x_write_world(fs, exists=True)
+    with mock_bucket_info(fs), exists_patch, batch_patch as batch_mock:
+        with pytest.raises(FileExistsError):
+            with fs.open(BUCKET_X_PATH, "xb") as f:
+                f.write(b"second")
+        batch_mock.assert_not_called()
+
+
+def test_open_xb_missing_repo_file_succeeds():
+    fs = HfFileSystem()
+    exists_patch, upload_patch, _ = _mock_x_write_world(fs, exists=False)
+    with mock_repo_info(fs), exists_patch, upload_patch as upload_mock:
+        with fs.open(REPO_X_PATH, "xb") as f:
+            f.write(b"first")
+        upload_mock.assert_called_once()
+
+
+def test_open_x_missing_repo_file_succeeds():
+    fs = HfFileSystem()
+    exists_patch, upload_patch, _ = _mock_x_write_world(fs, exists=False)
+    with mock_repo_info(fs), exists_patch, upload_patch as upload_mock:
+        with fs.open(REPO_X_PATH, "x") as f:
+            f.write("first")
+        upload_mock.assert_called_once()
+
+
+def test_open_xb_missing_bucket_file_succeeds():
+    fs = HfFileSystem()
+    exists_patch, _, batch_patch = _mock_x_write_world(fs, exists=False)
+    with mock_bucket_info(fs), exists_patch, batch_patch as batch_mock:
+        with fs.open(BUCKET_X_PATH, "xb") as f:
+            f.write(b"first")
+        batch_mock.assert_called_once()
+
+
+def test_open_wb_existing_repo_file_overwrites():
+    # Control case: exclusive-create guard must not fire for "wb".
+    fs = HfFileSystem()
+    exists_patch, upload_patch, _ = _mock_x_write_world(fs, exists=True)
+    with mock_repo_info(fs), exists_patch, upload_patch as upload_mock:
+        with fs.open(REPO_X_PATH, "wb") as f:
+            f.write(b"overwrite")
+        upload_mock.assert_called_once()
+
+
+def test_open_xb_existing_file_streaming_untouched():
+    # Scoping pin: the exclusive-create guard lives on the buffered path only.
+    # block_size=0 (streaming) keeps its current behavior; see issue #5280.
+    fs = HfFileSystem()
+    exists_patch, _, _ = _mock_x_write_world(fs, exists=True)
+    with mock_repo_info(fs), exists_patch:
+        f = fs.open(REPO_X_PATH, "xb", block_size=0)
+        assert isinstance(f, HfFileSystemStreamFile)
+        f.close()
+
+
+def test_open_xb_passes_revision_to_existence_check():
+    fs = HfFileSystem()
+    exists_patch, upload_patch, _ = _mock_x_write_world(fs, exists=False)
+    with mock_repo_info(fs), exists_patch as exists_mock, upload_patch:
+        with fs.open(REPO_X_PATH, "xb", revision="dev") as f:
+            f.write(b"first")
+        exists_mock.assert_called_once()
+        assert exists_mock.call_args.kwargs.get("revision") == "dev"
+
+
 @pytest.mark.parametrize(
     ("not_supported_path", "expected_error"),
     [
