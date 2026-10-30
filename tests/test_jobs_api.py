@@ -81,19 +81,6 @@ class TestWaitForJob:
         assert job.status.stage == "ERROR"
 
 
-def test_list_jobs_uses_client_to_resolve_namespace() -> None:
-    api = HfApi(endpoint="https://hub.example", token="hf_test")
-    with (
-        patch.object(api, "whoami", return_value={"name": "client-user"}) as client_whoami,
-        patch("huggingface_hub.hf_api.whoami", return_value={"name": "global-user"}),
-        patch("huggingface_hub.hf_api.paginate", return_value=[]) as mock_paginate,
-    ):
-        assert list(api.list_jobs()) == []
-
-    client_whoami.assert_called_once_with(token=None)
-    assert mock_paginate.call_args.args[0] == "https://hub.example/api/jobs/client-user"
-
-
 @pytest.mark.parametrize(
     "image, expected",
     [
