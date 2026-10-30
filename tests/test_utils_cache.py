@@ -581,6 +581,35 @@ class TestDeleteRevisionsDryRun:
         assert records[0].levelname == "WARNING"
         assert records[0].message == "Revision(s) not found - cannot delete them: abcdef123456789"
 
+    def test_delete_hash_shared_by_two_repos(self) -> None:
+        shared_hash = "a" * 40
+
+        def _repo(name: str, size: int) -> Mock:
+            blob = Mock()
+            blob.blob_path = Path(name) / "blobs" / "file"
+            blob.size_on_disk = size
+            revision = Mock()
+            revision.commit_hash = shared_hash
+            revision.snapshot_path = Path(name) / "snapshots" / shared_hash
+            revision.files = {blob}
+            revision.refs = {"main"}
+            repo = Mock()
+            repo.repo_path = Path(name)
+            repo.revisions = {revision}
+            return repo
+
+        cache_info = Mock()
+        cache_info.repos = [_repo("repo_a", 5), _repo("repo_b", 7)]
+        cache_info.cache_dir = None
+
+        strategy = HFCacheInfo.delete_revisions(cache_info, shared_hash)
+
+        assert strategy.repos == {Path("repo_a"), Path("repo_b")}
+        assert strategy.snapshots == set()
+
+        one_repo = HFCacheInfo.delete_repo_revisions(cache_info, {cache_info.repos[0]: cache_info.repos[0].revisions})
+        assert one_repo.repos == {Path("repo_a")}
+
 
 class TestDeleteFilesDryRun:
     cache_info: Mock  # Mocked HFCacheInfo

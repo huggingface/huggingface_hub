@@ -23,7 +23,7 @@ from huggingface_hub.cli import _skills, extensions, system
 from huggingface_hub.cli._cli_utils import RepoType, _get_huggingface_hub_update_command, parse_volumes
 from huggingface_hub.cli._output import OutputFormat, out
 from huggingface_hub.cli._uv_script_header import UvScriptHeader, parse_uv_script_header
-from huggingface_hub.cli.cache import CacheDeletionCounts
+from huggingface_hub.cli.cache import CacheDeletionCounts, _resolve_deletion_targets
 from huggingface_hub.cli.download import download
 from huggingface_hub.cli.hf import app
 from huggingface_hub.cli.hf import main as hf_main
@@ -176,13 +176,13 @@ class TestCacheCommand:
         repo = _make_repo("user/model", revisions=[revision])
 
         repo_lookup = {"model/user/model": repo}
-        revision_lookup = {revision.commit_hash.lower(): (repo, revision)}
+        revision_lookup = {revision.commit_hash.lower(): [(repo, revision)]}
 
         strategy = Mock()
         strategy.expected_freed_size_str = "0B"
 
         hf_cache_info = Mock()
-        hf_cache_info.delete_revisions.return_value = strategy
+        hf_cache_info.delete_repo_revisions.return_value = strategy
 
         counts = CacheDeletionCounts(repo_count=0, partial_revision_count=1, total_revision_count=1)
 
@@ -198,9 +198,45 @@ class TestCacheCommand:
             result = runner.invoke(app, ["cache", "rm", revision.commit_hash, "--yes"])
 
         assert result.exit_code == 0
-        hf_cache_info.delete_revisions.assert_called_once_with(revision.commit_hash)
+        hf_cache_info.delete_repo_revisions.assert_called_once_with({repo: frozenset({revision})})
         strategy.execute.assert_called_once_with()
         print_mock.assert_called_once()
+
+    def test_shared_commit_stays_with_the_repo_that_was_named(self) -> None:
+        shared = "ab" * 20
+        repo_a = _make_repo(
+            "org/one",
+            revisions=[
+                CachedRevisionInfo(
+                    commit_hash=shared,
+                    snapshot_path=Path("/tmp/one") / shared,
+                    size_on_disk=0,
+                    files=frozenset(),
+                    refs=frozenset({"main"}),
+                    last_modified=0.0,
+                )
+            ],
+        )
+        repo_b = _make_repo(
+            "org/two",
+            revisions=[
+                CachedRevisionInfo(
+                    commit_hash=shared,
+                    snapshot_path=Path("/tmp/two") / shared,
+                    size_on_disk=0,
+                    files=frozenset(),
+                    refs=frozenset({"main"}),
+                    last_modified=0.0,
+                )
+            ],
+        )
+        info = SimpleNamespace(repos=[repo_a, repo_b])
+
+        named = _resolve_deletion_targets(info, ["model/org/one"])
+        assert set(named.selected) == {repo_a}
+
+        by_hash = _resolve_deletion_targets(info, [shared])
+        assert set(by_hash.selected) == {repo_a, repo_b}
 
     def test_rm_hf_uri_executes_strategy(self, runner: CliRunner) -> None:
         revision = _make_revision("c" * 40)
@@ -213,7 +249,7 @@ class TestCacheCommand:
         strategy.expected_freed_size_str = "0B"
 
         hf_cache_info = Mock()
-        hf_cache_info.delete_revisions.return_value = strategy
+        hf_cache_info.delete_repo_revisions.return_value = strategy
 
         with (
             patch("huggingface_hub.cli.cache.scan_cache_dir", return_value=hf_cache_info),
@@ -223,7 +259,7 @@ class TestCacheCommand:
             result = runner.invoke(app, ["cache", "rm", "hf://models/openai-community/gpt2", "--yes"])
 
         assert result.exit_code == 0
-        hf_cache_info.delete_revisions.assert_called_once_with(revision.commit_hash)
+        hf_cache_info.delete_repo_revisions.assert_called_once_with({repo: frozenset({revision})})
         strategy.execute.assert_called_once_with()
 
     @pytest.mark.parametrize("target", ["hf://models/user/model/config.json", " hf://models/user/model/config.json "])
@@ -291,13 +327,13 @@ class TestCacheCommand:
         revision = _make_revision("d" * 40)
         repo = _make_repo("user/model", revisions=[revision])
         repo_lookup = {"model/user/model": repo}
-        revision_lookup = {revision.commit_hash.lower(): (repo, revision)}
+        revision_lookup = {revision.commit_hash.lower(): [(repo, revision)]}
 
         strategy = Mock()
         strategy.expected_freed_size_str = "0B"
 
         hf_cache_info = Mock()
-        hf_cache_info.delete_revisions.return_value = strategy
+        hf_cache_info.delete_repo_revisions.return_value = strategy
 
         counts = CacheDeletionCounts(repo_count=0, partial_revision_count=1, total_revision_count=1)
 
@@ -313,7 +349,7 @@ class TestCacheCommand:
             result = runner.invoke(app, ["cache", "rm", revision.commit_hash, "--dry-run"])
 
         assert result.exit_code == 0
-        hf_cache_info.delete_revisions.assert_called_once_with(revision.commit_hash)
+        hf_cache_info.delete_repo_revisions.assert_called_once_with({repo: frozenset({revision})})
         strategy.execute.assert_not_called()
 
     def test_prune_dry_run(self, runner: CliRunner) -> None:
@@ -327,7 +363,7 @@ class TestCacheCommand:
         strategy = Mock()
         strategy.expected_freed_size = 0
         strategy.expected_freed_size_str = "0B"
-        hf_cache_info.delete_revisions.return_value = strategy
+        hf_cache_info.delete_repo_revisions.return_value = strategy
 
         counts = CacheDeletionCounts(repo_count=0, partial_revision_count=1, total_revision_count=1)
 
@@ -346,7 +382,7 @@ class TestCacheCommand:
             result = runner.invoke(app, ["cache", "prune", "--dry-run"])
 
         assert result.exit_code == 0
-        hf_cache_info.delete_revisions.assert_called_once_with(detached.commit_hash)
+        hf_cache_info.delete_repo_revisions.assert_called_once_with({repo: frozenset({detached})})
         strategy.execute.assert_not_called()
         print_mock.assert_called_once()
 

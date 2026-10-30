@@ -146,16 +146,17 @@ def build_cache_index(
     hf_cache_info: HFCacheInfo,
 ) -> tuple[
     dict[str, CachedRepoInfo],
-    dict[str, tuple[CachedRepoInfo, CachedRevisionInfo]],
+    dict[str, list[tuple[CachedRepoInfo, CachedRevisionInfo]]],
 ]:
     """Create lookup tables so CLI commands can resolve repo ids and revisions quickly."""
     repo_lookup: dict[str, CachedRepoInfo] = {}
-    revision_lookup: dict[str, tuple[CachedRepoInfo, CachedRevisionInfo]] = {}
+    # A commit can sit in more than one cached repo. Keep every copy.
+    revision_lookup: dict[str, list[tuple[CachedRepoInfo, CachedRevisionInfo]]] = {}
     for repo in hf_cache_info.repos:
         repo_key = repo.cache_id.lower()
         repo_lookup[repo_key] = repo
         for revision in repo.revisions:
-            revision_lookup[revision.commit_hash.lower()] = (repo, revision)
+            revision_lookup.setdefault(revision.commit_hash.lower(), []).append((repo, revision))
     return repo_lookup, revision_lookup
 
 
@@ -364,13 +365,13 @@ def _resolve_deletion_targets(hf_cache_info: HFCacheInfo, targets: list[str]) ->
         lowered = target.lower()
 
         if re.fullmatch(r"[0-9a-fA-F]{40}", lowered):
-            match = revision_lookup.get(lowered)
-            if match is None:
+            matches = revision_lookup.get(lowered)
+            if not matches:
                 missing.append(target)
                 continue
-            repo, revision = match
-            selected[repo].add(revision)
-            revisions.add(revision.commit_hash)
+            for repo, revision in matches:
+                selected[repo].add(revision)
+                revisions.add(revision.commit_hash)
             continue
 
         cache_id = _cache_id(uris[target]) if target in uris else target
@@ -663,7 +664,9 @@ def rm(
         out.text("Nothing to delete.")
         raise click.exceptions.Exit(code=0)
 
-    strategy = hf_cache_info.delete_revisions(*sorted(resolution.revisions))
+    # `selected` is already scoped to the repos the user named. Passing only
+    # the hashes would also delete a different repo that shares the commit.
+    strategy = hf_cache_info.delete_repo_revisions(resolution.selected)
     counts = summarize_deletions(resolution.selected)
 
     summary_parts: list[str] = []
@@ -749,7 +752,7 @@ def prune(
         out.text("No unreferenced revisions, incomplete downloads or shared blobs found. Nothing to prune.")
         return
 
-    strategy = hf_cache_info.delete_revisions(*sorted(revisions))
+    strategy = hf_cache_info.delete_repo_revisions(selected)
     counts = summarize_deletions(selected)
     total_freed = (
         strategy.expected_freed_size + hf_cache_info.incomplete_size_on_disk + sum(unreferenced_blobs.values())
