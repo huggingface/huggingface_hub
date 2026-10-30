@@ -146,7 +146,7 @@ Most `hf` commands accept the same set of global formatting flags. They are docu
 | `-q`, `--quiet` | `--format quiet` | Print only IDs (one per line). Useful for piping IDs into other commands. |
 | `--no-truncate` | — | Show full values in human tables instead of shortening long values with `...`. The table may overflow the terminal width. Use `--format json` for structured output of list/dict columns. |
 
-`auto` (the default) picks `human` for an interactive terminal and `agent` when the CLI is invoked by an AI agent. `human` adds colors and pretty tables; `agent` produces tab-separated values without truncation; `json` emits a compact JSON object or array. Mixing two output-mode flags (e.g. `--json` together with `--format table`) raises a usage error.
+`auto` (the default) picks `human` for an interactive terminal and `agent` when the CLI is invoked by an AI agent. `human` adds colors and pretty tables; `agent` produces tab-separated values without truncation; `json` emits a compact JSON object or array. Mixing two output-mode flags (e.g. `--json` together with `--format human`) raises a usage error.
 
 Human tables auto-fit your terminal width: the widest columns are shortened only when the natural widths overflow the screen (so on a wide terminal you usually see full values without `...`). Pass `--no-truncate` to force full values regardless of width; use `--format json` for structured output of list/dict columns.
 
@@ -1349,6 +1349,17 @@ Edit an existing comment in place by passing the discussion number and the comme
 >>> hf discussions edit username/my-model 5 abc123 --body-file fixed.md
 ```
 
+### Attach images and videos
+
+Pass `--attach` to `hf discussions create`, `comment` or `edit` to upload an image, video or audio file and embed it in the body, as when you drag a file into the comment box on the Hub. If the body already references the file, as in `![Before the fix](./before.png)`, the reference points to the uploaded file. Otherwise, the file is appended to the body. To set the alt text of an appended image, add it after a `#`:
+
+```bash
+>>> hf discussions create username/my-model --title "Fix rendering" --pr --body "Before: ![Before the fix](./before.png)" --attach ./before.png --attach "./after.png#After the fix"
+>>> hf discussions comment username/my-model 5 --body "Here is a demo:" --attach demo.mp4
+```
+
+Supported formats are PNG, JPEG, GIF, WebP, MP4, MOV, WebM, MP3 and WAV, up to 10MB (50MB for videos).
+
 ### Close, reopen, and merge
 
 You can close a discussion or PR with `hf discussions close`. By default, you will be prompted for confirmation. Pass `--yes` to skip the prompt, and `--comment` to leave a closing message:
@@ -2308,7 +2319,7 @@ The schedule should be one of `@annually`, `@yearly`, `@monthly`, `@weekly`, `@d
 
 # Schedule with GPU
 >>> hf jobs scheduled run @hourly --flavor a10g-small pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel \
-... python -c "import torch; print(f"This code ran with the following GPU: {torch.cuda.get_device_name()}")"
+... python -c 'import torch; print(f"This code ran with the following GPU: {torch.cuda.get_device_name()}")'
 
 # Schedule a UV script
 >>> hf jobs scheduled uv run @hourly --name hourly-script my_script.py
@@ -2451,7 +2462,7 @@ The source Job's secrets are not copied to the webhook. Use `--secrets` or `--se
 >>> hf webhooks create --job-id 687f911eaea852de79c4a50a --watch bucket:my-org/my-bucket --secrets HF_TOKEN
 ```
 
-The `--watch` option uses the format `type:name` where type is one of `model`, `dataset`, `space`, `bucket`, `org`, or `user`. It can be repeated to watch multiple items. Use `--domain` to filter events to `repo` or `discussions`, and `--secret` to set a signing secret.
+The `--watch` option uses the format `type:name` where type is one of `model`, `dataset`, `space`, `bucket`, `org`, or `user`. It can be repeated to watch multiple items. Use `--domain` to filter events to `repo` or `discussion`, and `--secret` to set a signing secret.
 
 ### Update a webhook
 

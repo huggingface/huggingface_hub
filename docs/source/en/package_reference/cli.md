@@ -1328,6 +1328,7 @@ $ hf discussions comment [OPTIONS] REPO_ID NUM
 
 * `--body TEXT`: The comment text (supports Markdown).
 * `--body-file PATH`: Read the comment from a file. Use '-' for stdin.
+* `--attach TEXT`: Attach an image, video or audio file, as 'FILE' or 'FILE#alt text'. A '![alt](FILE)' reference in the body is replaced by the uploaded file, other files are appended. Can be used multiple times.
 * `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
@@ -1335,6 +1336,7 @@ $ hf discussions comment [OPTIONS] REPO_ID NUM
 Examples
   $ hf discussions comment username/my-model 5 --body "Thanks for reporting!"
   $ hf discussions comment username/my-model 5 --body "LGTM!"
+  $ hf discussions comment username/my-model 5 --body "Here is a demo:" --attach demo.mp4
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -1361,6 +1363,7 @@ $ hf discussions create [OPTIONS] REPO_ID
 * `--body TEXT`: The description (supports Markdown).
 * `--body-file PATH`: Read the description from a file. Use '-' for stdin.
 * `--pull-request, --pr`: Create a pull request instead of a discussion.
+* `--attach TEXT`: Attach an image, video or audio file, as 'FILE' or 'FILE#alt text'. A '![alt](FILE)' reference in the body is replaced by the uploaded file, other files are appended. Can be used multiple times.
 * `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
@@ -1370,6 +1373,7 @@ Examples
   $ hf discussions create username/my-model --title "Feature request" --body "Please add X"
   $ hf discussions create username/my-model --title "Fix typo" --pull-request
   $ hf discussions create username/my-dataset --type dataset --title "Data quality issue"
+  $ hf discussions create username/my-model --title "Fix rendering" --pr --attach "./before.png#Before the fix" --attach ./after.png
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -1425,6 +1429,7 @@ $ hf discussions edit [OPTIONS] REPO_ID NUM COMMENT_ID
 
 * `--body TEXT`: The new comment text (supports Markdown).
 * `--body-file PATH`: Read the new comment from a file. Use '-' for stdin.
+* `--attach TEXT`: Attach an image, video or audio file, as 'FILE' or 'FILE#alt text'. A '![alt](FILE)' reference in the body is replaced by the uploaded file, other files are appended. Can be used multiple times.
 * `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
@@ -1432,6 +1437,7 @@ $ hf discussions edit [OPTIONS] REPO_ID NUM COMMENT_ID
 Examples
   $ hf discussions edit username/my-model 5 abc123 --body "Updated comment."
   $ hf discussions edit username/my-model 5 abc123 --body-file fixed.md
+  $ hf discussions edit username/my-model 5 abc123 --body "Fixed: ![result](./after.png)" --attach ./after.png
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -5540,7 +5546,7 @@ $ hf webhooks create [OPTIONS]
 * `--watch TEXT`: Item to watch, in 'type:name' format (e.g. 'model:bert-base-uncased'). Repeatable.  [required]
 * `--url TEXT`: URL to send webhook payloads to. Mutually exclusive with --job-id.
 * `--job-id TEXT`: ID of a Job to trigger (from job.id) instead of pinging a URL. Mutually exclusive with --url.
-* `--domain [repo|discussions]`: Domain to watch: 'repo' or 'discussions'. Repeatable. Defaults to all domains.
+* `--domain [repo|discussion]`: Domain to watch: 'repo' or 'discussion'. Repeatable. Defaults to all domains.
 * `--secret TEXT`: Optional secret used to sign webhook payloads.
 * `-s, --secrets TEXT`: Set secret environment variables. Prefer `--secrets SECRET` to read the value from your environment (e.g. `--secrets HF_TOKEN` to pass your Hugging Face token); `--secrets SECRET=value` puts the value in your shell history.
 * `--secrets-file TEXT`: Read in a file of secret environment variables. Use `-` to read them from stdin.
@@ -5714,7 +5720,7 @@ $ hf webhooks update [OPTIONS] WEBHOOK_ID
 * `--url TEXT`: New URL to send webhook payloads to.
 * `--job-id TEXT`: ID of the source Job to trigger (can be the current one). Required with --secrets / --secrets-file.
 * `--watch TEXT`: New list of items to watch, in 'type:name' format. Repeatable. Replaces the entire existing watched list.
-* `--domain [repo|discussions]`: New list of domains to watch: 'repo' or 'discussions'. Repeatable.
+* `--domain [repo|discussion]`: New list of domains to watch: 'repo' or 'discussion'. Repeatable.
 * `--secret TEXT`: New secret used to sign webhook payloads.
 * `-s, --secrets TEXT`: Set secret environment variables. Prefer `--secrets SECRET` to read the value from your environment (e.g. `--secrets HF_TOKEN` to pass your Hugging Face token); `--secrets SECRET=value` puts the value in your shell history.
 * `--secrets-file TEXT`: Read in a file of secret environment variables. Use `-` to read them from stdin.

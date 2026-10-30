@@ -6,6 +6,8 @@ import multiprocessing.pool
 import os
 import pickle
 import tempfile
+import threading
+import time
 from pathlib import Path
 from typing import Iterable, Optional, Type
 from unittest.mock import Mock, patch
@@ -15,6 +17,7 @@ import pytest
 
 from huggingface_hub import HfApi, constants, hf_file_system
 from huggingface_hub.errors import BucketNotFoundError, RepositoryNotFoundError, RevisionNotFoundError
+from huggingface_hub.hf_api import RepoFile, RepoFolder
 from huggingface_hub.hf_file_system import (
     HfFileSystem,
     HfFileSystemFile,
@@ -316,6 +319,9 @@ class _HfFileSystemBaseROTests(_HfFileSystemBaseTests):
     def test_find_data_file(self):
         files = self.hffs.find(self.text_file, detail=False)
         assert files == [self.text_file]
+
+        files = self.hffs.find(self.text_file, detail=True)
+        assert files == {self.text_file: self.hffs.info(self.text_file)}
 
     def test_find_maxdepth(self):
         text_file_depth = self.text_file_path.count("/") + 1
@@ -985,3 +991,208 @@ def test_hf_file_system_file_can_handle_gzipped_file():
     with fs.open("datasets/allenai/math_qa/math_qa.py", "r", encoding="utf-8") as f:
         out = f.read()
     assert "class MathQa" in out
+
+
+_FAKE_REPO_ID = "fake/repo"
+_FAKE_REPO = f"datasets/{_FAKE_REPO_ID}"
+_FAKE_LAST_COMMIT = {"id": "oid", "title": "title", "date": "2025-01-01T00:00:00.000Z"}
+
+
+class FakeTreeApi:
+    """Mock of the parts of `HfApi` used by `HfFileSystem` to list the tree of a repository.
+
+    It mimics the Hub `tree` endpoint:
+    - at most 1000 entries (50 with `expand=True`) are returned per request,
+    - pagination is cursor-based, i.e. pages can only be fetched one after the other,
+    - a recursive listing returns all the folders and files below the requested path,
+    - a non-recursive listing returns the direct children of the requested path.
+
+    Entries are always returned "folders first, then files", each group sorted by path.
+    """
+
+    PAGE_SIZE = 1000
+    EXPANDED_PAGE_SIZE = 50
+
+    def __init__(self, files: dict[str, int], delay: float = 0.0, error_paths=()):
+        self.files = dict(files)
+        self.delay = delay
+        self.error_paths = set(error_paths)
+        self.calls = []  # one entry per request: (path in repo, recursive)
+        self._lock = threading.Lock()
+        self.in_flight = 0
+        self.max_in_flight = 0
+
+    def repo_info(self, repo_id, revision=None, repo_type=None, **kwargs):
+        if repo_id != _FAKE_REPO_ID or revision not in (None, "main"):
+            raise RepositoryNotFoundError(f"404 Client Error: Repository Not Found for repo: {repo_id}")
+        return Mock(id=repo_id)
+
+    def _entries(self, path: str | None, recursive: bool, expand: bool) -> list:
+        prefix = path + "/" if path else ""
+        files = sorted(path_in_repo for path_in_repo in self.files if path_in_repo.startswith(prefix))
+        relatives = [path_in_repo[len(prefix) :] for path_in_repo in files]
+        if recursive:
+            # a recursive listing returns all the nested folders
+            folders = {
+                prefix + "/".join(relative.split("/")[:nb_parts])
+                for relative in relatives
+                for nb_parts in range(1, len(relative.split("/")))
+            }
+        else:
+            # a non-recursive listing returns the direct children only
+            folders = {prefix + relative.split("/")[0] for relative in relatives if "/" in relative}
+            files = [path_in_repo for path_in_repo, relative in zip(files, relatives) if "/" not in relative]
+        entries = [RepoFolder(path=folder, oid="oid") for folder in sorted(folders)]
+        entries += [
+            RepoFile(
+                path=path_in_repo,
+                size=self.files[path_in_repo],
+                oid="oid",
+                last_commit=_FAKE_LAST_COMMIT if expand else None,
+            )
+            for path_in_repo in files
+        ]
+        return entries
+
+    def _paginate(self, path: str | None, recursive: bool, expand: bool):
+        """Yield pages of entries, one request at a time (as the Hub `tree` endpoint does)."""
+        if path in self.error_paths:
+            raise RuntimeError(f"Failed to list {path}")
+        entries = self._entries(path, recursive=recursive, expand=expand)
+        page_size = self.EXPANDED_PAGE_SIZE if expand else self.PAGE_SIZE
+        with self._lock:
+            self.in_flight += 1
+            self.max_in_flight = max(self.max_in_flight, self.in_flight)
+        try:
+            for i in range(0, max(len(entries), 1), page_size):
+                with self._lock:
+                    self.calls.append((path, recursive))
+                if self.delay:
+                    time.sleep(self.delay)
+                page = entries[i : i + page_size]
+                yield page, i + page_size >= len(entries)
+        finally:
+            with self._lock:
+                self.in_flight -= 1
+
+    def _iter_repo_tree_pages(self, repo_id, path=None, recursive=True, expand=False, revision=None, repo_type=None):
+        assert recursive  # only ever used to list a tree recursively
+        yield from self._paginate(path, recursive=True, expand=expand)
+
+    def list_repo_tree(self, repo_id, path=None, recursive=False, expand=False, revision=None, repo_type=None):
+        for page, _ in self._paginate(path, recursive=recursive, expand=expand):
+            yield from page
+
+
+def _fake_fs(files: dict[str, int], max_workers: int, **fake_kwargs) -> tuple[HfFileSystem, FakeTreeApi]:
+    api = FakeTreeApi(files, **fake_kwargs)
+    fs = HfFileSystem(endpoint="https://fake.example.com", skip_instance_cache=True, max_workers=max_workers)
+    fs._api = api
+    return fs, api
+
+
+def test_find_large_repo_is_listed_in_parallel():
+    files = {f"dir_{i:03d}/file_{j:04d}.bin": 10 for i in range(20) for j in range(1100)}
+    files["README.md"] = 5
+
+    fs, api = _fake_fs(files, max_workers=16, delay=0.02)
+    found = fs.find(_FAKE_REPO)
+
+    assert api.max_in_flight > 1  # directories were listed concurrently
+    # once the root pagination is known to be long, the root is listed one level deep and each of its
+    # directories is listed by its own task: no task ever lists below a direct sub-directory
+    assert all(path is None or "/" not in path for path, recursive in api.calls)
+    assert {path for path, recursive in api.calls if path and recursive} == {f"dir_{i:03d}" for i in range(20)}
+    # root pages until the split + 1 root listing + 2 pages per directory
+    assert len(api.calls) <= 52
+
+    # the same listing done sequentially (see `max_workers=1`) requires one request every 1000 entries
+    sequential_fs, sequential_api = _fake_fs(files, max_workers=1, delay=0.02)
+    assert sequential_fs.find(_FAKE_REPO) == found
+    assert len(sequential_api.calls) == 23
+
+
+def test_find_deeply_nested_repo_is_split_recursively():
+    # 10 directories, each holding 10 sub-directories with 1100 files in them
+    files = {f"dir_{i}/sub_{j}/file_{k:04d}.bin": 10 for i in range(10) for j in range(10) for k in range(1100)}
+
+    fs, api = _fake_fs(files, max_workers=16)
+    assert sorted(fs.find(_FAKE_REPO)) == sorted(f"{_FAKE_REPO}/{path}" for path in files)
+
+    # each directory is listed on its own, one level deep
+    assert {path for path, recursive in api.calls if path} == {f"dir_{i}" for i in range(10)} | {
+        f"dir_{i}/sub_{j}" for i in range(10) for j in range(10)
+    }
+    assert all(path is None or path.count("/") <= 1 for path, recursive in api.calls)
+    assert sorted(fs.dircache) == sorted(
+        [_FAKE_REPO]
+        + [f"{_FAKE_REPO}/dir_{i}" for i in range(10)]
+        + [f"{_FAKE_REPO}/dir_{i}/sub_{j}" for i in range(10) for j in range(10)]
+    )
+
+
+def test_find_small_repo_is_listed_with_a_single_request():
+    files = {"README.md": 3, "data/file.txt": 1, "data/sub/file2.txt": 2}
+
+    fs, api = _fake_fs(files, max_workers=16)
+    assert fs.find(_FAKE_REPO) == sorted(f"{_FAKE_REPO}/{path}" for path in files)
+    assert api.calls == [(None, True)]  # a single page: nothing to split
+
+    # the full tree is cached, directory by directory
+    assert sorted(fs.dircache) == [_FAKE_REPO, f"{_FAKE_REPO}/data", f"{_FAKE_REPO}/data/sub"]
+    assert [o["name"] for o in fs.dircache[f"{_FAKE_REPO}/data"]] == [
+        f"{_FAKE_REPO}/data/sub",
+        f"{_FAKE_REPO}/data/file.txt",
+    ]
+
+    # ... which can then be reused to list a sub-directory without any new request
+    assert fs.ls(f"{_FAKE_REPO}/data/sub", detail=False) == [f"{_FAKE_REPO}/data/sub/file2.txt"]
+    assert api.calls == [(None, True)]
+
+
+def test_find_many_small_directories_is_not_split():
+    # splitting a directory in (tiny) sub-directories would cost more requests than it would save
+    files = {f"dir_{i:03d}/file_{j}.bin": 10 for i in range(400) for j in range(3)}
+
+    fs, api = _fake_fs(files, max_workers=16)
+    assert sorted(fs.find(_FAKE_REPO)) == sorted(f"{_FAKE_REPO}/{path}" for path in files)
+    assert api.calls == [(None, True), (None, True)]  # 1600 entries listed through 2 pages
+
+
+@pytest.mark.parametrize("maxdepth", [1, 2])
+def test_find_maxdepth_does_not_list_deeper(maxdepth):
+    files = {f"dir_{i:03d}/sub/file_{j:04d}.bin": 10 for i in range(20) for j in range(1100)}
+    files["README.md"] = 5
+
+    fs, api = _fake_fs(files, max_workers=16)
+    found = fs.find(_FAKE_REPO, maxdepth=maxdepth, withdirs=True)
+    expected = ["README.md"] + [f"dir_{i:03d}" for i in range(20)]
+    if maxdepth >= 2:
+        expected += [f"dir_{i:03d}/sub" for i in range(20)]
+    # note: as per the fsspec spec, the root directory itself is part of the output
+    assert sorted(found) == sorted([_FAKE_REPO] + [f"{_FAKE_REPO}/{path}" for path in expected])
+
+    # nothing is listed below the requested depth
+    assert all(path is None or path.count("/") < maxdepth for path, recursive in api.calls)
+    assert all(not recursive for path, recursive in api.calls if path is not None)
+
+
+def test_find_expand_info():
+    files = {f"dir_{i}/file_{j}.bin": 10 for i in range(5) for j in range(60)}
+
+    fs, api = _fake_fs(files, max_workers=16)
+    found = fs.find(_FAKE_REPO, detail=True, expand_info=True)
+    assert sorted(found) == sorted(f"{_FAKE_REPO}/{path}" for path in files)
+    assert all(info["last_commit"] is not None for info in found.values())
+
+    fs, api = _fake_fs(files, max_workers=16)
+    found = fs.find(_FAKE_REPO, detail=True)
+    assert all(info["last_commit"] is None for info in found.values())
+
+
+def test_find_propagates_errors():
+    files = {f"dir_{i:02d}/file_{j}.bin": 10 for i in range(10) for j in range(1100)}
+
+    fs, api = _fake_fs(files, max_workers=4, error_paths=["dir_03"])
+    with pytest.raises(RuntimeError):
+        fs.find(_FAKE_REPO)

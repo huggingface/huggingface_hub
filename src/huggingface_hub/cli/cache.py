@@ -41,7 +41,7 @@ from ..utils import (
 from ..utils._parsing import parse_duration, parse_size
 from ._cli_utils import RepoIdArg, RepoTypeOpt, RevisionOpt, TokenOpt, get_hf_api, typer_factory
 from ._framework import Argument, Option
-from ._output import out
+from ._output import _ascii_safe, out
 
 
 cache_cli = typer_factory(help="Manage local cache directory.")
@@ -856,19 +856,20 @@ def verify(
     )
 
     exit_code = 0
+    failed = _ascii_safe("❌", "[FAIL]")  # stdout may not be able to encode "❌" (e.g. redirected on Windows)
 
     if result.mismatches:
         details = "\n".join(
             f"  - {m['path']}: expected {m['expected']} ({m['algorithm']}), got {m['actual']}"
             for m in result.mismatches
         )
-        out.text(f"❌ Checksum verification failed for the following file(s):\n{details}")
+        out.text(f"{failed} Checksum verification failed for the following file(s):\n{details}")
         exit_code = 1
 
     if result.missing_paths:
         if fail_on_missing_files:
             details = "\n".join(f"  - {p}" for p in result.missing_paths)
-            out.text(f"❌ Missing files (present remotely, absent locally):\n{details}")
+            out.text(f"{failed} Missing files (present remotely, absent locally):\n{details}")
             exit_code = 1
         else:
             out.warning(
@@ -879,7 +880,7 @@ def verify(
     if result.extra_paths:
         if fail_on_extra_files:
             details = "\n".join(f"  - {p}" for p in result.extra_paths)
-            out.text(f"❌ Extra files (present locally, absent remotely):\n{details}")
+            out.text(f"{failed} Extra files (present locally, absent remotely):\n{details}")
             exit_code = 1
         else:
             out.warning(

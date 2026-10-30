@@ -431,7 +431,7 @@ A typical use case of Inference Endpoints is to process a batch of jobs at once 
 
 # Or with asyncio
 >>> async_client = endpoint.async_client
->>> results = asyncio.gather(*[async_client.text_generation(...) for job in jobs])
+>>> results = await asyncio.gather(*[async_client.text_generation(...) for job in jobs])
 
 # Pause endpoint
 >>> endpoint.pause()
@@ -448,7 +448,7 @@ Or if your Inference Endpoint already exists and is paused:
 
 # Run inference
 >>> async_client = endpoint.async_client
->>> results = asyncio.gather(*[async_client.text_generation(...) for job in jobs])
+>>> results = await asyncio.gather(*[async_client.text_generation(...) for job in jobs])
 
 # Pause endpoint
 >>> endpoint.pause()

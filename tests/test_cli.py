@@ -5424,7 +5424,8 @@ class TestSkillGeneration:
         # Common flags appear inline, except --token (kept in common-options glossary)
         assert "--token" not in download_line
         # Enum options render their choices inline rather than a generic CHOICE/VALUE hint
-        assert "--format [auto|human|agent|json|quiet]" in download_line
+        assert "--type [model|dataset|space|kernel]" in download_line
+        assert "--format" not in download_line
 
     def test_format_params_distinguishes_options_from_arguments(self) -> None:
         """Required options must render with --prefix, positional args as UPPER_CASE."""
@@ -5683,7 +5684,7 @@ def _fake_install_extension(root: Path, *short_names: str) -> None:
 
 BINARY_URL = "raw.githubusercontent.com/huggingface/hf-demo/HEAD/hf-demo"
 REPO_PAGE_URL = "https://github.com/huggingface/hf-demo"
-COMMITS_URL = "https://api.github.com/repos/huggingface/hf-demo/commits/HEAD"
+REFS_URL = "https://github.com/huggingface/hf-demo.git/info/refs"
 
 
 class TestExtensionsGitHubAccess:
@@ -5712,15 +5713,15 @@ class TestExtensionsGitHubAccess:
         ],
     )
     @pytest.mark.skipif(os.name == "nt", reason="Shell-script extensions are not supported on Windows.")
-    def test_install_uses_head_refs_and_a_single_api_call(
+    def test_install_uses_head_refs_and_no_api_call(
         self, github: _FakeGitHubSession, about: str, expected_description: str | None
     ) -> None:
         # Shell-script extensions ship neither manifest.json nor pyproject.toml, so the repo's "About"
         # field is their only description. It is served by github.com, off the REST API quota.
         github.responses = {
             BINARY_URL: httpx2.Response(200, content=b"#!/bin/sh"),
+            REFS_URL: httpx2.Response(200, text=f"{'a' * 40} HEAD\x00symref=HEAD:refs/heads/main\n"),
             REPO_PAGE_URL: httpx2.Response(200, text=f'<meta name="description" content="{about}">'),
-            COMMITS_URL: httpx2.Response(200, text="a" * 40),
         }
         manifest = extensions._install_extension(owner="huggingface", repo_name="hf-demo", short_name="demo")
 
@@ -5728,18 +5729,18 @@ class TestExtensionsGitHubAccess:
         assert manifest.commit_sha == "a" * 40
         assert manifest.description == expected_description
         # The default branch is addressed as `HEAD`, so no `GET /repos/{owner}/{repo}` lookup is needed.
-        assert github.api_urls == [COMMITS_URL]
+        assert github.api_urls == []
         raw_prefix = "https://raw.githubusercontent.com/huggingface/hf-demo/"
         raw_urls = [url for url in github.urls if url.startswith(raw_prefix)]
         assert raw_urls and all(url.removeprefix(raw_prefix).startswith("HEAD/") for url in raw_urls)
 
     @pytest.mark.skipif(os.name == "nt", reason="Shell-script extensions are not supported on Windows.")
-    def test_install_completes_when_the_api_quota_is_exhausted(self, github: _FakeGitHubSession) -> None:
+    def test_install_completes_when_the_commit_lookup_is_rate_limited(self, github: _FakeGitHubSession) -> None:
         # The extension itself comes from the CDN, so only the optional version marker is lost.
         github.responses = {
             BINARY_URL: httpx2.Response(200, content=b"#!/bin/sh"),
             "HEAD/manifest.json": httpx2.Response(200, json={"description": "Demo extension"}),
-            "api.github.com": httpx2.Response(403, headers={"x-ratelimit-remaining": "0"}),
+            REFS_URL: httpx2.Response(429, headers={"retry-after": "60"}),
         }
         manifest = extensions._install_extension(owner="huggingface", repo_name="hf-demo", short_name="demo")
 
@@ -5765,7 +5766,7 @@ class TestExtensionsGitHubAccess:
         # A secondary limit: GitHub asks for a back-off and rides the *primary* window's reset
         # timestamp alongside it, on a quota that is not exhausted. The back-off is what applies.
         github.responses = {
-            "api.github.com": httpx2.Response(
+            ".git/info/refs": httpx2.Response(
                 429,
                 headers={"x-ratelimit-remaining": "53", "x-ratelimit-reset": "1786500000", "retry-after": "60"},
             )
@@ -5777,4 +5778,4 @@ class TestExtensionsGitHubAccess:
         assert "Retry in 60s." in str(result.exception)
         assert "It resets at" not in str(result.exception)
         # Bailed out on the first extension rather than repeating the failure for every one of them.
-        assert len(github.api_urls) == 1
+        assert len(github.urls) == 1

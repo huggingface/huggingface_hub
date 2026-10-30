@@ -1496,7 +1496,7 @@ def _hf_hub_download_to_local_dir(
             filename=filename,
             is_cached=is_cached,
             local_path=str(paths.file_path),
-            will_download=force_download or not is_cached,
+            will_download=True,
         )
 
     # Otherwise, let's download the file!
@@ -1577,6 +1577,7 @@ def try_to_load_from_cache(
         raise ValueError(
             f"Invalid repo type: {repo_type}. Accepted repo types are: {str(constants.REPO_TYPES_WITH_KERNEL)}"
         )
+    _validate_relative_filename(filename)
     if cache_dir is None:
         cache_dir = constants.HF_HUB_CACHE
 

@@ -450,7 +450,7 @@ def _consume_format_flags_for_leaf(cmd: click.Command, args: list[str]) -> None:
 
     '--no-truncate' is stripped for all non-pass-through commands; when present, human table cells are not truncated.
 
-    Raises click.UsageError if multiple conflicting flags are supplied (e.g. '--json' together with '--format table').
+    Raises click.UsageError if multiple conflicting flags are supplied (e.g. '--json' together with '--format human').
     """
     if cmd.context_settings.get("ignore_unknown_options"):
         return
