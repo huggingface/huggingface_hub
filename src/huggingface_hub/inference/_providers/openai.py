@@ -15,7 +15,7 @@ class OpenAIConversationalTask(BaseConversationalTask):
             )
         return api_key
 
-    def _prepare_mapping_info(self, model: str | None) -> InferenceProviderMapping:
+    def _prepare_mapping_info(self, model: str | None, api_key: str | None = None) -> InferenceProviderMapping:
         if model is None:
             raise ValueError("Please provide an OpenAI model ID, e.g. `gpt-4o` or `o1`.")
         return InferenceProviderMapping(

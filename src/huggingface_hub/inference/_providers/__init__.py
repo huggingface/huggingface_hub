@@ -211,13 +211,16 @@ PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
 }
 
 
-def get_provider_helper(provider: PROVIDER_OR_POLICY_T | None, task: str, model: str | None) -> TaskProviderHelper:
+def get_provider_helper(
+    provider: PROVIDER_OR_POLICY_T | None, task: str, model: str | None, api_key: str | None = None
+) -> TaskProviderHelper:
     """Get provider helper instance by name and task.
 
     Args:
         provider (`str`, *optional*): name of the provider, or "auto" to automatically select the provider for the model.
         task (`str`): Name of the task
         model (`str`, *optional*): Name of the model
+        api_key (`str`, *optional*): API key of the client. Used to select the provider when `provider="auto"`.
     Returns:
         TaskProviderHelper: Helper instance for the specified provider and task
 
@@ -245,7 +248,7 @@ def get_provider_helper(provider: PROVIDER_OR_POLICY_T | None, task: str, model:
             # Special case: we have a dedicated auto-router for conversational models. No need to fetch provider mapping.
             return CONVERSATIONAL_AUTO_ROUTER
 
-        provider_mapping = _fetch_inference_provider_mapping(model)
+        provider_mapping = _fetch_inference_provider_mapping(model, api_key)
         provider = next(iter(provider_mapping)).provider
 
     provider_tasks = PROVIDERS.get(provider)  # type: ignore

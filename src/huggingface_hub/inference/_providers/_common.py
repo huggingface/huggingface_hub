@@ -89,7 +89,7 @@ class TaskProviderHelper:
         api_key = self._prepare_api_key(api_key)
 
         # mapped model from HF model ID
-        provider_mapping_info = self._prepare_mapping_info(model)
+        provider_mapping_info = self._prepare_mapping_info(model, api_key=api_key)
 
         # default HF headers + user headers (to customize in subclasses)
         headers = self._prepare_headers(headers, api_key)
@@ -146,7 +146,7 @@ class TaskProviderHelper:
             )
         return api_key
 
-    def _prepare_mapping_info(self, model: str | None) -> InferenceProviderMapping:
+    def _prepare_mapping_info(self, model: str | None, api_key: str | None = None) -> InferenceProviderMapping:
         """Return the mapped model ID to use for the request.
 
         Usually not overwritten in subclasses."""
@@ -158,7 +158,7 @@ class TaskProviderHelper:
             return HARDCODED_MODEL_INFERENCE_MAPPING[self.provider][model]
 
         provider_mapping = None
-        for mapping in _fetch_inference_provider_mapping(model):
+        for mapping in _fetch_inference_provider_mapping(model, api_key):
             if mapping.provider == self.provider:
                 provider_mapping = mapping
                 break
@@ -310,7 +310,7 @@ class AutoRouterConversationalTask(BaseConversationalTask):
         else:
             return self.base_url  # No `/auto` suffix in the URL
 
-    def _prepare_mapping_info(self, model: str | None) -> InferenceProviderMapping:
+    def _prepare_mapping_info(self, model: str | None, api_key: str | None = None) -> InferenceProviderMapping:
         """
         In auto-router, we don't need to fetch provider mapping info.
         We just return a dummy mapping info with provider_id set to the HF model ID.
@@ -346,13 +346,17 @@ class BaseTextGenerationTask(TaskProviderHelper):
 
 
 @lru_cache(maxsize=None)
-def _fetch_inference_provider_mapping(model: str) -> list["InferenceProviderMapping"]:
+def _fetch_inference_provider_mapping(model: str, api_key: str | None = None) -> list["InferenceProviderMapping"]:
     """
     Fetch provider mappings for a model from the Hub.
+
+    The mappings depend on the user (access to the model, order of preferred providers), so `api_key` is used to
+    authenticate the request when it is a HF token. Other keys (e.g. a provider's own key) are never sent to the Hub.
     """
     from huggingface_hub.hf_api import HfApi
 
-    info = HfApi().model_info(model, expand=["inferenceProviderMapping"])
+    token = api_key if api_key is not None and api_key.startswith("hf_") else None
+    info = HfApi().model_info(model, expand=["inferenceProviderMapping"], token=token)
     provider_mapping = info.inference_provider_mapping
     if provider_mapping is None:
         raise ValueError(f"No provider mapping found for model {model}")

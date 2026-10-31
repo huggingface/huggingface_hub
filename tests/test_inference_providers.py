@@ -14,6 +14,7 @@ from huggingface_hub.inference._providers._common import (
     BaseConversationalTask,
     BaseTextGenerationTask,
     TaskProviderHelper,
+    _fetch_inference_provider_mapping,
     filter_none,
     recursive_merge,
 )
@@ -214,6 +215,44 @@ class TestBasicTaskProviderHelper:
         url = helper._prepare_url("sk_test_token", "test-model")
         assert url == "https://api.provider.com/v1/test-route"
         helper._prepare_route.assert_called_once_with("test-model", "sk_test_token")
+
+    def test_prepare_request_fetches_mapping_with_api_key(self, mocker):
+        helper = BaseConversationalTask(provider="provider-name", base_url="https://api.provider.com")
+        fetch_mapping = mocker.patch(
+            "huggingface_hub.inference._providers._common._fetch_inference_provider_mapping",
+            return_value=[
+                InferenceProviderMapping(
+                    provider="provider-name",
+                    hf_model_id="test-model",
+                    providerId="mapped-id",
+                    status="live",
+                    task="conversational",
+                )
+            ],
+        )
+
+        helper.prepare_request(
+            inputs=[{"role": "user", "content": "Hello!"}],
+            parameters={},
+            headers={},
+            model="test-model",
+            api_key="hf_test_token",
+        )
+
+        fetch_mapping.assert_called_once_with("test-model", "hf_test_token")
+
+
+def test_fetch_inference_provider_mapping_uses_hf_token(mocker):
+    """The mapping depends on the user (model access, preferred providers order), so it's fetched with their HF token."""
+    model_info = mocker.patch(
+        "huggingface_hub.hf_api.HfApi.model_info", return_value=mocker.Mock(inference_provider_mapping=[])
+    )
+
+    _fetch_inference_provider_mapping("test-model", "hf_token_a")
+    _fetch_inference_provider_mapping("test-model", "hf_token_b")
+    _fetch_inference_provider_mapping("test-model", "sk_provider_key")  # not a HF token: never sent to the Hub
+
+    assert [call.kwargs["token"] for call in model_info.call_args_list] == ["hf_token_a", "hf_token_b", None]
 
 
 class TestAutoRouterConversationalTask:
@@ -2592,17 +2631,19 @@ def test_get_provider_helper_auto_non_conversational(mocker):
     PROVIDERS["provider-a"] = {"test-task": mock_provider_a_helper}
     PROVIDERS["provider-b"] = {"test-task": mock_provider_b_helper}
 
-    mocker.patch(
+    fetch_mapping = mocker.patch(
         "huggingface_hub.inference._providers._fetch_inference_provider_mapping",
         return_value=[
             mocker.Mock(provider="provider-a"),
             mocker.Mock(provider="provider-b"),
         ],
     )
-    helper = get_provider_helper(provider="auto", task="test-task", model="test-model")
+    helper = get_provider_helper(provider="auto", task="test-task", model="test-model", api_key="hf_test_token")
 
     # The helper should be the one from provider-a
     assert helper is mock_provider_a_helper
+    # Providers are sorted by the user's preferences, so the mapping is fetched with their token
+    fetch_mapping.assert_called_once_with("test-model", "hf_test_token")
 
     PROVIDERS.pop("provider-a", None)
     PROVIDERS.pop("provider-b", None)
