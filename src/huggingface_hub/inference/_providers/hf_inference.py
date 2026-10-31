@@ -31,7 +31,7 @@ class HFInferenceTask(TaskProviderHelper):
         # special case: for HF Inference we allow not providing an API key
         return api_key or get_token()  # type: ignore
 
-    def _prepare_mapping_info(self, model: str | None) -> InferenceProviderMapping:
+    def _prepare_mapping_info(self, model: str | None, api_key: str | None = None) -> InferenceProviderMapping:
         if model is not None and model.startswith(("http://", "https://")):
             return InferenceProviderMapping(
                 provider="hf-inference", providerId=model, hf_model_id=model, task=self.task, status="live"

@@ -338,7 +338,9 @@ class InferenceClient:
         ```
         """
         model_id = model or self.model
-        provider_helper = get_provider_helper(self.provider, task="audio-classification", model=model_id)
+        provider_helper = get_provider_helper(
+            self.provider, task="audio-classification", model=model_id, api_key=self.token
+        )
         request_parameters = provider_helper.prepare_request(
             inputs=audio,
             parameters={"function_to_apply": function_to_apply, "top_k": top_k},
@@ -387,7 +389,7 @@ class InferenceClient:
         ```
         """
         model_id = model or self.model
-        provider_helper = get_provider_helper(self.provider, task="audio-to-audio", model=model_id)
+        provider_helper = get_provider_helper(self.provider, task="audio-to-audio", model=model_id, api_key=self.token)
         request_parameters = provider_helper.prepare_request(
             inputs=audio,
             parameters={},
@@ -438,7 +440,9 @@ class InferenceClient:
         ```
         """
         model_id = model or self.model
-        provider_helper = get_provider_helper(self.provider, task="automatic-speech-recognition", model=model_id)
+        provider_helper = get_provider_helper(
+            self.provider, task="automatic-speech-recognition", model=model_id, api_key=self.token
+        )
         request_parameters = provider_helper.prepare_request(
             inputs=audio,
             parameters={**(extra_body or {})},
@@ -892,6 +896,7 @@ class InferenceClient:
             model=model_id_or_url
             if model_id_or_url is not None and model_id_or_url.startswith(("http://", "https://"))
             else payload_model,
+            api_key=self.token,
         )
 
         # Prepare the payload
@@ -996,7 +1001,9 @@ class InferenceClient:
         ```
         """
         model_id = model or self.model
-        provider_helper = get_provider_helper(self.provider, task="document-question-answering", model=model_id)
+        provider_helper = get_provider_helper(
+            self.provider, task="document-question-answering", model=model_id, api_key=self.token
+        )
         inputs: dict[str, Any] = {"question": question, "image": _b64_encode(image)}
         request_parameters = provider_helper.prepare_request(
             inputs=inputs,
@@ -1081,7 +1088,9 @@ class InferenceClient:
         ```
         """
         model_id = model or self.model
-        provider_helper = get_provider_helper(self.provider, task="feature-extraction", model=model_id)
+        provider_helper = get_provider_helper(
+            self.provider, task="feature-extraction", model=model_id, api_key=self.token
+        )
         request_parameters = provider_helper.prepare_request(
             inputs=text,
             parameters={
@@ -1145,7 +1154,7 @@ class InferenceClient:
         ```
         """
         model_id = model or self.model
-        provider_helper = get_provider_helper(self.provider, task="fill-mask", model=model_id)
+        provider_helper = get_provider_helper(self.provider, task="fill-mask", model=model_id, api_key=self.token)
         request_parameters = provider_helper.prepare_request(
             inputs=text,
             parameters={"targets": targets, "top_k": top_k},
@@ -1195,7 +1204,9 @@ class InferenceClient:
         ```
         """
         model_id = model or self.model
-        provider_helper = get_provider_helper(self.provider, task="image-classification", model=model_id)
+        provider_helper = get_provider_helper(
+            self.provider, task="image-classification", model=model_id, api_key=self.token
+        )
         request_parameters = provider_helper.prepare_request(
             inputs=image,
             parameters={"function_to_apply": function_to_apply, "top_k": top_k},
@@ -1254,7 +1265,9 @@ class InferenceClient:
         ```
         """
         model_id = model or self.model
-        provider_helper = get_provider_helper(self.provider, task="image-segmentation", model=model_id)
+        provider_helper = get_provider_helper(
+            self.provider, task="image-segmentation", model=model_id, api_key=self.token
+        )
         request_parameters = provider_helper.prepare_request(
             inputs=image,
             parameters={
@@ -1331,7 +1344,7 @@ class InferenceClient:
 
         """
         model_id = model or self.model
-        provider_helper = get_provider_helper(self.provider, task="image-to-image", model=model_id)
+        provider_helper = get_provider_helper(self.provider, task="image-to-image", model=model_id, api_key=self.token)
         request_parameters = provider_helper.prepare_request(
             inputs=image,
             parameters={
@@ -1408,7 +1421,7 @@ class InferenceClient:
         ```
         """
         model_id = model or self.model
-        provider_helper = get_provider_helper(self.provider, task="image-to-video", model=model_id)
+        provider_helper = get_provider_helper(self.provider, task="image-to-video", model=model_id, api_key=self.token)
         request_parameters = provider_helper.prepare_request(
             inputs=image,
             parameters={
@@ -1463,7 +1476,7 @@ class InferenceClient:
         ```
         """
         model_id = model or self.model
-        provider_helper = get_provider_helper(self.provider, task="image-to-text", model=model_id)
+        provider_helper = get_provider_helper(self.provider, task="image-to-text", model=model_id, api_key=self.token)
         request_parameters = provider_helper.prepare_request(
             inputs=image,
             parameters={},
@@ -1512,7 +1525,9 @@ class InferenceClient:
         ```
         """
         model_id = model or self.model
-        provider_helper = get_provider_helper(self.provider, task="object-detection", model=model_id)
+        provider_helper = get_provider_helper(
+            self.provider, task="object-detection", model=model_id, api_key=self.token
+        )
         request_parameters = provider_helper.prepare_request(
             inputs=image,
             parameters={"threshold": threshold},
@@ -1586,7 +1601,9 @@ class InferenceClient:
         ```
         """
         model_id = model or self.model
-        provider_helper = get_provider_helper(self.provider, task="question-answering", model=model_id)
+        provider_helper = get_provider_helper(
+            self.provider, task="question-answering", model=model_id, api_key=self.token
+        )
         request_parameters = provider_helper.prepare_request(
             inputs={"question": question, "context": context},
             parameters={
@@ -1648,7 +1665,9 @@ class InferenceClient:
         ```
         """
         model_id = model or self.model
-        provider_helper = get_provider_helper(self.provider, task="sentence-similarity", model=model_id)
+        provider_helper = get_provider_helper(
+            self.provider, task="sentence-similarity", model=model_id, api_key=self.token
+        )
         request_parameters = provider_helper.prepare_request(
             inputs={"source_sentence": sentence, "sentences": other_sentences},
             parameters={},
@@ -1707,7 +1726,7 @@ class InferenceClient:
             "truncation": truncation,
         }
         model_id = model or self.model
-        provider_helper = get_provider_helper(self.provider, task="summarization", model=model_id)
+        provider_helper = get_provider_helper(self.provider, task="summarization", model=model_id, api_key=self.token)
         request_parameters = provider_helper.prepare_request(
             inputs=text,
             parameters=parameters,
@@ -1769,7 +1788,9 @@ class InferenceClient:
         ```
         """
         model_id = model or self.model
-        provider_helper = get_provider_helper(self.provider, task="table-question-answering", model=model_id)
+        provider_helper = get_provider_helper(
+            self.provider, task="table-question-answering", model=model_id, api_key=self.token
+        )
         request_parameters = provider_helper.prepare_request(
             inputs={"query": query, "table": table},
             parameters={"model": model, "padding": padding, "sequential": sequential, "truncation": truncation},
@@ -1823,7 +1844,9 @@ class InferenceClient:
         ```
         """
         model_id = model or self.model
-        provider_helper = get_provider_helper(self.provider, task="tabular-classification", model=model_id)
+        provider_helper = get_provider_helper(
+            self.provider, task="tabular-classification", model=model_id, api_key=self.token
+        )
         request_parameters = provider_helper.prepare_request(
             inputs=None,
             extra_payload={"table": table},
@@ -1873,7 +1896,9 @@ class InferenceClient:
         ```
         """
         model_id = model or self.model
-        provider_helper = get_provider_helper(self.provider, task="tabular-regression", model=model_id)
+        provider_helper = get_provider_helper(
+            self.provider, task="tabular-regression", model=model_id, api_key=self.token
+        )
         request_parameters = provider_helper.prepare_request(
             inputs=None,
             parameters={},
@@ -1929,7 +1954,9 @@ class InferenceClient:
         ```
         """
         model_id = model or self.model
-        provider_helper = get_provider_helper(self.provider, task="text-classification", model=model_id)
+        provider_helper = get_provider_helper(
+            self.provider, task="text-classification", model=model_id, api_key=self.token
+        )
         request_parameters = provider_helper.prepare_request(
             inputs=text,
             parameters={
@@ -2359,7 +2386,9 @@ class InferenceClient:
                 )
 
         model_id = model or self.model
-        provider_helper = get_provider_helper(self.provider, task="text-generation", model=model_id)
+        provider_helper = get_provider_helper(
+            self.provider, task="text-generation", model=model_id, api_key=self.token
+        )
         request_parameters = provider_helper.prepare_request(
             inputs=prompt,
             parameters=parameters,
@@ -2534,7 +2563,7 @@ class InferenceClient:
 
         """
         model_id = model or self.model
-        provider_helper = get_provider_helper(self.provider, task="text-to-image", model=model_id)
+        provider_helper = get_provider_helper(self.provider, task="text-to-image", model=model_id, api_key=self.token)
         request_parameters = provider_helper.prepare_request(
             inputs=prompt,
             parameters={
@@ -2633,7 +2662,7 @@ class InferenceClient:
 
         """
         model_id = model or self.model
-        provider_helper = get_provider_helper(self.provider, task="text-to-video", model=model_id)
+        provider_helper = get_provider_helper(self.provider, task="text-to-video", model=model_id, api_key=self.token)
         request_parameters = provider_helper.prepare_request(
             inputs=prompt,
             parameters={
@@ -2830,7 +2859,7 @@ class InferenceClient:
         ```
         """
         model_id = model or self.model
-        provider_helper = get_provider_helper(self.provider, task="text-to-speech", model=model_id)
+        provider_helper = get_provider_helper(self.provider, task="text-to-speech", model=model_id, api_key=self.token)
         request_parameters = provider_helper.prepare_request(
             inputs=text,
             parameters={
@@ -2920,7 +2949,9 @@ class InferenceClient:
         ```
         """
         model_id = model or self.model
-        provider_helper = get_provider_helper(self.provider, task="token-classification", model=model_id)
+        provider_helper = get_provider_helper(
+            self.provider, task="token-classification", model=model_id, api_key=self.token
+        )
         request_parameters = provider_helper.prepare_request(
             inputs=text,
             parameters={
@@ -3007,7 +3038,7 @@ class InferenceClient:
             raise ValueError("You cannot specify `tgt_lang` without specifying `src_lang`.")
 
         model_id = model or self.model
-        provider_helper = get_provider_helper(self.provider, task="translation", model=model_id)
+        provider_helper = get_provider_helper(self.provider, task="translation", model=model_id, api_key=self.token)
         request_parameters = provider_helper.prepare_request(
             inputs=text,
             parameters={
@@ -3071,7 +3102,9 @@ class InferenceClient:
         ```
         """
         model_id = model or self.model
-        provider_helper = get_provider_helper(self.provider, task="visual-question-answering", model=model_id)
+        provider_helper = get_provider_helper(
+            self.provider, task="visual-question-answering", model=model_id, api_key=self.token
+        )
         request_parameters = provider_helper.prepare_request(
             inputs=image,
             parameters={"top_k": top_k},
@@ -3168,7 +3201,9 @@ class InferenceClient:
         ```
         """
         model_id = model or self.model
-        provider_helper = get_provider_helper(self.provider, task="zero-shot-classification", model=model_id)
+        provider_helper = get_provider_helper(
+            self.provider, task="zero-shot-classification", model=model_id, api_key=self.token
+        )
         request_parameters = provider_helper.prepare_request(
             inputs=text,
             parameters={
@@ -3233,7 +3268,9 @@ class InferenceClient:
             raise ValueError("You must specify at least 2 classes to compare.")
 
         model_id = model or self.model
-        provider_helper = get_provider_helper(self.provider, task="zero-shot-image-classification", model=model_id)
+        provider_helper = get_provider_helper(
+            self.provider, task="zero-shot-image-classification", model=model_id, api_key=self.token
+        )
         request_parameters = provider_helper.prepare_request(
             inputs=image,
             parameters={

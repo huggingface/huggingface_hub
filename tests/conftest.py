@@ -160,11 +160,14 @@ def vcr_config():
 
 @pytest.fixture(autouse=True)
 def clear_lru_cache():
+    from huggingface_hub.inference._providers._common import _fetch_inference_provider_mapping
     from huggingface_hub.inference._providers.hf_inference import _check_supported_task
 
     _check_supported_task.cache_clear()
+    _fetch_inference_provider_mapping.cache_clear()
     yield
     _check_supported_task.cache_clear()
+    _fetch_inference_provider_mapping.cache_clear()
 
 
 @pytest.fixture(autouse=True)
