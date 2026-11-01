@@ -137,6 +137,7 @@ def write_tree_cache(tree_cache_folder: str, commit_hash: str, entries: dict[str
         "format_version": TREE_CACHE_FORMAT_VERSION,
         "files": {file_path: entries[file_path].to_json() for file_path in sorted(entries)},
     }
+    tmp_path: str | None = None
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
         tmp_fd, tmp_path = tempfile.mkstemp(dir=os.path.dirname(path), suffix=".tmp")
@@ -144,6 +145,13 @@ def write_tree_cache(tree_cache_folder: str, commit_hash: str, entries: dict[str
             json.dump(data, f, indent=1)
         os.replace(tmp_path, path)
     except OSError as e:
+        # The write is best-effort: clean up the temporary file so failed attempts don't litter the
+        # `trees/` folder (see https://github.com/huggingface/huggingface_hub/issues/5289).
+        if tmp_path is not None:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass  # best-effort cleanup, never mask the original error
         logger.warning(f"Ignored error while writing tree cache file {path}: {e}")
         return
 

@@ -123,6 +123,30 @@ class TestTreeCacheReadWrite:
             assert read_tree_cache(str(tmp_path), COMMIT_HASH) == _entries()
             mock_read.assert_not_called()
 
+    @pytest.mark.parametrize("failure_point", ["json_dump", "os_replace"])
+    def test_failed_write_cleans_up_temp_file(self, tmp_path: Path, failure_point: str):
+        # Regression test for https://github.com/huggingface/huggingface_hub/issues/5289.
+        # A failed write is nonfatal, but it must not leave the write's own `*.tmp` file behind.
+        if failure_point == "json_dump":
+            patcher = patch("huggingface_hub._tree_cache.json.dump", side_effect=OSError("disk full"))
+        else:
+            patcher = patch("huggingface_hub._tree_cache.os.replace", side_effect=PermissionError("target busy"))
+        with patcher:
+            write_tree_cache(str(tmp_path), COMMIT_HASH, _entries())
+        assert list((tmp_path / "trees").glob("*.tmp")) == []
+
+    def test_retry_after_failed_write_recovers(self, tmp_path: Path):
+        # Regression test for https://github.com/huggingface/huggingface_hub/issues/5289.
+        with patch("huggingface_hub._tree_cache.os.replace", side_effect=PermissionError("target busy")):
+            write_tree_cache(str(tmp_path), COMMIT_HASH, _entries())
+        assert read_tree_cache(str(tmp_path), COMMIT_HASH) is None
+
+        write_tree_cache(str(tmp_path), COMMIT_HASH, _entries())
+        # Drop the in-memory entry seeded by the successful write, so the read goes through the disk.
+        _IN_MEMORY_TREE_CACHE.pop(_tree_cache_path(str(tmp_path), COMMIT_HASH), None)
+        assert read_tree_cache(str(tmp_path), COMMIT_HASH) == _entries()
+        assert list((tmp_path / "trees").glob("*.tmp")) == []
+
     @pytest.mark.skipif(os.name != "nt", reason="Windows-specific test.")
     def test_round_trip_in_deep_folder(self, tmp_path: Path):
         """Regression test for https://github.com/huggingface/huggingface_hub/issues/4895."""
