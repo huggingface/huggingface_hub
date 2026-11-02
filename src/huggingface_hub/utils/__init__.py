@@ -103,6 +103,7 @@ _SUBMOD_ATTRS = {
         "set_client_factory",
     ],
     "_pagination": [
+        "_paginate_pages",
         "paginate",
     ],
     "_paths": [
@@ -337,7 +338,10 @@ if TYPE_CHECKING:  # pragma: no cover
         set_async_client_factory,  # noqa: F401
         set_client_factory,  # noqa: F401
     )
-    from ._pagination import paginate  # noqa: F401
+    from ._pagination import (
+        _paginate_pages,  # noqa: F401
+        paginate,  # noqa: F401
+    )
     from ._paths import (
         DEFAULT_IGNORE_PATTERNS,  # noqa: F401
         FORBIDDEN_FOLDERS,  # noqa: F401

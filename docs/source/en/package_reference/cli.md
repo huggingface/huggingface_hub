@@ -1328,6 +1328,7 @@ $ hf discussions comment [OPTIONS] REPO_ID NUM
 
 * `--body TEXT`: The comment text (supports Markdown).
 * `--body-file PATH`: Read the comment from a file. Use '-' for stdin.
+* `--attach TEXT`: Attach an image, video or audio file, as 'FILE' or 'FILE#alt text'. A '![alt](FILE)' reference in the body is replaced by the uploaded file, other files are appended. Can be used multiple times.
 * `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
@@ -1335,6 +1336,7 @@ $ hf discussions comment [OPTIONS] REPO_ID NUM
 Examples
   $ hf discussions comment username/my-model 5 --body "Thanks for reporting!"
   $ hf discussions comment username/my-model 5 --body "LGTM!"
+  $ hf discussions comment username/my-model 5 --body "Here is a demo:" --attach demo.mp4
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -1361,6 +1363,7 @@ $ hf discussions create [OPTIONS] REPO_ID
 * `--body TEXT`: The description (supports Markdown).
 * `--body-file PATH`: Read the description from a file. Use '-' for stdin.
 * `--pull-request, --pr`: Create a pull request instead of a discussion.
+* `--attach TEXT`: Attach an image, video or audio file, as 'FILE' or 'FILE#alt text'. A '![alt](FILE)' reference in the body is replaced by the uploaded file, other files are appended. Can be used multiple times.
 * `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
@@ -1370,6 +1373,7 @@ Examples
   $ hf discussions create username/my-model --title "Feature request" --body "Please add X"
   $ hf discussions create username/my-model --title "Fix typo" --pull-request
   $ hf discussions create username/my-dataset --type dataset --title "Data quality issue"
+  $ hf discussions create username/my-model --title "Fix rendering" --pr --attach "./before.png#Before the fix" --attach ./after.png
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -1425,6 +1429,7 @@ $ hf discussions edit [OPTIONS] REPO_ID NUM COMMENT_ID
 
 * `--body TEXT`: The new comment text (supports Markdown).
 * `--body-file PATH`: Read the new comment from a file. Use '-' for stdin.
+* `--attach TEXT`: Attach an image, video or audio file, as 'FILE' or 'FILE#alt text'. A '![alt](FILE)' reference in the body is replaced by the uploaded file, other files are appended. Can be used multiple times.
 * `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
@@ -1432,6 +1437,7 @@ $ hf discussions edit [OPTIONS] REPO_ID NUM COMMENT_ID
 Examples
   $ hf discussions edit username/my-model 5 abc123 --body "Updated comment."
   $ hf discussions edit username/my-model 5 abc123 --body-file fixed.md
+  $ hf discussions edit username/my-model 5 abc123 --body "Fixed: ![result](./after.png)" --attach ./after.png
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -2314,7 +2320,7 @@ $ hf jobs [OPTIONS] COMMAND [ARGS]...
 * `run`: Run a Job.
 * `scheduled`: Create and manage scheduled Jobs on the Hub.
 * `ssh`: SSH into a running Job.
-* `stats`: Fetch the resource usage statistics and metrics of Jobs
+* `stats`: Fetch the resource usage statistics and metrics of Jobs.
 * `uv`: Run UV scripts (Python with inline dependencies) on HF infrastructure.
 * `wait`: Wait for one or more Jobs to reach a terminal state.
 
@@ -3045,7 +3051,10 @@ Learn more
 
 ### `hf jobs stats`
 
-Fetch the resource usage statistics and metrics of Jobs
+Fetch the resource usage statistics and metrics of Jobs.
+
+By default, prints a snapshot of the current stats and exits (non-blocking).
+Use --follow/-f to display live stats until the Jobs complete.
 
 **Usage**:
 
@@ -3059,12 +3068,15 @@ $ hf jobs stats [OPTIONS] [JOB_IDS]...
 
 **Options**:
 
+* `-f, --follow`: Follow stats output (live view until the Jobs complete). Without this flag, a single snapshot is printed.
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
 Examples
+  $ hf jobs stats
   $ hf jobs stats <job_id>
+  $ hf jobs stats -f <job_id>
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -3673,7 +3685,7 @@ $ hf repos create [OPTIONS] REPO_ID
 * `--exist-ok / --no-exist-ok`: Do not raise an error if repo already exists.  [default: no-exist-ok]
 * `--resource-group-id TEXT`: Resource group in which to create the repo. Resource groups is only available for Enterprise Hub organizations.
 * `--region [us|eu]`: Cloud region in which to create the repo. Can be one of 'us' or 'eu'. Requires Team plan or above.
-* `--flavor [cpu-basic|cpu-upgrade|zero-a10g|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8]`: Space hardware flavor (e.g. 'cpu-basic', 't4-medium', 'l4x4'). Only for Spaces.
+* `--flavor [cpu-basic|cpu-upgrade|zero-a10g|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|rtx-pro-6000|rtx-pro-6000x2|rtx-pro-6000x4|rtx-pro-6000x8]`: Space hardware flavor (e.g. 'cpu-basic', 't4-medium', 'l4x4'). Only for Spaces.
 * `--sleep-time INTEGER`: Seconds of inactivity before the Space is put to sleep. Use -1 to disable. Only for Spaces.
 * `-s, --secrets TEXT`: Set secret environment variables. Prefer `--secrets SECRET` to read the value from your environment (e.g. `--secrets HF_TOKEN` to pass your Hugging Face token); `--secrets SECRET=value` puts the value in your shell history.
 * `--secrets-file TEXT`: Read in a file of secret environment variables. Use `-` to read them from stdin.
@@ -3784,7 +3796,7 @@ $ hf repos duplicate [OPTIONS] FROM_ID [TO_ID]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--exist-ok / --no-exist-ok`: Do not raise an error if repo already exists.  [default: no-exist-ok]
 * `--resource-group-id TEXT`: Resource group in which to create the new repo. Resource groups is only available for Enterprise Hub organizations.
-* `--flavor [cpu-basic|cpu-upgrade|zero-a10g|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8]`: Space hardware flavor (e.g. 'cpu-basic', 't4-medium', 'l4x4'). Only for Spaces.
+* `--flavor [cpu-basic|cpu-upgrade|zero-a10g|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|rtx-pro-6000|rtx-pro-6000x2|rtx-pro-6000x4|rtx-pro-6000x8]`: Space hardware flavor (e.g. 'cpu-basic', 't4-medium', 'l4x4'). Only for Spaces.
 * `--sleep-time INTEGER`: Seconds of inactivity before the Space is put to sleep. Use -1 to disable. Only for Spaces.
 * `-s, --secrets TEXT`: Set secret environment variables. Prefer `--secrets SECRET` to read the value from your environment (e.g. `--secrets HF_TOKEN` to pass your Hugging Face token); `--secrets SECRET=value` puts the value in your shell history.
 * `--secrets-file TEXT`: Read in a file of secret environment variables. Use `-` to read them from stdin.
@@ -5020,7 +5032,7 @@ $ hf spaces settings [OPTIONS] SPACE_ID
 **Options**:
 
 * `--sleep-time INTEGER`: Idle time in seconds after which the Space goes to sleep. Use -1 to never sleep. Only available on upgraded hardware.
-* `--hardware [cpu-basic|cpu-upgrade|zero-a10g|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8]`: Space hardware flavor (e.g. 'cpu-basic', 't4-medium', 'l4x4'). Run 'hf spaces hardware' to list available options.
+* `--hardware [cpu-basic|cpu-upgrade|zero-a10g|t4-small|t4-medium|l4x1|l4x4|l40sx1|l40sx4|l40sx8|a10g-small|a10g-large|a10g-largex2|a10g-largex4|a100-large|a100x4|a100x8|rtx-pro-6000|rtx-pro-6000x2|rtx-pro-6000x4|rtx-pro-6000x8]`: Space hardware flavor (e.g. 'cpu-basic', 't4-medium', 'l4x4'). Run 'hf spaces hardware' to list available options.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -5534,7 +5546,7 @@ $ hf webhooks create [OPTIONS]
 * `--watch TEXT`: Item to watch, in 'type:name' format (e.g. 'model:bert-base-uncased'). Repeatable.  [required]
 * `--url TEXT`: URL to send webhook payloads to. Mutually exclusive with --job-id.
 * `--job-id TEXT`: ID of a Job to trigger (from job.id) instead of pinging a URL. Mutually exclusive with --url.
-* `--domain [repo|discussions]`: Domain to watch: 'repo' or 'discussions'. Repeatable. Defaults to all domains.
+* `--domain [repo|discussion]`: Domain to watch: 'repo' or 'discussion'. Repeatable. Defaults to all domains.
 * `--secret TEXT`: Optional secret used to sign webhook payloads.
 * `-s, --secrets TEXT`: Set secret environment variables. Prefer `--secrets SECRET` to read the value from your environment (e.g. `--secrets HF_TOKEN` to pass your Hugging Face token); `--secrets SECRET=value` puts the value in your shell history.
 * `--secrets-file TEXT`: Read in a file of secret environment variables. Use `-` to read them from stdin.
@@ -5708,7 +5720,7 @@ $ hf webhooks update [OPTIONS] WEBHOOK_ID
 * `--url TEXT`: New URL to send webhook payloads to.
 * `--job-id TEXT`: ID of the source Job to trigger (can be the current one). Required with --secrets / --secrets-file.
 * `--watch TEXT`: New list of items to watch, in 'type:name' format. Repeatable. Replaces the entire existing watched list.
-* `--domain [repo|discussions]`: New list of domains to watch: 'repo' or 'discussions'. Repeatable.
+* `--domain [repo|discussion]`: New list of domains to watch: 'repo' or 'discussion'. Repeatable.
 * `--secret TEXT`: New secret used to sign webhook payloads.
 * `-s, --secrets TEXT`: Set secret environment variables. Prefer `--secrets SECRET` to read the value from your environment (e.g. `--secrets HF_TOKEN` to pass your Hugging Face token); `--secrets SECRET=value` puts the value in your shell history.
 * `--secrets-file TEXT`: Read in a file of secret environment variables. Use `-` to read them from stdin.

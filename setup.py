@@ -18,7 +18,7 @@ install_requires = [
     "click>=8.4.2,<9.0.0",  # 8.4.0/8.4.1 shipped a broken fish completion script
     "filelock>=3.10.0",
     "fsspec>=2023.5.0",
-    f"{HF_XET_VERSION}; platform_machine=='x86_64' or platform_machine=='amd64' or platform_machine=='AMD64' or platform_machine=='arm64' or platform_machine=='aarch64'",
+    f"{HF_XET_VERSION}; platform_machine=='x86_64' or platform_machine=='amd64' or platform_machine=='AMD64' or platform_machine=='arm64' or platform_machine=='ARM64' or platform_machine=='aarch64'",
     "httpx2>=2.0.0, <3",
     "packaging>=20.9",
     "pyyaml>=5.1",
@@ -49,29 +49,25 @@ extras["hf_xet"] = [HF_XET_VERSION]
 
 extras["mcp"] = ["mcp>=1.9.4, <2.0.0"]  # list_tools(cursor=...) only paginates correctly from 1.9.4
 
-extras["testing"] = (
-    extras["oauth"]
-    + [
-        "jedi",
-        "Jinja2",
-        "pytest>=8.4.2",  # we need https://github.com/pytest-dev/pytest/pull/12436
-        "pytest-cov",
-        "pytest-env",
-        "pytest-xdist",
-        "pytest-vcr",  # to mock Inference
-        "pytest-asyncio",  # for AsyncInferenceClient
-        # 16.2 clears fixture finalizers when rerunning a test whose fixture failed at setup.
-        # Without it, any flaky fixture (e.g. a 502 from hub-ci) makes the rerun itself crash on pytest>=9.
-        "pytest-rerunfailures>=16.2",  # to rerun flaky tests in CI
-        "pytest-mock",
-        "urllib3<2.0",  # VCR.py broken with urllib3 2.0 (see https://urllib3.readthedocs.io/en/stable/v2-migration-guide.html)
-        "soundfile",
-        "Pillow",
-        "numpy",  # for embeddings
-        "duckdb",  # for datasets SQL end-to-end tests
-        "fastapi",  # To build the documentation
-    ]
-)
+extras["testing"] = extras["oauth"] + [
+    "jedi",
+    "Jinja2",
+    "pytest>=8.4.2",  # we need https://github.com/pytest-dev/pytest/pull/12436
+    "pytest-cov",
+    "pytest-env",
+    "pytest-xdist",
+    "pytest-vcr",  # to mock Inference
+    "pytest-asyncio",  # for AsyncInferenceClient
+    # 16.2 clears fixture finalizers when rerunning a test whose fixture failed at setup.
+    # Without it, any flaky fixture (e.g. a 502 from hub-ci) makes the rerun itself crash on pytest>=9.
+    "pytest-rerunfailures>=16.2",  # to rerun flaky tests in CI
+    "pytest-mock",
+    "soundfile",
+    "Pillow",
+    "numpy",  # for embeddings
+    "duckdb; python_version < '3.15'",  # for datasets SQL end-to-end tests (no 3.15 wheels yet)
+    "fastapi",  # To build the documentation
+]
 
 extras["gradio"] = [
     "gradio>=5.0.0",
@@ -136,6 +132,7 @@ setup(
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
         "Programming Language :: Python :: 3.14",
+        "Programming Language :: Python :: 3.15",
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
     ],
     include_package_data=True,

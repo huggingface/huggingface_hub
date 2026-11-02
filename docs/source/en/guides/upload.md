@@ -322,9 +322,12 @@ For more details about the [`CommitScheduler`], here is what you need to know:
     recommended to set a minimal value of 5 minutes. Besides, the scheduler is designed to avoid empty commits. If no
     new content is detected in the folder, the scheduled commit is dropped.
 - **errors:**
-    The scheduler run as background thread. It is started when you instantiate the class and never stops. In particular,
-    if an error occurs during the upload (example: connection issue), the scheduler will silently ignore it and retry
-    at the next scheduled commit.
+    The scheduler runs as a background thread. It is started when you instantiate the class and runs until `stop()` is
+    called or the process exits. If an error occurs during the upload (example: connection issue), the error is logged
+    and the scheduler retries at the next scheduled commit.
+- **scripts:**
+    In a script with a bounded lifetime (e.g. training), use the scheduler as a context manager. Leaving the `with`
+    block triggers a last upload, waits for it to complete and stops the scheduler.
 - **thread-safety:**
     In most cases it is safe to assume that you can write to a file without having to worry about a lock file. The
     scheduler will not crash or be corrupted if you write content to the folder while it's uploading. In practice,
@@ -354,9 +357,9 @@ overloading the repo on the Hub:
 class ZipScheduler(CommitScheduler):
     def push_to_hub(self):
         # 1. List PNG files
-          png_files = list(self.folder_path.glob("*.png"))
-          if len(png_files) == 0:
-              return None  # return early if nothing to commit
+        png_files = list(self.folder_path.glob("*.png"))
+        if len(png_files) == 0:
+            return None  # return early if nothing to commit
 
         # 2. Zip png files in a single archive
         with tempfile.TemporaryDirectory() as tmpdir:

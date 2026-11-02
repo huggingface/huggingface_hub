@@ -122,13 +122,14 @@ def test_oauth_workflow(client: TestClient):
     assert data["msg"] == "Hello, hub.js!"
     assert data["oauth_info"]["access_token"] is not None
     assert data["oauth_info"]["scope"] == "openid profile email"
-    assert data["oauth_info"]["user_info"] == {
+    user_info = data["oauth_info"]["user_info"]
+    assert user_info.pop("picture").startswith("https://hub-ci.huggingface.co/avatars/")
+    assert user_info == {
         "sub": "62f264b9f3c90f4b6514a269",
         "name": "@huggingface/hub CI bot",
         "preferred_username": "hub.js",
         "email_verified": True,
         "email": "eliott@huggingface.co",
-        "picture": "https://hub-ci.huggingface.co/avatars/934b830e9fdaa879487852f79eef7165.svg",
         "profile": "https://hub-ci.huggingface.co/hub.js",
         "website": "https://github.com/huggingface/hub.js",
         "is_pro": None,

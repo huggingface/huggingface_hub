@@ -24,12 +24,13 @@ from collections import defaultdict
 from collections.abc import Callable, Iterable, Iterator
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from email.utils import parsedate_to_datetime
 from functools import wraps
 from itertools import islice
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from secrets import token_hex
-from typing import TYPE_CHECKING, Any, BinaryIO, Literal, TypeVar, cast, overload
+from typing import TYPE_CHECKING, Any, BinaryIO, Literal, TypeVar, cast, get_args, overload
 from urllib.parse import quote
 
 import httpcore2
@@ -106,6 +107,7 @@ from .utils import (
     SafetensorsParsingError,
     SafetensorsRepoMetadata,
     TensorInfo,
+    _paginate_pages,
     build_hf_headers,
     chunk_iterable,
     experimental,
@@ -257,6 +259,20 @@ _BUCKET_PATHS_INFO_BATCH_SIZE = 1000
 _BUCKET_BATCH_ADD_CHUNK_SIZE = 1000
 _BUCKET_BATCH_DELETE_CHUNK_SIZE = 1000
 _BUCKET_BATCH_MAX_LISTED_FAILURES = 10  # in the error message; the full list is on `BucketBatchError.failures`
+
+# Same formats as the Hub web editor accepts for Discussion and Pull Request attachments
+_ATTACHMENT_CONTENT_TYPES = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".webp": "image/webp",
+    ".mp4": "video/mp4",
+    ".mov": "video/quicktime",
+    ".webm": "video/webm",
+    ".mp3": "audio/mpeg",
+    ".wav": "audio/wav",
+}
 
 # Regex used to match special revisions with "/" in them (see #1710)
 SPECIAL_REFS_REVISION_REGEX = re.compile(
@@ -430,13 +446,17 @@ class AccessRequest:
     """Data structure containing information about a user access request.
 
     Attributes:
-        username (`str`):
-            Username of the user who requested access.
-        fullname (`str`):
-            Fullname of the user who requested access.
-        email (`Optional[str]`):
-            Email of the user who requested access.
-            Can only be `None` in the /accepted list if the user was granted access manually.
+        username (`str`, *optional*):
+            Username of the user who requested access. `None` if the repo is configured to not share usernames of
+            requesters. In that case, use `request_id` to accept, reject or cancel the request.
+        request_id (`str`):
+            Id of the access request. Always set, even if the username is not shared.
+        fullname (`str`, *optional*):
+            Fullname of the user who requested access. `None` if the repo is configured to not share usernames of
+            requesters.
+        email (`str`, *optional*):
+            Email of the user who requested access. `None` if the user was granted access manually or if the repo is
+            configured to not share emails of requesters.
         timestamp (`datetime`):
             Timestamp of the request.
         status (`Literal["pending", "accepted", "rejected"]`):
@@ -445,8 +465,9 @@ class AccessRequest:
             Additional fields filled by the user in the gate form.
     """
 
-    username: str
-    fullname: str
+    username: str | None
+    request_id: str
+    fullname: str | None
     email: str | None
     timestamp: datetime
     status: Literal["pending", "accepted", "rejected"]
@@ -487,7 +508,7 @@ class WebhookInfo:
         watched (`list[WebhookWatchedItem]`):
             List of items watched by the webhook, see [`WebhookWatchedItem`].
         domains (`list[WEBHOOK_DOMAIN_T]`):
-            List of domains the webhook is watching. Can be one of `["repo", "discussions"]`.
+            List of domains the webhook is watching. Can be one of `["repo", "discussion"]`.
         secret (`str`, *optional*):
             Secret of the webhook.
         disabled (`bool`):
@@ -2076,7 +2097,13 @@ def _parse_safetensors_header(metadata_as_bytes: bytes, filename: str, context_m
             f"Failed to parse safetensors header for '{filename}' ({context_msg}): header is not json-encoded string. "
             "Please make sure this is a correctly formatted safetensors file."
         ) from e
+    return _safetensors_file_metadata_from_header(metadata_as_dict, filename, context_msg)
 
+
+def _safetensors_file_metadata_from_header(
+    metadata_as_dict: dict, filename: str, context_msg: str
+) -> SafetensorsFileMetadata:
+    """Build a [`SafetensorsFileMetadata`] from a safetensors header already decoded from JSON."""
     try:
         return SafetensorsFileMetadata(
             metadata=metadata_as_dict.get("__metadata__", {}),
@@ -3959,14 +3986,51 @@ class HfApi:
             ]
             ```
         """
+        for page, _ in self._iter_repo_tree_pages(
+            repo_id,
+            path_in_repo,
+            recursive=recursive,
+            expand=expand,
+            revision=revision,
+            repo_type=repo_type,
+            token=token,
+        ):
+            yield from page
+
+    def _iter_repo_tree_pages(
+        self,
+        repo_id: str,
+        path_in_repo: str | None = None,
+        *,
+        recursive: bool = False,
+        expand: bool = False,
+        revision: str | None = None,
+        repo_type: str | None = None,
+        token: str | bool | None = None,
+    ) -> Iterable[tuple[list[RepoFile | RepoFolder], bool]]:
+        """Same as [`HfApi.list_repo_tree`] but yields the results page by page and with a `finished` boolean.
+
+        Internal method: pagination is capped by the Hub (1000 entries per page, 50 when `expand=True`)
+        and is cursor-based, so listing a large tree requires to follow the pages one by one. Yielding
+        page per page allows a caller to stop in the middle of the pagination and re-dispatch the
+        remaining of a sub-tree to (cheaper to list) sub-directories. See [`HfFileSystem`].
+        """
         repo_type = repo_type or constants.REPO_TYPE_MODEL
         revision = quote(revision, safe="") if revision is not None else constants.DEFAULT_REVISION
         headers = self._build_hf_headers(token=token)
 
         encoded_path_in_repo = "/" + quote(path_in_repo, safe="") if path_in_repo else ""
         tree_url = f"{self.endpoint}/api/{repo_type}s/{repo_id}/tree/{revision}{encoded_path_in_repo}"
-        for path_info in paginate(path=tree_url, headers=headers, params={"recursive": recursive, "expand": expand}):
-            yield (RepoFile(**path_info) if path_info["type"] == "file" else RepoFolder(**path_info))
+        for page, finished in _paginate_pages(
+            path=tree_url, headers=headers, params={"recursive": recursive, "expand": expand}
+        ):
+            yield (
+                [
+                    RepoFile(**path_info) if path_info["type"] == "file" else RepoFolder(**path_info)
+                    for path_info in page
+                ],
+                finished,
+            )
 
     @validate_hf_hub_args
     def verify_repo_checksums(
@@ -4168,7 +4232,7 @@ class HfApi:
         )
 
         # Create an empty branch by deriving from initial commit
-        >>> api.create_branch("gpt2", "new_empty_branch", revision=initial_commit.commit_id)
+        >>> api.create_branch("gpt2", branch="new_empty_branch", revision=initial_commit.commit_id)
         ```
 
         Returns:
@@ -5011,8 +5075,8 @@ class HfApi:
                 To disable authentication, pass `False`.
 
             repo_type (`str`, *optional*):
-                Set to `"dataset"` or `"space"` if uploading to a dataset or
-                space, `None` or `"model"` if uploading to a model. Default is
+                Set to `"dataset"`, `"space"` or `"kernel"` if uploading to a dataset,
+                space or kernel repo, `None` or `"model"` if uploading to a model. Default is
                 `None`.
 
             revision (`str`, *optional*):
@@ -5065,6 +5129,7 @@ class HfApi:
         from ._commit_api import (
             CommitOperationAdd,
             CommitOperationCopy,
+            CommitOperationDelete,
             _fetch_files_to_copy,
             _send_commit,
             _warn_on_overwriting_operations,
@@ -5080,8 +5145,8 @@ class HfApi:
 
         commit_description = commit_description if commit_description is not None else ""
         repo_type = repo_type if repo_type is not None else constants.REPO_TYPE_MODEL
-        if repo_type not in constants.REPO_TYPES:
-            raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
+        if repo_type not in constants.REPO_TYPES_WITH_KERNEL:
+            raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES_WITH_KERNEL}")
         unquoted_revision = revision or constants.DEFAULT_REVISION
         revision = quote(unquoted_revision, safe="")
         create_pr = create_pr if create_pr is not None else False
@@ -5154,13 +5219,19 @@ class HfApi:
             repo_id=repo_id, copies=copies, files_to_copy=files_to_copy, token=token, repo_type=repo_type
         )
 
-        # Remove no-op operations (files that have not changed)
+        # Remove no-op operations (files that have not changed), except files deleted in the same commit
+        deleted_paths = {op.path_in_repo.rstrip("/") for op in operations if isinstance(op, CommitOperationDelete)}
+
+        def _is_deleted(path: str) -> bool:
+            return path in deleted_paths or any(str(parent) in deleted_paths for parent in PurePosixPath(path).parents)
+
         operations_without_no_op = []
         for operation in operations:
             if (
                 isinstance(operation, CommitOperationAdd)
                 and operation._remote_oid is not None
                 and operation._remote_oid == operation._local_oid
+                and not _is_deleted(operation.path_in_repo)
             ):
                 # File already exists on the Hub and has not changed: we can skip it.
                 logger.debug(f"Skipping upload for '{operation.path_in_repo}' as the file has not changed.")
@@ -5169,6 +5240,7 @@ class HfApi:
                 isinstance(operation, CommitOperationCopy)
                 and operation._dest_oid is not None
                 and operation._dest_oid == operation._src_oid
+                and not _is_deleted(operation.path_in_repo)
             ):
                 # Source and destination files are identical - skip
                 logger.debug(
@@ -5279,7 +5351,7 @@ class HfApi:
                 To disable authentication, pass `False`.
 
             repo_type (`str`, *optional*):
-                The type of repository to upload to (e.g. `"model"` -default-, `"dataset"` or `"space"`).
+                The type of repository to upload to (e.g. `"model"` -default-, `"dataset"`, `"space"` or `"kernel"`).
 
             revision (`str`, *optional*):
                 The git revision to commit from. Defaults to the head of the `"main"` branch.
@@ -5324,8 +5396,8 @@ class HfApi:
         from ._commit_api import _fetch_upload_modes, _upload_files
 
         repo_type = repo_type if repo_type is not None else constants.REPO_TYPE_MODEL
-        if repo_type not in constants.REPO_TYPES:
-            raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
+        if repo_type not in constants.REPO_TYPES_WITH_KERNEL:
+            raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES_WITH_KERNEL}")
         revision = quote(revision, safe="") if revision is not None else constants.DEFAULT_REVISION
         create_pr = create_pr if create_pr is not None else False
         headers = self._build_hf_headers(token=token)
@@ -5447,8 +5519,8 @@ class HfApi:
         from ._commit_api import DUPLICATE_LFS_BATCH_SIZE, _CopySource
 
         repo_type = repo_type if repo_type is not None else constants.REPO_TYPE_MODEL
-        if repo_type not in constants.REPO_TYPES:
-            raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
+        if repo_type not in constants.REPO_TYPES_WITH_KERNEL:
+            raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES_WITH_KERNEL}")
         headers = self._build_hf_headers(token=token)
 
         copies = list(copies)
@@ -5585,8 +5657,8 @@ class HfApi:
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
             repo_type (`str`, *optional*):
-                Set to `"dataset"` or `"space"` if uploading to a dataset or
-                space, `None` or `"model"` if uploading to a model. Default is
+                Set to `"dataset"`, `"space"` or `"kernel"` if uploading to a dataset,
+                space or kernel repo, `None` or `"model"` if uploading to a model. Default is
                 `None`.
             revision (`str`, *optional*):
                 The git revision to commit from. Defaults to the head of the `"main"` branch.
@@ -5669,8 +5741,8 @@ class HfApi:
 
         from ._commit_api import CommitOperationAdd
 
-        if repo_type not in constants.REPO_TYPES:
-            raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
+        if repo_type not in constants.REPO_TYPES_WITH_KERNEL:
+            raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES_WITH_KERNEL}")
 
         commit_message = (
             commit_message if commit_message is not None else f"Upload {path_in_repo} with huggingface_hub"
@@ -5796,8 +5868,8 @@ class HfApi:
                 https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
                 To disable authentication, pass `False`.
             repo_type (`str`, *optional*):
-                Set to `"dataset"` or `"space"` if uploading to a dataset or
-                space, `None` or `"model"` if uploading to a model. Default is
+                Set to `"dataset"`, `"space"` or `"kernel"` if uploading to a dataset,
+                space or kernel repo, `None` or `"model"` if uploading to a model. Default is
                 `None`.
             revision (`str`, *optional*):
                 The git revision to commit from. Defaults to the head of the `"main"` branch.
@@ -5884,8 +5956,8 @@ class HfApi:
         ... )
         ```
         """
-        if repo_type not in constants.REPO_TYPES:
-            raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES}")
+        if repo_type not in constants.REPO_TYPES_WITH_KERNEL:
+            raise ValueError(f"Invalid repo type, must be one of {constants.REPO_TYPES_WITH_KERNEL}")
         if create_pr and revision is not None and revision != constants.DEFAULT_REVISION:
             raise ValueError(
                 f"Cannot use `create_pr=True` with `revision='{revision}'`: pull requests created by"
@@ -6611,6 +6683,7 @@ class HfApi:
         metadata from the index file and then parse the metadata from each shard.
 
         To parse metadata from a single safetensors file, use [`parse_safetensors_file_metadata`].
+        To get every shard header of a sharded model on `main` in a single request, use [`get_sharded_safetensors_metadata`].
 
         For more details regarding the safetensors format, check out https://huggingface.co/docs/safetensors/index#format.
 
@@ -6747,6 +6820,64 @@ class HfApi:
             raise NotASafetensorsRepoError(
                 f"'{repo_id}' is not a safetensors repo. Couldn't find '{constants.SAFETENSORS_INDEX_FILE}' or '{constants.SAFETENSORS_SINGLE_FILE}' files."
             )
+
+    def get_sharded_safetensors_metadata(
+        self,
+        repo_id: str,
+        *,
+        filename: str = constants.SAFETENSORS_INDEX_FILE,
+        token: bool | str | None = None,
+        timeout: float | None = constants.HF_HUB_DOWNLOAD_TIMEOUT,
+    ) -> SafetensorsRepoMetadata:
+        """
+        Get the metadata of every shard of a sharded safetensors model on `main` from the Hub in a single request,
+        instead of [`get_safetensors_metadata`] parsing each shard header. Hugging Face Hub only.
+
+        Args:
+            repo_id (`str`):
+                A user or an organization name and a repo name separated by a `/`.
+            filename (`str`, *optional*):
+                Path of the safetensors index file in the repo. Defaults to `"model.safetensors.index.json"`.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+            timeout (`float`, *optional*, defaults to 10):
+                How many seconds to wait for the server to send data before giving up. Set to `None` to disable the
+                timeout (not recommended, as a stalled connection can hang the call indefinitely).
+
+        Returns:
+            [`SafetensorsRepoMetadata`]: the same metadata as [`get_safetensors_metadata`].
+
+        Example:
+            ```py
+            >>> metadata = get_sharded_safetensors_metadata("HuggingFaceH4/zephyr-7b-beta")
+            >>> len(metadata.files_metadata)
+            8
+            ```
+        """
+        response = get_session().get(
+            f"{self.endpoint}/api/models/{repo_id}/safetensors-metadata/{quote(filename, safe='/')}",
+            headers=self._build_hf_headers(token=token),
+            timeout=timeout,
+        )
+        hf_raise_for_status(response)
+        content = response.json()
+        context_msg = f"repo '{repo_id}', revision '{constants.DEFAULT_REVISION}'"
+        files_metadata = {
+            shard: _safetensors_file_metadata_from_header(header, shard, context_msg)
+            for shard, header in content["headers"].items()
+        }
+        return SafetensorsRepoMetadata(
+            metadata=content["index"].get("metadata"),
+            sharded=True,
+            # The response leaves out the index's weight_map, which repeats the tensor names of the shard headers
+            weight_map={
+                tensor: shard for shard, file_metadata in files_metadata.items() for tensor in file_metadata.tensors
+            },
+            files_metadata=files_metadata,
+        )
 
     def parse_safetensors_file_metadata(
         self,
@@ -7527,7 +7658,7 @@ class HfApi:
 
             >>> HfApi().comment_discussion(
             ...     repo_id="username/repo_name",
-            ...     discussion_num=34
+            ...     discussion_num=34,
             ...     comment=comment
             ... )
             # DiscussionComment(id='deadbeef0000000', type='comment', ...)
@@ -7594,7 +7725,7 @@ class HfApi:
             >>> new_title = "New title, fixing a typo"
             >>> HfApi().rename_discussion(
             ...     repo_id="username/repo_name",
-            ...     discussion_num=34
+            ...     discussion_num=34,
             ...     new_title=new_title
             ... )
             # DiscussionTitleChange(id='deadbeef0000000', type='title-change', ...)
@@ -7661,11 +7792,10 @@ class HfApi:
 
         Examples:
             ```python
-            >>> new_title = "New title, fixing a typo"
-            >>> HfApi().rename_discussion(
+            >>> HfApi().change_discussion_status(
             ...     repo_id="username/repo_name",
-            ...     discussion_num=34
-            ...     new_title=new_title
+            ...     discussion_num=34,
+            ...     new_status="closed"
             ... )
             # DiscussionStatusChange(id='deadbeef0000000', type='status-change', ...)
 
@@ -7866,6 +7996,49 @@ class HfApi:
             resource=f"comment/{comment_id.lower()}/hide",
         )
         return deserialize_event(resp.json()["updatedComment"])  # type: ignore
+
+    @validate_hf_hub_args
+    def upload_attachment(self, path: str | Path, *, token: bool | str | None = None) -> str:
+        """Uploads an image, video or audio file to the Hub and returns its URL.
+
+        This is what the Hub web editor does when you drag a file into a Discussion or Pull Request comment box. Embed
+        the returned URL in a description or a comment: `![alt text](url)` for an image, the bare URL for a video and
+        `<audio controls src="url"></audio>` for an audio file.
+
+        Args:
+            path (`str` or `Path`):
+                Path to the file to upload. Supported formats are PNG, JPEG, GIF, WebP, MP4, MOV, WebM, MP3 and WAV.
+                Files must be smaller than 10MB (50MB for videos).
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                The token needs the `discussion.write` permission. To upload anonymously, pass `False`.
+
+        Returns:
+            `str`: the URL of the uploaded file.
+
+        Raises:
+            [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError)
+                If the file format is not supported.
+
+        Example:
+            ```python
+            >>> from huggingface_hub import HfApi
+            >>> api = HfApi()
+            >>> url = api.upload_attachment("screenshot.png")
+            >>> api.create_discussion("username/my-model", title="Rendering bug", description=f"![screenshot]({url})")
+            ```
+        """
+        path = Path(path)
+        content_type = _ATTACHMENT_CONTENT_TYPES.get(path.suffix.lower())
+        if content_type is None:
+            raise ValueError(f"Cannot upload '{path}': supported formats are {', '.join(_ATTACHMENT_CONTENT_TYPES)}.")
+        headers = self._build_hf_headers(token=token)
+        headers["Content-Type"] = content_type
+        resp = get_session().post(f"{self.endpoint}/uploads", headers=headers, content=path.read_bytes())
+        hf_raise_for_status(resp)
+        return resp.text.strip()
 
     @validate_hf_hub_args
     def add_space_secret(
@@ -8430,14 +8603,17 @@ class HfApi:
         # Used by Spaces logs and Jobs logs/metrics. Two retry styles:
         #   - on_iteration_end is None: retries are the only backstop (Spaces).
         #   - on_iteration_end is set: it polls authoritative state after every
-        #     failed iteration; ReadTimeouts/tolerated errors fall through to it
-        #     instead of consuming retries (Jobs).
+        #     iteration, including clean stream ends; ReadTimeouts/tolerated errors
+        #     fall through to it instead of consuming retries (Jobs).
         nb_tries = 0
         max_retries = 5 if follow else 0
         min_wait_time = 1
         max_wait_time = 10
         sleep_time = 0
         start_event_idx = 0
+        last_event: dict[str, Any] | None = None
+        # Last event of a `tail` request, whose index in the full log is unknown
+        resume_after: dict[str, Any] | None = None
         error_to_retry: Exception | None = None
         while True:
             if error_to_retry is not None:
@@ -8454,15 +8630,40 @@ class HfApi:
                     params=params,
                 ) as response:
                     if response.status_code == 200:
+                        # no-follow: stop at the first event logged after the server's Date (1s resolution)
+                        replay_end = None
+                        if not follow and (date := response.headers.get("date")):
+                            replay_end = parsedate_to_datetime(date) + timedelta(seconds=1)
                         event_idx = -1
                         for line in response.iter_lines():
                             if line and line.startswith("data: {"):
                                 event_idx += 1
+                                if resume_after is not None:
+                                    event = json.loads(line[len("data: ") :])
+                                    if event == resume_after:
+                                        resume_after, start_event_idx = None, event_idx + 1
+                                        continue
+                                    if parse_datetime(event["timestamp"]) <= parse_datetime(resume_after["timestamp"]):
+                                        continue
+                                    # The last `tail` event is missing from the replay: resume at the first later one
+                                    resume_after, start_event_idx = None, event_idx
                                 if event_idx >= start_event_idx:
                                     if skip_previous_events_on_retry:
                                         start_event_idx += 1
-                                    yield json.loads(line[len("data: ") :])
-                        break
+                                    event = json.loads(line[len("data: ") :])
+                                    if (
+                                        replay_end
+                                        and (ts := event.get("timestamp"))
+                                        and parse_datetime(ts) > replay_end
+                                    ):
+                                        break
+                                    # New data: retries only count consecutive failures
+                                    nb_tries = sleep_time = 0
+                                    last_event = event
+                                    yield event
+                        # Jobs: the stream can end before the Job does, so the stage check below decides
+                        if on_iteration_end is None:
+                            break
                     elif response.status_code not in tolerated_status_codes:
                         hf_raise_for_status(response)
             except HfHubHTTPError:
@@ -8470,8 +8671,6 @@ class HfApi:
                 raise
             except httpx2.DecodingError:
                 # Response ended prematurely.
-                break
-            except KeyboardInterrupt:
                 break
             except (httpx2.HTTPError, httpcore2.TimeoutException) as err:
                 is_no_new_line_timeout = isinstance(err, (httpx2.ReadTimeout, httpcore2.ReadTimeout))
@@ -8500,11 +8699,22 @@ class HfApi:
                     nb_tries += 1
                     sleep_time = min(max_wait_time, max(min_wait_time, sleep_time * 2))
                     error_to_retry = err
-            # Drop params after the first attempt: the start_event_idx dedup
-            # requires a stable replay prefix, which `tail` would break.
+            # Drop params after the first attempt: the full replay resumes after the last `tail` event
+            if params is not None:
+                resume_after = last_event
             params = None
-            if on_iteration_end is not None and on_iteration_end():
+            # no-follow: a single attempt, never loop back
+            if not follow:
                 break
+            if on_iteration_end is not None:
+                if on_iteration_end():
+                    break
+                if error_to_retry is None:
+                    # Stream ended or went silent: back off, the Job's stage lags ~1.3s behind its last log line
+                    sleep_time = min(max_wait_time, max(2 * min_wait_time, sleep_time * 2))
+                    time.sleep(sleep_time)
+                    if on_iteration_end():
+                        break
 
     def _fetch_space_logs_sse(
         self,
@@ -10094,7 +10304,7 @@ class HfApi:
         >>> from huggingface_hub import update_collection_metadata
         >>> collection = update_collection_metadata(
         ...     collection_slug="username/iccv-2023-64f9a55bb3115b4f513ec026",
-        ...     title="ICCV Oct. 2023"
+        ...     title="ICCV Oct. 2023",
         ...     description="Portfolio of models, datasets, papers and demos I presented at ICCV Oct. 2023",
         ...     private=False,
         ...     theme="pink",
@@ -10258,7 +10468,7 @@ class HfApi:
         >>> add_collection_item(
         ...     collection_slug="davanstrien/climate-64f99dc2a5067f6b65531bab",
         ...     item_id="datasets/climate_fever",
-        ...     item_type="dataset"
+        ...     item_type="dataset",
         ...     note="This dataset adopts the FEVER methodology that consists of 1,535 real-world claims regarding climate-change collected on the internet."
         ... )
         (...)
@@ -10321,7 +10531,7 @@ class HfApi:
         >>> update_collection_item(
         ...     collection_slug="TheBloke/recent-models-64f9a55bb3115b4f513ec026",
         ...     item_object_id=collection.items[-1].item_object_id,
-        ...     note="Newly updated model!"
+        ...     note="Newly updated model!",
         ...     position=0,
         ... )
         ```
@@ -10417,9 +10627,9 @@ class HfApi:
                 To disable authentication, pass `False`.
 
         Returns:
-            `Iterable[AccessRequest]`: An iterable of [`AccessRequest`] objects. Each time contains a `username`, `email`,
-            `status` and `timestamp` attribute. If the gated repo has a custom form, the `fields` attribute will
-            be populated with user's answers.
+            `Iterable[AccessRequest]`: An iterable of [`AccessRequest`] objects. Each item contains a `username`,
+            `request_id`, `email`, `status` and `timestamp` attribute. If the gated repo has a custom form, the `fields`
+            attribute will be populated with user's answers.
 
         Raises:
             [`HfHubHTTPError`]:
@@ -10440,6 +10650,7 @@ class HfApi:
         [
             AccessRequest(
                 username='clem',
+                request_id='655f3a1c9e6b2d4f8a7c1e05',
                 fullname='Clem 🤗',
                 email='***',
                 timestamp=datetime.datetime(2023, 11, 23, 18, 4, 53, 828000, tzinfo=datetime.timezone.utc),
@@ -10483,9 +10694,9 @@ class HfApi:
                 To disable authentication, pass `False`.
 
         Returns:
-            `Iterable[AccessRequest]`: An iterable of [`AccessRequest`] objects. Each time contains a `username`, `email`,
-            `status` and `timestamp` attribute. If the gated repo has a custom form, the `fields` attribute will
-            be populated with user's answers.
+            `Iterable[AccessRequest]`: An iterable of [`AccessRequest`] objects. Each item contains a `username`,
+            `request_id`, `email`, `status` and `timestamp` attribute. If the gated repo has a custom form, the `fields`
+            attribute will be populated with user's answers.
 
         Raises:
             [`HfHubHTTPError`]:
@@ -10505,6 +10716,7 @@ class HfApi:
         [
             AccessRequest(
                 username='clem',
+                request_id='655f3a1c9e6b2d4f8a7c1e05',
                 fullname='Clem 🤗',
                 email='***',
                 timestamp=datetime.datetime(2023, 11, 23, 18, 4, 53, 828000, tzinfo=datetime.timezone.utc),
@@ -10545,9 +10757,9 @@ class HfApi:
                 To disable authentication, pass `False`.
 
         Returns:
-            `Iterable[AccessRequest]`: An iterable of [`AccessRequest`] objects. Each time contains a `username`, `email`,
-            `status` and `timestamp` attribute. If the gated repo has a custom form, the `fields` attribute will
-            be populated with user's answers.
+            `Iterable[AccessRequest]`: An iterable of [`AccessRequest`] objects. Each item contains a `username`,
+            `request_id`, `email`, `status` and `timestamp` attribute. If the gated repo has a custom form, the `fields`
+            attribute will be populated with user's answers.
 
         Raises:
             [`HfHubHTTPError`]:
@@ -10567,6 +10779,7 @@ class HfApi:
         [
             AccessRequest(
                 username='clem',
+                request_id='655f3a1c9e6b2d4f8a7c1e05',
                 fullname='Clem 🤗',
                 email='***',
                 timestamp=datetime.datetime(2023, 11, 23, 18, 4, 53, 828000, tzinfo=datetime.timezone.utc),
@@ -10592,14 +10805,16 @@ class HfApi:
             repo_type = constants.REPO_TYPE_MODEL
 
         for request in paginate(
-            f"{constants.ENDPOINT}/api/{repo_type}s/{repo_id}/user-access-request/{status}",
+            f"{self.endpoint}/api/{repo_type}s/{repo_id}/user-access-request/{status}",
             params={},
             headers=self._build_hf_headers(token=token),
         ):
+            user = request.get("user", {})  # not shared if repo is configured to hide usernames
             yield AccessRequest(
-                username=request["user"]["user"],
-                fullname=request["user"]["fullname"],
-                email=request["user"].get("email"),
+                username=user.get("user"),
+                request_id=request["requestId"],
+                fullname=user.get("fullname"),
+                email=user.get("email"),
                 status=request["status"],
                 timestamp=parse_datetime(request["timestamp"]),
                 fields=request.get("fields"),  # only if custom fields in form
@@ -10607,7 +10822,13 @@ class HfApi:
 
     @validate_hf_hub_args
     def cancel_access_request(
-        self, repo_id: str, user: str, *, repo_type: str | None = None, token: bool | str | None = None
+        self,
+        repo_id: str,
+        user: str | None = None,
+        *,
+        request_id: str | None = None,
+        repo_type: str | None = None,
+        token: bool | str | None = None,
     ) -> None:
         """
         Cancel an access request from a user for a given gated repo.
@@ -10619,8 +10840,12 @@ class HfApi:
         Args:
             repo_id (`str`):
                 The id of the repo to cancel access request for.
-            user (`str`):
-                The username of the user which access request should be cancelled.
+            user (`str`, *optional*):
+                The username of the user which access request should be cancelled. Exactly one of `user` or
+                `request_id` must be provided.
+            request_id (`str`, *optional*):
+                The id of the access request to cancel (see [`AccessRequest`]). Required when the repo is configured
+                to not share usernames of requesters. Exactly one of `user` or `request_id` must be provided.
             repo_type (`str`, *optional*):
                 The type of the repo to cancel access request for. Must be one of `model`, `dataset` or `space`.
                 Defaults to `model`.
@@ -10643,11 +10868,17 @@ class HfApi:
             [`HfHubHTTPError`]:
                 HTTP 404 if the user access request is already in the pending list.
         """
-        self._handle_access_request(repo_id, user, "pending", repo_type=repo_type, token=token)
+        self._handle_access_request(repo_id, user, request_id, "pending", repo_type=repo_type, token=token)
 
     @validate_hf_hub_args
     def accept_access_request(
-        self, repo_id: str, user: str, *, repo_type: str | None = None, token: bool | str | None = None
+        self,
+        repo_id: str,
+        user: str | None = None,
+        *,
+        request_id: str | None = None,
+        repo_type: str | None = None,
+        token: bool | str | None = None,
     ) -> None:
         """
         Accept an access request from a user for a given gated repo.
@@ -10661,8 +10892,12 @@ class HfApi:
         Args:
             repo_id (`str`):
                 The id of the repo to accept access request for.
-            user (`str`):
-                The username of the user which access request should be accepted.
+            user (`str`, *optional*):
+                The username of the user which access request should be accepted. Exactly one of `user` or
+                `request_id` must be provided.
+            request_id (`str`, *optional*):
+                The id of the access request to accept (see [`AccessRequest`]). Required when the repo is configured
+                to not share usernames of requesters. Exactly one of `user` or `request_id` must be provided.
             repo_type (`str`, *optional*):
                 The type of the repo to accept access request for. Must be one of `model`, `dataset` or `space`.
                 Defaults to `model`.
@@ -10685,14 +10920,15 @@ class HfApi:
             [`HfHubHTTPError`]:
                 HTTP 404 if the user access request is already in the accepted list.
         """
-        self._handle_access_request(repo_id, user, "accepted", repo_type=repo_type, token=token)
+        self._handle_access_request(repo_id, user, request_id, "accepted", repo_type=repo_type, token=token)
 
     @validate_hf_hub_args
     def reject_access_request(
         self,
         repo_id: str,
-        user: str,
+        user: str | None = None,
         *,
+        request_id: str | None = None,
         repo_type: str | None = None,
         rejection_reason: str | None,
         token: bool | str | None = None,
@@ -10709,8 +10945,12 @@ class HfApi:
         Args:
             repo_id (`str`):
                 The id of the repo to reject access request for.
-            user (`str`):
-                The username of the user which access request should be rejected.
+            user (`str`, *optional*):
+                The username of the user which access request should be rejected. Exactly one of `user` or
+                `request_id` must be provided.
+            request_id (`str`, *optional*):
+                The id of the access request to reject (see [`AccessRequest`]). Required when the repo is configured
+                to not share usernames of requesters. Exactly one of `user` or `request_id` must be provided.
             repo_type (`str`, *optional*):
                 The type of the repo to reject access request for. Must be one of `model`, `dataset` or `space`.
                 Defaults to `model`.
@@ -10736,14 +10976,15 @@ class HfApi:
                 HTTP 404 if the user access request is already in the rejected list.
         """
         self._handle_access_request(
-            repo_id, user, "rejected", repo_type=repo_type, rejection_reason=rejection_reason, token=token
+            repo_id, user, request_id, "rejected", repo_type=repo_type, rejection_reason=rejection_reason, token=token
         )
 
     @validate_hf_hub_args
     def _handle_access_request(
         self,
         repo_id: str,
-        user: str,
+        user: str | None,
+        request_id: str | None,
         status: Literal["accepted", "rejected", "pending"],
         repo_type: str | None = None,
         rejection_reason: str | None = None,
@@ -10754,7 +10995,12 @@ class HfApi:
         if repo_type is None:
             repo_type = constants.REPO_TYPE_MODEL
 
-        payload = {"user": user, "status": status}
+        if user is None and request_id is None:
+            raise ValueError("One of `user` or `request_id` must be provided.")
+        if user is not None and request_id is not None:
+            raise ValueError("Cannot provide both `user` and `request_id`.")
+        payload: dict[str, str | None] = {"user": user} if user is not None else {"requestId": request_id}
+        payload["status"] = status
 
         if rejection_reason is not None:
             if status != "rejected":
@@ -10762,7 +11008,7 @@ class HfApi:
             payload["rejectionReason"] = rejection_reason
 
         response = get_session().post(
-            f"{constants.ENDPOINT}/api/{repo_type}s/{repo_id}/user-access-request/handle",
+            f"{self.endpoint}/api/{repo_type}s/{repo_id}/user-access-request/handle",
             headers=self._build_hf_headers(token=token),
             json=payload,
         )
@@ -10812,7 +11058,7 @@ class HfApi:
             repo_type = constants.REPO_TYPE_MODEL
 
         response = get_session().post(
-            f"{constants.ENDPOINT}/api/{repo_type}s/{repo_id}/user-access-request/grant",
+            f"{self.endpoint}/api/{repo_type}s/{repo_id}/user-access-request/grant",
             headers=self._build_hf_headers(token=token),
             json={"user": user},
         )
@@ -10856,7 +11102,7 @@ class HfApi:
             ```
         """
         response = get_session().get(
-            f"{constants.ENDPOINT}/api/settings/webhooks/{webhook_id}",
+            f"{self.endpoint}/api/settings/webhooks/{webhook_id}",
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
@@ -10908,7 +11154,7 @@ class HfApi:
             ```
         """
         response = get_session().get(
-            f"{constants.ENDPOINT}/api/settings/webhooks",
+            f"{self.endpoint}/api/settings/webhooks",
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
@@ -10954,7 +11200,7 @@ class HfApi:
                 List of [`WebhookWatchedItem`] to be watched by the webhook. It can be users, orgs, models, datasets, spaces or buckets.
                 Watched items can also be provided as plain dictionaries.
             domains (`list[Literal["repo", "discussion"]]`, optional):
-                List of domains to watch. It can be "repo", "discussion" or both.
+                List of domains to watch. It can be "repo", "discussion" or both. Defaults to both.
             secret (`str`, optional):
                 A secret to sign the payload with.
             secrets (`dict[str, str]`, optional):
@@ -11030,9 +11276,10 @@ class HfApi:
         """
         watched_dicts = [asdict(item) if isinstance(item, WebhookWatchedItem) else item for item in watched]
 
-        post_webhooks_json: dict = {"watched": watched_dicts}
-        if domains is not None:
-            post_webhooks_json["domains"] = domains
+        post_webhooks_json: dict = {
+            "watched": watched_dicts,
+            "domains": domains if domains is not None else list(get_args(constants.WEBHOOK_DOMAIN_T)),
+        }
         if secret is not None:
             post_webhooks_json["secret"] = secret
         if url is not None and job_id is not None:
@@ -11049,7 +11296,7 @@ class HfApi:
             post_webhooks_json["secrets"] = secrets
 
         response = get_session().post(
-            f"{constants.ENDPOINT}/api/settings/webhooks",
+            f"{self.endpoint}/api/settings/webhooks",
             json=post_webhooks_json,
             headers=self._build_hf_headers(token=token),
         )
@@ -11152,7 +11399,7 @@ class HfApi:
             update_json["secrets"] = secrets
 
         response = get_session().post(
-            f"{constants.ENDPOINT}/api/settings/webhooks/{webhook_id}",
+            f"{self.endpoint}/api/settings/webhooks/{webhook_id}",
             json=update_json,
             headers=self._build_hf_headers(token=token),
         )
@@ -11206,7 +11453,7 @@ class HfApi:
             ```
         """
         response = get_session().post(
-            f"{constants.ENDPOINT}/api/settings/webhooks/{webhook_id}/enable",
+            f"{self.endpoint}/api/settings/webhooks/{webhook_id}/enable",
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
@@ -11259,7 +11506,7 @@ class HfApi:
             ```
         """
         response = get_session().post(
-            f"{constants.ENDPOINT}/api/settings/webhooks/{webhook_id}/disable",
+            f"{self.endpoint}/api/settings/webhooks/{webhook_id}/disable",
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
@@ -11301,7 +11548,7 @@ class HfApi:
             ```
         """
         response = get_session().delete(
-            f"{constants.ENDPOINT}/api/settings/webhooks/{webhook_id}",
+            f"{self.endpoint}/api/settings/webhooks/{webhook_id}",
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
@@ -11492,7 +11739,7 @@ class HfApi:
                 HTTP 404 If the user does not exist on the Hub.
         """
         r = get_session().get(
-            f"{constants.ENDPOINT}/api/users/{username}/overview", headers=self._build_hf_headers(token=token)
+            f"{self.endpoint}/api/users/{username}/overview", headers=self._build_hf_headers(token=token)
         )
         hf_raise_for_status(r)
         return User(**r.json())
@@ -11518,7 +11765,7 @@ class HfApi:
                 HTTP 404 If the organization does not exist on the Hub.
         """
         r = get_session().get(
-            f"{constants.ENDPOINT}/api/organizations/{organization}/overview",
+            f"{self.endpoint}/api/organizations/{organization}/overview",
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(r)
@@ -11547,7 +11794,7 @@ class HfApi:
 
         """
         for follower in paginate(
-            path=f"{constants.ENDPOINT}/api/organizations/{organization}/followers",
+            path=f"{self.endpoint}/api/organizations/{organization}/followers",
             params={},
             headers=self._build_hf_headers(token=token),
         ):
@@ -11575,7 +11822,7 @@ class HfApi:
 
         """
         for member in paginate(
-            path=f"{constants.ENDPOINT}/api/organizations/{organization}/members",
+            path=f"{self.endpoint}/api/organizations/{organization}/members",
             params={},
             headers=self._build_hf_headers(token=token),
         ):
@@ -11603,7 +11850,7 @@ class HfApi:
 
         """
         for follower in paginate(
-            path=f"{constants.ENDPOINT}/api/users/{username}/followers",
+            path=f"{self.endpoint}/api/users/{username}/followers",
             params={},
             headers=self._build_hf_headers(token=token),
         ):
@@ -11631,7 +11878,7 @@ class HfApi:
 
         """
         for followed_user in paginate(
-            path=f"{constants.ENDPOINT}/api/users/{username}/following",
+            path=f"{self.endpoint}/api/users/{username}/following",
             params={},
             headers=self._build_hf_headers(token=token),
         ):
@@ -11989,7 +12236,7 @@ class HfApi:
             ```python
             >>> from huggingface_hub import run_job
             >>> image = "pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel"
-            >>> command = ["python", "-c", "import torch; print(f"This code ran with the following GPU: {torch.cuda.get_device_name()}")"]
+            >>> command = ["python", "-c", "import torch; print(f'This code ran with the following GPU: {torch.cuda.get_device_name()}')"]
             >>> run_job(image=image, command=command, flavor="a10g-small")
             ```
 
@@ -12062,7 +12309,7 @@ class HfApi:
             )
             hf_raise_for_status(job_status_response)
             job_status = job_status_response.json()
-            return "status" in job_status and job_status["status"]["stage"] not in ("RUNNING", "UPDATING")
+            return "status" in job_status and job_status["status"]["stage"] in TERMINAL_JOB_STAGES
 
         yield from self._stream_sse_events(
             url=f"{self.endpoint}/api/jobs/{namespace}/{job_id}/{route}",
@@ -12162,10 +12409,11 @@ class HfApi:
         *,
         job_id: str,
         namespace: str | None = None,
+        follow: bool = False,
         token: bool | str | None = None,
     ) -> Iterable[dict[str, Any]]:
         """
-        Fetch all the live metrics from a compute Job on Hugging Face infrastructure.
+        Fetch the live metrics from a compute Job on Hugging Face infrastructure.
 
         Args:
             job_id (`str`):
@@ -12173,6 +12421,10 @@ class HfApi:
 
             namespace (`str`, *optional*):
                 The namespace where the Job is running. Defaults to the current user's namespace.
+
+            follow (`bool`, *optional*):
+                If `True`, stream metrics in real-time until the job completes (blocking).
+                If `False` (default), fetch only the current metrics and return (non-blocking).
 
             token (`bool` or `str`, *optional*):
                 A valid user access token. If not provided, the locally saved token will be used, which is the
@@ -12202,6 +12454,10 @@ class HfApi:
                 },
                 "replica": "57vr7"
             }
+
+            >>> # Stream metrics until the job completes
+            >>> for metrics in fetch_job_metrics(job_id=job.id, follow=True):
+            ...     print(metrics)
             ```
         """
         # - there is one "metric" event every second, like this:
@@ -12209,19 +12465,24 @@ class HfApi:
         # data: {"cpu_usage_pct":0,"cpu_millicores":3500,"memory_used_bytes":1417216,"memory_total_bytes":15032385536,"rx_bps":0,"tx_bps":0,"gpus":{"d901cd7f":{"utilization":0,"memory_used_bytes":0,"memory_total_bytes":22836000000}},"replica":"j6qz9"}
         # - the stream doesn't end when the job finishes, so we rely on timeouts (httpx2.NetworkError with Timeout as cause)
         # - httpx2.ReadTimeout can happen if the job is marked as running but the hardware is not available yet, that we can ignore
-        # - it returns an internal error 500 if the job has already finished, we simply ignore it
+        # - it returns a 406 (previously a 500) if the job has already finished, we simply ignore it
         # - ChunkedEncodingError can happen in case of stopped logging in the middle of streaming
         # - there is a ": keep-alive" every 30 seconds
         seconds_between_events = 1
-        yield from self._fetch_running_job_sse(
+        metrics_stream = self._fetch_running_job_sse(
             job_id=job_id,
             route="metrics",
             timeout=10 * seconds_between_events,
             skip_previous_events_on_retry=False,
-            tolerated_status_codes=(500,),
+            tolerated_status_codes=(406, 500),
             namespace=namespace,
             token=token,
+            follow=follow,
         )
+        if follow:
+            yield from metrics_stream
+        else:  # the stream has no history: its first sample is the current one
+            yield from itertools.islice(metrics_stream, 1)
 
     def list_jobs(
         self,
@@ -12258,7 +12519,7 @@ class HfApi:
             `Iterable[JobInfo]`: an iterable of [`JobInfo`] objects.
         """
         if namespace is None:
-            namespace = whoami(token=token)["name"]
+            namespace = self.whoami(token=token)["name"]
         params: list[tuple[str, Any]] = []
         if status is not None:
             statuses = [status] if isinstance(status, (str, JobStage)) else status
@@ -12326,7 +12587,7 @@ class HfApi:
             ```python
             >>> from huggingface_hub import inspect_job, run_job
             >>> job = run_job(image="python:3.12", command=["python", "-c" ,"print('Hello from HF compute!')"])
-            >>> inspect_job(job.id)
+            >>> inspect_job(job_id=job.id)
             JobInfo(
                 id='68780d00bbe36d38803f645f',
                 created_at=datetime.datetime(2025, 7, 16, 20, 35, 12, 808000, tzinfo=datetime.timezone.utc),
@@ -12924,8 +13185,8 @@ class HfApi:
             ```python
             >>> from huggingface_hub import create_scheduled_job
             >>> image = "pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel"
-            >>> command = ["python", "-c", "import torch; print(f"This code ran with the following GPU: {torch.cuda.get_device_name()}")"]
-            >>> create_scheduled_job(image, command, flavor="a10g-small", schedule="@hourly")
+            >>> command = ["python", "-c", "import torch; print(f'This code ran with the following GPU: {torch.cuda.get_device_name()}')"]
+            >>> create_scheduled_job(image=image, command=command, flavor="a10g-small", schedule="@hourly")
             ```
 
         """
@@ -13046,9 +13307,9 @@ class HfApi:
         Example:
 
             ```python
-            >>> from huggingface_hub import inspect_job, create_scheduled_job
+            >>> from huggingface_hub import inspect_scheduled_job, create_scheduled_job
             >>> scheduled_job = create_scheduled_job(image="python:3.12", command=["python", "-c" ,"print('Hello from HF compute!')"], schedule="@hourly")
-            >>> inspect_scheduled_job(scheduled_job.id)
+            >>> inspect_scheduled_job(scheduled_job_id=scheduled_job.id)
             ```
         """
         if namespace is None:
@@ -15305,6 +15566,7 @@ permanently_delete_lfs_files = api.permanently_delete_lfs_files
 
 # Safetensors helpers
 get_safetensors_metadata = api.get_safetensors_metadata
+get_sharded_safetensors_metadata = api.get_sharded_safetensors_metadata
 parse_safetensors_file_metadata = api.parse_safetensors_file_metadata
 
 # Background jobs
@@ -15326,6 +15588,7 @@ comment_discussion = api.comment_discussion
 edit_discussion_comment = api.edit_discussion_comment
 rename_discussion = api.rename_discussion
 merge_pull_request = api.merge_pull_request
+upload_attachment = api.upload_attachment
 
 # Space API
 get_space_secrets = api.get_space_secrets

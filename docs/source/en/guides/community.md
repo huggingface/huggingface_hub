@@ -136,6 +136,7 @@ Managing Pull Requests and Discussions can be done entirely with the [`HfApi`] c
     * [`rename_discussion`] to rename a Discussion or Pull Request
     * [`change_discussion_status`] to open or close a Discussion / Pull Request
     * [`merge_pull_request`] to merge a Pull Request
+    * [`upload_attachment`] to upload an image or video and embed its URL in a description or comment
 
 
 Visit the [`HfApi`] documentation page for an exhaustive reference of all available methods.
@@ -163,6 +164,9 @@ hf discussions create username/repo-name --title "Fix typo" --pull-request
 
 # Comment on a discussion or PR
 hf discussions comment username/repo-name 5 --body "LGTM!"
+
+# Attach a screenshot to a comment
+hf discussions comment username/repo-name 5 --body "Here is the fix:" --attach screenshot.png
 
 # Merge a pull request
 hf discussions merge username/repo-name 5 --yes

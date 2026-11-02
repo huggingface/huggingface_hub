@@ -607,14 +607,14 @@ Use [`update_job_labels`] to replace labels on an existing job. This replaces al
 
 ```python
 >>> from huggingface_hub import update_job_labels
->>> update_job_labels(job_id, labels={"env": "prod", "team": "ml"})
+>>> update_job_labels(job_id=job_id, labels={"env": "prod", "team": "ml"})
 ```
 
 This also works for scheduled jobs with [`update_scheduled_job_labels`]:
 
 ```python
 >>> from huggingface_hub import update_scheduled_job_labels
->>> update_scheduled_job_labels(scheduled_job_id, labels={"env": "staging"})
+>>> update_scheduled_job_labels(scheduled_job_id=scheduled_job_id, labels={"env": "staging"})
 ```
 
 From the CLI:
@@ -749,15 +749,15 @@ Manage scheduled jobs using [`list_scheduled_jobs`], [`inspect_scheduled_job`], 
 
 # Inspect the status of a job
 >>> from huggingface_hub import inspect_scheduled_job
->>> inspect_scheduled_job(scheduled_job_id)
+>>> inspect_scheduled_job(scheduled_job_id=scheduled_job_id)
 
 # Suspend (pause) a scheduled job
 >>> from huggingface_hub import suspend_scheduled_job
->>> suspend_scheduled_job(scheduled_job_id)
+>>> suspend_scheduled_job(scheduled_job_id=scheduled_job_id)
 
 # Resume a scheduled job
 >>> from huggingface_hub import resume_scheduled_job
->>> resume_scheduled_job(scheduled_job_id)
+>>> resume_scheduled_job(scheduled_job_id=scheduled_job_id)
 
 # Change future run times without recreating the scheduled job
 >>> from huggingface_hub import update_scheduled_job_schedule
@@ -767,12 +767,12 @@ Manage scheduled jobs using [`list_scheduled_jobs`], [`inspect_scheduled_job`], 
 
 # Trigger a scheduled job to run right now (does not change the schedule)
 >>> from huggingface_hub import trigger_scheduled_job
->>> job = trigger_scheduled_job(scheduled_job_id)
+>>> job = trigger_scheduled_job(scheduled_job_id=scheduled_job_id)
 >>> job.url
 
 # Delete a scheduled job
 >>> from huggingface_hub import delete_scheduled_job
->>> delete_scheduled_job(scheduled_job_id)
+>>> delete_scheduled_job(scheduled_job_id=scheduled_job_id)
 ```
 
 ### Trigger Jobs with webhooks

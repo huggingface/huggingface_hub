@@ -358,7 +358,7 @@ class DeleteCacheStrategy:
             for store_path in shared_store_paths:
                 _shared_blobs.sweep_shared_blob(store_path, cache_dir=self.cache_dir)
 
-        logger.info(f"Cache deletion done. Saved {self.expected_freed_size_str}.")
+        logger.debug(f"Cache deletion done. Saved {self.expected_freed_size_str}.")
 
 
 @dataclass(frozen=True)
@@ -447,7 +447,6 @@ class HFCacheInfo:
         >>> print(f"Will free {delete_strategy.expected_freed_size_str}.")
         Will free 7.9K.
         >>> delete_strategy.execute()
-        Cache deletion done. Saved 7.9K.
         ```
 
         ```py
@@ -457,7 +456,6 @@ class HFCacheInfo:
         ...     "e2983b237dccf3ab4937c97fa717319a9ca1a96d",
         ...     "6c0e6080953db56375760c0471a8c5f2929baf11",
         ... ).execute()
-        Cache deletion done. Saved 8.6G.
         ```
 
         > [!WARNING]
@@ -500,6 +498,7 @@ class HFCacheInfo:
 
             # Some revisions of the repo will be deleted but not all. We need to filter
             # which blob files will not be linked anymore.
+            other_blob_paths = {rev_file.blob_path for revision in other_revisions for rev_file in revision.files}
             for revision_to_delete in revisions_to_delete:
                 # Snapshot dir
                 delete_strategy_snapshots.add(revision_to_delete.snapshot_path)
@@ -519,20 +518,10 @@ class HFCacheInfo:
                         blobs_to_unlink[file.blob_path] = file.size_on_disk
                         continue
 
-                    if file.blob_path not in delete_strategy_blobs:
-                        is_file_alone = True
-                        for revision in other_revisions:
-                            for rev_file in revision.files:
-                                if file.blob_path == rev_file.blob_path:
-                                    is_file_alone = False
-                                    break
-                            if not is_file_alone:
-                                break
-
-                        # Blob file not referenced by remaining revisions -> delete
-                        if is_file_alone:
-                            delete_strategy_blobs.add(file.blob_path)
-                            blobs_to_unlink[file.blob_path] = file.size_on_disk
+                    # Blob file not referenced by remaining revisions -> delete
+                    if file.blob_path not in other_blob_paths:
+                        delete_strategy_blobs.add(file.blob_path)
+                        blobs_to_unlink[file.blob_path] = file.size_on_disk
 
         # Return the strategy instead of executing it.
         return DeleteCacheStrategy(
@@ -568,7 +557,6 @@ class HFCacheInfo:
         >>> print(f"Will free {delete_strategy.expected_freed_size_str}.")
         Will free 4.9G.
         >>> delete_strategy.execute()
-        Cache deletion done. Saved 4.9G.
         ```
         """
         selected = set(files)

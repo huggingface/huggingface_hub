@@ -1496,7 +1496,7 @@ def _hf_hub_download_to_local_dir(
             filename=filename,
             is_cached=is_cached,
             local_path=str(paths.file_path),
-            will_download=force_download or not is_cached,
+            will_download=True,
         )
 
     # Otherwise, let's download the file!
@@ -1577,6 +1577,7 @@ def try_to_load_from_cache(
         raise ValueError(
             f"Invalid repo type: {repo_type}. Accepted repo types are: {str(constants.REPO_TYPES_WITH_KERNEL)}"
         )
+    _validate_relative_filename(filename)
     if cache_dir is None:
         cache_dir = constants.HF_HUB_CACHE
 
@@ -1734,7 +1735,7 @@ def _get_metadata_or_catch_error(
         )
 
     # Skip the per-file HEAD call when the file metadata can be rebuilt from a tree listing cached on disk.
-    if tree_cache_folder is not None and REGEX_COMMIT_HASH.fullmatch(revision):
+    if tree_cache_folder is not None and not constants.is_offline_mode() and REGEX_COMMIT_HASH.fullmatch(revision):
         tree_metadata = _xet_file_metadata_from_tree_cache(
             tree_cache_folder=tree_cache_folder,
             repo_id=repo_id,

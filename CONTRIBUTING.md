@@ -227,7 +227,7 @@ $ pytest tests -k tag                    # run tests matching a name
 
 #### Test suites
 
-Each test belongs to exactly one suite. CI runs each suite in its own job, on Ubuntu and Windows, with Python 3.10 and 3.14. Suites are declared with markers and enforced in `tests/conftest.py`:
+Each test belongs to exactly one suite. CI runs each suite in its own job, on Ubuntu and Windows, with Python 3.10 and 3.15. Suites are declared with markers and enforced in `tests/conftest.py`:
 
 - `api` (default) — everything that doesn't transfer files: repo, discussion, collection and settings APIs, CLI output, utils, etc. Tests without a suite marker get it automatically, so there is nothing to add.
 - `@pytest.mark.transfer` — the test covers upload or download logic, which **behaves differently without** `hf_xet`: LFS upload, HTTP download, file streaming, `upload_folder` without the Xet pipeline, etc. CI runs it twice: once with `hf_xet` installed and once without. Use it for tests that target the transfer logic itself, not for tests that merely upload or download a file as part of their setup.

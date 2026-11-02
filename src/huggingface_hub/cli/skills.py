@@ -94,15 +94,14 @@ _COMMON_FLAG_ALLOWLIST = {"--token", "--quiet", "--type", "--format", "--revisio
 _INLINE_FLAG_EXCLUDE = {"--token"}
 
 _COMMON_FLAG_HELP_OVERRIDES: dict[str, str] = {
-    "--format": "Output format: `--format json` (or `--json`) or `--format table` (default).",
+    "--format": (
+        "Output format: `auto` (default), `human`, `agent`, `json` or `quiet`; `--json` and `-q` are shortcuts. "
+        "Accepted by every command except `hf sandbox exec`, `hf sandbox spawn` and `hf extensions exec`."
+    ),
     "--token": "Use a User Access Token. Prefer setting `HF_TOKEN` env var instead of passing `--token`.",
 }
 
-# Global formatting flags injected into the skill markdown for commands that
-# accept them. They aren't real click params on the command (they're consumed
-# globally — see ``_consume_format_flags_for_leaf`` in ``_cli_utils.py``) so we
-# add them synthetically here.
-_GLOBAL_FORMAT_INLINE_FLAGS = ["--format [auto|human|agent|json|quiet]"]
+# Consumed globally by `_consume_format_flags_for_leaf`, so documented once in the common-options glossary.
 _GLOBAL_COMMON_FLAGS: dict[str, tuple[str, str]] = {
     "--format": ("--format", "Output format."),
     "--quiet": ("-q / --quiet", "Quiet output (one ID per line)."),
@@ -187,7 +186,6 @@ def _get_flag_names(cmd: Command, *, exclude: set[str] | None = None) -> list[st
     """Return long-form flag names (--foo) for optional, non-internal params.
 
     Boolean flags are bare ('--dry-run').  Value-taking options include a type hint ('--include TEXT', '--max-workers INTEGER').
-    Synthetic global formatting flags are appended for commands that accept them.
     """
     flags: list[str] = []
     for p, long_name, _short in _iter_optional_params(cmd):
@@ -198,8 +196,6 @@ def _get_flag_names(cmd: Command, *, exclude: set[str] | None = None) -> list[st
         else:
             type_name = _type_hint(p)
             flags.append(f"{long_name} {type_name}")
-    if _accepts_global_format_flags(cmd):
-        flags.extend(flag for flag in _GLOBAL_FORMAT_INLINE_FLAGS if not (exclude and flag.split()[0] in exclude))
     return flags
 
 
@@ -466,8 +462,11 @@ def skills_add(
     print(f"Installed '{name}' to central location: {central_skill_path}")
 
     claude_path = constants.CLAUDE_SKILLS_GLOBAL_PATH if global_ else constants.CLAUDE_SKILLS_LOCAL_PATH
-    link_path = _create_symlink(claude_path, name, central_skill_path, force)
-    print(f"Created symlink: {link_path}" if link_path.is_symlink() else f"Copied '{name}' to {link_path}")
+    if claude_path.expanduser().resolve() == central_path.expanduser().resolve():
+        print(f"{claude_path.expanduser()} already points to {central_path.expanduser()}, skipping symlink.")
+    else:
+        link_path = _create_symlink(claude_path, name, central_skill_path, force)
+        print(f"Created symlink: {link_path}" if link_path.is_symlink() else f"Copied '{name}' to {link_path}")
     if not global_:
         out.hint(f"Run `hf skills add {name} --global` to install the skill globally instead.")
 

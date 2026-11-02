@@ -23,10 +23,10 @@ For completeness we also run a test on a simple task (`test_async_sentence_simil
 work as well.
 """
 
-import asyncio
 import inspect
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
+import httpx2
 import numpy as np
 import pytest
 
@@ -321,7 +321,7 @@ def test_sync_vs_async_signatures() -> None:
 @pytest.mark.asyncio
 async def test_async_generate_timeout_error(monkeypatch: pytest.MonkeyPatch) -> None:
     async def _mock_client_post(*args, **kwargs):
-        raise asyncio.TimeoutError
+        raise httpx2.ReadTimeout("timed out")
 
     def mock_check_supported_task(*args, **kwargs):
         return None

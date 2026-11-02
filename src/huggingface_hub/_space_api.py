@@ -100,6 +100,12 @@ class SpaceHardware(str, Enum):
     A100X4 = "a100x4"
     A100X8 = "a100x8"
 
+    # New (auto-added by utils/check_hardware_flavors.py)
+    RTX_PRO_6000 = "rtx-pro-6000"
+    RTX_PRO_6000X2 = "rtx-pro-6000x2"
+    RTX_PRO_6000X4 = "rtx-pro-6000x4"
+    RTX_PRO_6000X8 = "rtx-pro-6000x8"
+
 
 class SpaceStorage(str, Enum):
     """

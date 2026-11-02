@@ -18,11 +18,11 @@ This is a major change that affects the entire library. While we have tried to m
 
 - **Proxy configuration**: "per method" proxies are no longer supported. Proxies must be configured globally using the `HTTP_PROXY` and `HTTPS_PROXY` environment variables.
 - **Custom HTTP backend**: The `configure_http_backend` function has been removed. You should now use [`set_client_factory`] and [`set_async_client_factory`] to configure the HTTP clients.
-- **Error handling**: HTTP errors are not inherited from `requests.HTTPError` anymore, but from `httpx.HTTPError`. We recommend catching `huggingface_hub.HfHubHttpError` which is a subclass of `requests.HTTPError` in v0.x and of `httpx.HTTPError` in v1.x. Catching from the `huggingface_hub` error ensures your code is compatible with both the old and new versions of the library.
+- **Error handling**: HTTP errors are not inherited from `requests.HTTPError` anymore, but from `httpx.HTTPError`. We recommend catching [`~utils.HfHubHTTPError`] (imported with `from huggingface_hub.utils import HfHubHTTPError`), which is a subclass of `requests.HTTPError` in v0.x and of `httpx.HTTPError` in v1.x. Catching from the `huggingface_hub` error ensures your code is compatible with both the old and new versions of the library.
 - **SSLError**: `httpx` does not have the concept of `SSLError`. It is now a generic `httpx.ConnectError`.
 - **`LocalEntryNotFoundError`**: This error no longer inherits from `HTTPError`. We now define a `EntryNotFoundError` (new) that is inherited by both [`LocalEntryNotFoundError`] (if file not found in local cache) and [`RemoteEntryNotFoundError`] (if file not found in repo on the Hub). Only the remote error inherits from `HTTPError`.
 - **`InferenceClient`**: The `InferenceClient` can now be used as a context manager. This is especially useful when streaming tokens from a language model to ensure that the connection is closed properly.
-- **`AsyncInferenceClient`**: The `trust_env` parameter has been removed from the `AsyncInferenceClient`'s constructor. Environment variables are trusted by default by `httpx`. If you explicitly don't want to trust the environment, you must configure it with [`set_client_factory`].
+- **`AsyncInferenceClient`**: The `trust_env` parameter has been removed from the `AsyncInferenceClient`'s constructor. Environment variables are trusted by default by `httpx`. If you explicitly don't want to trust the environment, you must configure it with [`set_async_client_factory`].
 
 For more details, you can check [PR #3328](https://github.com/huggingface/huggingface_hub/pull/3328) that introduced `httpx`.
 

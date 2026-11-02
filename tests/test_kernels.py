@@ -67,6 +67,21 @@ def test_create_kernel(staging_api: HfApi, new_kernel_name: str) -> None:
     assert repo_url.endpoint == ENDPOINT_STAGING
 
 
+def test_upload_to_kernel(staging_api: HfApi, new_kernel_name: str, tmp_path) -> None:
+    repo_id = staging_api.create_repo(new_kernel_name, repo_type="kernel").repo_id
+
+    commit = staging_api.upload_file(
+        path_or_fileobj=b"# My kernel", path_in_repo="README.md", repo_id=repo_id, repo_type="kernel"
+    )
+    assert commit.commit_url.startswith(f"{ENDPOINT_STAGING}/kernels/{repo_id}/commit/")
+
+    (tmp_path / "build").mkdir()
+    (tmp_path / "build" / "kernel.py").write_text("print('hello')")
+    staging_api.upload_folder(folder_path=tmp_path, repo_id=repo_id, repo_type="kernel")
+
+    assert set(staging_api.list_repo_files(repo_id, repo_type="kernel")) >= {"README.md", "build/kernel.py"}
+
+
 def test_kernel_info(api: HfApi) -> None:
     kernel_info = api.kernel_info(KERNEL_TEST_REPO_ID)
     assert isinstance(kernel_info, KernelInfo)

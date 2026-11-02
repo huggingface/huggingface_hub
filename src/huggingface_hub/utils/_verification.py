@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Literal, TypedDict
 
 from .. import constants
 from ..file_download import repo_folder_name
+from ._paths import DEFAULT_IGNORE_PATTERNS, filter_repo_objects
 from .sha import git_hash, sha_fileobj
 
 
@@ -39,8 +40,12 @@ class FolderVerification:
 def collect_local_files(root: Path) -> dict[str, Path]:
     """
     Return a mapping of repo-relative path -> absolute path for all files under `root`.
+
+    Files matching `DEFAULT_IGNORE_PATTERNS` (`.git/` and the `.cache/huggingface/` metadata that downloads to a
+    `local_dir` write) are skipped, since they can never be part of a repo.
     """
-    return {p.relative_to(root).as_posix(): p for p in root.rglob("*") if p.is_file()}
+    files = {p.relative_to(root).as_posix(): p for p in root.rglob("*") if p.is_file()}
+    return {path: files[path] for path in filter_repo_objects(files, ignore_patterns=DEFAULT_IGNORE_PATTERNS)}
 
 
 def _resolve_commit_hash_from_cache(storage_folder: Path, revision: str | None) -> str:

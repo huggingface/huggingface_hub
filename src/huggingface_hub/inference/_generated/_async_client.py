@@ -291,8 +291,8 @@ class AsyncInferenceClient:
                 )
                 hf_raise_for_status(response)
                 return response.content
-        except asyncio.TimeoutError as error:
-            # Convert any `TimeoutError` to a `InferenceTimeoutError`
+        except httpx2.TimeoutException as error:
+            # Convert any httpx timeout to a `InferenceTimeoutError`
             raise InferenceTimeoutError(f"Inference call timed out: {request_parameters.url}") from error  # type: ignore
         except HfHubHTTPError as error:
             if error.response.status_code == 422 and request_parameters.task != "unknown":
@@ -468,7 +468,7 @@ class AsyncInferenceClient:
             api_key=self.token,
         )
         response = await self._inner_post(request_parameters)
-        response = provider_helper.get_response(response, request_params=request_parameters)
+        response = await asyncio.to_thread(provider_helper.get_response, response, request_params=request_parameters)
         return AutomaticSpeechRecognitionOutput.parse_obj_as_instance(response)
 
     @overload
@@ -1127,7 +1127,7 @@ class AsyncInferenceClient:
         )
         response = await self._inner_post(request_parameters)
         np = _import_numpy()
-        return np.array(provider_helper.get_response(response), dtype="float32")
+        return np.array(await asyncio.to_thread(provider_helper.get_response, response), dtype="float32")
 
     async def fill_mask(
         self,
@@ -1300,7 +1300,7 @@ class AsyncInferenceClient:
             api_key=self.token,
         )
         response = await self._inner_post(request_parameters)
-        response = provider_helper.get_response(response, request_parameters)
+        response = await asyncio.to_thread(provider_helper.get_response, response, request_parameters)
         output = ImageSegmentationOutputElement.parse_obj_as_list(response)
         for item in output:
             item.mask = _b64_to_image(item.mask)  # type: ignore
@@ -1380,7 +1380,7 @@ class AsyncInferenceClient:
             api_key=self.token,
         )
         response = await self._inner_post(request_parameters)
-        response = provider_helper.get_response(response, request_parameters)
+        response = await asyncio.to_thread(provider_helper.get_response, response, request_parameters)
         return _bytes_to_image(response)
 
     async def image_to_video(
@@ -1460,7 +1460,7 @@ class AsyncInferenceClient:
             api_key=self.token,
         )
         response = await self._inner_post(request_parameters)
-        response = provider_helper.get_response(response, request_parameters)
+        response = await asyncio.to_thread(provider_helper.get_response, response, request_parameters)
         return response
 
     async def image_to_text(self, image: ContentT, *, model: str | None = None) -> ImageToTextOutput:
@@ -2456,7 +2456,7 @@ class AsyncInferenceClient:
         # Data can be a single element (dict) or an iterable of dicts where we select the first element of.
         if isinstance(data, list):
             data = data[0]
-        response = provider_helper.get_response(data, request_parameters)
+        response = await asyncio.to_thread(provider_helper.get_response, data, request_parameters)
         return TextGenerationOutput.parse_obj_as_instance(response) if details else response["generated_text"]
 
     async def text_to_image(
@@ -2597,7 +2597,7 @@ class AsyncInferenceClient:
             api_key=self.token,
         )
         response = await self._inner_post(request_parameters)
-        response = provider_helper.get_response(response, request_parameters)
+        response = await asyncio.to_thread(provider_helper.get_response, response, request_parameters)
         return _bytes_to_image(response)
 
     async def text_to_video(
@@ -2694,7 +2694,7 @@ class AsyncInferenceClient:
             api_key=self.token,
         )
         response = await self._inner_post(request_parameters)
-        response = provider_helper.get_response(response, request_parameters)
+        response = await asyncio.to_thread(provider_helper.get_response, response, request_parameters)
         return response
 
     async def text_to_speech(
@@ -2903,7 +2903,7 @@ class AsyncInferenceClient:
             api_key=self.token,
         )
         response = await self._inner_post(request_parameters)
-        response = provider_helper.get_response(response)
+        response = await asyncio.to_thread(provider_helper.get_response, response)
         return response
 
     async def token_classification(
