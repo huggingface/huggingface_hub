@@ -14661,6 +14661,7 @@ class HfApi:
         *,
         token: str | bool | None = None,
     ) -> None:
+
         from ._commit_api import CommitOperationCopy
 
         destination_path = destination.path_in_repo
