@@ -103,7 +103,7 @@ hf-hello/
 ```toml
 [build-system]
 requires = ["setuptools>=64"]
-build-backend = "setuptools.backends._legacy:_Backend"
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "hf-hello"
