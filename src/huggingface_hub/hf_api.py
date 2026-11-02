@@ -12519,7 +12519,7 @@ class HfApi:
             `Iterable[JobInfo]`: an iterable of [`JobInfo`] objects.
         """
         if namespace is None:
-            namespace = whoami(token=token)["name"]
+            namespace = self.whoami(token=token)["name"]
         params: list[tuple[str, Any]] = []
         if status is not None:
             statuses = [status] if isinstance(status, (str, JobStage)) else status

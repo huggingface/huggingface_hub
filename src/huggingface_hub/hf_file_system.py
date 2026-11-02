@@ -1114,7 +1114,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
 
     def cp_file(self, path1: str, path2: str, revision: str | None = None, **kwargs) -> None:
         """
-        Copy a file within or between repositories.
+        Copy a file within or between repositories, or into a bucket.
 
         > [!WARNING]
         > Note: When possible, use `HfApi.upload_file()` for better performance.
@@ -1130,10 +1130,36 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         """
         resolved_path1 = self.resolve_path(path1, revision=revision)
         resolved_path2 = self.resolve_path(path2, revision=revision)
-        if isinstance(resolved_path1, HfFileSystemResolvedBucketPath) or isinstance(
-            resolved_path2, HfFileSystemResolvedBucketPath
-        ):
-            raise NotImplementedError("Copy from/to buckets is not available yet")
+
+        # --- Destination is a bucket ---
+        if isinstance(resolved_path2, HfFileSystemResolvedBucketPath):
+            source_info = self.info(path1, revision=revision)
+
+            if source_info["type"] == "directory":
+                return  # Folders are implicit in buckets (fsspec's recursive copy calls cp_file on them too)
+
+            if isinstance(resolved_path1, HfFileSystemResolvedBucketPath):
+                source_type, source_id = "bucket", resolved_path1.bucket_id
+            else:
+                source_type, source_id = resolved_path1.repo_type, resolved_path1.repo_id
+            if (xet_hash := source_info.get("xet_hash")) is not None:
+                # Server-side copy by xet hash (no data transfer)
+                self._api.batch_bucket_files(
+                    resolved_path2.bucket_id, copy=[(source_type, source_id, xet_hash, resolved_path2.path)]
+                )
+            else:
+                # Non-Xet repo file: download and upload via batch_bucket_files add
+                with self.open(path1, "rb", revision=revision) as f:
+                    content = f.read()
+                self._api.batch_bucket_files(resolved_path2.bucket_id, add=[(content, resolved_path2.path)])
+
+            self.invalidate_cache(path=resolved_path1.unresolve())
+            self.invalidate_cache(path=resolved_path2.unresolve())
+            return
+
+        # --- Source is a bucket, destination is a repository (unsupported) ---
+        if isinstance(resolved_path1, HfFileSystemResolvedBucketPath):
+            raise NotImplementedError("Copy from buckets to repositories is not available yet")
 
         same_repo = (
             resolved_path1.repo_type == resolved_path2.repo_type and resolved_path1.repo_id == resolved_path2.repo_id
