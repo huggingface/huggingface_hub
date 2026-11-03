@@ -130,7 +130,7 @@ If you want to check if offline mode is enabled or not, you can use the [`is_off
 
 Authentication is not mandatory for every request to the Hub. For instance, requesting
 details about `"gpt2"` model does not require to be authenticated. However, if a user is
-[logged in](../package_reference/login), the default behavior will be to always send the token
+[logged in](./authentication), the default behavior will be to always send the token
 in order to ease user experience (never get a HTTP 401 Unauthorized) when accessing private or gated repositories. For privacy, you can
 disable this behavior by setting `HF_HUB_DISABLE_IMPLICIT_TOKEN=1`. In this case,
 the token will be sent only for "write-access" calls (example: create a commit).

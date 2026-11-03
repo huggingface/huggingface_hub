@@ -294,7 +294,7 @@ A repository can be public or private. A private repository is only visible to y
 Or via CLI:
 
 ```bash
->>> hf repos settings lysandre/test-private --private true
+>>> hf repos settings lysandre/test-private --private
 ```
 
 ### Setup gated access

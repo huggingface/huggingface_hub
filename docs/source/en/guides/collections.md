@@ -81,7 +81,7 @@ Number of upvotes: 5
 
 It is possible to do more advanced filtering. Let's get all collections containing the model [TheBloke/OpenHermes-2.5-Mistral-7B-GGUF](https://huggingface.co/TheBloke/OpenHermes-2.5-Mistral-7B-GGUF), sorted by trending, and limit the count to 5.
 ```py
->>> collections = list_collections(item="models/TheBloke/OpenHermes-2.5-Mistral-7B-GGUF", sort="trending", limit=5):
+>>> collections = list_collections(item="models/TheBloke/OpenHermes-2.5-Mistral-7B-GGUF", sort="trending", limit=5)
 >>> for collection in collections:
 ...   print(collection.slug)
 teknium/quantized-models-6544690bb978e0b0f7328748
@@ -91,7 +91,7 @@ gnomealone/need-to-test-652007226c6ce4cdacf9c233
 Crataco/favorite-7b-models-651944072b4fffcb41f8b568
 ```
 
-Parameter `sort` must be one of  `"last_modified"`,  `"trending"` or `"upvotes"`. Parameter `item` accepts any particular item. For example:
+Parameter `sort` must be one of  `"lastModified"`,  `"trending"` or `"upvotes"`. Parameter `item` accepts any particular item. For example:
 * `"models/teknium/OpenHermes-2.5-Mistral-7B"`
 * `"spaces/julien-c/open-gpt-rhyming-robot"`
 * `"datasets/squad"`
