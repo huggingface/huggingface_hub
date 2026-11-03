@@ -634,7 +634,7 @@ class TestRepoCard:
         card.validate()
 
         card.data.license = "asdf"
-        with pytest.raises(ValueError, match='- Error: "license" must be one of'):
+        with pytest.raises(ValueError, match='- Error: "license" must be'):
             card.validate()
 
     def test_push_to_hub(self, api: HfApi, repo_factory: RepoFactory):

@@ -233,6 +233,7 @@ ExpandSpaceProperty_T = Literal[
     "tags",
     "trendingScore",
     "usedStorage",
+    "visibility",
 ]
 
 ModelSort_T = Literal["created_at", "downloads", "last_modified", "likes", "trending_score"]
@@ -1200,6 +1201,8 @@ class SpaceInfo:
             Trending score of the Space.
         used_storage (`int`, *optional*):
             Size in bytes of the Space on the Hub.
+        visibility (`Literal["public", "private", "protected"]`, *optional*):
+            Visibility of the Space. Unlike `private`, this tells apart private and protected Spaces. Only available for Spaces (not models, datasets or buckets).
     """
 
     id: str
@@ -1224,6 +1227,7 @@ class SpaceInfo:
     tags: list[str] | None
     trending_score: int | None
     used_storage: int | None
+    visibility: RepoVisibility_T | None
 
     def __init__(self, **kwargs):
         self.id = kwargs.pop("id")
@@ -1234,6 +1238,7 @@ class SpaceInfo:
         last_modified = kwargs.pop("lastModified", None) or kwargs.pop("last_modified", None)
         self.last_modified = parse_datetime(last_modified) if last_modified else None
         self.private = kwargs.pop("private", None)
+        self.visibility = kwargs.pop("visibility", None)
         self.gated = kwargs.pop("gated", None)
         self.disabled = kwargs.pop("disabled", None)
         self.host = kwargs.pop("host", None)
@@ -2817,7 +2822,7 @@ class HfApi:
             expand (`list[ExpandSpaceProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `full` is passed.
-                Possible values are `"author"`, `"cardData"`, `"datasets"`, `"disabled"`, `"lastModified"`, `"createdAt"`, `"likes"`, `"models"`, `"private"`, `"region"`, `"runtime"`, `"sdk"`, `"siblings"`, `"sha"`, `"subdomain"`, `"tags"`, `"trendingScore"`, `"usedStorage"`, and `"resourceGroup"`.
+                Possible values are `"author"`, `"cardData"`, `"datasets"`, `"disabled"`, `"lastModified"`, `"createdAt"`, `"likes"`, `"models"`, `"private"`, `"region"`, `"runtime"`, `"sdk"`, `"siblings"`, `"sha"`, `"subdomain"`, `"tags"`, `"trendingScore"`, `"usedStorage"`, `"visibility"`, and `"resourceGroup"`.
             full (`bool`, *optional*):
                 Whether to fetch all Spaces data, including the `last_modified`, `siblings`
                 and `card_data` fields.
@@ -3387,7 +3392,7 @@ class HfApi:
             expand (`list[ExpandSpaceProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `full` is passed.
-                Possible values are `"author"`, `"cardData"`, `"createdAt"`, `"datasets"`, `"disabled"`, `"lastModified"`, `"likes"`, `"models"`, `"private"`, `"region"`, `"runtime"`, `"sdk"`, `"siblings"`, `"sha"`, `"subdomain"`, `"tags"`, `"trendingScore"`, `"usedStorage"`, and `"resourceGroup"`.
+                Possible values are `"author"`, `"cardData"`, `"createdAt"`, `"datasets"`, `"disabled"`, `"lastModified"`, `"likes"`, `"models"`, `"private"`, `"region"`, `"runtime"`, `"sdk"`, `"siblings"`, `"sha"`, `"subdomain"`, `"tags"`, `"trendingScore"`, `"usedStorage"`, `"visibility"`, and `"resourceGroup"`.
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -12519,7 +12524,7 @@ class HfApi:
             `Iterable[JobInfo]`: an iterable of [`JobInfo`] objects.
         """
         if namespace is None:
-            namespace = whoami(token=token)["name"]
+            namespace = self.whoami(token=token)["name"]
         params: list[tuple[str, Any]] = []
         if status is not None:
             statuses = [status] if isinstance(status, (str, JobStage)) else status
