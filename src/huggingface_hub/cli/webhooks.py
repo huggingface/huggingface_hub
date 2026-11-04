@@ -196,14 +196,21 @@ def webhooks_create(
 @webhooks_cli.command(
     "update",
     examples=[
-        "hf webhooks update abc123 --url https://new-url.com/hook",
-        "hf webhooks update abc123 --watch model:gpt2 --domain repo",
-        "hf webhooks update abc123 --secret newsecret",
-        "hf webhooks update abc123 --job-id 687f911eaea852de79c4a50a --secrets HF_TOKEN",
+        "hf webhooks update abc123 --url https://new-url.com/hook --watch model:gpt2 --domain repo",
+        "hf webhooks update abc123 --url https://example.com/hook --watch user:julien-c --domain repo --secret newsecret",
+        "hf webhooks update abc123 --job-id 687f911eaea852de79c4a50a --watch user:julien-c --domain repo --secrets HF_TOKEN",
     ],
 )
 def webhooks_update(
     webhook_id: Annotated[str, Argument(help="The ID of the webhook to update.")],
+    watch: Annotated[
+        list[str],
+        Option("--watch", help="Complete list of items to watch, in type:name format. Repeatable."),
+    ],
+    domain: Annotated[
+        list[WebhookDomain],
+        Option("--domain", help="Complete list of domains to watch: repo or discussion. Repeatable."),
+    ],
     url: Annotated[
         str | None,
         Option(help="New URL to send webhook payloads to."),
@@ -215,23 +222,6 @@ def webhooks_update(
             help="ID of the source Job to trigger (can be the current one). Required with --secrets / --secrets-file.",
         ),
     ] = None,
-    watch: Annotated[
-        list[str] | None,
-        Option(
-            "--watch",
-            help=(
-                "New list of items to watch, in 'type:name' format. "
-                "Repeatable. Replaces the entire existing watched list."
-            ),
-        ),
-    ] = None,
-    domain: Annotated[
-        list[WebhookDomain] | None,
-        Option(
-            "--domain",
-            help="New list of domains to watch: 'repo' or 'discussion'. Repeatable.",
-        ),
-    ] = None,
     secret: Annotated[
         str | None,
         Option(help="New secret used to sign webhook payloads."),
@@ -240,16 +230,21 @@ def webhooks_update(
     secrets_file: SecretsFileOpt = None,
     token: TokenOpt = None,
 ) -> None:
-    """Update an existing webhook. Only provided options are changed.
+    """Update an existing webhook.
+
+    Provide the complete watched list, domains and destination, including values that have not changed.
+    Provide either --url or --job-id.
 
     Job secrets passed with --secrets replace stored values with the same name; others are kept.
     """
     if url is not None and job_id is not None:
         raise click.BadParameter("Provide either --url or --job-id, not both.")
+    if url is None and job_id is None:
+        raise click.BadParameter("Provide either --url or --job-id.")
     job_secrets = _parse_job_secrets(secrets, secrets_file, job_id)
     api = get_hf_api(token=token)
-    watched_items = _parse_watch(watch) if watch else None
-    domains = [d.value for d in domain] if domain else None
+    watched_items = _parse_watch(watch)
+    domains = [d.value for d in domain]
     webhook = api.update_webhook(
         webhook_id,
         url=url,

@@ -5701,7 +5701,10 @@ Learn more
 
 ### `hf webhooks update`
 
-Update an existing webhook. Only provided options are changed.
+Update an existing webhook.
+
+Provide the complete watched list, domains and destination, including values that have not changed.
+Provide either --url or --job-id.
 
 Job secrets passed with --secrets replace stored values with the same name; others are kept.
 
@@ -5717,10 +5720,10 @@ $ hf webhooks update [OPTIONS] WEBHOOK_ID
 
 **Options**:
 
+* `--watch TEXT`: Complete list of items to watch, in type:name format. Repeatable.  [required]
+* `--domain [repo|discussion]`: Complete list of domains to watch: repo or discussion. Repeatable.  [required]
 * `--url TEXT`: New URL to send webhook payloads to.
 * `--job-id TEXT`: ID of the source Job to trigger (can be the current one). Required with --secrets / --secrets-file.
-* `--watch TEXT`: New list of items to watch, in 'type:name' format. Repeatable. Replaces the entire existing watched list.
-* `--domain [repo|discussion]`: New list of domains to watch: 'repo' or 'discussion'. Repeatable.
 * `--secret TEXT`: New secret used to sign webhook payloads.
 * `-s, --secrets TEXT`: Set secret environment variables. Prefer `--secrets SECRET` to read the value from your environment (e.g. `--secrets HF_TOKEN` to pass your Hugging Face token); `--secrets SECRET=value` puts the value in your shell history.
 * `--secrets-file TEXT`: Read in a file of secret environment variables. Use `-` to read them from stdin.
@@ -5728,10 +5731,9 @@ $ hf webhooks update [OPTIONS] WEBHOOK_ID
 * `--help`: Show this message and exit.
 
 Examples
-  $ hf webhooks update abc123 --url https://new-url.com/hook
-  $ hf webhooks update abc123 --watch model:gpt2 --domain repo
-  $ hf webhooks update abc123 --secret newsecret
-  $ hf webhooks update abc123 --job-id 687f911eaea852de79c4a50a --secrets HF_TOKEN
+  $ hf webhooks update abc123 --url https://new-url.com/hook --watch model:gpt2 --domain repo
+  $ hf webhooks update abc123 --url https://example.com/hook --watch user:julien-c --domain repo --secret newsecret
+  $ hf webhooks update abc123 --job-id 687f911eaea852de79c4a50a --watch user:julien-c --domain repo --secrets HF_TOKEN
 
 Learn more
   Use `hf <command> --help` for more information about a command.
