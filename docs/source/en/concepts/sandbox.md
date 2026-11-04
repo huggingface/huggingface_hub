@@ -229,13 +229,13 @@ Before a command starts, the server applies two kernel restrictions to it. Both 
 - A **seccomp filter** decides which sockets can exist. Unix and netlink sockets are allowed. IPv4 and IPv6 are allowed for TCP only, so UDP (and DNS), ICMP and raw sockets are refused. The filter also refuses `io_uring`, TCP Fast Open and `ptrace`, which could get around the other checks.
 - A **Landlock** rule refuses every TCP `connect()`, including to `127.0.0.1`. Listening on a port still works, so the [port proxy](../guides/sandbox#reaching-a-server-inside-a-sandbox) can still reach a server in a dedicated sandbox.
 
-With `network="none"`, that is all. With an allowlist, the seccomp filter also hands every `connect()` call to the server. The server reads the destination and checks it against the allowlist. If it matches, the server connects a socket of its own and puts it in place of the sandbox's socket. Otherwise, the call fails with "permission denied". The server connects the address it checked, not the one in the sandbox's memory, so the sandbox cannot change the address after the check.
+With `network="none"`, that is all. With an allowlist, the server starts each command through a small supervisor: a second copy of the server binary that runs inside the sandbox, as the command's parent. The seccomp filter hands the command's TCP socket calls to the supervisor. The supervisor creates each socket itself, so it can later connect that same socket. On `connect()`, it reads the destination and checks it against the allowlist. If it matches, the supervisor connects the socket to the address it checked, not the one in the sandbox's memory. Otherwise, the call fails with "permission denied". The supervisor shares the command's limits and process group, so a timeout or a kill stops it too.
 
 Hostnames in the allowlist are resolved once, by the server, when the sandbox is created. The server writes them to `/etc/hosts`. The sandbox can then resolve them without DNS, and it reaches the same addresses the allowlist holds.
 
 Some limits:
 
-- Socket options that a program sets before `connect()` (such as `TCP_NODELAY`) are not copied to the server's socket.
+- With an allowlist, background processes that outlive the command that started them lose their network access when that command exits. Start long-running services with `run(..., background=True)`.
 - A writable volume can still be used to move data out. Mount volumes read-only for strict isolation.
 - In a pool, a sandbox with network access could pass an open connection to an isolated one over a unix socket, if both cooperate. A pool is one trust boundary.
 - The policy needs Landlock ABI 4 or newer. HF Jobs have ABI 6.

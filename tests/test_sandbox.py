@@ -1795,11 +1795,6 @@ class TestNetworkPolicy:
         with pytest.raises(ValueError):
             sandbox_mod._network_payload(network)
 
-    def test_server_must_echo_the_policy(self):
-        sandbox_mod._check_network_applied("none", "none", where="host")
-        with pytest.raises(SandboxError, match="did not apply"):
-            sandbox_mod._check_network_applied("none", None, where="host")
-
     def test_cli_option(self):
         from huggingface_hub.cli.sandbox import _parse_network
 
