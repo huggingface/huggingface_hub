@@ -698,15 +698,18 @@ class TestRepoCard:
             card2 = RepoCard.load(tmpfile)
         assert str(card) == str(card2)
 
-    def test_updating_text_updates_content(self):
-        sample_path = SAMPLE_CARDS_DIR / "sample_simple.md"
+    @pytest.mark.parametrize("line_break", ["\n", "\r\n"])
+    def test_updating_text_updates_content(self, tmp_path, line_break):
+        # Write the sample with an explicit line ending: the line ending of the checked-out
+        # fixture depends on git's `core.autocrlf`, not on the platform.
+        sample = (SAMPLE_CARDS_DIR / "sample_simple.md").read_bytes().replace(b"\r\n", b"\n")
+        sample_path = tmp_path / "README.md"
+        sample_path.write_bytes(sample.replace(b"\n", line_break.encode()))
+
         card = RepoCard.load(sample_path)
         card.text = "Hello, world!"
-        line_break = "\r\n" if os.name == "nt" else "\n"
-        assert card.content == (
-            # line_break depends on platform. Correctly set when using RepoCard.save(...) to avoid diffs
-            f"---\n{card.data.to_yaml()}\n---\nHello, world!".replace("\n", line_break)
-        )
+        # The line ending of the loaded file is kept, to avoid diffs when the card is saved.
+        assert card.content == f"---\n{card.data.to_yaml()}\n---\nHello, world!".replace("\n", line_break)
 
 
 class TestRegexYamlBlock:
