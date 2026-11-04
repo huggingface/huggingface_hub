@@ -2519,7 +2519,9 @@ Use `hf endpoints` to list, deploy, describe, and manage Inference Endpoints dir
 >>> hf endpoints catalog deploy --repo openai/gpt-oss-120b --name my-endpoint
 
 # Deploy an endpoint from the Hugging Face Hub
->>> hf endpoints deploy my-endpoint --repo gpt2 --framework pytorch --accelerator cpu --instance-size x2 --instance-type intel-icl
+>>> hf endpoints deploy my-endpoint --repo gpt2 --framework pytorch \
+      --accelerator cpu --vendor aws --region us-east-1 \
+      --instance-size x2 --instance-type intel-icl
 
 # List catalog entries
 >>> hf endpoints catalog ls
