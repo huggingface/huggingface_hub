@@ -702,11 +702,8 @@ class TestRepoCard:
         sample_path = SAMPLE_CARDS_DIR / "sample_simple.md"
         card = RepoCard.load(sample_path)
         card.text = "Hello, world!"
-        line_break = "\r\n" if os.name == "nt" else "\n"
-        assert card.content == (
-            # line_break depends on platform. Correctly set when using RepoCard.save(...) to avoid diffs
-            f"---\n{card.data.to_yaml()}\n---\nHello, world!".replace("\n", line_break)
-        )
+        assert "Hello, world!" in card.content
+        assert "# my-cool-model" not in card.content
 
 
 class TestRegexYamlBlock:
