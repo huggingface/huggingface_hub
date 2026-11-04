@@ -84,6 +84,17 @@ class TestUserAgentHeadersUtil:
     def test_user_agent_with_custom_agent_dict(self) -> None:
         assert self._get_user_agent(user_agent={"a": "b", "c": "d"}).endswith("a/b; c/d")
 
+    def test_user_agent_with_empty_custom_agent_string(self) -> None:
+        # https://github.com/huggingface/huggingface_hub/issues/5304:
+        # a trailing "; " is an illegal header value for h11 and breaks every request
+        assert not self._get_user_agent(user_agent="").endswith("; ")
+
+    def test_user_agent_with_blank_custom_agent_string(self) -> None:
+        assert not self._get_user_agent(user_agent="   ").endswith("; ")
+
+    def test_user_agent_with_empty_custom_agent_dict(self) -> None:
+        assert not self._get_user_agent(user_agent={}).endswith("; ")
+
     def test_user_agent_deduplicate(self) -> None:
         assert (
             _deduplicate_user_agent(

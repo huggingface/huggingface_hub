@@ -188,10 +188,15 @@ def _http_user_agent(
         if agent:
             ua += f"; agent/{agent}"
 
+    # Only append `user_agent` when it carries information: an empty entry would leave a
+    # trailing "; " in the header value, which h11 rejects outright (illegal trailing
+    # whitespace) and breaks every subsequent request (see issue #5304).
     if isinstance(user_agent, dict):
-        ua += "; " + "; ".join(f"{k}/{v}" for k, v in user_agent.items())
+        if user_agent:
+            ua += "; " + "; ".join(f"{k}/{v}" for k, v in user_agent.items())
     elif isinstance(user_agent, str):
-        ua += "; " + user_agent
+        if user_agent.strip():
+            ua += "; " + user_agent.strip()
 
     # Retrieve user-agent origin headers from environment variable
     origin = constants.HF_HUB_USER_AGENT_ORIGIN
