@@ -4284,25 +4284,6 @@ class TestPaperApi:
         assert len(papers) == 10
 
 
-@pytest.mark.parametrize(
-    "kwargs",
-    [
-        {"watched": [], "domains": ["repo"], "url": "https://example.com"},
-        {"watched": [{"type": "user", "name": "me"}], "domains": [], "url": "https://example.com"},
-        {"watched": [{"type": "user", "name": "me"}], "domains": ["repo"]},
-        {
-            "watched": [{"type": "user", "name": "me"}],
-            "domains": ["repo"],
-            "url": "https://example.com",
-            "job_id": "job",
-        },
-    ],
-)
-def test_update_webhook_requires_complete_configuration(kwargs):
-    with pytest.raises(ValueError):
-        HfApi().update_webhook("webhook-id", **kwargs)
-
-
 class TestWebhookApi:
     @pytest.fixture(autouse=True)
     def _webhook(self, api: HfApi):

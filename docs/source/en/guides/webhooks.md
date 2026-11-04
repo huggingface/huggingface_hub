@@ -62,7 +62,7 @@ for webhook in webhooks:
 
 ### Updating a Webhook
 
-If you need to change the configuration of an existing webhook, such as the URL or the events it watches, you can update it using [`update_webhook`]. Pass the complete watched list, domains, and destination (`url` or `job_id`), even when some of them are unchanged.
+If you need to change the configuration of an existing webhook, such as the URL or the events it watches, you can update it using [`update_webhook`]. 
 
 ```python
 from huggingface_hub import update_webhook
