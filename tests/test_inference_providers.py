@@ -21,6 +21,7 @@ from huggingface_hub.inference._providers.cohere import CohereConversationalTask
 from huggingface_hub.inference._providers.deepinfra import (
     DeepInfraAutomaticSpeechRecognitionTask,
     DeepInfraFeatureExtractionTask,
+    DeepInfraSentenceSimilarityTask,
     DeepInfraTextToSpeechTask,
 )
 from huggingface_hub.inference._providers.fal_ai import (
@@ -445,6 +446,67 @@ class TestDeepInfraProvider:
             "model": "Qwen/Qwen3-Embedding-0.6B",
         }
         assert helper.get_response(response) == [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
+
+    def test_sentence_similarity_url(self):
+        helper = DeepInfraSentenceSimilarityTask()
+        url = helper._prepare_url("hf_token", "Qwen/Qwen3-Embedding-0.6B")
+        assert url == "https://router.huggingface.co/deepinfra/v1/openai/embeddings"
+
+    def test_sentence_similarity_payload(self):
+        helper = DeepInfraSentenceSimilarityTask()
+        payload = helper._prepare_payload_as_dict(
+            {"source_sentence": "that is a happy person", "sentences": ["that is a happy dog", "today is sunny"]},
+            {"encoding_format": "float"},
+            InferenceProviderMapping(
+                provider="deepinfra",
+                hf_model_id="Qwen/Qwen3-Embedding-0.6B",
+                providerId="Qwen/Qwen3-Embedding-0.6B",
+                task="sentence-similarity",
+                status="live",
+            ),
+        )
+        assert payload == {
+            "input": ["that is a happy person", "that is a happy dog", "today is sunny"],
+            "encoding_format": "float",
+            "model": "Qwen/Qwen3-Embedding-0.6B",
+        }
+
+    def test_sentence_similarity_model_not_overridable(self):
+        helper = DeepInfraSentenceSimilarityTask()
+        payload = helper._prepare_payload_as_dict(
+            {"source_sentence": "a", "sentences": ["b"]},
+            {"model": "attacker/model", "input": "attacker input"},
+            InferenceProviderMapping(
+                provider="deepinfra",
+                hf_model_id="Qwen/Qwen3-Embedding-0.6B",
+                providerId="Qwen/Qwen3-Embedding-0.6B",
+                task="sentence-similarity",
+                status="live",
+            ),
+        )
+        assert payload["model"] == "Qwen/Qwen3-Embedding-0.6B"
+        assert payload["input"] == ["a", "b"]
+
+    def test_sentence_similarity_response(self):
+        helper = DeepInfraSentenceSimilarityTask()
+        # Deliberately out of order to exercise the index-based sort: source (index 0) is
+        # identical to sentence index 1 (cosine 1.0) and orthogonal to index 2 (cosine 0.0).
+        response = {
+            "object": "list",
+            "data": [
+                {"object": "embedding", "index": 2, "embedding": [0.0, 1.0]},
+                {"object": "embedding", "index": 0, "embedding": [1.0, 0.0]},
+                {"object": "embedding", "index": 1, "embedding": [1.0, 0.0]},
+            ],
+            "model": "Qwen/Qwen3-Embedding-0.6B",
+        }
+        result = helper.get_response(response)
+        assert result == pytest.approx([1.0, 0.0])
+
+    def test_sentence_similarity_malformed_response(self):
+        helper = DeepInfraSentenceSimilarityTask()
+        with pytest.raises(ValueError):
+            helper.get_response({"object": "list"})
 
 
 class TestFalAIProvider:
