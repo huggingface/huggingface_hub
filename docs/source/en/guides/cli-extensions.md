@@ -71,7 +71,7 @@ Arguments:
 - Always start with a shebang (`#!/usr/bin/env bash`) and `set -euo pipefail` for safety.
 - The script receives all extra arguments passed by the user. For example, `hf hello --name world`
   passes `--name world` to the script.
-- You can access the user's Hugging Face token via the `HF_TOKEN` environment variable if they are logged in.
+- Extensions inherit environment variables, including `HF_TOKEN` when it is explicitly set. A token saved by `hf auth login` is not automatically exported as `HF_TOKEN`; see [Authentication](#authentication).
 - Add a `manifest.json` at the repository root to provide a description (see [Add a description](#add-a-description)).
 - External dependencies (e.g., `fzf`, `jq`, etc.) are **not** installed automatically with your extension. Check
   for required tools at the start of your script and fail gracefully with a helpful error message if they are missing.
@@ -154,6 +154,27 @@ other Python packages.
 > [!TIP]
 > For a real-world example, see [alvarobartt/hf-mem](https://github.com/alvarobartt/hf-mem) —
 > a Python extension that estimates inference memory requirements for HF models.
+
+## Authentication
+
+Extensions inherit the environment of the `hf` process. Logging in with `hf auth login` saves a token
+locally, but does not set `HF_TOKEN` in an extension's environment.
+
+For a shell extension that expects `HF_TOKEN`, pass the active token explicitly after logging in:
+
+```bash
+HF_TOKEN="$(hf auth token)" hf hello
+```
+
+Python extensions can load the active token with [`get_token`], which checks the environment and the
+saved login token. Add `huggingface_hub` to the extension's `project.dependencies` in `pyproject.toml`,
+since Python extensions run in an isolated virtual environment.
+
+```python
+from huggingface_hub import get_token
+
+token = get_token()
+```
 
 ## Add a description
 
