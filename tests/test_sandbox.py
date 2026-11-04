@@ -1780,3 +1780,29 @@ class TestTransportHardening:
         link.symlink_to(source)
         _make_sandbox(fake_server).files.upload(link, "/dest")
         assert sum(len(body) for _, body in _FakeServer.writes) == 1024
+
+
+class TestNetworkPolicy:
+    def test_valid_policies(self):
+        assert sandbox_mod._network_payload(None) is None
+        assert sandbox_mod._network_payload("none") == "none"
+        assert sandbox_mod._network_payload({"allow": ("10.0.0.0/8", "huggingface.co")}) == {
+            "allow": ["10.0.0.0/8", "huggingface.co"]
+        }
+
+    @pytest.mark.parametrize("network", ["all", {"allow": "10.0.0.0/8"}, {"allow": [1]}, {"deny": []}, ["10.0.0.1"]])
+    def test_invalid_policies(self, network):
+        with pytest.raises(ValueError):
+            sandbox_mod._network_payload(network)
+
+    def test_server_must_echo_the_policy(self):
+        sandbox_mod._check_network_applied("none", "none", where="host")
+        with pytest.raises(SandboxError, match="did not apply"):
+            sandbox_mod._check_network_applied("none", None, where="host")
+
+    def test_cli_option(self):
+        from huggingface_hub.cli.sandbox import _parse_network
+
+        assert _parse_network(None) is None
+        assert _parse_network("none") == "none"
+        assert _parse_network("10.0.0.0/8, huggingface.co:443") == {"allow": ["10.0.0.0/8", "huggingface.co:443"]}

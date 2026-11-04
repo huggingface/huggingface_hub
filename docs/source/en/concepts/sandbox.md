@@ -158,7 +158,7 @@ Combining distinct uids (discretionary access control) with Landlock is designed
 - ✅ `/tmp` and `/dev/shm` access is denied — each sandbox is Landlock-confined to its own home (its
   `TMPDIR` points inside `$HOME`).
 - ✅ A cannot `bind` a TCP port, so there is no inter-sandbox localhost service (outbound `connect`
-  stays allowed, so the internet works).
+  stays allowed, so the internet works, unless the sandbox has a [network policy](#network-policies)).
 - ✅ Cross-sandbox abstract unix sockets are blocked (`LANDLOCK_SCOPED_ABSTRACT_UNIX_SOCKET`; uid
   isolation alone does *not* block these).
 
@@ -218,6 +218,28 @@ What the cache is and isn't trusted for:
 
 Two things to keep in mind. Treat `$HF_HOME` as sensitive: an entry is still a reusable host URL plus the public nonce its token derives from, and while a file written under a different credential is ignored, one written under *yours* is credited for the 15-minute window above. And because the namespace is part of the key, a pool cached under an explicit `namespace=` is only found again when the same `namespace=` is passed — `hf sandbox create --pool <id>` wants the same `--namespace` the pool was created with, or it takes the cold path and looks in your own namespace.
 
+## Network policies
+
+A Job always has network access, and code inside the container cannot drop it: there is no `CAP_NET_ADMIN`, and no way to create a network namespace. But the sandbox server starts every command itself, so it can take the network away from those commands, and only from them. The server keeps its own connection, so it still serves the API. Volumes are mounted by the platform, outside the container, so they keep working too.
+
+A dedicated sandbox gets its policy from the `SBX_NETWORK` variable of its Job. A pooled sandbox gets it in the create request, so each sandbox on a host can have a different policy. In both cases, the server sends the policy back, and the client checks it. An older server ignores the policy, so the client refuses it instead of handing out a sandbox with network access.
+
+Before a command starts, the server applies two kernel restrictions to it. Both are inherited by every child process, and neither can be removed, even by root inside the sandbox:
+
+- A **seccomp filter** decides which sockets can exist. Unix and netlink sockets are allowed. IPv4 and IPv6 are allowed for TCP only, so UDP (and DNS), ICMP and raw sockets are refused. The filter also refuses `io_uring`, TCP Fast Open and `ptrace`, which could get around the other checks.
+- A **Landlock** rule refuses every TCP `connect()`, including to `127.0.0.1`. Listening on a port still works, so the [port proxy](../guides/sandbox#reaching-a-server-inside-a-sandbox) can still reach a server in a dedicated sandbox.
+
+With `network="none"`, that is all. With an allowlist, the seccomp filter also hands every `connect()` call to the server. The server reads the destination and checks it against the allowlist. If it matches, the server connects a socket of its own and puts it in place of the sandbox's socket. Otherwise, the call fails with "permission denied". The server connects the address it checked, not the one in the sandbox's memory, so the sandbox cannot change the address after the check.
+
+Hostnames in the allowlist are resolved once, by the server, when the sandbox is created. The server writes them to `/etc/hosts`. The sandbox can then resolve them without DNS, and it reaches the same addresses the allowlist holds.
+
+Some limits:
+
+- Socket options that a program sets before `connect()` (such as `TCP_NODELAY`) are not copied to the server's socket.
+- A writable volume can still be used to move data out. Mount volumes read-only for strict isolation.
+- In a pool, a sandbox with network access could pass an open connection to an isolated one over a unix socket, if both cooperate. A pool is one trust boundary.
+- The policy needs Landlock ABI 4 or newer. HF Jobs have ABI 6.
+
 ## Known limitations
 
 **Pools are for workloads within one trust boundary. Use dedicated sandboxes for code you do not trust.** The checks below reduce specific risks; they do not turn pooled sandboxes into separate VMs.
@@ -236,7 +258,7 @@ Two things to keep in mind. Treat `$HF_HOME` as sensitive: an entry is still a r
 
 - **Host discovery is not attestation.** The default `adopt_hosts="own"` checks initiator, image, flavor, command, and exposed URL. It does not attest the running binary or make a mutable image trustworthy. Only use `adopt_hosts="namespace"` with namespace members you trust.
 - **Host credentials remain powerful.** They manage the pool and recover each sandbox's token. They are never substituted for missing scoped tokens by this client. Hosts booted by this version run sbx-server 0.7.0, which refuses them on scoped routes; hosts started by older clients keep their server (and its host-token compatibility) until they are recycled.
-- **Shared channels remain.** Outbound TCP, loopback access to the control server, UDP, kernel IPC, and readable process-list metadata are not isolated. System directories and selected device nodes remain accessible. GPU pool isolation is untested; use dedicated mode for GPU.
+- **Shared channels remain.** Unless a sandbox has a [network policy](#network-policies), outbound TCP, loopback access to the control server and UDP are open to it. Kernel IPC and readable process-list metadata are not isolated. System directories and selected device nodes remain accessible. GPU pool isolation is untested; use dedicated mode for GPU.
 - **Limits are not aggregate quotas.** Per-process rlimits and bounded output queues reduce resource amplification. They do not partition CPU shares, total memory, disk space, inodes, or network capacity between sandboxes. Directory pagination bounds responses but still materializes the directory on the server. API file writes are not a disk quota, and dedicated-mode writes to special files can block.
 - **Confinement can be explicitly weakened.** Host mode requires Landlock ABI 6 by default and refuses a failed ruleset. Lowering `SBX_MIN_LANDLOCK_ABI` or using the server's `--allow-unconfined` development flag accepts fewer guarantees; inspect authenticated `/health` for the effective ABI and features.
 - **Proxy connections are authenticated only once.** After the first request, the proxy copies bytes to that backend until EOF. Subsequent HTTP requests on that connection are not independently authenticated or routed. WebSocket/SSE compatibility does not establish safety against upstream connection reuse.

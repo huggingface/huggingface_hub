@@ -145,6 +145,55 @@ How the inner server must listen depends on the sandbox kind:
 - **Dedicated** ([`Sandbox.create`]): bind a normal TCP port on `127.0.0.1:<port>`.
 - **Pool / shared** ([`SandboxPool`]): pooled sandboxes can't bind a TCP port (Landlock), so listen on a **unix socket** at `$SBX_PROXY_DIR/<port>.sock` (that env var is set in every sandbox), e.g. `uvicorn app:app --uds $SBX_PROXY_DIR/8000.sock`. The client side (`proxy_url_for` / `proxy_headers`) is identical either way.
 
+## Sandboxes without internet access
+
+By default, code in a sandbox can reach the internet. To run untrusted code, you can take that access away with `network`. Pass `"none"` to block all outbound connections:
+
+```python
+>>> from huggingface_hub import Sandbox, Volume
+>>> sbx = Sandbox.create(
+...     network="none",
+...     volumes=[Volume(type="model", source="openai-community/gpt2", mount_path="/data")],
+... )
+>>> sbx.run("python -c \"import urllib.request; urllib.request.urlopen('https://example.com')\"").ok
+False
+>>> sbx.run("cat /data/config.json").ok   # mounted volumes still work
+True
+```
+
+Or allow only some destinations. For example, let the sandbox reach a vLLM server on your internal network and the Hub, and nothing else:
+
+```python
+>>> sbx = Sandbox.create(
+...     network={
+...         "allow": [
+...             "10.0.0.0/8",          # an IP range
+...             "203.0.113.10:443",    # one IP, one port
+...             "huggingface.co",      # a hostname
+...         ]
+...     },
+... )
+>>> sbx.run("curl -s http://10.0.3.7:8000/v1/models")  # allowed
+>>> sbx.run("curl -s https://example.com")             # refused
+```
+
+The policy applies to every command the sandbox runs, and to every process they start. It cannot be removed from inside the sandbox, even by root. A few things to know:
+
+- Only TCP is allowed. UDP is always blocked, so there is no DNS. Hostnames from the allowlist are resolved once, when the sandbox starts, and written to `/etc/hosts`, so they still resolve.
+- Blocking also applies to `127.0.0.1`. Tools that talk to themselves over local TCP (Ray, NCCL, Jupyter kernels) need `"127.0.0.1"` in the allowlist.
+- Mounted volumes are not affected. A writable volume is still a way to send data out, so mount volumes read-only (`read_only=True`) for strict isolation.
+- Debuggers (`gdb`, `strace`) do not work in a sandbox with a network policy.
+
+Pooled sandboxes take the same argument, per sandbox, so one host can run isolated and connected sandboxes side by side:
+
+```python
+>>> with SandboxPool() as pool:
+...     agent = pool.create(network="none")
+...     judge = pool.create(network={"allow": ["10.0.3.7:8000"]})
+```
+
+If the sandbox server cannot apply the policy (for example, a pool host started by an older version of `huggingface_hub`), creation fails with a [`SandboxError`] instead of returning a sandbox with network access. See [Network policies](../concepts/sandbox#network-policies) for how it works.
+
 ## Lifecycle
 
 A sandbox outlives the process that created it — you can create it now and reconnect later, from any machine that holds the same HF token, with no state to copy around:
@@ -247,6 +296,10 @@ The `hf sandbox` command mirrors the Python API. A dedicated sandbox:
 
 # Attach labels to the underlying Job
 >>> hf sandbox create --label controller-run=run-42 --label team=data-infra
+
+# No internet access, or only an allowlist
+>>> hf sandbox create --network none
+>>> hf sandbox create --network 10.0.0.0/8,huggingface.co
 
 >>> hf sandbox exec 687f911eaea852de79c4a50a -- python -c "print('hi')"
 hi
