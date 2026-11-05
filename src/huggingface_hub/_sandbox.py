@@ -180,6 +180,32 @@ def _derive_sandbox_token(hf_token: str, nonce: str) -> str:
     return hmac.new(hf_token.encode(), f"hf-sandbox:{nonce}".encode(), hashlib.sha256).hexdigest()
 
 
+SandboxNetwork = Literal["none"] | dict[str, List[str]]
+
+
+def _network_payload(network: SandboxNetwork | None) -> SandboxNetwork | None:
+    """Validate a `network` argument into the policy sbx-server expects (it checks each entry)."""
+    if network is None or network == "none":
+        return network
+    if isinstance(network, dict) and set(network) == {"allow"}:
+        allow = network["allow"]
+        if isinstance(allow, (list, tuple)) and all(isinstance(entry, str) for entry in allow):
+            return {"allow": list(allow)}
+    raise ValueError(f'`network` must be "none" or {{"allow": [...]}} with a list of strings, got {network!r}.')
+
+
+def _check_network_applied(requested: SandboxNetwork, reported: Any, *, where: str, remedy: str) -> None:
+    """Refuse a sandbox whose server did not apply the requested network policy.
+
+    An older sbx-server ignores the policy, and would run the sandbox with full network access.
+    """
+    if reported != requested:
+        raise SandboxError(
+            f"{where} did not apply the requested network policy (it reported {reported!r}). Its sandbox "
+            f"server is too old to restrict the network: {remedy}."
+        )
+
+
 def _duration_to_secs(duration: int | float | str) -> int:
     """Parse a duration like 300, "300s", "10m", "2h", "1d" into seconds."""
     if isinstance(duration, (int, float)):
@@ -845,6 +871,7 @@ class Sandbox:
         namespace: str | None = None,
         forward_hf_token: bool = False,
         labels: dict[str, str] | None = None,
+        network: SandboxNetwork | None = None,
         start_timeout: float = 120.0,
         token: str | None = None,
     ) -> "Sandbox":
@@ -881,6 +908,12 @@ class Sandbox:
                 If True, your HF token is injected as `HF_TOKEN` (opt-in).
             labels (`dict[str, str]`, *optional*):
                 Labels to attach to the underlying HF Job.
+            network (`"none"` or `dict`, *optional*):
+                Restrict the network access of the commands run in the sandbox. Pass `"none"` to block all
+                outbound connections, or `{"allow": [...]}` to allow only some destinations: IP ranges
+                (`"10.0.0.0/8"`), single IPs with an optional port (`"203.0.113.10:443"`) or hostnames
+                (`"huggingface.co"`). Only TCP is allowed, even with an allowlist. Defaults to `None` (no
+                restriction). See [Sandboxes without internet access](../guides/sandbox#sandboxes-without-internet-access).
             start_timeout (`float`, *optional*, defaults to `120.0`):
                 Max seconds to wait for the sandbox to become ready.
             token (`str`, *optional*):
@@ -898,6 +931,7 @@ class Sandbox:
                     raise ValueError("`labels` keys and values must be strings")
                 if key in RESERVED_SANDBOX_LABELS:
                     raise ValueError(f"Label '{key}' is reserved by huggingface_hub Sandbox and cannot be overridden.")
+        network = _network_payload(network)
 
         api = HfApi(token=token)
         hf_token = _effective_token(api)
@@ -914,6 +948,9 @@ class Sandbox:
             forward_hf_token=forward_hf_token,
             sandbox_token=sandbox_token,
         )
+        if network is not None:
+            # Applied by the server to every command it runs, never to itself.
+            job_env["SBX_NETWORK"] = json.dumps(network)
 
         job = api.run_job(
             image=image,
@@ -937,6 +974,11 @@ class Sandbox:
                 max_connections=SandboxFiles.PARALLEL_MAX_WORKERS + 2,
             )
             server.wait_ready(start_timeout)
+            if network is not None:
+                health = server.request("GET", "/health").json()
+                _check_network_applied(
+                    network, health.get("network"), where=f"Sandbox job {job.id}", remedy="upgrade huggingface_hub"
+                )
         except Exception:
             # run_job already started a billable job; cancel it before re-raising so it
             # doesn't linger as an orphan (e.g. if the server port isn't exposed or startup fails).
@@ -1594,6 +1636,7 @@ class SandboxPool:
         env: dict[str, Any] | None = None,
         idle_timeout: int | float | str | None = DEFAULT_IDLE_TIMEOUT,
         forward_hf_token: bool = False,
+        network: SandboxNetwork | None = None,
     ) -> "Sandbox":
         """Create one sandbox, provisioning a host if needed.
 
@@ -1616,7 +1659,15 @@ class SandboxPool:
                 (opt-in). Unlike a dedicated sandbox's `secrets`, a pooled sandbox's env is
                 delivered to the host server at creation (never stored in the host job), so
                 it doesn't appear in any job's metadata.
+            network (`"none"` or `dict`, *optional*):
+                Restrict the network access of the commands run in this sandbox. Pass `"none"` to block all
+                outbound connections, or `{"allow": [...]}` to allow only some destinations: IP ranges
+                (`"10.0.0.0/8"`), single IPs with an optional port (`"203.0.113.10:443"`) or hostnames
+                (`"huggingface.co"`). Only TCP is allowed, even with an allowlist. Defaults to `None` (no
+                restriction). See [Sandboxes without internet access](../guides/sandbox#sandboxes-without-internet-access).
+                Sandboxes with and without a policy can share a host.
         """
+        network = _network_payload(network)
         with self._lock:
             if self._closed:
                 raise SandboxError("This SandboxPool is closed.")
@@ -1624,7 +1675,7 @@ class SandboxPool:
             # `close()` cannot snapshot the host list between the two.
             self._in_flight += 1
         try:
-            return self._create_locked(env, idle_timeout, forward_hf_token)
+            return self._create_locked(env, idle_timeout, forward_hf_token, network)
         finally:
             with self._lock:
                 self._in_flight -= 1
@@ -1635,6 +1686,7 @@ class SandboxPool:
         env: dict[str, Any] | None,
         idle_timeout: int | float | str | None,
         forward_hf_token: bool,
+        network: SandboxNetwork | None,
     ) -> "Sandbox":
         sandbox_env = dict(env or {})
         if forward_hf_token:
@@ -1673,7 +1725,7 @@ class SandboxPool:
                 #    (another process packed it) or a stale cached host is gone — retry.
                 if host is not None:
                     try:
-                        sandbox = self._create_one(host, sandbox_env, idle_secs)
+                        sandbox = self._create_one(host, sandbox_env, idle_secs, network)
                     except Exception:
                         # The create POST failed on a live host: release the slot we optimistically
                         # reserved so the host isn't left permanently one sandbox short.
@@ -2141,7 +2193,9 @@ class SandboxPool:
         server.owned = self._owns_hosts
         return server
 
-    def _create_one(self, host: "_SandboxServer", env: dict[str, Any], idle_secs: int | None) -> "Sandbox | None":
+    def _create_one(
+        self, host: "_SandboxServer", env: dict[str, Any], idle_secs: int | None, network: SandboxNetwork | None
+    ) -> "Sandbox | None":
         """Create one sandbox on a reserved `host`. Returns the sandbox, or None to retry.
 
         None means either the host filled up between our reservation and the create
@@ -2154,6 +2208,8 @@ class SandboxPool:
             body["idle_timeout_secs"] = idle_secs
         if env:
             body["env"] = env
+        if network is not None:
+            body["network"] = network
         try:
             data = host.request("POST", "/v1/sandboxes", json=body).json()
         except (SandboxError, httpx2.HTTPError) as e:
@@ -2169,6 +2225,18 @@ class SandboxPool:
                 host.live = host.capacity  # the host is full; stop reserving it
             return None
         item = sandboxes[0]
+        if network is not None and item.get("network") != network:
+            # Scoped route: the host token is refused, so present the new sandbox's own token.
+            try:
+                host.request("DELETE", f"/v1/sandboxes/{item['id']}", sandbox_token=item.get("token"))
+            except Exception as e:
+                logger.warning(f"Failed to delete sandbox {item['id']} from host {host.job_id}: {e}")
+            _check_network_applied(
+                network,
+                item.get("network"),
+                where=f"Sandbox host {host.job_id}",
+                remedy="recycle the pool's hosts (kill them, or let them idle-time-out) to pick up the current server",
+            )
         sandbox = Sandbox(
             id=f"{host.job_id}{SHARED_ID_SEP}{item['id']}",
             server=host,

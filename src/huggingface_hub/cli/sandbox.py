@@ -30,6 +30,7 @@ from huggingface_hub._sandbox import (
     SANDBOX_LABEL,
     SHARED_ID_SEP,
     Sandbox,
+    SandboxNetwork,
     SandboxPool,
     SandboxProcess,
     _split_sandbox_id,
@@ -75,6 +76,25 @@ def _connect(sandbox_id: str, *, namespace: str | None, token: str | None) -> It
         sandbox.close()
 
 
+def _parse_network(network: str | None) -> SandboxNetwork | None:
+    """Turn `--network` into a policy: 'none', or a comma-separated allowlist."""
+    if network is None:
+        return None
+    if network.strip().lower() == "none":
+        return "none"
+    allow = [entry.strip() for entry in network.split(",") if entry.strip()]
+    if not allow:
+        raise CLIError("--network must be 'none' or a comma-separated list of destinations.")
+    return {"allow": allow}
+
+
+def _format_network(policy: SandboxNetwork | None) -> str | None:
+    """Show a policy the way `--network` takes it (None when unrestricted)."""
+    if isinstance(policy, dict):
+        return ",".join(policy["allow"])
+    return policy
+
+
 @sandbox_cli.command(
     "create",
     examples=[
@@ -82,6 +102,8 @@ def _connect(sandbox_id: str, *, namespace: str | None, token: str | None) -> It
         "hf sandbox create ubuntu:24.04",
         "hf sandbox create --flavor a10g-small",
         "hf sandbox create --label controller-run=run-42",
+        "hf sandbox create --network none",
+        "hf sandbox create --network 10.0.0.0/8,huggingface.co",
         "hf sandbox create --pool pool-ab12cd34ef56 --env LOG_LEVEL=debug",
     ],
 )
@@ -106,6 +128,14 @@ def sandbox_create(
     forward_hf_token: Annotated[
         bool, Option("--forward-hf-token", help="Inject your HF token as HF_TOKEN in the sandbox.")
     ] = False,
+    network: Annotated[
+        str | None,
+        Option(
+            "--network",
+            help="Restrict outbound access: 'none' (no network), or a comma-separated allowlist of IP ranges, IPs and hostnames "
+            "with optional ports (e.g. '10.0.0.0/8,203.0.113.10:443,huggingface.co'). Only TCP is allowed.",
+        ),
+    ] = None,
     token: TokenOpt = None,
 ) -> None:
     """Create a sandbox: a dedicated VM by default, or a cheap shared one with `--pool`.
@@ -117,6 +147,7 @@ def sandbox_create(
     """
     start = time.time()
     idle = idle_timeout if idle_timeout is not None else DEFAULT_IDLE_TIMEOUT
+    network_policy = _parse_network(network)
 
     if pool is not None:
         if image is not None or flavor is not None or volume:
@@ -133,8 +164,16 @@ def sandbox_create(
             env=parse_env_map(env, env_file),
             idle_timeout=idle,
             forward_hf_token=forward_hf_token,
+            network=network_policy,
         )
-        out.result("Sandbox ready", id=sbx.id, host=sbx.host_id, pool=pool, elapsed=f"{time.time() - start:.1f}s")
+        out.result(
+            "Sandbox ready",
+            id=sbx.id,
+            host=sbx.host_id,
+            pool=pool,
+            network=_format_network(network_policy),
+            elapsed=f"{time.time() - start:.1f}s",
+        )
         out.hint(f"Run a command with `hf sandbox exec {sbx.id} -- echo hello`.")
         out.hint(f"Terminate it with `hf sandbox kill {sbx.id}`.")
         return
@@ -149,11 +188,18 @@ def sandbox_create(
         namespace=namespace,
         forward_hf_token=forward_hf_token,
         labels=_parse_labels_map(label),
+        network=network_policy,
         token=token,
     )
     # Release the HTTP client (the sandbox keeps running)
     sandbox.close()
-    out.result("Sandbox ready", id=sandbox.id, image=sandbox.image, elapsed=f"{time.time() - start:.1f}s")
+    out.result(
+        "Sandbox ready",
+        id=sandbox.id,
+        image=sandbox.image,
+        network=_format_network(network_policy),
+        elapsed=f"{time.time() - start:.1f}s",
+    )
     out.hint(f"Run a command with `hf sandbox exec {sandbox.id} -- echo hello`.")
     out.hint(f"Terminate it with `hf sandbox kill {sandbox.id}`.")
 
