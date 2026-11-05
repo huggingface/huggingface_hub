@@ -9409,8 +9409,7 @@ class HfApi:
             ... )
             >>> endpoint.wait(timeout=300)
             # Run inference on the endpoint
-            >>> endpoint.client.text_generation(...)
-            TextClassificationOutputElement(label='positive', score=0.8983615040779114)
+            >>> endpoint.client.text_classification("The financial outlook is positive.")
             ```
 
         """
