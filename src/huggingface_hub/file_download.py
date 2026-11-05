@@ -565,14 +565,12 @@ def xet_get(
     if len(displayed_filename) > 40:
         displayed_filename = f"{displayed_filename[:40]}(…)"
 
-    from .utils._xet import abort_xet_session, get_xet_session, refresh_xet_connection_info, xet_headers_without_auth
+    from .utils._xet import abort_xet_session, get_xet_session, xet_download_group_kwargs
     from .utils._xet_progress_reporting import XetDownloadProgressReporter
-
-    xet_headers = xet_headers_without_auth(headers)
 
     # Fetched once per repo revision and cached; otherwise each download group would request its own
     # token, i.e. one Hub API call per file (rate-limited on large snapshot downloads, see #4722).
-    connection_info = refresh_xet_connection_info(file_data=xet_file_data, headers=headers)
+    group_kwargs = xet_download_group_kwargs(xet_file_data, headers)
 
     session = get_xet_session()
 
@@ -586,15 +584,7 @@ def xet_get(
         external_reconstruction_bar=_tqdm_bar,
     ) as progress:
         try:
-            with session.new_file_download_group(
-                endpoint=connection_info.endpoint,
-                token=connection_info.access_token,
-                token_expiry_unix_secs=connection_info.expiration_unix_epoch,
-                token_refresh_url=xet_file_data.refresh_route,
-                token_refresh_headers=headers,
-                custom_headers=xet_headers,
-                progress_callback=progress.update_progress,
-            ) as group:
+            with session.new_file_download_group(**group_kwargs, progress_callback=progress.update_progress) as group:
                 group.start_download_file(
                     XetFileInfo(xet_file_data.file_hash, expected_size), str(incomplete_path.absolute())
                 )

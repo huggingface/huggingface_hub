@@ -322,6 +322,22 @@ def xet_headers_without_auth(headers: dict[str, str]) -> dict[str, str]:
     return {key: value for key, value in headers.items() if key.lower() != "authorization"}
 
 
+def xet_download_group_kwargs(file_data: XetFileData, headers: dict[str, str]) -> dict[str, Any]:
+    """Return the connection arguments of an hf_xet download group for a file.
+
+    The connection info is cached per repo revision, so building a group does not request a new token.
+    """
+    connection_info = refresh_xet_connection_info(file_data=file_data, headers=headers)
+    return {
+        "endpoint": connection_info.endpoint,
+        "token": connection_info.access_token,
+        "token_expiry_unix_secs": connection_info.expiration_unix_epoch,
+        "token_refresh_url": file_data.refresh_route,
+        "token_refresh_headers": headers,
+        "custom_headers": xet_headers_without_auth(headers),
+    }
+
+
 def abort_xet_session():
     """Abort the global xet session after a KeyboardInterrupt.
 
