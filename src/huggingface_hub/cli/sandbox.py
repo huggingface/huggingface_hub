@@ -80,12 +80,19 @@ def _parse_network(network: str | None) -> SandboxNetwork | None:
     """Turn `--network` into a policy: 'none', or a comma-separated allowlist."""
     if network is None:
         return None
-    if network == "none":
+    if network.strip().lower() == "none":
         return "none"
     allow = [entry.strip() for entry in network.split(",") if entry.strip()]
     if not allow:
         raise CLIError("--network must be 'none' or a comma-separated list of destinations.")
     return {"allow": allow}
+
+
+def _format_network(policy: SandboxNetwork | None) -> str | None:
+    """Show a policy the way `--network` takes it (None when unrestricted)."""
+    if isinstance(policy, dict):
+        return ",".join(policy["allow"])
+    return policy
 
 
 @sandbox_cli.command(
@@ -125,7 +132,7 @@ def sandbox_create(
         str | None,
         Option(
             "--network",
-            help="Restrict outbound access: 'none', or a comma-separated allowlist of IP ranges, IPs and hostnames "
+            help="Restrict outbound access: 'none' (no network), or a comma-separated allowlist of IP ranges, IPs and hostnames "
             "with optional ports (e.g. '10.0.0.0/8,203.0.113.10:443,huggingface.co'). Only TCP is allowed.",
         ),
     ] = None,
@@ -159,7 +166,14 @@ def sandbox_create(
             forward_hf_token=forward_hf_token,
             network=network_policy,
         )
-        out.result("Sandbox ready", id=sbx.id, host=sbx.host_id, pool=pool, elapsed=f"{time.time() - start:.1f}s")
+        out.result(
+            "Sandbox ready",
+            id=sbx.id,
+            host=sbx.host_id,
+            pool=pool,
+            network=_format_network(network_policy),
+            elapsed=f"{time.time() - start:.1f}s",
+        )
         out.hint(f"Run a command with `hf sandbox exec {sbx.id} -- echo hello`.")
         out.hint(f"Terminate it with `hf sandbox kill {sbx.id}`.")
         return
@@ -179,7 +193,13 @@ def sandbox_create(
     )
     # Release the HTTP client (the sandbox keeps running)
     sandbox.close()
-    out.result("Sandbox ready", id=sandbox.id, image=sandbox.image, elapsed=f"{time.time() - start:.1f}s")
+    out.result(
+        "Sandbox ready",
+        id=sandbox.id,
+        image=sandbox.image,
+        network=_format_network(network_policy),
+        elapsed=f"{time.time() - start:.1f}s",
+    )
     out.hint(f"Run a command with `hf sandbox exec {sandbox.id} -- echo hello`.")
     out.hint(f"Terminate it with `hf sandbox kill {sandbox.id}`.")
 

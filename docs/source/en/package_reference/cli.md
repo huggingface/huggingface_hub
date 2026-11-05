@@ -4104,7 +4104,7 @@ $ hf sandbox create [OPTIONS] [IMAGE]
 * `-v, --volume TEXT`: Mount one or more volumes. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. TYPE is one of: models, datasets, spaces, buckets. TYPE defaults to models if omitted. models, datasets and spaces are always mounted read-only. buckets are read+write by default. E.g. -v hf://org/m:/data or -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro
 * `--namespace TEXT`: The namespace where the job will be running. Defaults to the current user's namespace.
 * `--forward-hf-token`: Inject your HF token as HF_TOKEN in the sandbox.
-* `--network TEXT`: Restrict outbound access: 'none', or a comma-separated allowlist of IP ranges, IPs and hostnames with optional ports (e.g. '10.0.0.0/8,203.0.113.10:443,huggingface.co'). Only TCP is allowed.
+* `--network TEXT`: Restrict outbound access: 'none' (no network), or a comma-separated allowlist of IP ranges, IPs and hostnames with optional ports (e.g. '10.0.0.0/8,203.0.113.10:443,huggingface.co'). Only TCP is allowed.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 

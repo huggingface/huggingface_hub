@@ -1805,6 +1805,7 @@ class TestNetworkPolicy:
 
         assert _parse_network(None) is None
         assert _parse_network("none") == "none"
+        assert _parse_network("None") == "none"
         assert _parse_network("10.0.0.0/8, huggingface.co:443") == {"allow": ["10.0.0.0/8", "huggingface.co:443"]}
 
     def test_pool_applies_policy(self, fake_server: str, monkeypatch) -> None:

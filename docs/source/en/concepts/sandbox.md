@@ -235,7 +235,10 @@ Hostnames in the allowlist are resolved once, by the server, when the sandbox is
 
 Some limits:
 
-- With an allowlist, background processes that outlive the command that started them lose their network access when that command exits. Start long-running services with `run(..., background=True)`.
+- With an allowlist, background processes that outlive the command that started them lose their socket access when that command exits: connecting and listening then fail for every socket, unix sockets included. Start long-running services with `run(..., background=True)`.
+- With an allowlist, the supervisor notices that a socket was closed within about 3 seconds, and the socket keeps its local port until then. Code that picks a free port by binding port 0, closing the socket and binding that port again (common in test and distributed-training helpers) can fail with "address already in use".
+- With an allowlist, a process that runs as another user than the command, or that marks itself non-dumpable, cannot connect: the supervisor cannot read the address it connects to. This affects tools that drop privileges, such as `apt-get` (pass `-o APT::Sandbox::User=root`), `su` or `gosu`, and agents such as `ssh-agent`.
+- An allowlist holds at most 1024 rules, counting every address its hostnames resolve to.
 - A writable volume can still be used to move data out. Mount volumes read-only for strict isolation.
 - In a pool, a sandbox with network access could pass an open connection to an isolated one over a unix socket, if both cooperate. A pool is one trust boundary.
 - The policy needs Landlock ABI 4 or newer. HF Jobs have ABI 6.

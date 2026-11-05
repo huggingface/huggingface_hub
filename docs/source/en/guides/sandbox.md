@@ -183,6 +183,7 @@ The policy applies to every command the sandbox runs, and to every process they 
 - Blocking also applies to `127.0.0.1`. Tools that talk to themselves over local TCP (Ray, NCCL, Jupyter kernels) need `"127.0.0.1"` in the allowlist.
 - Mounted volumes are not affected. A writable volume is still a way to send data out, so mount volumes read-only (`read_only=True`) for strict isolation.
 - Debuggers (`gdb`, `strace`) do not work in a sandbox with a network policy.
+- With an allowlist, start long-running services with `run(..., background=True)`, and run `apt-get` with `-o APT::Sandbox::User=root`. See [Network policies](../concepts/sandbox#network-policies) for these limits and a few others.
 
 Pooled sandboxes take the same argument, per sandbox, so one host can run isolated and connected sandboxes side by side:
 

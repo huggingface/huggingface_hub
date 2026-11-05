@@ -5111,6 +5111,22 @@ class TestWebhooksCommand:
         api_cls.return_value.delete_webhook.assert_not_called()
 
 
+class TestSandboxCreateNetwork:
+    def test_network_none_is_case_insensitive_and_shown(self, runner: CliRunner) -> None:
+        result, sandbox_cls = TestSecretHygiene._create_sandbox(runner, "--network", "None", "--format", "human")
+        assert result.exit_code == 0, result.output
+        assert sandbox_cls.create.call_args.kwargs["network"] == "none"
+        assert "network: none" in result.stdout
+
+    def test_allowlist_is_shown(self, runner: CliRunner) -> None:
+        result, sandbox_cls = TestSecretHygiene._create_sandbox(
+            runner, "--network", "10.0.0.0/8, huggingface.co:443", "--format", "human"
+        )
+        assert result.exit_code == 0, result.output
+        assert sandbox_cls.create.call_args.kwargs["network"] == {"allow": ["10.0.0.0/8", "huggingface.co:443"]}
+        assert "network: 10.0.0.0/8,huggingface.co:443" in result.stdout
+
+
 class TestSecretHygiene:
     """Test the warnings that steer secret material out of argv (shared options in `_cli_utils.py`)."""
 
