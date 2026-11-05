@@ -84,6 +84,21 @@ class TestUserAgentHeadersUtil:
     def test_user_agent_with_custom_agent_dict(self) -> None:
         assert self._get_user_agent(user_agent={"a": "b", "c": "d"}).endswith("a/b; c/d")
 
+    def test_user_agent_with_empty_string(self) -> None:
+        # Regression test for https://github.com/huggingface/huggingface_hub/issues/5304
+        # An empty user_agent must not append a bare "; " segment: the trailing
+        # whitespace makes the header illegal and httpx/h11 rejects every request.
+        ua = self._get_user_agent(user_agent="")
+        assert ua == DEFAULT_USER_AGENT
+        assert not ua.endswith(";") and ua == ua.strip()
+
+    def test_user_agent_with_empty_dict(self) -> None:
+        # Same path as the empty string: an empty mapping must contribute nothing.
+        assert self._get_user_agent(user_agent={}) == DEFAULT_USER_AGENT
+
+    def test_user_agent_with_whitespace_only_string(self) -> None:
+        assert self._get_user_agent(user_agent="   ") == DEFAULT_USER_AGENT
+
     def test_user_agent_deduplicate(self) -> None:
         assert (
             _deduplicate_user_agent(

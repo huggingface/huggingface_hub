@@ -189,9 +189,13 @@ def _http_user_agent(
             ua += f"; agent/{agent}"
 
     if isinstance(user_agent, dict):
-        ua += "; " + "; ".join(f"{k}/{v}" for k, v in user_agent.items())
+        extra = "; ".join(f"{k}/{v}" for k, v in user_agent.items())
     elif isinstance(user_agent, str):
-        ua += "; " + user_agent
+        extra = user_agent
+    else:
+        extra = ""
+    if extra.strip():
+        ua += "; " + extra
 
     # Retrieve user-agent origin headers from environment variable
     origin = constants.HF_HUB_USER_AGENT_ORIGIN
