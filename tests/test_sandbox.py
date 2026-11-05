@@ -152,6 +152,7 @@ class _FakeServer(BaseHTTPRequestHandler):
     redirect_to = ""  # where the /v1/redirect route points (set per-subclass)
     # Extra /health fields, so a test can stand in for a server of another vintage.
     health: dict = {"protocol": sandbox_mod.SANDBOX_SERVER_PROTOCOL}
+    echo_network = False  # False stands in for a server that ignores `network` (sbx-server <= 0.7.0)
 
     def log_message(self, *args) -> None:
         pass
@@ -234,7 +235,10 @@ class _FakeServer(BaseHTTPRequestHandler):
                 sid = f"sbx{cls.seq}"
                 cls.seq += 1
                 cls.sandboxes.add(sid)
-                created.append({"id": sid, "token": f"tok-{sid}"})
+                item = {"id": sid, "token": f"tok-{sid}"}
+                if cls.echo_network and body.get("network") is not None:
+                    item["network"] = body["network"]  # a server that applies network policies echoes them
+                created.append(item)
             self._json({"sandboxes": created, "rejected": rejected})
 
     def do_PUT(self) -> None:
@@ -314,6 +318,7 @@ def fake_server():
     _FakeServer.writes = []
     _FakeServer.redirect_to = ""
     _FakeServer.health = {"protocol": sandbox_mod.SANDBOX_SERVER_PROTOCOL}
+    _FakeServer.echo_network = False
     server = ThreadingHTTPServer(("127.0.0.1", 0), _FakeServer)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -1801,3 +1806,19 @@ class TestNetworkPolicy:
         assert _parse_network(None) is None
         assert _parse_network("none") == "none"
         assert _parse_network("10.0.0.0/8, huggingface.co:443") == {"allow": ["10.0.0.0/8", "huggingface.co:443"]}
+
+    def test_pool_applies_policy(self, fake_server: str, monkeypatch) -> None:
+        _FakeServer.echo_network = True
+        pool = TestSandboxPool()._pool(fake_server, monkeypatch)
+        pool.create(network="none")
+        assert _FakeServer.sandboxes == {"sbx0"}
+
+    def test_pool_refuses_server_ignoring_policy(self, fake_server: str, monkeypatch) -> None:
+        # An older host ignores `network`: the client deletes the unrestricted sandbox (with its
+        # own scoped token, as the host token is refused there) and reports the outdated server.
+        pool = TestSandboxPool()._pool(fake_server, monkeypatch)
+        with pytest.raises(SandboxError, match="did not apply the requested network policy"):
+            pool.create(network={"allow": ["10.0.0.0/8"]})
+        assert _FakeServer.sandboxes == set()
+        assert ("DELETE", "/v1/sandboxes/sbx0") in _FakeServer.requests
+        assert pool.num_sandboxes == 0

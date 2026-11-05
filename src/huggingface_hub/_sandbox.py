@@ -194,7 +194,7 @@ def _network_payload(network: SandboxNetwork | None) -> SandboxNetwork | None:
     raise ValueError(f'`network` must be "none" or {{"allow": [...]}} with a list of strings, got {network!r}.')
 
 
-def _check_network_applied(requested: SandboxNetwork, reported: Any, *, where: str) -> None:
+def _check_network_applied(requested: SandboxNetwork, reported: Any, *, where: str, remedy: str) -> None:
     """Refuse a sandbox whose server did not apply the requested network policy.
 
     An older sbx-server ignores the policy, and would run the sandbox with full network access.
@@ -202,7 +202,7 @@ def _check_network_applied(requested: SandboxNetwork, reported: Any, *, where: s
     if reported != requested:
         raise SandboxError(
             f"{where} did not apply the requested network policy (it reported {reported!r}). Its sandbox "
-            "server is too old to restrict the network: upgrade huggingface_hub, or recycle the pool's hosts."
+            f"server is too old to restrict the network: {remedy}."
         )
 
 
@@ -976,7 +976,9 @@ class Sandbox:
             server.wait_ready(start_timeout)
             if network is not None:
                 health = server.request("GET", "/health").json()
-                _check_network_applied(network, health.get("network"), where=f"Sandbox job {job.id}")
+                _check_network_applied(
+                    network, health.get("network"), where=f"Sandbox job {job.id}", remedy="upgrade huggingface_hub"
+                )
         except Exception:
             # run_job already started a billable job; cancel it before re-raising so it
             # doesn't linger as an orphan (e.g. if the server port isn't exposed or startup fails).
@@ -2224,8 +2226,17 @@ class SandboxPool:
             return None
         item = sandboxes[0]
         if network is not None and item.get("network") != network:
-            host.request("DELETE", f"/v1/sandboxes/{item['id']}")
-            _check_network_applied(network, item.get("network"), where=f"Sandbox host {host.job_id}")
+            # Scoped route: the host token is refused, so present the new sandbox's own token.
+            try:
+                host.request("DELETE", f"/v1/sandboxes/{item['id']}", sandbox_token=item.get("token"))
+            except Exception as e:
+                logger.warning(f"Failed to delete sandbox {item['id']} from host {host.job_id}: {e}")
+            _check_network_applied(
+                network,
+                item.get("network"),
+                where=f"Sandbox host {host.job_id}",
+                remedy="recycle the pool's hosts (kill them, or let them idle-time-out) to pick up the current server",
+            )
         sandbox = Sandbox(
             id=f"{host.job_id}{SHARED_ID_SEP}{item['id']}",
             server=host,
