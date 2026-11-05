@@ -299,6 +299,11 @@ class XetSessionHolder:
                 self._session = None
                 self._session_pid = None
 
+    def is_current(self, session: Any) -> bool:
+        """Return whether `session` is the current session of this process."""
+        with self._lock:
+            return session is not None and session is self._session and self._session_pid == os.getpid()
+
 
 _GLOBAL_XET_HOLDER = XetSessionHolder()
 
@@ -311,6 +316,14 @@ def get_xet_session():
     It is created lazily and is fork-safe and thread-safe.
     """
     return _GLOBAL_XET_HOLDER.get()
+
+
+def is_xet_session_active(session: Any) -> bool:
+    """Return whether `session` can still be used, i.e. it was not aborted (Ctrl-C) nor inherited from a fork.
+
+    Objects created from a session that is no longer active (e.g. download groups) must not be used anymore.
+    """
+    return _GLOBAL_XET_HOLDER.is_current(session)
 
 
 def xet_headers_without_auth(headers: dict[str, str]) -> dict[str, str]:
