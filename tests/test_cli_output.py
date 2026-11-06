@@ -154,6 +154,15 @@ def test_table(check):
     )
 
 
+def test_table_agent_renders_missing_values_as_empty(capsys):
+    # Regression: in agent (TSV) mode a missing/None cell must be an empty field, not the
+    # literal string "None" (human and json modes already treat it as absent/empty).
+    o = Output()
+    o.set_mode(AGENT)
+    o.table([{"id": "a/x", "downloads": 100}, {"id": "b/y"}], headers=["id", "downloads"])
+    assert capsys.readouterr().out.splitlines() == ["id\tdownloads", "a/x\t100", "b/y\t"]
+
+
 def test_table_empty(check):
     check(
         lambda out: out.table([]),
