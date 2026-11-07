@@ -45,6 +45,15 @@ class TestErrorUtils:
         assert context.value.response.status_code == 401
         assert "Request ID: 123" in str(context.value)
 
+    def test_hf_raise_for_status_401_kernel_url(self) -> None:
+        response = Response(status_code=401, headers={X_REQUEST_ID: "123"})
+        response.request = Request(method="GET", url="https://huggingface.co/api/kernels/username/reponame")
+        with pytest.raises(RepositoryNotFoundError, match="Repository Not Found") as context:
+            hf_raise_for_status(response)
+
+        assert context.value.repo_type == "kernel"
+        assert context.value.repo_id == "username/reponame"
+
     def test_hf_raise_for_status_401_repo_url_invalid_token(self) -> None:
         response = Response(
             status_code=401,
