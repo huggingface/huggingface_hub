@@ -80,6 +80,10 @@ You can attach multiple custom validators to fields using [`validated_field`]. A
 from dataclasses import dataclass
 from huggingface_hub.dataclasses import strict, validated_field
 
+def positive_int(value: int):
+    if value <= 0:
+        raise ValueError(f"Value must be positive, got {value}")
+
 def multiple_of_64(value: int):
     if value % 64 != 0:
         raise ValueError(f"Value must be a multiple of 64, got {value}")
@@ -172,8 +176,8 @@ config = Config(foo="bar", foo_length=3) # ok
 config.upper_case = True
 config.validate() # Raises StrictDataclassClassValidationError
 
-Config(foo="abcd", foo_length=3) # Raises StrictDataclassFieldValidationError
-Config(foo="Bar", foo_length=3, upper_case=True) # Raises StrictDataclassFieldValidationError
+Config(foo="abcd", foo_length=3) # Raises StrictDataclassClassValidationError
+Config(foo="Bar", foo_length=3, upper_case=True) # Raises StrictDataclassClassValidationError
 ```
 
 > [!WARNING]

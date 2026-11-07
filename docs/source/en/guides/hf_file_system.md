@@ -22,7 +22,7 @@ In addition to the [`HfApi`], the `huggingface_hub` library provides [`HfFileSys
 
 >>> # List all files in a bucket directory
 >>> hffs.ls("buckets/my-username/my-bucket/experiment-data", detail=False)
-['bucket/my-username/my-bucket/data/train-0000.parquet', 'bucket/my-username/my-bucket/data/train-0001.parquet', ...]
+['buckets/my-username/my-bucket/experiment-data/train-0000.parquet', 'buckets/my-username/my-bucket/experiment-data/train-0001.parquet', ...]
 
 >>> # List all ".csv" files in a dataset repository
 >>> hffs.glob("datasets/my-username/my-dataset-repo/**/*.csv")
@@ -37,7 +37,7 @@ In addition to the [`HfApi`], the `huggingface_hub` library provides [`HfFileSys
 
 >>> # Write a remote file
 >>> with hffs.open("datasets/my-username/my-dataset-repo/data/validation.csv", "w") as f:
-...     f.write("text,label")
+...     f.write("text,label\n")
 ...     f.write("Fantastic movie!,good")
 ```
 
