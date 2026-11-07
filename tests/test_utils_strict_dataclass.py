@@ -1,7 +1,7 @@
 import inspect
 import sys
 from dataclasses import asdict, astuple, dataclass, is_dataclass
-from typing import Annotated, Any, Literal, Optional, TypedDict, Union, get_type_hints
+from typing import Annotated, Any, Dict, List, Literal, Optional, Sequence, Set, TypedDict, Union, get_type_hints
 
 import jedi
 import pytest
@@ -94,6 +94,24 @@ class ConfigWithKwargsAndPostInit:
         """Custom __post_init__ that also accepts additional kwargs."""
         for name, value in kwargs.items():
             setattr(self, name.upper(), value)  # store additional kwargs in uppercase (just for testing)
+
+
+@strict(accept_kwargs=True)
+@dataclass
+class ConfigWithRequiresKwargsInPostInit:
+    model_type: str
+    vocab_size: int = validated_field(validator=positive_int, default=16)
+
+    def __post_init__(self, **kwargs: Any) -> None:
+        """
+        Custom __post_init__ that accepts additional kwargs and expects `encoder` to be in kwargs.
+        """
+        if kwargs.get("encoder") is None:
+            raise ValueError("Encoder must be present to init a config class!")
+
+        self.encoder = kwargs.pop("encoder")["model_type"]
+        for name, value in kwargs.items():
+            setattr(self, name, value)  # store additional kwargs in uppercase (just for testing)
 
 
 class DummyClass:
@@ -197,19 +215,28 @@ def test_custom_validator_must_be_callable():
         (5, int),
         (5.0, float),
         ("John", str),
+        (True, bool),
+        (False, bool),
         # Union types (typing.Union)
         (5, Union[int, str]),
         ("John", Union[int, str]),
+        (True, Union[bool, str]),
         # Optional
         (5, Optional[int]),
         (None, Optional[int]),
         (DummyClass(), Optional[DummyClass]),
+        # None type
+        (None, None),
+        (None, type(None)),  # types.NoneType only in 3.10+
         # Literal
         ("John", Literal["John", "Doe"]),
         (5, Literal[4, 5, 6]),
+        (True, Literal[True, False]),
+        (False, Literal[True, False]),
         # List
         ([1, 2, 3], list[int]),
         ([1, 2, "3"], list[Union[int, str]]),
+        ([True, False], list[bool]),
         # Tuple
         ((1, 2, 3), tuple[int, int, int]),
         ((1, 2, "3"), tuple[int, int, str]),
@@ -220,6 +247,23 @@ def test_custom_validator_must_be_callable():
         # Set
         ({1, 2, 3}, set[int]),
         ({1, 2, "3"}, set[Union[int, str]]),
+        # Sequence (accepts list, tuple, str, etc.)
+        ([1, 2, 3], Sequence[int]),
+        ((1, 2, 3), Sequence[int]),
+        ("abc", Sequence[str]),  # str is a Sequence of str
+        ([1, 2, "3"], Sequence[Union[int, str]]),
+        ((1, 2, "3"), Sequence[Union[int, str]]),
+        # Sequence without type parameter (accepts any sequence)
+        ([1, 2, 3], Sequence),
+        ((1, 2, "3"), Sequence),
+        ("abc", Sequence),
+        ([], Sequence),
+        # Bare typing generics without type parameters (accept any items)
+        ([1, "2", None], List),
+        ([], List),
+        ({"a": 1, 2: "b"}, Dict),
+        ({1, "2"}, Set),
+        ([1, 2], Optional[List]),
         # Custom classes
         (DummyClass(), DummyClass),
         # Any
@@ -258,16 +302,26 @@ def test_type_validator_valid(value, type_annotation):
         (5, float),
         (5.0, int),
         ("John", int),
+        (True, int),
+        (False, int),
         # Union types (typing.Union)
         (5.0, Union[int, str]),
         (None, Union[int, str]),
         (DummyClass(), Union[int, str]),
+        (True, Union[int, str]),
+        # None type
+        (4, None),
+        (4, type(None)),  # types.NoneType only in 3.10+
         # Optional
         ("John", Optional[int]),
         (DummyClass(), Optional[int]),
         # Literal
         ("Ada", Literal["John", "Doe"]),
         (3, Literal[4, 5, 6]),
+        (True, Literal[1, 2, 3]),
+        (False, Literal[0, 1, 2]),
+        (1, Literal[True, False]),
+        (0, Literal[True, False]),
         # List
         (5, list[int]),
         ([1, 2, "3"], list[int]),
@@ -282,6 +336,24 @@ def test_type_validator_valid(value, type_annotation):
         # Set
         (5, set[int]),
         ({1, 2, "3"}, set[int]),
+        # Sequence
+        (5, Sequence[int]),  # not a sequence
+        ({1, 2, 3}, Sequence[int]),  # set is not a sequence
+        ([1, 2, "3"], Sequence[int]),  # wrong item type
+        ((1, 2, "3"), Sequence[int]),  # wrong item type in tuple
+        # Sequence without type parameter
+        (5, Sequence),  # not a sequence
+        ({1, 2, 3}, Sequence),  # set is not a sequence
+        # Bare typing generics without type parameters
+        ((1, 2), List),
+        ([("a", 1)], Dict),
+        ([1, 2], Set),
+        # Bool should not be accepted as int in containers
+        ([True, 1], list[int]),
+        ((True,), tuple[int]),
+        ({True}, set[int]),
+        ({"a": True}, dict[str, int]),
+        ([True], Sequence[int]),
         # Custom classes
         (5, DummyClass),
         ("John", DummyClass),
@@ -395,6 +467,22 @@ def test_post_init_with_kwargs():
     assert config.EXTRA_PARAM == "extra_value"  # stored in uppercase by custom __post_init__
 
 
+def test_post_init_with_required_kwargs():
+    config = ConfigWithRequiresKwargsInPostInit(model_type="bert", vocab_size=30000, encoder={"model_type": "t5"})
+    assert config.model_type == "bert"
+    assert config.vocab_size == 30000
+    assert config.encoder == "t5"
+
+    with pytest.raises(ValueError):
+        ConfigWithRequiresKwargsInPostInit(model_type="bert", vocab_size=30000)
+
+    config = ConfigWithRequiresKwargsInPostInit(model_type="bert", encoder={"model_type": "t5"})
+    assert config.vocab_size == 16  # default value
+
+    with pytest.raises(TypeError, match="Missing required field - 'model_type'"):
+        config = ConfigWithRequiresKwargsInPostInit(encoder={"model_type": "t5"})
+
+
 def test_is_recognized_as_dataclass():
     # Check that dataclasses module recognizes it as a dataclass
     assert is_dataclass(Config)
@@ -460,6 +548,26 @@ def test_repr_if_accept_kwargs():
     assert repr(config1) == "ConfigWithKwargs(model_type='bert', vocab_size=16, *foo='bar')"
 
 
+def test_custom_repr_preserved_when_repr_false():
+    @strict(accept_kwargs=True)
+    @dataclass(repr=False)
+    class MyClass:
+        x: int
+
+        def __repr__(self):
+            return f"CustomRepr(x={self.x})"
+
+    obj = MyClass(x=1, extra=2)
+    assert repr(obj) == "CustomRepr(x=1)"
+
+
+@pytest.fixture
+def isolated_jedi_cache(tmp_path, monkeypatch):
+    # parso writes its on-disk cache non-atomically => xdist workers sharing ~/.cache/jedi can read a half-written file
+    monkeypatch.setattr(jedi.settings, "cache_directory", str(tmp_path))
+
+
+@pytest.mark.usefixtures("isolated_jedi_cache")
 def test_autocompletion_attribute_without_kwargs():
     # Create a sample script
     completions = jedi.Script("""
@@ -480,6 +588,7 @@ config.
     assert "hidden_size" in completion_names
 
 
+@pytest.mark.usefixtures("isolated_jedi_cache")
 def test_autocompletion_attribute_with_kwargs():
     # Create a sample script
     completions = jedi.Script("""
@@ -501,6 +610,7 @@ config.
     assert "foo" not in completion_names  # not an official arg
 
 
+@pytest.mark.usefixtures("isolated_jedi_cache")
 def test_autocompletion_init_without_kwargs():
     # Create a sample script
     completions = jedi.Script("""
@@ -520,6 +630,7 @@ config = Config(
     assert "hidden_size=" in completion_names
 
 
+@pytest.mark.usefixtures("isolated_jedi_cache")
 def test_autocompletion_init_with_kwargs():
     # Create a sample script
     completions = jedi.Script("""
@@ -780,38 +891,40 @@ def test_typed_dict_to_dataclass_is_cached():
     assert strict_cls is strict_cls_bis  # "is" because dataclass is built only once
 
 
-@pytest.mark.skipif(sys.version_info < (3, 11), reason="Requires Python 3.11+")
-class TestConfigDictNotRequired:
-    def __init__(self):
-        # cannot be defined at class level because of Python<3.11
-        self.ConfigDictNotRequired = TypedDict(
-            "ConfigDictNotRequired",
-            {"required_value": Required[int], "not_required_value": NotRequired[int]},
-            total=False,
-        )
-
-    @pytest.mark.parametrize(
-        "data",
-        [
-            {"required_value": 1, "not_required_value": 2},
-            {"required_value": 1},  # not required value is not validated
-        ],
+@pytest.fixture
+def typed_dict_not_required():
+    if sys.version_info < (3, 11):
+        pytest.skip("Requires Python 3.11+")
+    return TypedDict(
+        "ConfigDictNotRequired",
+        {"required_value": Required[int], "not_required_value": NotRequired[int]},
+        total=False,
     )
-    def test_typed_dict_not_required_valid_data(self, data: dict):
-        validate_typed_dict(self.ConfigDictNotRequired, data)
 
-    @pytest.mark.parametrize(
-        "data",
-        [
-            # Missing required value
-            {"not_required_value": 2},
-            # If exists, the value is validated
-            {"required_value": 1, "not_required_value": "2"},
-        ],
-    )
-    def test_typed_dict_not_required_invalid_data(self, data: dict):
-        with pytest.raises(StrictDataclassFieldValidationError):
-            validate_typed_dict(self.ConfigDictNotRequired, data)
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        {"required_value": 1, "not_required_value": 2},
+        {"required_value": 1},  # not required value is not validated
+    ],
+)
+def test_typed_dict_not_required_valid_data(typed_dict_not_required, data: dict):
+    validate_typed_dict(typed_dict_not_required, data)
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        # Missing required value
+        {"not_required_value": 2},
+        # If exists, the value is validated
+        {"required_value": 1, "not_required_value": "2"},
+    ],
+)
+def test_typed_dict_not_required_invalid_data(typed_dict_not_required, data: dict):
+    with pytest.raises(StrictDataclassFieldValidationError):
+        validate_typed_dict(typed_dict_not_required, data)
 
 
 def test_typed_dict_total_true():

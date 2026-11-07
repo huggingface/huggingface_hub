@@ -15,9 +15,9 @@ SummarizationTruncationStrategy = Literal["do_not_truncate", "longest_first", "o
 class SummarizationParameters(BaseInferenceType):
     """Additional inference parameters for summarization."""
 
-    clean_up_tokenization_spaces: Optional[bool] = None
+    clean_up_tokenization_spaces: bool | None = None
     """Whether to clean up the potential extra spaces in the text output."""
-    generate_parameters: Optional[dict[str, Any]] = None
+    generate_parameters: dict[str, Any] | None = None
     """Additional parametrization of the text generation algorithm."""
     truncation: Optional["SummarizationTruncationStrategy"] = None
     """The truncation strategy to use."""
@@ -29,7 +29,7 @@ class SummarizationInput(BaseInferenceType):
 
     inputs: str
     """The input text to summarize."""
-    parameters: Optional[SummarizationParameters] = None
+    parameters: SummarizationParameters | None = None
     """Additional inference parameters for summarization."""
 
 

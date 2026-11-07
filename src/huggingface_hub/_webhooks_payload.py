@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2023-present, the HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,7 +13,7 @@
 # limitations under the License.
 """Contains data structures to parse the webhooks payload."""
 
-from typing import Literal, Optional
+from typing import Literal
 
 from .utils import is_pydantic_available
 
@@ -70,7 +69,7 @@ class ObjectId(BaseModel):
 
 class WebhookPayloadUrl(BaseModel):
     web: str
-    api: Optional[str] = None
+    api: str | None = None
 
 
 class WebhookPayloadMovedTo(BaseModel):
@@ -89,13 +88,13 @@ class WebhookPayloadEvent(BaseModel):
 
 class WebhookPayloadDiscussionChanges(BaseModel):
     base: str
-    mergeCommitId: Optional[str] = None
+    mergeCommitId: str | None = None
 
 
 class WebhookPayloadComment(ObjectId):
     author: ObjectId
     hidden: bool
-    content: Optional[str] = None
+    content: str | None = None
     url: WebhookPayloadUrl
 
 
@@ -106,32 +105,32 @@ class WebhookPayloadDiscussion(ObjectId):
     title: str
     isPullRequest: bool
     status: DiscussionStatus_T
-    changes: Optional[WebhookPayloadDiscussionChanges] = None
-    pinned: Optional[bool] = None
+    changes: WebhookPayloadDiscussionChanges | None = None
+    pinned: bool | None = None
 
 
 class WebhookPayloadRepo(ObjectId):
     owner: ObjectId
-    head_sha: Optional[str] = None
+    head_sha: str | None = None
     name: str
     private: bool
-    subdomain: Optional[str] = None
-    tags: Optional[list[str]] = None
+    subdomain: str | None = None
+    tags: list[str] | None = None
     type: Literal["dataset", "model", "space"]
     url: WebhookPayloadUrl
 
 
 class WebhookPayloadUpdatedRef(BaseModel):
     ref: str
-    oldSha: Optional[str] = None
-    newSha: Optional[str] = None
+    oldSha: str | None = None
+    newSha: str | None = None
 
 
 class WebhookPayload(BaseModel):
     event: WebhookPayloadEvent
     repo: WebhookPayloadRepo
-    discussion: Optional[WebhookPayloadDiscussion] = None
-    comment: Optional[WebhookPayloadComment] = None
+    discussion: WebhookPayloadDiscussion | None = None
+    comment: WebhookPayloadComment | None = None
     webhook: WebhookPayloadWebhook
-    movedTo: Optional[WebhookPayloadMovedTo] = None
-    updatedRefs: Optional[list[WebhookPayloadUpdatedRef]] = None
+    movedTo: WebhookPayloadMovedTo | None = None
+    updatedRefs: list[WebhookPayloadUpdatedRef] | None = None

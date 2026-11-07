@@ -1,5 +1,5 @@
 from functools import lru_cache
-from typing import Any, Optional, Union, overload
+from typing import Any, overload
 
 from huggingface_hub import constants
 from huggingface_hub.hf_api import InferenceProviderMapping
@@ -24,17 +24,14 @@ HARDCODED_MODEL_INFERENCE_MAPPING: dict[str, dict[str, InferenceProviderMapping]
     #                                    status="live")
     "cerebras": {},
     "cohere": {},
-    "clarifai": {},
+    "deepinfra": {},
     "fal-ai": {},
     "fireworks-ai": {},
     "groq": {},
     "hf-inference": {},
-    "hyperbolic": {},
-    "nebius": {},
     "nscale": {},
     "ovhcloud": {},
     "replicate": {},
-    "sambanova": {},
     "scaleway": {},
     "together": {},
     "wavespeed": {},
@@ -48,7 +45,7 @@ def filter_none(obj: dict[str, Any]) -> dict[str, Any]: ...
 def filter_none(obj: list[Any]) -> list[Any]: ...
 
 
-def filter_none(obj: Union[dict[str, Any], list[Any]]) -> Union[dict[str, Any], list[Any]]:
+def filter_none(obj: dict[str, Any] | list[Any]) -> dict[str, Any] | list[Any]:
     if isinstance(obj, dict):
         cleaned: dict[str, Any] = {}
         for k, v in obj.items():
@@ -79,9 +76,9 @@ class TaskProviderHelper:
         inputs: Any,
         parameters: dict[str, Any],
         headers: dict,
-        model: Optional[str],
-        api_key: Optional[str],
-        extra_payload: Optional[dict[str, Any]] = None,
+        model: str | None,
+        api_key: str | None,
+        extra_payload: dict[str, Any] | None = None,
     ) -> RequestParameters:
         """
         Prepare the request to be sent to the provider.
@@ -128,8 +125,8 @@ class TaskProviderHelper:
 
     def get_response(
         self,
-        response: Union[bytes, dict],
-        request_params: Optional[RequestParameters] = None,
+        response: bytes | dict,
+        request_params: RequestParameters | None = None,
     ) -> Any:
         """
         Return the response in the expected format.
@@ -137,7 +134,7 @@ class TaskProviderHelper:
         Override this method in subclasses for customized response handling."""
         return response
 
-    def _prepare_api_key(self, api_key: Optional[str]) -> str:
+    def _prepare_api_key(self, api_key: str | None) -> str:
         """Return the API key to use for the request.
 
         Usually not overwritten in subclasses."""
@@ -149,7 +146,7 @@ class TaskProviderHelper:
             )
         return api_key
 
-    def _prepare_mapping_info(self, model: Optional[str]) -> InferenceProviderMapping:
+    def _prepare_mapping_info(self, model: str | None) -> InferenceProviderMapping:
         """Return the mapped model ID to use for the request.
 
         Usually not overwritten in subclasses."""
@@ -187,7 +184,7 @@ class TaskProviderHelper:
         return provider_mapping
 
     def _normalize_headers(
-        self, headers: dict[str, Any], payload: Optional[dict[str, Any]], data: Optional[MimeBytes]
+        self, headers: dict[str, Any], payload: dict[str, Any] | None, data: MimeBytes | None
     ) -> dict[str, Any]:
         """Normalize the headers to use for the request.
 
@@ -237,7 +234,7 @@ class TaskProviderHelper:
 
     def _prepare_payload_as_dict(
         self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
-    ) -> Optional[dict]:
+    ) -> dict | None:
         """Return the payload to use for the request, as a dict.
 
         Override this method in subclasses for customized payloads.
@@ -250,8 +247,8 @@ class TaskProviderHelper:
         inputs: Any,
         parameters: dict,
         provider_mapping_info: InferenceProviderMapping,
-        extra_payload: Optional[dict],
-    ) -> Optional[MimeBytes]:
+        extra_payload: dict | None,
+    ) -> MimeBytes | None:
         """Return the body to use for the request, as bytes.
 
         Override this method in subclasses for customized body data.
@@ -274,11 +271,22 @@ class BaseConversationalTask(TaskProviderHelper):
 
     def _prepare_payload_as_dict(
         self,
-        inputs: list[Union[dict, ChatCompletionInputMessage]],
+        inputs: list[dict | ChatCompletionInputMessage],
         parameters: dict,
         provider_mapping_info: InferenceProviderMapping,
-    ) -> Optional[dict]:
-        return filter_none({"messages": inputs, **parameters, "model": provider_mapping_info.provider_id})
+    ) -> dict | None:
+        # `model` is serialized first so that a router/proxy can resolve the target provider from a
+        # small prefix of the request body instead of buffering the whole payload — `messages` can
+        # hold megabytes of base64-encoded images.
+        # `parameters` also carries a caller-supplied "model" (see `InferenceClient.chat_completion`),
+        # which must not take precedence over the provider-mapped id: drop it from the spread.
+        return filter_none(
+            {
+                "model": provider_mapping_info.provider_id,
+                "messages": inputs,
+                **{key: value for key, value in parameters.items() if key != "model"},
+            }
+        )
 
 
 class AutoRouterConversationalTask(BaseConversationalTask):
@@ -302,7 +310,7 @@ class AutoRouterConversationalTask(BaseConversationalTask):
         else:
             return self.base_url  # No `/auto` suffix in the URL
 
-    def _prepare_mapping_info(self, model: Optional[str]) -> InferenceProviderMapping:
+    def _prepare_mapping_info(self, model: str | None) -> InferenceProviderMapping:
         """
         In auto-router, we don't need to fetch provider mapping info.
         We just return a dummy mapping info with provider_id set to the HF model ID.
@@ -333,7 +341,7 @@ class BaseTextGenerationTask(TaskProviderHelper):
 
     def _prepare_payload_as_dict(
         self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
-    ) -> Optional[dict]:
+    ) -> dict | None:
         return filter_none({"prompt": inputs, **parameters, "model": provider_mapping_info.provider_id})
 
 

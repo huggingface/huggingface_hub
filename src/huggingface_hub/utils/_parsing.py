@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2025-present, the HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,20 +15,24 @@
 
 import re
 import time
-from typing import Dict
 
 
 RE_NUMBER_WITH_UNIT = re.compile(r"(\d+)([a-z]+)", re.IGNORECASE)
 
-BYTE_UNITS: Dict[str, int] = {
+BYTE_UNITS: dict[str, int] = {
     "k": 1_000,
+    "kb": 1_000,
     "m": 1_000_000,
+    "mb": 1_000_000,
     "g": 1_000_000_000,
+    "gb": 1_000_000_000,
     "t": 1_000_000_000_000,
+    "tb": 1_000_000_000_000,
     "p": 1_000_000_000_000_000,
+    "pb": 1_000_000_000_000_000,
 }
 
-TIME_UNITS: Dict[str, int] = {
+TIME_UNITS: dict[str, int] = {
     "s": 1,
     "m": 60,
     "h": 60 * 60,
@@ -50,7 +53,7 @@ def parse_duration(value: str) -> int:
     return _parse_with_unit(value, TIME_UNITS)
 
 
-def _parse_with_unit(value: str, units: Dict[str, int]) -> int:
+def _parse_with_unit(value: str, units: dict[str, int]) -> int:
     """Parse a numeric value with optional unit."""
     stripped = value.strip()
     if not stripped:
@@ -73,16 +76,31 @@ def _parse_with_unit(value: str, units: Dict[str, int]) -> int:
     return number * units[unit]
 
 
+def format_duration(secs: int | None) -> str:
+    """Format a duration in seconds as a short human-readable string (e.g. `"1m 32s"`, `"2h 15m"`, `"45s"`).
+
+    Returns `"--"` when `secs` is `None` so it can be used directly as a CLI table cell.
+    """
+    if secs is None:
+        return "--"
+    secs = int(secs)
+    if secs < 60:
+        return f"{secs}s"
+    if secs < 3600:
+        return f"{secs // 60}m {secs % 60}s"
+    return f"{secs // 3600}h {(secs % 3600) // 60}m"
+
+
 def format_timesince(ts: float) -> str:
     """Format timestamp in seconds into a human-readable string, relative to now.
 
     Vaguely inspired by Django's `timesince` formatter.
     """
     _TIMESINCE_CHUNKS = (
-        # Label, divider, max value
-        ("second", 1, 60),
-        ("minute", 60, 60),
-        ("hour", 60 * 60, 24),
+        # Label, divider, max value shown before rolling over to the next unit (e.g. 59 -> "1 minute ago" at 60s)
+        ("second", 1, 59),
+        ("minute", 60, 59),
+        ("hour", 60 * 60, 23),
         ("day", 60 * 60 * 24, 6),
         ("week", 60 * 60 * 24 * 7, 6),
         ("month", 60 * 60 * 24 * 30, 11),

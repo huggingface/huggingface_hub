@@ -1,25 +1,36 @@
 import threading
 import time
-import unittest
+import weakref
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Generator, Optional
 from unittest.mock import Mock, call, patch
 from urllib.parse import urlparse
 from uuid import UUID
 
-import httpx
+import httpx2
 import pytest
-from httpx import ConnectTimeout, HTTPError
+from httpx2 import ConnectTimeout, HTTPError
 
+from huggingface_hub import constants
 from huggingface_hub.constants import ENDPOINT
-from huggingface_hub.errors import HfHubHTTPError, OfflineModeIsEnabled
+from huggingface_hub.errors import (
+    BucketNotFoundError,
+    HfHubHTTPError,
+    OfflineModeIsEnabled,
+    RepositoryNotFoundError,
+)
 from huggingface_hub.utils._http import (
     _WARNED_TOPICS,
     RateLimitInfo,
     _adjust_range_header,
+    _is_same_or_hub_host,
+    _parse_bucket_id_from_url,
+    _parse_repo_info_from_url,
+    _parse_retry_after,
     _warn_on_warning_headers,
     default_client_factory,
     fix_hf_endpoint_in_url,
+    flag_as_download_call,
     get_async_session,
     get_session,
     hf_raise_for_status,
@@ -28,19 +39,33 @@ from huggingface_hub.utils._http import (
     set_client_factory,
 )
 
+from .testing_constants import ENDPOINT_STAGING
+
 
 URL = "https://www.google.com"
 
 
-class TestHttpBackoff(unittest.TestCase):
-    def setUp(self) -> None:
+def test_httpx_compatibility_export():
+    from huggingface_hub.utils import httpx
+
+    assert httpx is httpx2
+    with default_client_factory() as client:
+        assert isinstance(client, httpx.Client)
+    response = httpx.Response(404, request=httpx.Request("GET", "https://huggingface.co/missing"))
+    with pytest.raises(httpx.HTTPError) as exc:
+        hf_raise_for_status(response)
+    assert isinstance(exc.value, HfHubHTTPError)
+
+
+class TestHttpBackoff:
+    @pytest.fixture(autouse=True)
+    def setup(self) -> Generator[None, None, None]:
         get_session_mock = Mock()
         self.mock_request = get_session_mock().request
 
         self.patcher = patch("huggingface_hub.utils._http.get_session", get_session_mock)
         self.patcher.start()
-
-    def tearDown(self) -> None:
+        yield
         self.patcher.stop()
 
     def test_backoff_no_errors(self) -> None:
@@ -48,7 +73,7 @@ class TestHttpBackoff(unittest.TestCase):
         data_mock = Mock()
         response = http_backoff("GET", URL, data=data_mock)
         self.mock_request.assert_called_once_with(method="GET", url=URL, data=data_mock)
-        self.assertIs(response, self.mock_request())
+        assert response is self.mock_request()
 
     def test_backoff_3_calls(self) -> None:
         """Test `http_backoff` with 2 fails."""
@@ -57,7 +82,7 @@ class TestHttpBackoff(unittest.TestCase):
         response = http_backoff(  # retry on ValueError, instant retry
             "GET", URL, retry_on_exceptions=ValueError, base_wait_time=0.0
         )
-        self.assertEqual(self.mock_request.call_count, 3)
+        assert self.mock_request.call_count == 3
         self.mock_request.assert_has_calls(
             calls=[
                 call(method="GET", url=URL),
@@ -65,27 +90,29 @@ class TestHttpBackoff(unittest.TestCase):
                 call(method="GET", url=URL),
             ]
         )
-        self.assertIs(response, response_mock)
+        assert response is response_mock
 
     def test_backoff_on_exception_until_max(self) -> None:
         """Test `http_backoff` until max limit is reached with exceptions."""
         self.mock_request.side_effect = ConnectTimeout("Connection timeout")
 
-        with self.assertRaises(ConnectTimeout):
+        with pytest.raises(ConnectTimeout):
             http_backoff("GET", URL, base_wait_time=0.0, max_retries=3)
 
-        self.assertEqual(self.mock_request.call_count, 4)
+        assert self.mock_request.call_count == 4
 
     def test_backoff_on_status_code_until_max(self) -> None:
         """Test `http_backoff` until max limit is reached with status codes."""
         mock_503 = Mock()
         mock_503.status_code = 503
+        mock_503.headers = {}
         mock_504 = Mock()
         mock_504.status_code = 504
+        mock_504.headers = {}
         mock_504.raise_for_status.side_effect = HTTPError("HTTP Error")
         self.mock_request.side_effect = (mock_503, mock_504, mock_503, mock_504)
 
-        with self.assertRaises(HTTPError):
+        with pytest.raises(HTTPError):
             http_backoff(
                 "GET",
                 URL,
@@ -94,18 +121,19 @@ class TestHttpBackoff(unittest.TestCase):
                 retry_on_status_codes=(503, 504),
             )
 
-        self.assertEqual(self.mock_request.call_count, 4)
+        assert self.mock_request.call_count == 4
 
     def test_backoff_on_exceptions_and_status_codes(self) -> None:
         """Test `http_backoff` until max limit with status codes and exceptions."""
         mock_503 = Mock()
         mock_503.status_code = 503
+        mock_503.headers = {}
         self.mock_request.side_effect = (mock_503, ConnectTimeout("Connection timeout"))
 
-        with self.assertRaises(ConnectTimeout):
+        with pytest.raises(ConnectTimeout):
             http_backoff("GET", URL, base_wait_time=0.0, max_retries=1)
 
-        self.assertEqual(self.mock_request.call_count, 2)
+        assert self.mock_request.call_count == 2
 
     def test_backoff_on_valid_status_code(self) -> None:
         """Test `http_backoff` until max limit with a valid status code.
@@ -116,12 +144,13 @@ class TestHttpBackoff(unittest.TestCase):
         """
         mock_200 = Mock()
         mock_200.status_code = 200
+        mock_200.headers = {}
         self.mock_request.side_effect = (mock_200, mock_200, mock_200, mock_200)
 
         response = http_backoff("GET", URL, base_wait_time=0.0, max_retries=3, retry_on_status_codes=200)
 
-        self.assertEqual(self.mock_request.call_count, 4)
-        self.assertIs(response, mock_200)
+        assert self.mock_request.call_count == 4
+        assert response is mock_200
 
     def test_backoff_sleep_time(self) -> None:
         """Test `http_backoff` sleep time goes exponential until max limit.
@@ -144,14 +173,14 @@ class TestHttpBackoff(unittest.TestCase):
 
         self.mock_request.side_effect = _side_effect_timer()
 
-        with self.assertRaises(ConnectTimeout):
+        with pytest.raises(ConnectTimeout):
             http_backoff("GET", URL, base_wait_time=0.1, max_wait_time=0.5, max_retries=5)
 
-        self.assertEqual(self.mock_request.call_count, 6)
+        assert self.mock_request.call_count == 6
 
         # Assert sleep times are exponential until plateau
         expected_sleep_times = [0.1, 0.2, 0.4, 0.5, 0.5]
-        self.assertListEqual(sleep_times, expected_sleep_times)
+        assert sleep_times == expected_sleep_times
 
     def test_backoff_on_429_uses_ratelimit_header(self) -> None:
         """Test that 429 wait time uses full reset time from ratelimit header."""
@@ -181,40 +210,39 @@ class TestHttpBackoff(unittest.TestCase):
         assert response.status_code == 200
 
 
-class TestConfigureSession(unittest.TestCase):
-    def setUp(self) -> None:
+class TestConfigureSession:
+    @pytest.fixture(autouse=True)
+    def setup(self) -> Generator[None, None, None]:
         # Reconfigure + clear session cache between each test
         set_client_factory(default_client_factory)
-
-    @classmethod
-    def tearDownClass(cls) -> None:
+        yield
         # Clear all sessions after tests
         set_client_factory(default_client_factory)
 
     @staticmethod
-    def _factory() -> httpx.Client:
-        client = httpx.Client()
+    def _factory() -> httpx2.Client:
+        client = httpx2.Client()
         client.headers.update({"x-test-header": "4"})
         return client
 
     def test_default_configuration(self) -> None:
         client = get_session()
-        # Check httpx.Client default configuration
-        self.assertTrue(client.follow_redirects)
-        self.assertIsNotNone(client.timeout)
+        # Check httpx2.Client default configuration
+        assert client.follow_redirects
+        assert client.timeout is not None
 
     def test_set_configuration(self) -> None:
         set_client_factory(self._factory)
 
         # Check headers have been set correctly
         client = get_session()
-        self.assertNotEqual(client.headers, {"x-test-header": "4"})
-        self.assertEqual(client.headers["x-test-header"], "4")
+        assert client.headers != {"x-test-header": "4"}
+        assert client.headers["x-test-header"] == "4"
 
     def test_get_session_twice(self):
         client_1 = get_session()
         client_2 = get_session()
-        self.assertIs(client_1, client_2)  # exact same instance
+        assert client_1 is client_2  # exact same instance
 
     def test_get_session_twice_but_reconfigure_in_between(self):
         """Reconfiguring the session clears the cache."""
@@ -222,9 +250,9 @@ class TestConfigureSession(unittest.TestCase):
         set_client_factory(self._factory)
 
         client_2 = get_session()
-        self.assertIsNot(client_1, client_2)
-        self.assertIsNone(client_1.headers.get("x-test-header"))
-        self.assertEqual(client_2.headers["x-test-header"], "4")
+        assert client_1 is not client_2
+        assert client_1.headers.get("x-test-header") is None
+        assert client_2.headers["x-test-header"] == "4"
 
     def test_get_session_multiple_threads(self):
         N = 3
@@ -245,26 +273,47 @@ class TestConfigureSession(unittest.TestCase):
         for th in threads:
             th.join()
 
-        # Check all clients are the same instance (httpx is thread-safe)
+        # Check all clients are the same instance (httpx2 is thread-safe)
         for i in range(N):
-            self.assertIs(main_client, clients[i])
+            assert main_client is clients[i]
             for j in range(N):
-                self.assertIs(clients[i], clients[j])
+                assert clients[i] is clients[j]
+
+    def test_get_session_concurrent_first_call_creates_single_client(self):
+        N = 16
+        created = []
+        barrier = threading.Barrier(N)
+        clients = [None] * N
+
+        def _factory() -> httpx2.Client:
+            created.append(None)
+            return httpx2.Client()
+
+        def _get_session_in_thread(index: int) -> None:
+            barrier.wait()
+            clients[index] = get_session()
+
+        set_client_factory(_factory)
+        threads = [threading.Thread(target=_get_session_in_thread, args=(index,)) for index in range(N)]
+        for th in threads:
+            th.start()
+        for th in threads:
+            th.join()
+
+        assert len(created) == 1
+        assert all(client is clients[0] for client in clients)
 
 
-class OfflineModeSessionTest(unittest.TestCase):
-    def tearDown(self) -> None:
-        return super().tearDown()
-
-    @patch("huggingface_hub.constants.HF_HUB_OFFLINE", True)
+class TestOfflineModeSession:
     def test_offline_mode(self):
-        set_client_factory(default_client_factory)
-        client = get_session()
-        with self.assertRaises(OfflineModeIsEnabled):
-            client.get("https://huggingface.co")
+        with patch("huggingface_hub.constants.HF_HUB_OFFLINE", True):
+            set_client_factory(default_client_factory)
+            client = get_session()
+            with pytest.raises(OfflineModeIsEnabled):
+                client.get("https://huggingface.co")
 
 
-class TestUniqueRequestId(unittest.TestCase):
+class TestUniqueRequestId:
     api_endpoint = ENDPOINT + "/api/tasks"  # any endpoint is fine
 
     def test_request_id_is_used_by_server(self):
@@ -272,8 +321,8 @@ class TestUniqueRequestId(unittest.TestCase):
 
         request_id = response.request.headers.get("X-Amzn-Trace-Id")
         response_id = response.headers.get("x-request-id")
-        self.assertIn(request_id, response_id)
-        self.assertTrue(_is_uuid(request_id))
+        assert request_id in response_id
+        assert _is_uuid(request_id)
 
     def test_request_id_is_unique(self):
         response_1 = get_session().get(self.api_endpoint)
@@ -281,19 +330,19 @@ class TestUniqueRequestId(unittest.TestCase):
 
         request_id_1 = response_1.request.headers["X-Amzn-Trace-Id"]
         request_id_2 = response_2.request.headers["X-Amzn-Trace-Id"]
-        self.assertNotEqual(request_id_1, request_id_2)
+        assert request_id_1 != request_id_2
 
-        self.assertTrue(_is_uuid(request_id_1))
-        self.assertTrue(_is_uuid(request_id_2))
+        assert _is_uuid(request_id_1)
+        assert _is_uuid(request_id_2)
 
     def test_request_id_not_overwritten(self):
         response = get_session().get(self.api_endpoint, headers={"x-request-id": "custom-id"})
 
         request_id = response.request.headers["x-request-id"]
-        self.assertEqual(request_id, "custom-id")
+        assert request_id == "custom-id"
 
         response_id = response.headers["x-request-id"]
-        self.assertEqual(response_id, "custom-id")
+        assert response_id == "custom-id"
 
 
 def _is_uuid(string: str) -> bool:
@@ -349,7 +398,7 @@ def test_adjust_range_header():
 def test_proxy_env_is_used(monkeypatch):
     """Regression test for https://github.com/huggingface/transformers/issues/41301.
 
-    Test is hacky and uses httpx internal attributes, but it works.
+    Test is hacky and uses httpx2 internal attributes, but it works.
     We just need to test that proxies from env vars are used when creating the client.
     """
     monkeypatch.setenv("HTTP_PROXY", "http://proxy.example1.com:8080")
@@ -437,9 +486,9 @@ def fake_server():
 
     for _ in range(1000):  # up to 10 seconds
         try:
-            if httpx.get(f"{url}/health", timeout=0.01).status_code == 200:
+            if httpx2.get(f"{url}/health", timeout=0.01).status_code == 200:
                 break
-        except httpx.HTTPError:
+        except httpx2.HTTPError:
             pass
         time.sleep(0.01)
     else:
@@ -450,7 +499,7 @@ def fake_server():
     server.shutdown()
 
 
-def _check_raise_status(response: httpx.Response):
+def _check_raise_status(response: httpx2.Response):
     """Common assertions for 500 error tests."""
     with pytest.raises(HfHubHTTPError) as exc_info:
         hf_raise_for_status(response)
@@ -523,19 +572,70 @@ class TestParseRatelimitHeaders:
         assert info.remaining == 10
 
 
+@pytest.mark.parametrize(
+    ("headers", "expected"),
+    [
+        ({"Retry-After": "120"}, 120),
+        ({"Retry-After": "0"}, 0),
+        ({"retry-after": "42"}, 42),
+        ({}, None),
+        ({"Retry-After": "not-a-date"}, None),
+        ({"Retry-After": ""}, None),
+        ({"Retry-After": "-5"}, None),
+    ],
+)
+def test_parse_delay_seconds(headers, expected):
+    """Test parsing the delay-seconds form (e.g. 'Retry-After: 120')."""
+    assert _parse_retry_after(headers) == expected
+
+
+class TestBucketNotFoundError:
+    def _make_response(self, url: str, error_code: str = "RepoNotFound"):
+        request = Mock(spec=httpx2.Request)
+        request.url = url
+        response = Mock(spec=httpx2.Response)
+        response.status_code = 404
+        response.url = url
+        response.request = request
+        response.headers = httpx2.Headers({"X-Error-Code": error_code, "X-Error-Message": "Repository not found"})
+        response.raise_for_status.side_effect = httpx2.HTTPStatusError("404", request=request, response=response)
+        response.json.return_value = {"error": "Repository not found"}
+        return response
+
+    def test_bucket_not_found_on_bucket_url(self):
+        """Test that BucketNotFoundError is raised for bucket API URLs."""
+        response = self._make_response("https://huggingface.co/api/buckets/namespace/name")
+        with pytest.raises(BucketNotFoundError) as exc_info:
+            hf_raise_for_status(response)
+        assert "Bucket Not Found" in str(exc_info.value)
+        assert "api/buckets/namespace/name" in str(exc_info.value)
+
+    def test_bucket_not_found_on_bucket_sub_url(self):
+        """Test that BucketNotFoundError is raised for bucket sub-URLs (e.g. tree)."""
+        response = self._make_response("https://huggingface.co/api/buckets/namespace/name/tree/prefix")
+        with pytest.raises(BucketNotFoundError):
+            hf_raise_for_status(response)
+
+    def test_repo_not_found_on_non_bucket_url(self):
+        """Test that RepositoryNotFoundError is still raised for non-bucket URLs."""
+        response = self._make_response("https://huggingface.co/api/models/namespace/name")
+        with pytest.raises(RepositoryNotFoundError):
+            hf_raise_for_status(response)
+
+
 class TestRateLimitErrorMessage:
     def test_429_with_ratelimit_headers(self):
         """Test 429 error includes rate limit info when headers present."""
-        response = Mock(spec=httpx.Response)
+        response = Mock(spec=httpx2.Response)
         response.status_code = 429
         response.url = "https://huggingface.co/api/models/username/reponame"
-        response.headers = httpx.Headers(
+        response.headers = httpx2.Headers(
             {
                 "ratelimit": '"api";r=0;t=55',
                 "ratelimit-policy": '"fixed window";"api";q=500;w=300',
             }
         )
-        response.raise_for_status.side_effect = httpx.HTTPStatusError("429", request=Mock(), response=response)
+        response.raise_for_status.side_effect = httpx2.HTTPStatusError("429", request=Mock(), response=response)
         response.json.return_value = {}
 
         with pytest.raises(HfHubHTTPError) as exc_info:
@@ -548,13 +648,38 @@ class TestRateLimitErrorMessage:
         assert "0/500" in error_msg
         assert "api/models/username/reponame" in error_msg
 
+    def test_429_with_non_exhausted_ratelimit_headers(self):
+        """Test 429 error ignores rate limit headers when the window is not exhausted."""
+        response = Mock(spec=httpx2.Response)
+        response.status_code = 429
+        response.url = "https://huggingface.co/api/repos/create"
+        response.headers = httpx2.Headers(
+            {
+                "ratelimit": '"api";r=99794;t=241',
+                "ratelimit-policy": '"fixed window";"api";q=100000;w=300',
+            }
+        )
+        response.raise_for_status.side_effect = httpx2.HTTPStatusError("429", request=Mock(), response=response)
+        response.json.return_value = {
+            "error": "You have exceeded the rate limit for repository creation (300 per day)."
+        }
+
+        with pytest.raises(HfHubHTTPError) as exc_info:
+            hf_raise_for_status(response)
+
+        error_msg = str(exc_info.value)
+        assert "429 Too Many Requests" in error_msg
+        assert "'api' rate limit" not in error_msg
+        assert "99794/100000" not in error_msg
+        assert "repository creation" in error_msg
+
     def test_429_without_ratelimit_headers(self):
         """Test 429 error fallback when headers missing."""
-        response = Mock(spec=httpx.Response)
+        response = Mock(spec=httpx2.Response)
         response.status_code = 429
         response.url = "https://huggingface.co/api/models"
-        response.headers = httpx.Headers({})
-        response.raise_for_status.side_effect = httpx.HTTPStatusError("429", request=Mock(), response=response)
+        response.headers = httpx2.Headers({})
+        response.raise_for_status.side_effect = httpx2.HTTPStatusError("429", request=Mock(), response=response)
         response.json.return_value = {}
 
         with pytest.raises(HfHubHTTPError) as exc_info:
@@ -567,8 +692,8 @@ class TestRateLimitErrorMessage:
 class TestWarnOnWarningHeaders:
     def test_warn_on_warning_headers(self, caplog):
         # Request #1 (multiple warnings)
-        response = Mock(spec=httpx.Response)
-        response.headers = httpx.Headers(
+        response = Mock(spec=httpx2.Response)
+        response.headers = httpx2.Headers(
             [
                 ("X-HF-Warning", "Topic1; This is the first warning message."),
                 ("X-HF-Warning", "Topic2; This is the second warning message."),
@@ -596,7 +721,7 @@ class TestWarnOnWarningHeaders:
         assert len(warnings) == 0  # No new warnings should be added
 
         # Request #3 (single warning with new topic, should warn)
-        response.headers = httpx.Headers({"X-HF-Warning": "Topic4; Another warning."})
+        response.headers = httpx2.Headers({"X-HF-Warning": "Topic4; Another warning."})
         caplog.clear()
         with caplog.at_level("WARNING"):
             _warn_on_warning_headers(response)
@@ -604,3 +729,198 @@ class TestWarnOnWarningHeaders:
         assert len(warnings) == 1
         assert warnings == ["Another warning."]
         assert "Topic4" in _WARNED_TOPICS
+
+
+class TestParseRepoInfoFromUrl:
+    def test_api_model_with_namespace(self):
+        assert _parse_repo_info_from_url("https://huggingface.co/api/models/user/repo") == ("model", "user/repo")
+
+    def test_api_dataset_with_namespace(self):
+        assert _parse_repo_info_from_url("https://huggingface.co/api/datasets/user/repo") == ("dataset", "user/repo")
+
+    def test_api_space_with_namespace(self):
+        assert _parse_repo_info_from_url("https://huggingface.co/api/spaces/user/repo") == ("space", "user/repo")
+
+    def test_api_model_without_namespace(self):
+        assert _parse_repo_info_from_url("https://huggingface.co/api/models/bert-base-cased") == (
+            "model",
+            "bert-base-cased",
+        )
+
+    def test_api_model_with_resolve_subpath(self):
+        repo_type, repo_id = _parse_repo_info_from_url(
+            "https://huggingface.co/api/models/user/repo/resolve/main/config.json"
+        )
+        assert repo_type == "model"
+        assert repo_id == "user/repo"
+
+    def test_api_dataset_with_tree_subpath(self):
+        repo_type, repo_id = _parse_repo_info_from_url("https://huggingface.co/api/datasets/user/repo/tree/main")
+        assert repo_type == "dataset"
+        assert repo_id == "user/repo"
+
+    def test_api_model_single_name_with_subpath(self):
+        repo_type, repo_id = _parse_repo_info_from_url(
+            "https://huggingface.co/api/models/bert-base-cased/resolve/main/config.json"
+        )
+        assert repo_type == "model"
+        assert repo_id == "bert-base-cased"
+
+    def test_non_matching_url(self):
+        assert _parse_repo_info_from_url("https://huggingface.co/some/other/path") == (None, None)
+
+    def test_staging_url(self):
+        assert _parse_repo_info_from_url("https://hub-ci.huggingface.co/api/models/user/repo") == (
+            "model",
+            "user/repo",
+        )
+
+    @pytest.mark.parametrize(
+        "url, expected",
+        [
+            # API URLs with query params
+            ("https://huggingface.co/api/models/user/repo?blobs=true", ("model", "user/repo")),
+            ("https://huggingface.co/api/models/bert-base-cased?expand=sha", ("model", "bert-base-cased")),
+            # Download URLs
+            ("https://huggingface.co/user/repo/resolve/main/config.json", ("model", "user/repo")),
+            ("https://huggingface.co/bert-base-cased/resolve/main/config.json", ("model", "bert-base-cased")),
+            ("https://huggingface.co/datasets/user/repo/resolve/main/data.csv", ("dataset", "user/repo")),
+            ("https://huggingface.co/spaces/user/repo/resolve/main/app.py", ("space", "user/repo")),
+            ("https://huggingface.co/user/repo/resolve/main/file.txt?download=true", ("model", "user/repo")),
+        ],
+    )
+    def test_query_params_and_download_urls(self, url, expected):
+        assert _parse_repo_info_from_url(url) == expected
+
+
+class TestParseBucketIdFromUrl:
+    def test_bucket_url(self):
+        assert _parse_bucket_id_from_url("https://huggingface.co/api/buckets/namespace/name") == "namespace/name"
+
+    def test_bucket_url_with_query_params(self):
+        assert (
+            _parse_bucket_id_from_url("https://huggingface.co/api/buckets/namespace/name?limit=10") == "namespace/name"
+        )
+
+    def test_bucket_url_with_subpath(self):
+        assert (
+            _parse_bucket_id_from_url("https://huggingface.co/api/buckets/namespace/name/tree/prefix")
+            == "namespace/name"
+        )
+
+    def test_non_bucket_url(self):
+        assert _parse_bucket_id_from_url("https://huggingface.co/api/models/user/repo") is None
+
+    def test_http_url(self):
+        assert _parse_bucket_id_from_url("http://localhost:8080/api/buckets/ns/name") == "ns/name"
+
+
+class TestNoReferenceCycleInRaise:
+    """Regression test: hf_raise_for_status must not create reference cycles.
+
+    See https://github.com/huggingface/huggingface_hub/pull/4084 for details.
+    When exceptions were stored in local variables before `raise ... from e`,
+    CPython reference cycles prevented deterministic cleanup, causing real
+    issues downstream (e.g. vLLM GPU memory not released).
+    """
+
+    def test_no_refcycle(self):
+        url = "https://huggingface.co/api/models/user/repo"
+        request = Mock(spec=httpx2.Request)
+        request.url = httpx2.URL(url)
+        response = Mock(spec=httpx2.Response)
+        response.status_code = 404
+        response.url = url
+        response.headers = httpx2.Headers({"X-Error-Code": "RepoNotFound"})
+        response.json.return_value = {}
+        response.request = request
+        response.raise_for_status.side_effect = httpx2.HTTPStatusError("404", request=request, response=response)
+
+        ref = None
+        try:
+            hf_raise_for_status(response)
+        except RepositoryNotFoundError as exc:
+            # Clear the traceback to isolate our fix from the inherent
+            # except-block cycle (exc.__traceback__ -> this frame -> exc).
+            # We only care that hf_raise_for_status itself does not create a
+            # cycle via intermediate local variables.
+            exc.__traceback__ = None
+            ref = weakref.ref(exc)
+        # After exiting the except block, the exception should be freed by
+        # refcount alone (no gc.collect() needed) if there is no cycle.
+        assert ref() is None
+
+
+class TestRedactSensitiveBody:
+    def test_redacts_json_body(self):
+        from huggingface_hub.utils._http import _redact_sensitive_body
+
+        body = '{"grant_type": "refresh_token", "refresh_token": "hf_secret", "client_id": "abc"}'
+        redacted = _redact_sensitive_body(body)
+        assert "hf_secret" not in redacted
+        assert '"refresh_token": "<REDACTED>"' in redacted
+        assert '"client_id": "abc"' in redacted
+
+    def test_redacts_form_urlencoded_body(self):
+        from huggingface_hub.utils._http import _redact_sensitive_body
+
+        body = "grant_type=refresh_token&refresh_token=hf_secret&device_code=dev_secret&client_id=abc"
+        redacted = _redact_sensitive_body(body)
+        assert "hf_secret" not in redacted
+        assert "dev_secret" not in redacted
+        assert "refresh_token=<REDACTED>" in redacted
+        assert "device_code=<REDACTED>" in redacted
+        assert "client_id=abc" in redacted
+
+
+def test_flag_as_download_call_decorator():
+    def get_call():
+        return get_session().get(ENDPOINT_STAGING)
+
+    def is_flagged(response):
+        return response.request.headers.get(constants.X_HF_DOWNLOAD_COUNTER) == "1"
+
+    flagged_get_call = flag_as_download_call(get_call)
+
+    # Flagged call has a 'Hf-X-Download-Counter:: 1' header
+    assert not is_flagged(get_call())
+    assert is_flagged(flagged_get_call())
+
+    # Flag is reset between each call
+    assert not is_flagged(get_call())
+    assert is_flagged(flagged_get_call())
+
+    threaded_results = []
+    for count in range(4):
+        if count % 2 == 0:
+            thread = threading.Thread(target=lambda: threaded_results.append(flagged_get_call()))
+        else:
+            thread = threading.Thread(target=lambda: threaded_results.append(get_call()))
+        thread.start()
+        thread.join()
+
+    # Flag is thread-local, so only flagged calls have the header
+    for i, response in enumerate(threaded_results):
+        if i % 2 == 0:
+            assert is_flagged(response)
+        else:
+            assert not is_flagged(response)
+
+
+@pytest.mark.parametrize(
+    ("url", "target", "expected"),
+    [
+        (
+            "https://huggingface.co/org/repo/resolve/main/file.bin",
+            "https://huggingface.co/org/renamed/resolve/main/file.bin",
+            True,
+        ),
+        ("https://huggingface.co/resolve/main/file.bin", "https://huggingface.co:443/resolve/main/file.bin", True),
+        ("https://example.com/resolve/main/file.bin", "https://huggingface.co/resolve/main/file.bin", True),
+        ("http://localhost:15564/resolve/main/file.bin", "http://localhost:14886/blob/deadbeef?signature=abc", False),
+        ("https://example.com/resolve/main/file.bin", "https://huggingface.co:8443/resolve/main/file.bin", False),
+        ("https://huggingface.co/org/repo/resolve/main/file.bin", "https://cdn-lfs.hf.co/abc", False),
+    ],
+)
+def test_is_same_or_hub_host(url, target, expected):
+    assert _is_same_or_hub_host(url, target) is expected

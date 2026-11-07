@@ -42,6 +42,7 @@ def generate_async_client_code(code: str) -> str:
     # Refactor `.post` method to be async + adapt calls
     code = _make_inner_post_async(code)
     code = _await_inner_post_method_call(code)
+    code = _await_provider_helper_get_response(code)
 
     # Handle __enter__, __exit__, close
     code = _remove_enter_exit_stack(code)
@@ -137,13 +138,13 @@ def _add_imports(code: str) -> str:
         r"(\nimport .*?\n)",
         repl=(
             r"\1"
+            + "import asyncio\n"
             + "from .._common import _async_yield_from\n"
             + "from huggingface_hub.utils import get_async_session\n"
             + "from typing import AsyncIterable\n"
             + "from contextlib import AsyncExitStack\n"
             + "from typing import Set\n"
-            + "import asyncio\n"
-            + "import httpx\n"
+            + "import httpx2\n"
         ),
         string=code,
         count=1,
@@ -189,14 +190,22 @@ ASYNC_INNER_POST_CODE = """
                 )
                 hf_raise_for_status(response)
                 return response.content
-        except asyncio.TimeoutError as error:
-            # Convert any `TimeoutError` to a `InferenceTimeoutError`
+        except httpx2.TimeoutException as error:
+            # Convert any httpx timeout to a `InferenceTimeoutError`
             raise InferenceTimeoutError(f"Inference call timed out: {request_parameters.url}") from error  # type: ignore
         except HfHubHTTPError as error:
             if error.response.status_code == 422 and request_parameters.task != "unknown":
                 msg = str(error.args[0])
                 if len(error.response.text) > 0:
                     msg += f"{os.linesep}{error.response.text}{os.linesep}"
+                error.args = (msg,) + error.args[1:]
+            if error.response.status_code == 504 and not stream and request_parameters.task == "conversational":
+                msg = str(error.args[0])
+                msg += (
+                    f"{os.linesep}Note: the request timed out before the model finished generating."
+                    " If you are generating long outputs (e.g. long reasoning traces), pass `stream=True`"
+                    " to receive tokens as they are generated and avoid hitting this timeout."
+                )
                 error.args = (msg,) + error.args[1:]
             raise
             """
@@ -206,8 +215,8 @@ def _make_inner_post_async(code: str) -> str:
     # Update AsyncInferenceClient._inner_post() implementation
     code = re.sub(
         r"""
-        def[ ]_inner_post\( # definition
-            (\n.*?\"\"\".*?\"\"\"\n) # Group1: docstring
+        def[ ]_inner_post\( # definition (implementation, not overloads)
+            ([^\n]*:\n\s*\"\"\".*?\"\"\"\n) # Group1: signature tail + docstring
             .*? # implementation (to be overwritten)
         (\n\W*def ) # Group2: next method
         """,
@@ -260,7 +269,7 @@ ENTER_EXIT_STACK_ASYNC_CODE = """
 def _remove_enter_exit_stack(code: str) -> str:
     code = code.replace(
         "exit_stack = ExitStack()",
-        "exit_stack = AsyncExitStack()\n        self._async_client: Optional[httpx.AsyncClient] = None",
+        "exit_stack = AsyncExitStack()\n        self._async_client: Optional[httpx2.AsyncClient] = None",
     )
     code = code.replace(ENTER_EXIT_STACK_SYNC_CODE, ENTER_EXIT_STACK_ASYNC_CODE)
     return code
@@ -320,6 +329,10 @@ def _adapt_chat_completion_to_async(code: str) -> str:
 
 def _await_inner_post_method_call(code: str) -> str:
     return code.replace("self._inner_post(", "await self._inner_post(")
+
+
+def _await_provider_helper_get_response(code: str) -> str:
+    return code.replace("provider_helper.get_response(", "await asyncio.to_thread(provider_helper.get_response, ")
 
 
 def _update_example_code_block(code_block: str) -> str:

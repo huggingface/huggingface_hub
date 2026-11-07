@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2019-present, the HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -107,4 +106,5 @@ class SliceFileObj(AbstractContextManager):
         return self.fileobj.seek(offset, whence) - self.seek_from
 
     def __iter__(self):
-        yield self.read(n=4 * 1024 * 1024)
+        while data := self.read(n=4 * 1024 * 1024):
+            yield data

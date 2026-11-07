@@ -1,10 +1,11 @@
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal, Optional, TypedDict
+from typing import TYPE_CHECKING, Literal, TypedDict
 
 from .. import constants
 from ..file_download import repo_folder_name
+from ._paths import DEFAULT_IGNORE_PATTERNS, filter_repo_objects
 from .sha import git_hash, sha_fileobj
 
 
@@ -12,7 +13,7 @@ if TYPE_CHECKING:
     from ..hf_api import RepoFile
 
 # using fullmatch for clarity and strictness
-_REGEX_COMMIT_HASH = re.compile(r"^[0-9a-f]{40}$")
+_REGEX_COMMIT_HASH = re.compile(r"[0-9a-f]{40}")
 
 
 # Typed structure describing a checksum mismatch
@@ -39,11 +40,15 @@ class FolderVerification:
 def collect_local_files(root: Path) -> dict[str, Path]:
     """
     Return a mapping of repo-relative path -> absolute path for all files under `root`.
+
+    Files matching `DEFAULT_IGNORE_PATTERNS` (`.git/` and the `.cache/huggingface/` metadata that downloads to a
+    `local_dir` write) are skipped, since they can never be part of a repo.
     """
-    return {p.relative_to(root).as_posix(): p for p in root.rglob("*") if p.is_file()}
+    files = {p.relative_to(root).as_posix(): p for p in root.rglob("*") if p.is_file()}
+    return {path: files[path] for path in filter_repo_objects(files, ignore_patterns=DEFAULT_IGNORE_PATTERNS)}
 
 
-def _resolve_commit_hash_from_cache(storage_folder: Path, revision: Optional[str]) -> str:
+def _resolve_commit_hash_from_cache(storage_folder: Path, revision: str | None) -> str:
     """
     Resolve a commit hash from a cache repo folder and an optional revision.
     """
@@ -141,9 +146,9 @@ def resolve_local_root(
     *,
     repo_id: str,
     repo_type: str,
-    revision: Optional[str],
-    cache_dir: Optional[Path],
-    local_dir: Optional[Path],
+    revision: str | None,
+    cache_dir: Path | None,
+    local_dir: Path | None,
 ) -> tuple[Path, str]:
     """
     Resolve the root directory to scan locally and the remote revision to verify.

@@ -1,4 +1,4 @@
-from typing import Literal, Optional, Union
+from typing import Literal, Union
 
 from huggingface_hub.inference._providers.featherless_ai import (
     FeatherlessConversationalTask,
@@ -7,10 +7,16 @@ from huggingface_hub.inference._providers.featherless_ai import (
 from huggingface_hub.utils import logging
 
 from ._common import AutoRouterConversationalTask, TaskProviderHelper, _fetch_inference_provider_mapping
-from .black_forest_labs import BlackForestLabsTextToImageTask
+from .baseten import BasetenConversationalTask
 from .cerebras import CerebrasConversationalTask
-from .clarifai import ClarifaiConversationalTask
 from .cohere import CohereConversationalTask
+from .deepinfra import (
+    DeepInfraAutomaticSpeechRecognitionTask,
+    DeepInfraConversationalTask,
+    DeepInfraFeatureExtractionTask,
+    DeepInfraTextGenerationTask,
+    DeepInfraTextToSpeechTask,
+)
 from .fal_ai import (
     FalAIAutomaticSpeechRecognitionTask,
     FalAIImageSegmentationTask,
@@ -28,13 +34,6 @@ from .hf_inference import (
     HFInferenceFeatureExtractionTask,
     HFInferenceTask,
 )
-from .hyperbolic import HyperbolicTextGenerationTask, HyperbolicTextToImageTask
-from .nebius import (
-    NebiusConversationalTask,
-    NebiusFeatureExtractionTask,
-    NebiusTextGenerationTask,
-    NebiusTextToImageTask,
-)
 from .novita import NovitaConversationalTask, NovitaTextGenerationTask, NovitaTextToVideoTask
 from .nscale import NscaleConversationalTask, NscaleTextToImageTask
 from .openai import OpenAIConversationalTask
@@ -47,9 +46,17 @@ from .replicate import (
     ReplicateTextToImageTask,
     ReplicateTextToSpeechTask,
 )
-from .sambanova import SambanovaConversationalTask, SambanovaFeatureExtractionTask
 from .scaleway import ScalewayConversationalTask, ScalewayFeatureExtractionTask
-from .together import TogetherConversationalTask, TogetherTextGenerationTask, TogetherTextToImageTask
+from .together import (
+    TogetherConversationalTask,
+    TogetherFeatureExtractionTask,
+    TogetherImageToImageTask,
+    TogetherImageToVideoTask,
+    TogetherTextGenerationTask,
+    TogetherTextToImageTask,
+    TogetherTextToSpeechTask,
+    TogetherTextToVideoTask,
+)
 from .wavespeed import (
     WavespeedAIImageToImageTask,
     WavespeedAIImageToVideoTask,
@@ -63,24 +70,21 @@ logger = logging.get_logger(__name__)
 
 
 PROVIDER_T = Literal[
-    "black-forest-labs",
+    "baseten",
     "cerebras",
-    "clarifai",
     "cohere",
+    "deepinfra",
     "fal-ai",
     "featherless-ai",
     "fireworks-ai",
     "groq",
     "hf-inference",
-    "hyperbolic",
-    "nebius",
     "novita",
     "nscale",
     "openai",
     "ovhcloud",
     "publicai",
     "replicate",
-    "sambanova",
     "scaleway",
     "together",
     "wavespeed",
@@ -92,17 +96,21 @@ PROVIDER_OR_POLICY_T = Union[PROVIDER_T, Literal["auto"]]
 CONVERSATIONAL_AUTO_ROUTER = AutoRouterConversationalTask()
 
 PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
-    "black-forest-labs": {
-        "text-to-image": BlackForestLabsTextToImageTask(),
+    "baseten": {
+        "conversational": BasetenConversationalTask(),
     },
     "cerebras": {
         "conversational": CerebrasConversationalTask(),
     },
-    "clarifai": {
-        "conversational": ClarifaiConversationalTask(),
-    },
     "cohere": {
         "conversational": CohereConversationalTask(),
+    },
+    "deepinfra": {
+        "automatic-speech-recognition": DeepInfraAutomaticSpeechRecognitionTask(),
+        "conversational": DeepInfraConversationalTask(),
+        "feature-extraction": DeepInfraFeatureExtractionTask(),
+        "text-generation": DeepInfraTextGenerationTask(),
+        "text-to-speech": DeepInfraTextToSpeechTask(),
     },
     "fal-ai": {
         "automatic-speech-recognition": FalAIAutomaticSpeechRecognitionTask(),
@@ -151,17 +159,6 @@ PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
         "summarization": HFInferenceTask("summarization"),
         "visual-question-answering": HFInferenceBinaryInputTask("visual-question-answering"),
     },
-    "hyperbolic": {
-        "text-to-image": HyperbolicTextToImageTask(),
-        "conversational": HyperbolicTextGenerationTask("conversational"),
-        "text-generation": HyperbolicTextGenerationTask("text-generation"),
-    },
-    "nebius": {
-        "text-to-image": NebiusTextToImageTask(),
-        "conversational": NebiusConversationalTask(),
-        "text-generation": NebiusTextGenerationTask(),
-        "feature-extraction": NebiusFeatureExtractionTask(),
-    },
     "novita": {
         "text-generation": NovitaTextGenerationTask(),
         "conversational": NovitaConversationalTask(),
@@ -187,18 +184,19 @@ PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
         "text-to-speech": ReplicateTextToSpeechTask(),
         "text-to-video": ReplicateTask("text-to-video"),
     },
-    "sambanova": {
-        "conversational": SambanovaConversationalTask(),
-        "feature-extraction": SambanovaFeatureExtractionTask(),
-    },
     "scaleway": {
         "conversational": ScalewayConversationalTask(),
         "feature-extraction": ScalewayFeatureExtractionTask(),
     },
     "together": {
-        "text-to-image": TogetherTextToImageTask(),
         "conversational": TogetherConversationalTask(),
+        "feature-extraction": TogetherFeatureExtractionTask(),
+        "image-to-image": TogetherImageToImageTask(),
+        "image-to-video": TogetherImageToVideoTask(),
         "text-generation": TogetherTextGenerationTask(),
+        "text-to-image": TogetherTextToImageTask(),
+        "text-to-speech": TogetherTextToSpeechTask(),
+        "text-to-video": TogetherTextToVideoTask(),
     },
     "wavespeed": {
         "text-to-image": WavespeedAITextToImageTask(),
@@ -213,9 +211,7 @@ PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
 }
 
 
-def get_provider_helper(
-    provider: Optional[PROVIDER_OR_POLICY_T], task: str, model: Optional[str]
-) -> TaskProviderHelper:
+def get_provider_helper(provider: PROVIDER_OR_POLICY_T | None, task: str, model: str | None) -> TaskProviderHelper:
     """Get provider helper instance by name and task.
 
     Args:

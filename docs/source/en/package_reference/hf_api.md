@@ -37,6 +37,38 @@ models = hf_api.list_models()
 
 [[autodoc]] huggingface_hub.hf_api.AccessRequest
 
+### BucketFile
+
+[[autodoc]] huggingface_hub.BucketFile
+
+### BucketFileMetadata
+
+[[autodoc]] huggingface_hub.BucketFileMetadata
+
+### BucketInfo
+
+[[autodoc]] huggingface_hub.BucketInfo
+
+### BucketUrl
+
+[[autodoc]] huggingface_hub.BucketUrl
+
+### DatasetLeaderboardEntry
+
+[[autodoc]] huggingface_hub.hf_api.DatasetLeaderboardEntry
+
+### EvalResultEntry
+
+[[autodoc]] huggingface_hub.hf_api.EvalResultEntry
+
+### SyncOperation
+
+[[autodoc]] huggingface_hub.SyncOperation
+
+### SyncPlan
+
+[[autodoc]] huggingface_hub.SyncPlan
+
 ### CommitInfo
 
 [[autodoc]] huggingface_hub.hf_api.CommitInfo
@@ -47,7 +79,11 @@ models = hf_api.list_models()
 
 ### DryRunFileInfo
 
-[[autodoc]] huggingface_hub.hf_api.DryRunFileInfo
+[[autodoc]] huggingface_hub.DryRunFileInfo
+
+### DuplicatedRepoUrl
+
+[[autodoc]] huggingface_hub.hf_api.DuplicatedRepoUrl
 
 ### GitRefInfo
 
@@ -64,6 +100,10 @@ models = hf_api.list_models()
 ### InferenceProviderMapping
 
 [[autodoc]] huggingface_hub.hf_api.InferenceProviderMapping
+
+### KernelInfo
+
+[[autodoc]] huggingface_hub.hf_api.KernelInfo
 
 ### LFSFileInfo
 
@@ -96,6 +136,10 @@ models = hf_api.list_models()
 ### SpaceInfo
 
 [[autodoc]] huggingface_hub.hf_api.SpaceInfo
+
+### SpaceSearchResult
+
+[[autodoc]] huggingface_hub._space_api.SpaceSearchResult
 
 ### TensorInfo
 

@@ -44,6 +44,7 @@ webhook = create_webhook(
 ```
 
 The webhook triggers the Job with the webhook payload in the environment variable `WEBHOOK_PAYLOAD`.
+The source Job's secrets are not copied to the webhook. If the triggered Job needs secrets (e.g. `HF_TOKEN`), pass them with `secrets={"HF_TOKEN": "hf_***"}`. With [`update_webhook`], you must pass `job_id` together with `secrets`. Listed secrets replace the stored values, an empty string removes a secret, and all other secrets are kept.
 For more information on Hugging Face Jobs, available hardware (CPU, GPU) and UV scripts, see the [Jobs documentation](./jobs).
 
 ### Listing Webhooks
@@ -61,7 +62,7 @@ for webhook in webhooks:
 
 ### Updating a Webhook
 
-If you need to change the configuration of an existing webhook, such as the URL or the events it watches, you can update it using [`update_webhook`].
+If you need to change the configuration of an existing webhook, such as the URL or the events it watches, you can update it using [`update_webhook`]. 
 
 ```python
 from huggingface_hub import update_webhook
@@ -101,6 +102,39 @@ from huggingface_hub import delete_webhook
 # Example: Deleting a webhook
 delete_webhook("your-webhook-id")
 ```
+
+### Managing Webhooks from the CLI
+
+All of the above operations are also available from the `hf` command-line interface. This is especially useful for scripting and agentic workflows.
+
+```bash
+# List all webhooks
+>>> hf webhooks ls
+
+# Get details about a specific webhook
+>>> hf webhooks info <webhook_id>
+
+# Create a webhook that pings a URL
+>>> hf webhooks create --url https://example.com/hook --watch model:bert-base-uncased --domain repo
+
+# Create a webhook that triggers a Job
+>>> hf webhooks create --job-id <job_id> --watch user:julien-c
+
+# Create a webhook that triggers a Job with your HF token as a secret
+>>> hf webhooks create --job-id <job_id> --watch bucket:my-org/my-bucket --secrets HF_TOKEN
+
+# Update an existing webhook
+>>> hf webhooks update <webhook_id> --url https://new-url.com/hook --watch model:bert-base-uncased --domain repo
+
+# Enable / disable a webhook
+>>> hf webhooks enable <webhook_id>
+>>> hf webhooks disable <webhook_id>
+
+# Delete a webhook (with confirmation prompt)
+>>> hf webhooks delete <webhook_id>
+```
+
+The `--watch` option uses the format `type:name` where type is one of `model`, `dataset`, `space`, `org`, or `user`. It can be repeated to watch multiple items. For the full list of options, run `hf webhooks <command> --help`. For more details, see the [CLI guide](./cli#hf-webhooks).
 
 ## Webhooks Server
 
@@ -168,7 +202,7 @@ local debugging but is to keep in mind for later.
 
 > [!WARNING]
 > By default, the server is started at the end of your script. If you are running it in a notebook, you can start the
-> server manually by calling `decorated_function.run()`. Since a unique server is used, you only have to start the server
+> server manually by calling `decorated_function.launch()`. Since a unique server is used, you only have to start the server
 > once even if you have multiple endpoints.
 
 
@@ -273,7 +307,7 @@ async def goodbye(payload: WebhookPayload):
     return {"message": "goodbye"}
 
 # 5. Start server (optional)
-app.run()
+app.launch()
 ```
 
 1. We define a custom UI using Gradio blocks. This UI will be displayed on the landing page of the server.

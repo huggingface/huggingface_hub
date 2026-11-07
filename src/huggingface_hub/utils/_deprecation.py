@@ -1,7 +1,7 @@
 import warnings
+from collections.abc import Iterable
 from functools import wraps
 from inspect import Parameter, signature
-from typing import Iterable, Optional
 
 
 def _deprecate_positional_args(*, version: str):
@@ -53,7 +53,7 @@ def _deprecate_arguments(
     *,
     version: str,
     deprecated_args: Iterable[str],
-    custom_message: Optional[str] = None,
+    custom_message: str | None = None,
 ):
     """Decorator to issue warnings when using deprecated arguments.
 
@@ -105,7 +105,7 @@ def _deprecate_arguments(
     return _inner_deprecate_positional_args
 
 
-def _deprecate_method(*, version: str, message: Optional[str] = None):
+def _deprecate_method(*, version: str, message: str | None = None):
     """Decorator to issue warnings when using a deprecated method.
 
     Args:

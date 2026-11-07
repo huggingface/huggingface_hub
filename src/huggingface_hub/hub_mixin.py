@@ -1,9 +1,10 @@
 import inspect
 import json
 import os
+from collections.abc import Callable
 from dataclasses import Field, asdict, dataclass, is_dataclass
 from pathlib import Path
-from typing import Any, Callable, ClassVar, Optional, Protocol, Type, TypeVar, Union
+from typing import Any, ClassVar, Protocol, TypeVar, cast
 
 import packaging.version
 
@@ -15,22 +16,11 @@ from .repocard import ModelCard, ModelCardData
 from .utils import (
     SoftTemporaryDirectory,
     is_jsonable,
-    is_safetensors_available,
     is_simple_optional_type,
-    is_torch_available,
     logging,
     unwrap_simple_optional_type,
     validate_hf_hub_args,
 )
-
-
-if is_torch_available():
-    import torch  # type: ignore
-
-if is_safetensors_available():
-    import safetensors
-    from safetensors.torch import load_model as load_model_as_safetensor
-    from safetensors.torch import save_model as save_model_as_safetensor
 
 
 logger = logging.get_logger(__name__)
@@ -68,9 +58,9 @@ This model has been pushed to the Hub using the [PytorchModelHubMixin](https://h
 class MixinInfo:
     model_card_template: str
     model_card_data: ModelCardData
-    docs_url: Optional[str] = None
-    paper_url: Optional[str] = None
-    repo_url: Optional[str] = None
+    docs_url: str | None = None
+    paper_url: str | None = None
+    repo_url: str | None = None
 
 
 class ModelHubMixin:
@@ -181,41 +171,42 @@ class ModelHubMixin:
     ```
     """
 
-    _hub_mixin_config: Optional[Union[dict, DataclassInstance]] = None
+    _hub_mixin_config: dict | DataclassInstance | None = None
     # ^ optional config attribute automatically set in `from_pretrained`
     _hub_mixin_info: MixinInfo
     # ^ information about the library integrating ModelHubMixin (used to generate model card)
     _hub_mixin_inject_config: bool  # whether `_from_pretrained` expects `config` or not
     _hub_mixin_init_parameters: dict[str, inspect.Parameter]  # __init__ parameters
     _hub_mixin_jsonable_default_values: dict[str, Any]  # default values for __init__ parameters
-    _hub_mixin_jsonable_custom_types: tuple[Type, ...]  # custom types that can be encoded/decoded
-    _hub_mixin_coders: dict[Type, CODER_T]  # encoders/decoders for custom types
+    _hub_mixin_jsonable_custom_types: tuple[type, ...]  # custom types that can be encoded/decoded
+    _hub_mixin_coders: dict[type, CODER_T]  # encoders/decoders for custom types
     # ^ internal values to handle config
 
     def __init_subclass__(
         cls,
         *,
         # Generic info for model card
-        repo_url: Optional[str] = None,
-        paper_url: Optional[str] = None,
-        docs_url: Optional[str] = None,
+        repo_url: str | None = None,
+        paper_url: str | None = None,
+        docs_url: str | None = None,
         # Model card template
         model_card_template: str = DEFAULT_MODEL_CARD,
         # Model card metadata
-        language: Optional[list[str]] = None,
-        library_name: Optional[str] = None,
-        license: Optional[str] = None,
-        license_name: Optional[str] = None,
-        license_link: Optional[str] = None,
-        pipeline_tag: Optional[str] = None,
-        tags: Optional[list[str]] = None,
+        language: list[str] | None = None,
+        library_name: str | None = None,
+        license: str | None = None,
+        license_name: str | None = None,
+        license_link: str | None = None,
+        pipeline_tag: str | None = None,
+        tags: list[str] | None = None,
         # How to encode/decode arguments with custom type into a JSON config?
-        coders: Optional[
-            dict[Type, CODER_T]
+        coders: None
+        | (
+            dict[type, CODER_T]
             # Key is a type.
             # Value is a tuple (encoder, decoder).
             # Example: {MyCustomType: (lambda x: x.value, lambda data: MyCustomType(data))}
-        ] = None,
+        ) = None,
     ) -> None:
         """Inspect __init__ signature only once when subclassing + handle modelcard."""
         super().__init_subclass__()
@@ -362,15 +353,15 @@ class ModelHubMixin:
         return arg
 
     @classmethod
-    def _decode_arg(cls, expected_type: type[ARGS_T], value: Any) -> Optional[ARGS_T]:
+    def _decode_arg(cls, expected_type: type[ARGS_T], value: Any) -> ARGS_T | None:
         """Decode a JSON serializable value into an argument."""
         if is_simple_optional_type(expected_type):
             if value is None:
                 return None
-            expected_type = unwrap_simple_optional_type(expected_type)  # type: ignore[assignment]
+            expected_type = unwrap_simple_optional_type(expected_type)  # type: ignore
         # Dataclass => handle it
         if is_dataclass(expected_type):
-            return _load_dataclass(expected_type, value)  # type: ignore[return-value]
+            return _load_dataclass(expected_type, value)  # type: ignore
         # Otherwise => check custom decoders
         for type_, (_, decoder) in cls._hub_mixin_coders.items():
             if inspect.isclass(expected_type) and issubclass(expected_type, type_):
@@ -380,14 +371,14 @@ class ModelHubMixin:
 
     def save_pretrained(
         self,
-        save_directory: Union[str, Path],
+        save_directory: str | Path,
         *,
-        config: Optional[Union[dict, DataclassInstance]] = None,
-        repo_id: Optional[str] = None,
+        config: dict | DataclassInstance | None = None,
+        repo_id: str | None = None,
         push_to_hub: bool = False,
-        model_card_kwargs: Optional[dict[str, Any]] = None,
+        model_card_kwargs: dict[str, Any] | None = None,
         **push_to_hub_kwargs,
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Save weights in local directory.
 
@@ -461,13 +452,13 @@ class ModelHubMixin:
     @validate_hf_hub_args
     def from_pretrained(
         cls: type[T],
-        pretrained_model_name_or_path: Union[str, Path],
+        pretrained_model_name_or_path: str | Path,
         *,
         force_download: bool = False,
-        token: Optional[Union[str, bool]] = None,
-        cache_dir: Optional[Union[str, Path]] = None,
+        token: str | bool | None = None,
+        cache_dir: str | Path | None = None,
         local_files_only: bool = False,
-        revision: Optional[str] = None,
+        revision: str | None = None,
         **model_kwargs,
     ) -> T:
         """
@@ -495,7 +486,7 @@ class ModelHubMixin:
                 Additional kwargs to pass to the model during initialization.
         """
         model_id = str(pretrained_model_name_or_path)
-        config_file: Optional[str] = None
+        config_file: str | None = None
         if os.path.isdir(model_id):
             if constants.CONFIG_NAME in os.listdir(model_id):
                 config_file = os.path.join(model_id, constants.CONFIG_NAME)
@@ -518,7 +509,7 @@ class ModelHubMixin:
         # Read config
         config = None
         if config_file is not None:
-            with open(config_file, "r", encoding="utf-8") as f:
+            with open(config_file, encoding="utf-8") as f:
                 config = json.load(f)
 
             # Decode custom types in config
@@ -578,11 +569,11 @@ class ModelHubMixin:
         cls: type[T],
         *,
         model_id: str,
-        revision: Optional[str],
-        cache_dir: Optional[Union[str, Path]],
+        revision: str | None,
+        cache_dir: str | Path | None,
         force_download: bool,
         local_files_only: bool,
-        token: Optional[Union[str, bool]],
+        token: str | bool | None,
         **model_kwargs,
     ) -> T:
         """Overwrite this method in subclass to define how to load your model from pretrained.
@@ -620,16 +611,16 @@ class ModelHubMixin:
         self,
         repo_id: str,
         *,
-        config: Optional[Union[dict, DataclassInstance]] = None,
+        config: dict | DataclassInstance | None = None,
         commit_message: str = "Push model using huggingface_hub.",
-        private: Optional[bool] = None,
-        token: Optional[str] = None,
-        branch: Optional[str] = None,
-        create_pr: Optional[bool] = None,
-        allow_patterns: Optional[Union[list[str], str]] = None,
-        ignore_patterns: Optional[Union[list[str], str]] = None,
-        delete_patterns: Optional[Union[list[str], str]] = None,
-        model_card_kwargs: Optional[dict[str, Any]] = None,
+        private: bool | None = None,
+        token: str | None = None,
+        branch: str | None = None,
+        create_pr: bool | None = None,
+        allow_patterns: list[str] | str | None = None,
+        ignore_patterns: list[str] | str | None = None,
+        delete_patterns: list[str] | str | None = None,
+        model_card_kwargs: dict[str, Any] | None = None,
     ) -> str:
         """
         Upload model checkpoint to the Hub.
@@ -744,7 +735,7 @@ class PyTorchModelHubMixin(ModelHubMixin):
     ```
     """
 
-    def __init_subclass__(cls, *args, tags: Optional[list[str]] = None, **kwargs) -> None:
+    def __init_subclass__(cls, *args, tags: list[str] | None = None, **kwargs) -> None:
         tags = tags or []
         tags.append("pytorch_model_hub_mixin")
         kwargs["tags"] = tags
@@ -752,19 +743,21 @@ class PyTorchModelHubMixin(ModelHubMixin):
 
     def _save_pretrained(self, save_directory: Path) -> None:
         """Save weights from a Pytorch model to a local directory."""
+        from safetensors.torch import save_model as save_model_as_safetensor
+
         model_to_save = self.module if hasattr(self, "module") else self  # type: ignore
-        save_model_as_safetensor(model_to_save, str(save_directory / constants.SAFETENSORS_SINGLE_FILE))  # type: ignore [arg-type]
+        save_model_as_safetensor(cast(Any, model_to_save), str(save_directory / constants.SAFETENSORS_SINGLE_FILE))
 
     @classmethod
     def _from_pretrained(
         cls,
         *,
         model_id: str,
-        revision: Optional[str],
-        cache_dir: Optional[Union[str, Path]],
+        revision: str | None,
+        cache_dir: str | Path | None,
         force_download: bool,
         local_files_only: bool,
-        token: Union[str, bool, None],
+        token: str | bool | None,
         map_location: str = "cpu",
         strict: bool = False,
         **model_kwargs,
@@ -801,6 +794,8 @@ class PyTorchModelHubMixin(ModelHubMixin):
 
     @classmethod
     def _load_as_pickle(cls, model: T, model_file: str, map_location: str, strict: bool) -> T:
+        import torch
+
         state_dict = torch.load(model_file, map_location=torch.device(map_location), weights_only=True)
         model.load_state_dict(state_dict, strict=strict)  # type: ignore
         model.eval()  # type: ignore
@@ -808,8 +803,11 @@ class PyTorchModelHubMixin(ModelHubMixin):
 
     @classmethod
     def _load_as_safetensor(cls, model: T, model_file: str, map_location: str, strict: bool) -> T:
+        import safetensors
+        import safetensors.torch
+
         if packaging.version.parse(safetensors.__version__) < packaging.version.parse("0.4.3"):  # type: ignore [attr-defined]
-            load_model_as_safetensor(model, model_file, strict=strict)  # type: ignore [arg-type]
+            safetensors.torch.load_model(cast(Any, model), model_file, strict=strict)
             if map_location != "cpu":
                 logger.warning(
                     "Loading model weights on other devices than 'cpu' is not supported natively in your version of safetensors."
@@ -819,7 +817,8 @@ class PyTorchModelHubMixin(ModelHubMixin):
                 )
                 model.to(map_location)  # type: ignore [attr-defined]
         else:
-            safetensors.torch.load_model(model, model_file, strict=strict, device=map_location)  # type: ignore [arg-type]
+            safetensors.torch.load_model(cast(Any, model), model_file, strict=strict, device=map_location)
+        model.eval()  # type: ignore
         return model
 
 

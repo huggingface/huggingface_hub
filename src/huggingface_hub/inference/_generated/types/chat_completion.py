@@ -3,7 +3,7 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from typing import Any, Literal, Optional, Union
+from typing import Any, Literal, Union
 
 from .base import BaseInferenceType, dataclass_with_extra
 
@@ -19,15 +19,15 @@ ChatCompletionInputMessageChunkType = Literal["text", "image_url"]
 @dataclass_with_extra
 class ChatCompletionInputMessageChunk(BaseInferenceType):
     type: "ChatCompletionInputMessageChunkType"
-    image_url: Optional[ChatCompletionInputURL] = None
-    text: Optional[str] = None
+    image_url: ChatCompletionInputURL | None = None
+    text: str | None = None
 
 
 @dataclass_with_extra
 class ChatCompletionInputFunctionDefinition(BaseInferenceType):
     name: str
     parameters: Any
-    description: Optional[str] = None
+    description: str | None = None
 
 
 @dataclass_with_extra
@@ -40,9 +40,9 @@ class ChatCompletionInputToolCall(BaseInferenceType):
 @dataclass_with_extra
 class ChatCompletionInputMessage(BaseInferenceType):
     role: str
-    content: Optional[Union[list[ChatCompletionInputMessageChunk], str]] = None
-    name: Optional[str] = None
-    tool_calls: Optional[list[ChatCompletionInputToolCall]] = None
+    content: list[ChatCompletionInputMessageChunk] | str | None = None
+    name: str | None = None
+    tool_calls: list[ChatCompletionInputToolCall] | None = None
 
 
 @dataclass_with_extra
@@ -51,17 +51,17 @@ class ChatCompletionInputJSONSchema(BaseInferenceType):
     """
     The name of the response format.
     """
-    description: Optional[str] = None
+    description: str | None = None
     """
     A description of what the response format is for, used by the model to determine
     how to respond in the format.
     """
-    schema: Optional[dict[str, object]] = None
+    schema: dict[str, object] | None = None
     """
     The schema for the response format, described as a JSON Schema object. Learn how
     to build JSON schemas [here](https://json-schema.org/).
     """
-    strict: Optional[bool] = None
+    strict: bool | None = None
     """
     Whether to enable strict schema adherence when generating the output. If set to
     true, the model will always follow the exact schema defined in the `schema`
@@ -94,7 +94,7 @@ ChatCompletionInputGrammarType = Union[
 
 @dataclass_with_extra
 class ChatCompletionInputStreamOptions(BaseInferenceType):
-    include_usage: Optional[bool] = None
+    include_usage: bool | None = None
     """If set, an additional chunk will be streamed before the data: [DONE] message. The usage
     field on this chunk shows the token usage statistics for the entire request, and the
     choices field will always be an empty array. All other chunks will also include a usage
@@ -131,12 +131,12 @@ class ChatCompletionInput(BaseInferenceType):
 
     messages: list[ChatCompletionInputMessage]
     """A list of messages comprising the conversation so far."""
-    frequency_penalty: Optional[float] = None
+    frequency_penalty: float | None = None
     """Number between -2.0 and 2.0. Positive values penalize new tokens based on their existing
     frequency in the text so far,
     decreasing the model's likelihood to repeat the same line verbatim.
     """
-    logit_bias: Optional[list[float]] = None
+    logit_bias: list[float] | None = None
     """UNUSED
     Modify the likelihood of specified tokens appearing in the completion. Accepts a JSON
     object that maps tokens
@@ -148,54 +148,54 @@ class ChatCompletionInput(BaseInferenceType):
     like -100 or 100 should
     result in a ban or exclusive selection of the relevant token.
     """
-    logprobs: Optional[bool] = None
+    logprobs: bool | None = None
     """Whether to return log probabilities of the output tokens or not. If true, returns the log
     probabilities of each
     output token returned in the content of message.
     """
-    max_tokens: Optional[int] = None
+    max_tokens: int | None = None
     """The maximum number of tokens that can be generated in the chat completion."""
-    model: Optional[str] = None
+    model: str | None = None
     """[UNUSED] ID of the model to use. See the model endpoint compatibility table for details
     on which models work with the Chat API.
     """
-    n: Optional[int] = None
+    n: int | None = None
     """UNUSED
     How many chat completion choices to generate for each input message. Note that you will
     be charged based on the
     number of generated tokens across all of the choices. Keep n as 1 to minimize costs.
     """
-    presence_penalty: Optional[float] = None
+    presence_penalty: float | None = None
     """Number between -2.0 and 2.0. Positive values penalize new tokens based on whether they
     appear in the text so far,
     increasing the model's likelihood to talk about new topics
     """
-    response_format: Optional[ChatCompletionInputGrammarType] = None
-    seed: Optional[int] = None
-    stop: Optional[list[str]] = None
+    response_format: ChatCompletionInputGrammarType | None = None
+    seed: int | None = None
+    stop: list[str] | None = None
     """Up to 4 sequences where the API will stop generating further tokens."""
-    stream: Optional[bool] = None
-    stream_options: Optional[ChatCompletionInputStreamOptions] = None
-    temperature: Optional[float] = None
+    stream: bool | None = None
+    stream_options: ChatCompletionInputStreamOptions | None = None
+    temperature: float | None = None
     """What sampling temperature to use, between 0 and 2. Higher values like 0.8 will make the
     output more random, while
     lower values like 0.2 will make it more focused and deterministic.
     We generally recommend altering this or `top_p` but not both.
     """
-    tool_choice: Optional[Union[ChatCompletionInputToolChoiceClass, "ChatCompletionInputToolChoiceEnum"]] = None
-    tool_prompt: Optional[str] = None
+    tool_choice: Union[ChatCompletionInputToolChoiceClass, "ChatCompletionInputToolChoiceEnum"] | None = None
+    tool_prompt: str | None = None
     """A prompt to be appended before the tools"""
-    tools: Optional[list[ChatCompletionInputTool]] = None
+    tools: list[ChatCompletionInputTool] | None = None
     """A list of tools the model may call. Currently, only functions are supported as a tool.
     Use this to provide a list of
     functions the model may generate JSON inputs for.
     """
-    top_logprobs: Optional[int] = None
+    top_logprobs: int | None = None
     """An integer between 0 and 5 specifying the number of most likely tokens to return at each
     token position, each with
     an associated log probability. logprobs must be set to true if this parameter is used.
     """
-    top_p: Optional[float] = None
+    top_p: float | None = None
     """An alternative to sampling with temperature, called nucleus sampling, where the model
     considers the results of the
     tokens with top_p probability mass. So 0.1 means only the tokens comprising the top 10%
@@ -225,7 +225,7 @@ class ChatCompletionOutputLogprobs(BaseInferenceType):
 class ChatCompletionOutputFunctionDefinition(BaseInferenceType):
     arguments: str
     name: str
-    description: Optional[str] = None
+    description: str | None = None
 
 
 @dataclass_with_extra
@@ -238,10 +238,10 @@ class ChatCompletionOutputToolCall(BaseInferenceType):
 @dataclass_with_extra
 class ChatCompletionOutputMessage(BaseInferenceType):
     role: str
-    content: Optional[str] = None
-    reasoning: Optional[str] = None
-    tool_call_id: Optional[str] = None
-    tool_calls: Optional[list[ChatCompletionOutputToolCall]] = None
+    content: str | None = None
+    reasoning: str | None = None
+    tool_call_id: str | None = None
+    tool_calls: list[ChatCompletionOutputToolCall] | None = None
 
 
 @dataclass_with_extra
@@ -249,7 +249,7 @@ class ChatCompletionOutputComplete(BaseInferenceType):
     finish_reason: str
     index: int
     message: ChatCompletionOutputMessage
-    logprobs: Optional[ChatCompletionOutputLogprobs] = None
+    logprobs: ChatCompletionOutputLogprobs | None = None
 
 
 @dataclass_with_extra
@@ -278,7 +278,7 @@ class ChatCompletionOutput(BaseInferenceType):
 @dataclass_with_extra
 class ChatCompletionStreamOutputFunction(BaseInferenceType):
     arguments: str
-    name: Optional[str] = None
+    name: str | None = None
 
 
 @dataclass_with_extra
@@ -292,10 +292,10 @@ class ChatCompletionStreamOutputDeltaToolCall(BaseInferenceType):
 @dataclass_with_extra
 class ChatCompletionStreamOutputDelta(BaseInferenceType):
     role: str
-    content: Optional[str] = None
-    reasoning: Optional[str] = None
-    tool_call_id: Optional[str] = None
-    tool_calls: Optional[list[ChatCompletionStreamOutputDeltaToolCall]] = None
+    content: str | None = None
+    reasoning: str | None = None
+    tool_call_id: str | None = None
+    tool_calls: list[ChatCompletionStreamOutputDeltaToolCall] | None = None
 
 
 @dataclass_with_extra
@@ -320,8 +320,8 @@ class ChatCompletionStreamOutputLogprobs(BaseInferenceType):
 class ChatCompletionStreamOutputChoice(BaseInferenceType):
     delta: ChatCompletionStreamOutputDelta
     index: int
-    finish_reason: Optional[str] = None
-    logprobs: Optional[ChatCompletionStreamOutputLogprobs] = None
+    finish_reason: str | None = None
+    logprobs: ChatCompletionStreamOutputLogprobs | None = None
 
 
 @dataclass_with_extra
@@ -344,4 +344,4 @@ class ChatCompletionStreamOutput(BaseInferenceType):
     id: str
     model: str
     system_fingerprint: str
-    usage: Optional[ChatCompletionStreamOutputUsage] = None
+    usage: ChatCompletionStreamOutputUsage | None = None

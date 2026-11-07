@@ -15,4 +15,5 @@ jobs:
       python_quality_dependencies: "[quality]"
       style_command_type: "style_only"
     secrets:
-      bot_token: ${{ secrets.HF_STYLE_BOT_ACTION }}
+      app_id: ${{ secrets.HF_BOT_STYLE_APP_ID }}
+      app_private_key: ${{ secrets.HF_BOT_STYLE_SECRET_PEM }}

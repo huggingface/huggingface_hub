@@ -46,12 +46,27 @@ import sys
 from typing import TYPE_CHECKING
 
 
-__version__ = "1.5.0.dev0"
+__version__ = "2.5.0.dev0"
 
 # Alphabetical order of definitions is ensured in tests
 # WARNING: any comment added in this dictionary definition will be lost when
 # re-generating the file !
 _SUBMOD_ATTRS = {
+    "_buckets": [
+        "BucketFile",
+        "BucketFileMetadata",
+        "BucketFolder",
+        "BucketInfo",
+        "BucketUrl",
+        "SyncOperation",
+        "SyncPlan",
+    ],
+    "_commit_api": [
+        "CommitOperation",
+        "CommitOperationAdd",
+        "CommitOperationCopy",
+        "CommitOperationDelete",
+    ],
     "_commit_scheduler": [
         "CommitScheduler",
     ],
@@ -61,16 +76,23 @@ _SUBMOD_ATTRS = {
         "parse_eval_result_entries",
     ],
     "_inference_endpoints": [
+        "InferenceCatalogModel",
+        "InferenceCatalogRecipe",
         "InferenceEndpoint",
         "InferenceEndpointError",
+        "InferenceEndpointHardware",
         "InferenceEndpointStatus",
         "InferenceEndpointTimeoutError",
         "InferenceEndpointType",
     ],
     "_jobs_api": [
         "JobAccelerator",
+        "JobDurations",
         "JobHardware",
+        "JobHardwareInfo",
         "JobInfo",
+        "JobInitiator",
+        "JobNetwork",
         "JobOwner",
         "JobStage",
         "JobStatus",
@@ -90,15 +112,28 @@ _SUBMOD_ATTRS = {
         "attach_huggingface_oauth",
         "parse_huggingface_oauth",
     ],
+    "_revision": [
+        "ResolvedRevision",
+    ],
+    "_sandbox": [
+        "Sandbox",
+        "SandboxCommandResult",
+        "SandboxPool",
+        "SandboxProcess",
+    ],
     "_snapshot_download": [
+        "get_cached_repo_tree",
         "snapshot_download",
     ],
     "_space_api": [
         "SpaceHardware",
         "SpaceRuntime",
+        "SpaceSecret",
         "SpaceStage",
         "SpaceStorage",
         "SpaceVariable",
+        "Volume",
+        "ZeroGpuQuota",
     ],
     "_tensorboard_logger": [
         "HFSummaryWriter",
@@ -162,21 +197,23 @@ _SUBMOD_ATTRS = {
         "Collection",
         "CollectionItem",
         "CommitInfo",
-        "CommitOperation",
-        "CommitOperationAdd",
-        "CommitOperationCopy",
-        "CommitOperationDelete",
         "DatasetInfo",
+        "DatasetLeaderboardEntry",
+        "DuplicatedRepoUrl",
         "GitCommitInfo",
         "GitRefInfo",
         "GitRefs",
         "HfApi",
+        "KernelInfo",
         "ModelInfo",
         "Organization",
         "RepoFile",
         "RepoFolder",
+        "RepoStorageInfo",
         "RepoUrl",
         "SpaceInfo",
+        "SpaceSearchResult",
+        "SpaceTemplate",
         "User",
         "UserLikes",
         "WebhookInfo",
@@ -186,11 +223,15 @@ _SUBMOD_ATTRS = {
         "add_space_secret",
         "add_space_variable",
         "auth_check",
+        "batch_bucket_files",
+        "bucket_info",
         "cancel_access_request",
         "cancel_job",
         "change_discussion_status",
         "comment_discussion",
+        "copy_files",
         "create_branch",
+        "create_bucket",
         "create_collection",
         "create_commit",
         "create_discussion",
@@ -204,6 +245,7 @@ _SUBMOD_ATTRS = {
         "create_webhook",
         "dataset_info",
         "delete_branch",
+        "delete_bucket",
         "delete_collection",
         "delete_collection_item",
         "delete_file",
@@ -212,18 +254,25 @@ _SUBMOD_ATTRS = {
         "delete_repo",
         "delete_scheduled_job",
         "delete_space_secret",
-        "delete_space_storage",
         "delete_space_variable",
+        "delete_space_volumes",
         "delete_tag",
         "delete_webhook",
+        "disable_space_dev_mode",
         "disable_webhook",
-        "duplicate_space",
+        "download_bucket_files",
+        "duplicate_repo",
         "edit_discussion_comment",
+        "enable_space_dev_mode",
         "enable_webhook",
         "fetch_job_logs",
         "fetch_job_metrics",
+        "fetch_space_logs",
         "file_exists",
+        "get_bucket_file_metadata",
+        "get_bucket_paths_info",
         "get_collection",
+        "get_dataset_leaderboard",
         "get_dataset_tags",
         "get_discussion_details",
         "get_full_repo_name",
@@ -234,19 +283,27 @@ _SUBMOD_ATTRS = {
         "get_paths_info",
         "get_repo_discussions",
         "get_safetensors_metadata",
+        "get_sharded_safetensors_metadata",
         "get_space_runtime",
+        "get_space_secrets",
         "get_space_variables",
         "get_user_overview",
         "get_webhook",
+        "get_zero_gpu_quota",
         "grant_access",
         "inspect_job",
         "inspect_scheduled_job",
+        "kernel_info",
         "list_accepted_access_requests",
+        "list_bucket_tree",
+        "list_buckets",
         "list_collections",
         "list_daily_papers",
+        "list_dataset_parquet_files",
         "list_datasets",
         "list_inference_catalog",
         "list_inference_endpoints",
+        "list_inference_endpoints_hardware",
         "list_jobs",
         "list_jobs_hardware",
         "list_lfs_files",
@@ -262,12 +319,17 @@ _SUBMOD_ATTRS = {
         "list_repo_likers",
         "list_repo_refs",
         "list_repo_tree",
+        "list_scheduled_jobs",
+        "list_space_templates",
         "list_spaces",
+        "list_spaces_hardware",
         "list_user_followers",
         "list_user_following",
+        "list_user_repos",
         "list_webhooks",
         "merge_pull_request",
         "model_info",
+        "move_bucket",
         "move_repo",
         "paper_info",
         "parse_local_safetensors_file_metadata",
@@ -276,13 +338,14 @@ _SUBMOD_ATTRS = {
         "pause_space",
         "permanently_delete_lfs_files",
         "preupload_lfs_files",
+        "read_paper",
         "reject_access_request",
         "rename_discussion",
         "repo_exists",
         "repo_info",
-        "repo_type_and_id_from_hf_id",
         "request_space_hardware",
-        "request_space_storage",
+        "rerun_job",
+        "resolve_revision",
         "restart_space",
         "resume_inference_endpoint",
         "resume_scheduled_job",
@@ -291,20 +354,33 @@ _SUBMOD_ATTRS = {
         "run_job",
         "run_uv_job",
         "scale_to_zero_inference_endpoint",
+        "search_spaces",
         "set_space_sleep_time",
+        "set_space_volumes",
         "space_info",
         "super_squash_history",
         "suspend_scheduled_job",
+        "sync_bucket",
+        "sync_job_volume",
+        "trigger_scheduled_job",
         "unlike",
+        "update_bucket_settings",
         "update_collection_item",
         "update_collection_metadata",
+        "update_collection_resource_group",
         "update_inference_endpoint",
+        "update_job_expose",
+        "update_job_labels",
         "update_repo_settings",
+        "update_scheduled_job_labels",
+        "update_scheduled_job_schedule",
         "update_webhook",
+        "upload_attachment",
         "upload_file",
         "upload_folder",
-        "upload_large_folder",
         "verify_repo_checksums",
+        "wait_for_job",
+        "wait_for_space",
         "whoami",
     ],
     "hf_file_system": [
@@ -541,11 +617,13 @@ _SUBMOD_ATTRS = {
         "CLIENT_FACTORY_T",
         "CacheNotFound",
         "CachedFileInfo",
+        "CachedIncompleteFileInfo",
         "CachedRepoInfo",
         "CachedRevisionInfo",
         "CorruptedCacheException",
         "DeleteCacheStrategy",
         "HFCacheInfo",
+        "HfUri",
         "cached_assets_path",
         "close_session",
         "dump_environment_info",
@@ -554,6 +632,7 @@ _SUBMOD_ATTRS = {
         "get_token",
         "hf_raise_for_status",
         "logging",
+        "parse_hf_uri",
         "scan_cache_dir",
         "set_async_client_factory",
         "set_client_factory",
@@ -587,10 +666,16 @@ __all__ = [
     "AutomaticSpeechRecognitionOutput",
     "AutomaticSpeechRecognitionOutputChunk",
     "AutomaticSpeechRecognitionParameters",
+    "BucketFile",
+    "BucketFileMetadata",
+    "BucketFolder",
+    "BucketInfo",
+    "BucketUrl",
     "CLIENT_FACTORY_T",
     "CONFIG_NAME",
     "CacheNotFound",
     "CachedFileInfo",
+    "CachedIncompleteFileInfo",
     "CachedRepoInfo",
     "CachedRevisionInfo",
     "CardData",
@@ -642,6 +727,7 @@ __all__ = [
     "DatasetCard",
     "DatasetCardData",
     "DatasetInfo",
+    "DatasetLeaderboardEntry",
     "DeleteCacheStrategy",
     "DepthEstimationInput",
     "DepthEstimationOutput",
@@ -657,6 +743,7 @@ __all__ = [
     "DocumentQuestionAnsweringOutputElement",
     "DocumentQuestionAnsweringParameters",
     "DryRunFileInfo",
+    "DuplicatedRepoUrl",
     "EvalResult",
     "EvalResultEntry",
     "FLAX_WEIGHTS_NAME",
@@ -678,6 +765,7 @@ __all__ = [
     "HfFileSystemFile",
     "HfFileSystemResolvedPath",
     "HfFileSystemStreamFile",
+    "HfUri",
     "ImageClassificationInput",
     "ImageClassificationOutputElement",
     "ImageClassificationOutputTransform",
@@ -707,19 +795,27 @@ __all__ = [
     "ImageToVideoOutput",
     "ImageToVideoParameters",
     "ImageToVideoTargetSize",
+    "InferenceCatalogModel",
+    "InferenceCatalogRecipe",
     "InferenceClient",
     "InferenceEndpoint",
     "InferenceEndpointError",
+    "InferenceEndpointHardware",
     "InferenceEndpointStatus",
     "InferenceEndpointTimeoutError",
     "InferenceEndpointType",
     "InferenceTimeoutError",
     "JobAccelerator",
+    "JobDurations",
     "JobHardware",
+    "JobHardwareInfo",
     "JobInfo",
+    "JobInitiator",
+    "JobNetwork",
     "JobOwner",
     "JobStage",
     "JobStatus",
+    "KernelInfo",
     "MCPClient",
     "ModelCard",
     "ModelCardData",
@@ -746,7 +842,13 @@ __all__ = [
     "RepoCard",
     "RepoFile",
     "RepoFolder",
+    "RepoStorageInfo",
     "RepoUrl",
+    "ResolvedRevision",
+    "Sandbox",
+    "SandboxCommandResult",
+    "SandboxPool",
+    "SandboxProcess",
     "SentenceSimilarityInput",
     "SentenceSimilarityInputData",
     "SpaceCard",
@@ -754,14 +856,19 @@ __all__ = [
     "SpaceHardware",
     "SpaceInfo",
     "SpaceRuntime",
+    "SpaceSearchResult",
+    "SpaceSecret",
     "SpaceStage",
     "SpaceStorage",
+    "SpaceTemplate",
     "SpaceVariable",
     "StateDictSplit",
     "SummarizationInput",
     "SummarizationOutput",
     "SummarizationParameters",
     "SummarizationTruncationStrategy",
+    "SyncOperation",
+    "SyncPlan",
     "TF2_WEIGHTS_NAME",
     "TF_WEIGHTS_NAME",
     "TableQuestionAnsweringInput",
@@ -823,6 +930,7 @@ __all__ = [
     "VisualQuestionAnsweringInputData",
     "VisualQuestionAnsweringOutputElement",
     "VisualQuestionAnsweringParameters",
+    "Volume",
     "WebhookInfo",
     "WebhookPayload",
     "WebhookPayloadComment",
@@ -835,6 +943,7 @@ __all__ = [
     "WebhookPayloadWebhook",
     "WebhookWatchedItem",
     "WebhooksServer",
+    "ZeroGpuQuota",
     "ZeroShotClassificationInput",
     "ZeroShotClassificationOutputElement",
     "ZeroShotClassificationParameters",
@@ -855,6 +964,8 @@ __all__ = [
     "auth_check",
     "auth_list",
     "auth_switch",
+    "batch_bucket_files",
+    "bucket_info",
     "cached_assets_path",
     "cancel_access_request",
     "cancel_job",
@@ -862,7 +973,9 @@ __all__ = [
     "check_cli_update",
     "close_session",
     "comment_discussion",
+    "copy_files",
     "create_branch",
+    "create_bucket",
     "create_collection",
     "create_commit",
     "create_discussion",
@@ -876,6 +989,7 @@ __all__ = [
     "create_webhook",
     "dataset_info",
     "delete_branch",
+    "delete_bucket",
     "delete_collection",
     "delete_collection_item",
     "delete_file",
@@ -884,24 +998,32 @@ __all__ = [
     "delete_repo",
     "delete_scheduled_job",
     "delete_space_secret",
-    "delete_space_storage",
     "delete_space_variable",
+    "delete_space_volumes",
     "delete_tag",
     "delete_webhook",
+    "disable_space_dev_mode",
     "disable_webhook",
+    "download_bucket_files",
     "dump_environment_info",
-    "duplicate_space",
+    "duplicate_repo",
     "edit_discussion_comment",
+    "enable_space_dev_mode",
     "enable_webhook",
     "eval_result_entries_to_yaml",
     "export_entries_as_dduf",
     "export_folder_as_dduf",
     "fetch_job_logs",
     "fetch_job_metrics",
+    "fetch_space_logs",
     "file_exists",
     "from_pretrained_fastai",
     "get_async_session",
+    "get_bucket_file_metadata",
+    "get_bucket_paths_info",
+    "get_cached_repo_tree",
     "get_collection",
+    "get_dataset_leaderboard",
     "get_dataset_tags",
     "get_discussion_details",
     "get_full_repo_name",
@@ -914,13 +1036,16 @@ __all__ = [
     "get_repo_discussions",
     "get_safetensors_metadata",
     "get_session",
+    "get_sharded_safetensors_metadata",
     "get_space_runtime",
+    "get_space_secrets",
     "get_space_variables",
     "get_token",
     "get_torch_storage_id",
     "get_torch_storage_size",
     "get_user_overview",
     "get_webhook",
+    "get_zero_gpu_quota",
     "grant_access",
     "hf_hub_download",
     "hf_hub_url",
@@ -930,12 +1055,17 @@ __all__ = [
     "inspect_scheduled_job",
     "interpreter_login",
     "is_offline_mode",
+    "kernel_info",
     "list_accepted_access_requests",
+    "list_bucket_tree",
+    "list_buckets",
     "list_collections",
     "list_daily_papers",
+    "list_dataset_parquet_files",
     "list_datasets",
     "list_inference_catalog",
     "list_inference_endpoints",
+    "list_inference_endpoints_hardware",
     "list_jobs",
     "list_jobs_hardware",
     "list_lfs_files",
@@ -951,9 +1081,13 @@ __all__ = [
     "list_repo_likers",
     "list_repo_refs",
     "list_repo_tree",
+    "list_scheduled_jobs",
+    "list_space_templates",
     "list_spaces",
+    "list_spaces_hardware",
     "list_user_followers",
     "list_user_following",
+    "list_user_repos",
     "list_webhooks",
     "load_state_dict_from_file",
     "load_torch_model",
@@ -966,10 +1100,12 @@ __all__ = [
     "metadata_save",
     "metadata_update",
     "model_info",
+    "move_bucket",
     "move_repo",
     "notebook_login",
     "paper_info",
     "parse_eval_result_entries",
+    "parse_hf_uri",
     "parse_huggingface_oauth",
     "parse_local_safetensors_file_metadata",
     "parse_safetensors_file_metadata",
@@ -979,13 +1115,14 @@ __all__ = [
     "preupload_lfs_files",
     "push_to_hub_fastai",
     "read_dduf_file",
+    "read_paper",
     "reject_access_request",
     "rename_discussion",
     "repo_exists",
     "repo_info",
-    "repo_type_and_id_from_hf_id",
     "request_space_hardware",
-    "request_space_storage",
+    "rerun_job",
+    "resolve_revision",
     "restart_space",
     "resume_inference_endpoint",
     "resume_scheduled_job",
@@ -997,27 +1134,40 @@ __all__ = [
     "save_torch_state_dict",
     "scale_to_zero_inference_endpoint",
     "scan_cache_dir",
+    "search_spaces",
     "set_async_client_factory",
     "set_client_factory",
     "set_space_sleep_time",
+    "set_space_volumes",
     "snapshot_download",
     "space_info",
     "split_state_dict_into_shards_factory",
     "split_torch_state_dict_into_shards",
     "super_squash_history",
     "suspend_scheduled_job",
+    "sync_bucket",
+    "sync_job_volume",
+    "trigger_scheduled_job",
     "try_to_load_from_cache",
     "typer_factory",
     "unlike",
+    "update_bucket_settings",
     "update_collection_item",
     "update_collection_metadata",
+    "update_collection_resource_group",
     "update_inference_endpoint",
+    "update_job_expose",
+    "update_job_labels",
     "update_repo_settings",
+    "update_scheduled_job_labels",
+    "update_scheduled_job_schedule",
     "update_webhook",
+    "upload_attachment",
     "upload_file",
     "upload_folder",
-    "upload_large_folder",
     "verify_repo_checksums",
+    "wait_for_job",
+    "wait_for_space",
     "webhook_endpoint",
     "whoami",
 ]
@@ -1124,6 +1274,21 @@ if os.environ.get("EAGER_IMPORT", ""):
 # make style
 # ```
 if TYPE_CHECKING:  # pragma: no cover
+    from ._buckets import (
+        BucketFile,  # noqa: F401
+        BucketFileMetadata,  # noqa: F401
+        BucketFolder,  # noqa: F401
+        BucketInfo,  # noqa: F401
+        BucketUrl,  # noqa: F401
+        SyncOperation,  # noqa: F401
+        SyncPlan,  # noqa: F401
+    )
+    from ._commit_api import (
+        CommitOperation,  # noqa: F401
+        CommitOperationAdd,  # noqa: F401
+        CommitOperationCopy,  # noqa: F401
+        CommitOperationDelete,  # noqa: F401
+    )
     from ._commit_scheduler import CommitScheduler  # noqa: F401
     from ._eval_results import (
         EvalResultEntry,  # noqa: F401
@@ -1131,16 +1296,23 @@ if TYPE_CHECKING:  # pragma: no cover
         parse_eval_result_entries,  # noqa: F401
     )
     from ._inference_endpoints import (
+        InferenceCatalogModel,  # noqa: F401
+        InferenceCatalogRecipe,  # noqa: F401
         InferenceEndpoint,  # noqa: F401
         InferenceEndpointError,  # noqa: F401
+        InferenceEndpointHardware,  # noqa: F401
         InferenceEndpointStatus,  # noqa: F401
         InferenceEndpointTimeoutError,  # noqa: F401
         InferenceEndpointType,  # noqa: F401
     )
     from ._jobs_api import (
         JobAccelerator,  # noqa: F401
+        JobDurations,  # noqa: F401
         JobHardware,  # noqa: F401
+        JobHardwareInfo,  # noqa: F401
         JobInfo,  # noqa: F401
+        JobInitiator,  # noqa: F401
+        JobNetwork,  # noqa: F401
         JobOwner,  # noqa: F401
         JobStage,  # noqa: F401
         JobStatus,  # noqa: F401
@@ -1160,13 +1332,26 @@ if TYPE_CHECKING:  # pragma: no cover
         attach_huggingface_oauth,  # noqa: F401
         parse_huggingface_oauth,  # noqa: F401
     )
-    from ._snapshot_download import snapshot_download  # noqa: F401
+    from ._revision import ResolvedRevision  # noqa: F401
+    from ._sandbox import (
+        Sandbox,  # noqa: F401
+        SandboxCommandResult,  # noqa: F401
+        SandboxPool,  # noqa: F401
+        SandboxProcess,  # noqa: F401
+    )
+    from ._snapshot_download import (
+        get_cached_repo_tree,  # noqa: F401
+        snapshot_download,  # noqa: F401
+    )
     from ._space_api import (
         SpaceHardware,  # noqa: F401
         SpaceRuntime,  # noqa: F401
+        SpaceSecret,  # noqa: F401
         SpaceStage,  # noqa: F401
         SpaceStorage,  # noqa: F401
         SpaceVariable,  # noqa: F401
+        Volume,  # noqa: F401
+        ZeroGpuQuota,  # noqa: F401
     )
     from ._tensorboard_logger import HFSummaryWriter  # noqa: F401
     from ._webhooks_payload import (
@@ -1228,21 +1413,23 @@ if TYPE_CHECKING:  # pragma: no cover
         Collection,  # noqa: F401
         CollectionItem,  # noqa: F401
         CommitInfo,  # noqa: F401
-        CommitOperation,  # noqa: F401
-        CommitOperationAdd,  # noqa: F401
-        CommitOperationCopy,  # noqa: F401
-        CommitOperationDelete,  # noqa: F401
         DatasetInfo,  # noqa: F401
+        DatasetLeaderboardEntry,  # noqa: F401
+        DuplicatedRepoUrl,  # noqa: F401
         GitCommitInfo,  # noqa: F401
         GitRefInfo,  # noqa: F401
         GitRefs,  # noqa: F401
         HfApi,  # noqa: F401
+        KernelInfo,  # noqa: F401
         ModelInfo,  # noqa: F401
         Organization,  # noqa: F401
         RepoFile,  # noqa: F401
         RepoFolder,  # noqa: F401
+        RepoStorageInfo,  # noqa: F401
         RepoUrl,  # noqa: F401
         SpaceInfo,  # noqa: F401
+        SpaceSearchResult,  # noqa: F401
+        SpaceTemplate,  # noqa: F401
         User,  # noqa: F401
         UserLikes,  # noqa: F401
         WebhookInfo,  # noqa: F401
@@ -1252,11 +1439,15 @@ if TYPE_CHECKING:  # pragma: no cover
         add_space_secret,  # noqa: F401
         add_space_variable,  # noqa: F401
         auth_check,  # noqa: F401
+        batch_bucket_files,  # noqa: F401
+        bucket_info,  # noqa: F401
         cancel_access_request,  # noqa: F401
         cancel_job,  # noqa: F401
         change_discussion_status,  # noqa: F401
         comment_discussion,  # noqa: F401
+        copy_files,  # noqa: F401
         create_branch,  # noqa: F401
+        create_bucket,  # noqa: F401
         create_collection,  # noqa: F401
         create_commit,  # noqa: F401
         create_discussion,  # noqa: F401
@@ -1270,6 +1461,7 @@ if TYPE_CHECKING:  # pragma: no cover
         create_webhook,  # noqa: F401
         dataset_info,  # noqa: F401
         delete_branch,  # noqa: F401
+        delete_bucket,  # noqa: F401
         delete_collection,  # noqa: F401
         delete_collection_item,  # noqa: F401
         delete_file,  # noqa: F401
@@ -1278,18 +1470,25 @@ if TYPE_CHECKING:  # pragma: no cover
         delete_repo,  # noqa: F401
         delete_scheduled_job,  # noqa: F401
         delete_space_secret,  # noqa: F401
-        delete_space_storage,  # noqa: F401
         delete_space_variable,  # noqa: F401
+        delete_space_volumes,  # noqa: F401
         delete_tag,  # noqa: F401
         delete_webhook,  # noqa: F401
+        disable_space_dev_mode,  # noqa: F401
         disable_webhook,  # noqa: F401
-        duplicate_space,  # noqa: F401
+        download_bucket_files,  # noqa: F401
+        duplicate_repo,  # noqa: F401
         edit_discussion_comment,  # noqa: F401
+        enable_space_dev_mode,  # noqa: F401
         enable_webhook,  # noqa: F401
         fetch_job_logs,  # noqa: F401
         fetch_job_metrics,  # noqa: F401
+        fetch_space_logs,  # noqa: F401
         file_exists,  # noqa: F401
+        get_bucket_file_metadata,  # noqa: F401
+        get_bucket_paths_info,  # noqa: F401
         get_collection,  # noqa: F401
+        get_dataset_leaderboard,  # noqa: F401
         get_dataset_tags,  # noqa: F401
         get_discussion_details,  # noqa: F401
         get_full_repo_name,  # noqa: F401
@@ -1300,19 +1499,27 @@ if TYPE_CHECKING:  # pragma: no cover
         get_paths_info,  # noqa: F401
         get_repo_discussions,  # noqa: F401
         get_safetensors_metadata,  # noqa: F401
+        get_sharded_safetensors_metadata,  # noqa: F401
         get_space_runtime,  # noqa: F401
+        get_space_secrets,  # noqa: F401
         get_space_variables,  # noqa: F401
         get_user_overview,  # noqa: F401
         get_webhook,  # noqa: F401
+        get_zero_gpu_quota,  # noqa: F401
         grant_access,  # noqa: F401
         inspect_job,  # noqa: F401
         inspect_scheduled_job,  # noqa: F401
+        kernel_info,  # noqa: F401
         list_accepted_access_requests,  # noqa: F401
+        list_bucket_tree,  # noqa: F401
+        list_buckets,  # noqa: F401
         list_collections,  # noqa: F401
         list_daily_papers,  # noqa: F401
+        list_dataset_parquet_files,  # noqa: F401
         list_datasets,  # noqa: F401
         list_inference_catalog,  # noqa: F401
         list_inference_endpoints,  # noqa: F401
+        list_inference_endpoints_hardware,  # noqa: F401
         list_jobs,  # noqa: F401
         list_jobs_hardware,  # noqa: F401
         list_lfs_files,  # noqa: F401
@@ -1328,12 +1535,17 @@ if TYPE_CHECKING:  # pragma: no cover
         list_repo_likers,  # noqa: F401
         list_repo_refs,  # noqa: F401
         list_repo_tree,  # noqa: F401
+        list_scheduled_jobs,  # noqa: F401
+        list_space_templates,  # noqa: F401
         list_spaces,  # noqa: F401
+        list_spaces_hardware,  # noqa: F401
         list_user_followers,  # noqa: F401
         list_user_following,  # noqa: F401
+        list_user_repos,  # noqa: F401
         list_webhooks,  # noqa: F401
         merge_pull_request,  # noqa: F401
         model_info,  # noqa: F401
+        move_bucket,  # noqa: F401
         move_repo,  # noqa: F401
         paper_info,  # noqa: F401
         parse_local_safetensors_file_metadata,  # noqa: F401
@@ -1342,13 +1554,14 @@ if TYPE_CHECKING:  # pragma: no cover
         pause_space,  # noqa: F401
         permanently_delete_lfs_files,  # noqa: F401
         preupload_lfs_files,  # noqa: F401
+        read_paper,  # noqa: F401
         reject_access_request,  # noqa: F401
         rename_discussion,  # noqa: F401
         repo_exists,  # noqa: F401
         repo_info,  # noqa: F401
-        repo_type_and_id_from_hf_id,  # noqa: F401
         request_space_hardware,  # noqa: F401
-        request_space_storage,  # noqa: F401
+        rerun_job,  # noqa: F401
+        resolve_revision,  # noqa: F401
         restart_space,  # noqa: F401
         resume_inference_endpoint,  # noqa: F401
         resume_scheduled_job,  # noqa: F401
@@ -1357,20 +1570,33 @@ if TYPE_CHECKING:  # pragma: no cover
         run_job,  # noqa: F401
         run_uv_job,  # noqa: F401
         scale_to_zero_inference_endpoint,  # noqa: F401
+        search_spaces,  # noqa: F401
         set_space_sleep_time,  # noqa: F401
+        set_space_volumes,  # noqa: F401
         space_info,  # noqa: F401
         super_squash_history,  # noqa: F401
         suspend_scheduled_job,  # noqa: F401
+        sync_bucket,  # noqa: F401
+        sync_job_volume,  # noqa: F401
+        trigger_scheduled_job,  # noqa: F401
         unlike,  # noqa: F401
+        update_bucket_settings,  # noqa: F401
         update_collection_item,  # noqa: F401
         update_collection_metadata,  # noqa: F401
+        update_collection_resource_group,  # noqa: F401
         update_inference_endpoint,  # noqa: F401
+        update_job_expose,  # noqa: F401
+        update_job_labels,  # noqa: F401
         update_repo_settings,  # noqa: F401
+        update_scheduled_job_labels,  # noqa: F401
+        update_scheduled_job_schedule,  # noqa: F401
         update_webhook,  # noqa: F401
+        upload_attachment,  # noqa: F401
         upload_file,  # noqa: F401
         upload_folder,  # noqa: F401
-        upload_large_folder,  # noqa: F401
         verify_repo_checksums,  # noqa: F401
+        wait_for_job,  # noqa: F401
+        wait_for_space,  # noqa: F401
         whoami,  # noqa: F401
     )
     from .hf_file_system import (
@@ -1600,12 +1826,14 @@ if TYPE_CHECKING:  # pragma: no cover
         ASYNC_CLIENT_FACTORY_T,  # noqa: F401
         CLIENT_FACTORY_T,  # noqa: F401
         CachedFileInfo,  # noqa: F401
+        CachedIncompleteFileInfo,  # noqa: F401
         CachedRepoInfo,  # noqa: F401
         CachedRevisionInfo,  # noqa: F401
         CacheNotFound,  # noqa: F401
         CorruptedCacheException,  # noqa: F401
         DeleteCacheStrategy,  # noqa: F401
         HFCacheInfo,  # noqa: F401
+        HfUri,  # noqa: F401
         cached_assets_path,  # noqa: F401
         close_session,  # noqa: F401
         dump_environment_info,  # noqa: F401
@@ -1614,6 +1842,7 @@ if TYPE_CHECKING:  # pragma: no cover
         get_token,  # noqa: F401
         hf_raise_for_status,  # noqa: F401
         logging,  # noqa: F401
+        parse_hf_uri,  # noqa: F401
         scan_cache_dir,  # noqa: F401
         set_async_client_factory,  # noqa: F401
         set_client_factory,  # noqa: F401

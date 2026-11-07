@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2023-present, the HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,61 +11,31 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Contains command to upload a repo or file with the CLI.
-
-Usage:
-    # Upload file (implicit)
-    hf upload my-cool-model ./my-cool-model.safetensors
-
-    # Upload file (explicit)
-    hf upload my-cool-model ./my-cool-model.safetensors  model.safetensors
-
-    # Upload directory (implicit). If `my-cool-model/` is a directory it will be uploaded, otherwise an exception is raised.
-    hf upload my-cool-model
-
-    # Upload directory (explicit)
-    hf upload my-cool-model ./models/my-cool-model .
-
-    # Upload filtered directory (example: tensorboard logs except for the last run)
-    hf upload my-cool-model ./model/training /logs --include "*.tfevents.*" --exclude "*20230905*"
-
-    # Upload with wildcard
-    hf upload my-cool-model "./model/training/*.safetensors"
-
-    # Upload private dataset
-    hf upload Wauplin/my-cool-dataset ./data . --repo-type=dataset --private
-
-    # Upload with token
-    hf upload Wauplin/my-cool-model --token=hf_****
-
-    # Sync local Space with Hub (upload new files, delete removed files)
-    hf upload Wauplin/space-example --repo-type=space --exclude="/logs/*" --delete="*" --commit-message="Sync local Space with Hub"
-
-    # Schedule commits every 30 minutes
-    hf upload Wauplin/my-cool-model --every=30
-"""
+"""Contains command to upload a repo or file with the CLI."""
 
 import os
 import time
 import warnings
-from typing import Annotated, Optional
+from typing import Annotated
 
-import typer
+import click
 
-from huggingface_hub import logging
+from huggingface_hub import constants, logging
 from huggingface_hub._commit_scheduler import CommitScheduler
-from huggingface_hub.errors import RevisionNotFoundError
-from huggingface_hub.utils import disable_progress_bars, enable_progress_bars
+from huggingface_hub.errors import CLIError, RevisionNotFoundError
+from huggingface_hub.utils import parse_hf_uri
 
 from ._cli_utils import (
     PrivateOpt,
     RepoIdArg,
     RepoType,
-    RepoTypeOpt,
+    RepoTypeOptionalOpt,
     RevisionOpt,
     TokenOpt,
     get_hf_api,
 )
+from ._framework import Argument, Option
+from ._output import out
 
 
 logger = logging.get_logger(__name__)
@@ -84,76 +53,96 @@ UPLOAD_EXAMPLES = [
 def upload(
     repo_id: RepoIdArg,
     local_path: Annotated[
-        Optional[str],
-        typer.Argument(
+        str | None,
+        Argument(
             help="Local path to the file or folder to upload. Wildcard patterns are supported. Defaults to current directory.",
         ),
     ] = None,
     path_in_repo: Annotated[
-        Optional[str],
-        typer.Argument(
+        str | None,
+        Argument(
             help="Path of the file or folder in the repo. Defaults to the relative path of the file or folder.",
         ),
     ] = None,
-    repo_type: RepoTypeOpt = RepoType.model,
+    repo_type: RepoTypeOptionalOpt = None,
     revision: RevisionOpt = None,
     private: PrivateOpt = None,
     include: Annotated[
-        Optional[list[str]],
-        typer.Option(
+        list[str] | None,
+        Option(
             help="Glob patterns to match files to upload.",
         ),
     ] = None,
     exclude: Annotated[
-        Optional[list[str]],
-        typer.Option(
+        list[str] | None,
+        Option(
             help="Glob patterns to exclude from files to upload.",
         ),
     ] = None,
     delete: Annotated[
-        Optional[list[str]],
-        typer.Option(
+        list[str] | None,
+        Option(
             help="Glob patterns for file to be deleted from the repo while committing.",
         ),
     ] = None,
     commit_message: Annotated[
-        Optional[str],
-        typer.Option(
+        str | None,
+        Option(
             help="The summary / title / first line of the generated commit.",
         ),
     ] = None,
     commit_description: Annotated[
-        Optional[str],
-        typer.Option(
+        str | None,
+        Option(
             help="The description of the generated commit.",
         ),
     ] = None,
     create_pr: Annotated[
         bool,
-        typer.Option(
+        Option(
             help="Whether to upload content as a new Pull Request.",
         ),
     ] = False,
     every: Annotated[
-        Optional[float],
-        typer.Option(
-            help="f set, a background job is scheduled to create commits every `every` minutes.",
+        float | None,
+        Option(
+            help="If set, a background job is scheduled to create commits every `every` minutes.",
         ),
     ] = None,
     token: TokenOpt = None,
-    quiet: Annotated[
-        bool,
-        typer.Option(
-            help="Disable progress bars and warnings; print only the returned path.",
-        ),
-    ] = False,
 ) -> None:
-    """Upload a file or a folder to the Hub. Recommended for single-commit uploads."""
+    """Upload a file or a folder to the Hub.
+
+    Folders with many files are split into several commits. If a folder upload is interrupted, re-run the same command
+    to resume it.
+    """
 
     if every is not None and every <= 0:
-        raise typer.BadParameter("--every must be a positive value", param_hint="every")
+        raise click.BadParameter("--every must be a positive value", param_hint="every")
 
-    repo_type_str = repo_type.value
+    # `repo_id` may be a plain repo id or an `hf://` URI (e.g. `hf://datasets/my-org/my-dataset@v1.0/data/`).
+    # When a URI is provided, it is authoritative for the repo type, revision and (optionally) path in repo,
+    # so explicit `--repo-type` / `--revision` options are forbidden alongside it.
+    # We branch on the `hf://` prefix (the user's *intent*) rather than on whether the string parses as a
+    # valid URI: a malformed URI then surfaces a precise `HfUriError` (formatted globally in `cli/_errors.py`)
+    # instead of silently falling through to the plain-repo-id path and failing later with an opaque error.
+    if repo_id.startswith(constants.HF_PROTOCOL):
+        if repo_type is not None:
+            raise CLIError(f"'--repo-type' cannot be used with an 'hf://' URI ('{repo_id}').")
+        if revision is not None:
+            raise CLIError(f"'--revision' cannot be used with an 'hf://' URI ('{repo_id}').")
+        uri = parse_hf_uri(repo_id)
+        if uri.is_bucket:
+            raise CLIError("Buckets are not supported by `hf upload`. Use `hf sync` instead.")
+        repo_id, repo_type_str, revision = uri.id, uri.type, uri.revision
+        if uri.path_in_repo:
+            if path_in_repo is not None:
+                raise CLIError(
+                    f"Cannot combine a path in the hf:// URI ('{uri.path_in_repo}') with the `path_in_repo` argument ('{path_in_repo}')."
+                )
+            path_in_repo = uri.path_in_repo
+    else:
+        repo_type_str = (repo_type or RepoType.model).value
 
     api = get_hf_api(token=token)
 
@@ -173,27 +162,30 @@ def upload(
 
         # Schedule commits if `every` is set
         if every is not None:
+            allow_patterns: list[str] | None
+            ignore_patterns: list[str] | None
             if os.path.isfile(resolved_local_path):
-                # If file => watch entire folder + use allow_patterns
+                # If file => watch entire folder + use allow_patterns.
+                # `CommitScheduler` matches patterns against paths relative to `folder_path` and
+                # re-uploads them under `path_in_repo`, so the pattern is the file name and only
+                # the directory part of `path_in_repo` can be honoured.
                 folder_path = os.path.dirname(resolved_local_path)
-                pi = (
-                    resolved_path_in_repo[: -len(resolved_local_path)]
-                    if resolved_path_in_repo.endswith(resolved_local_path)
-                    else resolved_path_in_repo
-                )
-                allow_patterns = [resolved_local_path]
-                ignore_patterns: Optional[list[str]] = []
+                filename = os.path.basename(resolved_local_path)
+                pi, _, dest_filename = resolved_path_in_repo.rpartition("/")
+                # An empty or "." destination name means a directory, not a rename.
+                if dest_filename not in ("", ".", filename):
+                    out.warning(
+                        f"Scheduled uploads keep the local file name, so the file will be uploaded as"
+                        f" '{(pi + '/' if pi else '') + filename}' rather than '{resolved_path_in_repo}'."
+                        " Rename the local file to upload it under a different name."
+                    )
+                allow_patterns = [filename]
+                ignore_patterns = []
             else:
                 folder_path = resolved_local_path
                 pi = resolved_path_in_repo
-                allow_patterns = (
-                    resolved_include or []
-                    if isinstance(resolved_include, list)
-                    else [resolved_include]
-                    if isinstance(resolved_include, str)
-                    else []
-                )
-                ignore_patterns = exclude or []
+                allow_patterns = resolved_include
+                ignore_patterns = exclude
                 if delete is not None and len(delete) > 0:
                     warnings.warn("Ignoring --delete when uploading with scheduled commits.")
 
@@ -209,7 +201,7 @@ def upload(
                 every=every,
                 hf_api=api,
             )
-            print(f"Scheduling commits every {every} minutes to {scheduler.repo_id}.")
+            out.text(f"Scheduling commits every {every} minutes to {scheduler.repo_id}.")
             try:
                 while True:
                     time.sleep(100)
@@ -227,7 +219,7 @@ def upload(
             private=private,
             space_sdk="gradio" if repo_type_str == "space" else None,
             # ^ We don't want it to fail when uploading to a Space => let's set Gradio by default.
-            # ^ I'd rather not add CLI args to set it explicitly as we already have `hf repo create` for that.
+            # ^ I'd rather not add CLI args to set it explicitly as we already have `hf repos create` for that.
         ).repo_id
 
         # Check if branch already exists and if not, create it
@@ -262,40 +254,28 @@ def upload(
             commit_message=commit_message,
             commit_description=commit_description,
             create_pr=create_pr,
-            allow_patterns=(
-                resolved_include
-                if isinstance(resolved_include, list)
-                else [resolved_include]
-                if isinstance(resolved_include, str)
-                else None
-            ),
+            allow_patterns=resolved_include,
             ignore_patterns=exclude,
             delete_patterns=delete,
         )
 
-    if quiet:
-        disable_progress_bars()
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            print(run_upload())
-        enable_progress_bars()
-    else:
-        print(run_upload())
-        logging.set_verbosity_warning()
+    result = run_upload()
+    out.result("Uploaded", url=result)
 
 
 def _resolve_upload_paths(
-    *, repo_id: str, local_path: Optional[str], path_in_repo: Optional[str], include: Optional[list[str]]
-) -> tuple[str, str, Optional[list[str]]]:
+    *, repo_id: str, local_path: str | None, path_in_repo: str | None, include: list[str] | None
+) -> tuple[str, str, list[str] | None]:
     repo_name = repo_id.split("/")[-1]
     resolved_include = include
 
-    if local_path is not None and any(c in local_path for c in ["*", "?", "["]):
+    # An existing path is never a wildcard, even if it contains glob characters (e.g. "model [v2].safetensors")
+    if local_path is not None and not os.path.exists(local_path) and any(c in local_path for c in ["*", "?", "["]):
         if include is not None:
             raise ValueError("Cannot set --include when local_path contains a wildcard.")
         if path_in_repo is not None and path_in_repo != ".":
             raise ValueError("Cannot set path_in_repo when local_path contains a wildcard.")
-        return ".", local_path, ["."]  # will be adjusted below; placeholder for type
+        return ".", ".", [local_path]
 
     if local_path is None and os.path.isfile(repo_name):
         return repo_name, repo_name, resolved_include

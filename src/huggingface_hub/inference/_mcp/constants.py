@@ -11,7 +11,7 @@ PROMPT_FILENAMES = ("PROMPT.md", "AGENTS.md")
 
 DEFAULT_AGENT = {
     "model": "Qwen/Qwen2.5-72B-Instruct",
-    "provider": "nebius",
+    "provider": "novita",
     "servers": [
         {
             "type": "stdio",
@@ -47,7 +47,7 @@ problem and think insightfully.
 
 MAX_NUM_TURNS = 10
 
-TASK_COMPLETE_TOOL: ChatCompletionInputTool = ChatCompletionInputTool.parse_obj(  # type: ignore[assignment]
+TASK_COMPLETE_TOOL: ChatCompletionInputTool = ChatCompletionInputTool.parse_obj(  # type: ignore
     {
         "type": "function",
         "function": {
@@ -61,7 +61,7 @@ TASK_COMPLETE_TOOL: ChatCompletionInputTool = ChatCompletionInputTool.parse_obj(
     }
 )
 
-ASK_QUESTION_TOOL: ChatCompletionInputTool = ChatCompletionInputTool.parse_obj(  # type: ignore[assignment]
+ASK_QUESTION_TOOL: ChatCompletionInputTool = ChatCompletionInputTool.parse_obj(  # type: ignore
     {
         "type": "function",
         "function": {

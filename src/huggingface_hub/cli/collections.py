@@ -11,47 +11,16 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Contains commands to interact with collections on the Hugging Face Hub.
-
-Usage:
-    # list collections on the Hub
-    hf collections ls
-
-    # list collections for a specific user
-    hf collections ls --owner username
-
-    # get info about a collection
-    hf collections info username/collection-slug
-
-    # create a new collection
-    hf collections create "My Collection" --description "A collection of models"
-
-    # add an item to a collection
-    hf collections add-item username/collection-slug username/model-name model
-
-    # delete a collection
-    hf collections delete username/collection-slug
-"""
+"""Contains commands to interact with collections on the Hugging Face Hub."""
 
 import enum
-import json
-from typing import Annotated, Optional, get_args
-
-import typer
+from typing import Annotated, get_args
 
 from huggingface_hub.hf_api import CollectionItemType_T, CollectionSort_T
 
-from ._cli_utils import (
-    FormatOpt,
-    LimitOpt,
-    OutputFormat,
-    QuietOpt,
-    TokenOpt,
-    api_object_to_dict,
-    get_hf_api,
-    print_list_output,
-    typer_factory,
-)
+from ._cli_utils import LimitOpt, TokenOpt, get_hf_api, typer_factory
+from ._framework import Argument, Option
+from ._output import _dataclass_to_dict, out
 
 
 # Build enums dynamically from Literal types to avoid duplication
@@ -66,7 +35,7 @@ collections_cli = typer_factory(help="Interact with collections on the Hub.")
 
 
 @collections_cli.command(
-    "ls",
+    "list | ls",
     examples=[
         "hf collections ls",
         "hf collections ls --owner nvidia",
@@ -75,29 +44,27 @@ collections_cli = typer_factory(help="Interact with collections on the Hub.")
 )
 def collections_ls(
     owner: Annotated[
-        Optional[str],
-        typer.Option(help="Filter by owner username or organization."),
+        str | None,
+        Option(help="Filter by owner username or organization."),
     ] = None,
     item: Annotated[
-        Optional[str],
-        typer.Option(
+        str | None,
+        Option(
             help='Filter collections containing a specific item (e.g., "models/gpt2", "datasets/squad", "papers/2311.12983").'
         ),
     ] = None,
     sort: Annotated[
-        Optional[CollectionSort],
-        typer.Option(help="Sort results by last modified, trending, or upvotes."),
+        CollectionSort | None,
+        Option(help="Sort results by last modified, trending, or upvotes."),
     ] = None,
     limit: LimitOpt = 10,
-    format: FormatOpt = OutputFormat.table,
-    quiet: QuietOpt = False,
     token: TokenOpt = None,
 ) -> None:
     """List collections on the Hub."""
     api = get_hf_api(token=token)
     sort_key = sort.value if sort else None
     results = [
-        api_object_to_dict(collection)
+        _dataclass_to_dict(collection)
         for collection in api.list_collections(
             owner=owner,
             item=item,
@@ -105,7 +72,7 @@ def collections_ls(
             limit=limit,
         )
     ]
-    print_list_output(results, format=format, quiet=quiet)
+    out.table(results)
 
 
 @collections_cli.command(
@@ -115,13 +82,13 @@ def collections_ls(
     ],
 )
 def collections_info(
-    collection_slug: Annotated[str, typer.Argument(help="The collection slug (e.g., 'username/collection-slug').")],
+    collection_slug: Annotated[str, Argument(help="The collection slug (e.g., 'username/collection-slug').")],
     token: TokenOpt = None,
 ) -> None:
     """Get info about a collection on the Hub."""
     api = get_hf_api(token=token)
     collection = api.get_collection(collection_slug)
-    print(json.dumps(api_object_to_dict(collection), indent=2))
+    out.dict(collection)
 
 
 @collections_cli.command(
@@ -133,22 +100,22 @@ def collections_info(
     ],
 )
 def collections_create(
-    title: Annotated[str, typer.Argument(help="The title of the collection.")],
+    title: Annotated[str, Argument(help="The title of the collection.")],
     namespace: Annotated[
-        Optional[str],
-        typer.Option(help="The namespace (username or organization). Defaults to the authenticated user."),
+        str | None,
+        Option(help="The namespace (username or organization). Defaults to the authenticated user."),
     ] = None,
     description: Annotated[
-        Optional[str],
-        typer.Option(help="A description for the collection."),
+        str | None,
+        Option(help="A description for the collection (max 150 characters)."),
     ] = None,
     private: Annotated[
         bool,
-        typer.Option(help="Create a private collection."),
+        Option(help="Create a private collection."),
     ] = False,
     exists_ok: Annotated[
         bool,
-        typer.Option(help="Do not raise an error if the collection already exists."),
+        Option(help="Do not raise an error if the collection already exists."),
     ] = False,
     token: TokenOpt = None,
 ) -> None:
@@ -161,8 +128,7 @@ def collections_create(
         private=private,
         exists_ok=exists_ok,
     )
-    print(f"Collection created: {collection.url}")
-    print(json.dumps(api_object_to_dict(collection), indent=2))
+    out.result("Collection created", slug=collection.slug, url=collection.url)
 
 
 @collections_cli.command(
@@ -174,26 +140,26 @@ def collections_create(
     ],
 )
 def collections_update(
-    collection_slug: Annotated[str, typer.Argument(help="The collection slug (e.g., 'username/collection-slug').")],
+    collection_slug: Annotated[str, Argument(help="The collection slug (e.g., 'username/collection-slug').")],
     title: Annotated[
-        Optional[str],
-        typer.Option(help="The new title for the collection."),
+        str | None,
+        Option(help="The new title for the collection."),
     ] = None,
     description: Annotated[
-        Optional[str],
-        typer.Option(help="The new description for the collection."),
+        str | None,
+        Option(help="The new description for the collection (max 150 characters)."),
     ] = None,
     position: Annotated[
-        Optional[int],
-        typer.Option(help="The new position of the collection in the owner's list."),
+        int | None,
+        Option(help="The new position of the collection in the owner's list."),
     ] = None,
     private: Annotated[
-        Optional[bool],
-        typer.Option(help="Whether the collection should be private."),
+        bool | None,
+        Option(help="Whether the collection should be private."),
     ] = None,
     theme: Annotated[
-        Optional[str],
-        typer.Option(help="The theme color for the collection (e.g., 'green', 'blue')."),
+        str | None,
+        Option(help="The theme color for the collection (e.g., 'green', 'blue')."),
     ] = None,
     token: TokenOpt = None,
 ) -> None:
@@ -207,8 +173,7 @@ def collections_update(
         private=private,
         theme=theme,
     )
-    print(f"Collection updated: {collection.url}")
-    print(json.dumps(api_object_to_dict(collection), indent=2))
+    out.result("Collection updated", slug=collection.slug, url=collection.url)
 
 
 @collections_cli.command(
@@ -219,17 +184,17 @@ def collections_update(
     ],
 )
 def collections_delete(
-    collection_slug: Annotated[str, typer.Argument(help="The collection slug (e.g., 'username/collection-slug').")],
+    collection_slug: Annotated[str, Argument(help="The collection slug (e.g., 'username/collection-slug').")],
     missing_ok: Annotated[
         bool,
-        typer.Option(help="Do not raise an error if the collection doesn't exist."),
+        Option(help="Do not raise an error if the collection doesn't exist."),
     ] = False,
     token: TokenOpt = None,
 ) -> None:
     """Delete a collection from the Hub."""
     api = get_hf_api(token=token)
     api.delete_collection(collection_slug, missing_ok=missing_ok)
-    print(f"Collection deleted: {collection_slug}")
+    out.result("Collection deleted", slug=collection_slug)
 
 
 @collections_cli.command(
@@ -241,21 +206,19 @@ def collections_delete(
     ],
 )
 def collections_add_item(
-    collection_slug: Annotated[str, typer.Argument(help="The collection slug (e.g., 'username/collection-slug').")],
-    item_id: Annotated[
-        str, typer.Argument(help="The ID of the item to add (repo_id for repos, paper ID for papers).")
-    ],
+    collection_slug: Annotated[str, Argument(help="The collection slug (e.g., 'username/collection-slug').")],
+    item_id: Annotated[str, Argument(help="The ID of the item to add (repo_id for repos, paper ID for papers).")],
     item_type: Annotated[
         CollectionItemType,
-        typer.Argument(help="The type of item (model, dataset, space, paper, or collection)."),
+        Argument(help="The type of item (model, dataset, space, paper, collection, or bucket)."),
     ],
     note: Annotated[
-        Optional[str],
-        typer.Option(help="A note to attach to the item (max 500 characters)."),
+        str | None,
+        Option(help="A note to attach to the item (max 500 characters)."),
     ] = None,
     exists_ok: Annotated[
         bool,
-        typer.Option(help="Do not raise an error if the item is already in the collection."),
+        Option(help="Do not raise an error if the item is already in the collection."),
     ] = False,
     token: TokenOpt = None,
 ) -> None:
@@ -268,8 +231,7 @@ def collections_add_item(
         note=note,
         exists_ok=exists_ok,
     )
-    print(f"Item added to collection: {collection_slug}")
-    print(json.dumps(api_object_to_dict(collection), indent=2))
+    out.result("Item added to collection", slug=collection_slug, url=collection.url)
 
 
 @collections_cli.command(
@@ -280,18 +242,18 @@ def collections_add_item(
     ],
 )
 def collections_update_item(
-    collection_slug: Annotated[str, typer.Argument(help="The collection slug (e.g., 'username/collection-slug').")],
+    collection_slug: Annotated[str, Argument(help="The collection slug (e.g., 'username/collection-slug').")],
     item_object_id: Annotated[
         str,
-        typer.Argument(help="The ID of the item in the collection (from 'item_object_id' field, not the repo_id)."),
+        Argument(help="The ID of the item in the collection (from 'item_object_id' field, not the repo_id)."),
     ],
     note: Annotated[
-        Optional[str],
-        typer.Option(help="A new note for the item (max 500 characters)."),
+        str | None,
+        Option(help="A new note for the item (max 500 characters)."),
     ] = None,
     position: Annotated[
-        Optional[int],
-        typer.Option(help="The new position of the item in the collection."),
+        int | None,
+        Option(help="The new position of the item in the collection."),
     ] = None,
     token: TokenOpt = None,
 ) -> None:
@@ -303,21 +265,21 @@ def collections_update_item(
         note=note,
         position=position,
     )
-    print(f"Item updated in collection: {collection_slug}")
+    out.result("Item updated in collection", slug=collection_slug)
 
 
 @collections_cli.command("delete-item")
 def collections_delete_item(
-    collection_slug: Annotated[str, typer.Argument(help="The collection slug (e.g., 'username/collection-slug').")],
+    collection_slug: Annotated[str, Argument(help="The collection slug (e.g., 'username/collection-slug').")],
     item_object_id: Annotated[
         str,
-        typer.Argument(
+        Argument(
             help="The ID of the item in the collection (retrieved from `item_object_id` field returned by 'hf collections info'."
         ),
     ],
     missing_ok: Annotated[
         bool,
-        typer.Option(help="Do not raise an error if the item doesn't exist."),
+        Option(help="Do not raise an error if the item doesn't exist."),
     ] = False,
     token: TokenOpt = None,
 ) -> None:
@@ -328,4 +290,4 @@ def collections_delete_item(
         item_object_id=item_object_id,
         missing_ok=missing_ok,
     )
-    print(f"Item deleted from collection: {collection_slug}")
+    out.result("Item deleted from collection", slug=collection_slug)

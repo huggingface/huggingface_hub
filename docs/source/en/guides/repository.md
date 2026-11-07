@@ -26,6 +26,33 @@ repositories on the Hub, especially:
 If you want to create and manage a repository on the Hub, your machine must be logged in. If you are not, please refer to
 [this section](../quick-start#authentication). In the rest of this guide, we will assume that your machine is logged in.
 
+## List your repositories
+
+You can list all repositories (models, datasets, spaces, and buckets) for your account or an organization using [`list_user_repos`]. Results include storage information and are sorted by storage usage.
+
+```py
+>>> from huggingface_hub import list_user_repos
+
+# List repos for the authenticated user
+>>> repos = list(list_user_repos())
+>>> for repo in repos[:3]:
+...     print(f"{repo.id} ({repo.type}) - {repo.storage} bytes")
+username/my-model (model) - 4828692480 bytes
+username/my-dataset (dataset) - 598427559 bytes
+username/my-space (space) - 120620146 bytes
+
+# List repos from an organization
+>>> repos = list(list_user_repos(namespace="my-org"))
+```
+
+Or via CLI (shows 30 repos by default, use `--limit 0` to list all):
+
+```bash
+>>> hf repos ls
+>>> hf repos ls --namespace my-org --type model
+>>> hf repos ls --limit 0 --format json | jq '.[].id'
+```
+
 ## Repo creation and deletion
 
 The first step is to know how to create and delete repositories. You can only manage repositories that you own (under
@@ -44,7 +71,7 @@ Create an empty repository with [`create_repo`] and give it a name with the `rep
 Or via CLI:
 
 ```bash
->>> hf repo create lysandre/test-model
+>>> hf repos create lysandre/test-model
 Successfully created lysandre/test-model on the Hub.
 Your repo is now available at https://huggingface.co/lysandre/test-model
 ```
@@ -60,26 +87,33 @@ By default, [`create_repo`] creates a model repository. But you can use the `rep
 Or via CLI:
 
 ```bash
->>> hf repo create lysandre/test-dataset --repo-type dataset
+>>> hf repos create lysandre/test-dataset --repo-type dataset
 ```
 
-When you create a repository, you can set your repository visibility with the `private` parameter.
+When you create a repository, you can set your repository visibility with the `visibility` parameter:
 
 ```py
 >>> from huggingface_hub import create_repo
->>> create_repo("lysandre/test-private", private=True)
+>>> create_repo("lysandre/test-private", visibility="private")
 ```
 
 Or via CLI:
 
 ```bash
->>> hf repo create lysandre/test-private --private
+>>> hf repos create lysandre/test-private --private
 ```
 
 If you want to change the repository visibility at a later time, you can use the [`update_repo_settings`] function.
 
 > [!TIP]
 > If you are part of an organization with an Enterprise plan, you can create a repo in a specific resource group by passing `resource_group_id` as parameter to [`create_repo`]. Resource groups are a security feature to control which members from your org can access a given resource. You can get the resource group ID by copying it from your org settings page url on the Hub (e.g. `"https://huggingface.co/organizations/huggingface/settings/resource-groups/66670e5163145ca562cb1988"` => `"66670e5163145ca562cb1988"`). For more details about resource group, check out this [guide](https://huggingface.co/docs/hub/en/security-resource-groups).
+
+You can also create a repo in a specific cloud region by passing `region` as parameter:
+
+```py
+>>> from huggingface_hub import create_repo
+>>> create_repo("lysandre/test-model", region="us")
+```
 
 ### Delete a repository
 
@@ -91,23 +125,59 @@ Specify the `repo_id` of the repository you want to delete:
 >>> delete_repo(repo_id="lysandre/my-corrupted-dataset", repo_type="dataset")
 ```
 
+Pass `missing_ok=True` to silently ignore the call if the repository doesn't exist:
+
+```py
+>>> delete_repo(repo_id="lysandre/my-corrupted-dataset", repo_type="dataset", missing_ok=True)
+```
+
 Or via CLI:
 
 ```bash
->>> hf repo delete lysandre/my-corrupted-dataset --repo-type dataset
+>>> hf repos delete lysandre/my-corrupted-dataset --repo-type dataset
 ```
 
-### Duplicate a repository (only for Spaces)
+### Duplicate a repository
 
 In some cases, you want to copy someone else's repo to adapt it to your use case.
-This is possible for Spaces using the [`duplicate_space`] method. It will duplicate the whole repository.
-You will still need to configure your own settings (hardware, sleep-time, storage, variables and secrets). Check out our [Manage your Space](./manage-spaces) guide for more details.
+This is possible using the [`duplicate_repo`] method. It will duplicate the whole repository, preserving the full git history.
+This works for models, datasets, and Spaces. For Spaces, you will still need to configure your own settings (hardware, sleep-time, storage, variables and secrets). Check out our [Manage your Space](./manage-spaces) guide for more details.
 
 ```py
->>> from huggingface_hub import duplicate_space
->>> duplicate_space("multimodalart/dreambooth-training", private=False)
+>>> from huggingface_hub import duplicate_repo
+
+# Duplicate a Space
+>>> duplicate_repo("multimodalart/dreambooth-training", repo_type="space", private=False)
 RepoUrl('https://huggingface.co/spaces/nateraw/dreambooth-training',...)
+
+# Duplicate a dataset
+>>> duplicate_repo("openai/gdpval", repo_type="dataset")
+RepoUrl('https://huggingface.co/datasets/nateraw/gdpval',...)
 ```
+
+Like [`create_repo`], [`duplicate_repo`] accepts a `resource_group_id` to create the copy directly inside a resource group of your Enterprise organization (`--resource-group-id` with `hf repos duplicate`).
+
+The git history is copied right away, but the LFS/Xet files may still be copied in the background once [`duplicate_repo`] returns. Until the copy is complete, downloading these files from the new repo may fail. Check `files_copy_pending` on the returned value to know if the copy is still in progress:
+
+```py
+>>> from huggingface_hub import duplicate_repo
+>>> repo_url = duplicate_repo("openai/gdpval", repo_type="dataset")
+>>> repo_url.files_copy_pending
+True
+```
+
+## Search for Spaces
+
+The Hub provides a semantic search API for discovering Spaces. You can search using natural language queries with [`search_spaces`]:
+
+```py
+>>> from huggingface_hub import search_spaces
+>>> results = list(search_spaces("generate image"))
+>>> results[0].id
+'mrfakename/Z-Image-Turbo'
+```
+
+For more details and filtering options, see the [Manage your Spaces](./manage-spaces#search-for-spaces) guide.
 
 ## Upload and download files
 
@@ -116,6 +186,44 @@ Now that you have created your repository, you are interested in pushing changes
 These 2 topics deserve their own guides. Please refer to the [upload](./upload) and the [download](./download) guides
 to learn how to use your repository.
 
+## Copy files
+
+Use [`copy_files`] to copy files that are already hosted on the Hub from one repository to another (or even within the same repository) without downloading and re-uploading them. Both individual files and entire folders are supported, and files tracked with Xet or LFS are copied server-side by hash.
+
+```py
+>>> from huggingface_hub import copy_files
+
+# Copy a single file from one repo to another
+>>> copy_files(
+...     "hf://username/source-model/config.json",
+...     "hf://username/dest-model/config.json",
+... )
+
+# Copy an entire folder (a trailing "/" copies the folder *contents*, rsync-style)
+>>> copy_files(
+...     "hf://datasets/username/my-dataset/data/",
+...     "hf://datasets/username/my-dataset-copy/data/",
+... )
+```
+
+Or via CLI, with the unified `hf cp` command (also available as `hf repos cp`):
+
+```bash
+# Copy a single file between repositories
+>>> hf cp hf://username/source-model/config.json hf://username/dest-model/config.json
+
+# Copy a file from a repo to your local machine
+>>> hf repos cp hf://username/my-model/config.json ./config.json
+
+# Upload a local file to a repository
+>>> hf repos cp ./model.safetensors hf://username/my-model/model.safetensors
+```
+
+> [!TIP]
+> `copy_files` (and `hf cp`) can also copy files from a repository to a [Bucket](./buckets). Copying *from* a bucket *to* a repository is not supported. See the [Buckets](./buckets) guide for more details.
+
+> [!WARNING]
+> Server-side copies only work within the same [storage region](https://huggingface.co/docs/hub/storage-regions).
 
 ## Branches and tags
 
@@ -140,11 +248,11 @@ You can create new branch and tags using [`create_branch`] and [`create_tag`]:
 Or via CLI:
 
 ```bash
->>> hf repo branch create Matthijs/speecht5-tts-demo handle-dog-speaker --repo-type space
->>> hf repo tag create bigcode/the-stack v0.1.1 --repo-type dataset --revision v0.1-release -m "Bump release version."
+>>> hf repos branch create Matthijs/speecht5-tts-demo handle-dog-speaker --repo-type space
+>>> hf repos tag create bigcode/the-stack v0.1.1 --repo-type dataset --revision v0.1-release -m "Bump release version."
 ```
 
-You can use the [`delete_branch`] and [`delete_tag`] functions in the same way to delete a branch or a tag, or `hf repo branch delete` and `hf repo tag delete` respectively in CLI.
+You can use the [`delete_branch`] and [`delete_tag`] functions in the same way to delete a branch or a tag, or `hf repos branch delete` and `hf repos tag delete` respectively in CLI.
 
 
 ### List all branches and tags
@@ -186,7 +294,7 @@ A repository can be public or private. A private repository is only visible to y
 Or via CLI:
 
 ```bash
->>> hf repo settings lysandre/test-private --private true
+>>> hf repos settings lysandre/test-private --private true
 ```
 
 ### Setup gated access
@@ -205,7 +313,7 @@ You can set a repo as gated using [`update_repo_settings`]:
 Or via CLI:
 
 ```bash
->>> hf repo settings lysandre/test-private --gated auto
+>>> hf repos settings lysandre/test-private --gated auto
 ```
 
 ### Rename your repository
@@ -222,5 +330,20 @@ that you should be aware of. For example, you can't transfer your repo to anothe
 Or via CLI:
 
 ```bash
->>> hf repo move Wauplin/cool-model huggingface/cool-model
+>>> hf repos move Wauplin/cool-model huggingface/cool-model
 ```
+
+## Kernel repositories
+
+The Hub supports a `"kernel"` repository type for hosting compute kernels. This is **not** a fully-compatible repo type. Only a limited set of methods have been tested and are officially supported:
+
+- [`kernel_info`]
+- [`hf_hub_download`]
+- [`snapshot_download`]
+- [`list_repo_refs`]
+- [`list_repo_files`]
+- [`list_repo_tree`]
+
+Note that [`create_repo`] and [`delete_repo`] are also compatible but restricted to a small subset of allowed users and orgs on the Hub.
+
+For building, publishing, and using kernel repos, please use the dedicated [`kernels`](https://github.com/huggingface/kernels) package instead. Refer to the [Kernels documentation](https://huggingface.co/docs/kernels/index) for more details.

@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2023-present, the HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -37,8 +36,11 @@ import logging
 import os
 import re
 import warnings
+from collections.abc import Iterable
 from contextlib import ExitStack
-from typing import TYPE_CHECKING, Any, Iterable, Literal, Optional, Union, overload
+from typing import TYPE_CHECKING, Any, Literal, Optional, Union, overload
+
+import httpx2
 
 from huggingface_hub import constants
 from huggingface_hub.errors import BadRequestError, HfHubHTTPError, InferenceTimeoutError
@@ -107,7 +109,6 @@ from huggingface_hub.utils import (
     hf_raise_for_status,
     validate_hf_hub_args,
 )
-from huggingface_hub.utils._auth import get_token
 
 
 if TYPE_CHECKING:
@@ -135,8 +136,9 @@ class InferenceClient:
             Note: for better compatibility with OpenAI's client, `model` has been aliased as `base_url`. Those 2
             arguments are mutually exclusive. If a URL is passed as `model` or `base_url` for chat completion, the `(/v1)/chat/completions` suffix path will be appended to the URL.
         provider (`str`, *optional*):
-            Name of the provider to use for inference. Can be `"black-forest-labs"`, `"cerebras"`, `"clarifai"`, `"cohere"`, `"fal-ai"`, `"featherless-ai"`, `"fireworks-ai"`, `"groq"`, `"hf-inference"`, `"hyperbolic"`, `"nebius"`, `"novita"`, `"nscale"`, `"openai"`, `"ovhcloud"`, `"publicai"`, `"replicate"`, `"sambanova"`, `"scaleway"`, `"together"`, `"wavespeed"` or `"zai-org"`.
-            Defaults to "auto" i.e. the first of the providers available for the model, sorted by the user's order in https://hf.co/settings/inference-providers.
+            Name of the provider to use for inference. Can be `"baseten"`, `"cerebras"`, `"cohere"`, `"deepinfra"`, `"fal-ai"`, `"featherless-ai"`, `"fireworks-ai"`, `"groq"`, `"hf-inference"`, `"novita"`, `"nscale"`, `"openai"`, `"ovhcloud"`, `"publicai"`, `"replicate"`, `"scaleway"`, `"together"`, `"wavespeed"` or `"zai-org"`.
+            Defaults to "auto": automatic routing, which defaults to "fastest" provider; you can
+            switch to "cheapest" or "preferred" provider order at https://hf.co/settings/inference-providers.
             If model is a URL or `base_url` is passed, then `provider` is not used.
         token (`str`, *optional*):
             Hugging Face token. Will default to the locally saved token if not provided.
@@ -160,22 +162,22 @@ class InferenceClient:
             follow the same pattern as `openai.OpenAI` client. Cannot be used if `token` is set. Defaults to None.
     """
 
-    provider: Optional[PROVIDER_OR_POLICY_T]
+    provider: PROVIDER_OR_POLICY_T | None
 
     @validate_hf_hub_args
     def __init__(
         self,
-        model: Optional[str] = None,
+        model: str | None = None,
         *,
-        provider: Optional[PROVIDER_OR_POLICY_T] = None,
-        token: Optional[str] = None,
-        timeout: Optional[float] = None,
-        headers: Optional[dict[str, str]] = None,
-        cookies: Optional[dict[str, str]] = None,
-        bill_to: Optional[str] = None,
+        provider: PROVIDER_OR_POLICY_T | None = None,
+        token: str | None = None,
+        timeout: float | None = None,
+        headers: dict[str, str] | None = None,
+        cookies: dict[str, str] | None = None,
+        bill_to: str | None = None,
         # OpenAI compatibility
-        base_url: Optional[str] = None,
-        api_key: Optional[str] = None,
+        base_url: str | None = None,
+        api_key: str | None = None,
     ) -> None:
         if model is not None and base_url is not None:
             raise ValueError(
@@ -192,22 +194,9 @@ class InferenceClient:
             )
         token = token if token is not None else api_key
         if isinstance(token, bool):
-            # Legacy behavior: previously it was possible to pass `token=False` to disable authentication. This is not
-            # supported anymore as authentication is required. Better to explicitly raise here rather than risking
-            # sending the locally saved token without the user knowing about it.
-            if token is False:
-                raise ValueError(
-                    "Cannot use `token=False` to disable authentication as authentication is required to run Inference."
-                )
-            warnings.warn(
-                "Using `token=True` to automatically use the locally saved token is deprecated and will be removed in a future release. "
-                "Please use `token=None` instead (default).",
-                DeprecationWarning,
-            )
-            token = get_token()
-
-        self.model: Optional[str] = base_url or model
-        self.token: Optional[str] = token
+            raise TypeError("`token` must be a string or `None`.")
+        self.model: str | None = base_url or model
+        self.token: str | None = token
 
         self.headers = {**headers} if headers is not None else {}
         if bill_to is not None:
@@ -259,37 +248,33 @@ class InferenceClient:
     ) -> Iterable[str]: ...
 
     @overload
-    def _inner_post(
-        self, request_parameters: RequestParameters, *, stream: bool = False
-    ) -> Union[bytes, Iterable[str]]: ...
+    def _inner_post(self, request_parameters: RequestParameters, *, stream: bool = False) -> bytes | Iterable[str]: ...
 
-    def _inner_post(
-        self, request_parameters: RequestParameters, *, stream: bool = False
-    ) -> Union[bytes, Iterable[str]]:
+    def _inner_post(self, request_parameters: RequestParameters, *, stream: bool = False) -> bytes | Iterable[str]:
         """Make a request to the inference server."""
         # TODO: this should be handled in provider helpers directly
         if request_parameters.task in TASKS_EXPECTING_IMAGES and "Accept" not in request_parameters.headers:
             request_parameters.headers["Accept"] = "image/png"
 
         try:
-            response = self.exit_stack.enter_context(
-                get_session().stream(
-                    "POST",
-                    request_parameters.url,
-                    json=request_parameters.json,
-                    content=request_parameters.data,
-                    headers=request_parameters.headers,
-                    cookies=self.cookies,
-                    timeout=self.timeout,
-                )
+            response_cm = get_session().stream(
+                "POST",
+                request_parameters.url,
+                json=request_parameters.json,
+                content=request_parameters.data,
+                headers=request_parameters.headers,
+                cookies=self.cookies,
+                timeout=self.timeout,
             )
-            hf_raise_for_status(response)
             if stream:
+                response = self.exit_stack.enter_context(response_cm)
+                hf_raise_for_status(response)
                 return response.iter_lines()
-            else:
+            with response_cm as response:
+                hf_raise_for_status(response)
                 return response.read()
-        except TimeoutError as error:
-            # Convert any `TimeoutError` to a `InferenceTimeoutError`
+        except httpx2.TimeoutException as error:
+            # Convert any httpx timeout to a `InferenceTimeoutError`
             raise InferenceTimeoutError(f"Inference call timed out: {request_parameters.url}") from error  # type: ignore
         except HfHubHTTPError as error:
             if error.response.status_code == 422 and request_parameters.task != "unknown":
@@ -297,14 +282,22 @@ class InferenceClient:
                 if len(error.response.text) > 0:
                     msg += f"{os.linesep}{error.response.text}{os.linesep}"
                 error.args = (msg,) + error.args[1:]
+            if error.response.status_code == 504 and not stream and request_parameters.task == "conversational":
+                msg = str(error.args[0])
+                msg += (
+                    f"{os.linesep}Note: the request timed out before the model finished generating."
+                    " If you are generating long outputs (e.g. long reasoning traces), pass `stream=True`"
+                    " to receive tokens as they are generated and avoid hitting this timeout."
+                )
+                error.args = (msg,) + error.args[1:]
             raise
 
     def audio_classification(
         self,
         audio: ContentT,
         *,
-        model: Optional[str] = None,
-        top_k: Optional[int] = None,
+        model: str | None = None,
+        top_k: int | None = None,
         function_to_apply: Optional["AudioClassificationOutputTransform"] = None,
     ) -> list[AudioClassificationOutputElement]:
         """
@@ -360,7 +353,7 @@ class InferenceClient:
         self,
         audio: ContentT,
         *,
-        model: Optional[str] = None,
+        model: str | None = None,
     ) -> list[AudioToAudioOutputElement]:
         """
         Performs multiple tasks related to audio-to-audio depending on the model (eg: speech enhancement, source separation).
@@ -412,8 +405,8 @@ class InferenceClient:
         self,
         audio: ContentT,
         *,
-        model: Optional[str] = None,
-        extra_body: Optional[dict] = None,
+        model: str | None = None,
+        extra_body: dict | None = None,
     ) -> AutomaticSpeechRecognitionOutput:
         """
         Perform automatic speech recognition (ASR or audio-to-text) on the given audio content.
@@ -460,106 +453,106 @@ class InferenceClient:
     @overload
     def chat_completion(  # type: ignore
         self,
-        messages: list[Union[dict, ChatCompletionInputMessage]],
+        messages: list[dict | ChatCompletionInputMessage],
         *,
-        model: Optional[str] = None,
+        model: str | None = None,
         stream: Literal[False] = False,
-        frequency_penalty: Optional[float] = None,
-        logit_bias: Optional[list[float]] = None,
-        logprobs: Optional[bool] = None,
-        max_tokens: Optional[int] = None,
-        n: Optional[int] = None,
-        presence_penalty: Optional[float] = None,
-        response_format: Optional[ChatCompletionInputGrammarType] = None,
-        seed: Optional[int] = None,
-        stop: Optional[list[str]] = None,
-        stream_options: Optional[ChatCompletionInputStreamOptions] = None,
-        temperature: Optional[float] = None,
-        tool_choice: Optional[Union[ChatCompletionInputToolChoiceClass, "ChatCompletionInputToolChoiceEnum"]] = None,
-        tool_prompt: Optional[str] = None,
-        tools: Optional[list[ChatCompletionInputTool]] = None,
-        top_logprobs: Optional[int] = None,
-        top_p: Optional[float] = None,
-        extra_body: Optional[dict] = None,
+        frequency_penalty: float | None = None,
+        logit_bias: list[float] | None = None,
+        logprobs: bool | None = None,
+        max_tokens: int | None = None,
+        n: int | None = None,
+        presence_penalty: float | None = None,
+        response_format: ChatCompletionInputGrammarType | None = None,
+        seed: int | None = None,
+        stop: list[str] | None = None,
+        stream_options: ChatCompletionInputStreamOptions | None = None,
+        temperature: float | None = None,
+        tool_choice: Union[ChatCompletionInputToolChoiceClass, "ChatCompletionInputToolChoiceEnum"] | None = None,
+        tool_prompt: str | None = None,
+        tools: list[ChatCompletionInputTool] | None = None,
+        top_logprobs: int | None = None,
+        top_p: float | None = None,
+        extra_body: dict | None = None,
     ) -> ChatCompletionOutput: ...
 
     @overload
     def chat_completion(  # type: ignore
         self,
-        messages: list[Union[dict, ChatCompletionInputMessage]],
+        messages: list[dict | ChatCompletionInputMessage],
         *,
-        model: Optional[str] = None,
+        model: str | None = None,
         stream: Literal[True] = True,
-        frequency_penalty: Optional[float] = None,
-        logit_bias: Optional[list[float]] = None,
-        logprobs: Optional[bool] = None,
-        max_tokens: Optional[int] = None,
-        n: Optional[int] = None,
-        presence_penalty: Optional[float] = None,
-        response_format: Optional[ChatCompletionInputGrammarType] = None,
-        seed: Optional[int] = None,
-        stop: Optional[list[str]] = None,
-        stream_options: Optional[ChatCompletionInputStreamOptions] = None,
-        temperature: Optional[float] = None,
-        tool_choice: Optional[Union[ChatCompletionInputToolChoiceClass, "ChatCompletionInputToolChoiceEnum"]] = None,
-        tool_prompt: Optional[str] = None,
-        tools: Optional[list[ChatCompletionInputTool]] = None,
-        top_logprobs: Optional[int] = None,
-        top_p: Optional[float] = None,
-        extra_body: Optional[dict] = None,
+        frequency_penalty: float | None = None,
+        logit_bias: list[float] | None = None,
+        logprobs: bool | None = None,
+        max_tokens: int | None = None,
+        n: int | None = None,
+        presence_penalty: float | None = None,
+        response_format: ChatCompletionInputGrammarType | None = None,
+        seed: int | None = None,
+        stop: list[str] | None = None,
+        stream_options: ChatCompletionInputStreamOptions | None = None,
+        temperature: float | None = None,
+        tool_choice: Union[ChatCompletionInputToolChoiceClass, "ChatCompletionInputToolChoiceEnum"] | None = None,
+        tool_prompt: str | None = None,
+        tools: list[ChatCompletionInputTool] | None = None,
+        top_logprobs: int | None = None,
+        top_p: float | None = None,
+        extra_body: dict | None = None,
     ) -> Iterable[ChatCompletionStreamOutput]: ...
 
     @overload
     def chat_completion(
         self,
-        messages: list[Union[dict, ChatCompletionInputMessage]],
+        messages: list[dict | ChatCompletionInputMessage],
         *,
-        model: Optional[str] = None,
+        model: str | None = None,
         stream: bool = False,
-        frequency_penalty: Optional[float] = None,
-        logit_bias: Optional[list[float]] = None,
-        logprobs: Optional[bool] = None,
-        max_tokens: Optional[int] = None,
-        n: Optional[int] = None,
-        presence_penalty: Optional[float] = None,
-        response_format: Optional[ChatCompletionInputGrammarType] = None,
-        seed: Optional[int] = None,
-        stop: Optional[list[str]] = None,
-        stream_options: Optional[ChatCompletionInputStreamOptions] = None,
-        temperature: Optional[float] = None,
-        tool_choice: Optional[Union[ChatCompletionInputToolChoiceClass, "ChatCompletionInputToolChoiceEnum"]] = None,
-        tool_prompt: Optional[str] = None,
-        tools: Optional[list[ChatCompletionInputTool]] = None,
-        top_logprobs: Optional[int] = None,
-        top_p: Optional[float] = None,
-        extra_body: Optional[dict] = None,
-    ) -> Union[ChatCompletionOutput, Iterable[ChatCompletionStreamOutput]]: ...
+        frequency_penalty: float | None = None,
+        logit_bias: list[float] | None = None,
+        logprobs: bool | None = None,
+        max_tokens: int | None = None,
+        n: int | None = None,
+        presence_penalty: float | None = None,
+        response_format: ChatCompletionInputGrammarType | None = None,
+        seed: int | None = None,
+        stop: list[str] | None = None,
+        stream_options: ChatCompletionInputStreamOptions | None = None,
+        temperature: float | None = None,
+        tool_choice: Union[ChatCompletionInputToolChoiceClass, "ChatCompletionInputToolChoiceEnum"] | None = None,
+        tool_prompt: str | None = None,
+        tools: list[ChatCompletionInputTool] | None = None,
+        top_logprobs: int | None = None,
+        top_p: float | None = None,
+        extra_body: dict | None = None,
+    ) -> ChatCompletionOutput | Iterable[ChatCompletionStreamOutput]: ...
 
     def chat_completion(
         self,
-        messages: list[Union[dict, ChatCompletionInputMessage]],
+        messages: list[dict | ChatCompletionInputMessage],
         *,
-        model: Optional[str] = None,
+        model: str | None = None,
         stream: bool = False,
         # Parameters from ChatCompletionInput (handled manually)
-        frequency_penalty: Optional[float] = None,
-        logit_bias: Optional[list[float]] = None,
-        logprobs: Optional[bool] = None,
-        max_tokens: Optional[int] = None,
-        n: Optional[int] = None,
-        presence_penalty: Optional[float] = None,
-        response_format: Optional[ChatCompletionInputGrammarType] = None,
-        seed: Optional[int] = None,
-        stop: Optional[list[str]] = None,
-        stream_options: Optional[ChatCompletionInputStreamOptions] = None,
-        temperature: Optional[float] = None,
-        tool_choice: Optional[Union[ChatCompletionInputToolChoiceClass, "ChatCompletionInputToolChoiceEnum"]] = None,
-        tool_prompt: Optional[str] = None,
-        tools: Optional[list[ChatCompletionInputTool]] = None,
-        top_logprobs: Optional[int] = None,
-        top_p: Optional[float] = None,
-        extra_body: Optional[dict] = None,
-    ) -> Union[ChatCompletionOutput, Iterable[ChatCompletionStreamOutput]]:
+        frequency_penalty: float | None = None,
+        logit_bias: list[float] | None = None,
+        logprobs: bool | None = None,
+        max_tokens: int | None = None,
+        n: int | None = None,
+        presence_penalty: float | None = None,
+        response_format: ChatCompletionInputGrammarType | None = None,
+        seed: int | None = None,
+        stop: list[str] | None = None,
+        stream_options: ChatCompletionInputStreamOptions | None = None,
+        temperature: float | None = None,
+        tool_choice: Union[ChatCompletionInputToolChoiceClass, "ChatCompletionInputToolChoiceEnum"] | None = None,
+        tool_prompt: str | None = None,
+        tools: list[ChatCompletionInputTool] | None = None,
+        top_logprobs: int | None = None,
+        top_p: float | None = None,
+        extra_body: dict | None = None,
+    ) -> ChatCompletionOutput | Iterable[ChatCompletionStreamOutput]:
         """
         A method for completing conversations using a specified language model.
 
@@ -729,7 +722,7 @@ class InferenceClient:
         ```py
         >>> from huggingface_hub import InferenceClient
         >>> client = InferenceClient(
-        ...     provider="sambanova",  # Use Sambanova provider
+        ...     provider="novita",  # Use Novita provider
         ...     api_key="hf_...",  # Pass your HF token
         ... )
         >>> client.chat_completion(
@@ -933,24 +926,24 @@ class InferenceClient:
         data = self._inner_post(request_parameters, stream=stream)
 
         if stream:
-            return _stream_chat_completion_response(data)  # type: ignore[arg-type]
+            return _stream_chat_completion_response(data)  # type: ignore
 
-        return ChatCompletionOutput.parse_obj_as_instance(data)  # type: ignore[arg-type]
+        return ChatCompletionOutput.parse_obj_as_instance(data)  # type: ignore
 
     def document_question_answering(
         self,
         image: ContentT,
         question: str,
         *,
-        model: Optional[str] = None,
-        doc_stride: Optional[int] = None,
-        handle_impossible_answer: Optional[bool] = None,
-        lang: Optional[str] = None,
-        max_answer_len: Optional[int] = None,
-        max_question_len: Optional[int] = None,
-        max_seq_len: Optional[int] = None,
-        top_k: Optional[int] = None,
-        word_boxes: Optional[list[Union[list[float], str]]] = None,
+        model: str | None = None,
+        doc_stride: int | None = None,
+        handle_impossible_answer: bool | None = None,
+        lang: str | None = None,
+        max_answer_len: int | None = None,
+        max_question_len: int | None = None,
+        max_seq_len: int | None = None,
+        top_k: int | None = None,
+        word_boxes: list[list[float] | str] | None = None,
     ) -> list[DocumentQuestionAnsweringOutputElement]:
         """
         Answer questions on document images.
@@ -1026,22 +1019,22 @@ class InferenceClient:
 
     def feature_extraction(
         self,
-        text: str,
+        text: str | list[str],
         *,
-        normalize: Optional[bool] = None,
-        prompt_name: Optional[str] = None,
-        truncate: Optional[bool] = None,
-        truncation_direction: Optional[Literal["left", "right"]] = None,
-        dimensions: Optional[int] = None,
-        encoding_format: Optional[Literal["float", "base64"]] = None,
-        model: Optional[str] = None,
+        normalize: bool | None = None,
+        prompt_name: str | None = None,
+        truncate: bool | None = None,
+        truncation_direction: Literal["left", "right"] | None = None,
+        dimensions: int | None = None,
+        encoding_format: Literal["float", "base64"] | None = None,
+        model: str | None = None,
     ) -> "np.ndarray":
         """
-        Generate embeddings for a given text.
+        Generate embeddings for a given text or batch of texts.
 
         Args:
-            text (`str`):
-                The text to embed.
+            text (`str` or `list[str]`):
+                The text or list of texts to embed.
             model (`str`, *optional*):
                 The model to use for the feature extraction task. Can be a model ID hosted on the Hugging Face Hub or a URL to
                 a deployed Inference Endpoint. If not provided, the default recommended feature extraction model will be used.
@@ -1068,7 +1061,7 @@ class InferenceClient:
                 Only available on OpenAI-compatible embedding endpoints.
 
         Returns:
-            `np.ndarray`: The embedding representing the input text as a float32 numpy array.
+            `np.ndarray`: The embedding representing the input text(s) as a float32 numpy array.
 
         Raises:
             [`InferenceTimeoutError`]:
@@ -1111,9 +1104,9 @@ class InferenceClient:
         self,
         text: str,
         *,
-        model: Optional[str] = None,
-        targets: Optional[list[str]] = None,
-        top_k: Optional[int] = None,
+        model: str | None = None,
+        targets: list[str] | None = None,
+        top_k: int | None = None,
     ) -> list[FillMaskOutputElement]:
         """
         Fill in a hole with a missing word (token to be precise).
@@ -1167,9 +1160,9 @@ class InferenceClient:
         self,
         image: ContentT,
         *,
-        model: Optional[str] = None,
+        model: str | None = None,
         function_to_apply: Optional["ImageClassificationOutputTransform"] = None,
-        top_k: Optional[int] = None,
+        top_k: int | None = None,
     ) -> list[ImageClassificationOutputElement]:
         """
         Perform image classification on the given image using the specified model.
@@ -1217,11 +1210,11 @@ class InferenceClient:
         self,
         image: ContentT,
         *,
-        model: Optional[str] = None,
-        mask_threshold: Optional[float] = None,
-        overlap_mask_area_threshold: Optional[float] = None,
+        model: str | None = None,
+        mask_threshold: float | None = None,
+        overlap_mask_area_threshold: float | None = None,
         subtask: Optional["ImageSegmentationSubtask"] = None,
-        threshold: Optional[float] = None,
+        threshold: float | None = None,
     ) -> list[ImageSegmentationOutputElement]:
         """
         Perform image segmentation on the given image using the specified model.
@@ -1278,19 +1271,19 @@ class InferenceClient:
         response = provider_helper.get_response(response, request_parameters)
         output = ImageSegmentationOutputElement.parse_obj_as_list(response)
         for item in output:
-            item.mask = _b64_to_image(item.mask)  # type: ignore [assignment]
+            item.mask = _b64_to_image(item.mask)  # type: ignore
         return output
 
     def image_to_image(
         self,
         image: ContentT,
-        prompt: Optional[str] = None,
+        prompt: str | None = None,
         *,
-        negative_prompt: Optional[str] = None,
-        num_inference_steps: Optional[int] = None,
-        guidance_scale: Optional[float] = None,
-        model: Optional[str] = None,
-        target_size: Optional[ImageToImageTargetSize] = None,
+        negative_prompt: str | None = None,
+        num_inference_steps: int | None = None,
+        guidance_scale: float | None = None,
+        model: str | None = None,
+        target_size: ImageToImageTargetSize | None = None,
         **kwargs,
     ) -> "Image":
         """
@@ -1361,14 +1354,14 @@ class InferenceClient:
         self,
         image: ContentT,
         *,
-        model: Optional[str] = None,
-        prompt: Optional[str] = None,
-        negative_prompt: Optional[str] = None,
-        num_frames: Optional[float] = None,
-        num_inference_steps: Optional[int] = None,
-        guidance_scale: Optional[float] = None,
-        seed: Optional[int] = None,
-        target_size: Optional[ImageToVideoTargetSize] = None,
+        model: str | None = None,
+        prompt: str | None = None,
+        negative_prompt: str | None = None,
+        num_frames: float | None = None,
+        num_inference_steps: int | None = None,
+        guidance_scale: float | None = None,
+        seed: int | None = None,
+        target_size: ImageToVideoTargetSize | None = None,
         **kwargs,
     ) -> bytes:
         """
@@ -1436,7 +1429,7 @@ class InferenceClient:
         response = provider_helper.get_response(response, request_parameters)
         return response
 
-    def image_to_text(self, image: ContentT, *, model: Optional[str] = None) -> ImageToTextOutput:
+    def image_to_text(self, image: ContentT, *, model: str | None = None) -> ImageToTextOutput:
         """
         Takes an input image and return text.
 
@@ -1483,7 +1476,7 @@ class InferenceClient:
         return output_list[0]
 
     def object_detection(
-        self, image: ContentT, *, model: Optional[str] = None, threshold: Optional[float] = None
+        self, image: ContentT, *, model: str | None = None, threshold: float | None = None
     ) -> list[ObjectDetectionOutputElement]:
         """
         Perform object detection on the given image using the specified model.
@@ -1535,15 +1528,15 @@ class InferenceClient:
         question: str,
         context: str,
         *,
-        model: Optional[str] = None,
-        align_to_words: Optional[bool] = None,
-        doc_stride: Optional[int] = None,
-        handle_impossible_answer: Optional[bool] = None,
-        max_answer_len: Optional[int] = None,
-        max_question_len: Optional[int] = None,
-        max_seq_len: Optional[int] = None,
-        top_k: Optional[int] = None,
-    ) -> Union[QuestionAnsweringOutputElement, list[QuestionAnsweringOutputElement]]:
+        model: str | None = None,
+        align_to_words: bool | None = None,
+        doc_stride: int | None = None,
+        handle_impossible_answer: bool | None = None,
+        max_answer_len: int | None = None,
+        max_question_len: int | None = None,
+        max_seq_len: int | None = None,
+        top_k: int | None = None,
+    ) -> QuestionAnsweringOutputElement | list[QuestionAnsweringOutputElement]:
         """
         Retrieve the answer to a question from a given text.
 
@@ -1615,7 +1608,7 @@ class InferenceClient:
         return output
 
     def sentence_similarity(
-        self, sentence: str, other_sentences: list[str], *, model: Optional[str] = None
+        self, sentence: str, other_sentences: list[str], *, model: str | None = None
     ) -> list[float]:
         """
         Compute the semantic similarity between a sentence and a list of other sentences by comparing their embeddings.
@@ -1671,9 +1664,9 @@ class InferenceClient:
         self,
         text: str,
         *,
-        model: Optional[str] = None,
-        clean_up_tokenization_spaces: Optional[bool] = None,
-        generate_parameters: Optional[dict[str, Any]] = None,
+        model: str | None = None,
+        clean_up_tokenization_spaces: bool | None = None,
+        generate_parameters: dict[str, Any] | None = None,
         truncation: Optional["SummarizationTruncationStrategy"] = None,
     ) -> SummarizationOutput:
         """
@@ -1730,10 +1723,10 @@ class InferenceClient:
         table: dict[str, Any],
         query: str,
         *,
-        model: Optional[str] = None,
+        model: str | None = None,
         padding: Optional["Padding"] = None,
-        sequential: Optional[bool] = None,
-        truncation: Optional[bool] = None,
+        sequential: bool | None = None,
+        truncation: bool | None = None,
     ) -> TableQuestionAnsweringOutputElement:
         """
         Retrieve the answer to a question from information given in a table.
@@ -1787,7 +1780,7 @@ class InferenceClient:
         response = self._inner_post(request_parameters)
         return TableQuestionAnsweringOutputElement.parse_obj_as_instance(response)
 
-    def tabular_classification(self, table: dict[str, Any], *, model: Optional[str] = None) -> list[str]:
+    def tabular_classification(self, table: dict[str, Any], *, model: str | None = None) -> list[str]:
         """
         Classifying a target category (a group) based on a set of attributes.
 
@@ -1842,7 +1835,7 @@ class InferenceClient:
         response = self._inner_post(request_parameters)
         return _bytes_to_list(response)
 
-    def tabular_regression(self, table: dict[str, Any], *, model: Optional[str] = None) -> list[float]:
+    def tabular_regression(self, table: dict[str, Any], *, model: str | None = None) -> list[float]:
         """
         Predicting a numerical target value given a set of attributes/features in a table.
 
@@ -1896,8 +1889,8 @@ class InferenceClient:
         self,
         text: str,
         *,
-        model: Optional[str] = None,
-        top_k: Optional[int] = None,
+        model: str | None = None,
+        top_k: int | None = None,
         function_to_apply: Optional["TextClassificationOutputTransform"] = None,
     ) -> list[TextClassificationOutputElement]:
         """
@@ -1948,7 +1941,7 @@ class InferenceClient:
             api_key=self.token,
         )
         response = self._inner_post(request_parameters)
-        return TextClassificationOutputElement.parse_obj_as_list(response)[0]  # type: ignore [return-value]
+        return TextClassificationOutputElement.parse_obj_as_list(response)[0]  # type: ignore
 
     @overload
     def text_generation(
@@ -1957,27 +1950,26 @@ class InferenceClient:
         *,
         details: Literal[True],
         stream: Literal[True],
-        model: Optional[str] = None,
+        model: str | None = None,
         # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
-        adapter_id: Optional[str] = None,
-        best_of: Optional[int] = None,
-        decoder_input_details: Optional[bool] = None,
-        do_sample: Optional[bool] = None,
-        frequency_penalty: Optional[float] = None,
-        grammar: Optional[TextGenerationInputGrammarType] = None,
-        max_new_tokens: Optional[int] = None,
-        repetition_penalty: Optional[float] = None,
-        return_full_text: Optional[bool] = None,
-        seed: Optional[int] = None,
-        stop: Optional[list[str]] = None,
-        stop_sequences: Optional[list[str]] = None,  # Deprecated, use `stop` instead
-        temperature: Optional[float] = None,
-        top_k: Optional[int] = None,
-        top_n_tokens: Optional[int] = None,
-        top_p: Optional[float] = None,
-        truncate: Optional[int] = None,
-        typical_p: Optional[float] = None,
-        watermark: Optional[bool] = None,
+        adapter_id: str | None = None,
+        best_of: int | None = None,
+        decoder_input_details: bool | None = None,
+        do_sample: bool | None = None,
+        frequency_penalty: float | None = None,
+        grammar: TextGenerationInputGrammarType | None = None,
+        max_new_tokens: int | None = None,
+        repetition_penalty: float | None = None,
+        return_full_text: bool | None = None,
+        seed: int | None = None,
+        stop: list[str] | None = None,
+        temperature: float | None = None,
+        top_k: int | None = None,
+        top_n_tokens: int | None = None,
+        top_p: float | None = None,
+        truncate: int | None = None,
+        typical_p: float | None = None,
+        watermark: bool | None = None,
     ) -> Iterable[TextGenerationStreamOutput]: ...
 
     @overload
@@ -1986,28 +1978,27 @@ class InferenceClient:
         prompt: str,
         *,
         details: Literal[True],
-        stream: Optional[Literal[False]] = None,
-        model: Optional[str] = None,
+        stream: Literal[False] | None = None,
+        model: str | None = None,
         # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
-        adapter_id: Optional[str] = None,
-        best_of: Optional[int] = None,
-        decoder_input_details: Optional[bool] = None,
-        do_sample: Optional[bool] = None,
-        frequency_penalty: Optional[float] = None,
-        grammar: Optional[TextGenerationInputGrammarType] = None,
-        max_new_tokens: Optional[int] = None,
-        repetition_penalty: Optional[float] = None,
-        return_full_text: Optional[bool] = None,
-        seed: Optional[int] = None,
-        stop: Optional[list[str]] = None,
-        stop_sequences: Optional[list[str]] = None,  # Deprecated, use `stop` instead
-        temperature: Optional[float] = None,
-        top_k: Optional[int] = None,
-        top_n_tokens: Optional[int] = None,
-        top_p: Optional[float] = None,
-        truncate: Optional[int] = None,
-        typical_p: Optional[float] = None,
-        watermark: Optional[bool] = None,
+        adapter_id: str | None = None,
+        best_of: int | None = None,
+        decoder_input_details: bool | None = None,
+        do_sample: bool | None = None,
+        frequency_penalty: float | None = None,
+        grammar: TextGenerationInputGrammarType | None = None,
+        max_new_tokens: int | None = None,
+        repetition_penalty: float | None = None,
+        return_full_text: bool | None = None,
+        seed: int | None = None,
+        stop: list[str] | None = None,
+        temperature: float | None = None,
+        top_k: int | None = None,
+        top_n_tokens: int | None = None,
+        top_p: float | None = None,
+        truncate: int | None = None,
+        typical_p: float | None = None,
+        watermark: bool | None = None,
     ) -> TextGenerationOutput: ...
 
     @overload
@@ -2015,29 +2006,28 @@ class InferenceClient:
         self,
         prompt: str,
         *,
-        details: Optional[Literal[False]] = None,
+        details: Literal[False] | None = None,
         stream: Literal[True],
-        model: Optional[str] = None,
+        model: str | None = None,
         # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
-        adapter_id: Optional[str] = None,
-        best_of: Optional[int] = None,
-        decoder_input_details: Optional[bool] = None,
-        do_sample: Optional[bool] = None,
-        frequency_penalty: Optional[float] = None,
-        grammar: Optional[TextGenerationInputGrammarType] = None,
-        max_new_tokens: Optional[int] = None,
-        repetition_penalty: Optional[float] = None,
-        return_full_text: Optional[bool] = None,  # Manual default value
-        seed: Optional[int] = None,
-        stop: Optional[list[str]] = None,
-        stop_sequences: Optional[list[str]] = None,  # Deprecated, use `stop` instead
-        temperature: Optional[float] = None,
-        top_k: Optional[int] = None,
-        top_n_tokens: Optional[int] = None,
-        top_p: Optional[float] = None,
-        truncate: Optional[int] = None,
-        typical_p: Optional[float] = None,
-        watermark: Optional[bool] = None,
+        adapter_id: str | None = None,
+        best_of: int | None = None,
+        decoder_input_details: bool | None = None,
+        do_sample: bool | None = None,
+        frequency_penalty: float | None = None,
+        grammar: TextGenerationInputGrammarType | None = None,
+        max_new_tokens: int | None = None,
+        repetition_penalty: float | None = None,
+        return_full_text: bool | None = None,  # Manual default value
+        seed: int | None = None,
+        stop: list[str] | None = None,
+        temperature: float | None = None,
+        top_k: int | None = None,
+        top_n_tokens: int | None = None,
+        top_p: float | None = None,
+        truncate: int | None = None,
+        typical_p: float | None = None,
+        watermark: bool | None = None,
     ) -> Iterable[str]: ...
 
     @overload
@@ -2045,29 +2035,28 @@ class InferenceClient:
         self,
         prompt: str,
         *,
-        details: Optional[Literal[False]] = None,
-        stream: Optional[Literal[False]] = None,
-        model: Optional[str] = None,
+        details: Literal[False] | None = None,
+        stream: Literal[False] | None = None,
+        model: str | None = None,
         # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
-        adapter_id: Optional[str] = None,
-        best_of: Optional[int] = None,
-        decoder_input_details: Optional[bool] = None,
-        do_sample: Optional[bool] = None,
-        frequency_penalty: Optional[float] = None,
-        grammar: Optional[TextGenerationInputGrammarType] = None,
-        max_new_tokens: Optional[int] = None,
-        repetition_penalty: Optional[float] = None,
-        return_full_text: Optional[bool] = None,
-        seed: Optional[int] = None,
-        stop: Optional[list[str]] = None,
-        stop_sequences: Optional[list[str]] = None,  # Deprecated, use `stop` instead
-        temperature: Optional[float] = None,
-        top_k: Optional[int] = None,
-        top_n_tokens: Optional[int] = None,
-        top_p: Optional[float] = None,
-        truncate: Optional[int] = None,
-        typical_p: Optional[float] = None,
-        watermark: Optional[bool] = None,
+        adapter_id: str | None = None,
+        best_of: int | None = None,
+        decoder_input_details: bool | None = None,
+        do_sample: bool | None = None,
+        frequency_penalty: float | None = None,
+        grammar: TextGenerationInputGrammarType | None = None,
+        max_new_tokens: int | None = None,
+        repetition_penalty: float | None = None,
+        return_full_text: bool | None = None,
+        seed: int | None = None,
+        stop: list[str] | None = None,
+        temperature: float | None = None,
+        top_k: int | None = None,
+        top_n_tokens: int | None = None,
+        top_p: float | None = None,
+        truncate: int | None = None,
+        typical_p: float | None = None,
+        watermark: bool | None = None,
     ) -> str: ...
 
     @overload
@@ -2075,59 +2064,57 @@ class InferenceClient:
         self,
         prompt: str,
         *,
-        details: Optional[bool] = None,
-        stream: Optional[bool] = None,
-        model: Optional[str] = None,
+        details: bool | None = None,
+        stream: bool | None = None,
+        model: str | None = None,
         # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
-        adapter_id: Optional[str] = None,
-        best_of: Optional[int] = None,
-        decoder_input_details: Optional[bool] = None,
-        do_sample: Optional[bool] = None,
-        frequency_penalty: Optional[float] = None,
-        grammar: Optional[TextGenerationInputGrammarType] = None,
-        max_new_tokens: Optional[int] = None,
-        repetition_penalty: Optional[float] = None,
-        return_full_text: Optional[bool] = None,
-        seed: Optional[int] = None,
-        stop: Optional[list[str]] = None,
-        stop_sequences: Optional[list[str]] = None,  # Deprecated, use `stop` instead
-        temperature: Optional[float] = None,
-        top_k: Optional[int] = None,
-        top_n_tokens: Optional[int] = None,
-        top_p: Optional[float] = None,
-        truncate: Optional[int] = None,
-        typical_p: Optional[float] = None,
-        watermark: Optional[bool] = None,
-    ) -> Union[str, TextGenerationOutput, Iterable[str], Iterable[TextGenerationStreamOutput]]: ...
+        adapter_id: str | None = None,
+        best_of: int | None = None,
+        decoder_input_details: bool | None = None,
+        do_sample: bool | None = None,
+        frequency_penalty: float | None = None,
+        grammar: TextGenerationInputGrammarType | None = None,
+        max_new_tokens: int | None = None,
+        repetition_penalty: float | None = None,
+        return_full_text: bool | None = None,
+        seed: int | None = None,
+        stop: list[str] | None = None,
+        temperature: float | None = None,
+        top_k: int | None = None,
+        top_n_tokens: int | None = None,
+        top_p: float | None = None,
+        truncate: int | None = None,
+        typical_p: float | None = None,
+        watermark: bool | None = None,
+    ) -> str | TextGenerationOutput | Iterable[str] | Iterable[TextGenerationStreamOutput]: ...
 
     def text_generation(
         self,
         prompt: str,
         *,
-        details: Optional[bool] = None,
-        stream: Optional[bool] = None,
-        model: Optional[str] = None,
+        details: bool | None = None,
+        stream: bool | None = None,
+        model: str | None = None,
         # Parameters from `TextGenerationInputGenerateParameters` (maintained manually)
-        adapter_id: Optional[str] = None,
-        best_of: Optional[int] = None,
-        decoder_input_details: Optional[bool] = None,
-        do_sample: Optional[bool] = None,
-        frequency_penalty: Optional[float] = None,
-        grammar: Optional[TextGenerationInputGrammarType] = None,
-        max_new_tokens: Optional[int] = None,
-        repetition_penalty: Optional[float] = None,
-        return_full_text: Optional[bool] = None,
-        seed: Optional[int] = None,
-        stop: Optional[list[str]] = None,
-        stop_sequences: Optional[list[str]] = None,  # Deprecated, use `stop` instead
-        temperature: Optional[float] = None,
-        top_k: Optional[int] = None,
-        top_n_tokens: Optional[int] = None,
-        top_p: Optional[float] = None,
-        truncate: Optional[int] = None,
-        typical_p: Optional[float] = None,
-        watermark: Optional[bool] = None,
-    ) -> Union[str, TextGenerationOutput, Iterable[str], Iterable[TextGenerationStreamOutput]]:
+        adapter_id: str | None = None,
+        best_of: int | None = None,
+        decoder_input_details: bool | None = None,
+        do_sample: bool | None = None,
+        frequency_penalty: float | None = None,
+        grammar: TextGenerationInputGrammarType | None = None,
+        max_new_tokens: int | None = None,
+        repetition_penalty: float | None = None,
+        return_full_text: bool | None = None,
+        seed: int | None = None,
+        stop: list[str] | None = None,
+        temperature: float | None = None,
+        top_k: int | None = None,
+        top_n_tokens: int | None = None,
+        top_p: float | None = None,
+        truncate: int | None = None,
+        typical_p: float | None = None,
+        watermark: bool | None = None,
+    ) -> str | TextGenerationOutput | Iterable[str] | Iterable[TextGenerationStreamOutput]:
         """
         Given a prompt, generate the following text.
 
@@ -2174,8 +2161,6 @@ class InferenceClient:
                 Random sampling seed
             stop (`list[str]`, *optional*):
                 Stop generating tokens if a member of `stop` is generated.
-            stop_sequences (`list[str]`, *optional*):
-                Deprecated argument. Use `stop` instead.
             temperature (`float`, *optional*):
                 The value used to module the logits distribution.
             top_n_tokens (`int`, *optional*):
@@ -2319,15 +2304,6 @@ class InferenceClient:
             )
             decoder_input_details = False
 
-        if stop_sequences is not None:
-            warnings.warn(
-                "`stop_sequences` is a deprecated argument for `text_generation` task"
-                " and will be removed in version '0.28.0'. Use `stop` instead.",
-                FutureWarning,
-            )
-        if stop is None:
-            stop = stop_sequences  # use deprecated arg if provided
-
         # Build payload
         parameters = {
             "adapter_id": adapter_id,
@@ -2431,7 +2407,7 @@ class InferenceClient:
         if stream:
             return _stream_text_generation_response(bytes_output, details)  # type: ignore
 
-        data = _bytes_to_dict(bytes_output)  # type: ignore[arg-type]
+        data = _bytes_to_dict(bytes_output)  # type: ignore
 
         # Data can be a single element (dict) or an iterable of dicts where we select the first element of.
         if isinstance(data, list):
@@ -2443,15 +2419,15 @@ class InferenceClient:
         self,
         prompt: str,
         *,
-        negative_prompt: Optional[str] = None,
-        height: Optional[int] = None,
-        width: Optional[int] = None,
-        num_inference_steps: Optional[int] = None,
-        guidance_scale: Optional[float] = None,
-        model: Optional[str] = None,
-        scheduler: Optional[str] = None,
-        seed: Optional[int] = None,
-        extra_body: Optional[dict[str, Any]] = None,
+        negative_prompt: str | None = None,
+        height: int | None = None,
+        width: int | None = None,
+        num_inference_steps: int | None = None,
+        guidance_scale: float | None = None,
+        model: str | None = None,
+        scheduler: str | None = None,
+        seed: int | None = None,
+        extra_body: dict[str, Any] | None = None,
     ) -> "Image":
         """
         Generate an image based on a given text using a specified model.
@@ -2583,13 +2559,13 @@ class InferenceClient:
         self,
         prompt: str,
         *,
-        model: Optional[str] = None,
-        guidance_scale: Optional[float] = None,
-        negative_prompt: Optional[list[str]] = None,
-        num_frames: Optional[float] = None,
-        num_inference_steps: Optional[int] = None,
-        seed: Optional[int] = None,
-        extra_body: Optional[dict[str, Any]] = None,
+        model: str | None = None,
+        guidance_scale: float | None = None,
+        negative_prompt: list[str] | None = None,
+        num_frames: float | None = None,
+        num_inference_steps: int | None = None,
+        seed: int | None = None,
+        extra_body: dict[str, Any] | None = None,
     ) -> bytes:
         """
         Generate a video based on a given text.
@@ -2680,24 +2656,24 @@ class InferenceClient:
         self,
         text: str,
         *,
-        model: Optional[str] = None,
-        do_sample: Optional[bool] = None,
-        early_stopping: Optional[Union[bool, "TextToSpeechEarlyStoppingEnum"]] = None,
-        epsilon_cutoff: Optional[float] = None,
-        eta_cutoff: Optional[float] = None,
-        max_length: Optional[int] = None,
-        max_new_tokens: Optional[int] = None,
-        min_length: Optional[int] = None,
-        min_new_tokens: Optional[int] = None,
-        num_beam_groups: Optional[int] = None,
-        num_beams: Optional[int] = None,
-        penalty_alpha: Optional[float] = None,
-        temperature: Optional[float] = None,
-        top_k: Optional[int] = None,
-        top_p: Optional[float] = None,
-        typical_p: Optional[float] = None,
-        use_cache: Optional[bool] = None,
-        extra_body: Optional[dict[str, Any]] = None,
+        model: str | None = None,
+        do_sample: bool | None = None,
+        early_stopping: Union[bool, "TextToSpeechEarlyStoppingEnum"] | None = None,
+        epsilon_cutoff: float | None = None,
+        eta_cutoff: float | None = None,
+        max_length: int | None = None,
+        max_new_tokens: int | None = None,
+        min_length: int | None = None,
+        min_new_tokens: int | None = None,
+        num_beam_groups: int | None = None,
+        num_beams: int | None = None,
+        penalty_alpha: float | None = None,
+        temperature: float | None = None,
+        top_k: int | None = None,
+        top_p: float | None = None,
+        typical_p: float | None = None,
+        use_cache: bool | None = None,
+        extra_body: dict[str, Any] | None = None,
     ) -> bytes:
         """
         Synthesize an audio of a voice pronouncing a given text.
@@ -2888,10 +2864,10 @@ class InferenceClient:
         self,
         text: str,
         *,
-        model: Optional[str] = None,
+        model: str | None = None,
         aggregation_strategy: Optional["TokenClassificationAggregationStrategy"] = None,
-        ignore_labels: Optional[list[str]] = None,
-        stride: Optional[int] = None,
+        ignore_labels: list[str] | None = None,
+        stride: int | None = None,
     ) -> list[TokenClassificationOutputElement]:
         """
         Perform token classification on the given text.
@@ -2963,12 +2939,12 @@ class InferenceClient:
         self,
         text: str,
         *,
-        model: Optional[str] = None,
-        src_lang: Optional[str] = None,
-        tgt_lang: Optional[str] = None,
-        clean_up_tokenization_spaces: Optional[bool] = None,
+        model: str | None = None,
+        src_lang: str | None = None,
+        tgt_lang: str | None = None,
+        clean_up_tokenization_spaces: bool | None = None,
         truncation: Optional["TranslationTruncationStrategy"] = None,
-        generate_parameters: Optional[dict[str, Any]] = None,
+        generate_parameters: dict[str, Any] | None = None,
     ) -> TranslationOutput:
         """
         Convert text from one language to another.
@@ -3053,8 +3029,8 @@ class InferenceClient:
         image: ContentT,
         question: str,
         *,
-        model: Optional[str] = None,
-        top_k: Optional[int] = None,
+        model: str | None = None,
+        top_k: int | None = None,
     ) -> list[VisualQuestionAnsweringOutputElement]:
         """
         Answering open-ended questions based on an image.
@@ -3112,9 +3088,9 @@ class InferenceClient:
         text: str,
         candidate_labels: list[str],
         *,
-        multi_label: Optional[bool] = False,
-        hypothesis_template: Optional[str] = None,
-        model: Optional[str] = None,
+        multi_label: bool | None = False,
+        hypothesis_template: str | None = None,
+        model: str | None = None,
     ) -> list[ZeroShotClassificationOutputElement]:
         """
         Provide as input a text and a set of candidate labels to classify the input text.
@@ -3124,8 +3100,6 @@ class InferenceClient:
                 The input text to classify.
             candidate_labels (`list[str]`):
                 The set of possible class labels to classify the text into.
-            labels (`list[str]`, *optional*):
-                (deprecated) List of strings. Each string is the verbalization of a possible label for the input text.
             multi_label (`bool`, *optional*):
                 Whether multiple candidate labels can be true. If false, the scores are normalized such that the sum of
                 the label likelihoods for each sequence is 1. If true, the labels are considered independent and
@@ -3181,7 +3155,7 @@ class InferenceClient:
         >>> client = InferenceClient()
         >>> client.zero_shot_classification(
         ...    text="I really like our dinner and I'm very happy. I don't like the weather though.",
-        ...    labels=["positive", "negative", "pessimistic", "optimistic"],
+        ...    candidate_labels=["positive", "negative", "pessimistic", "optimistic"],
         ...    multi_label=True,
         ...    hypothesis_template="This text is {} towards the weather"
         ... )
@@ -3215,10 +3189,8 @@ class InferenceClient:
         image: ContentT,
         candidate_labels: list[str],
         *,
-        model: Optional[str] = None,
-        hypothesis_template: Optional[str] = None,
-        # deprecated argument
-        labels: list[str] = None,  # type: ignore
+        model: str | None = None,
+        hypothesis_template: str | None = None,
     ) -> list[ZeroShotImageClassificationOutputElement]:
         """
         Provide input image and text labels to predict text labels for the image.
@@ -3228,8 +3200,6 @@ class InferenceClient:
                 The input image to caption. It can be raw bytes, an image file, a URL to an online image, or a PIL Image.
             candidate_labels (`list[str]`):
                 The candidate labels for this image
-            labels (`list[str]`, *optional*):
-                (deprecated) List of string possible labels. There must be at least 2 labels.
             model (`str`, *optional*):
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. This parameter overrides the model defined at the instance level. If not provided, the default recommended zero-shot image classification model will be used.
@@ -3253,7 +3223,7 @@ class InferenceClient:
 
         >>> client.zero_shot_image_classification(
         ...     "https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Cute_dog.jpg/320px-Cute_dog.jpg",
-        ...     labels=["dog", "cat", "horse"],
+        ...     candidate_labels=["dog", "cat", "horse"],
         ... )
         [ZeroShotImageClassificationOutputElement(label='dog', score=0.956),...]
         ```
@@ -3277,7 +3247,7 @@ class InferenceClient:
         response = self._inner_post(request_parameters)
         return ZeroShotImageClassificationOutputElement.parse_obj_as_list(response)
 
-    def get_endpoint_info(self, *, model: Optional[str] = None) -> dict[str, Any]:
+    def get_endpoint_info(self, *, model: str | None = None) -> dict[str, Any]:
         """
         Get information about the deployed endpoint.
 
@@ -3335,7 +3305,7 @@ class InferenceClient:
         hf_raise_for_status(response)
         return response.json()
 
-    def health_check(self, model: Optional[str] = None) -> bool:
+    def health_check(self, model: str | None = None) -> bool:
         """
         Check the health of the deployed endpoint.
 

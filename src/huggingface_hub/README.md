@@ -22,6 +22,7 @@ Parameters:
 
 ```python
 from huggingface_hub import hf_hub_download
+
 hf_hub_download("lysandre/arxiv-nlp", filename="config.json")
 ```
 
@@ -95,7 +96,7 @@ Those API utilities are also exposed through the `hf` CLI:
 hf auth login
 hf auth logout
 hf auth whoami
-hf repo create
+hf repos create
 ```
 
 With the `HfApi` class there are methods to query models, datasets, and Spaces by specific tags (e.g. if you want to list models compatible with your library):

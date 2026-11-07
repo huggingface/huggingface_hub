@@ -3,7 +3,7 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
-from typing import Any, Optional
+from typing import Any
 
 from .base import BaseInferenceType, dataclass_with_extra
 
@@ -22,23 +22,23 @@ class ImageTextToImageTargetSize(BaseInferenceType):
 class ImageTextToImageParameters(BaseInferenceType):
     """Additional inference parameters for Image Text To Image"""
 
-    guidance_scale: Optional[float] = None
+    guidance_scale: float | None = None
     """For diffusion models. A higher guidance scale value encourages the model to generate
     images closely linked to the text prompt at the expense of lower image quality.
     """
-    negative_prompt: Optional[str] = None
+    negative_prompt: str | None = None
     """One prompt to guide what NOT to include in image generation."""
-    num_inference_steps: Optional[int] = None
+    num_inference_steps: int | None = None
     """For diffusion models. The number of denoising steps. More denoising steps usually lead to
     a higher quality image at the expense of slower inference.
     """
-    prompt: Optional[str] = None
+    prompt: str | None = None
     """The text prompt to guide the image generation. Either this or inputs (image) must be
     provided.
     """
-    seed: Optional[int] = None
+    seed: int | None = None
     """Seed for the random number generator."""
-    target_size: Optional[ImageTextToImageTargetSize] = None
+    target_size: ImageTextToImageTargetSize | None = None
     """The size in pixels of the output image. This parameter is only supported by some
     providers and for specific models. It will be ignored when unsupported.
     """
@@ -50,12 +50,12 @@ class ImageTextToImageInput(BaseInferenceType):
     must be provided, or both.
     """
 
-    inputs: Optional[str] = None
+    inputs: str | None = None
     """The input image data as a base64-encoded string. If no `parameters` are provided, you can
     also provide the image data as a raw bytes payload. Either this or prompt must be
     provided.
     """
-    parameters: Optional[ImageTextToImageParameters] = None
+    parameters: ImageTextToImageParameters | None = None
     """Additional inference parameters for Image Text To Image"""
 
 

@@ -12,102 +12,169 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import sys
 import traceback
-from typing import Annotated, Optional
+from typing import Annotated, Any
 
-import typer
+import click
 
 from huggingface_hub import __version__, constants
-from huggingface_hub.cli._cli_utils import check_cli_update, typer_factory
-from huggingface_hub.cli._errors import format_known_exception
-from huggingface_hub.cli.auth import auth_cli
-from huggingface_hub.cli.cache import cache_cli
-from huggingface_hub.cli.collections import collections_cli
-from huggingface_hub.cli.datasets import datasets_cli
-from huggingface_hub.cli.download import DOWNLOAD_EXAMPLES, download
-from huggingface_hub.cli.inference_endpoints import ie_cli
-from huggingface_hub.cli.jobs import jobs_cli
-from huggingface_hub.cli.lfs import lfs_enable_largefiles, lfs_multipart_upload
-from huggingface_hub.cli.models import models_cli
-from huggingface_hub.cli.papers import papers_cli
-from huggingface_hub.cli.repo import repo_cli
-from huggingface_hub.cli.repo_files import repo_files_cli
-from huggingface_hub.cli.skills import skills_cli
-from huggingface_hub.cli.spaces import spaces_cli
-from huggingface_hub.cli.system import env, version
-from huggingface_hub.cli.upload import UPLOAD_EXAMPLES, upload
-from huggingface_hub.cli.upload_large_folder import UPLOAD_LARGE_FOLDER_EXAMPLES, upload_large_folder
-from huggingface_hub.errors import CLIError
-from huggingface_hub.utils import ANSI, logging
+from huggingface_hub.cli._cli_utils import (
+    LazyHfCommand,
+    LazyHfGroup,
+    check_cli_update,
+    fallback_typer_group_factory,
+    typer_factory,
+)
+from huggingface_hub.cli._output import out
+from huggingface_hub.utils import logging
+
+from ._completion import _COMPLETE_VAR, InstallCompletionOpt, ShowCompletionOpt
+from ._framework import Option
 
 
-app = typer_factory(help="Hugging Face Hub CLI")
+def _dispatch_unknown_top_level_extension(args: list[str], built_in_commands: set[str]) -> int | None:
+    from .extensions import dispatch_unknown_top_level_extension
+
+    return dispatch_unknown_top_level_extension(args, built_in_commands)
+
+
+def _list_installed_extensions_for_help() -> list[tuple[str, str]]:
+    from .extensions import list_installed_extensions_for_help
+
+    return list_installed_extensions_for_help()
+
+
+def check_skill_update() -> None:
+    from ._skills import check_skill_update as _check_skill_update
+
+    _check_skill_update()
+
+
+app = typer_factory(
+    help="Hugging Face Hub CLI",
+    cls=fallback_typer_group_factory(
+        _dispatch_unknown_top_level_extension,
+        extra_commands_provider=_list_installed_extensions_for_help,
+    ),
+)
 
 
 def _version_callback(value: bool) -> None:
     if value:
         print(__version__)
-        raise typer.Exit()
+        raise click.exceptions.Exit()
 
 
-@app.callback(invoke_without_command=True)
+def _skills_callback(value: bool) -> None:
+    if value:
+        from .skills import skills_preview
+
+        skills_preview()
+        raise click.exceptions.Exit()
+
+
+@app.group_callback(invoke_without_command=True)
 def app_callback(
     version: Annotated[
-        Optional[bool], typer.Option("--version", callback=_version_callback, is_eager=True, hidden=True)
+        bool | None, Option("-v", "--version", callback=_version_callback, is_eager=True, hidden=True)
     ] = None,
+    skills: Annotated[
+        bool,
+        Option(
+            "--skills",
+            callback=_skills_callback,
+            is_eager=True,
+            help="Print the `hf-cli` SKILL.md to stdout (alias for `hf skills preview`).",
+        ),
+    ] = False,
+    install_completion: InstallCompletionOpt = False,
+    show_completion: ShowCompletionOpt = False,
 ) -> None:
     pass
 
 
-# top level single commands (defined in their respective files)
-app.command(examples=DOWNLOAD_EXAMPLES)(download)
-app.command(examples=UPLOAD_EXAMPLES)(upload)
-app.command(examples=UPLOAD_LARGE_FOLDER_EXAMPLES)(upload_large_folder)
+_LAZY_COMMANDS: list[tuple[str, str, str, dict[str, Any]]] = [
+    ("sync", "buckets", "sync", {}),
+    ("cp", "_cp", "make_cp", {"examples_attribute": "CP_EXAMPLES", "is_factory": True}),
+    ("download", "download", "download", {"examples_attribute": "DOWNLOAD_EXAMPLES"}),
+    ("upload", "upload", "upload", {"examples_attribute": "UPLOAD_EXAMPLES"}),
+    ("env", "system", "env", {"topic": "help"}),
+    ("update", "system", "update", {"topic": "help"}),
+    ("version", "system", "version", {"topic": "help"}),
+    ("lfs-enable-largefiles", "lfs", "lfs_enable_largefiles", {"hidden": True}),
+    ("lfs-multipart-upload", "lfs", "lfs_multipart_upload", {"hidden": True}),
+]
 
-app.command(topic="help")(env)
-app.command(topic="help")(version)
 
-app.command(hidden=True)(lfs_enable_largefiles)
-app.command(hidden=True)(lfs_multipart_upload)
+_LAZY_GROUPS: list[tuple[str, str, str, dict[str, Any]]] = [
+    ("auth", "auth", "auth_cli", {}),
+    ("buckets", "buckets", "buckets_cli", {}),
+    ("cache", "cache", "cache_cli", {}),
+    ("collections", "collections", "collections_cli", {}),
+    ("datasets", "datasets", "datasets_cli", {}),
+    ("discussions", "discussions", "discussions_cli", {}),
+    ("jobs", "jobs", "jobs_cli", {}),
+    ("models", "models", "models_cli", {}),
+    ("papers", "papers", "papers_cli", {}),
+    ("repos", "repos", "repos_cli", {}),
+    ("sandbox", "sandbox", "sandbox_cli", {}),
+    ("skills", "skills", "skills_cli", {}),
+    ("spaces", "spaces", "spaces_cli", {}),
+    ("webhooks", "webhooks", "webhooks_cli", {}),
+    ("endpoints", "inference_endpoints", "ie_cli", {}),
+    ("extensions | ext", "extensions", "extensions_cli", {}),
+]
 
-# command groups
-app.add_typer(auth_cli, name="auth")
-app.add_typer(cache_cli, name="cache")
-app.add_typer(collections_cli, name="collections")
-app.add_typer(datasets_cli, name="datasets")
-app.add_typer(jobs_cli, name="jobs")
-app.add_typer(models_cli, name="models")
-app.add_typer(papers_cli, name="papers")
-app.add_typer(repo_cli, name="repo")
-app.add_typer(repo_files_cli, name="repo-files")
-app.add_typer(skills_cli, name="skills")
-app.add_typer(spaces_cli, name="spaces")
-app.add_typer(ie_cli, name="endpoints")
+for name, module, attribute, extras in _LAZY_COMMANDS:
+    app.add_command(
+        LazyHfCommand(
+            name,
+            module=f"huggingface_hub.cli.{module}",
+            attribute=attribute,
+            **extras,
+        ),
+        name,
+    )
+
+for name, module, attribute, extras in _LAZY_GROUPS:
+    app.add_command(
+        LazyHfGroup(
+            name,
+            module=f"huggingface_hub.cli.{module}",
+            attribute=attribute,
+            **extras,
+        ),
+        name,
+    )
 
 
 def main():
-    if not constants.HF_DEBUG:
-        logging.set_verbosity_info()
-    check_cli_update("huggingface_hub")
+    # Shell-completion requests must stay fast and emit nothing but candidates:
+    # skip the startup work and let click handle the env var inside `app()`.
+    if _COMPLETE_VAR not in os.environ:
+        if not constants.HF_DEBUG:
+            logging.set_verbosity_info()
+        check_cli_update("huggingface_hub")
+        # Don't nag while the user is already managing skills, nor on `hf update` which handles the
+        # skill itself (it would print a redundant or contradictory hint before doing so).
+        if sys.argv[1:2] not in (["skills"], ["update"], ["--skills"]):
+            check_skill_update()
 
     try:
-        app()
-    except CLIError as e:
-        print(f"Error: {e}", file=sys.stderr)
-        if constants.HF_DEBUG:
-            traceback.print_exc()
-        else:
-            print(ANSI.gray("Set HF_DEBUG=1 as environment variable for full traceback."))
-        sys.exit(1)
+        # Click glob-expands args on Windows by default, even quoted ones like `--exclude "*.bin"`.
+        app(windows_expand_args=False)
     except Exception as e:
+        from ._errors import format_known_exception
+
         message = format_known_exception(e)
         if message:
-            print(f"Error: {message}", file=sys.stderr)
+            out.error(message)
             if constants.HF_DEBUG:
                 traceback.print_exc()
             else:
-                print(ANSI.gray("Set HF_DEBUG=1 as environment variable for full traceback."))
+                out.hint("set HF_DEBUG=1 as environment variable for full traceback.")
             sys.exit(1)
         raise
 

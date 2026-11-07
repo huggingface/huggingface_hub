@@ -5,7 +5,12 @@ Specifications are available at https://github.com/huggingface/hub-docs/blob/mai
 """
 
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
+
+from .utils import logging
+
+
+logger = logging.get_logger(__name__)
 
 
 @dataclass
@@ -73,14 +78,14 @@ class EvalResultEntry:
     dataset_id: str
     task_id: str
     value: Any
-    dataset_revision: Optional[str] = None
-    verify_token: Optional[str] = None
-    date: Optional[str] = None
-    source_url: Optional[str] = None
-    source_name: Optional[str] = None
-    source_user: Optional[str] = None
-    source_org: Optional[str] = None
-    notes: Optional[str] = None
+    dataset_revision: str | None = None
+    verify_token: str | None = None
+    date: str | None = None
+    source_url: str | None = None
+    source_name: str | None = None
+    source_user: str | None = None
+    source_org: str | None = None
+    notes: str | None = None
 
     def __post_init__(self) -> None:
         if (
@@ -191,6 +196,9 @@ def parse_eval_result_entries(data: list[dict[str, Any]]) -> list[EvalResultEntr
     """
     entries = []
     for item in data:
+        if "error" in item:  # file failed server-side validation
+            logger.warning(f"Skipping invalid eval results file '{item.get('filename')}': {item['error']}")
+            continue
         entry_data = item.get("data", item)
         dataset = entry_data.get("dataset", {})
         source = entry_data.get("source", {})

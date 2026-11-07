@@ -13,18 +13,22 @@ on:
       - "js/**"
       - "api-inference-community/**"
 
+permissions: {}
+
 jobs:
   check_code_quality:
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     env:
       UV_HTTP_TIMEOUT: 600 # max 10min to install deps
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
-          python-version: 3.9
+          python-version: "3.10"
 
       # Setup venv
       # TODO: revisit when https://github.com/astral-sh/uv/issues/1526 is addressed.

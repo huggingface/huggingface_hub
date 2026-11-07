@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2022-present, the HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,9 +13,11 @@
 # limitations under the License.
 """Contains utilities to handle paths in Huggingface Hub."""
 
-from fnmatch import fnmatch
+import os
+from collections.abc import Callable, Generator, Iterable
+from fnmatch import fnmatchcase
 from pathlib import Path
-from typing import Callable, Generator, Iterable, Optional, TypeVar, Union
+from typing import TypeVar
 
 
 T = TypeVar("T")
@@ -36,12 +37,39 @@ DEFAULT_IGNORE_PATTERNS = [
 FORBIDDEN_FOLDERS = [".git", ".cache"]
 
 
+def as_extended_path(path: str | Path, max_length: int = 255) -> str:
+    r"""Return `path` in its Windows extended-length form if it is too long, unchanged otherwise.
+
+    Some Windows versions do not allow for paths longer than 255 characters (247 for directories, i.e. MAX_PATH minus
+    room for an 8.3 file name). In this case, we must specify them as extended paths by using the `\\?\` prefix, which
+    only works on absolute paths. Network shares take the `\\?\UNC\server\share\...` form: prefixing them verbatim
+    would produce an invalid `\\?\\\server\...` path.
+
+    Args:
+        path (`str` or `Path`):
+            The path to convert. Returned unchanged on non-Windows platforms, if it is short enough, or if it is
+            already an extended path.
+        max_length (`int`, *optional*):
+            Length above which the path must be converted. Defaults to 255, the limit for files. Pass 247 for paths
+            whose parent directories are created by the caller.
+    """
+    path = str(path)
+    if os.name != "nt":
+        return path
+    absolute_path = os.path.abspath(path)
+    if len(absolute_path) <= max_length or absolute_path.startswith("\\\\?\\"):
+        return path
+    if absolute_path.startswith("\\\\"):  # UNC share: `\\server\share\...` => `\\?\UNC\server\share\...`
+        return "\\\\?\\UNC\\" + absolute_path[2:]
+    return "\\\\?\\" + absolute_path
+
+
 def filter_repo_objects(
     items: Iterable[T],
     *,
-    allow_patterns: Optional[Union[list[str], str]] = None,
-    ignore_patterns: Optional[Union[list[str], str]] = None,
-    key: Optional[Callable[[T], str]] = None,
+    allow_patterns: list[str] | str | None = None,
+    ignore_patterns: list[str] | str | None = None,
+    key: Callable[[T], str] | None = None,
 ) -> Generator[T, None, None]:
     """Filter repo objects based on an allowlist and a denylist.
 
@@ -49,10 +77,14 @@ def filter_repo_objects(
     In the later case, `key` must be provided and specifies a function of one argument
     that is used to extract a path from each element in iterable.
 
-    Patterns are Standard Wildcards (globbing patterns), NOT regular expressions.
-    The pattern matching is based on Python's `fnmatch`. Note that `fnmatch` matches
-    `*` across path boundaries, unlike traditional Unix shell globbing. For example,
-    `"data/*.json"` will match both `data/file.json` and `data/subdir/file.json`.
+    Patterns are Standard Wildcards (globbing patterns), NOT regular expressions. The pattern matching is based on
+    Python's `fnmatch.fnmatchcase`, so it is case-sensitive on every platform. Backslashes are treated as path separators
+    and normalized to forward slashes in both patterns and paths before matching, so patterns built with `os.path.join`
+    on Windows work as expected.
+
+    Note that it matches `*` across path boundaries, unlike traditional Unix shell globbing. For example, `"data/*.json"`
+    will match both `data/file.json` and `data/subdir/file.json`.
+
     See https://docs.python.org/3/library/fnmatch.html for more details.
 
     Args:
@@ -79,7 +111,7 @@ def filter_repo_objects(
     ```python
     >>> # Filter only PDFs that are not hidden.
     >>> list(filter_repo_objects(
-    ...     ["aaa.PDF", "bbb.jpg", ".ccc.pdf", ".ddd.png"],
+    ...     ["aaa.pdf", "bbb.jpg", ".ccc.pdf", ".ddd.png"],
     ...     allow_patterns=["*.pdf"],
     ...     ignore_patterns=[".*"],
     ... ))
@@ -90,14 +122,14 @@ def filter_repo_objects(
     ```python
     >>> list(filter_repo_objects(
     ... [
-    ...     CommitOperationAdd(path_or_fileobj="/tmp/aaa.pdf", path_in_repo="aaa.pdf")
-    ...     CommitOperationAdd(path_or_fileobj="/tmp/bbb.jpg", path_in_repo="bbb.jpg")
-    ...     CommitOperationAdd(path_or_fileobj="/tmp/.ccc.pdf", path_in_repo=".ccc.pdf")
-    ...     CommitOperationAdd(path_or_fileobj="/tmp/.ddd.png", path_in_repo=".ddd.png")
+    ...     CommitOperationAdd(path_or_fileobj="/tmp/aaa.pdf", path_in_repo="aaa.pdf"),
+    ...     CommitOperationAdd(path_or_fileobj="/tmp/bbb.jpg", path_in_repo="bbb.jpg"),
+    ...     CommitOperationAdd(path_or_fileobj="/tmp/.ccc.pdf", path_in_repo=".ccc.pdf"),
+    ...     CommitOperationAdd(path_or_fileobj="/tmp/.ddd.png", path_in_repo=".ddd.png"),
     ... ],
     ... allow_patterns=["*.pdf"],
     ... ignore_patterns=[".*"],
-    ... key=lambda x: x.repo_in_path
+    ... key=lambda x: x.path_in_repo
     ... ))
     [CommitOperationAdd(path_or_fileobj="/tmp/aaa.pdf", path_in_repo="aaa.pdf")]
     ```
@@ -109,9 +141,9 @@ def filter_repo_objects(
         ignore_patterns = [ignore_patterns]
 
     if allow_patterns is not None:
-        allow_patterns = [_add_wildcard_to_directories(p) for p in allow_patterns]
+        allow_patterns = [_add_wildcard_to_directories(_normalize_separators(p)) for p in allow_patterns]
     if ignore_patterns is not None:
-        ignore_patterns = [_add_wildcard_to_directories(p) for p in ignore_patterns]
+        ignore_patterns = [_add_wildcard_to_directories(_normalize_separators(p)) for p in ignore_patterns]
 
     if key is None:
 
@@ -125,20 +157,27 @@ def filter_repo_objects(
         key = _identity  # Items must be `str` or `Path`, otherwise raise ValueError
 
     for item in items:
-        path = key(item)
+        path = _normalize_separators(key(item))
 
         # Skip if there's an allowlist and path doesn't match any
-        if allow_patterns is not None and not any(fnmatch(path, r) for r in allow_patterns):
+        if allow_patterns is not None and not any(fnmatchcase(path, r) for r in allow_patterns):
             continue
 
         # Skip if there's a denylist and path matches any
-        if ignore_patterns is not None and any(fnmatch(path, r) for r in ignore_patterns):
+        if ignore_patterns is not None and any(fnmatchcase(path, r) for r in ignore_patterns):
             continue
 
         yield item
 
 
+def _normalize_separators(value: str | Path) -> str:
+    # Repo paths always use `/` and `\` is not an fnmatch escape character, so treating backslashes as path separators
+    # (e.g. patterns built with `os.path.join` on Windows) is safe.
+    # `value` can be a `Path` if a custom `key` returns one; coerce to `str` first.
+    return str(value).replace("\\", "/")
+
+
 def _add_wildcard_to_directories(pattern: str) -> str:
-    if pattern[-1] == "/":
+    if pattern.endswith("/"):
         return pattern + "*"
     return pattern

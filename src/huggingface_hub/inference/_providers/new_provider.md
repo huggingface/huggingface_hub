@@ -67,7 +67,6 @@ class MyNewProviderTaskProviderHelper(TaskProviderHelper):
         `MimeBytes` is a subclass of `bytes` that carries a `mime_type` attribute.
         """
         return super()._prepare_payload_as_bytes(inputs, parameters, mapped_model, extra_payload)
-    
 ```
 
 ### 2. Register the provider helper in `__init__.py`

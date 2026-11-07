@@ -1,15 +1,14 @@
+import collections.abc
 import inspect
-import sys
 import types
-from dataclasses import _MISSING_TYPE, MISSING, Field, field, fields, make_dataclass
+from collections.abc import Callable
+from dataclasses import MISSING, Field, field, fields, make_dataclass
 from functools import lru_cache, wraps
 from typing import (
     Annotated,
     Any,
-    Callable,
     ForwardRef,
     Literal,
-    Optional,
     Type,
     TypeVar,
     Union,
@@ -54,9 +53,7 @@ def strict(cls: Type[T]) -> Type[T]: ...
 def strict(*, accept_kwargs: bool = False) -> Callable[[Type[T]], Type[T]]: ...
 
 
-def strict(
-    cls: Optional[Type[T]] = None, *, accept_kwargs: bool = False
-) -> Union[Type[T], Callable[[Type[T]], Type[T]]]:
+def strict(cls: Type[T] | None = None, *, accept_kwargs: bool = False) -> Type[T] | Callable[[Type[T]], Type[T]]:
     """
     Decorator to add strict validation to a dataclass.
 
@@ -120,7 +117,7 @@ def strict(
 
         # List and store validators
         field_validators: dict[str, list[Validator_T]] = {}
-        for f in fields(cls):  # type: ignore [arg-type]
+        for f in fields(cls):  # type: ignore
             validators = []
             validators.append(_create_type_validator(f))
             custom_validator = f.metadata.get("validator")
@@ -151,20 +148,37 @@ def strict(
             # If validation passed, set the attribute
             original_setattr(self, name, value)
 
-        cls.__setattr__ = __strict_setattr__  # type: ignore[method-assign]
+        cls.__setattr__ = __strict_setattr__  # type: ignore
 
         if accept_kwargs:
             # (optional) Override __init__ to accept arbitrary keyword arguments
             original_init = cls.__init__
 
             @wraps(original_init)
-            def __init__(self, **kwargs: Any) -> None:
+            def __init__(self, *args, **kwargs: Any) -> None:
                 # Extract only the fields that are part of the dataclass
-                dataclass_fields = {f.name for f in fields(cls)}  # type: ignore [arg-type]
+                dataclass_fields = {f.name for f in fields(cls)}  # type: ignore
                 standard_kwargs = {k: v for k, v in kwargs.items() if k in dataclass_fields}
 
-                # Call the original __init__ with standard fields
-                original_init(self, **standard_kwargs)
+                # User shouldn't define custom `__init__` when `accepts_kwargs`, and instead
+                # are advised to move field manipulation to `__post_init__` (e.g., derive new field from existing ones)
+                # We need to call bare `__init__` here without `__post_init__` but the``original_init`` would call
+                # post-init right away with no kwargs.
+                if len(args) > 0:
+                    raise ValueError(
+                        f"When `accept_kwargs=True`, {cls.__name__} accepts only keyword arguments, "
+                        f"but found `{len(args)}` positional args."
+                    )
+
+                for f in fields(cls):  # type: ignore
+                    if f.name in standard_kwargs:
+                        setattr(self, f.name, standard_kwargs[f.name])
+                    elif f.default is not MISSING:
+                        setattr(self, f.name, f.default)
+                    elif f.default_factory is not MISSING:
+                        setattr(self, f.name, f.default_factory())
+                    else:
+                        raise TypeError(f"Missing required field - '{f.name}'")
 
                 # Pass any additional kwargs to `__post_init__` and let the object
                 # decide whether to set the attr or use for different purposes (e.g. BC checks)
@@ -175,7 +189,7 @@ def strict(
 
                 self.__post_init__(**additional_kwargs)
 
-            cls.__init__ = __init__  # type: ignore[method-assign]
+            cls.__init__ = __init__  # type: ignore
 
             # Define a default __post_init__ if not defined
             if not hasattr(cls, "__post_init__"):
@@ -207,7 +221,8 @@ def strict(
                 # Combine both representations
                 return f"{standard_repr[:-1]}, {additional_repr})" if additional_kwargs else standard_repr
 
-            cls.__repr__ = __repr__  # type: ignore [method-assign]
+            if cls.__dataclass_params__.repr is True:  # type: ignore [attr-defined]
+                cls.__repr__ = __repr__  # type: ignore
 
         # List all public methods starting with `validate_` => class validators.
         class_validators = []
@@ -226,7 +241,7 @@ def strict(
                 )
             class_validators.append(method)
 
-        cls.__class_validators__ = class_validators  # type: ignore [attr-defined]
+        cls.__class_validators__ = class_validators  # type: ignore
 
         # Add `validate` method to the class, but first check if it already exists
         def validate(self: T) -> None:
@@ -366,14 +381,14 @@ def _get_typed_dict_annotations(schema: type[TypedDictType]) -> dict[str, Any]:
 
 
 def validated_field(
-    validator: Union[list[Validator_T], Validator_T],
-    default: Union[Any, _MISSING_TYPE] = MISSING,
-    default_factory: Union[Callable[[], Any], _MISSING_TYPE] = MISSING,
+    validator: list[Validator_T] | Validator_T,
+    default: Any = MISSING,
+    default_factory: Any = MISSING,
     init: bool = True,
     repr: bool = True,
-    hash: Optional[bool] = None,
+    hash: bool | None = None,
     compare: bool = True,
-    metadata: Optional[dict] = None,
+    metadata: dict | None = None,
     **kwargs: Any,
 ) -> Any:
     """
@@ -397,8 +412,8 @@ def validated_field(
         metadata = {}
     metadata["validator"] = validator
     return field(  # type: ignore
-        default=default,  # type: ignore [arg-type]
-        default_factory=default_factory,  # type: ignore [arg-type]
+        default=default,  # type: ignore
+        default_factory=default_factory,  # type: ignore
         init=init,
         repr=repr,
         hash=hash,
@@ -418,13 +433,13 @@ def as_validated_field(validator: Validator_T):
     """
 
     def _inner(
-        default: Union[Any, _MISSING_TYPE] = MISSING,
-        default_factory: Union[Callable[[], Any], _MISSING_TYPE] = MISSING,
+        default: Any = MISSING,
+        default_factory: Any = MISSING,
         init: bool = True,
         repr: bool = True,
-        hash: Optional[bool] = None,
+        hash: bool | None = None,
         compare: bool = True,
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
         **kwargs: Any,
     ):
         return validated_field(
@@ -449,6 +464,8 @@ def type_validator(name: str, value: Any, expected_type: Any) -> None:
 
     if expected_type is Any:
         return
+    elif expected_type is None:
+        _validate_none(name, value)
     elif validator := _BASIC_TYPE_VALIDATORS.get(origin):
         validator(name, value, args)
     elif isinstance(expected_type, type):  # simple types
@@ -465,6 +482,16 @@ def type_validator(name: str, value: Any, expected_type: Any) -> None:
         type_validator(name, value, args[0])
     else:
         raise TypeError(f"Unsupported type for field '{name}': {expected_type}")
+
+
+def _validate_none(name: str, value: Any) -> None:
+    """Validate None type.
+
+    'None' is not a type, it's a special value. Type should be `NoneType` instead.
+    But in type annotations 'None' is accepted so we must support it.
+    """
+    if value is not None:
+        raise TypeError(f"Field '{name}' expected None, got {type(value).__name__}")
 
 
 def _validate_union(name: str, value: Any, args: tuple[Any, ...]) -> None:
@@ -484,14 +511,24 @@ def _validate_union(name: str, value: Any, args: tuple[Any, ...]) -> None:
 
 def _validate_literal(name: str, value: Any, args: tuple[Any, ...]) -> None:
     """Validate Literal type."""
-    if value not in args:
+    if isinstance(value, bool):
+        if value not in [arg for arg in args if isinstance(arg, bool)]:
+            raise TypeError(f"Field '{name}' expected one of {args}, got {value}")
+    elif isinstance(value, int):
+        if value not in [arg for arg in args if isinstance(arg, int) and not isinstance(arg, bool)]:
+            raise TypeError(f"Field '{name}' expected one of {args}, got {value}")
+    elif value not in args:
         raise TypeError(f"Field '{name}' expected one of {args}, got {value}")
 
 
 def _validate_list(name: str, value: Any, args: tuple[Any, ...]) -> None:
-    """Validate list[T] type."""
+    """Validate list or list[T] type."""
     if not isinstance(value, list):
         raise TypeError(f"Field '{name}' expected a list, got {type(value).__name__}")
+
+    # If no type argument is provided (i.e., bare `typing.List`), skip item validation
+    if not args:
+        return
 
     # Validate each item in the list
     item_type = args[0]
@@ -503,9 +540,13 @@ def _validate_list(name: str, value: Any, args: tuple[Any, ...]) -> None:
 
 
 def _validate_dict(name: str, value: Any, args: tuple[Any, ...]) -> None:
-    """Validate dict[K, V] type."""
+    """Validate dict or dict[K, V] type."""
     if not isinstance(value, dict):
         raise TypeError(f"Field '{name}' expected a dict, got {type(value).__name__}")
+
+    # If no type arguments are provided (i.e., bare `typing.Dict`), skip key/value validation
+    if not args:
+        return
 
     # Validate keys and values
     key_type, value_type = args
@@ -541,9 +582,13 @@ def _validate_tuple(name: str, value: Any, args: tuple[Any, ...]) -> None:
 
 
 def _validate_set(name: str, value: Any, args: tuple[Any, ...]) -> None:
-    """Validate set[T] type."""
+    """Validate set or set[T] type."""
     if not isinstance(value, set):
         raise TypeError(f"Field '{name}' expected a set, got {type(value).__name__}")
+
+    # If no type argument is provided (i.e., bare `typing.Set`), skip item validation
+    if not args:
+        return
 
     # Validate each item in the set
     item_type = args[0]
@@ -554,8 +599,30 @@ def _validate_set(name: str, value: Any, args: tuple[Any, ...]) -> None:
             raise TypeError(f"Invalid item in set '{name}'") from e
 
 
+def _validate_sequence(name: str, value: Any, args: tuple[Any, ...]) -> None:
+    """Validate Sequence or Sequence[T] type."""
+    if not isinstance(value, collections.abc.Sequence):
+        raise TypeError(f"Field '{name}' expected a Sequence, got {type(value).__name__}")
+
+    # If no type argument is provided (i.e., just `Sequence`), skip item validation
+    if not args:
+        return
+
+    # Validate each item in the sequence
+    item_type = args[0]
+    for i, item in enumerate(value):
+        try:
+            type_validator(f"{name}[{i}]", item, item_type)
+        except TypeError as e:
+            raise TypeError(f"Invalid item at index {i} in sequence '{name}'") from e
+
+
 def _validate_simple_type(name: str, value: Any, expected_type: type) -> None:
     """Validate simple type (int, str, etc.)."""
+    if expected_type is int and isinstance(value, bool):
+        raise TypeError(
+            f"Field '{name}' expected {expected_type.__name__}, got {type(value).__name__} (value: {repr(value)})"
+        )
     if not isinstance(value, expected_type):
         raise TypeError(
             f"Field '{name}' expected {expected_type.__name__}, got {type(value).__name__} (value: {repr(value)})"
@@ -604,18 +671,18 @@ def _is_required_or_notrequired(type_hint: Any) -> bool:
     return type_hint in (Required, NotRequired) or (get_origin(type_hint) in (Required, NotRequired))
 
 
-_BASIC_TYPE_VALIDATORS = {
+_BASIC_TYPE_VALIDATORS: dict[Any, Callable[[str, Any, tuple[Any, ...]], None]] = {
     Union: _validate_union,
     Literal: _validate_literal,
     list: _validate_list,
     dict: _validate_dict,
     tuple: _validate_tuple,
     set: _validate_set,
+    collections.abc.Sequence: _validate_sequence,
 }
 
-if sys.version_info >= (3, 10):
-    # TODO: make it first class citizen when bumping to Python 3.10+
-    _BASIC_TYPE_VALIDATORS[types.UnionType] = _validate_union  # x | y syntax, available only Python 3.10+
+# TODO: make it first class citizen when bumping to Python 3.10+
+_BASIC_TYPE_VALIDATORS[types.UnionType] = _validate_union  # x | y syntax, available only Python 3.10+
 
 
 __all__ = [

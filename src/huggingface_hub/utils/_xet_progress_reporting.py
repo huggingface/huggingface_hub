@@ -1,36 +1,228 @@
 from collections import OrderedDict
-from typing import List
-
-from hf_xet import PyItemProgressUpdate, PyTotalProgressUpdate
+from typing import Any
 
 from . import is_google_colab, is_notebook
-from .tqdm import tqdm
+from .tqdm import _create_progress_bar, tqdm
 
 
-class XetProgressReporter:
+def _format_speed_postfix(speed: float | None) -> str:
+    s = tqdm.format_sizeof(speed) if speed is not None else "???"
+    return f"{s}B/s  ".rjust(10, " ")
+
+
+# Transfer byte count is hard to predict (dedup/compression), so we omit a total and show bytes only.
+XET_TRANSFER_BAR_FORMAT = "{desc}: {bar}| {n_fmt:>5}B{postfix:>12}"
+XET_BYTES_BAR_FORMAT = "{l_bar}{bar}| {n_fmt:>5}B / {total_fmt:>5}B{postfix:>12}"
+
+_NUM_OVERVIEW_BARS = 2  # data_processing + upload (always shown)
+_NUM_SHARD_BARS = 1  # single Validating bar (lazy; covers shard upload/validate/sync)
+
+
+def _set_monotonic_total(bar, total: int | None) -> None:
+    if total is None or not hasattr(bar, "total"):
+        return
+    bar.total = max(bar.total or 0, total)
+
+
+def _update_transfer_bar(bar, inc: int) -> None:
+    """Update the transfer bar and grow its hidden total so the bar graphic advances.
+
+    Network bytes are hard to predict (dedup/compression), so the display omits a denominator.
+    tqdm still needs an internal total for the bar width — seeded from file size when known,
+    then expanded here if bytes received exceed that estimate.
+    """
+    n_after = getattr(bar, "n", 0) + inc
+    current_total = getattr(bar, "total", 0) or 0
+    if n_after > 0 and current_total < n_after:
+        bar.total = max(current_total, int(n_after * 1.25) + 1)
+    bar.update(inc)
+
+
+def _finish_transfer_bar(bar) -> None:
+    """Snap the transfer bar to 100% when downloading stops.
+
+    Transfer totals are seeded from file size, but actual network bytes are often lower.
+    Set ``total = n`` so the bar fills completely instead of stopping partway.
+    """
+    n = getattr(bar, "n", 0)
+    if n > 0 and hasattr(bar, "total") and bar.total != n:
+        bar.total = n
+        bar.refresh()
+
+
+def _set_aggregate_rate_postfix(bar) -> None:
+    """Show a shared bar's own throughput as its rate.
+
+    When many files feed one bar (snapshot download), each file only knows its own per-item rate — a
+    fraction of the total. Deriving the rate from the shared bar's aggregated byte count reports the
+    true combined speed instead of whichever single file reported last.
+    """
+    bar.set_postfix_str(_format_speed_postfix(bar.format_dict.get("rate")), refresh=False)
+
+
+class XetDownloadProgressReporter:
+    """Dual progress bars for Xet downloads: network transfer and file reconstruction.
+
+    ``total_transfer_bytes_completed`` tracks bytes received from the network (updated continuously).
+    ``total_bytes_completed`` tracks bytes written to disk (updated after buffered chunks are flushed).
+    Showing both bars gives responsive feedback on slow connections where reconstruction lags behind transfer.
+    """
+
+    def __init__(
+        self,
+        *,
+        reconstruction_desc: str,
+        transfer_desc: str = "Downloading bytes",
+        total: int | None = None,
+        log_level: int,
+        name: str | None = None,
+        tqdm_class: type | None = None,
+        external_reconstruction_bar: Any | None = None,
+        position: int = 0,
+    ):
+        self._prev_bytes_completed = 0
+        self._prev_transfer_bytes_completed = 0
+
+        cls = tqdm_class or tqdm
+        routes_transfer_via_reconstruction = external_reconstruction_bar is not None and callable(
+            getattr(external_reconstruction_bar, "update_transfer", None)
+        )
+        uses_aggregated_tqdm_class = external_reconstruction_bar is None and callable(
+            getattr(cls, "update_transfer", None)
+        )
+
+        if external_reconstruction_bar is not None:
+            self.reconstruction_bar = external_reconstruction_bar
+            self._owns_reconstruction_bar = False
+        else:
+            self.reconstruction_bar = _create_progress_bar(
+                cls=cls,  # ty: ignore[invalid-argument-type]
+                log_level=log_level,
+                name=name,
+                desc=reconstruction_desc,
+                total=total,
+                unit="B",
+                unit_scale=True,
+                position=position + 1,
+                bar_format=XET_BYTES_BAR_FORMAT,
+                leave=True,
+            )
+            self._owns_reconstruction_bar = True
+
+        if routes_transfer_via_reconstruction or uses_aggregated_tqdm_class:
+            self.transfer_bar = self.reconstruction_bar
+            self._owns_transfer_bar = False
+        elif external_reconstruction_bar is not None:
+            self.transfer_bar = None
+            self._owns_transfer_bar = False
+        else:
+            self.transfer_bar = _create_progress_bar(
+                cls=cls,  # ty: ignore[invalid-argument-type]
+                log_level=log_level,
+                name=f"{name}.transfer" if name else None,
+                desc=transfer_desc,
+                total=total,
+                unit="B",
+                unit_scale=True,
+                position=position,
+                bar_format=XET_TRANSFER_BAR_FORMAT,
+                leave=True,
+            )
+            self._owns_transfer_bar = True
+
+    @property
+    def _aggregated(self) -> bool:
+        return self.transfer_bar is not None and self.transfer_bar is self.reconstruction_bar
+
+    def update_progress(self, group_report, _item_reports: dict | None = None) -> None:
+        bytes_inc = max(0, group_report.total_bytes_completed - self._prev_bytes_completed)
+        transfer_inc = max(0, group_report.total_transfer_bytes_completed - self._prev_transfer_bytes_completed)
+        self._prev_bytes_completed = group_report.total_bytes_completed
+        self._prev_transfer_bytes_completed = group_report.total_transfer_bytes_completed
+
+        if bytes_inc > 0:
+            self.reconstruction_bar.update(bytes_inc)
+            self.reconstruction_bar.set_postfix_str(
+                _format_speed_postfix(group_report.total_bytes_completion_rate), refresh=False
+            )
+
+        if transfer_inc > 0 and self.transfer_bar is not None:
+            if self._aggregated:
+                self.reconstruction_bar.update_transfer(transfer_inc)
+                self.reconstruction_bar.set_transfer_postfix_str(
+                    _format_speed_postfix(group_report.total_transfer_bytes_completion_rate), refresh=False
+                )
+            else:
+                _update_transfer_bar(self.transfer_bar, transfer_inc)
+                self.transfer_bar.set_postfix_str(
+                    _format_speed_postfix(group_report.total_transfer_bytes_completion_rate), refresh=False
+                )
+
+        if group_report.total_bytes:
+            _set_monotonic_total(self.reconstruction_bar, group_report.total_bytes)
+
+    def close(self) -> None:
+        """Close bars owned by this reporter.
+
+        Standalone downloads finish the transfer bar first (snap hidden total to ``n``), then close it.
+        Aggregated and external bars (e.g. snapshot ``_AggregatedTqdm`` or a reused ``_tqdm_bar``) are left
+        open — their parent caller owns their lifecycle.
+        """
+        if self.transfer_bar is not None and self._owns_transfer_bar:
+            _finish_transfer_bar(self.transfer_bar)
+            if hasattr(self.transfer_bar, "close"):
+                self.transfer_bar.close()
+        if self._owns_reconstruction_bar and hasattr(self.reconstruction_bar, "close"):
+            self.reconstruction_bar.close()
+
+    def __enter__(self) -> "XetDownloadProgressReporter":
+        return self
+
+    def __exit__(self, *args) -> None:
+        self.close()
+
+
+class XetUploadProgressReporter:
     """
     Reports on progress for Xet uploads.
 
     Shows summary progress bars when running in notebooks or GUIs, and detailed per-file progress in console environments.
     """
 
-    def __init__(self, n_lines: int = 10, description_width: int = 30):
+    def __init__(self, n_lines: int = 10, description_width: int = 30, total_files: int | None = None):
         self.n_lines = n_lines
         self.description_width = description_width
+        self.total_files = total_files
 
         self.per_file_progress = is_google_colab() or not is_notebook()
+
+        _nrows = (
+            _NUM_OVERVIEW_BARS + n_lines + _NUM_SHARD_BARS + 1
+            if self.per_file_progress
+            else _NUM_OVERVIEW_BARS + _NUM_SHARD_BARS + 1
+        )
 
         self.tqdm_settings = {
             "unit": "B",
             "unit_scale": True,
             "leave": True,
             "unit_divisor": 1000,
-            "nrows": n_lines + 3 if self.per_file_progress else 3,
+            "nrows": _nrows,
             "miniters": 1,
-            "bar_format": "{l_bar}{bar}| {n_fmt:>5}B / {total_fmt:>5}B{postfix:>12}",
+            "bar_format": XET_BYTES_BAR_FORMAT,
         }
 
-        # Overall progress bars
+        # Percentage only — validation-entry totals are opaque Xet internals.
+        self.percent_tqdm_settings = {
+            "unit": "",
+            "unit_scale": False,
+            "leave": True,
+            "nrows": _nrows,
+            "miniters": 1,
+            "bar_format": "{desc}: {bar}| {percentage:3.0f}%{postfix:>12}",
+        }
+
+        # Overview bars (always shown)
         self.data_processing_bar = tqdm(
             total=0, desc=self.format_desc("Processing Files (0 / 0)", False), position=0, **self.tqdm_settings
         )
@@ -39,12 +231,21 @@ class XetProgressReporter:
             total=0, desc=self.format_desc("New Data Upload", False), position=1, **self.tqdm_settings
         )
 
+        # Single Validating bar created lazily on the first shard event.
+        # Covers shard upload / validation / sync without exposing "shard" jargon.
+        # Positioned dynamically after the active per-file bars (see _validating_bar_position).
+        self.validating_bar: tqdm | None = None
+
         self.known_items: set[str] = set()
         self.completed_items: set[str] = set()
 
-        # Item bars (scrolling view)
-        self.item_state: OrderedDict[str, PyItemProgressUpdate] = OrderedDict()
-        self.current_bars: List = [None] * self.n_lines
+        # Track previous absolute values to compute increments
+        self._prev_bytes_completed: int = 0
+        self._prev_transfer_bytes_completed: int = 0
+
+        # Item bars (scrolling view); positions start at _NUM_OVERVIEW_BARS
+        self.item_state: OrderedDict[str, Any] = OrderedDict()
+        self.current_bars: list = [None] * self.n_lines
 
     def format_desc(self, name: str, indent: bool) -> str:
         """
@@ -64,9 +265,38 @@ class XetProgressReporter:
 
         return f"{padding}{name.ljust(width)}"
 
-    def update_progress(self, total_update: PyTotalProgressUpdate, item_updates: list[PyItemProgressUpdate]):
+    def _validating_bar_position(self) -> int:
+        """Place Validating right after overview bars and any active per-file bars."""
+        if not self.per_file_progress:
+            return _NUM_OVERVIEW_BARS
+        n_active = sum(1 for bar in self.current_bars if bar is not None)
+        return _NUM_OVERVIEW_BARS + n_active
+
+    def _init_validating_bar(self) -> None:
+        """Create the Validating progress bar on first shard event."""
+        self.validating_bar = tqdm(
+            total=0,
+            desc=self.format_desc("Validating", False),
+            position=self._validating_bar_position(),
+            **self.percent_tqdm_settings,
+        )
+
+    def reset_for_next_commit(self):
+        """Reset per-commit state so the reporter can be reused across multiple upload commits."""
+        self._prev_bytes_completed = 0
+        self._prev_transfer_bytes_completed = 0
+        self.known_items.clear()
+        self.completed_items.clear()
+        self.item_state.clear()
+        # Shard counters are absolute per commit — restart Validating at 0% for the next chunk.
+        if self.validating_bar is not None:
+            self.validating_bar.n = 0
+            self.validating_bar.total = 0
+            self.validating_bar.refresh()
+
+    def update_progress(self, group_report, item_reports: dict):
         # Update all the per-item values.
-        for item in item_updates:
+        for item in item_reports.values():
             item_name = item.item_name
 
             self.known_items.add(item_name)
@@ -102,9 +332,14 @@ class XetProgressReporter:
                 in_final_bar_mode = False
 
             if bar is None:
+                # Move Validating before creating a file bar in its current row.
+                if self.validating_bar is not None and self.validating_bar.pos == -(_NUM_OVERVIEW_BARS + bar_idx):
+                    self.validating_bar.clear()
+                    self.validating_bar.pos -= 1
+                    self.validating_bar.refresh()
                 self.current_bars[bar_idx] = tqdm(
                     desc=self.format_desc(name, True),
-                    position=2 + bar_idx,  # Set to the position past the initial bars.
+                    position=_NUM_OVERVIEW_BARS + bar_idx,
                     total=item.total_bytes,
                     initial=item.bytes_completed,
                     **self.tqdm_settings,
@@ -136,25 +371,59 @@ class XetProgressReporter:
                     bar.refresh()
 
         # Update overall bars
-        def postfix(speed):
-            s = tqdm.format_sizeof(speed) if speed is not None else "???"
-            return f"{s}B/s  ".rjust(10, " ")
+        bytes_inc = max(0, group_report.total_bytes_completed - self._prev_bytes_completed)
+        transfer_inc = max(0, group_report.total_transfer_bytes_completed - self._prev_transfer_bytes_completed)
+        self._prev_bytes_completed = group_report.total_bytes_completed
+        self._prev_transfer_bytes_completed = group_report.total_transfer_bytes_completed
 
-        self.data_processing_bar.total = total_update.total_bytes
+        self.data_processing_bar.total = group_report.total_bytes
+        total_files_count = self.total_files if self.total_files is not None else len(self.known_items)
         self.data_processing_bar.set_description(
-            self.format_desc(f"Processing Files ({len(self.completed_items)} / {len(self.known_items)})", False),
+            self.format_desc(f"Processing Files ({len(self.completed_items)} / {total_files_count})", False),
             refresh=False,
         )
-        self.data_processing_bar.set_postfix_str(postfix(total_update.total_bytes_completion_rate), refresh=False)
-        self.data_processing_bar.update(total_update.total_bytes_completion_increment)
+        self.data_processing_bar.set_postfix_str(
+            _format_speed_postfix(group_report.total_bytes_completion_rate), refresh=False
+        )
+        self.data_processing_bar.update(bytes_inc)
 
-        self.upload_bar.total = total_update.total_transfer_bytes
-        self.upload_bar.set_postfix_str(postfix(total_update.total_transfer_bytes_completion_rate), refresh=False)
-        self.upload_bar.update(total_update.total_transfer_bytes_completion_increment)
+        self.upload_bar.total = group_report.total_transfer_bytes
+        self.upload_bar.set_postfix_str(
+            _format_speed_postfix(group_report.total_transfer_bytes_completion_rate), refresh=False
+        )
+        self.upload_bar.update(transfer_inc)
 
-    def close(self, _success):
+        # Single Validating bar for shard finalization (v2 shard API).
+        # Prefer validation-entry counts (the long phase). Fall back to shard-completion
+        # counts when entries are absent (e.g. V1 synthetic Result with no Validating frames).
+        # Set absolute n/total for the current commit; reset_for_next_commit restarts at 0%.
+        shard = getattr(group_report, "shard", None)
+        if shard is not None and shard.total_shards > 0:
+            if self.validating_bar is None:
+                self._init_validating_bar()
+
+            assert self.validating_bar is not None
+
+            if shard.total_shard_validation_entries > 0:
+                done_n, total_n = (
+                    shard.total_shard_validation_entries_completed,
+                    shard.total_shard_validation_entries,
+                )
+            else:
+                done_n, total_n = shard.total_shards_completed, shard.total_shards
+
+            self.validating_bar.total = total_n or None
+            self.validating_bar.n = done_n
+            # Keep Validating snug under the active file bars as more slots fill in.
+            self.validating_bar.pos = -self._validating_bar_position()
+            self.validating_bar.refresh()
+
+    def close(self):
         self.data_processing_bar.close()
         self.upload_bar.close()
+
+        if self.validating_bar is not None:
+            self.validating_bar.close()
 
         if self.per_file_progress:
             for bar in self.current_bars:

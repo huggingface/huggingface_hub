@@ -2,7 +2,7 @@ import time
 
 import pytest
 
-from huggingface_hub.utils._parsing import format_timesince, parse_duration, parse_size
+from huggingface_hub.utils._parsing import format_duration, format_timesince, parse_duration, parse_size
 
 
 @pytest.mark.parametrize(
@@ -13,6 +13,10 @@ from huggingface_hub.utils._parsing import format_timesince, parse_duration, par
         ("5M", 5_000_000),
         ("2G", 2_000_000_000),
         ("1T", 1_000_000_000_000),
+        ("3KB", 3_000),
+        ("10MB", 10_000_000),
+        ("1GB", 1_000_000_000),
+        ("2TB", 2_000_000_000_000),
         ("0", 0),
     ],
 )
@@ -24,7 +28,6 @@ def test_parse_size_valid(value, expected):
     "value",
     [
         "1.5G",
-        "3KB",
         "-5M",
         "10X",
         "abc",
@@ -83,7 +86,35 @@ def test_parse_duration_invalid(value):
         (1000, "17 minutes ago"),
         (4000, "1 hour ago"),
         (8000, "2 hours ago"),
+        # Unit boundaries must roll over to the next unit, not show e.g.
+        # "60 seconds ago" / "60 minutes ago" / "24 hours ago".
+        (59, "59 seconds ago"),
+        (60, "1 minute ago"),
+        (59 * 60, "59 minutes ago"),
+        (60 * 60, "1 hour ago"),
+        (23 * 60 * 60, "23 hours ago"),
+        (24 * 60 * 60, "1 day ago"),
     ],
 )
 def test_format_timesince(value, expected):
     assert format_timesince(time.time() - value) == expected
+
+
+@pytest.mark.parametrize(
+    ("secs", "expected"),
+    [
+        (None, "--"),
+        (0, "0s"),
+        (1, "1s"),
+        (45, "45s"),
+        (59, "59s"),
+        (60, "1m 0s"),
+        (61, "1m 1s"),
+        (199, "3m 19s"),
+        (3599, "59m 59s"),
+        (3600, "1h 0m"),
+        (8100, "2h 15m"),
+    ],
+)
+def test_format_duration(secs, expected):
+    assert format_duration(secs) == expected

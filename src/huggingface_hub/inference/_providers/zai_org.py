@@ -1,6 +1,6 @@
 import time
 from abc import ABC
-from typing import Any, Optional, Union
+from typing import Any
 
 from huggingface_hub.hf_api import InferenceProviderMapping
 from huggingface_hub.inference._common import RequestParameters, _as_dict
@@ -50,7 +50,7 @@ class ZaiTextToImageTask(ZaiTask):
 
     def _prepare_payload_as_dict(
         self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
-    ) -> Optional[dict]:
+    ) -> dict | None:
         width = parameters.pop("width", None)
         height = parameters.pop("height", None)
         size = None
@@ -69,8 +69,8 @@ class ZaiTextToImageTask(ZaiTask):
 
     def get_response(
         self,
-        response: Union[bytes, dict],
-        request_params: Optional[RequestParameters] = None,
+        response: bytes | dict,
+        request_params: RequestParameters | None = None,
     ) -> Any:
         """Handle async response by polling for results."""
         response_dict = _as_dict(response)

@@ -28,12 +28,19 @@ The list helpers have several attributes like:
 - `filter`
 - `author`
 - `search`
+- `num_parameters`
 - ...
 
 Let's see an example to get all models on the Hub that does image classification, have been trained on the imagenet dataset and that runs with PyTorch.
 
 ```py
 models = hf_api.list_models(filter=["image-classification", "pytorch", "imagenet"])
+```
+
+You can also filter models by parameter count using the same range syntax as the Hub UI:
+
+```py
+models = hf_api.list_models(num_parameters="min:6B,max:128B")
 ```
 
 While filtering, you can also sort the models and take only the top results. For example,

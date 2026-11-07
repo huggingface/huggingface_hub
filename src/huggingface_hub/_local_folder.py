@@ -1,4 +1,3 @@
-# coding=utf-8
 # Copyright 2024-present, the HuggingFace Inc. team.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -55,13 +54,20 @@ import logging
 import os
 import time
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Optional
+from pathlib import Path, PurePosixPath, PureWindowsPath
 
 from .utils import WeakFileLock
+from .utils._paths import as_extended_path
 
 
 logger = logging.getLogger(__name__)
+
+CACHEDIR_TAG_CONTENT = (
+    "Signature: 8a477f597d28d172789f06886806bc55\n"
+    "# This file is a cache directory tag created by huggingface_hub.\n"
+    "# For information about cache directory tags, see:\n"
+    "#\thttps://bford.info/cachedir/\n"
+)
 
 
 @dataclass
@@ -87,12 +93,7 @@ class LocalDownloadFilePaths:
     def incomplete_path(self, etag: str) -> Path:
         """Return the path where a file will be temporarily downloaded before being moved to `file_path`."""
         path = self.metadata_path.parent / f"{_short_hash(self.metadata_path.name)}.{etag}.incomplete"
-        resolved_path = str(path.resolve())
-        # Some Windows versions do not allow for paths longer than 255 characters.
-        # In this case, we must specify it as an extended path by using the "\\?\" prefix.
-        if os.name == "nt" and len(resolved_path) > 255 and not resolved_path.startswith("\\\\?\\"):
-            path = Path("\\\\?\\" + resolved_path)
-        return path
+        return Path(as_extended_path(path))
 
 
 @dataclass(frozen=True)
@@ -151,11 +152,11 @@ class LocalUploadFileMetadata:
     size: int
 
     # Default values correspond to "we don't know yet"
-    timestamp: Optional[float] = None
-    should_ignore: Optional[bool] = None
-    sha256: Optional[str] = None
-    upload_mode: Optional[str] = None
-    remote_oid: Optional[str] = None
+    timestamp: float | None = None
+    should_ignore: bool | None = None
+    sha256: str | None = None
+    upload_mode: str | None = None
+    remote_oid: str | None = None
     is_uploaded: bool = False
     is_committed: bool = False
 
@@ -191,6 +192,41 @@ class LocalUploadFileMetadata:
             self.timestamp = new_timestamp
 
 
+def _validate_relative_filename(filename: str) -> None:
+    """Validate that a repo filename is safe to use as a path relative to a local directory.
+
+    A repo filename is a POSIX-style ('/'-separated) path relative to the repo root. When materialized
+    on disk (in `local_dir` or in the cache), it is joined onto a base directory. A malicious repository
+    could craft a filename that escapes that base directory, resulting in an arbitrary file write:
+
+    - an absolute path (`/etc/...`),
+    - a Windows drive path (`C:\\Windows\\...`) or drive-relative path (`D:foo`),
+    - a UNC path (`\\\\attacker-host\\share\\...`) — which on Windows additionally makes the client
+      authenticate to the attacker's SMB server during path resolution, leaking a NetNTLMv2 hash,
+    - a path using `..` to traverse upward.
+
+    Such filenames would otherwise cause `local_dir / filename` to discard `local_dir` (when the right
+    side is anchored) or point outside of it (with `..`). We reject them here, before touching the
+    filesystem. The check runs on all platforms and interprets the name under both POSIX and Windows
+    rules, so a file materialized on Linux cannot escape when later consumed on Windows.
+    """
+    # Reject parent-directory traversal ('..' as any segment, whether '/'- or '\'-separated).
+    if ".." in filename.replace("\\", "/").split("/"):
+        raise ValueError(
+            f"Invalid filename '{filename}': cannot contain a '..' path segment. "
+            "Please ask the repository owner to rename this file."
+        )
+    # Reject anchored paths (absolute / drive / root-relative / UNC) under either OS's rules.
+    # Check each POSIX segment under Windows rules because os.path.join handles them separately.
+    pure_paths = [PurePosixPath(filename), *(PureWindowsPath(part) for part in filename.split("/"))]
+    for pure_path in pure_paths:
+        if pure_path.drive or pure_path.root:
+            raise ValueError(
+                f"Invalid filename '{filename}': cannot be an absolute, drive-relative or UNC path. "
+                "Please ask the repository owner to rename this file."
+            )
+
+
 def get_local_download_paths(local_dir: Path, filename: str) -> LocalDownloadFilePaths:
     """Compute paths to the files related to a download process.
 
@@ -205,26 +241,18 @@ def get_local_download_paths(local_dir: Path, filename: str) -> LocalDownloadFil
     Return:
         [`LocalDownloadFilePaths`]: the paths to the files (file_path, lock_path, metadata_path, incomplete_path).
     """
+    _validate_relative_filename(filename)
     # filename is the path in the Hub repository (separated by '/')
     # make sure to have a cross-platform transcription
     sanitized_filename = os.path.join(*filename.split("/"))
-    if os.name == "nt":
-        if sanitized_filename.startswith("..\\") or "\\..\\" in sanitized_filename:
-            raise ValueError(
-                f"Invalid filename: cannot handle filename '{sanitized_filename}' on Windows. Please ask the repository"
-                " owner to rename this file."
-            )
     file_path = local_dir / sanitized_filename
     metadata_path = _huggingface_dir(local_dir) / "download" / f"{sanitized_filename}.metadata"
     lock_path = metadata_path.with_suffix(".lock")
 
-    # Some Windows versions do not allow for paths longer than 255 characters.
-    # In this case, we must specify it as an extended path by using the "\\?\" prefix
-    if os.name == "nt":
-        if not str(local_dir).startswith("\\\\?\\") and len(os.path.abspath(lock_path)) > 255:
-            file_path = Path("\\\\?\\" + os.path.abspath(file_path))
-            lock_path = Path("\\\\?\\" + os.path.abspath(lock_path))
-            metadata_path = Path("\\\\?\\" + os.path.abspath(metadata_path))
+    # Parent directories are created below => use the stricter Windows limit for directories.
+    file_path = Path(as_extended_path(file_path, max_length=247))
+    lock_path = Path(as_extended_path(lock_path, max_length=247))
+    metadata_path = Path(as_extended_path(metadata_path, max_length=247))
 
     file_path.parent.mkdir(parents=True, exist_ok=True)
     metadata_path.parent.mkdir(parents=True, exist_ok=True)
@@ -245,26 +273,18 @@ def get_local_upload_paths(local_dir: Path, filename: str) -> LocalUploadFilePat
     Return:
         [`LocalUploadFilePaths`]: the paths to the files (file_path, lock_path, metadata_path).
     """
+    _validate_relative_filename(filename)
     # filename is the path in the Hub repository (separated by '/')
     # make sure to have a cross-platform transcription
     sanitized_filename = os.path.join(*filename.split("/"))
-    if os.name == "nt":
-        if sanitized_filename.startswith("..\\") or "\\..\\" in sanitized_filename:
-            raise ValueError(
-                f"Invalid filename: cannot handle filename '{sanitized_filename}' on Windows. Please ask the repository"
-                " owner to rename this file."
-            )
     file_path = local_dir / sanitized_filename
     metadata_path = _huggingface_dir(local_dir) / "upload" / f"{sanitized_filename}.metadata"
     lock_path = metadata_path.with_suffix(".lock")
 
-    # Some Windows versions do not allow for paths longer than 255 characters.
-    # In this case, we must specify it as an extended path by using the "\\?\" prefix
-    if os.name == "nt":
-        if not str(local_dir).startswith("\\\\?\\") and len(os.path.abspath(lock_path)) > 255:
-            file_path = Path("\\\\?\\" + os.path.abspath(file_path))
-            lock_path = Path("\\\\?\\" + os.path.abspath(lock_path))
-            metadata_path = Path("\\\\?\\" + os.path.abspath(metadata_path))
+    # Parent directories are created below => use the stricter Windows limit for directories.
+    file_path = Path(as_extended_path(file_path, max_length=247))
+    lock_path = Path(as_extended_path(lock_path, max_length=247))
+    metadata_path = Path(as_extended_path(metadata_path, max_length=247))
 
     file_path.parent.mkdir(parents=True, exist_ok=True)
     metadata_path.parent.mkdir(parents=True, exist_ok=True)
@@ -273,7 +293,7 @@ def get_local_upload_paths(local_dir: Path, filename: str) -> LocalUploadFilePat
     )
 
 
-def read_download_metadata(local_dir: Path, filename: str) -> Optional[LocalDownloadFileMetadata]:
+def read_download_metadata(local_dir: Path, filename: str) -> LocalDownloadFileMetadata | None:
     """Read metadata about a file in the local directory related to a download process.
 
     Args:
@@ -426,12 +446,19 @@ def _huggingface_dir(local_dir: Path) -> Path:
     """Return the path to the `.cache/huggingface` directory in a local directory."""
     # Wrap in lru_cache to avoid overwriting the .gitignore file if called multiple times
     path = local_dir / ".cache" / "huggingface"
-    path.mkdir(exist_ok=True, parents=True)
+    # Creating the `.cache/huggingface` directory (and the bookkeeping files below) fails for a deep `local_dir`, so
+    # the filesystem operations go through the extended-length form. The un-prefixed `path` is still returned so
+    # callers keep re-deriving/prefixing as before.
+    target = Path(as_extended_path(path, max_length=247))
+    target.mkdir(exist_ok=True, parents=True)
+
+    # Create a CACHEDIR.TAG so backup tools can skip this directory.
+    _create_cachedir_tag(target)
 
     # Create a .gitignore file in the .cache/huggingface directory if it doesn't exist
     # Should be thread-safe enough like this.
-    gitignore = path / ".gitignore"
-    gitignore_lock = path / ".gitignore.lock"
+    gitignore = target / ".gitignore"
+    gitignore_lock = target / ".gitignore.lock"
     if not gitignore.exists():
         try:
             with WeakFileLock(gitignore_lock, timeout=0.1):
@@ -445,6 +472,20 @@ def _huggingface_dir(local_dir: Path) -> Path:
         except OSError:
             pass
     return path
+
+
+def _create_cachedir_tag(cache_dir: Path) -> None:
+    """Create a CACHEDIR.TAG file in ``cache_dir`` if one does not already exist.
+
+    The tag follows the `Cache Directory Tagging Standard <http://www.brynosaurus.com/cachedir/>`_
+    so that backup tools can recognize and skip cache directories.
+    """
+    tag_path = cache_dir / "CACHEDIR.TAG"
+    if not tag_path.exists():
+        try:
+            tag_path.write_text(CACHEDIR_TAG_CONTENT)
+        except OSError:
+            pass
 
 
 def _short_hash(filename: str) -> str:

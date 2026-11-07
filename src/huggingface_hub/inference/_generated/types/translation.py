@@ -15,15 +15,15 @@ TranslationTruncationStrategy = Literal["do_not_truncate", "longest_first", "onl
 class TranslationParameters(BaseInferenceType):
     """Additional inference parameters for Translation"""
 
-    clean_up_tokenization_spaces: Optional[bool] = None
+    clean_up_tokenization_spaces: bool | None = None
     """Whether to clean up the potential extra spaces in the text output."""
-    generate_parameters: Optional[dict[str, Any]] = None
+    generate_parameters: dict[str, Any] | None = None
     """Additional parametrization of the text generation algorithm."""
-    src_lang: Optional[str] = None
+    src_lang: str | None = None
     """The source language of the text. Required for models that can translate from multiple
     languages.
     """
-    tgt_lang: Optional[str] = None
+    tgt_lang: str | None = None
     """Target language to translate to. Required for models that can translate to multiple
     languages.
     """
@@ -37,7 +37,7 @@ class TranslationInput(BaseInferenceType):
 
     inputs: str
     """The text to translate."""
-    parameters: Optional[TranslationParameters] = None
+    parameters: TranslationParameters | None = None
     """Additional inference parameters for Translation"""
 
 

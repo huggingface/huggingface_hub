@@ -1,4 +1,5 @@
 import json
+import pickle
 import struct
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -18,9 +19,8 @@ from huggingface_hub.serialization import (
     split_torch_state_dict_into_shards,
 )
 from huggingface_hub.serialization._base import parse_size_to_int
-from huggingface_hub.serialization._torch import _load_sharded_checkpoint
-
-from .testing_utils import requires
+from huggingface_hub.serialization._torch import _is_safetensors, _load_sharded_checkpoint
+from huggingface_hub.utils import is_torch_available
 
 
 if TYPE_CHECKING:
@@ -243,7 +243,29 @@ def test_tensor_same_storage():
     assert state_dict_split.metadata == {"total_size": 3}  # count them once
 
 
-@requires("torch")
+def test_single_shard_skips_string_tensors():
+    # String values can appear in a state dict when bnb serialization is used (see
+    # https://github.com/huggingface/transformers/pull/24416). They are skipped when building
+    # shards, so they must also be absent from the single-shard index, consistently with the
+    # multi-shard path.
+    state_dict_split = split_state_dict_into_shards_factory(
+        {
+            "layer_1": [6],
+            "bnb_string": "quantization_metadata",  # skipped, must not appear in the index
+            "layer_2": [10],
+        },
+        get_storage_id=_dummy_get_storage_id,
+        get_storage_size=_dummy_get_storage_size,
+        max_shard_size=100,  # large shard size => only one shard
+        filename_pattern="file{suffix}.dummy",
+    )
+    assert not state_dict_split.is_sharded
+    assert state_dict_split.filename_to_tensors == {"file.dummy": ["layer_1", "layer_2"]}
+    assert state_dict_split.tensor_to_filename == {"layer_1": "file.dummy", "layer_2": "file.dummy"}
+    assert state_dict_split.metadata == {"total_size": 16}
+
+
+@pytest.mark.skipif(not is_torch_available(), reason="Test requires torch")
 def test_get_torch_storage_size():
     import torch  # type: ignore[import]
 
@@ -251,7 +273,7 @@ def test_get_torch_storage_size():
     assert get_torch_storage_size(torch.tensor([1, 2, 3, 4, 5], dtype=torch.float16)) == 5 * 2
 
 
-@requires("torch")
+@pytest.mark.skipif(not is_torch_available(), reason="Test requires torch")
 @pytest.mark.skipif(not is_dtensor_available(), reason="requires torch with dtensor available")
 def test_get_torch_storage_size_dtensor():
     # testing distributed sharded tensors isn't very easy, would need to subprocess call torchrun, so this should be good enough
@@ -278,7 +300,7 @@ def test_get_torch_storage_size_dtensor():
         dist.destroy_process_group()
 
 
-@requires("torch")
+@pytest.mark.skipif(not is_torch_available(), reason="Test requires torch")
 @pytest.mark.skipif(not is_wrapper_tensor_subclass_available(), reason="requires torch 2.1 or higher")
 def test_get_torch_storage_size_wrapper_tensor_subclass():
     import torch  # type: ignore[import]
@@ -603,7 +625,7 @@ def test_save_torch_state_dict_not_main_process(
     assert (tmp_path / "model.safetensors.index.json").is_file()
 
 
-@requires("torch")
+@pytest.mark.skipif(not is_torch_available(), reason="Test requires torch")
 def test_load_state_dict_from_file(tmp_path: Path, torch_state_dict: dict[str, "torch.Tensor"]):
     """Test saving and loading a state dict with both safetensors and pickle formats."""
     import torch  # type: ignore[import]
@@ -618,14 +640,18 @@ def test_load_state_dict_from_file(tmp_path: Path, torch_state_dict: dict[str, "
 
     # Test PyTorch pickle format
     save_torch_state_dict(torch_state_dict, tmp_path, safe_serialization=False)
-    loaded_dict = load_state_dict_from_file(tmp_path / "pytorch_model.bin")
+    loaded_dict = load_state_dict_from_file(tmp_path / "pytorch_model.bin", safe=False)
     assert isinstance(loaded_dict, dict)
     assert set(loaded_dict.keys()) == set(torch_state_dict.keys())
     for key in torch_state_dict:
         assert torch.equal(loaded_dict[key], torch_state_dict[key])
 
+    # A pickle checkpoint is rejected by default (`safe=True`)
+    with pytest.raises(ValueError, match="Cannot load .* as safetensors"):
+        load_state_dict_from_file(tmp_path / "pytorch_model.bin")
 
-@requires("torch")
+
+@pytest.mark.skipif(not is_torch_available(), reason="Test requires torch")
 def test_load_sharded_state_dict(
     tmp_path: Path,
     torch_state_dict: dict[str, "torch.Tensor"],
@@ -655,7 +681,7 @@ def test_load_sharded_state_dict(
         assert torch.equal(loaded_state_dict[key], torch_state_dict[key])
 
 
-@requires("torch")
+@pytest.mark.skipif(not is_torch_available(), reason="Test requires torch")
 def test_load_from_directory_not_sharded(
     tmp_path: Path, torch_state_dict: dict[str, "torch.Tensor"], dummy_model: "torch.nn.Module"
 ):
@@ -683,13 +709,12 @@ def test_load_state_dict_missing_file(safe_serialization):
     with pytest.raises(FileNotFoundError, match="No checkpoint file found"):
         load_state_dict_from_file(
             "nonexistent.safetensors" if safe_serialization else "nonexistent.bin",
-            weights_only=False,
         )
 
 
 def test_load_torch_model_directory_does_not_exist():
     """Test proper error handling when directory does not contain a valid checkpoint."""
-    with pytest.raises(ValueError, match="Checkpoint path does_not_exist does not exist"):
+    with pytest.raises(FileNotFoundError, match="Checkpoint path does_not_exist does not exist"):
         load_torch_model(Mock(), "does_not_exist")
 
 
@@ -786,22 +811,15 @@ def test_load_torch_model_with_filename_pattern(tmp_path, torch_state_dict, dumm
             ["model.variant.safetensors.index.json", "pytorch_model.bin.index.json"],
             "model.variant{suffix}.safetensors",
         ),  # both exist and safe=False -> load safetensors
-        # `filename_pattern` takes precedence over `safe` parameter
         (
             "model.variant{suffix}.bin",
             False,
             ["model.variant.safetensors.index.json", "model.variant.bin.index.json"],
             "model.variant{suffix}.bin",
         ),  # custom filename pattern and safe=False -> load custom file index
-        (
-            "model.variant{suffix}.bin",
-            True,
-            ["model.variant.safetensors.index.json", "model.variant.bin.index.json"],
-            "model.variant{suffix}.bin",
-        ),  # custom filename pattern and safe=False -> load custom file index
     ],
 )
-@requires("torch")
+@pytest.mark.skipif(not is_torch_available(), reason="Test requires torch")
 def test_load_torch_model_index_selection(
     tmp_path: Path,
     filename_pattern,
@@ -828,3 +846,276 @@ def test_load_torch_model_index_selection(
     load_torch_model(model, tmp_path, safe=safe, filename_pattern=filename_pattern)
     mock_load.assert_called_once()
     assert mock_load.call_args.kwargs["filename_pattern"] == expected_filename_pattern
+
+
+@pytest.mark.skipif(not is_torch_available(), reason="Test requires torch")
+def test_load_torch_model_pickle_pattern_with_safe_true(tmp_path):
+    """A pickle `filename_pattern` combined with `safe=True` is rejected instead of silently loading pickles."""
+    import torch
+
+    class SimpleModel(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.layer_1 = torch.nn.Parameter(torch.tensor([0.0]))
+
+    (tmp_path / "model.variant.bin.index.json").touch()
+
+    with pytest.raises(ValueError, match="does not describe safetensors files but `safe=True`"):
+        load_torch_model(SimpleModel(), tmp_path, safe=True, filename_pattern="model.variant{suffix}.bin")
+
+
+@pytest.mark.skipif(not is_torch_available(), reason="Test requires torch")
+def test_load_torch_model_forwards_mmap_for_single_file(tmp_path, torch_state_dict, dummy_model, mocker):
+    """`mmap` used to be a silent no-op in the single-file branch."""
+    save_torch_state_dict(torch_state_dict, tmp_path)
+    mock_load = mocker.patch("huggingface_hub.serialization._torch.load_state_dict_from_file", return_value={})
+
+    load_torch_model(dummy_model, tmp_path / "model.safetensors", mmap=True)
+
+    assert mock_load.call_args.kwargs["mmap"] is True
+
+
+@pytest.mark.skipif(not is_torch_available(), reason="Test requires torch")
+def test_load_torch_model_safe_false_falls_back_to_pickle_with_several_safetensors(
+    tmp_path, torch_state_dict, dummy_model
+):
+    """The `.bin` fallback must also run when the safetensors glob found several files, not just zero."""
+    import torch
+
+    save_torch_state_dict(torch_state_dict, tmp_path)
+    (tmp_path / "model.fp16.safetensors").write_bytes((tmp_path / "model.safetensors").read_bytes())
+    torch.save(torch_state_dict, tmp_path / "pytorch_model.bin")
+
+    result = load_torch_model(dummy_model, tmp_path, safe=False)
+
+    assert not result.missing_keys
+
+
+class _MarkerPayload:
+    """Pickle payload that touches `marker` when unpickled.
+
+    Used to prove a checkpoint is never deserialized as pickle when it must not be: asserting that loading raised is
+    not enough, since the payload runs *before* any format error is raised.
+    """
+
+    def __init__(self, marker: Path) -> None:
+        self.marker = marker
+
+    def __reduce__(self):
+        return (Path.touch, (self.marker,))
+
+
+def _write_pickle(path: Path, marker: Path) -> None:
+    path.write_bytes(pickle.dumps(_MarkerPayload(marker)))
+
+
+class TestCheckpointLoadingSecurity:
+    """Regression tests for deserialization safety in checkpoint loading.
+
+    See https://github.com/huggingface/hackerone/issues/141 for more details.
+
+    Ensures that crafted checkpoints and index files cannot trick the loader into deserializing
+    unsafe pickle payloads or accessing files outside the checkpoint directory.
+    """
+
+    @pytest.mark.skipif(not is_torch_available(), reason="Test requires torch")
+    def test_pickle_payload_is_live(self, tmp_path):
+        """Control: the payload below does execute when pickle loading is explicitly requested.
+
+        `torch.load` only notices the file is not a real checkpoint *after* unpickling it, so the marker exists even
+        though the call raises.
+        """
+        marker = tmp_path / "PWNED"
+        checkpoint = tmp_path / "model.bin"
+        _write_pickle(checkpoint, marker)
+
+        with pytest.raises(RuntimeError, match="Invalid magic number"):
+            load_state_dict_from_file(checkpoint, safe=False, weights_only=False)
+
+        assert marker.exists()
+
+    @pytest.mark.skipif(not is_torch_available(), reason="Test requires torch")
+    @pytest.mark.parametrize("filename", ["model.safetensors", "model.SAFETENSORS", "model.SafeTensors"])
+    def test_pickle_named_safetensors_is_not_executed(self, tmp_path, filename):
+        """A pickle file named like safetensors goes to the safetensors loader, it is never deserialized."""
+        marker = tmp_path / "PWNED"
+        _write_pickle(tmp_path / filename, marker)
+
+        with pytest.raises(ValueError, match="Cannot load .* as safetensors"):
+            load_state_dict_from_file(tmp_path / filename)
+
+        assert not marker.exists()
+
+    @pytest.mark.skipif(not is_torch_available(), reason="Test requires torch")
+    def test_weights_only_default_rejects_pickle_globals(self, tmp_path):
+        """Without `weights_only=False`, torch's restricted unpickler refuses objects that are not tensors."""
+        marker = tmp_path / "PWNED"
+        checkpoint = tmp_path / "model.bin"
+        _write_pickle(checkpoint, marker)
+
+        with pytest.raises(pickle.UnpicklingError):
+            load_state_dict_from_file(checkpoint, safe=False)
+
+        assert not marker.exists()
+
+    @pytest.mark.skipif(not is_torch_available(), reason="Test requires torch")
+    @pytest.mark.parametrize("weights_only", [True, False])
+    def test_old_torch_warns_that_weights_only_is_not_honored(
+        self, tmp_path, torch_state_dict, mocker, caplog, weights_only
+    ):
+        """torch < 1.13 has no restricted unpickler, so `weights_only=True` cannot be honored: warn, don't stay silent."""
+        import torch
+
+        torch.save(torch_state_dict, tmp_path / "model.bin")
+        mocker.patch.object(torch, "__version__", "1.11.0")
+        mock_load = mocker.patch.object(torch, "load", return_value={})
+
+        with caplog.at_level("WARNING"):
+            load_state_dict_from_file(tmp_path / "model.bin", safe=False, weights_only=weights_only)
+
+        assert "weights_only" not in mock_load.call_args.kwargs  # not forwarded on this torch
+        assert "arbitrary code at load time" in caplog.text
+
+    @pytest.mark.skipif(not is_torch_available(), reason="Test requires torch")
+    def test_load_torch_model_does_not_execute_pickle(self, tmp_path, dummy_model):
+        """Neither an explicit pickle path nor a directory picks up a pickle under `safe=True`."""
+        marker = tmp_path / "PWNED"
+        checkpoint = tmp_path / "pytorch_model.bin"
+        _write_pickle(checkpoint, marker)
+
+        with pytest.raises(ValueError, match="Cannot load .* as safetensors"):
+            load_torch_model(dummy_model, checkpoint, safe=True)
+
+        # In a directory, a `.bin` is simply not picked up when `safe=True`; the uppercase spelling is only matched
+        # on a case-insensitive filesystem, where it goes to the safetensors loader and is rejected.
+        checkpoint.rename(tmp_path / "model.SAFETENSORS")
+        with pytest.raises(ValueError):
+            load_torch_model(dummy_model, tmp_path, safe=True)
+
+        assert not marker.exists()
+
+    @pytest.mark.skipif(not is_torch_available(), reason="Test requires torch")
+    def test_load_sharded_model_strict_succeeds(self, tmp_path, torch_state_dict, dummy_model):
+        """`strict=True` works on a legitimate multi-shard checkpoint."""
+        save_torch_state_dict(torch_state_dict, tmp_path, max_shard_size=30)
+        assert (tmp_path / "model.safetensors.index.json").is_file()  # actually sharded
+
+        result = load_torch_model(dummy_model, tmp_path, strict=True)
+
+        assert not result.missing_keys
+        assert not result.unexpected_keys
+
+    @pytest.mark.skipif(not is_torch_available(), reason="Test requires torch")
+    def test_index_cannot_misreport_the_loaded_keys(self, tmp_path, torch_state_dict, dummy_model):
+        """Keys are reported from the shard contents, not from the index declaring them."""
+        save_torch_state_dict(torch_state_dict, tmp_path, max_shard_size=30)
+        index_file = tmp_path / "model.safetensors.index.json"
+        index = json.loads(index_file.read_text())
+        weight_map = index["weight_map"]
+
+        # Drop an entry whose shard holds other tensors: that shard is still listed, so the tensor is still loaded.
+        shards = list(weight_map.values())
+        dropped_key = next(key for key, shard in weight_map.items() if shards.count(shard) > 1)
+        del weight_map[dropped_key]
+        # And declare a tensor that no shard contains.
+        weight_map["ghost"] = shards[0]
+        index_file.write_text(json.dumps(index))
+
+        result = load_torch_model(dummy_model, tmp_path)
+
+        assert dropped_key not in result.missing_keys  # it was loaded from the shard all along
+        assert "ghost" not in result.unexpected_keys  # and was never loaded
+
+        # And the index cannot fail `strict=True` over a tensor no shard ever held either.
+        result = load_torch_model(dummy_model, tmp_path, strict=True)
+        assert not result.missing_keys
+        assert not result.unexpected_keys
+
+    @pytest.mark.skipif(not is_torch_available(), reason="Test requires torch")
+    def test_load_torch_model_safe_false_loads_safetensors(self, tmp_path, torch_state_dict, dummy_model):
+        """`safe=False` means "fall back to pickle", not "pickle first"."""
+        save_torch_state_dict(torch_state_dict, tmp_path)
+        assert (tmp_path / "model.safetensors").is_file()
+
+        result = load_torch_model(dummy_model, tmp_path, safe=False)
+
+        assert not result.missing_keys
+
+    @pytest.mark.parametrize("index", [None, [1, 2], {"foo": "bar"}, {"weight_map": [1, 2]}, {"weight_map": {"a": 1}}])
+    def test_malformed_index_is_rejected(self, tmp_path, index):
+        """A malformed index raises a clear `ValueError` instead of a raw traceback."""
+        (tmp_path / "model.safetensors.index.json").write_text(json.dumps(index))
+
+        with pytest.raises(ValueError, match="Invalid index file"):
+            load_torch_model(Mock(), tmp_path)
+
+    def test_safetensors_index_rejects_bin_shard(self, tmp_path):
+        """A safetensors index file referencing a .bin shard must be rejected."""
+        index = {
+            "metadata": {"total_size": 100},
+            "weight_map": {
+                "layer_1": "model-00001-of-00001.bin",
+            },
+        }
+        (tmp_path / "model.safetensors.index.json").write_text(json.dumps(index))
+        (tmp_path / "model-00001-of-00001.bin").touch()
+
+        with pytest.raises(ValueError, match="Invalid shard filename.*Expected '.safetensors' extension"):
+            load_torch_model(Mock(), tmp_path)
+
+    @pytest.mark.parametrize(
+        ("filename", "expected"),
+        [
+            ("model.safetensors", True),
+            ("model-00001-of-00002.safetensors", True),
+            (".safetensors", True),  # extension-only name: `Path(...).suffix` would return ""
+            ("sub/.safetensors", True),
+            (Path("model.safetensors"), True),
+            # Windows and macOS resolve filenames case-insensitively, so uppercase variants must be recognized
+            ("model.SAFETENSORS", True),
+            ("model.SafeTensors", True),
+            ("MODEL.SAFETENSORS", True),
+            ("model.bin", False),
+            ("model.safetensors.index.json", False),
+            ("safetensors", False),
+        ],
+    )
+    def test_is_safetensors(self, filename, expected):
+        assert _is_safetensors(filename) is expected
+
+    def test_safetensors_index_rejects_path_traversal(self, tmp_path):
+        """A shard filename with '..' path traversal must be rejected."""
+        index = {
+            "metadata": {"total_size": 100},
+            "weight_map": {
+                "layer_1": "../malicious.safetensors",
+            },
+        }
+        (tmp_path / "model.safetensors.index.json").write_text(json.dumps(index))
+
+        with pytest.raises(ValueError, match="Invalid shard filename.*without '..' components"):
+            load_torch_model(Mock(), tmp_path)
+
+    @pytest.mark.parametrize(
+        "malicious_path",
+        [
+            "/tmp/malicious.safetensors",  # POSIX absolute
+            "\\malicious.safetensors",  # Windows rooted, no drive (resolves to C:\malicious on Windows)
+            "C:malicious.safetensors",  # Windows drive-only (relative to CWD of drive C)
+            "C:\\malicious.safetensors",  # Windows drive-absolute
+            "\\\\server\\share\\malicious.safetensors",  # Windows UNC
+            "..\\malicious.safetensors",  # Windows-style traversal (backslash as separator)
+        ],
+    )
+    def test_safetensors_index_rejects_absolute_path(self, tmp_path, malicious_path):
+        """A shard filename with an absolute path must be rejected on every host OS."""
+        index = {
+            "metadata": {"total_size": 100},
+            "weight_map": {
+                "layer_1": malicious_path,
+            },
+        }
+        (tmp_path / "model.safetensors.index.json").write_text(json.dumps(index))
+
+        with pytest.raises(ValueError, match="Invalid shard filename.*without '..' components"):
+            load_torch_model(Mock(), tmp_path)
