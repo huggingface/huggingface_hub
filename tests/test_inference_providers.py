@@ -2098,6 +2098,51 @@ class TestWavespeedAIProvider:
             "size": "480*832",
         }
 
+    def test_prepare_text_to_image_payload_with_lora(self):
+        """LoRA adapter from the Hub mapping must be forwarded, mirroring @huggingface/inference."""
+        helper = WavespeedAITextToImageTask()
+        payload = helper._prepare_payload_as_dict(
+            "a beautiful cat",
+            {"seed": 42},
+            InferenceProviderMapping(
+                provider="wavespeed",
+                hf_model_id="krea/Krea-2-Turbo",
+                providerId="wavespeed-ai/krea-v2-medium-turbo/text-to-image",
+                task="text-to-image",
+                status="live",
+                adapter="lora",
+            ),
+        )
+        assert payload == {
+            "prompt": "a beautiful cat",
+            "seed": 42,
+            "loras": [{"path": "krea/Krea-2-Turbo", "scale": 1}],
+        }
+
+    def test_prepare_image_to_video_payload_with_lora(self, mocker):
+        """LoRA adapter on a live wavespeed image-to-video mapping (Pika-Labs/Pika-H3-Flex) is forwarded."""
+        helper = WavespeedAIImageToVideoTask()
+        mock_encode = mocker.patch("base64.b64encode")
+        mock_encode.return_value.decode.return_value = "base64_encoded_image"
+        payload = helper._prepare_payload_as_dict(
+            b"dummy_image_data",
+            {"prompt": "a rotating camera"},
+            InferenceProviderMapping(
+                provider="wavespeed",
+                hf_model_id="Pika-Labs/Pika-H3-Flex",
+                providerId="wavespeed-ai/minimax-h3/image-to-video-lora",
+                task="image-to-video",
+                status="live",
+                adapter="lora",
+                adapterWeightsPath="audio_vae/diffusion_pytorch_model.safetensors",
+            ),
+        )
+        assert payload == {
+            "image": "data:image/jpeg;base64,base64_encoded_image",
+            "prompt": "a rotating camera",
+            "loras": [{"path": "Pika-Labs/Pika-H3-Flex", "scale": 1}],
+        }
+
     def test_prepare_image_to_image_payload(self, mocker):
         """Test payload preparation for image-to-image task."""
         helper = WavespeedAIImageToImageTask()
