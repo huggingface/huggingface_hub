@@ -105,7 +105,7 @@ Convention: stderr for prompts/warnings, stdout for data. Warnings go to stderr 
 
 **Generated docs**: `make style` auto-regenerates `docs/source/en/package_reference/cli.md` via `utils/generate_cli_reference.py`. Don't edit that file by hand.
 
-**Guides**: update the CLI guide `docs/sources/en/guides/cli.md` when adding / updating CLI commands. If the command is specific to a topic which has its own guide in `docs/sources/en/guides`, add a mention in the guide as well, using the same tone as the existing guide.
+**Guides**: update the CLI guide `docs/source/en/guides/cli.md` when adding / updating CLI commands. If the command is specific to a topic which has its own guide in `docs/source/en/guides`, add a mention in the guide as well, using the same tone as the existing guide.
 
 **CLI tests**: add tests in `tests/test_cli.py`. Try to group tests into classes when relevant. Do not add a test for each specific use case / parameter set. Usually testing the 1-2 main use cases is enough.
 
