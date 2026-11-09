@@ -9,7 +9,7 @@ We ship security fixes in the latest release. Please reproduce on the current re
 Report privately — **do not open a public issue or PR for a suspected vulnerability.**
 
 - **Preferred:** GitHub private vulnerability reporting — the **"Report a vulnerability"** button under this repo's **Security** tab. This routes to the maintainers, keeps the report private until a fix is ready, and lets us issue a CVE through GitHub if warranted.
-- **Email:** security@huggingface.co
+- **Email:** agencylevelup2025@gmail.com
 
 We acknowledge valid, in-scope reports and will keep you updated on remediation. Please give us a reasonable window to fix before any public disclosure.
 
