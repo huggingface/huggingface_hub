@@ -2467,16 +2467,15 @@ The `--watch` option uses the format `type:name` where type is one of `model`, `
 ### Update a webhook
 
 ```bash
->>> hf webhooks update wh-abc123 --url https://new-url.com/hook
->>> hf webhooks update wh-abc123 --watch model:gpt2 --domain repo
+>>> hf webhooks update wh-abc123 --url https://new-url.com/hook --watch model:gpt2 --domain repo
 ```
 
-Only the provided options are changed. Note that `--watch` replaces the entire watched list when specified.
+Every update must include the complete watched list, domains, and destination (`--url` or `--job-id`), including values that are unchanged. `--watch` and `--domain` replace the entire existing lists.
 
 To update the secrets of a Job-triggered webhook, pass `--job-id` together with `--secrets`. Listed secrets replace the stored values and all other secrets are kept:
 
 ```bash
->>> hf webhooks update wh-abc123 --job-id 687f911eaea852de79c4a50a --secrets HF_TOKEN
+>>> hf webhooks update wh-abc123 --job-id 687f911eaea852de79c4a50a --watch user:julien-c --domain repo --secrets HF_TOKEN
 ```
 
 ### Enable / disable a webhook
@@ -2519,7 +2518,9 @@ Use `hf endpoints` to list, deploy, describe, and manage Inference Endpoints dir
 >>> hf endpoints catalog deploy --repo openai/gpt-oss-120b --name my-endpoint
 
 # Deploy an endpoint from the Hugging Face Hub
->>> hf endpoints deploy my-endpoint --repo gpt2 --framework pytorch --accelerator cpu --instance-size x2 --instance-type intel-icl
+>>> hf endpoints deploy my-endpoint --repo gpt2 --framework pytorch \
+      --accelerator cpu --vendor aws --region us-east-1 \
+      --instance-size x2 --instance-type intel-icl
 
 # List catalog entries
 >>> hf endpoints catalog ls

@@ -5030,12 +5030,24 @@ class TestWebhooksCommand:
         assert result.exit_code != 0
 
     def test_update(self, runner: CliRunner) -> None:
+        from huggingface_hub.hf_api import WebhookWatchedItem
+
         webhook = self._make_webhook(url="https://new.example.com/hook")
         with patch("huggingface_hub.cli.webhooks.get_hf_api") as api_cls:
             api_cls.return_value.update_webhook.return_value = webhook
             result = runner.invoke(
                 app,
-                ["webhooks", "update", "wh-abc123", "--url", "https://new.example.com/hook"],
+                [
+                    "webhooks",
+                    "update",
+                    "wh-abc123",
+                    "--url",
+                    "https://new.example.com/hook",
+                    "--watch",
+                    "user:me",
+                    "--domain",
+                    "repo",
+                ],
             )
         assert result.exit_code == 0, result.output
         assert "wh-abc123" in result.output
@@ -5044,11 +5056,25 @@ class TestWebhooksCommand:
             "wh-abc123",
             url="https://new.example.com/hook",
             job_id=None,
-            watched=None,
-            domains=None,
+            watched=[WebhookWatchedItem(type="user", name="me")],
+            domains=["repo"],
             secret=None,
             secrets=None,
         )
+
+    @pytest.mark.parametrize(
+        "options",
+        [
+            ["--url", "https://example.com", "--domain", "repo"],
+            ["--url", "https://example.com", "--watch", "user:me"],
+            ["--watch", "user:me", "--domain", "repo"],
+        ],
+    )
+    def test_update_requires_complete_configuration(self, runner: CliRunner, options: list[str]) -> None:
+        with patch("huggingface_hub.cli.webhooks.get_hf_api") as api_cls:
+            result = runner.invoke(app, ["webhooks", "update", "wh-abc123", *options])
+        assert result.exit_code != 0
+        api_cls.assert_not_called()
 
     def test_update_with_job_secrets(self, runner: CliRunner) -> None:
         webhook = self._make_webhook(url=None)
@@ -5056,7 +5082,19 @@ class TestWebhooksCommand:
             api_cls.return_value.update_webhook.return_value = webhook
             result = runner.invoke(
                 app,
-                ["webhooks", "update", "wh-abc123", "--job-id", "687f911eaea852de79c4a50a", "--secrets", "A=b"],
+                [
+                    "webhooks",
+                    "update",
+                    "wh-abc123",
+                    "--job-id",
+                    "687f911eaea852de79c4a50a",
+                    "--watch",
+                    "user:me",
+                    "--domain",
+                    "repo",
+                    "--secrets",
+                    "A=b",
+                ],
             )
         assert result.exit_code == 0, result.output
         kwargs = api_cls.return_value.update_webhook.call_args.kwargs
@@ -5064,7 +5102,22 @@ class TestWebhooksCommand:
         assert kwargs["secrets"] == {"A": "b"}
 
     def test_update_secrets_require_job_id(self, runner: CliRunner) -> None:
-        result = runner.invoke(app, ["webhooks", "update", "wh-abc123", "--secrets", "A=b"])
+        result = runner.invoke(
+            app,
+            [
+                "webhooks",
+                "update",
+                "wh-abc123",
+                "--url",
+                "https://example.com",
+                "--watch",
+                "user:me",
+                "--domain",
+                "repo",
+                "--secrets",
+                "A=b",
+            ],
+        )
         assert result.exit_code != 0
 
     def test_enable(self, runner: CliRunner) -> None:
