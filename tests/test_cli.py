@@ -1912,6 +1912,19 @@ class TestRepoSettingsCommand:
         assert kwargs["visibility"] == "private"
         assert kwargs["gated"] == "manual"
 
+    def test_repo_settings_visibility_flags(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
+            result = runner.invoke(app, ["repos", "settings", DUMMY_MODEL_ID, "--public"])
+        assert result.exit_code == 0
+        assert api_cls.return_value.update_repo_settings.call_args.kwargs["visibility"] == "public"
+
+        # `--no-private` would be a no-op: it must not be exposed
+        result = runner.invoke(app, ["repos", "settings", DUMMY_MODEL_ID, "--no-private"])
+        assert result.exit_code == 2
+
+        help_text = runner.invoke(app, ["repos", "settings", "--help"]).output
+        assert "Ignored if the repo already exists" not in help_text
+
 
 class TestRepoListCommand:
     def test_repo_list(self, runner: CliRunner, repo_factory: RepoFactory) -> None:

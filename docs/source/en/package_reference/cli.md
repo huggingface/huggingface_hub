@@ -3891,9 +3891,9 @@ $ hf repos settings [OPTIONS] REPO_ID
 **Options**:
 
 * `--gated [auto|manual|false]`: The gated status for the repository.
-* `--private / --no-private`: Whether to create a private repo if repo doesn't exist on the Hub. Ignored if the repo already exists.
-* `--public`: Whether to make the repo public. Ignored if the repo already exists.
-* `--protected`: Whether to make the Space protected (Spaces only). Ignored if the repo already exists.
+* `--private`: Make the repo private.
+* `--public`: Make the repo public.
+* `--protected`: Make the Space protected (Spaces only).
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--help`: Show this message and exit.
