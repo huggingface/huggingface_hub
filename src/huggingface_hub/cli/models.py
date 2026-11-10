@@ -109,7 +109,7 @@ def models_ls(
         Option(
             "--inference-provider",
             click_type=SoftChoice(InferenceProviderEnum),
-            help="Filter by inference provider(s) serving the model, e.g. 'together'.",
+            help="Filter by inference provider(s) serving the model, e.g. 'fal-ai'.",
         ),
     ] = None,
     warm: Annotated[

@@ -3,11 +3,6 @@ from typing import Literal, Union
 from huggingface_hub.utils import logging
 
 from ._common import AutoRouterConversationalTask, TaskProviderHelper, _fetch_inference_provider_mapping
-from .deepinfra import (
-    DeepInfraAutomaticSpeechRecognitionTask,
-    DeepInfraFeatureExtractionTask,
-    DeepInfraTextToSpeechTask,
-)
 from .fal_ai import (
     FalAIAutomaticSpeechRecognitionTask,
     FalAIImageSegmentationTask,
@@ -23,8 +18,6 @@ from .hf_inference import (
     HFInferenceFeatureExtractionTask,
     HFInferenceTask,
 )
-from .novita import NovitaTextToVideoTask
-from .nscale import NscaleTextToImageTask
 from .replicate import (
     ReplicateAutomaticSpeechRecognitionTask,
     ReplicateImageToImageTask,
@@ -32,38 +25,22 @@ from .replicate import (
     ReplicateTextToImageTask,
     ReplicateTextToSpeechTask,
 )
-from .scaleway import ScalewayFeatureExtractionTask
-from .together import (
-    TogetherFeatureExtractionTask,
-    TogetherImageToImageTask,
-    TogetherImageToVideoTask,
-    TogetherTextToImageTask,
-    TogetherTextToSpeechTask,
-    TogetherTextToVideoTask,
-)
 from .wavespeed import (
     WavespeedAIImageToImageTask,
     WavespeedAIImageToVideoTask,
     WavespeedAITextToImageTask,
     WavespeedAITextToVideoTask,
 )
-from .zai_org import ZaiTextToImageTask
 
 
 logger = logging.get_logger(__name__)
 
 
 PROVIDER_T = Literal[
-    "deepinfra",
     "fal-ai",
     "hf-inference",
-    "novita",
-    "nscale",
     "replicate",
-    "scaleway",
-    "together",
     "wavespeed",
-    "zai-org",
 ]
 
 PROVIDER_OR_POLICY_T = Union[PROVIDER_T, Literal["auto"]]
@@ -71,11 +48,6 @@ PROVIDER_OR_POLICY_T = Union[PROVIDER_T, Literal["auto"]]
 CONVERSATIONAL_AUTO_ROUTER = AutoRouterConversationalTask()
 
 PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
-    "deepinfra": {
-        "automatic-speech-recognition": DeepInfraAutomaticSpeechRecognitionTask(),
-        "feature-extraction": DeepInfraFeatureExtractionTask(),
-        "text-to-speech": DeepInfraTextToSpeechTask(),
-    },
     "fal-ai": {
         "automatic-speech-recognition": FalAIAutomaticSpeechRecognitionTask(),
         "text-to-image": FalAITextToImageTask(),
@@ -113,12 +85,6 @@ PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
         "summarization": HFInferenceTask("summarization"),
         "visual-question-answering": HFInferenceBinaryInputTask("visual-question-answering"),
     },
-    "novita": {
-        "text-to-video": NovitaTextToVideoTask(),
-    },
-    "nscale": {
-        "text-to-image": NscaleTextToImageTask(),
-    },
     "replicate": {
         "automatic-speech-recognition": ReplicateAutomaticSpeechRecognitionTask(),
         "image-to-image": ReplicateImageToImageTask(),
@@ -126,25 +92,11 @@ PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
         "text-to-speech": ReplicateTextToSpeechTask(),
         "text-to-video": ReplicateTask("text-to-video"),
     },
-    "scaleway": {
-        "feature-extraction": ScalewayFeatureExtractionTask(),
-    },
-    "together": {
-        "feature-extraction": TogetherFeatureExtractionTask(),
-        "image-to-image": TogetherImageToImageTask(),
-        "image-to-video": TogetherImageToVideoTask(),
-        "text-to-image": TogetherTextToImageTask(),
-        "text-to-speech": TogetherTextToSpeechTask(),
-        "text-to-video": TogetherTextToVideoTask(),
-    },
     "wavespeed": {
         "text-to-image": WavespeedAITextToImageTask(),
         "text-to-video": WavespeedAITextToVideoTask(),
         "image-to-image": WavespeedAIImageToImageTask(),
         "image-to-video": WavespeedAIImageToVideoTask(),
-    },
-    "zai-org": {
-        "text-to-image": ZaiTextToImageTask(),
     },
 }
 

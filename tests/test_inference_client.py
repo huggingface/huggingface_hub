@@ -63,9 +63,6 @@ pytestmark = pytest.mark.inference
 
 # Avoid calling APIs in VCRed tests
 _RECOMMENDED_MODELS_FOR_VCR = {
-    "together": {
-        "text-to-image": "stabilityai/stable-diffusion-xl-base-1.0",
-    },
     "fal-ai": {
         "text-to-image": "black-forest-labs/FLUX.1-dev",
         "automatic-speech-recognition": "openai/whisper-large-v3",

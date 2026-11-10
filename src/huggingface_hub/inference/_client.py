@@ -138,9 +138,8 @@ class InferenceClient:
         provider (`str`, *optional*):
             Name of the provider to use for inference. For chat completion, can be any provider served by the
             Hugging Face router (e.g. `"together"` or `"fireworks-ai"`): the request goes to the router with a
-            `model:provider` suffix and requires a Hugging Face token. For other tasks, can be `"deepinfra"`,
-            `"fal-ai"`, `"hf-inference"`, `"novita"`, `"nscale"`, `"replicate"`, `"scaleway"`,
-            `"together"`, `"wavespeed"` or `"zai-org"`.
+            `model:provider` suffix and requires a Hugging Face token. For other tasks, can be `"fal-ai"`,
+            `"hf-inference"`, `"replicate"` or `"wavespeed"`.
             Defaults to "auto": automatic routing, which defaults to "fastest" provider; you can
             switch to "cheapest" or "preferred" provider order at https://hf.co/settings/inference-providers.
             If model is a URL or `base_url` is passed, then `provider` is not used.
@@ -706,20 +705,6 @@ class InferenceClient:
 
         for chunk in output:
             print(chunk.choices[0].delta.content)
-        ```
-
-        Example using a third-party provider directly with extra (provider-specific) parameters. Usage will be billed on your Together AI account.
-        ```py
-        >>> from huggingface_hub import InferenceClient
-        >>> client = InferenceClient(
-        ...     provider="together",  # Use Together AI provider
-        ...     api_key="<together_api_key>",  # Pass your Together API key directly
-        ... )
-        >>> client.chat_completion(
-        ...     model="meta-llama/Meta-Llama-3-8B-Instruct",
-        ...     messages=[{"role": "user", "content": "What is the capital of France?"}],
-        ...     extra_body={"safety_model": "Meta-Llama/Llama-Guard-7b"},
-        ... )
         ```
 
         Example using a third-party provider through Hugging Face Routing. Usage will be billed on your Hugging Face account.
