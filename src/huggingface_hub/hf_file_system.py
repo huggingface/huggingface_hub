@@ -1629,6 +1629,8 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
 
 
 class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
+    """Read-only binary stream. For text reads, use ``fs.open(path, mode="r", block_size=0)``."""
+
     def __init__(
         self,
         fs: HfFileSystem,
