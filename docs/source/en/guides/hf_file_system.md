@@ -105,6 +105,29 @@ A few things to know about it:
 - Following starts as soon as a bucket is listed, and one background connection is kept open per followed
   bucket, shared by all [`HfFileSystem`] instances. That is why the option is opt-in.
 
+## Transactions
+
+For buckets, [`HfFileSystem`] supports [fsspec transactions](https://filesystem-spec.readthedocs.io/en/latest/features.html#transactions).
+Files written inside a transaction are uploaded when the block ends. If the block raises an error, nothing is uploaded:
+
+```python
+>>> with hffs.transaction:
+...     with hffs.open("buckets/my-username/my-bucket/checkpoints/last.ckpt", "wb") as f:
+...         f.write(data)
+...     # not uploaded yet
+>>> # uploaded now
+```
+
+This lets libraries that save through transactions, such as PyTorch Lightning, write to `hf://buckets/...`.
+
+A few things to know about it:
+
+- **Not atomic.** Each file is uploaded separately when the transaction ends. If an upload fails, the files uploaded
+  before it stay in the bucket.
+- **Only writes are deferred.** `rm`, `cp_file` and `mv` on a bucket run immediately.
+- **Buckets only.** Writing, deleting or copying a file in a model, dataset or Space repository inside a transaction
+  raises a `NotImplementedError`.
+
 ## Integrations
 
 The [`HfFileSystem`] can be used with any library that integrates `fsspec`, provided the URL follows the scheme:
