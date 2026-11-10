@@ -2616,3 +2616,44 @@ def test_get_provider_helper_auto_conversational():
     helper = get_provider_helper(provider="auto", task="conversational", model="test-model")
 
     assert isinstance(helper, AutoRouterConversationalTask)
+
+
+def test_conversational_provider_with_hf_token_goes_through_router(mocker):
+    """With a HF token, chat with a provider goes through the router, pinned with a `model:provider` suffix."""
+    fetch_mapping = mocker.patch("huggingface_hub.inference._providers._common._fetch_inference_provider_mapping")
+    request = TogetherConversationalTask().prepare_request(
+        inputs=[{"role": "user", "content": "Hello"}],
+        parameters={},
+        headers={},
+        model="meta-llama/Llama-3.3-70B-Instruct",
+        api_key="hf_test_token",
+    )
+
+    assert request.url == "https://router.huggingface.co/v1/chat/completions"
+    assert request.json["model"] == "meta-llama/Llama-3.3-70B-Instruct:together"
+    fetch_mapping.assert_not_called()
+
+
+def test_conversational_provider_with_provider_key_calls_provider(mocker):
+    mocker.patch(
+        "huggingface_hub.inference._providers._common._fetch_inference_provider_mapping",
+        return_value=[
+            InferenceProviderMapping(
+                provider="together",
+                hf_model_id="meta-llama/Llama-3.3-70B-Instruct",
+                providerId="meta-llama/Llama-3.3-70B-Instruct-Turbo",
+                task="conversational",
+                status="live",
+            )
+        ],
+    )
+    request = TogetherConversationalTask().prepare_request(
+        inputs=[{"role": "user", "content": "Hello"}],
+        parameters={},
+        headers={},
+        model="meta-llama/Llama-3.3-70B-Instruct",
+        api_key="together_key",
+    )
+
+    assert request.url == "https://api.together.xyz/v1/chat/completions"
+    assert request.json["model"] == "meta-llama/Llama-3.3-70B-Instruct-Turbo"
