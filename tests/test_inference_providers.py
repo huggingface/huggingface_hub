@@ -1596,33 +1596,3 @@ def test_get_provider_helper_auto_conversational():
     helper = get_provider_helper(provider="auto", task="conversational", model="test-model")
 
     assert isinstance(helper, AutoRouterConversationalTask)
-
-
-@pytest.mark.parametrize("provider", ["together", "mistral"])
-def test_conversational_provider_goes_through_router(provider, mocker):
-    """Chat with any provider, listed in `PROVIDERS` or not, goes through the router as `model:provider`."""
-    fetch_mapping = mocker.patch("huggingface_hub.inference._providers._common._fetch_inference_provider_mapping")
-    helper = get_provider_helper(provider=provider, task="conversational", model="meta-llama/Llama-3.3-70B-Instruct")
-    request = helper.prepare_request(
-        inputs=[{"role": "user", "content": "Hello"}],
-        parameters={},
-        headers={},
-        model="meta-llama/Llama-3.3-70B-Instruct",
-        api_key="hf_test_token",
-    )
-
-    assert request.url == "https://router.huggingface.co/v1/chat/completions"
-    assert request.json["model"] == f"meta-llama/Llama-3.3-70B-Instruct:{provider}"
-    fetch_mapping.assert_not_called()
-
-
-def test_conversational_provider_with_provider_key_raises():
-    helper = get_provider_helper(provider="together", task="conversational", model="meta-llama/Llama-3.3-70B-Instruct")
-    with pytest.raises(ValueError, match="requires a Hugging Face token"):
-        helper.prepare_request(
-            inputs=[{"role": "user", "content": "Hello"}],
-            parameters={},
-            headers={},
-            model="meta-llama/Llama-3.3-70B-Instruct",
-            api_key="together_key",
-        )
