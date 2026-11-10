@@ -3,7 +3,6 @@ from typing import Any
 from huggingface_hub.hf_api import InferenceProviderMapping
 from huggingface_hub.inference._common import RequestParameters, _as_dict
 from huggingface_hub.inference._providers._common import (
-    BaseTextGenerationTask,
     TaskProviderHelper,
     filter_none,
 )
@@ -12,25 +11,6 @@ from huggingface_hub.utils import get_session
 
 _PROVIDER = "novita"
 _BASE_URL = "https://api.novita.ai"
-
-
-class NovitaTextGenerationTask(BaseTextGenerationTask):
-    def __init__(self):
-        super().__init__(provider=_PROVIDER, base_url=_BASE_URL)
-
-    def _prepare_route(self, mapped_model: str, api_key: str) -> str:
-        # there is no v1/ route for novita
-        return "/v3/openai/completions"
-
-    def get_response(self, response: bytes | dict, request_params: RequestParameters | None = None) -> Any:
-        output = _as_dict(response)["choices"][0]
-        return {
-            "generated_text": output["text"],
-            "details": {
-                "finish_reason": output.get("finish_reason"),
-                "seed": output.get("seed"),
-            },
-        }
 
 
 class NovitaTextToVideoTask(TaskProviderHelper):

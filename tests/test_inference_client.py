@@ -64,7 +64,6 @@ pytestmark = pytest.mark.inference
 # Avoid calling APIs in VCRed tests
 _RECOMMENDED_MODELS_FOR_VCR = {
     "together": {
-        "text-generation": "meta-llama/Llama-2-70b-hf",
         "text-to-image": "stabilityai/stable-diffusion-xl-base-1.0",
     },
     "fal-ai": {
@@ -95,9 +94,6 @@ _RECOMMENDED_MODELS_FOR_VCR = {
         "visual-question-answering": "dandelin/vilt-b32-finetuned-vqa",
         "zero-shot-classification": "facebook/bart-large-mnli",
         "zero-shot-image-classification": "openai/clip-vit-base-patch32",
-    },
-    "novita": {
-        "text-generation": "NousResearch/Nous-Hermes-Llama2-13b",
     },
     "replicate": {
         "text-to-image": "ByteDance/SDXL-Lightning",

@@ -139,7 +139,7 @@ class InferenceClient:
             Name of the provider to use for inference. For chat completion, can be any provider served by the
             Hugging Face router (e.g. `"together"` or `"fireworks-ai"`): the request goes to the router with a
             `model:provider` suffix and requires a Hugging Face token. For other tasks, can be `"deepinfra"`,
-            `"fal-ai"`, `"featherless-ai"`, `"hf-inference"`, `"novita"`, `"nscale"`, `"replicate"`, `"scaleway"`,
+            `"fal-ai"`, `"hf-inference"`, `"novita"`, `"nscale"`, `"replicate"`, `"scaleway"`,
             `"together"`, `"wavespeed"` or `"zai-org"`.
             Defaults to "auto": automatic routing, which defaults to "fastest" provider; you can
             switch to "cheapest" or "preferred" provider order at https://hf.co/settings/inference-providers.

@@ -12,7 +12,6 @@ from huggingface_hub.inference._providers import PROVIDERS, get_provider_helper
 from huggingface_hub.inference._providers._common import (
     AutoRouterConversationalTask,
     BaseConversationalTask,
-    BaseTextGenerationTask,
     TaskProviderHelper,
     filter_none,
     recursive_merge,
@@ -32,14 +31,12 @@ from huggingface_hub.inference._providers.fal_ai import (
     FalAITextToSpeechTask,
     FalAITextToVideoTask,
 )
-from huggingface_hub.inference._providers.featherless_ai import FeatherlessTextGenerationTask
 from huggingface_hub.inference._providers.hf_inference import (
     HFInferenceBinaryInputTask,
     HFInferenceConversational,
     HFInferenceFeatureExtractionTask,
     HFInferenceTask,
 )
-from huggingface_hub.inference._providers.novita import NovitaTextGenerationTask
 from huggingface_hub.inference._providers.nscale import NscaleTextToImageTask
 from huggingface_hub.inference._providers.replicate import (
     ReplicateAutomaticSpeechRecognitionTask,
@@ -835,12 +832,6 @@ class TestFalAIProvider:
         assert response == [{"label": "mask", "mask": dummy_mask_base64}]
 
 
-class TestFeatherlessAIProvider:
-    def test_prepare_route_completion_url(self):
-        helper = FeatherlessTextGenerationTask()
-        assert helper._prepare_url("rc_xxxx", "ownner/model_id") == "https://api.featherless.ai/v1/completions"
-
-
 class TestHFInferenceProvider:
     def test_prepare_mapping_info(self, mocker):
         helper = HFInferenceTask("text-classification")
@@ -1186,13 +1177,6 @@ class TestHFInferenceProvider:
         assert isinstance(request.data, bytes)
         assert request.headers["authorization"] == "Bearer hf_test_token"
         assert request.headers["content-type"] == "image/jpeg"  # based on filename
-
-
-class TestNovitaProvider:
-    def test_prepare_url_text_generation(self):
-        helper = NovitaTextGenerationTask()
-        url = helper._prepare_url("novita_token", "username/repo_name")
-        assert url == "https://api.novita.ai/v3/openai/completions"
 
 
 class TestScalewayProvider:
@@ -2229,37 +2213,6 @@ class TestBaseConversationalTask:
         assert payload["temperature"] == 0.2
         assert "max_tokens" not in payload
         assert "top_p" not in payload
-
-
-class TestBaseTextGenerationTask:
-    def test_prepare_route(self):
-        helper = BaseTextGenerationTask(provider="test-provider", base_url="https://api.test.com")
-        assert helper._prepare_route("dummy-model", "hf_token") == "/v1/completions"
-        assert helper.task == "text-generation"
-
-    def test_prepare_payload(self):
-        helper = BaseTextGenerationTask(provider="test-provider", base_url="https://api.test.com")
-        prompt = "Once upon a time"
-        parameters = {"temperature": 0.7, "max_tokens": 100}
-
-        payload = helper._prepare_payload_as_dict(
-            inputs=prompt,
-            parameters=parameters,
-            provider_mapping_info=InferenceProviderMapping(
-                provider="test-provider",
-                hf_model_id="test-model",
-                providerId="test-provider-id",
-                task="text-generation",
-                status="live",
-            ),
-        )
-
-        assert payload == {
-            "prompt": prompt,
-            "temperature": 0.7,
-            "max_tokens": 100,
-            "model": "test-provider-id",
-        }
 
 
 @pytest.mark.parametrize(

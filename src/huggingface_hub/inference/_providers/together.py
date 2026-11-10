@@ -10,7 +10,6 @@ from huggingface_hub.inference._common import (
     _as_url,
 )
 from huggingface_hub.inference._providers._common import (
-    BaseTextGenerationTask,
     TaskProviderHelper,
     filter_none,
 )
@@ -51,21 +50,6 @@ class TogetherTask(TaskProviderHelper, ABC):
                 # Video creation lives under /v2 (see https://docs.together.ai/reference/create-videos).
                 return "/v2/videos"
         raise ValueError(f"Unsupported task '{self.task}' for Together API.")
-
-
-class TogetherTextGenerationTask(BaseTextGenerationTask):
-    def __init__(self):
-        super().__init__(provider=_PROVIDER, base_url=_BASE_URL)
-
-    def get_response(self, response: bytes | dict, request_params: RequestParameters | None = None) -> Any:
-        output = _as_dict(response)["choices"][0]
-        return {
-            "generated_text": output["text"],
-            "details": {
-                "finish_reason": output.get("finish_reason"),
-                "seed": output.get("seed"),
-            },
-        }
 
 
 class TogetherTextToImageTask(TogetherTask):

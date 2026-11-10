@@ -327,24 +327,6 @@ class AutoRouterConversationalTask(BaseConversationalTask):
         )
 
 
-class BaseTextGenerationTask(TaskProviderHelper):
-    """
-    Base class for text-generation (completion) tasks.
-    The schema follows the OpenAI API format defined here: https://platform.openai.com/docs/api-reference/completions
-    """
-
-    def __init__(self, provider: str, base_url: str):
-        super().__init__(provider=provider, base_url=base_url, task="text-generation")
-
-    def _prepare_route(self, mapped_model: str, api_key: str) -> str:
-        return "/v1/completions"
-
-    def _prepare_payload_as_dict(
-        self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
-    ) -> dict | None:
-        return filter_none({"prompt": inputs, **parameters, "model": provider_mapping_info.provider_id})
-
-
 @lru_cache(maxsize=None)
 def _fetch_inference_provider_mapping(model: str) -> list["InferenceProviderMapping"]:
     """

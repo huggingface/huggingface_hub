@@ -1,13 +1,11 @@
 from typing import Literal, Union
 
-from huggingface_hub.inference._providers.featherless_ai import FeatherlessTextGenerationTask
 from huggingface_hub.utils import logging
 
 from ._common import AutoRouterConversationalTask, TaskProviderHelper, _fetch_inference_provider_mapping
 from .deepinfra import (
     DeepInfraAutomaticSpeechRecognitionTask,
     DeepInfraFeatureExtractionTask,
-    DeepInfraTextGenerationTask,
     DeepInfraTextToSpeechTask,
 )
 from .fal_ai import (
@@ -25,7 +23,7 @@ from .hf_inference import (
     HFInferenceFeatureExtractionTask,
     HFInferenceTask,
 )
-from .novita import NovitaTextGenerationTask, NovitaTextToVideoTask
+from .novita import NovitaTextToVideoTask
 from .nscale import NscaleTextToImageTask
 from .replicate import (
     ReplicateAutomaticSpeechRecognitionTask,
@@ -39,7 +37,6 @@ from .together import (
     TogetherFeatureExtractionTask,
     TogetherImageToImageTask,
     TogetherImageToVideoTask,
-    TogetherTextGenerationTask,
     TogetherTextToImageTask,
     TogetherTextToSpeechTask,
     TogetherTextToVideoTask,
@@ -59,7 +56,6 @@ logger = logging.get_logger(__name__)
 PROVIDER_T = Literal[
     "deepinfra",
     "fal-ai",
-    "featherless-ai",
     "hf-inference",
     "novita",
     "nscale",
@@ -78,7 +74,6 @@ PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
     "deepinfra": {
         "automatic-speech-recognition": DeepInfraAutomaticSpeechRecognitionTask(),
         "feature-extraction": DeepInfraFeatureExtractionTask(),
-        "text-generation": DeepInfraTextGenerationTask(),
         "text-to-speech": DeepInfraTextToSpeechTask(),
     },
     "fal-ai": {
@@ -89,9 +84,6 @@ PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
         "image-to-video": FalAIImageToVideoTask(),
         "image-to-image": FalAIImageToImageTask(),
         "image-segmentation": FalAIImageSegmentationTask(),
-    },
-    "featherless-ai": {
-        "text-generation": FeatherlessTextGenerationTask(),
     },
     "hf-inference": {
         "text-to-image": HFInferenceTask("text-to-image"),
@@ -122,7 +114,6 @@ PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
         "visual-question-answering": HFInferenceBinaryInputTask("visual-question-answering"),
     },
     "novita": {
-        "text-generation": NovitaTextGenerationTask(),
         "text-to-video": NovitaTextToVideoTask(),
     },
     "nscale": {
@@ -142,7 +133,6 @@ PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
         "feature-extraction": TogetherFeatureExtractionTask(),
         "image-to-image": TogetherImageToImageTask(),
         "image-to-video": TogetherImageToVideoTask(),
-        "text-generation": TogetherTextGenerationTask(),
         "text-to-image": TogetherTextToImageTask(),
         "text-to-speech": TogetherTextToSpeechTask(),
         "text-to-video": TogetherTextToVideoTask(),
