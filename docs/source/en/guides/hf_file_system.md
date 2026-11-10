@@ -118,15 +118,8 @@ Files written inside a transaction are uploaded when the block ends. If the bloc
 >>> # uploaded now
 ```
 
-This lets libraries that save through transactions, such as PyTorch Lightning, write to `hf://buckets/...`.
-
-A few things to know about it:
-
-- **Not atomic.** Each file is uploaded separately when the transaction ends. If an upload fails, the files uploaded
-  before it stay in the bucket.
-- **Only writes are deferred.** `rm`, `cp_file` and `mv` on a bucket run immediately.
-- **Buckets only.** Writing, deleting or copying a file in a model, dataset or Space repository inside a transaction
-  raises a `NotImplementedError`.
+Each file is uploaded separately when the transaction ends, so if an upload fails, the files uploaded before it stay
+in the bucket. Model, dataset and Space repositories do not support transactions.
 
 ## Integrations
 
