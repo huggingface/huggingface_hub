@@ -107,7 +107,7 @@ A few things to know about it:
 
 ## Transactions
 
-For buckets, [`HfFileSystem`] supports [fsspec transactions](https://filesystem-spec.readthedocs.io/en/latest/features.html#transactions).
+[`HfFileSystem`] supports [fsspec transactions](https://filesystem-spec.readthedocs.io/en/latest/features.html#transactions) for buckets only.
 Files written inside a transaction are uploaded when the block ends. If the block raises an error, nothing is uploaded:
 
 ```python
@@ -117,9 +117,6 @@ Files written inside a transaction are uploaded when the block ends. If the bloc
 ...     # not uploaded yet
 >>> # uploaded now
 ```
-
-Each file is uploaded separately when the transaction ends, so if an upload fails, the files uploaded before it stay
-in the bucket. Model, dataset and Space repositories do not support transactions.
 
 ## Integrations
 
