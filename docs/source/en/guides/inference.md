@@ -74,7 +74,7 @@ ChatCompletionOutput(
 )
 ```
 
-In the example above, we specified which model we want to use (`"deepseek-ai/DeepSeek-V4.1-Flash"`). Language models are powered by [OpenRouter](https://openrouter.ai): each request goes to a provider serving the model, and switches to another one automatically if it's down or rate limited. We then gave a list of messages to complete (here, a single question) and passed an additional parameter to the API (`max_token=100`). The output is a `ChatCompletionOutput` object that follows the OpenAI specification. The generated content can be accessed with `output.choices[0].message.content`. For more details, check out the [`~InferenceClient.chat_completion`] documentation.
+In the example above, we specified which model we want to use (`"deepseek-ai/DeepSeek-V4.1-Flash"`). Inference is powered by [OpenRouter](https://openrouter.ai): each request goes to a provider serving the model, and switches to another one automatically if it's down or rate limited. We then gave a list of messages to complete (here, a single question) and passed an additional parameter to the API (`max_token=100`). The output is a `ChatCompletionOutput` object that follows the OpenAI specification. The generated content can be accessed with `output.choices[0].message.content`. For more details, check out the [`~InferenceClient.chat_completion`] documentation.
 
 
 > [!WARNING]
@@ -188,7 +188,7 @@ For more details, refer to the [Inference Providers pricing documentation](https
 
 [`InferenceClient`]'s goal is to provide the easiest interface to run inference on Hugging Face models, on any provider. It has a simple API that supports the most common tasks.
 
-With a Hugging Face token, [`~InferenceClient.chat_completion`] goes through the Hugging Face router at `https://router.huggingface.co/v1/chat/completions`. Language models are powered by [OpenRouter](https://openrouter.ai), which picks a provider serving the model and retries on another one if it fails. Passing a `provider` pins it. With a provider API key, it calls that provider directly. To list the providers serving a model, check its model page on the Hub.
+With a Hugging Face token, [`~InferenceClient.chat_completion`] goes through the Hugging Face router at `https://router.huggingface.co/v1/chat/completions`. Inference is powered by [OpenRouter](https://openrouter.ai), which picks a provider serving the model and retries on another one if it fails. Passing a `provider` pins it. With a provider API key, it calls that provider directly. To list the providers serving a model, check its model page on the Hub.
 
 For the providers supporting each task, check the [Inference Providers documentation](https://huggingface.co/docs/inference-providers/index).
 
