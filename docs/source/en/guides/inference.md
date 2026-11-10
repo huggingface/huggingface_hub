@@ -85,7 +85,7 @@ In the example above, we used a third-party provider ([Together AI](https://www.
 
 ### Using a specific provider
 
-If you want to use a specific provider, you can specify it when initializing the client. The default value is "auto" which will select the first of the providers available for the model, sorted by the user's order in https://hf.co/settings/inference-providers. Refer to the [Supported providers and tasks](#supported-providers-and-tasks) section for a list of supported providers.
+If you want to use a specific provider, you can specify it when initializing the client. The default value is "auto" which will select the first of the providers available for the model, sorted by the user's order in https://hf.co/settings/inference-providers. Refer to the [Inference Providers documentation](https://huggingface.co/docs/inference-providers/index) for a list of supported providers.
 
 ```python
 >>> from huggingface_hub import InferenceClient
@@ -189,40 +189,9 @@ For more details, refer to the [Inference Providers pricing documentation](https
 
 [`InferenceClient`]'s goal is to provide the easiest interface to run inference on Hugging Face models, on any provider. It has a simple API that supports the most common tasks.
 
-With a Hugging Face token, [`~InferenceClient.chat_completion`] goes through the Hugging Face router at `https://router.huggingface.co/v1/chat/completions`. The router picks a provider for the model, or runs it on the one you pass as `provider` (sent as `model:provider`, e.g. `"together"`). With a provider API key, it calls that provider directly. To list the providers serving a model, check its model page on the Hub.
+With a Hugging Face token, [`~InferenceClient.chat_completion`] goes through the Hugging Face router at `https://router.huggingface.co/v1/chat/completions`, which routes it through [OpenRouter](https://openrouter.ai) when OpenRouter serves the model. The router picks a provider for the model, or runs it on the one you pass as `provider` (sent as `model:provider`, e.g. `"together"`). With a provider API key, it calls that provider directly. To list the providers serving a model, check its model page on the Hub.
 
-For the other tasks, here is a table showing which providers support which tasks:
-
-| Task                                                | fal-ai | HF Inference | Replicate | Wavespeed |
-| --------------------------------------------------- | ------ | ------------ | --------- | --------- |
-| [`~InferenceClient.audio_classification`]           | ❌      | ✅            | ❌         | ❌         |
-| [`~InferenceClient.audio_to_audio`]                 | ❌      | ✅            | ❌         | ❌         |
-| [`~InferenceClient.automatic_speech_recognition`]   | ✅      | ✅            | ✅         | ❌         |
-| [`~InferenceClient.document_question_answering`]    | ❌      | ✅            | ❌         | ❌         |
-| [`~InferenceClient.feature_extraction`]             | ❌      | ✅            | ❌         | ❌         |
-| [`~InferenceClient.fill_mask`]                      | ❌      | ✅            | ❌         | ❌         |
-| [`~InferenceClient.image_classification`]           | ❌      | ✅            | ❌         | ❌         |
-| [`~InferenceClient.image_segmentation`]             | ✅      | ✅            | ❌         | ❌         |
-| [`~InferenceClient.image_to_image`]                 | ✅      | ✅            | ✅         | ✅         |
-| [`~InferenceClient.image_to_video`]                 | ✅      | ❌            | ❌         | ✅         |
-| [`~InferenceClient.image_to_text`]                  | ❌      | ✅            | ❌         | ❌         |
-| [`~InferenceClient.object_detection`]               | ❌      | ✅            | ❌         | ❌         |
-| [`~InferenceClient.question_answering`]             | ❌      | ✅            | ❌         | ❌         |
-| [`~InferenceClient.sentence_similarity`]            | ❌      | ✅            | ❌         | ❌         |
-| [`~InferenceClient.summarization`]                  | ❌      | ✅            | ❌         | ❌         |
-| [`~InferenceClient.table_question_answering`]       | ❌      | ✅            | ❌         | ❌         |
-| [`~InferenceClient.text_classification`]            | ❌      | ✅            | ❌         | ❌         |
-| [`~InferenceClient.text_generation`]                | ❌      | ✅            | ❌         | ❌         |
-| [`~InferenceClient.text_to_image`]                  | ✅      | ✅            | ✅         | ✅         |
-| [`~InferenceClient.text_to_speech`]                 | ✅      | ✅            | ✅         | ❌         |
-| [`~InferenceClient.text_to_video`]                  | ✅      | ❌            | ✅         | ✅         |
-| [`~InferenceClient.tabular_classification`]         | ❌      | ✅            | ❌         | ❌         |
-| [`~InferenceClient.tabular_regression`]             | ❌      | ✅            | ❌         | ❌         |
-| [`~InferenceClient.token_classification`]           | ❌      | ✅            | ❌         | ❌         |
-| [`~InferenceClient.translation`]                    | ❌      | ✅            | ❌         | ❌         |
-| [`~InferenceClient.visual_question_answering`]      | ❌      | ✅            | ❌         | ❌         |
-| [`~InferenceClient.zero_shot_image_classification`] | ❌      | ✅            | ❌         | ❌         |
-| [`~InferenceClient.zero_shot_classification`]       | ❌      | ✅            | ❌         | ❌         |
+For the providers supporting each task, check the [Inference Providers documentation](https://huggingface.co/docs/inference-providers/index).
 
 > [!TIP]
 > Check out the [Tasks](https://huggingface.co/tasks) page to learn more about each task.
