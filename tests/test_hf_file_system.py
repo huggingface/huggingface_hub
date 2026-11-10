@@ -1181,6 +1181,21 @@ def test_find_expand_info():
     assert all(info["last_commit"] is None for info in found.values())
 
 
+def test_info_root_directory_last_commit():
+    fs, api = _fake_fs({}, max_workers=1)
+    api.list_repo_commits = Mock(
+        return_value=[
+            Mock(commit_id="last", title="Last commit", created_at=datetime.datetime(2025, 1, 2)),
+            Mock(commit_id="initial", title="Initial commit", created_at=datetime.datetime(2025, 1, 1)),
+        ]
+    )
+
+    info = fs.info(_FAKE_REPO, expand_info=True)
+    assert info["last_commit"].oid == "last"
+    assert info["last_commit"].title == "Last commit"
+    assert fs.modified(_FAKE_REPO) == datetime.datetime(2025, 1, 2)
+
+
 def test_find_propagates_errors():
     files = {f"dir_{i:02d}/file_{j}.bin": 10 for i in range(10) for j in range(1100)}
 
