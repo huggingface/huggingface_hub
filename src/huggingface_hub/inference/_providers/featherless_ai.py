@@ -3,7 +3,7 @@ from typing import Any
 from huggingface_hub.hf_api import InferenceProviderMapping
 from huggingface_hub.inference._common import RequestParameters, _as_dict
 
-from ._common import BaseConversationalTask, BaseTextGenerationTask, filter_none
+from ._common import BaseTextGenerationTask, filter_none
 
 
 _PROVIDER = "featherless-ai"
@@ -31,8 +31,3 @@ class FeatherlessTextGenerationTask(BaseTextGenerationTask):
                 "seed": output.get("seed"),
             },
         }
-
-
-class FeatherlessConversationalTask(BaseConversationalTask):
-    def __init__(self):
-        super().__init__(provider=_PROVIDER, base_url=_BASE_URL)

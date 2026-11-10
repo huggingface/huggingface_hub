@@ -4,12 +4,7 @@ from typing import Any
 from huggingface_hub.hf_api import InferenceProviderMapping
 from huggingface_hub.inference._common import RequestParameters, _as_dict
 
-from ._common import BaseConversationalTask, TaskProviderHelper, filter_none
-
-
-class NscaleConversationalTask(BaseConversationalTask):
-    def __init__(self):
-        super().__init__(provider="nscale", base_url="https://inference.api.nscale.com")
+from ._common import TaskProviderHelper, filter_none
 
 
 class NscaleTextToImageTask(TaskProviderHelper):

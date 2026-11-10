@@ -3341,7 +3341,7 @@ $ hf models list [OPTIONS] [REPO_ID]
 * `--gated / --no-gated`: Filter by gated status. '--gated' for gated only, '--no-gated' for non-gated only.
 * `--apps TEXT`: Filter by app(s) that can run the model, e.g. 'ollama' or 'vllm'.
 * `--num-parameters TEXT`: Filter by parameter count, e.g. 'min:6B,max:128B'.
-* `--inference-provider [baseten|cerebras|cohere|deepinfra|fal-ai|featherless-ai|fireworks-ai|groq|hf-inference|novita|nscale|openai|ovhcloud|publicai|replicate|scaleway|together|wavespeed|zai-org]`: Filter by inference provider(s) serving the model, e.g. 'fireworks-ai'.
+* `--inference-provider [deepinfra|fal-ai|featherless-ai|hf-inference|novita|nscale|replicate|scaleway|together|wavespeed|zai-org]`: Filter by inference provider(s) serving the model, e.g. 'together'.
 * `--warm`: Only list models currently served by at least one inference provider.
 * `--sort [created_at|downloads|last_modified|likes|trending_score]`: Sort results.
 * `--limit INTEGER`: Limit the number of results.  [default: 30]
@@ -3360,7 +3360,7 @@ Examples
   $ hf models ls --num-parameters min:6B,max:128B --sort likes
   $ hf models ls --no-gated --author google
   $ hf models ls --apps llama.cpp --apps vllm
-  $ hf models ls --inference-provider fireworks-ai --sort downloads
+  $ hf models ls --inference-provider together --sort downloads
   $ hf models ls --warm --search llama
   $ hf models ls meta-llama/Llama-3.2-1B-Instruct
   $ hf models ls meta-llama/Llama-3.2-1B-Instruct -R

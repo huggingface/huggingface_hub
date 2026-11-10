@@ -17,7 +17,6 @@ from huggingface_hub.inference._providers._common import (
     filter_none,
     recursive_merge,
 )
-from huggingface_hub.inference._providers.cohere import CohereConversationalTask
 from huggingface_hub.inference._providers.deepinfra import (
     DeepInfraAutomaticSpeechRecognitionTask,
     DeepInfraFeatureExtractionTask,
@@ -33,32 +32,23 @@ from huggingface_hub.inference._providers.fal_ai import (
     FalAITextToSpeechTask,
     FalAITextToVideoTask,
 )
-from huggingface_hub.inference._providers.featherless_ai import (
-    FeatherlessConversationalTask,
-    FeatherlessTextGenerationTask,
-)
-from huggingface_hub.inference._providers.fireworks_ai import FireworksAIConversationalTask
-from huggingface_hub.inference._providers.groq import GroqConversationalTask
+from huggingface_hub.inference._providers.featherless_ai import FeatherlessTextGenerationTask
 from huggingface_hub.inference._providers.hf_inference import (
     HFInferenceBinaryInputTask,
     HFInferenceConversational,
     HFInferenceFeatureExtractionTask,
     HFInferenceTask,
 )
-from huggingface_hub.inference._providers.novita import NovitaConversationalTask, NovitaTextGenerationTask
-from huggingface_hub.inference._providers.nscale import NscaleConversationalTask, NscaleTextToImageTask
-from huggingface_hub.inference._providers.openai import OpenAIConversationalTask
-from huggingface_hub.inference._providers.ovhcloud import OVHcloudConversationalTask
-from huggingface_hub.inference._providers.publicai import PublicAIConversationalTask
+from huggingface_hub.inference._providers.novita import NovitaTextGenerationTask
+from huggingface_hub.inference._providers.nscale import NscaleTextToImageTask
 from huggingface_hub.inference._providers.replicate import (
     ReplicateAutomaticSpeechRecognitionTask,
     ReplicateImageToImageTask,
     ReplicateTask,
     ReplicateTextToSpeechTask,
 )
-from huggingface_hub.inference._providers.scaleway import ScalewayConversationalTask, ScalewayFeatureExtractionTask
+from huggingface_hub.inference._providers.scaleway import ScalewayFeatureExtractionTask
 from huggingface_hub.inference._providers.together import (
-    TogetherConversationalTask,
     TogetherFeatureExtractionTask,
     TogetherImageToImageTask,
     TogetherImageToVideoTask,
@@ -73,7 +63,7 @@ from huggingface_hub.inference._providers.wavespeed import (
     WavespeedAITextToVideoTask,
 )
 from huggingface_hub.inference._providers.zai_org import _POLLING_INTERVAL as ZAI_POLLING_INTERVAL
-from huggingface_hub.inference._providers.zai_org import ZaiConversationalTask, ZaiTextToImageTask
+from huggingface_hub.inference._providers.zai_org import ZaiTextToImageTask
 
 
 pytestmark = pytest.mark.inference
@@ -255,32 +245,6 @@ class TestAutoRouterConversationalTask:
         assert request.task == "conversational"
         assert request.model == "test-model"
         assert request.data is None
-
-
-class TestCohereConversationalTask:
-    def test_prepare_url(self):
-        helper = CohereConversationalTask()
-        assert helper.task == "conversational"
-        url = helper._prepare_url("cohere_token", "username/repo_name")
-        assert url == "https://api.cohere.com/compatibility/v1/chat/completions"
-
-    def test_prepare_payload_as_dict(self):
-        helper = CohereConversationalTask()
-        payload = helper._prepare_payload_as_dict(
-            [{"role": "user", "content": "Hello!"}],
-            {},
-            InferenceProviderMapping(
-                provider="cohere",
-                hf_model_id="CohereForAI/command-r7b-12-2024",
-                providerId="CohereForAI/command-r7b-12-2024",
-                task="conversational",
-                status="live",
-            ),
-        )
-        assert payload == {
-            "messages": [{"role": "user", "content": "Hello!"}],
-            "model": "CohereForAI/command-r7b-12-2024",
-        }
 
 
 class TestDeepInfraProvider:
@@ -872,44 +836,9 @@ class TestFalAIProvider:
 
 
 class TestFeatherlessAIProvider:
-    def test_prepare_route_chat_completionurl(self):
-        helper = FeatherlessConversationalTask()
-        assert helper._prepare_url("rc_xxxx", "ownner/model_id") == "https://api.featherless.ai/v1/chat/completions"
-
+    def test_prepare_route_completion_url(self):
         helper = FeatherlessTextGenerationTask()
         assert helper._prepare_url("rc_xxxx", "ownner/model_id") == "https://api.featherless.ai/v1/completions"
-
-
-class TestFireworksAIConversationalTask:
-    def test_prepare_url(self):
-        helper = FireworksAIConversationalTask()
-        url = helper._prepare_url("fireworks_token", "username/repo_name")
-        assert url == "https://api.fireworks.ai/inference/v1/chat/completions"
-
-    def test_prepare_payload_as_dict(self):
-        helper = FireworksAIConversationalTask()
-        payload = helper._prepare_payload_as_dict(
-            [{"role": "user", "content": "Hello!"}],
-            {},
-            InferenceProviderMapping(
-                provider="fireworks-ai",
-                hf_model_id="meta-llama/Llama-3.1-8B-Instruct",
-                providerId="meta-llama/Llama-3.1-8B-Instruct",
-                task="conversational",
-                status="live",
-            ),
-        )
-        assert payload == {
-            "messages": [{"role": "user", "content": "Hello!"}],
-            "model": "meta-llama/Llama-3.1-8B-Instruct",
-        }
-
-
-class TestGroqProvider:
-    def test_prepare_route(self):
-        """Test route preparation for Groq conversational task."""
-        helper = GroqConversationalTask()
-        assert helper._prepare_route("username/repo_name", "hf_token") == "/openai/v1/chat/completions"
 
 
 class TestHFInferenceProvider:
@@ -1265,58 +1194,8 @@ class TestNovitaProvider:
         url = helper._prepare_url("novita_token", "username/repo_name")
         assert url == "https://api.novita.ai/v3/openai/completions"
 
-    def test_prepare_url_conversational(self):
-        helper = NovitaConversationalTask()
-        url = helper._prepare_url("novita_token", "username/repo_name")
-        assert url == "https://api.novita.ai/v3/openai/chat/completions"
-
 
 class TestScalewayProvider:
-    def test_prepare_hf_url_conversational(self):
-        helper = ScalewayConversationalTask()
-        url = helper._prepare_url("hf_token", "username/repo_name")
-        assert url == "https://router.huggingface.co/scaleway/v1/chat/completions"
-
-    def test_prepare_url_conversational(self):
-        helper = ScalewayConversationalTask()
-        url = helper._prepare_url("scw_token", "username/repo_name")
-        assert url == "https://api.scaleway.ai/v1/chat/completions"
-
-    def test_prepare_payload_as_dict(self):
-        helper = ScalewayConversationalTask()
-        payload = helper._prepare_payload_as_dict(
-            [
-                {"role": "system", "content": "You are a helpful assistant"},
-                {"role": "user", "content": "Hello!"},
-            ],
-            {
-                "max_tokens": 512,
-                "temperature": 0.15,
-                "top_p": 1,
-                "presence_penalty": 0,
-                "stream": True,
-            },
-            InferenceProviderMapping(
-                provider="scaleway",
-                hf_model_id="meta-llama/Llama-3.1-8B-Instruct",
-                providerId="meta-llama/llama-3.1-8B-Instruct",
-                task="conversational",
-                status="live",
-            ),
-        )
-        assert payload == {
-            "max_tokens": 512,
-            "messages": [
-                {"content": "You are a helpful assistant", "role": "system"},
-                {"role": "user", "content": "Hello!"},
-            ],
-            "model": "meta-llama/llama-3.1-8B-Instruct",
-            "presence_penalty": 0,
-            "stream": True,
-            "temperature": 0.15,
-            "top_p": 1,
-        }
-
     def test_prepare_url_feature_extraction(self):
         helper = ScalewayFeatureExtractionTask()
         assert (
@@ -1340,23 +1219,10 @@ class TestScalewayProvider:
         assert payload == {"input": "Example text to embed", "model": "provider-id", "truncate": True}
 
 
-class TestPublicAIProvider:
-    def test_prepare_url(self):
-        helper = PublicAIConversationalTask()
-        assert (
-            helper._prepare_url("publicai_token", "username/repo_name")
-            == "https://api.publicai.co/v1/chat/completions"
-        )
-
-
 class TestNscaleProvider:
     def test_prepare_route_text_to_image(self):
         helper = NscaleTextToImageTask()
         assert helper._prepare_route("model_name", "api_key") == "/v1/images/generations"
-
-    def test_prepare_route_chat_completion(self):
-        helper = NscaleConversationalTask()
-        assert helper._prepare_route("model_name", "api_key") == "/v1/chat/completions"
 
     def test_prepare_payload_with_size_conversion(self):
         helper = NscaleTextToImageTask()
@@ -1410,63 +1276,6 @@ class TestNscaleProvider:
         helper = NscaleTextToImageTask()
         response = helper.get_response({"data": [{"b64_json": base64.b64encode(b"image_bytes").decode()}]})
         assert response == b"image_bytes"
-
-
-class TestOpenAIProvider:
-    def test_prepare_url(self):
-        helper = OpenAIConversationalTask()
-        assert helper._prepare_url("sk-XXXXXX", "gpt-4o-mini") == "https://api.openai.com/v1/chat/completions"
-
-
-class TestOVHcloudAIEndpointsProvider:
-    def test_prepare_hf_url_conversational(self):
-        helper = OVHcloudConversationalTask()
-        url = helper._prepare_url("hf_token", "username/repo_name")
-        assert url == "https://router.huggingface.co/ovhcloud/v1/chat/completions"
-
-    def test_prepare_url_conversational(self):
-        helper = OVHcloudConversationalTask()
-        url = helper._prepare_url("ovhcloud_token", "username/repo_name")
-        assert url == "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/chat/completions"
-
-    def test_prepare_payload_as_dict(self):
-        helper = OVHcloudConversationalTask()
-        payload = helper._prepare_payload_as_dict(
-            [
-                {"role": "system", "content": "You are a helpful assistant"},
-                {"role": "user", "content": "Hello!"},
-            ],
-            {
-                "max_tokens": 512,
-                "temperature": 0.15,
-                "top_p": 1,
-                "presence_penalty": 0,
-                "stream": True,
-            },
-            InferenceProviderMapping(
-                provider="ovhcloud",
-                hf_model_id="meta-llama/Llama-3.1-8B-Instruct",
-                providerId="Llama-3.1-8B-Instruct",
-                task="conversational",
-                status="live",
-            ),
-        )
-        assert payload == {
-            "max_tokens": 512,
-            "messages": [
-                {"content": "You are a helpful assistant", "role": "system"},
-                {"role": "user", "content": "Hello!"},
-            ],
-            "model": "Llama-3.1-8B-Instruct",
-            "presence_penalty": 0,
-            "stream": True,
-            "temperature": 0.15,
-            "top_p": 1,
-        }
-
-    def test_prepare_route_conversational(self):
-        helper = OVHcloudConversationalTask()
-        assert helper._prepare_route("username/repo_name", "hf_token") == "/v1/chat/completions"
 
 
 class TestReplicateProvider:
@@ -1671,40 +1480,6 @@ class TestReplicateProvider:
 
 
 class TestTogetherProvider:
-    def test_conversational_json_schema_flattens_envelope(self):
-        # Together accepts `{type: "json_schema", schema: <schema>}`; unwrap the OpenAI
-        # `{type: "json_schema", json_schema: {schema}}` envelope.
-        helper = TogetherConversationalTask()
-        schema = {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}
-        payload = helper._prepare_payload_as_dict(
-            [{"role": "user", "content": "give me a person"}],
-            {"response_format": {"type": "json_schema", "json_schema": {"name": "person", "schema": schema}}},
-            InferenceProviderMapping(
-                provider="together",
-                hf_model_id="meta-llama/Llama-3.3-70B-Instruct",
-                providerId="meta-llama/Llama-3.3-70B-Instruct-Turbo",
-                task="conversational",
-                status="live",
-            ),
-        )
-        assert payload["response_format"] == {"type": "json_schema", "schema": schema}
-
-    def test_conversational_response_format_passthrough(self):
-        # Non-json_schema response formats (e.g. json_object) should pass through unchanged.
-        helper = TogetherConversationalTask()
-        payload = helper._prepare_payload_as_dict(
-            [{"role": "user", "content": "give me JSON"}],
-            {"response_format": {"type": "json_object"}},
-            InferenceProviderMapping(
-                provider="together",
-                hf_model_id="meta-llama/Llama-3.3-70B-Instruct",
-                providerId="meta-llama/Llama-3.3-70B-Instruct-Turbo",
-                task="conversational",
-                status="live",
-            ),
-        )
-        assert payload["response_format"] == {"type": "json_object"}
-
     def test_prepare_route_text_to_image(self):
         helper = TogetherTextToImageTask()
         assert helper._prepare_route("username/repo_name", "hf_token") == "/v1/images/generations"
@@ -2182,25 +1957,10 @@ class TestWavespeedAIProvider:
 
 
 class TestZaiProvider:
-    def test_prepare_route(self):
-        helper = ZaiConversationalTask()
-        route = helper._prepare_route("test-model", "zai_token")
-        assert route == "/api/paas/v4/chat/completions"
-
     def test_prepare_headers(self):
-        helper = ZaiConversationalTask()
+        helper = ZaiTextToImageTask()
         headers = helper._prepare_headers({}, "test_key")
         assert headers["Accept-Language"] == "en-US,en"
-
-    def test_prepare_url(self):
-        helper = ZaiConversationalTask()
-        assert helper.task == "conversational"
-        url = helper._prepare_url("zai_token", "test-model")
-        assert url == "https://api.z.ai/api/paas/v4/chat/completions"
-
-        # Test with HF token (should route through HF proxy)
-        url = helper._prepare_url("hf_token", "test-model")
-        assert url.startswith("https://router.huggingface.co/zai-org")
 
     def test_text_to_image_prepare_route(self):
         helper = ZaiTextToImageTask()
@@ -2618,10 +2378,12 @@ def test_get_provider_helper_auto_conversational():
     assert isinstance(helper, AutoRouterConversationalTask)
 
 
-def test_conversational_provider_with_hf_token_goes_through_router(mocker):
-    """With a HF token, chat with a provider goes through the router, pinned with a `model:provider` suffix."""
+@pytest.mark.parametrize("provider", ["together", "mistral"])
+def test_conversational_provider_goes_through_router(provider, mocker):
+    """Chat with any provider, listed in `PROVIDERS` or not, goes through the router as `model:provider`."""
     fetch_mapping = mocker.patch("huggingface_hub.inference._providers._common._fetch_inference_provider_mapping")
-    request = TogetherConversationalTask().prepare_request(
+    helper = get_provider_helper(provider=provider, task="conversational", model="meta-llama/Llama-3.3-70B-Instruct")
+    request = helper.prepare_request(
         inputs=[{"role": "user", "content": "Hello"}],
         parameters={},
         headers={},
@@ -2630,30 +2392,17 @@ def test_conversational_provider_with_hf_token_goes_through_router(mocker):
     )
 
     assert request.url == "https://router.huggingface.co/v1/chat/completions"
-    assert request.json["model"] == "meta-llama/Llama-3.3-70B-Instruct:together"
+    assert request.json["model"] == f"meta-llama/Llama-3.3-70B-Instruct:{provider}"
     fetch_mapping.assert_not_called()
 
 
-def test_conversational_provider_with_provider_key_calls_provider(mocker):
-    mocker.patch(
-        "huggingface_hub.inference._providers._common._fetch_inference_provider_mapping",
-        return_value=[
-            InferenceProviderMapping(
-                provider="together",
-                hf_model_id="meta-llama/Llama-3.3-70B-Instruct",
-                providerId="meta-llama/Llama-3.3-70B-Instruct-Turbo",
-                task="conversational",
-                status="live",
-            )
-        ],
-    )
-    request = TogetherConversationalTask().prepare_request(
-        inputs=[{"role": "user", "content": "Hello"}],
-        parameters={},
-        headers={},
-        model="meta-llama/Llama-3.3-70B-Instruct",
-        api_key="together_key",
-    )
-
-    assert request.url == "https://api.together.xyz/v1/chat/completions"
-    assert request.json["model"] == "meta-llama/Llama-3.3-70B-Instruct-Turbo"
+def test_conversational_provider_with_provider_key_raises():
+    helper = get_provider_helper(provider="together", task="conversational", model="meta-llama/Llama-3.3-70B-Instruct")
+    with pytest.raises(ValueError, match="requires a Hugging Face token"):
+        helper.prepare_request(
+            inputs=[{"role": "user", "content": "Hello"}],
+            parameters={},
+            headers={},
+            model="meta-llama/Llama-3.3-70B-Instruct",
+            api_key="together_key",
+        )

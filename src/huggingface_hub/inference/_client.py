@@ -136,7 +136,11 @@ class InferenceClient:
             Note: for better compatibility with OpenAI's client, `model` has been aliased as `base_url`. Those 2
             arguments are mutually exclusive. If a URL is passed as `model` or `base_url` for chat completion, the `(/v1)/chat/completions` suffix path will be appended to the URL.
         provider (`str`, *optional*):
-            Name of the provider to use for inference. Can be `"baseten"`, `"cerebras"`, `"cohere"`, `"deepinfra"`, `"fal-ai"`, `"featherless-ai"`, `"fireworks-ai"`, `"groq"`, `"hf-inference"`, `"novita"`, `"nscale"`, `"openai"`, `"ovhcloud"`, `"publicai"`, `"replicate"`, `"scaleway"`, `"together"`, `"wavespeed"` or `"zai-org"`.
+            Name of the provider to use for inference. For chat completion, can be any provider served by the
+            Hugging Face router (e.g. `"together"` or `"fireworks-ai"`): the request goes to the router with a
+            `model:provider` suffix and requires a Hugging Face token. For other tasks, can be `"deepinfra"`,
+            `"fal-ai"`, `"featherless-ai"`, `"hf-inference"`, `"novita"`, `"nscale"`, `"replicate"`, `"scaleway"`,
+            `"together"`, `"wavespeed"` or `"zai-org"`.
             Defaults to "auto": automatic routing, which defaults to "fastest" provider; you can
             switch to "cheapest" or "preferred" provider order at https://hf.co/settings/inference-providers.
             If model is a URL or `base_url` is passed, then `provider` is not used.

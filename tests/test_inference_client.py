@@ -63,23 +63,13 @@ pytestmark = pytest.mark.inference
 
 # Avoid calling APIs in VCRed tests
 _RECOMMENDED_MODELS_FOR_VCR = {
-    "baseten": {
-        "conversational": "moonshotai/Kimi-K3",
-    },
-    "cerebras": {
-        "conversational": "meta-llama/Llama-3.3-70B-Instruct",
-    },
     "together": {
-        "conversational": "meta-llama/Meta-Llama-3-8B-Instruct",
         "text-generation": "meta-llama/Llama-2-70b-hf",
         "text-to-image": "stabilityai/stable-diffusion-xl-base-1.0",
     },
     "fal-ai": {
         "text-to-image": "black-forest-labs/FLUX.1-dev",
         "automatic-speech-recognition": "openai/whisper-large-v3",
-    },
-    "fireworks-ai": {
-        "conversational": "meta-llama/Llama-3.3-70B-Instruct",
     },
     "hf-inference": {
         "audio-classification": "alefiury/wav2vec2-large-xlsr-53-gender-recognition-librispeech",
@@ -108,10 +98,6 @@ _RECOMMENDED_MODELS_FOR_VCR = {
     },
     "novita": {
         "text-generation": "NousResearch/Nous-Hermes-Llama2-13b",
-        "conversational": "meta-llama/Llama-3.1-8B-Instruct",
-    },
-    "ovhcloud": {
-        "conversational": "meta-llama/Llama-3.1-8B-Instruct",
     },
     "replicate": {
         "text-to-image": "ByteDance/SDXL-Lightning",

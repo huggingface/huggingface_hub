@@ -3,7 +3,6 @@ from typing import Any
 from huggingface_hub.hf_api import InferenceProviderMapping
 from huggingface_hub.inference._common import RequestParameters, _as_dict
 from huggingface_hub.inference._providers._common import (
-    BaseConversationalTask,
     BaseTextGenerationTask,
     TaskProviderHelper,
     filter_none,
@@ -32,15 +31,6 @@ class NovitaTextGenerationTask(BaseTextGenerationTask):
                 "seed": output.get("seed"),
             },
         }
-
-
-class NovitaConversationalTask(BaseConversationalTask):
-    def __init__(self):
-        super().__init__(provider=_PROVIDER, base_url=_BASE_URL)
-
-    def _prepare_route(self, mapped_model: str, api_key: str) -> str:
-        # there is no v1/ route for novita
-        return "/v3/openai/chat/completions"
 
 
 class NovitaTextToVideoTask(TaskProviderHelper):

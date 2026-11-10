@@ -20,17 +20,12 @@ HARDCODED_MODEL_INFERENCE_MAPPING: dict[str, dict[str, InferenceProviderMapping]
     # Example:
     # "Qwen/Qwen2.5-Coder-32B-Instruct": InferenceProviderMapping(hf_model_id="Qwen/Qwen2.5-Coder-32B-Instruct",
     #                                    provider_id="Qwen2.5-Coder-32B-Instruct",
-    #                                    task="conversational",
+    #                                    task="text-generation",
     #                                    status="live")
-    "cerebras": {},
-    "cohere": {},
     "deepinfra": {},
     "fal-ai": {},
-    "fireworks-ai": {},
-    "groq": {},
     "hf-inference": {},
     "nscale": {},
-    "ovhcloud": {},
     "replicate": {},
     "scaleway": {},
     "together": {},
@@ -266,37 +261,6 @@ class BaseConversationalTask(TaskProviderHelper):
     def __init__(self, provider: str, base_url: str):
         super().__init__(provider=provider, base_url=base_url, task="conversational")
 
-    def prepare_request(
-        self,
-        *,
-        inputs: Any,
-        parameters: dict[str, Any],
-        headers: dict,
-        model: str | None,
-        api_key: str | None,
-        extra_payload: dict[str, Any] | None = None,
-    ) -> RequestParameters:
-        # With a HF token, the router resolves `model:provider` server-side, no Hub mapping lookup.
-        # Provider keys still call the provider directly.
-        api_key = self._prepare_api_key(api_key)
-        if self.provider != "auto" and api_key.startswith("hf_") and model is not None:
-            return AutoRouterConversationalTask().prepare_request(
-                inputs=inputs,
-                parameters=parameters,
-                headers=headers,
-                model=f"{model}:{self.provider}",
-                api_key=api_key,
-                extra_payload=extra_payload,
-            )
-        return super().prepare_request(
-            inputs=inputs,
-            parameters=parameters,
-            headers=headers,
-            model=model,
-            api_key=api_key,
-            extra_payload=extra_payload,
-        )
-
     def _prepare_route(self, mapped_model: str, api_key: str) -> str:
         return "/v1/chat/completions"
 
@@ -326,10 +290,12 @@ class AutoRouterConversationalTask(BaseConversationalTask):
 
     We let the Hugging Face router select the best provider for the model, based on availability and user preferences.
     This is a special case since the selection is done server-side (avoid 1 API call to fetch provider mapping).
+    With a `provider`, the request is pinned to it with a `model:provider` suffix.
     """
 
-    def __init__(self):
+    def __init__(self, provider: str | None = None):
         super().__init__(provider="auto", base_url="https://router.huggingface.co")
+        self.pinned_provider = provider
 
     def _prepare_base_url(self, api_key: str) -> str:
         """Return the base URL to use for the request.
@@ -337,7 +303,10 @@ class AutoRouterConversationalTask(BaseConversationalTask):
         Usually not overwritten in subclasses."""
         # Route to the proxy if the api_key is a HF TOKEN
         if not api_key.startswith("hf_"):
-            raise ValueError("Cannot select auto-router when using non-Hugging Face API key.")
+            raise ValueError(
+                "Chat completion goes through the Hugging Face router, which requires a Hugging Face token."
+                " Provider API keys are not supported for chat completion."
+            )
         else:
             return self.base_url  # No `/auto` suffix in the URL
 
@@ -352,7 +321,7 @@ class AutoRouterConversationalTask(BaseConversationalTask):
         return InferenceProviderMapping(
             provider="auto",
             hf_model_id=model,
-            providerId=model,
+            providerId=f"{model}:{self.pinned_provider}" if self.pinned_provider else model,
             status="live",
             task="conversational",
         )

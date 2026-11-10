@@ -4,7 +4,7 @@ from typing import Any
 
 from huggingface_hub.hf_api import InferenceProviderMapping
 from huggingface_hub.inference._common import RequestParameters, _as_dict
-from huggingface_hub.inference._providers._common import BaseConversationalTask, TaskProviderHelper, filter_none
+from huggingface_hub.inference._providers._common import TaskProviderHelper, filter_none
 from huggingface_hub.utils import get_session
 
 
@@ -23,20 +23,6 @@ class ZaiTask(TaskProviderHelper, ABC):
         headers["Accept-Language"] = "en-US,en"
         headers["x-source-channel"] = "hugging_face"
         return headers
-
-
-class ZaiConversationalTask(BaseConversationalTask):
-    def __init__(self):
-        super().__init__(provider=_PROVIDER, base_url=_BASE_URL)
-
-    def _prepare_headers(self, headers: dict, api_key: str) -> dict[str, Any]:
-        headers = super()._prepare_headers(headers, api_key)
-        headers["Accept-Language"] = "en-US,en"
-        headers["x-source-channel"] = "hugging_face"
-        return headers
-
-    def _prepare_route(self, mapped_model: str, api_key: str) -> str:
-        return "/api/paas/v4/chat/completions"
 
 
 class ZaiTextToImageTask(ZaiTask):

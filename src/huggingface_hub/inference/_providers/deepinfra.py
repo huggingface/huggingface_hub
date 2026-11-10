@@ -6,7 +6,7 @@ from typing import Any
 from huggingface_hub.hf_api import InferenceProviderMapping
 from huggingface_hub.inference._common import MimeBytes, RequestParameters, _as_dict, _open_as_mime_bytes
 
-from ._common import BaseConversationalTask, BaseTextGenerationTask, TaskProviderHelper, filter_none
+from ._common import BaseTextGenerationTask, TaskProviderHelper, filter_none
 
 
 _PROVIDER = "deepinfra"
@@ -69,14 +69,6 @@ class DeepInfraTextGenerationTask(BaseTextGenerationTask):
                 "seed": output.get("seed"),
             },
         }
-
-
-class DeepInfraConversationalTask(BaseConversationalTask):
-    def __init__(self):
-        super().__init__(provider=_PROVIDER, base_url=_BASE_URL)
-
-    def _prepare_route(self, mapped_model: str, api_key: str) -> str:
-        return "/v1/openai/chat/completions"
 
 
 class DeepInfraAutomaticSpeechRecognitionTask(TaskProviderHelper):

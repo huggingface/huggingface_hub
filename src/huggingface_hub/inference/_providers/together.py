@@ -10,7 +10,6 @@ from huggingface_hub.inference._common import (
     _as_url,
 )
 from huggingface_hub.inference._providers._common import (
-    BaseConversationalTask,
     BaseTextGenerationTask,
     TaskProviderHelper,
     filter_none,
@@ -67,32 +66,6 @@ class TogetherTextGenerationTask(BaseTextGenerationTask):
                 "seed": output.get("seed"),
             },
         }
-
-
-class TogetherConversationalTask(BaseConversationalTask):
-    def __init__(self):
-        super().__init__(provider=_PROVIDER, base_url=_BASE_URL)
-
-    def _prepare_payload_as_dict(
-        self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
-    ) -> dict | None:
-        payload = super()._prepare_payload_as_dict(inputs, parameters, provider_mapping_info)
-        if payload is None:
-            return None
-        # Together accepts response_format `{type: "json_schema", schema: <schema>}` (flattened),
-        # so unwrap the OpenAI-style `{type: "json_schema", json_schema: {schema}}` envelope.
-        response_format = payload.get("response_format")
-        if (
-            isinstance(response_format, dict)
-            and response_format.get("type") == "json_schema"
-            and isinstance(response_format.get("json_schema"), dict)
-            and "schema" in response_format["json_schema"]
-        ):
-            payload["response_format"] = {
-                "type": "json_schema",
-                "schema": response_format["json_schema"]["schema"],
-            }
-        return payload
 
 
 class TogetherTextToImageTask(TogetherTask):

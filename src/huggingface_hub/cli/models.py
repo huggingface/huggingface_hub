@@ -70,7 +70,7 @@ models_cli = typer_factory(help="Interact with models on the Hub.")
         "hf models ls --num-parameters min:6B,max:128B --sort likes",
         "hf models ls --no-gated --author google",
         "hf models ls --apps llama.cpp --apps vllm",
-        "hf models ls --inference-provider fireworks-ai --sort downloads",
+        "hf models ls --inference-provider together --sort downloads",
         "hf models ls --warm --search llama",
         "hf models ls meta-llama/Llama-3.2-1B-Instruct",
         "hf models ls meta-llama/Llama-3.2-1B-Instruct -R",
@@ -109,7 +109,7 @@ def models_ls(
         Option(
             "--inference-provider",
             click_type=SoftChoice(InferenceProviderEnum),
-            help="Filter by inference provider(s) serving the model, e.g. 'fireworks-ai'.",
+            help="Filter by inference provider(s) serving the model, e.g. 'together'.",
         ),
     ] = None,
     warm: Annotated[

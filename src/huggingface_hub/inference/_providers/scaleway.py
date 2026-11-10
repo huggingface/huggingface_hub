@@ -2,12 +2,7 @@ from typing import Any
 
 from huggingface_hub.inference._common import RequestParameters, _as_dict
 
-from ._common import BaseConversationalTask, InferenceProviderMapping, TaskProviderHelper, filter_none
-
-
-class ScalewayConversationalTask(BaseConversationalTask):
-    def __init__(self):
-        super().__init__(provider="scaleway", base_url="https://api.scaleway.ai")
+from ._common import InferenceProviderMapping, TaskProviderHelper, filter_none
 
 
 class ScalewayFeatureExtractionTask(TaskProviderHelper):
