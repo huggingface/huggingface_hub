@@ -53,7 +53,6 @@ Let's now see an example using the [`~InferenceClient.chat_completion`] API. Thi
     }
 ]
 >>> client = InferenceClient(
-    provider="together",
     model="deepseek-ai/DeepSeek-V4.1-Flash",
     api_key="hf_****",  # Your Hugging Face token
 )
@@ -75,7 +74,7 @@ ChatCompletionOutput(
 )
 ```
 
-In the example above, we used a third-party provider ([Together AI](https://www.together.ai/)) and specified which model we want to use (`"deepseek-ai/DeepSeek-V4.1-Flash"`). With a Hugging Face token, chat completion goes through the Hugging Face router, which runs it on the requested provider. We then gave a list of messages to complete (here, a single question) and passed an additional parameter to the API (`max_token=100`). The output is a `ChatCompletionOutput` object that follows the OpenAI specification. The generated content can be accessed with `output.choices[0].message.content`. For more details, check out the [`~InferenceClient.chat_completion`] documentation.
+In the example above, we specified which model we want to use (`"deepseek-ai/DeepSeek-V4.1-Flash"`). Language models are powered by [OpenRouter](https://openrouter.ai): each request goes to a provider serving the model, and switches to another one automatically if it's down or rate limited. We then gave a list of messages to complete (here, a single question) and passed an additional parameter to the API (`max_token=100`). The output is a `ChatCompletionOutput` object that follows the OpenAI specification. The generated content can be accessed with `output.choices[0].message.content`. For more details, check out the [`~InferenceClient.chat_completion`] documentation.
 
 
 > [!WARNING]
@@ -189,7 +188,7 @@ For more details, refer to the [Inference Providers pricing documentation](https
 
 [`InferenceClient`]'s goal is to provide the easiest interface to run inference on Hugging Face models, on any provider. It has a simple API that supports the most common tasks.
 
-With a Hugging Face token, [`~InferenceClient.chat_completion`] goes through the Hugging Face router at `https://router.huggingface.co/v1/chat/completions`, which routes it through [OpenRouter](https://openrouter.ai) when OpenRouter serves the model. The router picks a provider for the model, or runs it on the one you pass as `provider` (sent as `model:provider`, e.g. `"together"`). With a provider API key, it calls that provider directly. To list the providers serving a model, check its model page on the Hub.
+With a Hugging Face token, [`~InferenceClient.chat_completion`] goes through the Hugging Face router at `https://router.huggingface.co/v1/chat/completions`. Language models are powered by [OpenRouter](https://openrouter.ai), which picks a provider serving the model and retries on another one if it fails. Passing a `provider` pins it. With a provider API key, it calls that provider directly. To list the providers serving a model, check its model page on the Hub.
 
 For the providers supporting each task, check the [Inference Providers documentation](https://huggingface.co/docs/inference-providers/index).
 
@@ -260,7 +259,7 @@ You might wonder why using [`InferenceClient`] instead of OpenAI's client? There
 ## Function Calling
 
 Function calling allows LLMs to interact with external tools, such as defined functions or APIs. This enables users to easily build applications tailored to specific use cases and real-world tasks.
-`InferenceClient` implements the same tool calling interface as the OpenAI Chat Completions API. Here is a simple example of tool calling using [Together AI](https://www.together.ai/) as the inference provider:
+`InferenceClient` implements the same tool calling interface as the OpenAI Chat Completions API. Here is a simple example of tool calling:
 
 ```python
 from huggingface_hub import InferenceClient
@@ -285,7 +284,7 @@ tools = [
         }
 ]
 
-client = InferenceClient(provider="together")
+client = InferenceClient()
 
 response = client.chat.completions.create(
     model="deepseek-ai/DeepSeek-V4.1-Flash",
@@ -310,7 +309,7 @@ print(response.choices[0].message.tool_calls[0].function.arguments)
 
 InferenceClient supports JSON mode for syntactically valid JSON responses and Structured Outputs for schema-enforced responses. JSON mode provides machine-readable data without strict structure, while Structured Outputs guarantee both valid JSON and adherence to a predefined schema for reliable downstream processing.
 
-We follow the OpenAI API specs for both JSON mode and Structured Outputs. You can enable them via the `response_format` argument. Here is an example of Structured Outputs using [Together AI](https://www.together.ai/) as the inference provider:
+We follow the OpenAI API specs for both JSON mode and Structured Outputs. You can enable them via the `response_format` argument. Here is an example of Structured Outputs:
 
 ```python
 from huggingface_hub import InferenceClient
@@ -336,7 +335,7 @@ json_schema = {
     "strict": True,
 }
 
-client = InferenceClient(provider="together")
+client = InferenceClient()
 
 
 completion = client.chat.completions.create(
@@ -382,7 +381,7 @@ The `huggingface_hub` library now includes an experimental [`MCPClient`], design
 
 The [`MCPClient`] connects to MCP servers (either local `stdio` scripts or remote `http`/`sse` services) that expose tools. It feeds these tools to an LLM (via [`AsyncInferenceClient`]). If the LLM decides to use a tool, [`MCPClient`] manages the execution request to the MCP server and relays the Tool's output back to the LLM, often streaming results in real-time.
 
-In the following example, we use [deepseek-ai/DeepSeek-V4.1-Flash](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash) model via [Together AI](https://www.together.ai/) inference provider. We then add a remote MCP server, in this case, an SSE server which made the Flux image generation tool available to the LLM.
+In the following example, we use [deepseek-ai/DeepSeek-V4.1-Flash](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash) model, powered by [OpenRouter](https://openrouter.ai). We then add a remote MCP server, in this case, an SSE server which made the Flux image generation tool available to the LLM.
 
 ```python
 import os
@@ -392,7 +391,6 @@ from huggingface_hub import ChatCompletionInputMessage, ChatCompletionStreamOutp
 
 async def main():
     async with MCPClient(
-        provider="together",
         model="deepseek-ai/DeepSeek-V4.1-Flash",
         api_key=os.environ["HF_TOKEN"],
     ) as client:
