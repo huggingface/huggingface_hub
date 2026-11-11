@@ -2256,6 +2256,15 @@ class TestDatasetsLsCommand:
         _, kwargs = api.list_datasets.call_args
         assert kwargs["sort"] == "downloads"
 
+    def test_datasets_ls_with_benchmark(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.datasets.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_datasets.return_value = iter([])
+            result = runner.invoke(app, ["datasets", "ls", "--benchmark", "official"])
+
+        assert result.exit_code == 0
+        _, kwargs = api.list_datasets.call_args
+        assert kwargs["benchmark"] == "official"
     @pytest.mark.production
     def test_datasets_ls_files(self, runner: CliRunner) -> None:
         """List files from a real dataset repo on the Hub."""

@@ -11,6 +11,21 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""Contains commands to interact with datasets on the Hugging Face Hub.
+
+Usage:
+    # list datasets on the Hub
+    hf datasets ls
+
+    # list datasets with a search query
+    hf datasets ls --search "code"
+
+    # list benchmark datasets
+    hf datasets ls --benchmark official
+
+    # get info about a dataset
+    hf datasets info HuggingFaceFW/fineweb
+"""
 """Contains commands to interact with datasets on the Hugging Face Hub."""
 
 import enum
@@ -54,6 +69,16 @@ ExpandOpt = Annotated[
 ]
 
 
+BenchmarkOpt = Annotated[
+    Optional[str],
+    typer.Option(
+        help=(
+            "Filter datasets by benchmark tag. Use 'official' to list official benchmark datasets "
+            "(equivalent to the Python API's benchmark=True alias)."
+        ),
+    ),
+]
+
 datasets_cli = typer_factory(help="Interact with datasets on the Hub.")
 
 
@@ -63,6 +88,7 @@ datasets_cli = typer_factory(help="Interact with datasets on the Hub.")
         "hf datasets ls",
         "hf datasets ls --sort downloads --limit 10",
         'hf datasets ls --search "code"',
+        "hf datasets ls --benchmark official",
         "hf datasets ls --filter benchmark:official",
         "hf datasets ls HuggingFaceFW/fineweb",
         "hf datasets ls HuggingFaceFW/fineweb -R",
@@ -77,6 +103,7 @@ def datasets_ls(
     search: SearchOpt = None,
     author: AuthorOpt = None,
     filter: FilterOpt = None,
+    benchmark: BenchmarkOpt = None,
     sort: Annotated[
         DatasetSortEnum | None,
         Option(help="Sort results."),
@@ -143,6 +170,10 @@ def datasets_ls(
             filter=filter,
             author=author,
             search=search,
+            benchmark=benchmark,
+            sort=sort_key,
+            limit=limit,
+            expand=expand,
             sort=sort_key,
             limit=limit,
             expand=expand,  # type: ignore
