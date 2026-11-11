@@ -11,6 +11,10 @@ output-format = "concise"
 # Minimize noise from optional/extra dependencies not installed in CI or local
 unresolved-import = "ignore"
 unresolved-attribute = "ignore"
+# New rule names (ty 0.0.100 split `unresolved-attribute`); old names kept for older local ty versions
+import-not-found = "ignore"
+missing-attribute = "ignore"
+missing-union-attribute = "ignore"
 
 # Keep type: ignore comments for mypy compatibility
 unused-ignore-comment = "ignore"
