@@ -9180,12 +9180,14 @@ class HfApi:
             user = self.whoami(token=token)
 
             # List personal endpoints first
-            endpoints: list[InferenceEndpoint] = list_inference_endpoints(namespace=self._get_namespace(token=token))
+            endpoints: list[InferenceEndpoint] = self.list_inference_endpoints(
+                namespace=self._get_namespace(token=token), token=token
+            )
 
             # Then list endpoints for all orgs the user belongs to and ignore 401 errors (no billing or no access)
             for org in user.get("orgs", []):
                 try:
-                    endpoints += list_inference_endpoints(namespace=org["name"], token=token)
+                    endpoints += self.list_inference_endpoints(namespace=org["name"], token=token)
                 except HfHubHTTPError as error:
                     if error.response.status_code == 401:  # Either no billing or user don't have access)
                         logger.debug("Cannot list Inference Endpoints for org '%s': %s", org["name"], error)
@@ -9203,7 +9205,7 @@ class HfApi:
         hf_raise_for_status(response)
 
         return [
-            InferenceEndpoint.from_raw(endpoint, namespace=namespace, token=token)
+            InferenceEndpoint.from_raw(endpoint, namespace=namespace, token=token, api=self)
             for endpoint in response.json()["items"]
         ]
 
@@ -9501,7 +9503,7 @@ class HfApi:
         )
         hf_raise_for_status(response)
 
-        return InferenceEndpoint.from_raw(response.json(), namespace=namespace, token=token)
+        return InferenceEndpoint.from_raw(response.json(), namespace=namespace, token=token, api=self)
 
     @experimental
     @validate_hf_hub_args
@@ -9586,7 +9588,7 @@ class HfApi:
 
         response = get_session().post(url, headers=self._build_hf_headers(token=token), json=payload)
         hf_raise_for_status(response)
-        return InferenceEndpoint.from_raw(response.json()["endpoint"], namespace=namespace, token=token)
+        return InferenceEndpoint.from_raw(response.json()["endpoint"], namespace=namespace, token=token, api=self)
 
     @experimental
     @validate_hf_hub_args
@@ -9705,7 +9707,7 @@ class HfApi:
         )
         hf_raise_for_status(response)
 
-        return InferenceEndpoint.from_raw(response.json(), namespace=namespace, token=token)
+        return InferenceEndpoint.from_raw(response.json(), namespace=namespace, token=token, api=self)
 
     def update_inference_endpoint(
         self,
@@ -9893,7 +9895,7 @@ class HfApi:
         )
         hf_raise_for_status(response)
 
-        return InferenceEndpoint.from_raw(response.json(), namespace=namespace, token=token)
+        return InferenceEndpoint.from_raw(response.json(), namespace=namespace, token=token, api=self)
 
     def delete_inference_endpoint(
         self, name: str, *, namespace: str | None = None, token: bool | str | None = None
@@ -9956,7 +9958,7 @@ class HfApi:
         )
         hf_raise_for_status(response)
 
-        return InferenceEndpoint.from_raw(response.json(), namespace=namespace, token=token)
+        return InferenceEndpoint.from_raw(response.json(), namespace=namespace, token=token, api=self)
 
     def resume_inference_endpoint(
         self,
@@ -10002,7 +10004,7 @@ class HfApi:
             # Otherwise, raise the error
             raise
 
-        return InferenceEndpoint.from_raw(response.json(), namespace=namespace, token=token)
+        return InferenceEndpoint.from_raw(response.json(), namespace=namespace, token=token, api=self)
 
     def scale_to_zero_inference_endpoint(
         self, name: str, *, namespace: str | None = None, token: bool | str | None = None
@@ -10037,7 +10039,7 @@ class HfApi:
         )
         hf_raise_for_status(response)
 
-        return InferenceEndpoint.from_raw(response.json(), namespace=namespace, token=token)
+        return InferenceEndpoint.from_raw(response.json(), namespace=namespace, token=token, api=self)
 
     def list_inference_endpoints_hardware(
         self, *, namespace: str | None = None, token: bool | str | None = None
