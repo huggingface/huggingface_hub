@@ -5049,6 +5049,33 @@ class TestHfApiModalityFilter:
     def test_all_modalities_are_resolvable(self):
         for modality in MODALITIES:
             assert resolve_modality(modality) == modality
+    
+    def test_list_models_modality_adds_sort_property_to_expand(self, api: HfApi):
+        expand = ["author"]
+        with patch("huggingface_hub.hf_api.paginate") as mock_paginate:
+            mock_paginate.side_effect = lambda *args, **kwargs: []
+            list(api.list_models(modality="3d", expand=expand, sort="created_at"))
+
+        params = [call[1]["params"] for call in mock_paginate.call_args_list]
+        # `createdAt` is not returned by the Hub unless explicitly expanded, and the merge keys on it.
+        assert all(param["expand"] == ["author", "createdAt"] for param in params)
+        # The list passed by the caller is left untouched.
+        assert expand == ["author"]
+
+    def test_list_models_modality_does_not_duplicate_expanded_sort_property(self, api: HfApi):
+        with patch("huggingface_hub.hf_api.paginate") as mock_paginate:
+            mock_paginate.side_effect = lambda *args, **kwargs: []
+            list(api.list_models(modality="3d", expand=["downloads", "author"], sort="downloads"))
+
+        params = [call[1]["params"] for call in mock_paginate.call_args_list]
+        assert all(param["expand"] == ["downloads", "author"] for param in params)
+
+    def test_list_models_without_modality_does_not_touch_expand(self, api: HfApi):
+        with patch("huggingface_hub.hf_api.paginate") as mock_paginate:
+            mock_paginate.side_effect = lambda *args, **kwargs: []
+            list(api.list_models(expand=["author"]))
+
+        assert mock_paginate.call_args[1]["params"] == {"expand": ["author"]}
 
 
 @pytest.mark.production
@@ -5080,3 +5107,13 @@ class TestModelModalityMapping:
 
         assert len(datasets) > 0
         assert all("modality:audio" in dataset.tags for dataset in datasets)
+
+    def test_list_models_by_modality_with_expand(self):
+        """The sort property must be fetched when merging, even with `expand` (regression test)."""
+        api = HfApi(endpoint=ENDPOINT_PRODUCTION, token=False)
+        models = list(api.list_models(modality="audio", sort="created_at", expand=["author"], limit=10))
+
+        assert len(models) > 0
+        created_at = [model.created_at for model in models]
+        assert all(value is not None for value in created_at)
+        assert created_at == sorted(created_at, reverse=True)

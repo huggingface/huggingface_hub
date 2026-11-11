@@ -2139,6 +2139,15 @@ _MODEL_SORT_ATTRIBUTES: dict[str, str] = {
     "trending_score": "trending_score",
 }
 
+# Property to request in `expand` to receive the value a model is sorted by.
+_MODEL_SORT_EXPAND_PROPERTIES: dict[str, ExpandModelProperty_T] = {
+    "created_at": "createdAt",
+    "downloads": "downloads",
+    "last_modified": "lastModified",
+    "likes": "likes",
+    "trending_score": "trendingScore",
+}
+
 
 def _model_info_from_item(item: dict[str, Any]) -> ModelInfo:
     """Build a [`ModelInfo`] from a raw item returned by the `/api/models` endpoint."""
@@ -2575,6 +2584,12 @@ class HfApi:
         if cardData:
             params["cardData"] = True
         if expand:
+            if modality_pipeline_tags is not None:
+                # Merging the per-pipeline-tag streams keys on the sort property, so the Hub must return it.
+                # Not every property is sent back by default (`createdAt` for instance is not).
+                sort_property = _MODEL_SORT_EXPAND_PROPERTIES[sort or "trending_score"]
+                if sort_property not in expand:
+                    expand = [*expand, sort_property]
             params["expand"] = expand
 
         # `models` is a generator
