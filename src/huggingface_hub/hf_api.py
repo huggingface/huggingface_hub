@@ -13,6 +13,7 @@
 # limitations under the License.
 from __future__ import annotations
 
+import heapq
 import inspect
 import itertools
 import json
@@ -63,6 +64,7 @@ from ._jobs_api import (
     _default_job_name_from_script,
     _derive_job_volume_name,
 )
+from ._modalities import Modality_T, modality_to_dataset_tag, modality_to_pipeline_tags
 from ._revision import ResolvedRevision
 from ._space_api import (
     INTERMEDIATE_SPACE_STAGES,
@@ -2129,6 +2131,73 @@ def _safetensors_file_metadata_from_header(
         ) from e
 
 
+_MODEL_SORT_ATTRIBUTES: dict[str, str] = {
+    "created_at": "created_at",
+    "downloads": "downloads",
+    "last_modified": "last_modified",
+    "likes": "likes",
+    "trending_score": "trending_score",
+}
+
+# Property to request in `expand` to receive the value a model is sorted by.
+_MODEL_SORT_EXPAND_PROPERTIES: dict[str, ExpandModelProperty_T] = {
+    "created_at": "createdAt",
+    "downloads": "downloads",
+    "last_modified": "lastModified",
+    "likes": "likes",
+    "trending_score": "trendingScore",
+}
+
+
+def _model_info_from_item(item: dict[str, Any]) -> ModelInfo:
+    """Build a [`ModelInfo`] from a raw item returned by the `/api/models` endpoint."""
+    if "siblings" not in item:
+        item["siblings"] = None
+    return ModelInfo(**item)
+
+
+def _model_sort_value(model_info: ModelInfo, sort: ModelSort_T) -> tuple[bool, Any]:
+    """Sort key used to merge models listed for several pipeline tags. Models missing the sort value go last."""
+    value = getattr(model_info, _MODEL_SORT_ATTRIBUTES[sort], None)
+    if value is None:
+        is_date = sort in ("created_at", "last_modified")
+        return (False, datetime.min.replace(tzinfo=timezone.utc) if is_date else 0)
+    return (True, value)
+
+
+def _iter_models_by_modality(
+    *,
+    path: str,
+    params: dict[str, Any],
+    headers: dict[str, str],
+    pipeline_tags: tuple[str, ...],
+    sort: ModelSort_T | None,
+) -> Iterator[ModelInfo]:
+    """Iterate over the models of all `pipeline_tags`, merged into a single stream sorted by `sort`.
+
+    The Hub API cannot filter a single query on several pipeline tags, so one request is sent per tag and
+    the (already sorted) streams are merged lazily with `heapq.merge`.
+    """
+    sort_key: ModelSort_T = sort or "trending_score"
+
+    def _models_for_tag(pipeline_tag: str) -> Iterator[ModelInfo]:
+        tag_params = {**params, "pipeline_tag": pipeline_tag}
+        for item in paginate(path, params=tag_params, headers=headers):
+            yield _model_info_from_item(item)
+
+    streams = [_models_for_tag(pipeline_tag) for pipeline_tag in pipeline_tags]
+    seen: set[str] = set()
+    for model_info in heapq.merge(
+        *streams,
+        key=lambda model_info: _model_sort_value(model_info, sort_key),
+        reverse=True,
+    ):
+        if model_info.id in seen:
+            continue
+        seen.add(model_info.id)
+        yield model_info
+
+
 class HfApi:
     """
     Client to interact with the Hugging Face Hub via HTTP.
@@ -2326,6 +2395,7 @@ class HfApi:
         trained_dataset: str | list[str] | None = None,
         search: str | None = None,
         pipeline_tag: str | None = None,
+        modality: Modality_T | str | None = None,
         num_parameters: str | None = None,
         emissions_thresholds: tuple[float, float] | None = None,
         # Sorting and pagination parameters
@@ -2367,6 +2437,17 @@ class HfApi:
                 A string that will be contained in the returned model ids.
             pipeline_tag (`str`, *optional*):
                 A string pipeline tag to filter models on the Hub by, such as `summarization`.
+            modality (`str`, *optional*):
+                A modality to filter models on the Hub by, such as `"audio"`, `"image"` or `"text"`.
+                Compared to `pipeline_tag`, which targets a single sub-task (e.g. `"depth-estimation"`),
+                a modality covers every task belonging to it (for images: image classification, object
+                detection, depth estimation, ...). Accepted values are `"text"`, `"image"`, `"audio"`,
+                `"video"`, `"3d"`, `"tabular"`, `"multimodal"`, `"document"`, `"timeseries"`,
+                `"reinforcement-learning"` and `"other"` (plus aliases such as `"nlp"`,
+                `"computer-vision"` or `"speech"`).
+                Since the Hub has no modality field for models, one request is sent per pipeline tag of that
+                modality and results are merged client-side, sorted by `sort` (defaults to `"trending_score"`
+                when `modality` is set). Cannot be used together with `pipeline_tag`.
             num_parameters (`str`, *optional*):
                 Filter models by parameter count. Accepts the same range syntax as the Hub UI and API, for example
                 `"min:6B,max:128B"`, `"min:6B"` or `"max:128B"`.
@@ -2429,6 +2510,9 @@ class HfApi:
 
         # List models with 6B to 128B parameters
         >>> api.list_models(num_parameters="min:6B,max:128B", sort="likes")
+
+        # List trending audio models, whatever their specific task
+        >>> api.list_models(modality="audio", sort="trending_score", limit=10)
         ```
         """
         if expand and (full or cardData or fetch_config):
@@ -2436,6 +2520,12 @@ class HfApi:
 
         if emissions_thresholds is not None and not cardData:
             raise ValueError("`emissions_thresholds` were passed without setting `cardData=True`.")
+
+        if modality is not None and pipeline_tag is not None:
+            raise ValueError(
+                "`pipeline_tag` and `modality` cannot be used together: a modality already covers a set of pipeline tags."
+            )
+        modality_pipeline_tags = modality_to_pipeline_tags(modality) if modality is not None else None
 
         path = f"{self.endpoint}/api/models"
         headers = self._build_hf_headers(token=token)
@@ -2466,6 +2556,9 @@ class HfApi:
             params["inference_provider"] = inference_provider
         if pipeline_tag:
             params["pipeline_tag"] = pipeline_tag
+        if modality_pipeline_tags is not None and sort is None:
+            # Results of each pipeline tag are merged client-side: sort them explicitly to merge sorted streams.
+            params["sort"] = "trendingScore"
         if num_parameters is not None:
             params["num_parameters"] = num_parameters
         if search:
@@ -2491,16 +2584,33 @@ class HfApi:
         if cardData:
             params["cardData"] = True
         if expand:
+            if modality_pipeline_tags is not None:
+                # Merging the per-pipeline-tag streams keys on the sort property, so the Hub must return it.
+                # Not every property is sent back by default (`createdAt` for instance is not).
+                sort_property = _MODEL_SORT_EXPAND_PROPERTIES[sort or "trending_score"]
+                if sort_property not in expand:
+                    expand = [*expand, sort_property]
             params["expand"] = expand
 
-        # `items` is a generator
-        items = paginate(path, params=params, headers=headers)
-        if limit is not None:
-            items = islice(items, limit)  # Do not iterate over all pages
-        for item in items:
-            if "siblings" not in item:
-                item["siblings"] = None
-            model_info = ModelInfo(**item)
+        # `models` is a generator
+        models: Iterable[ModelInfo]
+        if modality_pipeline_tags is not None:
+            models = _iter_models_by_modality(
+                path=path,
+                params=params,
+                headers=headers,
+                pipeline_tags=modality_pipeline_tags,
+                sort=sort,
+            )
+            if limit is not None:
+                models = islice(models, limit)  # Do not iterate over all pages
+        else:
+            items = paginate(path, params=params, headers=headers)
+            if limit is not None:
+                items = islice(items, limit)  # Do not iterate over all pages
+            models = (_model_info_from_item(item) for item in items)
+
+        for model_info in models:
             if emissions_thresholds is None or _is_emission_within_threshold(model_info, *emissions_thresholds):
                 yield model_info
 
@@ -2520,6 +2630,7 @@ class HfApi:
         size_categories: str | list[str] | None = None,
         task_categories: str | list[str] | None = None,
         task_ids: str | list[str] | None = None,
+        modality: Modality_T | str | None = None,
         search: str | None = None,
         # Sorting and pagination parameters
         sort: DatasetSort_T | None = None,
@@ -2569,6 +2680,13 @@ class HfApi:
                 A string or list of strings that can be used to identify datasets on
                 the Hub by the specific task such as `speech_emotion_recognition` or
                 `paraphrase`.
+            modality (`str`, *optional*):
+                A modality to filter datasets on the Hub by, such as `"audio"`, `"image"` or `"text"`.
+                Accepted values are `"text"`, `"image"`, `"audio"`, `"video"`, `"3d"`, `"tabular"`,
+                `"document"`, `"timeseries"` and `"geospatial"` (plus aliases such as `"nlp"`,
+                `"computer-vision"` or `"speech"`). Equivalent to passing the corresponding
+                `modality:*` tag to `filter`. Modalities without a matching tag (`"multimodal"`,
+                `"reinforcement-learning"`) are rejected.
             search (`str`, *optional*):
                 A string that will be contained in the returned datasets.
             sort (`DatasetSort_T`, *optional*):
@@ -2616,6 +2734,9 @@ class HfApi:
 
         # List FiftyOne datasets (identified by the tag "fiftyone" in dataset card)
         >>> api.list_datasets(filter="fiftyone")
+
+        # List the most downloaded audio datasets, whatever their specific task
+        >>> api.list_datasets(modality="audio", sort="downloads", limit=10)
         ```
 
         Example usage with the `search` argument:
@@ -2663,6 +2784,8 @@ class HfApi:
                     else:
                         data = value_item
                     filter_list.append(data)
+        if modality is not None:
+            filter_list.append(modality_to_dataset_tag(modality))
         if benchmark is not None:
             if benchmark is True:  # alias for official benchmark
                 benchmark = "official"

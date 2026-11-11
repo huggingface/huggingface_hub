@@ -43,6 +43,28 @@ You can also filter models by parameter count using the same range syntax as the
 models = hf_api.list_models(num_parameters="min:6B,max:128B")
 ```
 
+## How to filter by modality ?
+
+`pipeline_tag` targets a single task, such as `depth-estimation` or `text-classification`. To browse a whole
+family of tasks at once, use `modality` instead. For example, to get the trending audio models, whatever their
+specific task:
+
+```py
+>>> api.list_models(modality="audio", sort="trending_score", limit=10)
+```
+
+The accepted modalities are `"text"`, `"image"`, `"audio"`, `"video"`, `"3d"`, `"tabular"`, `"multimodal"`,
+`"document"`, `"timeseries"`, `"reinforcement-learning"` and `"other"` for models, and `"text"`, `"image"`,
+`"audio"`, `"video"`, `"3d"`, `"tabular"`, `"document"`, `"timeseries"` and `"geospatial"` for datasets.
+Aliases such as `"nlp"`, `"computer-vision"` or `"speech"` are accepted too.
+
+```py
+>>> api.list_datasets(modality="audio", sort="downloads", limit=10)
+```
+
+Modalities are broader than tags, so a modality filter can also be combined with the other filters
+(`author`, `search`, `gated`, ...) but not with `pipeline_tag`, which is a single task.
+
 While filtering, you can also sort the models and take only the top results. For example,
 the following example fetches the top 5 most downloaded datasets on the Hub:
 
@@ -73,6 +95,10 @@ You can also list and search for models, datasets, and Spaces using the `hf` com
 
 # List datasets
 >>> hf datasets ls --author Qwen
+
+# List models or datasets of a whole modality
+>>> hf models ls --modality audio --sort trending_score --limit 10
+>>> hf datasets ls --modality audio --sort downloads --limit 10
 
 # List Spaces
 >>> hf spaces ls --search "3d"

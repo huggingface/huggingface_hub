@@ -18,6 +18,7 @@ from typing import Annotated, cast, get_args
 
 import click
 
+from huggingface_hub._modalities import MODEL_MODALITY_TO_PIPELINE_TAGS
 from huggingface_hub.errors import CLIError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.hf_api import ExpandModelProperty_T, ModelSort_T
 from huggingface_hub.inference._providers import PROVIDER_T
@@ -67,6 +68,7 @@ models_cli = typer_factory(help="Interact with models on the Hub.")
         "hf models ls --sort downloads --limit 10",
         'hf models ls --search "llama" --author meta-llama',
         "hf models ls --pipeline-tag text-generation --warm",
+        "hf models ls --modality audio --sort trending_score --limit 10",
         "hf models ls --num-parameters min:6B,max:128B --sort likes",
         "hf models ls --no-gated --author google",
         "hf models ls --apps llama.cpp --apps vllm",
@@ -88,6 +90,14 @@ def models_ls(
     pipeline_tag: Annotated[
         str | None,
         Option("--pipeline-tag", help="Filter by pipeline tag (canonical task), e.g. 'summarization'."),
+    ] = None,
+    modality: Annotated[
+        str | None,
+        Option(
+            "--modality",
+            click_type=SoftChoice(sorted(MODEL_MODALITY_TO_PIPELINE_TAGS)),
+            help=f"Filter by modality (whole task family), e.g. 'audio'. Valid: {', '.join(sorted(MODEL_MODALITY_TO_PIPELINE_TAGS))}.",
+        ),
     ] = None,
     gated: Annotated[
         bool | None,
@@ -151,6 +161,8 @@ def models_ls(
             raise click.BadParameter("Cannot use --filter when listing files.")
         if pipeline_tag is not None:
             raise click.BadParameter("Cannot use --pipeline-tag when listing files.")
+        if modality is not None:
+            raise click.BadParameter("Cannot use --modality when listing files.")
         if gated is not None:
             raise click.BadParameter("Cannot use --gated/--no-gated when listing files.")
         if apps is not None:
@@ -196,6 +208,7 @@ def models_ls(
             author=author,
             search=search,
             pipeline_tag=pipeline_tag,
+            modality=modality,
             gated=gated,
             apps=apps,
             num_parameters=num_parameters,

@@ -19,6 +19,7 @@ from typing import Annotated, get_args
 import click
 
 from huggingface_hub._dataset_viewer import execute_raw_sql_query
+from huggingface_hub._modalities import DATASET_MODALITY_TAGS
 from huggingface_hub.errors import CLIError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.hf_api import DatasetSort_T, ExpandDatasetProperty_T
 from huggingface_hub.repocard import DatasetCard
@@ -30,6 +31,7 @@ from ._cli_utils import (
     LimitOpt,
     RevisionOpt,
     SearchOpt,
+    SoftChoice,
     TokenOpt,
     get_hf_api,
     make_expand_properties_parser,
@@ -63,6 +65,7 @@ datasets_cli = typer_factory(help="Interact with datasets on the Hub.")
         "hf datasets ls",
         "hf datasets ls --sort downloads --limit 10",
         'hf datasets ls --search "code"',
+        "hf datasets ls --modality audio --sort downloads --limit 10",
         "hf datasets ls --filter benchmark:official",
         "hf datasets ls HuggingFaceFW/fineweb",
         "hf datasets ls HuggingFaceFW/fineweb -R",
@@ -77,6 +80,14 @@ def datasets_ls(
     search: SearchOpt = None,
     author: AuthorOpt = None,
     filter: FilterOpt = None,
+    modality: Annotated[
+        str | None,
+        Option(
+            "--modality",
+            click_type=SoftChoice(sorted(DATASET_MODALITY_TAGS)),
+            help=f"Filter by modality, e.g. 'audio'. Valid: {', '.join(sorted(DATASET_MODALITY_TAGS))}.",
+        ),
+    ] = None,
     sort: Annotated[
         DatasetSortEnum | None,
         Option(help="Sort results."),
@@ -110,6 +121,8 @@ def datasets_ls(
             raise click.BadParameter("Cannot use --author when listing files.")
         if filter is not None:
             raise click.BadParameter("Cannot use --filter when listing files.")
+        if modality is not None:
+            raise click.BadParameter("Cannot use --modality when listing files.")
         if sort is not None:
             raise click.BadParameter("Cannot use --sort when listing files.")
         if limit != REPO_LIST_DEFAULT_LIMIT:
@@ -143,6 +156,7 @@ def datasets_ls(
             filter=filter,
             author=author,
             search=search,
+            modality=modality,
             sort=sort_key,
             limit=limit,
             expand=expand,  # type: ignore
