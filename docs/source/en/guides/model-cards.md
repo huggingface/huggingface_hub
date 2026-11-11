@@ -49,7 +49,9 @@ Another way you might want to do this is with f-strings. In the following exampl
 - Show how you might use a template variable via Python f-strings.
 
 ```python
-card_data = ModelCardData(language='en', license='mit', library='timm')
+from huggingface_hub import ModelCardData
+
+card_data = ModelCardData(language='en', license='mit', library_name='timm')
 
 example_template_var = 'nateraw'
 content = f"""
@@ -72,7 +74,7 @@ The above example would leave us with a card that looks like this:
 ---
 language: en
 license: mit
-library: timm
+library_name: timm
 ---
 
 # My Model Card
