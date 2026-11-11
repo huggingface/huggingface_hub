@@ -136,16 +136,14 @@ Once done, [check installation](#check-installation) is working correctly.
 Once installed, check that `huggingface_hub` works properly by running the following command:
 
 ```bash
-python -c "from huggingface_hub import model_info; print(model_info('gpt2'))"
+python -c "from huggingface_hub import model_info; info = model_info('gpt2'); print(info.id, info.pipeline_tag)"
 ```
 
-This command will fetch information from the Hub about the [gpt2](https://huggingface.co/gpt2) model.
-Output should look like this:
+This command fetches information from the Hub about the [gpt2](https://huggingface.co/gpt2) model and prints its canonical repo id and pipeline tag.
+[`model_info`] returns a [`ModelInfo`] object. The `gpt2` repo id redirects to `openai-community/gpt2`, so the output should look like this:
 
 ```text
-Model Name: gpt2
-Tags: ['pytorch', 'tf', 'jax', 'tflite', 'rust', 'safetensors', 'gpt2', 'text-generation', 'en', 'doi:10.57967/hf/0039', 'transformers', 'exbert', 'license:mit', 'has_space']
-Task: text-generation
+openai-community/gpt2 text-generation
 ```
 
 ## Windows limitations
