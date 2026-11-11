@@ -1166,6 +1166,7 @@ $ hf datasets list [OPTIONS] [REPO_ID]
 * `--search TEXT`: Search query.
 * `--author TEXT`: Filter by author or organization.
 * `--filter TEXT`: Filter by tags (e.g. 'text-classification'). Can be used multiple times.
+* `--modality [3d|audio|document|geospatial|image|tabular|text|timeseries|video]`: Filter by modality, e.g. 'audio'. Valid: 3d, audio, document, geospatial, image, tabular, text, timeseries, video.
 * `--sort [created_at|downloads|last_modified|likes|trending_score]`: Sort results.
 * `--limit INTEGER`: Limit the number of results.  [default: 30]
 * `--expand TEXT`: Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=downloads,likes,tags'. Valid: author, cardData, citation, createdAt, description, disabled, downloads, downloadsAllTime, gated, lastModified, likes, mainSize, paperswithcode_id, private, resourceGroup, sha, siblings, tags, trendingScore, usedStorage.
@@ -1180,6 +1181,7 @@ Examples
   $ hf datasets ls
   $ hf datasets ls --sort downloads --limit 10
   $ hf datasets ls --search "code"
+  $ hf datasets ls --modality audio --sort downloads --limit 10
   $ hf datasets ls --filter benchmark:official
   $ hf datasets ls HuggingFaceFW/fineweb
   $ hf datasets ls HuggingFaceFW/fineweb -R
@@ -3338,6 +3340,7 @@ $ hf models list [OPTIONS] [REPO_ID]
 * `--author TEXT`: Filter by author or organization.
 * `--filter TEXT`: Filter by tags (e.g. 'text-classification'). Can be used multiple times.
 * `--pipeline-tag TEXT`: Filter by pipeline tag (canonical task), e.g. 'summarization'.
+* `--modality [3d|audio|document|image|multimodal|other|reinforcement-learning|tabular|text|timeseries|video]`: Filter by modality (whole task family), e.g. 'audio'. Valid: 3d, audio, document, image, multimodal, other, reinforcement-learning, tabular, text, timeseries, video.
 * `--gated / --no-gated`: Filter by gated status. '--gated' for gated only, '--no-gated' for non-gated only.
 * `--apps TEXT`: Filter by app(s) that can run the model, e.g. 'ollama' or 'vllm'.
 * `--num-parameters TEXT`: Filter by parameter count, e.g. 'min:6B,max:128B'.
@@ -3357,6 +3360,7 @@ Examples
   $ hf models ls --sort downloads --limit 10
   $ hf models ls --search "llama" --author meta-llama
   $ hf models ls --pipeline-tag text-generation --warm
+  $ hf models ls --modality audio --sort trending_score --limit 10
   $ hf models ls --num-parameters min:6B,max:128B --sort likes
   $ hf models ls --no-gated --author google
   $ hf models ls --apps llama.cpp --apps vllm

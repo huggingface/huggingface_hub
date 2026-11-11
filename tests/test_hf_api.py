@@ -41,6 +41,7 @@ from huggingface_hub._inference_endpoints import (
     _build_endpoint_image_payload,
     _set_parallelism_in_image,
 )
+from huggingface_hub._modalities import MODALITIES, MODEL_MODALITY_TO_PIPELINE_TAGS, resolve_modality
 from huggingface_hub.community import DiscussionComment, DiscussionWithDetails
 from huggingface_hub.errors import (
     BadRequestError,
@@ -4955,3 +4956,127 @@ def _to_snake_case(name: str) -> str:
     import re
 
     return re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", name).replace("-", "_").lower()
+
+
+class TestHfApiModalityFilter:
+    """Filter repositories by modality (whole task family) instead of by sub-task."""
+
+    @pytest.fixture
+    def api(self) -> HfApi:
+        return HfApi(token=False)
+
+    def test_list_datasets_modality(self, api: HfApi):
+        with patch("huggingface_hub.hf_api.paginate") as mock_paginate:
+            mock_paginate.side_effect = lambda *args, **kwargs: []
+            list(api.list_datasets(modality="audio"))
+
+        assert mock_paginate.call_args[1]["params"] == {"filter": ["modality:audio"]}
+
+    def test_list_datasets_modality_alias(self, api: HfApi):
+        with patch("huggingface_hub.hf_api.paginate") as mock_paginate:
+            mock_paginate.side_effect = lambda *args, **kwargs: []
+            list(api.list_datasets(modality="Computer Vision"))
+
+        assert mock_paginate.call_args[1]["params"] == {"filter": ["modality:image"]}
+
+    def test_list_datasets_modality_combined_with_filter(self, api: HfApi):
+        with patch("huggingface_hub.hf_api.paginate") as mock_paginate:
+            mock_paginate.side_effect = lambda *args, **kwargs: []
+            list(api.list_datasets(filter="task_ids:automatic-speech-recognition", modality="audio"))
+
+        assert mock_paginate.call_args[1]["params"] == {
+            "filter": ["task_ids:automatic-speech-recognition", "modality:audio"]
+        }
+
+    def test_list_datasets_modality_without_tag_is_rejected(self, api: HfApi):
+        with pytest.raises(ValueError, match="cannot be used to filter datasets"):
+            list(api.list_datasets(modality="multimodal"))
+
+    def test_list_models_modality_queries_every_pipeline_tag(self, api: HfApi):
+        with patch("huggingface_hub.hf_api.paginate") as mock_paginate:
+            mock_paginate.side_effect = lambda *args, **kwargs: []
+            list(api.list_models(modality="audio"))
+
+        params = [call[1]["params"] for call in mock_paginate.call_args_list]
+        assert [param["pipeline_tag"] for param in params] == list(MODEL_MODALITY_TO_PIPELINE_TAGS["audio"])
+        # Results are merged client-side, so they must all be sorted the same way.
+        assert all(param["sort"] == "trendingScore" for param in params)
+
+    def test_list_models_modality_forwards_sort_and_limit(self, api: HfApi):
+        with patch("huggingface_hub.hf_api.paginate") as mock_paginate:
+            mock_paginate.side_effect = lambda *args, **kwargs: []
+            list(api.list_models(modality="3d", sort="downloads", limit=5))
+
+        params = [call[1]["params"] for call in mock_paginate.call_args_list]
+        assert [param["pipeline_tag"] for param in params] == ["image-to-3d", "text-to-3d"]
+        assert all(param["sort"] == "downloads" for param in params)
+        assert all(param["limit"] == 5 for param in params)
+
+    def test_list_models_modality_merges_and_sorts_results(self, api: HfApi):
+        items_per_tag = {
+            "audio-classification": [("asr/one", 10), ("asr/two", 4)],
+            "audio-to-audio": [("a2a/one", 9)],
+            "automatic-speech-recognition": [],
+            "text-to-audio": [("t2a/one", 1)],
+            "text-to-speech": [("tts/one", 7), ("tts/two", 2)],
+            "voice-activity-detection": [],
+        }
+
+        def fake_paginate(path: str, params: dict, headers: dict) -> list[dict]:
+            return [
+                {"id": model_id, "trendingScore": score} for model_id, score in items_per_tag[params["pipeline_tag"]]
+            ]
+
+        with patch("huggingface_hub.hf_api.paginate", side_effect=fake_paginate):
+            models = list(api.list_models(modality="audio", limit=3))
+
+        # Merged across pipeline tags, sorted by trending score, then truncated to `limit`.
+        assert [model.id for model in models] == ["asr/one", "a2a/one", "tts/one"]
+        assert all(isinstance(model, ModelInfo) for model in models)
+
+    def test_list_models_modality_with_pipeline_tag_is_rejected(self, api: HfApi):
+        with pytest.raises(ValueError, match="cannot be used together"):
+            list(api.list_models(modality="audio", pipeline_tag="text-generation"))
+
+    def test_list_models_invalid_modality_is_rejected(self, api: HfApi):
+        with pytest.raises(ValueError, match="Invalid modality 'banana'"):
+            list(api.list_models(modality="banana"))
+
+    def test_list_models_modality_without_pipeline_tag_is_rejected(self, api: HfApi):
+        with pytest.raises(ValueError, match="cannot be used to filter models"):
+            list(api.list_models(modality="geospatial"))
+
+    def test_all_modalities_are_resolvable(self):
+        for modality in MODALITIES:
+            assert resolve_modality(modality) == modality
+
+
+@pytest.mark.production
+class TestModelModalityMapping:
+    def test_mapping_covers_every_pipeline_tag_of_the_hub(self):
+        """Keep `MODEL_MODALITY_TO_PIPELINE_TAGS` in sync with the tasks listed by the Hub."""
+        api = HfApi(endpoint=ENDPOINT_PRODUCTION, token=False)
+        hub_pipeline_tags = {tag["id"] for tag in api.get_model_tags()["pipeline_tag"]}
+        mapped_pipeline_tags = {tag for tags in MODEL_MODALITY_TO_PIPELINE_TAGS.values() for tag in tags}
+
+        assert hub_pipeline_tags - mapped_pipeline_tags == set(), (
+            "Some Hub pipeline tags are missing from the mapping."
+        )
+        assert mapped_pipeline_tags - hub_pipeline_tags == set(), "Some mapped pipeline tags do not exist on the Hub."
+
+    def test_list_models_by_modality(self):
+        api = HfApi(endpoint=ENDPOINT_PRODUCTION, token=False)
+        models = list(api.list_models(modality="audio", sort="trending_score", limit=10))
+
+        assert len(models) > 0
+        assert all(isinstance(model, ModelInfo) for model in models)
+        assert all(model.pipeline_tag in MODEL_MODALITY_TO_PIPELINE_TAGS["audio"] for model in models)
+        trending_scores = [model.trending_score for model in models]
+        assert trending_scores == sorted(trending_scores, reverse=True)
+
+    def test_list_datasets_by_modality(self):
+        api = HfApi(endpoint=ENDPOINT_PRODUCTION, token=False)
+        datasets = list(api.list_datasets(modality="audio", limit=10))
+
+        assert len(datasets) > 0
+        assert all("modality:audio" in dataset.tags for dataset in datasets)
