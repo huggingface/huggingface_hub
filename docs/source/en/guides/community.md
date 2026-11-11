@@ -55,23 +55,24 @@ Discussion or Pull Request. You can also get more detailed information using [`H
 >>> from huggingface_hub import get_discussion_details
 
 >>> get_discussion_details(
-...     repo_id="bigscience/bloom-1b3",
+...     repo_id="bigscience/bloom",
 ...     discussion_num=2
 ... )
 DiscussionWithDetails(
     num=2,
-    author='cakiki',
-    title='Update VRAM memory for the V100s',
-    status='open',
+    author='meg',
+    title='Updates the BLOOM model card to sync with the updated https://github.com/bigscience-workshop/model_card',
+    status='merged',
     is_pull_request=True,
     events=[
-        DiscussionComment(type='comment', author='cakiki', ...),
-        DiscussionCommit(type='commit', author='cakiki', summary='Update VRAM memory for the V100s', oid='1256f9d9a33fa8887e1c1bf0e09b4713da96773a', ...),
+        DiscussionComment(type='comment', author='meg', ...),
+        DiscussionCommit(type='commit', author='meg', summary='Updates the BLOOM model card to sync with the updated https://github.com/bigscience-workshop/model_card', oid='bec8ba3575dbd338dea1dc36044e8d54aba46c50'),
+        DiscussionStatusChange(type='status-change', author='christopher', ...),
     ],
     conflicting_files=[],
     target_branch='refs/heads/main',
-    merge_commit_oid=None,
-    diff='diff --git a/README.md b/README.md\nindex a6ae3b9294edf8d0eda0d67c7780a10241242a7e..3a1814f212bc3f0d3cc8f74bdbd316de4ae7b9e3 100644\n--- a/README.md\n+++ b/README.md\n@@ -132,7 +132,7 [...]',
+    merge_commit_oid='472cdd092313db8be202416a1282155d14988c30',
+    diff=None,
 )
 ```
 
