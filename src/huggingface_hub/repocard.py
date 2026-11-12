@@ -769,7 +769,9 @@ def metadata_update(
     # Either load repo_card from the Hub or create an empty one.
     # NOTE: Will not create the repo if it doesn't exist.
     try:
-        card = card_class.load(repo_id, token=token, repo_type=repo_type)
+        card = card_class.load(
+            hf_hub_download(repo_id, constants.REPOCARD_NAME, repo_type=repo_type, token=token, revision=revision)
+        )
     except EntryNotFoundError:
         if repo_type == "space":
             raise ValueError("Cannot update metadata on a Space that doesn't contain a `README.md` file.")
