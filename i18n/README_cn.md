@@ -69,7 +69,7 @@ pip install huggingface_hub
 pip install huggingface_hub[inference]
 ```
 
-要了解更多安装和可选依赖项，请查看[安装指南](https://huggingface.co/docs/huggingface_hub/cn/安装)
+要了解更多安装和可选依赖项，请查看[安装指南](https://huggingface.co/docs/huggingface_hub/en/installation)
 
 ## 快速入门指南
 
