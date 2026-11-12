@@ -123,6 +123,28 @@ You can also install the CLI using [Homebrew](https://brew.sh/):
 
 Check out the Homebrew huggingface page [here](https://formulae.brew.sh/formula/hf) for more details.
 
+### Using WinGet (Windows)
+
+On Windows x86_64 (64-bit Intel/AMD), you can install the CLI with WinGet once
+`HuggingFace.hf` is available in the community catalog:
+
+```powershell
+>>> winget install --id HuggingFace.hf --exact --source winget
+```
+
+This distribution includes Python and the CLI's dependencies. To install the
+skill for AI agents, run `hf skills add -g`.
+
+Upgrade or uninstall it with WinGet:
+
+```powershell
+>>> winget upgrade --id HuggingFace.hf --exact --source winget
+>>> winget uninstall --id HuggingFace.hf --exact
+```
+
+For this installation, `hf update` prints the WinGet upgrade command. Available
+updates follow the WinGet catalog, which can lag behind PyPI releases.
+
 ### Updating
 
 To upgrade to the latest version, run:

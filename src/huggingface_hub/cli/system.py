@@ -41,6 +41,10 @@ def update() -> None:
     from ._skills import DEFAULT_SKILL_ID, _installed_hf_cli_dirs
 
     out.text(f"Current version: {__version__}")
+    if installation_method() == "winget":
+        # Windows locks the running launcher and Python runtime. Upgrade after hf has exited.
+        out.hint("To update, run: winget upgrade --id HuggingFace.hf --exact --source winget")
+        return
     out.text("Checking for updates to latest version...")
     latest_version = _fetch_latest_pypi_version("huggingface_hub")
     if latest_version is not None and __version__ == latest_version:

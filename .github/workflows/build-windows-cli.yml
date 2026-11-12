@@ -1,0 +1,55 @@
+name: Build Windows CLI
+
+on:
+  pull_request:
+    paths:
+      - "src/huggingface_hub/**"
+      - "setup.py"
+      - "utils/winget/**"
+      - ".github/workflows/build-windows-cli.yml"
+      - ".github/workflows/publish-winget.yml"
+      - ".github/workflows/release.yml"
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      ref:
+        type: string
+        required: true
+
+permissions: {}
+
+jobs:
+  build:
+    permissions:
+      contents: read
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+          architecture: x64
+      - name: Compile launcher
+        shell: cmd
+        run: |
+          for /f "usebackq tokens=*" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath`) do call "%%i\Common7\Tools\VsDevCmd.bat" -arch=x64
+          if errorlevel 1 exit /b 1
+          mkdir dist
+          cl /nologo /O2 /MT /W4 /WX utils\winget\launcher.c /Fe:dist\hf.exe /Fo:dist\hf.obj
+      - name: Build portable ZIP and manifests
+        run: |
+          python -m pip install PyYAML
+          python utils/winget/build.py
+          if ($LASTEXITCODE -ne 0) { throw 'Windows CLI build failed' }
+      - name: Test portable ZIP and WinGet lifecycle
+        shell: pwsh
+        run: ./utils/winget/smoke.ps1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: hf-windows-x86_64
+          path: |
+            dist/*.zip
+            dist/*.sha256
+            dist/manifests/

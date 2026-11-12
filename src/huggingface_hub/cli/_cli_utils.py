@@ -1135,6 +1135,10 @@ def _check_cli_update(library: Literal["huggingface_hub", "transformers"]) -> No
     if constants.HF_HUB_DISABLE_UPDATE_CHECK:
         return
 
+    # WinGet's catalog can lag behind PyPI. Let WinGet check its own available versions.
+    if library == "huggingface_hub" and installation_method() == "winget":
+        return
+
     current_version = importlib.metadata.version(library)
 
     # Skip if current version is a pre-release or dev version
@@ -1221,6 +1225,8 @@ def _get_huggingface_hub_update_command(*, exclude_skill: bool = False) -> list[
     match installation_method():
         case "brew":
             return ["brew", "upgrade", "hf"]
+        case "winget":
+            return ["winget", "upgrade", "--id", "HuggingFace.hf", "--exact", "--source", "winget"]
         case "hf_installer" if os.name == "nt":
             # `iwr ... | iex` cannot take parameters: create a scriptblock so flags reach the installer.
             flags = " -ExcludeSkill" if exclude_skill else ""
