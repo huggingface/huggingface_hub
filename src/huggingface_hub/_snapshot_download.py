@@ -430,7 +430,7 @@ def snapshot_download(
     # if passed revision is not identical to commit_hash
     # then revision has to be a branch name or tag name.
     # In that case store a ref (except if ResolvedRevision, in which case it's already done).
-    if not isinstance(revision, ResolvedRevision):
+    if not dry_run and not isinstance(revision, ResolvedRevision):
         try:
             # Skips the write if the ref is already up to date, and writes atomically otherwise so that
             # concurrent readers never observe a truncated (empty) ref file.
