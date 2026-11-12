@@ -42,3 +42,10 @@ def test_get_version_concurrent_first_lookup(monkeypatch: pytest.MonkeyPatch) ->
         versions = list(pool.map(get_version, range(num_threads)))
 
     assert versions == ["1.2.3"] * num_threads
+
+
+def test_windows_portable_installation(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(_runtime.sys, "prefix", str(tmp_path))
+    (tmp_path / ".hf_winget_marker").touch()
+    # The runtime includes pip, so detect the managed distribution before that fallback.
+    assert _runtime.installation_method() == "winget"

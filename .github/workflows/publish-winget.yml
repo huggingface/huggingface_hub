@@ -1,0 +1,45 @@
+name: Submit CLI to WinGet
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Stable release tag to submit (for example v2.5.0)
+        required: true
+        type: string
+
+permissions: {}
+
+jobs:
+  submit:
+    if: ${{ vars.WINGET_PUBLISH == 'true' && (github.event_name == 'workflow_dispatch' || !github.event.release.prerelease) }}
+    permissions:
+      contents: read
+    runs-on: windows-latest
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.event.release.tag_name }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Download the published manifests
+        shell: pwsh
+        run: |
+          if ($env:RELEASE_TAG -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+$') { throw 'Expected a stable release tag' }
+          $release = gh release view $env:RELEASE_TAG --json isDraft,isPrerelease | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0 -or $release.isDraft -or $release.isPrerelease) { throw 'Release must be public and stable' }
+          gh release download $env:RELEASE_TAG --pattern hf-winget-manifests.zip
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot download manifests' }
+          Expand-Archive hf-winget-manifests.zip .
+      - name: Submit manifests
+        shell: pwsh
+        env:
+          WINGET_CREATE_GITHUB_TOKEN: ${{ secrets.WINGET_GITHUB_TOKEN }}
+        run: |
+          if (-not $env:WINGET_CREATE_GITHUB_TOKEN) { throw 'Set WINGET_GITHUB_TOKEN before enabling WINGET_PUBLISH' }
+          Invoke-WebRequest https://github.com/microsoft/winget-create/releases/download/v1.28.1.0/wingetcreate.exe -OutFile wingetcreate.exe
+          if ((Get-FileHash wingetcreate.exe -Algorithm SHA256).Hash -ne '63D980BA79E97042395BD6EB5992C2DB9E01E9E7A8A22958A95C288F27310413') { throw 'Winget-Create checksum mismatch' }
+          $version = $env:RELEASE_TAG.Substring(1)
+          ./wingetcreate.exe submit --no-open --prtitle "New version: HuggingFace.hf version $version" "manifests/h/HuggingFace/hf/$version"
+          if ($LASTEXITCODE -ne 0) { throw 'WinGet submission failed' }

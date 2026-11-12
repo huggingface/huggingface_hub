@@ -5832,3 +5832,28 @@ class TestExtensionsGitHubAccess:
         assert "It resets at" not in str(result.exception)
         # Bailed out on the first extension rather than repeating the failure for every one of them.
         assert len(github.urls) == 1
+
+
+class TestWingetUpdate:
+    def test_prints_upgrade_command_without_checking_pypi(self, runner: CliRunner) -> None:
+        with (
+            patch("huggingface_hub.cli.system.installation_method", return_value="winget"),
+            patch("huggingface_hub.cli.system._fetch_latest_pypi_version") as fetch_pypi,
+            patch("huggingface_hub.cli.system.run_update") as run_update,
+        ):
+            result = runner.invoke(app, ["update"])
+        assert result.exit_code == 0, result.output
+        assert "winget upgrade --id HuggingFace.hf --exact --source winget" in result.output
+        fetch_pypi.assert_not_called()
+        run_update.assert_not_called()
+
+    def test_skips_pypi_update_notice(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from huggingface_hub.cli._cli_utils import check_cli_update
+
+        monkeypatch.setattr(constants, "HF_HUB_DISABLE_UPDATE_CHECK", False)
+        with (
+            patch("huggingface_hub.cli._cli_utils.installation_method", return_value="winget"),
+            patch("huggingface_hub.cli._cli_utils._fetch_latest_pypi_version") as fetch_pypi,
+        ):
+            check_cli_update("huggingface_hub")
+        fetch_pypi.assert_not_called()
