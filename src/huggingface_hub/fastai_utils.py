@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 from pathlib import Path
 from pickle import DEFAULT_PROTOCOL, PicklingError
 from typing import Any
@@ -87,21 +88,16 @@ def _check_fastai_fastcore_pyproject_versions(
             The minimum fastcore version supported.
 
     > [!TIP]
-    > Raises the following errors:
+    > Raises the following error:
     >
-    >     - [`ImportError`](https://docs.python.org/3/library/exceptions.html#ImportError)
-    >       if the `toml` module is not installed.
     >     - [`ImportError`](https://docs.python.org/3/library/exceptions.html#ImportError)
     >       if the `pyproject.toml` indicates a lower than minimum supported version of fastai or fastcore.
     """
 
-    try:
-        import toml
-    except ModuleNotFoundError:
-        raise ImportError(
-            "`push_to_hub_fastai` and `from_pretrained_fastai` require the toml module."
-            " Install it with `pip install toml`."
-        )
+    if sys.version_info >= (3, 11):
+        import tomllib
+    else:
+        import tomli as tomllib  # type: ignore[import-not-found,no-redef,unused-ignore]
 
     # Checks that a `pyproject.toml`, with `build-system` and `requires` sections, exists in the repository. If so, get a list of required packages.
     if not os.path.isfile(f"{storage_folder}/pyproject.toml"):
@@ -112,7 +108,8 @@ def _check_fastai_fastcore_pyproject_versions(
             " load."
         )
         return
-    pyproject_toml = toml.load(f"{storage_folder}/pyproject.toml")
+    with open(f"{storage_folder}/pyproject.toml", "rb") as f:
+        pyproject_toml = tomllib.load(f)
 
     if "build-system" not in pyproject_toml.keys():
         logger.warning(
