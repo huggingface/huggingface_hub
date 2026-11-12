@@ -27,8 +27,17 @@ int wmain(void) {
     wchar_t *separator = wcsrchr(path, L'\\');
     if (!separator) return 1;
     *separator = L'\0';
+    /* Drop the \\?\ prefix: Python would keep it in sys.executable and pass it to subprocesses. */
+    wchar_t *directory = path;
+    if (wcsncmp(path, L"\\\\?\\UNC\\", 8) == 0) {
+        directory = path + 6;
+        directory[0] = L'\\';
+    } else if (wcsncmp(path, L"\\\\?\\", 4) == 0) {
+        directory = path + 4;
+    }
 
-    /* Preserve the original argument quoting, including spaces and trailing backslashes. */
+    /* Run main() with sys.argv[0] = 'hf' so usage and error messages show `hf`, not `python -m ...`.
+       Preserve the original argument quoting, including spaces and trailing backslashes. */
     const wchar_t *args = GetCommandLineW();
     if (*args == L'"') {
         ++args;
@@ -39,7 +48,9 @@ int wmain(void) {
     }
     wchar_t command[32768];
     if (_snwprintf_s(command, ARRAYSIZE(command), _TRUNCATE,
-                    L"\"%ls\\python\\python.exe\" -I -m huggingface_hub.cli.hf %ls", path, args) < 0) return 1;
+                    L"\"%ls\\python\\python.exe\" -I -c \"import sys; sys.argv[0] = 'hf'; "
+                    L"from huggingface_hub.cli.hf import main; main()\" %ls",
+                    directory, args) < 0) return 1;
     STARTUPINFOW startup = {0};
     startup.cb = sizeof(startup);
     PROCESS_INFORMATION process = {0};

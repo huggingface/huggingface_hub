@@ -23,6 +23,7 @@ PYTHON_SHA256 = "e23fe5b16926de1d81661b1a97352e89fb167549c55a6825796ccd0f32ec7f1
 PACKAGE_ID = "HuggingFace.hf"
 ASSET_NAME = "hf-windows-x86_64.zip"
 REPOSITORY = "https://github.com/huggingface/huggingface_hub"
+MANIFEST_VERSION = "1.9.0"
 
 
 def write_manifests(version: str, sha256: str, output: Path) -> Path:
@@ -37,7 +38,6 @@ def write_manifests(version: str, sha256: str, output: Path) -> Path:
             "NestedInstallerType": "portable",
             "NestedInstallerFiles": [{"RelativeFilePath": "hf.exe", "PortableCommandAlias": "hf"}],
             "Commands": ["hf"],
-            "Scope": "user",
             "Installers": [
                 {
                     "Architecture": "x64",
@@ -64,9 +64,12 @@ def write_manifests(version: str, sha256: str, output: Path) -> Path:
         },
     }
     for suffix, fields in manifests.items():
-        manifest = {**common, **fields, "ManifestVersion": "1.9.0"}
+        manifest = {**common, **fields, "ManifestVersion": MANIFEST_VERSION}
+        # winget-pkgs expects the schema header that `winget validate` checks for.
+        schema = f"https://aka.ms/winget-manifest.{fields['ManifestType']}.{MANIFEST_VERSION}.schema.json"
         (destination / f"{PACKAGE_ID}{suffix}.yaml").write_text(
-            yaml.safe_dump(manifest, sort_keys=False), encoding="utf-8"
+            f"# yaml-language-server: $schema={schema}\n" + yaml.safe_dump(manifest, sort_keys=False),
+            encoding="utf-8",
         )
     return destination
 

@@ -1220,13 +1220,14 @@ def run_update(*, exclude_skill: bool = False) -> int:
     return subprocess.call(cmd)
 
 
+WINGET_UPDATE_COMMAND = "winget upgrade --id HuggingFace.hf --exact --source winget"
+
+
 def _get_huggingface_hub_update_command(*, exclude_skill: bool = False) -> list[str] | None:
     """Return the command to update huggingface_hub as an argv list, or None if the installation method is unknown."""
     match installation_method():
         case "brew":
             return ["brew", "upgrade", "hf"]
-        case "winget":
-            return ["winget", "upgrade", "--id", "HuggingFace.hf", "--exact", "--source", "winget"]
         case "hf_installer" if os.name == "nt":
             # `iwr ... | iex` cannot take parameters: create a scriptblock so flags reach the installer.
             flags = " -ExcludeSkill" if exclude_skill else ""

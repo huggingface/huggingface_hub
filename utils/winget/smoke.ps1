@@ -17,7 +17,8 @@ function Invoke-Hf {
 }
 
 $exe = Join-Path $portable 'hf.exe'
-Invoke-Hf $exe @('--help')
+$help = & $exe --help
+if ($LASTEXITCODE -ne 0 -or $help[0] -notmatch '^Usage: hf ') { throw "Unexpected usage line: $($help[0])" }
 Invoke-Hf $exe @('version')
 Invoke-Hf $exe @('update')
 Invoke-Hf $exe @('skills', 'add', 'hf-cli', '--global')
@@ -66,10 +67,11 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'WinGet upgrade failed' }
     Invoke-Hf $installed @('--help')
 } finally {
-    winget uninstall --id HuggingFace.hf --exact --disable-interactivity
+    # Throwing here would hide the original error: report cleanup failures and check them below.
+    winget uninstall --id HuggingFace.hf --exact --accept-source-agreements --disable-interactivity
     $uninstallExit = $LASTEXITCODE
     Stop-Process -Id $server.Id
-    if ($uninstallExit -ne 0) { throw 'WinGet uninstall failed' }
 }
+if ($uninstallExit -ne 0) { throw 'WinGet uninstall failed' }
 if (Test-Path $installed) { throw 'WinGet launcher remains after uninstall' }
 if (-not (Test-Path $env:HF_HOME)) { throw 'Uninstall removed the user cache' }
