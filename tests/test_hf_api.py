@@ -2868,6 +2868,79 @@ class TestHfLargefiles:
             assert Path(filepath).stat().st_size == 18685041
 
 
+def _mock_discussion_details_session(details: dict, diff_text: str = "") -> Mock:
+    details_resp, diff_resp = Mock(), Mock(text=diff_text)
+    details_resp.json.return_value = details
+    session = Mock()
+    session.get.side_effect = [details_resp, diff_resp]
+    return session
+
+
+def _discussion_details(**overrides) -> dict:
+    details = {
+        "title": "Update README",
+        "num": 1,
+        "author": {"name": "user"},
+        "createdAt": "2026-01-01T00:00:00.000Z",
+        "status": "open",
+        "repo": {"name": "user/repo", "type": "model"},
+        "isPullRequest": True,
+        "changes": {"base": "refs/heads/main"},
+        "filesWithConflicts": [],
+        "events": [],
+        "diffUrl": "https://huggingface.co/user/repo/discussions/1/files.diff",
+    }
+    details.update(overrides)
+    return details
+
+
+def test_get_discussion_details_fetches_diff_from_diff_url():
+    details = _discussion_details()
+    session = _mock_discussion_details_session(details, diff_text="diff --git a/README.md b/README.md\n")
+    with (
+        patch("huggingface_hub.hf_api.get_session", return_value=session),
+        patch("huggingface_hub.hf_api.hf_raise_for_status"),
+    ):
+        discussion = HfApi(token="hf_test").get_discussion_details(repo_id="user/repo", discussion_num=1)
+
+    assert discussion.diff == "diff --git a/README.md b/README.md\n"
+    assert session.get.call_count == 2
+    diff_call = session.get.call_args_list[1]
+    assert diff_call.args == (details["diffUrl"],)
+    assert diff_call.kwargs["headers"] == session.get.call_args_list[0].kwargs["headers"]
+
+
+def test_get_discussion_details_fetches_diff_from_custom_endpoint():
+    details = _discussion_details()
+    session = _mock_discussion_details_session(details, diff_text="diff --git a/README.md b/README.md\n")
+    with (
+        patch("huggingface_hub.hf_api.get_session", return_value=session),
+        patch("huggingface_hub.hf_api.hf_raise_for_status"),
+    ):
+        discussion = HfApi(endpoint="https://hub-proxy.example.com", token="hf_test").get_discussion_details(
+            repo_id="user/repo", discussion_num=1
+        )
+
+    assert discussion.diff == "diff --git a/README.md b/README.md\n"
+    assert session.get.call_count == 2
+    diff_call = session.get.call_args_list[1]
+    assert diff_call.args == ("https://hub-proxy.example.com/user/repo/discussions/1/files.diff",)
+
+
+def test_get_discussion_details_no_diff_fetch_for_plain_discussion():
+    details = _discussion_details(isPullRequest=False, changes={}, filesWithConflicts=None, diffUrl=None)
+    session = Mock()
+    session.get.return_value.json.return_value = details
+    with (
+        patch("huggingface_hub.hf_api.get_session", return_value=session),
+        patch("huggingface_hub.hf_api.hf_raise_for_status"),
+    ):
+        discussion = HfApi(token="hf_test").get_discussion_details(repo_id="user/repo", discussion_num=1)
+
+    assert discussion.diff is None
+    assert session.get.call_count == 1
+
+
 class TestHfApiDiscussions:
     @pytest.fixture(autouse=True)
     def _repo(self, api: HfApi, repo_factory: RepoFactory):
@@ -2950,6 +3023,17 @@ class TestHfApiDiscussions:
     def test_get_discussion_details(self, api: HfApi):
         retrieved = api.get_discussion_details(repo_id=self.repo_id, discussion_num=2)
         assert retrieved == self.discussion
+
+    def test_get_discussion_details_pull_request_diff(self, api: HfApi):
+        api.create_commit(
+            repo_id=self.repo_id,
+            commit_message="Commit some file",
+            operations=[CommitOperationAdd(path_in_repo="file.test", path_or_fileobj=b"Content")],
+            revision=self.pull_request.git_reference,
+        )
+        retrieved = api.get_discussion_details(repo_id=self.repo_id, discussion_num=self.pull_request.num)
+        assert retrieved.diff is not None
+        assert "file.test" in retrieved.diff
 
     def test_edit_discussion_comment(self, api: HfApi):
         def get_first_comment(discussion: DiscussionWithDetails) -> DiscussionComment:

@@ -7425,6 +7425,13 @@ class HfApi:
         conflicting_files = discussion_details["filesWithConflicts"] if is_pull_request else None
         merge_commit_oid = discussion_details["changes"].get("mergeCommitId", None) if is_pull_request else None
 
+        diff = discussion_details.get("diff")
+        if is_pull_request and diff is None and discussion_details.get("diffUrl"):
+            diff_url = fix_hf_endpoint_in_url(discussion_details["diffUrl"], endpoint=self.endpoint)
+            diff_resp = get_session().get(diff_url, headers=headers)
+            hf_raise_for_status(diff_resp)
+            diff = diff_resp.text
+
         return DiscussionWithDetails(
             title=discussion_details["title"],
             num=discussion_details["num"],
@@ -7438,7 +7445,7 @@ class HfApi:
             conflicting_files=conflicting_files,
             target_branch=target_branch,
             merge_commit_oid=merge_commit_oid,
-            diff=discussion_details.get("diff"),
+            diff=diff,
             endpoint=self.endpoint,
         )
 
