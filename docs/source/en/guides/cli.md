@@ -2413,6 +2413,20 @@ warns about it on stderr, including in quiet mode. Pooled sandboxes reject `--se
 encrypted-secrets channel, and `hf sandbox create --pool <id> -s KEY=value` errors out with a pointer to
 `--env`.
 
+### Restrict network access
+
+Pass `--network none` to block all outbound connections from the sandbox, or a comma-separated allowlist to allow only some destinations. Entries can be IP ranges, IPs and hostnames, with an optional port. Mounted volumes keep working. It works for pooled sandboxes too.
+
+```bash
+# No internet access
+>>> hf sandbox create --network none
+
+# Only an internal network range and the Hub
+>>> hf sandbox create --network 10.0.0.0/8,huggingface.co:443
+```
+
+See [Sandboxes without internet access](./sandbox#sandboxes-without-internet-access) for details.
+
 ## hf webhooks
 
 `hf webhooks` lets you manage webhooks on the Hugging Face Hub directly from the terminal. Webhooks allow you to listen for events (pushes, discussions, etc.) on repos, users, or organizations and trigger actions — either by pinging a remote URL or by running a Job on Hugging Face infrastructure.
