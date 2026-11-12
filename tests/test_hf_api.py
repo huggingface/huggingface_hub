@@ -2910,6 +2910,23 @@ def test_get_discussion_details_fetches_diff_from_diff_url():
     assert diff_call.kwargs["headers"] == session.get.call_args_list[0].kwargs["headers"]
 
 
+def test_get_discussion_details_fetches_diff_from_custom_endpoint():
+    details = _discussion_details()
+    session = _mock_discussion_details_session(details, diff_text="diff --git a/README.md b/README.md\n")
+    with (
+        patch("huggingface_hub.hf_api.get_session", return_value=session),
+        patch("huggingface_hub.hf_api.hf_raise_for_status"),
+    ):
+        discussion = HfApi(endpoint="https://hub-proxy.example.com", token="hf_test").get_discussion_details(
+            repo_id="user/repo", discussion_num=1
+        )
+
+    assert discussion.diff == "diff --git a/README.md b/README.md\n"
+    assert session.get.call_count == 2
+    diff_call = session.get.call_args_list[1]
+    assert diff_call.args == ("https://hub-proxy.example.com/user/repo/discussions/1/files.diff",)
+
+
 def test_get_discussion_details_no_diff_fetch_for_plain_discussion():
     details = _discussion_details(isPullRequest=False, changes={}, filesWithConflicts=None, diffUrl=None)
     session = Mock()
