@@ -278,9 +278,9 @@ def test_load_from_hub_if_repo_id_or_path_is_a_dir(monkeypatch, tmp_path):
 
 def test_metadata_update_reads_requested_revision(tmp_path, mocker):
     main_card = tmp_path / "main.md"
-    main_card.write_text("---\nlanguage: en\n---\n# Base model\n", encoding="utf-8")
+    main_card.write_text("---\nlanguage: en\n---\n# Base model\n", encoding="utf-8", newline="\n")
     branch_card = tmp_path / "dev.md"
-    branch_card.write_text("---\nlanguage: fr\n---\n# French fine-tune\n", encoding="utf-8")
+    branch_card.write_text("---\nlanguage: fr\n---\n# French fine-tune\n", encoding="utf-8", newline="\n")
     mocker.patch(
         "huggingface_hub.repocard.hf_hub_download",
         side_effect=lambda *args, revision=None, **kwargs: branch_card if revision == "dev" else main_card,
