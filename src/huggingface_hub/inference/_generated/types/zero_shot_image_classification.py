@@ -3,6 +3,8 @@
 # See:
 #   - script: https://github.com/huggingface/huggingface.js/blob/main/packages/tasks/scripts/inference-codegen.ts
 #   - specs:  https://github.com/huggingface/huggingface.js/tree/main/packages/tasks/src/tasks.
+from typing import Optional
+
 from .base import BaseInferenceType, dataclass_with_extra
 
 
@@ -12,7 +14,7 @@ class ZeroShotImageClassificationParameters(BaseInferenceType):
 
     candidate_labels: list[str]
     """The candidate labels for this image"""
-    hypothesis_template: str | None = None
+    hypothesis_template: Optional[str] = None
     """The sentence used in conjunction with `candidate_labels` to attempt the image
     classification by replacing the placeholder with the candidate labels.
     """

@@ -333,6 +333,16 @@ This part of the lib is still under development and will be improved in future r
 
 
 
+## text_ranking
+
+[[autodoc]] huggingface_hub.TextRankingInput
+
+[[autodoc]] huggingface_hub.TextRankingInputData
+
+[[autodoc]] huggingface_hub.TextRankingOutputElement
+
+
+
 ## text_to_audio
 
 [[autodoc]] huggingface_hub.TextToAudioGenerationParameters
