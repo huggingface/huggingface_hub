@@ -21,7 +21,15 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from huggingface_hub import HfApi
-from huggingface_hub._buckets import BucketFile, BucketInfo, FilterMatcher, SyncOperation, SyncPlan, _execute_plan
+from huggingface_hub._buckets import (
+    BucketFile,
+    BucketInfo,
+    FilterMatcher,
+    SyncOperation,
+    SyncPlan,
+    _execute_plan,
+    _parse_filter_file,
+)
 from huggingface_hub._jobs_api import _derive_job_volume_name
 from huggingface_hub.errors import BucketBatchError, BucketNotFoundError, EntryNotFoundError, HfHubHTTPError
 
@@ -673,6 +681,15 @@ def test_execute_plan_rejects_path_traversal(tmp_path):
 )
 def test_filter_matcher(kwargs, path, expected):
     assert FilterMatcher(**kwargs).matches(path) is expected
+
+
+@pytest.mark.parametrize("encoding", ["utf-8", "utf-8-sig"])
+def test_parse_filter_file_reads_utf8(tmp_path, encoding):
+    # Non-ASCII rules must not depend on the locale encoding (a legacy code page on Windows), and a BOM is ignored
+    filter_file = tmp_path / "filters.txt"
+    filter_file.write_bytes("# 규칙\n+데이터/*.csv\n- *.tmp\nnotes/✅.md\n".encode(encoding))
+
+    assert _parse_filter_file(str(filter_file)) == [("+", "데이터/*.csv"), ("-", "*.tmp"), ("+", "notes/✅.md")]
 
 
 def test_batch_bucket_files_raises_on_failed_operations(api: HfApi, bucket_write: str, mocker):
