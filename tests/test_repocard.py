@@ -214,6 +214,16 @@ class TestRepocardMetadata:
         content = self.filepath.read_text()
         assert content == DUMMY_MODELCARD_TARGET_NO_YAML
 
+    @pytest.mark.parametrize("newline", ["\n", "\r\n"])
+    def test_metadata_save_replaces_empty_block(self, newline):
+        self.filepath.write_bytes(f"---{newline}---{newline}# My model{newline}".encode())
+
+        metadata_save(self.filepath, {"license": "mit"})
+
+        assert self.filepath.read_bytes() == (
+            f"---{newline}license: mit{newline}---{newline}# My model{newline}".encode()
+        )
+
     def test_metadata_save_new_file(self):
         metadata_save(self.filepath, {"meaning_of_life": 42})
         content = self.filepath.read_text()
@@ -526,6 +536,22 @@ class TestMetadataUpdateOnMissingCard:
 
 
 class TestRepoCard:
+    @pytest.mark.parametrize("newline", ["\n", "\r\n"])
+    @pytest.mark.parametrize("body", ["", "# My model"])
+    def test_update_empty_metadata_preserves_body(self, tmp_path, newline, body):
+        card = ModelCard(f"---{newline}---{newline}{body}")
+        assert card.data.to_dict() == {}
+        assert card.text == body
+
+        card.data.license = "mit"
+        path = tmp_path / "README.md"
+        card.save(path)
+
+        assert path.read_bytes() == f"---{newline}license: mit{newline}---{newline}{body}".encode()
+        reloaded = ModelCard.load(path)
+        assert reloaded.data.to_dict() == {"license": "mit"}
+        assert reloaded.text == body
+
     def test_load_repocard_from_file(self):
         sample_path = SAMPLE_CARDS_DIR / "sample_simple.md"
         card = RepoCard.load(sample_path)
@@ -707,6 +733,11 @@ class TestRepoCard:
 
 
 class TestRegexYamlBlock:
+    def test_yaml_payload_with_bom(self):
+        card = ModelCard("---\n\ufefflicense: mit\n---\nbody")
+        assert card.data.to_dict() == {"license": "mit"}
+        assert card.text == "body"
+
     def test_match_with_leading_whitespace(self):
         assert REGEX_YAML_BLOCK.search("   \n---\nmetadata: 1\n---") is not None
 
@@ -717,9 +748,7 @@ class TestRegexYamlBlock:
         assert REGEX_YAML_BLOCK.search("something\n---\nmetadata: 1\n---") is None
 
     def test_crlf_card_parses_metadata_and_retains_body(self):
-        # A valid CRLF card must parse to the correct metadata and retain the body: the
-        # opener must consume the full `\r\n` (not just the `\r`), so the YAML block is
-        # clean and the match ends right after the closing fence line.
+        # Match the full closing fence line so neither CRLF character leaks into the body.
         content = "---\r\nlanguage: en\r\n---\r\nSome body\r\n"
         match = REGEX_YAML_BLOCK.search(content)
         assert match is not None
@@ -732,21 +761,24 @@ class TestRegexYamlBlock:
 
     def test_crlf_empty_frontmatter_retains_trailing_content(self):
         # An empty-frontmatter card must not silently drop the trailing content, and the
-        # CRLF form must behave like the LF form: no metadata, text retained.
-        for content in ("---\r\n---\r\ntrailing content\r\n", "---\n---\ntrailing content\n"):
+        # CRLF form must behave like the LF form: empty metadata, body retained.
+        for newline in ("\r\n", "\n"):
+            content = f"---{newline}---{newline}trailing content{newline}"
             card = RepoCard(content, ignore_metadata_errors=True)
             assert card.data.to_dict() == {}
-            assert "trailing content" in card.text
+            assert card.text == f"trailing content{newline}"
 
-    def test_crlf_empty_frontmatter_followed_by_real_frontmatter(self):
-        # Regression test: with a single-char newline class at the delimiters, the opener of
-        # a CRLF card consumed only the `\r` and the leftover `\n---` faked an early closer,
-        # demoting the real YAML block between the 2nd and 3rd fences into the card text.
-        content = "---\r\n---\r\nlanguage: en\r\n---\r\nbody\r\n"
+    @pytest.mark.parametrize("newline", ["\n", "\r\n"])
+    def test_empty_frontmatter_does_not_consume_later_fences(self, newline):
+        body = f"language: en{newline}---{newline}body{newline}"
+        content = f"---{newline}---{newline}{body}"
         match = REGEX_YAML_BLOCK.search(content)
         assert match is not None
-        assert yaml.safe_load(match.group(2)) == {"language": "en"}
-        assert content[match.end() :] == "body\r\n"
+        assert yaml.safe_load(match.group(2)) is None
+        assert content[match.end() :] == body
+        card = RepoCard(content)
+        assert card.data.to_dict() == {}
+        assert card.text == body
 
     @pytest.mark.parametrize(
         "payload",
