@@ -221,7 +221,7 @@ We use `pytest` to run the tests. From the root of the repository:
 
 ```bash
 $ pytest tests/                          # run all tests (slow, many require network)
-$ pytest tests/test_repository.py        # run a specific test file
+$ pytest tests/test_utils_sha.py         # run a specific test file
 $ pytest tests -k tag                    # run tests matching a name
 ```
 
