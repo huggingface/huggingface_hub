@@ -416,6 +416,9 @@ class _UploadPipeline:
         self.batch_queue: queue.Queue = queue.Queue(maxsize=1)
         self.errors: list[BaseException] = []
         self.abort_event = threading.Event()
+        # Batches whose xet upload-commit is still running. On failure, only these are aborted: the
+        # process-wide xet session is shared with unrelated transfers (other uploads, downloads).
+        self._inflight_batches: set[_Batch] = set()
         self.display = _LiveDisplay(total_files=len(add_operations), enabled=not are_progress_bars_disabled())
 
         # All xet uploads share the same token refresh URL. With `create_pr`, the final ref is not
@@ -453,6 +456,8 @@ class _UploadPipeline:
             self._coordinator_loop()
         except BaseException as e:
             self.abort_event.set()
+            for batch in list(self._inflight_batches):
+                self._abort_batch(batch)
             if isinstance(e, KeyboardInterrupt):
                 abort_xet_session()
             raise
@@ -482,65 +487,62 @@ class _UploadPipeline:
         import hf_xet
 
         batch = _Batch()
-        try:
-            for start in range(0, len(self.add_operations), PREUPLOAD_BATCH_SIZE):
-                if self.abort_event.is_set():
-                    self._abort_batch(batch)
-                    return
-                chunk = self.add_operations[start : start + PREUPLOAD_BATCH_SIZE]
-                try:
-                    _fetch_upload_modes(
-                        additions=chunk,
-                        repo_type=self.repo_type,
-                        repo_id=self.repo_id,
-                        headers=self.headers,
-                        revision=self.base_revision_quoted,
-                        endpoint=self.api.endpoint,
-                        create_pr=self.create_pr,
-                        gitignore_content=self.gitignore_content,
-                    )
-                except RepositoryNotFoundError as e:
-                    from .hf_api import _CREATE_COMMIT_NO_REPO_ERROR_MESSAGE
+        for start in range(0, len(self.add_operations), PREUPLOAD_BATCH_SIZE):
+            if self.abort_event.is_set():
+                self._abort_batch(batch)
+                return
+            chunk = self.add_operations[start : start + PREUPLOAD_BATCH_SIZE]
+            try:
+                _fetch_upload_modes(
+                    additions=chunk,
+                    repo_type=self.repo_type,
+                    repo_id=self.repo_id,
+                    headers=self.headers,
+                    revision=self.base_revision_quoted,
+                    endpoint=self.api.endpoint,
+                    create_pr=self.create_pr,
+                    gitignore_content=self.gitignore_content,
+                )
+            except RepositoryNotFoundError as e:
+                from .hf_api import _CREATE_COMMIT_NO_REPO_ERROR_MESSAGE
 
-                    e.append_to_message(_CREATE_COMMIT_NO_REPO_ERROR_MESSAGE)
-                    raise
-                self.display.notify_prepared(len(chunk))
-                for op in chunk:
-                    if op._should_ignore:
-                        logger.debug(f"Skipping upload for '{op.path_in_repo}' (ignored by gitignore rules).")
-                        self.display.notify_ignored(1)
-                        continue
-                    if op._upload_mode == "regular":
-                        batch.regular_bytes += op.upload_info.size
+                e.append_to_message(_CREATE_COMMIT_NO_REPO_ERROR_MESSAGE)
+                raise
+            self.display.notify_prepared(len(chunk))
+            for op in chunk:
+                if op._should_ignore:
+                    logger.debug(f"Skipping upload for '{op.path_in_repo}' (ignored by gitignore rules).")
+                    self.display.notify_ignored(1)
+                    continue
+                if op._upload_mode == "regular":
+                    batch.regular_bytes += op.upload_info.size
+                else:
+                    if batch.xet_commit is None:
+                        batch.xet_commit = self.xet_session.new_upload_commit(
+                            progress_callback=self.display.new_xet_callback(), **self.xet_commit_kwargs
+                        )
+                        self._inflight_batches.add(batch)
+                    # Upload starts immediately in the background. sha256 is computed by hf_xet
+                    # while chunking, unless already known (e.g. resumed operations).
+                    sha_arg = op.upload_info.sha256.hex() if op.upload_info.is_hashed else hf_xet.COMPUTE_SHA256
+                    if isinstance(op.path_or_fileobj, bytes):
+                        handle = batch.xet_commit.start_upload_bytes(
+                            op.path_or_fileobj, sha256=sha_arg, name=op.path_in_repo
+                        )
                     else:
-                        if batch.xet_commit is None:
-                            batch.xet_commit = self.xet_session.new_upload_commit(
-                                progress_callback=self.display.new_xet_callback(), **self.xet_commit_kwargs
-                            )
-                        # Upload starts immediately in the background. sha256 is computed by hf_xet
-                        # while chunking, unless already known (e.g. resumed operations).
-                        sha_arg = op.upload_info.sha256.hex() if op.upload_info.is_hashed else hf_xet.COMPUTE_SHA256
-                        if isinstance(op.path_or_fileobj, bytes):
-                            handle = batch.xet_commit.start_upload_bytes(
-                                op.path_or_fileobj, sha256=sha_arg, name=op.path_in_repo
-                            )
-                        else:
-                            handle = batch.xet_commit.start_upload_file(str(op.path_or_fileobj), sha256=sha_arg)
-                        batch.handles.append((op, handle))
-                        self.display.notify_xet_registered(1)
-                    batch.ops.append(op)
+                        handle = batch.xet_commit.start_upload_file(str(op.path_or_fileobj), sha256=sha_arg)
+                    batch.handles.append((op, handle))
+                    self.display.notify_xet_registered(1)
+                batch.ops.append(op)
 
-                    if (
-                        len(batch.ops) >= self.pacer.target
-                        or batch.regular_bytes >= REGULAR_CONTENT_BYTES_BUDGET
-                        or (time.monotonic() - batch.created_at > MAX_COMMIT_INTERVAL and len(batch.ops) > 0)
-                    ):
-                        self._enqueue(batch)
-                        batch = _Batch()
-            self._enqueue(batch)
-        except BaseException:
-            self._abort_batch(batch)
-            raise
+                if (
+                    len(batch.ops) >= self.pacer.target
+                    or batch.regular_bytes >= REGULAR_CONTENT_BYTES_BUDGET
+                    or (time.monotonic() - batch.created_at > MAX_COMMIT_INTERVAL and len(batch.ops) > 0)
+                ):
+                    self._enqueue(batch)
+                    batch = _Batch()
+        self._enqueue(batch)
 
     def _enqueue(self, batch: _Batch) -> None:
         if len(batch.ops) == 0 and not (self.nb_commits == 0 and len(self.delete_operations) > 0):
@@ -555,6 +557,7 @@ class _UploadPipeline:
         self._abort_batch(batch)
 
     def _abort_batch(self, batch: _Batch) -> None:
+        self._inflight_batches.discard(batch)
         if batch.xet_commit is not None:
             try:
                 batch.xet_commit.abort()
@@ -588,6 +591,7 @@ class _UploadPipeline:
         #    can only be referenced by a git commit once their xet upload-commit is finalized.
         if batch.xet_commit is not None:
             batch.xet_commit.wait_to_finish()
+            self._inflight_batches.discard(batch)
             for op, handle in batch.handles:
                 if not op.upload_info.is_hashed:
                     op.upload_info.sha256 = bytes.fromhex(handle.result().xet_info.sha256)
@@ -610,7 +614,10 @@ class _UploadPipeline:
                 continue
             ops_to_commit.append(op)
 
-        # 3. Create the git commit(s). On failure, scale down and split the batch.
+        # 3. Create the git commit(s). On failure, scale down and split the batch. Never commit (or open
+        #    a PR) once the pipeline has failed: `run()` may already have raised to the caller.
+        if self.abort_event.is_set():
+            return
         if len(ops_to_commit) > 0 or (self.nb_commits == 0 and len(self.delete_operations) > 0):
             self._commit_with_split(ops_to_commit)
 
