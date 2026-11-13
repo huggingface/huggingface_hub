@@ -109,6 +109,31 @@ class TestPathsUtils:
             allow_patterns=["configs"],
         )
 
+    def test_filter_object_with_nested_folder_without_trailing_slash(self) -> None:
+        self._check(
+            items=[
+                "file.txt",
+                "lfs.bin",
+                "path/to/file.txt",
+                "path/to/lfs.bin",
+                "nested/path/to/file.txt",
+                "nested/path/to/lfs.bin",
+            ],
+            expected_items=["path/to/file.txt", "path/to/lfs.bin"],
+            allow_patterns=["path/to"],
+        )
+
+    def test_filter_bare_name_matching_both_file_and_folder(self) -> None:
+        self._check(
+            items=[
+                "configs",
+                "configs/model.json",
+                "configs.txt",
+            ],
+            expected_items=["configs", "configs/model.json"],
+            allow_patterns=["configs"],
+        )
+
     def test_filter_exact_filename_pattern_still_matches_only_that_file(self) -> None:
         self._check(
             items=[
