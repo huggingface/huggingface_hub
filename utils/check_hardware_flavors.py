@@ -178,6 +178,9 @@ def _build_hardware_table() -> str:
         print(f"Error running `hf jobs hardware`:\n{result.stderr}")
         sys.exit(1)
     items: list[dict[str, str]] = json.loads(result.stdout)
+    if not items:
+        print("Error: `hf jobs hardware` returned no hardware entries.")
+        sys.exit(1)
     headers = list(items[0].keys())
     lines = [
         HARDWARE_TABLE_START,
