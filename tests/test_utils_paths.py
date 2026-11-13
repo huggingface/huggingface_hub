@@ -96,6 +96,43 @@ class TestPathsUtils:
             allow_patterns=["path/to/"],
         )
 
+    def test_filter_object_with_folder_without_trailing_slash(self) -> None:
+        self._check(
+            items=[
+                "configs/model.json",
+                "configs/sub/file.json",
+                "configs2/data.json",
+                "configs.txt",
+                "model.safetensors",
+            ],
+            expected_items=["configs/model.json", "configs/sub/file.json"],
+            allow_patterns=["configs"],
+        )
+
+    def test_filter_exact_filename_pattern_still_matches_only_that_file(self) -> None:
+        self._check(
+            items=[
+                "model.safetensors",
+                "model.safetensors.bak",
+                "other/model.safetensors",
+            ],
+            expected_items=["model.safetensors"],
+            allow_patterns=["model.safetensors"],
+        )
+
+    def test_ignore_folder_without_trailing_slash(self) -> None:
+        self._check(
+            items=[
+                "configs/model.json",
+                "configs/sub/file.json",
+                "configs2/data.json",
+                "configs.txt",
+                "model.safetensors",
+            ],
+            expected_items=["configs2/data.json", "configs.txt", "model.safetensors"],
+            ignore_patterns=["configs"],
+        )
+
     def test_filter_object_with_empty_pattern(self) -> None:
         # An empty pattern must not raise: `_add_wildcard_to_directories("")` indexed `pattern[-1]`.
         self._check(

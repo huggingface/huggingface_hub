@@ -85,6 +85,9 @@ def filter_repo_objects(
     Note that it matches `*` across path boundaries, unlike traditional Unix shell globbing. For example, `"data/*.json"`
     will match both `data/file.json` and `data/subdir/file.json`.
 
+    A pattern naming a folder, with or without a trailing slash (for example `"data"` or `"data/"`), matches
+    everything under that folder. A wildcard-free pattern still matches a file of exactly that name as well.
+
     See https://docs.python.org/3/library/fnmatch.html for more details.
 
     Args:
@@ -141,9 +144,13 @@ def filter_repo_objects(
         ignore_patterns = [ignore_patterns]
 
     if allow_patterns is not None:
-        allow_patterns = [_add_wildcard_to_directories(_normalize_separators(p)) for p in allow_patterns]
+        allow_patterns = [
+            expanded for p in allow_patterns for expanded in _add_wildcard_to_directories(_normalize_separators(p))
+        ]
     if ignore_patterns is not None:
-        ignore_patterns = [_add_wildcard_to_directories(_normalize_separators(p)) for p in ignore_patterns]
+        ignore_patterns = [
+            expanded for p in ignore_patterns for expanded in _add_wildcard_to_directories(_normalize_separators(p))
+        ]
 
     if key is None:
 
@@ -177,7 +184,12 @@ def _normalize_separators(value: str | Path) -> str:
     return str(value).replace("\\", "/")
 
 
-def _add_wildcard_to_directories(pattern: str) -> str:
+def _add_wildcard_to_directories(pattern: str) -> list[str]:
     if pattern.endswith("/"):
-        return pattern + "*"
-    return pattern
+        return [pattern + "*"]
+    if any(char in pattern for char in "*?["):
+        return [pattern]
+    # A bare name (no wildcards, no trailing slash) can be an exact file name or a
+    # folder name. Keep the exact match and add the folder-contents match so that
+    # e.g. "configs" behaves like "configs/" instead of matching nothing.
+    return [pattern, pattern + "/*"]
