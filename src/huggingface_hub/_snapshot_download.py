@@ -22,6 +22,7 @@ from .file_download import (
     REGEX_COMMIT_HASH,
     DryRunFileInfo,
     _cache_commit_hash_for_specific_revision,
+    _raise_on_head_call_error,
     hf_hub_download,
     repo_folder_name,
 )
@@ -331,6 +332,9 @@ def snapshot_download(
             raise DryRunError(
                 "Dry run cannot be performed as the repository cannot be accessed. Please check your internet connection or authentication token."
             ) from api_call_error
+
+        if force_download:
+            _raise_on_head_call_error(api_call_error, force_download=True, local_files_only=local_files_only)
 
         # Try to get which commit hash corresponds to the specified revision
         if commit_hash is None:

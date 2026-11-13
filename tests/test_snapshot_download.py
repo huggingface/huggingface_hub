@@ -4,10 +4,16 @@ import pickle
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import httpx2
 import pytest
 
 from huggingface_hub import CommitOperationAdd, HfApi, ResolvedRevision, hf_hub_download, snapshot_download
-from huggingface_hub._tree_cache import read_tree_cache
+from huggingface_hub._tree_cache import (
+    TreeCacheEntry,
+    read_tree_cache,
+    tree_cache_folder_for_local_dir,
+    write_tree_cache,
+)
 from huggingface_hub.errors import (
     IncompleteSnapshotError,
     LocalEntryNotFoundError,
@@ -58,6 +64,53 @@ def test_pinned_revision_offline_without_cached_tree(tmp_path: Path):
         for revision in (COMMIT_HASH, ResolvedRevision(COMMIT_HASH, initial="main")):
             assert snapshot_download("user/repo", revision=revision, cache_dir=tmp_path) == str(snapshot_folder)
             assert snapshot_download("user/repo", revision=revision, local_dir=local_dir) == str(local_dir)
+
+
+@pytest.fixture
+def cached_download_folders(tmp_path: Path):
+    storage_folder = tmp_path / repo_folder_name(repo_id="user/repo", repo_type="model")
+    snapshot_folder = storage_folder / "snapshots" / COMMIT_HASH
+    snapshot_folder.mkdir(parents=True)
+    (storage_folder / "refs").mkdir()
+    (storage_folder / "refs" / "main").write_text(COMMIT_HASH)
+    local_dir = tmp_path / "local"
+    local_dir.mkdir()
+    for folder, tree_folder in (
+        (snapshot_folder, str(storage_folder)),
+        (local_dir, tree_cache_folder_for_local_dir(str(local_dir))),
+    ):
+        (folder / "config.json").write_text("{}")
+        write_tree_cache(tree_folder, COMMIT_HASH, {"config.json": TreeCacheEntry(size=2, blob_id="b" * 40)})
+    return tmp_path, snapshot_folder, local_dir
+
+
+@pytest.mark.transfer
+@pytest.mark.parametrize("use_local_dir", [False, True], ids=["cache", "local-dir"])
+def test_snapshot_force_download_does_not_return_cache_on_connection_error(cached_download_folders, use_local_dir):
+    cache_dir, snapshot_folder, local_dir = cached_download_folders
+    options = {"cache_dir": cache_dir, "local_dir": local_dir if use_local_dir else None, "token": False}
+    expected_folder = local_dir if use_local_dir else snapshot_folder
+    connection_error = httpx2.ConnectError("simulated connection failure")
+    with (
+        patch.object(httpx2.Client, "send", side_effect=connection_error),
+        patch.object(_http.time, "sleep"),
+    ):
+        assert snapshot_download("user/repo", **options) == str(expected_folder)
+        with pytest.raises(ValueError, match="Force download failed due to the above error") as error:
+            snapshot_download("user/repo", **options, force_download=True)
+    assert error.value.__cause__ is connection_error
+
+
+@pytest.mark.transfer
+@pytest.mark.parametrize("use_local_dir", [False, True], ids=["cache", "local-dir"])
+def test_snapshot_force_download_rejects_local_files_only(cached_download_folders, use_local_dir):
+    cache_dir, snapshot_folder, local_dir = cached_download_folders
+    options = {"cache_dir": cache_dir, "local_dir": local_dir if use_local_dir else None, "token": False}
+    expected_folder = local_dir if use_local_dir else snapshot_folder
+    with patch.object(httpx2.Client, "send", side_effect=AssertionError("No HTTP call expected")):
+        assert snapshot_download("user/repo", **options, local_files_only=True) == str(expected_folder)
+        with pytest.raises(ValueError, match="Cannot pass 'force_download=True' and 'local_files_only=True'"):
+            snapshot_download("user/repo", **options, force_download=True, local_files_only=True)
 
 
 class TestSnapshotDownload:

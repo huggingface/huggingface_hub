@@ -1929,7 +1929,9 @@ def _xet_file_metadata_from_tree_cache(
     return (location, etag, commit_hash, file_size, xet_file_data, None)
 
 
-def _raise_on_head_call_error(head_call_error: Exception, force_download: bool, local_files_only: bool) -> NoReturn:
+def _raise_on_head_call_error(
+    head_call_error: Exception | None, force_download: bool, local_files_only: bool
+) -> NoReturn:
     """Raise an appropriate error when the HEAD call failed and we cannot locate a local file."""
     # No head call => we cannot force download.
     if force_download:
