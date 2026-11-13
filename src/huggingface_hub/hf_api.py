@@ -1858,30 +1858,55 @@ class PaperInfo:
         self.authors = [PaperAuthor(**author) for author in authors] if authors else None
         published_at = paper.pop("publishedAt", None) or kwargs.pop("publishedAt", None)
         self.published_at = parse_datetime(published_at) if published_at else None
-        self.title = kwargs.pop("title", None)
-        self.source = kwargs.pop("source", None)
+        self.title = kwargs.pop("title", None) or paper.pop("title", None)
+        self.source = kwargs.pop("source", None) or paper.pop("source", None)
         self.summary = paper.pop("summary", None) or kwargs.pop("summary", None)
         self.upvotes = paper.pop("upvotes", None) or kwargs.pop("upvotes", None)
         self.discussion_id = paper.pop("discussionId", None) or kwargs.pop("discussionId", None)
         self.comments = kwargs.pop("numComments", 0)
-        submitted_at = kwargs.pop("publishedAt", None) or kwargs.pop("submittedOnDailyAt", None)
+        submitted_at = (
+            kwargs.pop("publishedAt", None)
+            or kwargs.pop("submittedOnDailyAt", None)
+            or paper.pop("submittedOnDailyAt", None)
+        )
         self.submitted_at = parse_datetime(submitted_at) if submitted_at else None
-        submitted_by = kwargs.pop("submittedBy", None) or kwargs.pop("submittedOnDailyBy", None)
+        submitted_by = (
+            kwargs.pop("submittedBy", None)
+            or kwargs.pop("submittedOnDailyBy", None)
+            or paper.pop("submittedOnDailyBy", None)
+        )
         self.submitted_by = User(**submitted_by) if submitted_by else None
-        self.ai_summary = kwargs.pop("ai_summary", None)
-        self.ai_keywords = kwargs.pop("ai_keywords", None)
-        organization = kwargs.pop("organization", None)
+        self.ai_summary = kwargs.pop("ai_summary", None) or paper.pop("ai_summary", None)
+        self.ai_keywords = kwargs.pop("ai_keywords", None) or paper.pop("ai_keywords", None)
+        organization = kwargs.pop("organization", None) or paper.pop("organization", None)
         self.organization = Organization(**organization) if organization else None
-        self.project_page = kwargs.pop("projectPage", None)
-        self.github_repo = kwargs.pop("githubRepo", None)
-        self.github_stars = kwargs.pop("githubStars", None)
-        linked_models = kwargs.pop("linkedModels", None)
+        self.project_page = (
+            kwargs.pop("projectPage", None)
+            or kwargs.pop("project_page", None)
+            or paper.pop("projectPage", None)
+            or paper.pop("project_page", None)
+        )
+        self.github_repo = (
+            kwargs.pop("githubRepo", None)
+            or kwargs.pop("github_repo", None)
+            or paper.pop("githubRepo", None)
+            or paper.pop("github_repo", None)
+        )
+        github_stars = kwargs.pop("githubStars", None)
+        if github_stars is None:
+            github_stars = kwargs.pop("github_stars", None)
+        if github_stars is None:
+            github_stars = paper.pop("githubStars", None)
+        if github_stars is None:
+            github_stars = paper.pop("github_stars", None)
+        self.github_stars = github_stars
+        linked_models = kwargs.pop("linkedModels", None) or paper.pop("linkedModels", None)
         self.linked_models = [ModelInfo(**m) for m in linked_models] if linked_models is not None else None
-        self.num_total_models = kwargs.pop("numTotalModels", None)
-        linked_datasets = kwargs.pop("linkedDatasets", None)
+        self.num_total_models = kwargs.pop("numTotalModels", None) or paper.pop("numTotalModels", None)
+        linked_datasets = kwargs.pop("linkedDatasets", None) or paper.pop("linkedDatasets", None)
         self.linked_datasets = [DatasetInfo(**d) for d in linked_datasets] if linked_datasets is not None else None
-        self.num_total_datasets = kwargs.pop("numTotalDatasets", None)
-        linked_spaces = kwargs.pop("linkedSpaces", None)
+        self.num_total_datasets = kwargs.pop("numTotalDatasets", None) or paper.pop("numTotalDatasets", None)
+        linked_spaces = kwargs.pop("linkedSpaces", None) or paper.pop("linkedSpaces", None)
         self.linked_spaces = [SpaceInfo(**s) for s in linked_spaces] if linked_spaces is not None else None
 
         # forward compatibility
