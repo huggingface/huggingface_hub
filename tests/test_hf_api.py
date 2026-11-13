@@ -65,6 +65,7 @@ from huggingface_hub.hf_api import (
     InferenceProviderMapping,
     ModelInfo,
     Organization,
+    PaperInfo,
     RepoSibling,
     RepoUrl,
     SpaceInfo,
@@ -4282,6 +4283,50 @@ class TestPaperApi:
     def test_daily_papers_limit(self) -> None:
         papers = list(self.api.list_daily_papers(date="2025-10-29", limit=10))
         assert len(papers) == 10
+
+    def test_paper_info_nested_metadata(self) -> None:
+        data = {
+            "paper": {
+                "id": "2407.21783",
+                "authors": [{"name": "Meta AI"}],
+                "title": "The Llama 3 Herd of Models",
+                "summary": "This paper presents...",
+                "upvotes": 100,
+                "projectPage": "https://ai.meta.com/llama/",
+                "githubRepo": "https://github.com/meta-llama/llama3",
+                "githubStars": 0,
+                "ai_summary": "AI summary text",
+                "ai_keywords": ["llama", "llm"],
+            },
+            "numComments": 5,
+        }
+        paper = PaperInfo(**data)
+        assert paper.id == "2407.21783"
+        assert paper.title == "The Llama 3 Herd of Models"
+        assert paper.project_page == "https://ai.meta.com/llama/"
+        assert paper.github_repo == "https://github.com/meta-llama/llama3"
+        assert paper.github_stars == 0
+        assert paper.ai_summary == "AI summary text"
+        assert paper.ai_keywords == ["llama", "llm"]
+
+    def test_paper_info_empty_and_zero_values_preserved(self) -> None:
+        paper = PaperInfo(
+            id="1234.5678",
+            upvotes=0,
+            ai_keywords=[],
+            linkedModels=[],
+            numTotalModels=0,
+            linkedDatasets=[],
+            numTotalDatasets=0,
+            linkedSpaces=[],
+        )
+        assert paper.upvotes == 0
+        assert paper.ai_keywords == []
+        assert paper.linked_models == []
+        assert paper.num_total_models == 0
+        assert paper.linked_datasets == []
+        assert paper.num_total_datasets == 0
+        assert paper.linked_spaces == []
 
 
 class TestWebhookApi:
