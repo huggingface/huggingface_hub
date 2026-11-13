@@ -1,5 +1,6 @@
 """Tests for the cache-wide shared blob store (see `huggingface_hub._shared_blobs`)."""
 
+import errno
 import os
 import shutil
 import threading
@@ -177,6 +178,19 @@ class TestStoreHelpers:
 
         assert blob.read_bytes() == CONTENT
         assert not list(shared_blob_path(tmp_path, XET_HASH).parent.glob("*.soft"))
+
+    def test_shared_blob_lock_falls_back_when_flock_returns_enosys(self, tmp_path: Path) -> None:
+        store_path = tmp_path / "store" / "blob"
+        store_path.parent.mkdir()
+
+        with patch(
+            "huggingface_hub.utils._shared_blobs.FileLock.acquire",
+            side_effect=OSError(errno.ENOSYS, "Function not implemented"),
+        ):
+            with _shared_blobs._shared_blob_lock(store_path):
+                pass
+
+        assert not Path(f"{store_path}.lock.soft").exists()
 
     @requires_reliable_symlinks
     def test_stale_soft_lock_fails_without_blocking(self, tmp_path: Path) -> None:

@@ -1,4 +1,5 @@
 import contextlib
+import errno
 import os
 import shutil
 import stat
@@ -87,7 +88,12 @@ def WeakFileLock(lock_file: str | Path, *, timeout: float | None = None) -> Gene
     If a timeout is provided, a `filelock.Timeout` exception is raised if the lock is not acquired within the timeout.
     """
     log_interval = constants.FILELOCK_LOG_EVERY_SECONDS
-    lock = FileLock(lock_file, timeout=log_interval, mode=0o664)
+    try:
+        # Newer filelock versions otherwise switch to SoftFileLock internally. That cannot
+        # distinguish the lock file created by the caller from another process's marker.
+        lock = FileLock(lock_file, timeout=log_interval, mode=0o664, fallback_to_soft=False)
+    except TypeError:  # filelock < 4.2.1
+        lock = FileLock(lock_file, timeout=log_interval, mode=0o664)
     start_time = time.time()
 
     while True:
@@ -106,8 +112,16 @@ def WeakFileLock(lock_file: str | Path, *, timeout: float | None = None) -> Gene
                 logger.warning(
                     "FileSystem does not appear to support flock. Falling back to SoftFileLock for %s", lock_file
                 )
-                lock = SoftFileLock(lock_file, timeout=log_interval)
+                lock = SoftFileLock(f"{lock_file}.soft", timeout=log_interval)
                 continue
+        except OSError as e:
+            if e.errno != errno.ENOSYS:
+                raise
+            logger.warning(
+                "FileSystem does not appear to support flock. Falling back to SoftFileLock for %s", lock_file
+            )
+            lock = SoftFileLock(f"{lock_file}.soft", timeout=log_interval)
+            continue
         else:
             break
 
