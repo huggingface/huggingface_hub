@@ -451,9 +451,10 @@ class _UploadPipeline:
         self.display.start()
         try:
             self._coordinator_loop()
-        except BaseException:
+        except BaseException as e:
             self.abort_event.set()
-            abort_xet_session()
+            if isinstance(e, KeyboardInterrupt):
+                abort_xet_session()
             raise
         finally:
             if self.abort_event.is_set():
@@ -481,61 +482,65 @@ class _UploadPipeline:
         import hf_xet
 
         batch = _Batch()
-        for start in range(0, len(self.add_operations), PREUPLOAD_BATCH_SIZE):
-            if self.abort_event.is_set():
-                self._abort_batch(batch)
-                return
-            chunk = self.add_operations[start : start + PREUPLOAD_BATCH_SIZE]
-            try:
-                _fetch_upload_modes(
-                    additions=chunk,
-                    repo_type=self.repo_type,
-                    repo_id=self.repo_id,
-                    headers=self.headers,
-                    revision=self.base_revision_quoted,
-                    endpoint=self.api.endpoint,
-                    create_pr=self.create_pr,
-                    gitignore_content=self.gitignore_content,
-                )
-            except RepositoryNotFoundError as e:
-                from .hf_api import _CREATE_COMMIT_NO_REPO_ERROR_MESSAGE
+        try:
+            for start in range(0, len(self.add_operations), PREUPLOAD_BATCH_SIZE):
+                if self.abort_event.is_set():
+                    self._abort_batch(batch)
+                    return
+                chunk = self.add_operations[start : start + PREUPLOAD_BATCH_SIZE]
+                try:
+                    _fetch_upload_modes(
+                        additions=chunk,
+                        repo_type=self.repo_type,
+                        repo_id=self.repo_id,
+                        headers=self.headers,
+                        revision=self.base_revision_quoted,
+                        endpoint=self.api.endpoint,
+                        create_pr=self.create_pr,
+                        gitignore_content=self.gitignore_content,
+                    )
+                except RepositoryNotFoundError as e:
+                    from .hf_api import _CREATE_COMMIT_NO_REPO_ERROR_MESSAGE
 
-                e.append_to_message(_CREATE_COMMIT_NO_REPO_ERROR_MESSAGE)
-                raise
-            self.display.notify_prepared(len(chunk))
-            for op in chunk:
-                if op._should_ignore:
-                    logger.debug(f"Skipping upload for '{op.path_in_repo}' (ignored by gitignore rules).")
-                    self.display.notify_ignored(1)
-                    continue
-                if op._upload_mode == "regular":
-                    batch.regular_bytes += op.upload_info.size
-                else:
-                    if batch.xet_commit is None:
-                        batch.xet_commit = self.xet_session.new_upload_commit(
-                            progress_callback=self.display.new_xet_callback(), **self.xet_commit_kwargs
-                        )
-                    # Upload starts immediately in the background. sha256 is computed by hf_xet
-                    # while chunking, unless already known (e.g. resumed operations).
-                    sha_arg = op.upload_info.sha256.hex() if op.upload_info.is_hashed else hf_xet.COMPUTE_SHA256
-                    if isinstance(op.path_or_fileobj, bytes):
-                        handle = batch.xet_commit.start_upload_bytes(
-                            op.path_or_fileobj, sha256=sha_arg, name=op.path_in_repo
-                        )
+                    e.append_to_message(_CREATE_COMMIT_NO_REPO_ERROR_MESSAGE)
+                    raise
+                self.display.notify_prepared(len(chunk))
+                for op in chunk:
+                    if op._should_ignore:
+                        logger.debug(f"Skipping upload for '{op.path_in_repo}' (ignored by gitignore rules).")
+                        self.display.notify_ignored(1)
+                        continue
+                    if op._upload_mode == "regular":
+                        batch.regular_bytes += op.upload_info.size
                     else:
-                        handle = batch.xet_commit.start_upload_file(str(op.path_or_fileobj), sha256=sha_arg)
-                    batch.handles.append((op, handle))
-                    self.display.notify_xet_registered(1)
-                batch.ops.append(op)
+                        if batch.xet_commit is None:
+                            batch.xet_commit = self.xet_session.new_upload_commit(
+                                progress_callback=self.display.new_xet_callback(), **self.xet_commit_kwargs
+                            )
+                        # Upload starts immediately in the background. sha256 is computed by hf_xet
+                        # while chunking, unless already known (e.g. resumed operations).
+                        sha_arg = op.upload_info.sha256.hex() if op.upload_info.is_hashed else hf_xet.COMPUTE_SHA256
+                        if isinstance(op.path_or_fileobj, bytes):
+                            handle = batch.xet_commit.start_upload_bytes(
+                                op.path_or_fileobj, sha256=sha_arg, name=op.path_in_repo
+                            )
+                        else:
+                            handle = batch.xet_commit.start_upload_file(str(op.path_or_fileobj), sha256=sha_arg)
+                        batch.handles.append((op, handle))
+                        self.display.notify_xet_registered(1)
+                    batch.ops.append(op)
 
-                if (
-                    len(batch.ops) >= self.pacer.target
-                    or batch.regular_bytes >= REGULAR_CONTENT_BYTES_BUDGET
-                    or (time.monotonic() - batch.created_at > MAX_COMMIT_INTERVAL and len(batch.ops) > 0)
-                ):
-                    self._enqueue(batch)
-                    batch = _Batch()
-        self._enqueue(batch)
+                    if (
+                        len(batch.ops) >= self.pacer.target
+                        or batch.regular_bytes >= REGULAR_CONTENT_BYTES_BUDGET
+                        or (time.monotonic() - batch.created_at > MAX_COMMIT_INTERVAL and len(batch.ops) > 0)
+                    ):
+                        self._enqueue(batch)
+                        batch = _Batch()
+            self._enqueue(batch)
+        except BaseException:
+            self._abort_batch(batch)
+            raise
 
     def _enqueue(self, batch: _Batch) -> None:
         if len(batch.ops) == 0 and not (self.nb_commits == 0 and len(self.delete_operations) > 0):
