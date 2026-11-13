@@ -112,7 +112,7 @@ def WeakFileLock(lock_file: str | Path, *, timeout: float | None = None) -> Gene
                 logger.warning(
                     "FileSystem does not appear to support flock. Falling back to SoftFileLock for %s", lock_file
                 )
-                lock = SoftFileLock(lock_file, timeout=log_interval)
+                lock = SoftFileLock(f"{lock_file}.soft", timeout=log_interval)
                 continue
         except OSError as e:
             if e.errno != errno.ENOSYS:
@@ -120,7 +120,7 @@ def WeakFileLock(lock_file: str | Path, *, timeout: float | None = None) -> Gene
             logger.warning(
                 "FileSystem does not appear to support flock. Falling back to SoftFileLock for %s", lock_file
             )
-            lock = SoftFileLock(lock_file, timeout=log_interval)
+            lock = SoftFileLock(f"{lock_file}.soft", timeout=log_interval)
             continue
         else:
             break
