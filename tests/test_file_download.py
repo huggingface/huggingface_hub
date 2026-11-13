@@ -16,8 +16,10 @@ import os
 import shutil
 import stat
 import warnings
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from pathlib import Path
+from threading import Barrier
 from typing import Iterable
 from unittest.mock import Mock, patch
 
@@ -1445,7 +1447,68 @@ class TestHttpGet:
         assert tracker.n == 100
 
 
+def test_concurrent_download_without_symlinks(tmp_path, mocker):
+    barrier = Barrier(2)
+    metadata = HfFileMetadata(
+        commit_hash="a" * 40, etag="etag", location="https://example.com/file", size=7, xet_file_data=None
+    )
+
+    def get_metadata(*args, **kwargs):
+        barrier.wait(timeout=10)
+        return metadata
+
+    def download(*, destination_path, **kwargs):
+        destination_path.write_bytes(b"content")
+
+    mocker.patch("huggingface_hub.file_download.are_symlinks_supported", return_value=False)
+    mocker.patch("huggingface_hub.file_download.get_hf_file_metadata", side_effect=get_metadata)
+    transfer = mocker.patch("huggingface_hub.file_download._download_to_tmp_and_move", side_effect=download)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        futures = [pool.submit(hf_hub_download, "user/model", "file", cache_dir=tmp_path) for _ in range(2)]
+        paths = [future.result(timeout=15) for future in futures]
+    assert paths[0] == paths[1]
+    assert Path(paths[0]).read_bytes() == b"content"
+    transfer.assert_called_once()
+
+
 class TestCreateSymlink:
+    @pytest.mark.parametrize("new_blob", [False, True])
+    @pytest.mark.parametrize("fail", [False, True])
+    def test_copy_published_atomically(self, tmp_path, mocker, new_blob, fail):
+        src, dst = tmp_path / "source", tmp_path / "destination"
+        src.write_bytes(b"complete content")
+        dst.write_bytes(b"previous content")
+        mocker.patch("huggingface_hub.file_download.are_symlinks_supported", return_value=False)
+
+        def copy(source, target, **kwargs):
+            Path(target).write_bytes(b"partial")
+            assert dst.read_bytes() == b"previous content"
+            if fail:
+                raise OSError("copy failed")
+            Path(target).write_bytes(Path(source).read_bytes())
+
+        mocker.patch("huggingface_hub.file_download.shutil.copyfile", side_effect=copy)
+        # Force the move fallback, as when source and destination are on different devices.
+        rename = os.rename
+
+        def cross_device_rename(source, target):
+            if str(source) == str(src):
+                import errno
+
+                raise OSError(errno.EXDEV, "cross-device move")
+            return rename(source, target)
+
+        mocker.patch("huggingface_hub.file_download.os.rename", side_effect=cross_device_rename)
+        if fail:
+            with pytest.raises(OSError, match="copy failed"):
+                _create_symlink(str(src), str(dst), new_blob=new_blob)
+            assert dst.read_bytes() == b"previous content"
+        else:
+            _create_symlink(str(src), str(dst), new_blob=new_blob)
+            assert dst.read_bytes() == b"complete content"
+        assert not list(tmp_path.glob("*.tmp"))
+        assert src.exists() == (not new_blob or fail)
+
     @pytest.mark.skipif(os.name == "nt", reason="No symlinks on Windows")
     def test_create_symlink_concurrent_access(self, mocker) -> None:
         mock_are_symlinks_supported = mocker.patch("huggingface_hub.file_download.are_symlinks_supported")
@@ -1461,20 +1524,21 @@ class TestCreateSymlink:
 
             # Symlink already exists when it tries to create it (most probably from a
             # concurrent access) but do not raise exception
-            def _are_symlinks_supported(cache_dir: str) -> bool:
-                os.symlink(src, dst)
-                return True
+            symlink = os.symlink
 
-            mock_are_symlinks_supported.side_effect = _are_symlinks_supported
+            def concurrent_symlink(source, destination):
+                symlink(src, dst)
+                symlink(source, destination)
+
+            mock_symlink = mocker.patch("huggingface_hub.file_download.os.symlink", side_effect=concurrent_symlink)
             _create_symlink(src, dst)
 
-            # Symlink already exists but pointing to a different source file. This should
-            # never happen in the context of HF cache system -> raise exception
-            def _are_symlinks_supported(cache_dir: str) -> bool:
-                os.symlink(other, dst)
-                return True
+            # An unrelated symlink created concurrently must still raise.
+            def concurrent_other_symlink(source, destination):
+                symlink(other, dst)
+                symlink(source, destination)
 
-            mock_are_symlinks_supported.side_effect = _are_symlinks_supported
+            mock_symlink.side_effect = concurrent_other_symlink
             with pytest.raises(FileExistsError):
                 _create_symlink(src, dst)
 

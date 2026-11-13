@@ -658,11 +658,6 @@ def _create_symlink(src: str, dst: str, new_blob: bool = False) -> None:
     In case symlinks are not supported, a warning message is displayed to the user once when loading `huggingface_hub`.
     The warning message can be disabled with the `DISABLE_SYMLINKS_WARNING` environment variable.
     """
-    try:
-        os.remove(dst)
-    except OSError:
-        pass
-
     abs_src = os.path.abspath(os.path.expanduser(src))
     abs_dst = os.path.abspath(os.path.expanduser(dst))
     abs_dst_folder = os.path.dirname(abs_dst)
@@ -696,6 +691,10 @@ def _create_symlink(src: str, dst: str, new_blob: bool = False) -> None:
 
     # Symlinks are supported => let's create a symlink.
     if _support_symlinks:
+        try:
+            os.remove(dst)
+        except OSError:
+            pass
         src_rel_or_abs = relative_src or abs_src
         logger.debug(f"Creating pointer from {src_rel_or_abs} to {abs_dst}")
         try:
@@ -715,13 +714,19 @@ def _create_symlink(src: str, dst: str, new_blob: bool = False) -> None:
             # is supported on both volumes but not between them. Let's just make a hard copy in that case.
             pass
 
-    # Symlinks are not supported => let's move or copy the file.
-    if new_blob:
-        logger.debug(f"Symlink not supported. Moving file from {abs_src} to {abs_dst}")
-        shutil.move(abs_src, abs_dst, copy_function=_copy_no_matter_what)
-    else:
-        logger.debug(f"Symlink not supported. Copying file from {abs_src} to {abs_dst}")
-        shutil.copyfile(abs_src, abs_dst)
+    # Publish copies atomically: cache readers do not take the download lock and must
+    # never observe a partially copied snapshot file (including cross-device moves).
+    tmp_dst = f"{abs_dst}.{uuid.uuid4().hex}.tmp"
+    try:
+        if new_blob:
+            logger.debug(f"Symlink not supported. Moving file from {abs_src} to {abs_dst}")
+            shutil.move(abs_src, tmp_dst, copy_function=_copy_no_matter_what)
+        else:
+            logger.debug(f"Symlink not supported. Copying file from {abs_src} to {abs_dst}")
+            shutil.copyfile(abs_src, tmp_dst)
+        os.replace(tmp_dst, abs_dst)
+    finally:
+        Path(tmp_dst).unlink(missing_ok=True)
 
 
 def _cache_commit_hash_for_specific_revision(storage_folder: str, revision: str, commit_hash: str) -> None:
@@ -1271,6 +1276,11 @@ def _hf_hub_download_to_cache_dir(
     )
 
     with WeakFileLock(lock_path):
+        # Without symlinks, the first downloader moves the blob to the snapshot.
+        # A waiter must recheck the snapshot before downloading the missing blob again.
+        if not force_download and os.path.exists(pointer_path):
+            return pointer_path
+
         blob_reused_from_store = (
             shared_blob_hash is not None
             and not force_download
