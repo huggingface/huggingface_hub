@@ -307,40 +307,42 @@ def read_download_metadata(local_dir: Path, filename: str) -> LocalDownloadFileM
     """
     paths = get_local_download_paths(local_dir, filename)
     with WeakFileLock(paths.lock_path):
-        if paths.metadata_path.exists():
-            try:
-                with paths.metadata_path.open() as f:
-                    commit_hash = f.readline().strip()
-                    etag = f.readline().strip()
-                    timestamp = float(f.readline().strip())
-                    metadata = LocalDownloadFileMetadata(
-                        filename=filename,
-                        commit_hash=commit_hash,
-                        etag=etag,
-                        timestamp=timestamp,
-                    )
-            except Exception as e:
-                # remove the metadata file if it is corrupted / not the right format
-                logger.warning(
-                    f"Invalid metadata file {paths.metadata_path}: {e}. Removing it from disk and continue."
-                )
-                try:
-                    paths.metadata_path.unlink()
-                except Exception as e:
-                    logger.warning(f"Could not remove corrupted metadata file {paths.metadata_path}: {e}")
-                return None
+        return _read_download_metadata(local_dir, filename)
 
+
+def _read_download_metadata(local_dir: Path, filename: str) -> LocalDownloadFileMetadata | None:
+    """Caller must hold the download metadata lock."""
+    paths = get_local_download_paths(local_dir, filename)
+    if paths.metadata_path.exists():
+        try:
+            with paths.metadata_path.open() as f:
+                commit_hash = f.readline().strip()
+                etag = f.readline().strip()
+                timestamp = float(f.readline().strip())
+                metadata = LocalDownloadFileMetadata(
+                    filename=filename,
+                    commit_hash=commit_hash,
+                    etag=etag,
+                    timestamp=timestamp,
+                )
+        except Exception as e:
+            # remove the metadata file if it is corrupted / not the right format
+            logger.warning(f"Invalid metadata file {paths.metadata_path}: {e}. Removing it from disk and continue.")
             try:
-                # check if the file exists and hasn't been modified since the metadata was saved
-                stat = paths.file_path.stat()
-                if (
-                    stat.st_mtime - 1 <= metadata.timestamp
-                ):  # allow 1s difference as stat.st_mtime might not be precise
-                    return metadata
-                logger.info(f"Ignored metadata for '{filename}' (outdated). Will re-compute hash.")
-            except FileNotFoundError:
-                # file does not exist => metadata is outdated
-                return None
+                paths.metadata_path.unlink()
+            except Exception as e:
+                logger.warning(f"Could not remove corrupted metadata file {paths.metadata_path}: {e}")
+            return None
+
+        try:
+            # check if the file exists and hasn't been modified since the metadata was saved
+            stat = paths.file_path.stat()
+            if stat.st_mtime - 1 <= metadata.timestamp:  # allow 1s difference as stat.st_mtime might not be precise
+                return metadata
+            logger.info(f"Ignored metadata for '{filename}' (outdated). Will re-compute hash.")
+        except FileNotFoundError:
+            # file does not exist => metadata is outdated
+            return None
     return None
 
 
@@ -438,8 +440,14 @@ def write_download_metadata(local_dir: Path, filename: str, commit_hash: str, et
     """
     paths = get_local_download_paths(local_dir, filename)
     with WeakFileLock(paths.lock_path):
-        with paths.metadata_path.open("w") as f:
-            f.write(f"{commit_hash}\n{etag}\n{time.time()}\n")
+        return _write_download_metadata(local_dir, filename, commit_hash, etag)
+
+
+def _write_download_metadata(local_dir: Path, filename: str, commit_hash: str, etag: str) -> None:
+    """Caller must hold the download metadata lock."""
+    paths = get_local_download_paths(local_dir, filename)
+    with paths.metadata_path.open("w") as f:
+        f.write(f"{commit_hash}\n{etag}\n{time.time()}\n")
 
 
 def _huggingface_dir(local_dir: Path) -> Path:
