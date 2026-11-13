@@ -4309,6 +4309,25 @@ class TestPaperApi:
         assert paper.ai_summary == "AI summary text"
         assert paper.ai_keywords == ["llama", "llm"]
 
+    def test_paper_info_empty_and_zero_values_preserved(self) -> None:
+        paper = PaperInfo(
+            id="1234.5678",
+            upvotes=0,
+            ai_keywords=[],
+            linkedModels=[],
+            numTotalModels=0,
+            linkedDatasets=[],
+            numTotalDatasets=0,
+            linkedSpaces=[],
+        )
+        assert paper.upvotes == 0
+        assert paper.ai_keywords == []
+        assert paper.linked_models == []
+        assert paper.num_total_models == 0
+        assert paper.linked_datasets == []
+        assert paper.num_total_datasets == 0
+        assert paper.linked_spaces == []
+
 
 class TestWebhookApi:
     @pytest.fixture(autouse=True)

@@ -1861,9 +1861,15 @@ class PaperInfo:
         self.title = kwargs.pop("title", None) or paper.pop("title", None)
         self.source = kwargs.pop("source", None) or paper.pop("source", None)
         self.summary = paper.pop("summary", None) or kwargs.pop("summary", None)
-        self.upvotes = paper.pop("upvotes", None) or kwargs.pop("upvotes", None)
+        upvotes = paper.pop("upvotes", None)
+        if upvotes is None:
+            upvotes = kwargs.pop("upvotes", None)
+        self.upvotes = upvotes
         self.discussion_id = paper.pop("discussionId", None) or kwargs.pop("discussionId", None)
-        self.comments = kwargs.pop("numComments", 0)
+        comments = kwargs.pop("numComments", None)
+        if comments is None:
+            comments = paper.pop("numComments", 0)
+        self.comments = comments if comments is not None else 0
         submitted_at = (
             kwargs.pop("publishedAt", None)
             or kwargs.pop("submittedOnDailyAt", None)
@@ -1877,7 +1883,10 @@ class PaperInfo:
         )
         self.submitted_by = User(**submitted_by) if submitted_by else None
         self.ai_summary = kwargs.pop("ai_summary", None) or paper.pop("ai_summary", None)
-        self.ai_keywords = kwargs.pop("ai_keywords", None) or paper.pop("ai_keywords", None)
+        ai_keywords = kwargs.pop("ai_keywords", None)
+        if ai_keywords is None:
+            ai_keywords = paper.pop("ai_keywords", None)
+        self.ai_keywords = ai_keywords
         organization = kwargs.pop("organization", None) or paper.pop("organization", None)
         self.organization = Organization(**organization) if organization else None
         self.project_page = (
@@ -1900,13 +1909,30 @@ class PaperInfo:
         if github_stars is None:
             github_stars = paper.pop("github_stars", None)
         self.github_stars = github_stars
-        linked_models = kwargs.pop("linkedModels", None) or paper.pop("linkedModels", None)
+
+        linked_models = kwargs.pop("linkedModels", None)
+        if linked_models is None:
+            linked_models = paper.pop("linkedModels", None)
         self.linked_models = [ModelInfo(**m) for m in linked_models] if linked_models is not None else None
-        self.num_total_models = kwargs.pop("numTotalModels", None) or paper.pop("numTotalModels", None)
-        linked_datasets = kwargs.pop("linkedDatasets", None) or paper.pop("linkedDatasets", None)
+
+        num_total_models = kwargs.pop("numTotalModels", None)
+        if num_total_models is None:
+            num_total_models = paper.pop("numTotalModels", None)
+        self.num_total_models = num_total_models
+
+        linked_datasets = kwargs.pop("linkedDatasets", None)
+        if linked_datasets is None:
+            linked_datasets = paper.pop("linkedDatasets", None)
         self.linked_datasets = [DatasetInfo(**d) for d in linked_datasets] if linked_datasets is not None else None
-        self.num_total_datasets = kwargs.pop("numTotalDatasets", None) or paper.pop("numTotalDatasets", None)
-        linked_spaces = kwargs.pop("linkedSpaces", None) or paper.pop("linkedSpaces", None)
+
+        num_total_datasets = kwargs.pop("numTotalDatasets", None)
+        if num_total_datasets is None:
+            num_total_datasets = paper.pop("numTotalDatasets", None)
+        self.num_total_datasets = num_total_datasets
+
+        linked_spaces = kwargs.pop("linkedSpaces", None)
+        if linked_spaces is None:
+            linked_spaces = paper.pop("linkedSpaces", None)
         self.linked_spaces = [SpaceInfo(**s) for s in linked_spaces] if linked_spaces is not None else None
 
         # forward compatibility
