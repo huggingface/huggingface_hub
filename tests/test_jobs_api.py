@@ -164,3 +164,20 @@ def test_job_info_parses_network(network, expected) -> None:
         network=network,
     )
     assert job.network == expected
+
+
+@pytest.mark.parametrize(
+    "script, expected",
+    [
+        # Windows relative path as inserted by PowerShell tab completion.
+        (r".\train.py", "train"),
+        # Windows absolute path: the directory layout must not leak into the name.
+        (r"C:\Users\alice\projects\sft\train.py", "train"),
+        # POSIX paths keep working.
+        ("./train.py", "train"),
+        ("/home/alice/sft/train.py", "train"),
+    ],
+)
+def test_default_job_name_from_script_windows_paths(script: str, expected: str) -> None:
+    # The base name is derived from the script's last path component on both separators.
+    assert _default_job_name_from_script(script, []).startswith(expected + "-")
