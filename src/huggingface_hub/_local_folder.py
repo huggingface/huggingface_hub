@@ -293,7 +293,7 @@ def get_local_upload_paths(local_dir: Path, filename: str) -> LocalUploadFilePat
     )
 
 
-def read_download_metadata(local_dir: Path, filename: str) -> LocalDownloadFileMetadata | None:
+def read_download_metadata(local_dir: Path, filename: str, dry_run: bool = False) -> LocalDownloadFileMetadata | None:
     """Read metadata about a file in the local directory related to a download process.
 
     Args:
@@ -321,6 +321,10 @@ def read_download_metadata(local_dir: Path, filename: str) -> LocalDownloadFileM
                     )
             except Exception as e:
                 # remove the metadata file if it is corrupted / not the right format
+                # (a dry run must not touch disk, so leave it in place)
+                if dry_run:
+                    logger.warning(f"Invalid metadata file {paths.metadata_path}: {e}. Ignoring it.")
+                    return None
                 logger.warning(
                     f"Invalid metadata file {paths.metadata_path}: {e}. Removing it from disk and continue."
                 )
