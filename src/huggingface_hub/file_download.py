@@ -1429,7 +1429,6 @@ def _hf_hub_download_to_local_dir(
     if not force_download and paths.file_path.is_file():
         # etag matches => update metadata and return file
         if local_metadata is not None and local_metadata.etag == etag:
-            write_download_metadata(local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag)
             if dry_run:
                 return DryRunFileInfo(
                     commit_hash=commit_hash,
@@ -1439,6 +1438,7 @@ def _hf_hub_download_to_local_dir(
                     local_path=str(paths.file_path),
                     will_download=False,
                 )
+            write_download_metadata(local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag)
             return str(paths.file_path)
 
         # metadata is outdated + etag is a sha256
@@ -1449,7 +1449,6 @@ def _hf_hub_download_to_local_dir(
             with open(paths.file_path, "rb") as f:
                 file_hash = sha_fileobj(f).hex()
             if file_hash == etag:
-                write_download_metadata(local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag)
                 if dry_run:
                     return DryRunFileInfo(
                         commit_hash=commit_hash,
@@ -1459,6 +1458,7 @@ def _hf_hub_download_to_local_dir(
                         local_path=str(paths.file_path),
                         will_download=False,
                     )
+                write_download_metadata(local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag)
                 return str(paths.file_path)
 
     # Local file doesn't exist or etag isn't a match => retrieve file from remote (or cache)
