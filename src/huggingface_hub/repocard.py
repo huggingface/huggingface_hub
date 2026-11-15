@@ -29,9 +29,12 @@ logger = logging.get_logger(__name__)
 TEMPLATE_MODELCARD_PATH = Path(__file__).parent / "templates" / "modelcard_template.md"
 TEMPLATE_DATASETCARD_PATH = Path(__file__).parent / "templates" / "datasetcard_template.md"
 
-# exact same regex as in the Hub server. Please keep in sync.
+# Same regex as in the Hub server, except that the closing `---` may directly follow the opening one
+# (empty block). Please keep in sync.
 # See https://github.com/huggingface/moon-landing/blob/main/server/lib/ViewMarkdown.ts#L18
-REGEX_YAML_BLOCK = re.compile(r"^(\s*---(?:\r\n|\r|\n))([\S\s]*?)((?:\r\n|\r|\n)---[ \t]*(\r\n|\n|$))")
+REGEX_YAML_BLOCK = re.compile(
+    r"^(\s*---(?:\r\n|\r|\n))([\S\s]*?)((?:\r\n|\r|\n|(?<=---\r\n)|(?<=---[\r\n]))---[ \t]*(\r\n|\n|$))"
+)
 
 
 class RepoCard:

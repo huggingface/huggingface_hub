@@ -234,6 +234,31 @@ class TestRepocardMetadata:
         assert metadata_load(self.filepath) is None
         assert RepoCard.load(self.filepath).data.to_dict() == {}
 
+    @pytest.mark.parametrize("newline", ["\n", "\r\n"])
+    @pytest.mark.parametrize("bom", ["", "\ufeff"], ids=["no-bom", "bom"])
+    def test_metadata_save_replaces_empty_metadata_block(self, newline, bom):
+        # An empty block (`---` directly followed by `---`) must be replaced, not kept below the new one.
+        self.filepath.write_bytes(f"{bom}---{newline}---{newline}# My model{newline}".encode())
+
+        metadata_save(self.filepath, {"license": "mit"})
+        expected = f"---{newline}license: mit{newline}---{newline}# My model{newline}".encode()
+        assert self.filepath.read_bytes() == expected
+
+        # Saving again keeps a single block
+        metadata_save(self.filepath, {"license": "mit"})
+        assert self.filepath.read_bytes() == expected
+        assert metadata_load(self.filepath) == {"license": "mit"}
+
+    def test_metadata_save_empty_metadata_block_keeps_body_with_later_fence(self):
+        # A `---` thematic break in the body must not be taken as the end of an empty block.
+        body = "# My model\n\nIntro\n\n---\n\nMore text\n"
+        self.filepath.write_text("---\n---\n" + body)
+        assert metadata_load(self.filepath) is None
+
+        metadata_save(self.filepath, {"license": "mit"})
+
+        assert self.filepath.read_text() == "---\nlicense: mit\n---\n" + body
+
     def test_metadata_eval_result(self):
         data = metadata_eval_result(
             model_pretty_name="RoBERTa fine-tuned on ReactionGIF",
@@ -526,6 +551,39 @@ class TestMetadataUpdateOnMissingCard:
 
 
 class TestRepoCard:
+    @pytest.mark.parametrize("newline", ["\n", "\r\n"])
+    @pytest.mark.parametrize("body", ["", "# My model", "# My model\n\nIntro\n\n---\n\nMore text\n"])
+    def test_empty_metadata_block(self, tmp_path, caplog, newline, body):
+        body = body.replace("\n", newline)
+        with caplog.at_level("WARNING", logger="huggingface_hub"):
+            card = ModelCard(f"---{newline}---{newline}{body}")
+        assert "metadata block was not found" not in caplog.text
+        assert card.data.to_dict() == {}
+        assert card.text == body
+
+        card.data.license = "mit"
+        expected = f"---{newline}license: mit{newline}---{newline}{body}"
+        assert str(card) == expected
+
+        # Round trip through a file keeps a single metadata block
+        path = tmp_path / "README.md"
+        card.save(path)
+        assert path.read_bytes() == expected.encode()
+        reloaded = ModelCard.load(path)
+        assert reloaded.data.to_dict() == {"license": "mit"}
+        assert reloaded.text == body
+        reloaded.save(path)
+        assert path.read_bytes() == expected.encode()
+
+    def test_load_empty_metadata_block_with_bom(self, tmp_path):
+        path = tmp_path / "README.md"
+        path.write_bytes("\ufeff---\n---\n# My model\n".encode())
+
+        card = RepoCard.load(path)
+
+        assert card.data.to_dict() == {}
+        assert card.text == "# My model\n"
+
     def test_load_repocard_from_file(self):
         sample_path = SAMPLE_CARDS_DIR / "sample_simple.md"
         card = RepoCard.load(sample_path)
@@ -738,15 +796,42 @@ class TestRegexYamlBlock:
             assert card.data.to_dict() == {}
             assert "trailing content" in card.text
 
-    def test_crlf_empty_frontmatter_followed_by_real_frontmatter(self):
-        # Regression test: with a single-char newline class at the delimiters, the opener of
-        # a CRLF card consumed only the `\r` and the leftover `\n---` faked an early closer,
-        # demoting the real YAML block between the 2nd and 3rd fences into the card text.
-        content = "---\r\n---\r\nlanguage: en\r\n---\r\nbody\r\n"
+    @pytest.mark.parametrize("newline", ["\n", "\r\n"])
+    @pytest.mark.parametrize("body", ["", "# My model", "language: en{nl}---{nl}body{nl}"])
+    def test_empty_block_ends_at_second_fence(self, newline, body):
+        # The block closes at the first closing fence, even when it directly follows the opener.
+        # LF and CRLF must agree (the CRLF opener must consume the full `\r\n`), and later
+        # fences stay in the body.
+        body = body.format(nl=newline)
+        content = f"---{newline}---{newline}{body}"
         match = REGEX_YAML_BLOCK.search(content)
         assert match is not None
-        assert yaml.safe_load(match.group(2)) == {"language": "en"}
-        assert content[match.end() :] == "body\r\n"
+        assert match.group(2) == ""
+        assert content[match.end() :] == body
+
+    def test_empty_block_at_end_of_content(self):
+        match = REGEX_YAML_BLOCK.search("---\n---")
+        assert match is not None
+        assert match.group(2) == ""
+        assert match.end() == len("---\n---")
+
+    @pytest.mark.parametrize("newline", ["\n", "\r\n"])
+    def test_populated_block_ends_at_first_closing_fence(self, newline):
+        content = f"---{newline}language: en{newline}---{newline}Intro{newline}---{newline}More{newline}"
+        match = REGEX_YAML_BLOCK.search(content)
+        assert match is not None
+        assert match.group(2) == "language: en"
+        assert content[match.end() :] == f"Intro{newline}---{newline}More{newline}"
+
+    def test_empty_block_closing_fence_with_trailing_spaces(self):
+        match = REGEX_YAML_BLOCK.search("---\n---  \nbody")
+        assert match is not None
+        assert match.group(2) == ""
+
+    @pytest.mark.parametrize("content", ["---\n----\nbody", "---\n---body", "---\nfoo---\nbody"])
+    def test_does_not_match_without_closing_fence_line(self, content):
+        # Only a line made of `---` (optionally followed by spaces) closes the block.
+        assert REGEX_YAML_BLOCK.search(content) is None
 
     @pytest.mark.parametrize(
         "payload",
