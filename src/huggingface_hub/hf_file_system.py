@@ -1298,9 +1298,10 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
             if parent_path in self.dircache:
                 # Check if the path is in the cache
                 out1 = [o for o in self.dircache[parent_path] if o["name"] == path]
-                if not out1:
+                if not out1 and not refresh:
                     _raise_file_not_found(path, None)
-                out = out1[0]
+                if out1:
+                    out = out1[0]
             if refresh or out is None or (expand_info and out and out["last_commit"] is None):
                 paths_info = self._api.get_paths_info(
                     resolved_path.repo_id,

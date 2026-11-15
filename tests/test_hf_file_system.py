@@ -1222,6 +1222,27 @@ def test_find_expand_info():
     assert all(info["last_commit"] is None for info in found.values())
 
 
+def test_info_refresh_bypasses_stale_cache():
+    fs, api = _fake_fs({"data/existing.txt": 5}, max_workers=1)
+    parent_path = f"{_FAKE_REPO}/data"
+    # Simulate a parent listing cached before "new.txt" was uploaded
+    fs.dircache[parent_path] = [{"name": f"{parent_path}/existing.txt", "size": 5, "type": "file"}]
+    api.get_paths_info = lambda repo_id, paths, **kwargs: [  # type: ignore[attr-defined]
+        RepoFile(path="data/new.txt", size=42, oid="abc123")
+    ]
+
+    # Without refresh, the stale cache raises
+    with pytest.raises(FileNotFoundError):
+        fs.info(f"{parent_path}/new.txt")
+
+    # With refresh, the Hub is asked and the fresh info is returned
+    assert fs.info(f"{parent_path}/new.txt", refresh=True) == {
+        "name": f"{parent_path}/new.txt",
+        "size": 42,
+        "type": "file",
+    }
+
+
 def test_find_propagates_errors():
     files = {f"dir_{i:02d}/file_{j}.bin": 10 for i in range(10) for j in range(1100)}
 
