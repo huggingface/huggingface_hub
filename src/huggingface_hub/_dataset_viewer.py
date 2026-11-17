@@ -19,11 +19,14 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Union
 
 from . import constants
-from .utils import get_token
+from .utils import get_token, logging
 
 
 if TYPE_CHECKING:
     import duckdb
+
+
+logger = logging.get_logger(__name__)
 
 
 @dataclass(frozen=True)
@@ -89,10 +92,15 @@ def _get_duckdb_connection(
         return _DuckDBCliConnection(binary_path=duckdb_binary, token=token)
 
     # Create a new connection (Python API).
+    _install_hf_extension()
     connection = duckdb.connect()
     try:
         for statement in _build_duckdb_secret_statements(token):
             connection.execute(statement)
+        try:
+            connection.execute("LOAD hf FROM hf_repo;")
+        except (duckdb.BinderException, duckdb.IOException, duckdb.ParserException):
+            pass
         return connection
     except Exception:
         connection.close()
@@ -156,6 +164,22 @@ class _DuckDBCliRelation:
 
         # Parse JSON output and return
         return json.loads(result.stdout.strip())
+
+
+def _install_hf_extension() -> None:
+    import duckdb
+
+    try:
+        with duckdb.connect(config={"allow_extension_repositories": "allowed"}) as con:
+            con.execute(
+                "CREATE OR REPLACE EXTENSION REPOSITORY hf_repo WITH PREFIX 'https://hf.co/buckets/duckdb-extensions/builds/resolve';"
+            )
+            con.execute("INSTALL hf FROM hf_repo;")
+    except (duckdb.CatalogException, duckdb.InvalidInputException):
+        platform = duckdb.execute("PRAGMA platform;").fetchone()[0]
+        logger.warning(
+            f"hf extension is not enabled on DuckDB {duckdb.__version__} ({platform}), see https://hf.co/duckdb-extensions."
+        )
 
 
 def _build_duckdb_secret_statements(token: str | bool | None) -> list[str]:
