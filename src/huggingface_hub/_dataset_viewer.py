@@ -176,7 +176,7 @@ def _install_hf_extension() -> None:
             )
             con.execute("INSTALL hf FROM hf_repo;")
     except (duckdb.CatalogException, duckdb.InvalidInputException):
-        platform = duckdb.execute("PRAGMA platform;").fetchone()[0]
+        platform = (duckdb.execute("PRAGMA platform;").fetchone() or ("unknown platform",))[0]
         logger.warning(
             f"hf extension is not enabled on DuckDB {duckdb.__version__} ({platform}), see https://hf.co/duckdb-extensions."
         )
