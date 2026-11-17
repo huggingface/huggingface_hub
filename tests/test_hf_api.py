@@ -4286,10 +4286,10 @@ class TestPaperApi:
 
     def test_paper_info_nested_metadata(self) -> None:
         data = {
+            "title": "The Llama 3 Herd of Models",
             "paper": {
                 "id": "2407.21783",
                 "authors": [{"name": "Meta AI"}],
-                "title": "The Llama 3 Herd of Models",
                 "summary": "This paper presents...",
                 "upvotes": 100,
                 "projectPage": "https://ai.meta.com/llama/",
@@ -4308,6 +4308,11 @@ class TestPaperApi:
         assert paper.github_stars == 0
         assert paper.ai_summary == "AI summary text"
         assert paper.ai_keywords == ["llama", "llm"]
+
+        # Ensure explicit empty collections and zero values are preserved
+        empty_paper = PaperInfo(id="2407.21783", ai_keywords=[], github_stars=0)
+        assert empty_paper.ai_keywords == []
+        assert empty_paper.github_stars == 0
 
 
 class TestWebhookApi:
