@@ -11,6 +11,10 @@ output-format = "concise"
 # Minimize noise from optional/extra dependencies not installed in CI or local
 unresolved-import = "ignore"
 unresolved-attribute = "ignore"
+# New rule names (ty 0.0.100 split `unresolved-attribute`); old names kept for older local ty versions
+import-not-found = "ignore"
+missing-attribute = "ignore"
+missing-union-attribute = "ignore"
 
 # Keep type: ignore comments for mypy compatibility
 unused-ignore-comment = "ignore"
@@ -27,6 +31,10 @@ call-non-callable = "ignore"
 # Loosen strictness a bit on type matching
 missing-argument = "ignore"
 deprecated = "ignore"
+
+[tool.ty.analysis]
+# hf_xet is a compiled extension without type stubs: ty cannot see its members (`missing-module-member` since ty 0.0.105)
+replace-imports-with-any = ["hf_xet"]
 
 [tool.ty.src]
 exclude = ["src/huggingface_hub/cli/spaces.py"] # TypedDict not yet fully supported by ty
