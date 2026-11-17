@@ -192,7 +192,7 @@ def _install_hf_extension_cli(duckdb_binary: str) -> bool:
     return True
 
 
-def _install_hf_extension_python() -> None:
+def _install_hf_extension_python() -> bool:
     import duckdb
 
     try:
