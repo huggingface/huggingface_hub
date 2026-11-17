@@ -89,18 +89,17 @@ def _get_duckdb_connection(
                 "DuckDB is required for `hf datasets sql`. Install the Python package with `pip install duckdb` or "
                 "install the DuckDB CLI binary (for example `brew install duckdb`)."
             ) from error
-        return _DuckDBCliConnection(binary_path=duckdb_binary, token=token)
+        has_hf_extension = _install_hf_extension_cli(duckdb_binary)
+        return _DuckDBCliConnection(binary_path=duckdb_binary, token=token, has_hf_extension=has_hf_extension)
 
     # Create a new connection (Python API).
-    _install_hf_extension()
+    has_hf_extension = _install_hf_extension_python()
     connection = duckdb.connect()
     try:
         for statement in _build_duckdb_secret_statements(token):
             connection.execute(statement)
-        try:
+        if has_hf_extension:
             connection.execute("LOAD hf FROM hf_repo;")
-        except (duckdb.BinderException, duckdb.IOException, duckdb.ParserException):
-            pass
         return connection
     except Exception:
         connection.close()
@@ -116,9 +115,12 @@ class _DuckDBCliConnection:
 
     binary_path: str
     token: str | bool | None
+    has_hf_extension: bool
 
     def __post_init__(self) -> None:
         self._setup_statements = _build_duckdb_secret_statements(self.token)
+        if self.has_hf_extension:
+            self._setup_statements += ["LOAD hf FROM hf_repo;"]
 
     def sql(self, query: str) -> "_DuckDBCliRelation":
         return _DuckDBCliRelation(binary_path=self.binary_path, setup_statements=self._setup_statements, query=query)
@@ -166,7 +168,31 @@ class _DuckDBCliRelation:
         return json.loads(result.stdout.strip())
 
 
-def _install_hf_extension() -> None:
+def _install_hf_extension_cli(duckdb_binary: str) -> bool:
+    result = subprocess.run(
+        [
+            duckdb_binary,
+            "-c",
+            """SET allow_extension_repositories = 'allowed'; CREATE OR REPLACE EXTENSION REPOSITORY hf_repo WITH PREFIX 'https://hf.co/buckets/duckdb-extensions/builds/resolve'; INSTALL hf FROM hf_repo;""",
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.STDOUT,
+    )
+    if result.returncode != 0:
+        version = subprocess.run(
+            [duckdb_binary, "-version"], stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT
+        ).stdout
+        platform = subprocess.run(
+            [duckdb_binary, "-line", "-c", "PRAGMA platform;"], stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT
+        ).stdout
+        logger.warning(
+            f"hf extension is not enabled on DuckDB {version} ({platform}), see https://hf.co/duckdb-extensions."
+        )
+        return False
+    return True
+
+
+def _install_hf_extension_python() -> None:
     import duckdb
 
     try:
@@ -175,11 +201,13 @@ def _install_hf_extension() -> None:
                 "CREATE OR REPLACE EXTENSION REPOSITORY hf_repo WITH PREFIX 'https://hf.co/buckets/duckdb-extensions/builds/resolve';"
             )
             con.execute("INSTALL hf FROM hf_repo;")
+        return True
     except (duckdb.CatalogException, duckdb.InvalidInputException):
         platform = (duckdb.execute("PRAGMA platform;").fetchone() or ("unknown platform",))[0]
         logger.warning(
             f"hf extension is not enabled on DuckDB {duckdb.__version__} ({platform}), see https://hf.co/duckdb-extensions."
         )
+        return False
 
 
 def _build_duckdb_secret_statements(token: str | bool | None) -> list[str]:
