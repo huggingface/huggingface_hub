@@ -179,10 +179,12 @@ def _install_hf_extension_cli(duckdb_binary: str) -> bool:
         stderr=subprocess.STDOUT,
     )
     if result.returncode != 0:
-        version = subprocess.run([duckdb_binary, "-version"], stderr=subprocess.STDOUT).stdout.decode()
-        platform = subprocess.run(
-            [duckdb_binary, "-line", "-c", "PRAGMA platform;"], stderr=subprocess.STDOUT
-        ).stdout.decode()
+        version = subprocess.run([duckdb_binary, "-version"], capture_output=True).stdout.decode().strip()
+        platform = (
+            subprocess.run([duckdb_binary, "-line", "-c", "PRAGMA platform;"], capture_output=True)
+            .stdout.decode()
+            .strip()
+        )
         logger.warning(
             f"hf extension is not enabled on DuckDB {version} ({platform}), see https://hf.co/duckdb-extensions."
         )
