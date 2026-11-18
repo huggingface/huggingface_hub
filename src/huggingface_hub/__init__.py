@@ -52,6 +52,11 @@ __version__ = "2.5.0.dev0"
 # WARNING: any comment added in this dictionary definition will be lost when
 # re-generating the file !
 _SUBMOD_ATTRS = {
+    "_billing_api": [
+        "CreditBalance",
+        "CreditsInfo",
+        "CreditsPurchaseLink",
+    ],
     "_buckets": [
         "BucketFile",
         "BucketFileMetadata",
@@ -234,6 +239,7 @@ _SUBMOD_ATTRS = {
         "create_bucket",
         "create_collection",
         "create_commit",
+        "create_credits_purchase_link",
         "create_discussion",
         "create_inference_endpoint",
         "create_inference_endpoint_from_catalog",
@@ -272,6 +278,7 @@ _SUBMOD_ATTRS = {
         "get_bucket_file_metadata",
         "get_bucket_paths_info",
         "get_collection",
+        "get_credits",
         "get_dataset_leaderboard",
         "get_dataset_tags",
         "get_discussion_details",
@@ -723,6 +730,9 @@ __all__ = [
     "CommitOperationDelete",
     "CommitScheduler",
     "CorruptedCacheException",
+    "CreditBalance",
+    "CreditsInfo",
+    "CreditsPurchaseLink",
     "DDUFEntry",
     "DatasetCard",
     "DatasetCardData",
@@ -978,6 +988,7 @@ __all__ = [
     "create_bucket",
     "create_collection",
     "create_commit",
+    "create_credits_purchase_link",
     "create_discussion",
     "create_inference_endpoint",
     "create_inference_endpoint_from_catalog",
@@ -1023,6 +1034,7 @@ __all__ = [
     "get_bucket_paths_info",
     "get_cached_repo_tree",
     "get_collection",
+    "get_credits",
     "get_dataset_leaderboard",
     "get_dataset_tags",
     "get_discussion_details",
@@ -1274,6 +1286,11 @@ if os.environ.get("EAGER_IMPORT", ""):
 # make style
 # ```
 if TYPE_CHECKING:  # pragma: no cover
+    from ._billing_api import (
+        CreditBalance,  # noqa: F401
+        CreditsInfo,  # noqa: F401
+        CreditsPurchaseLink,  # noqa: F401
+    )
     from ._buckets import (
         BucketFile,  # noqa: F401
         BucketFileMetadata,  # noqa: F401
@@ -1450,6 +1467,7 @@ if TYPE_CHECKING:  # pragma: no cover
         create_bucket,  # noqa: F401
         create_collection,  # noqa: F401
         create_commit,  # noqa: F401
+        create_credits_purchase_link,  # noqa: F401
         create_discussion,  # noqa: F401
         create_inference_endpoint,  # noqa: F401
         create_inference_endpoint_from_catalog,  # noqa: F401
@@ -1488,6 +1506,7 @@ if TYPE_CHECKING:  # pragma: no cover
         get_bucket_file_metadata,  # noqa: F401
         get_bucket_paths_info,  # noqa: F401
         get_collection,  # noqa: F401
+        get_credits,  # noqa: F401
         get_dataset_leaderboard,  # noqa: F401
         get_dataset_tags,  # noqa: F401
         get_discussion_details,  # noqa: F401

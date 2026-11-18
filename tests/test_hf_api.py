@@ -28,9 +28,10 @@ from typing import Optional, Union, get_args
 from unittest.mock import Mock, patch
 from urllib.parse import urlparse
 
+import httpx2
 import pytest
 
-from huggingface_hub import HfApi, SpaceHardware, SpaceStage, constants
+from huggingface_hub import CreditBalance, CreditsInfo, HfApi, SpaceHardware, SpaceStage, constants
 from huggingface_hub._commit_api import (
     CommitOperationAdd,
     CommitOperationCopy,
@@ -4397,6 +4398,77 @@ class TestExpandPropertyType:
             msg += f"\nPlease open a PR to update `./src/huggingface_hub/hf_api.py` accordingly. `{property_type_name}` should be updated as well as `{repo_type}_info` and `list_{repo_type}s` docstrings."
             msg += "\nThank you in advance!"
             raise ValueError(msg)
+
+
+class TestBillingApi:
+    @pytest.mark.parametrize(
+        ("namespace", "path"),
+        [
+            (None, "https://huggingface.co/api/settings/billing/credits"),
+            ("my-org", "https://huggingface.co/api/organizations/my-org/billing/credits"),
+        ],
+    )
+    def test_get_credits(self, namespace: str | None, path: str) -> None:
+        response = httpx2.Response(
+            200,
+            json={
+                "balanceUsd": 16.5,
+                "billingMode": "prepaid",
+                "balances": [
+                    {
+                        "type": "included",
+                        "balanceUsd": 5,
+                        "name": "monthly grant",
+                        "expiresAt": "2026-12-01T00:00:00.000Z",
+                    },
+                    {"type": "purchased", "balanceUsd": 11.5},
+                ],
+            },
+            request=httpx2.Request("GET", path),
+        )
+        with patch("huggingface_hub.hf_api.get_session") as get_session_mock:
+            get_session_mock.return_value.get.return_value = response
+            credits = HfApi(endpoint="https://huggingface.co", token="hf_test").get_credits(namespace=namespace)
+
+        get_mock = get_session_mock.return_value.get
+        get_mock.assert_called_once()
+        assert get_mock.call_args.args == (path,)
+        assert get_mock.call_args.kwargs["headers"]["authorization"] == "Bearer hf_test"
+        assert isinstance(credits, CreditsInfo)
+        assert credits.balance_usd == 16.5
+        assert credits.billing_mode == "prepaid"
+        assert credits.balances[0].type == "included"
+        assert isinstance(credits.balances[0], CreditBalance)
+        assert credits.balances[0].expires_at == datetime.datetime(2026, 12, 1, tzinfo=datetime.timezone.utc)
+        assert credits.balances[1].balance_usd == 11.5
+        assert credits.balances[1].name is None
+        assert credits.balances[1].expires_at is None
+
+    @pytest.mark.parametrize(
+        ("namespace", "path"),
+        [
+            (None, "https://huggingface.co/api/settings/billing/prepaid-credits/purchase-link"),
+            ("my-org", "https://huggingface.co/api/organizations/my-org/billing/prepaid-credits/purchase-link"),
+        ],
+    )
+    def test_create_credits_purchase_link(self, namespace: str | None, path: str) -> None:
+        response = httpx2.Response(
+            200,
+            json={"url": "https://huggingface.co/billing/purchase/abc"},
+            request=httpx2.Request("POST", path),
+        )
+        with patch("huggingface_hub.hf_api.get_session") as get_session_mock:
+            get_session_mock.return_value.post.return_value = response
+            link = HfApi(endpoint="https://huggingface.co", token="hf_test").create_credits_purchase_link(
+                50, namespace=namespace
+            )
+
+        post_mock = get_session_mock.return_value.post
+        post_mock.assert_called_once()
+        assert post_mock.call_args.args == (path,)
+        assert post_mock.call_args.kwargs["json"] == {"amountUsd": 50}
+        assert post_mock.call_args.kwargs["headers"]["authorization"] == "Bearer hf_test"
+        assert link.url == "https://huggingface.co/billing/purchase/abc"
 
 
 class TestHfApiAuthCheck:

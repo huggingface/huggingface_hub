@@ -15,7 +15,14 @@ import httpx2
 import pytest
 from click.testing import CliRunner, Result
 
-from huggingface_hub import HfApi, InferenceCatalogModel, InferenceEndpointHardware, constants
+from huggingface_hub import (
+    CreditsInfo,
+    CreditsPurchaseLink,
+    HfApi,
+    InferenceCatalogModel,
+    InferenceEndpointHardware,
+    constants,
+)
 from huggingface_hub._dataset_viewer import DatasetParquetEntry
 from huggingface_hub._jobs_api import JobInfo, JobOwner, _create_job_spec, _derive_job_volume_name
 from huggingface_hub._space_api import Volume
@@ -5832,3 +5839,43 @@ class TestExtensionsGitHubAccess:
         assert "It resets at" not in str(result.exception)
         # Bailed out on the first extension rather than repeating the failure for every one of them.
         assert len(github.urls) == 1
+
+
+class TestBillingCli:
+    @pytest.mark.parametrize("output_format", ["json", "human"])
+    def test_credits_info_output(self, runner: CliRunner, output_format: str) -> None:
+        api = Mock()
+        api.get_credits.return_value = CreditsInfo(
+            {
+                "balanceUsd": 16.5,
+                "billingMode": "prepaid",
+                "balances": [{"type": "included", "balanceUsd": 16.5}],
+            }
+        )
+        with patch("huggingface_hub.cli.billing.get_hf_api", return_value=api):
+            result = runner.invoke(app, ["billing", "credits", "info", "--format", output_format])
+
+        assert result.exit_code == 0
+        if output_format == "json":
+            assert json.loads(result.stdout) == {
+                "balance_usd": 16.5,
+                "billing_mode": "prepaid",
+                "balances": [{"type": "included", "balance_usd": 16.5}],
+            }
+        else:
+            assert "balance_usd: 16.5" in result.stdout
+            assert "billing_mode: prepaid" in result.stdout
+            assert "included" in result.stdout
+        assert "hf billing credits purchase-link 50" in result.stderr
+
+    def test_credits_purchase_link(self, runner: CliRunner) -> None:
+        api = Mock()
+        api.create_credits_purchase_link.return_value = CreditsPurchaseLink("https://huggingface.co/billing/abc")
+        with patch("huggingface_hub.cli.billing.get_hf_api", return_value=api):
+            result = runner.invoke(app, ["billing", "credits", "purchase-link", "50", "--namespace", "my-org"])
+
+        assert result.exit_code == 0
+        api.create_credits_purchase_link.assert_called_once_with(50, namespace="my-org")
+        assert "https://huggingface.co/billing/abc" in result.stdout
+        assert "Nothing was charged" in result.stderr
+        assert "hf billing credits info" in result.stderr

@@ -25,6 +25,7 @@ $ hf [OPTIONS] [COMMAND] [ARGS]...
 **Commands**:
 
 * `auth`: Manage authentication (login, logout, etc.).
+* `billing`: Manage billing and prepaid credits.
 * `buckets`: Commands to interact with buckets.
 * `cache`: Manage local cache directory.
 * `collections`: Interact with collections on the Hub.
@@ -212,6 +213,97 @@ $ hf auth whoami [OPTIONS]
 Examples
   $ hf auth whoami
   $ hf auth whoami --format json
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+## `hf billing`
+
+Manage billing and prepaid credits.
+
+**Usage**:
+
+```console
+$ hf billing [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `credits`: View and manage prepaid credits.
+
+### `hf billing credits`
+
+View and manage prepaid credits.
+
+**Usage**:
+
+```console
+$ hf billing credits [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `info`: Show the credit balance and billing mode.
+* `purchase-link`: Create a link to confirm a prepaid credits purchase.
+
+#### `hf billing credits info`
+
+Show the credit balance and billing mode.
+
+**Usage**:
+
+```console
+$ hf billing credits info [OPTIONS]
+```
+
+**Options**:
+
+* `--namespace TEXT`: Organization namespace. Defaults to your personal account.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf billing credits info
+  $ hf billing credits info --format json
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+#### `hf billing credits purchase-link`
+
+Create a link to confirm a prepaid credits purchase.
+
+**Usage**:
+
+```console
+$ hf billing credits purchase-link [OPTIONS] AMOUNT_USD
+```
+
+**Arguments**:
+
+* `AMOUNT_USD`: Amount in USD to purchase.  [required]
+
+**Options**:
+
+* `--namespace TEXT`: Organization namespace. Defaults to your personal account.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf billing credits purchase-link 50
+  $ hf billing credits purchase-link 50 --namespace my-org
 
 Learn more
   Use `hf <command> --help` for more information about a command.

@@ -38,6 +38,7 @@ import httpx2
 from tqdm import tqdm as base_tqdm
 
 from . import constants
+from ._billing_api import CreditsInfo, CreditsPurchaseLink
 from ._eval_results import EvalResultEntry, parse_eval_result_entries
 from ._inference_endpoints import (
     InferenceCatalogModel,
@@ -8325,6 +8326,56 @@ class HfApi:
         hf_raise_for_status(r)
         return ZeroGpuQuota(r.json())
 
+    def get_credits(self, *, namespace: str | None = None, token: bool | str | None = None) -> CreditsInfo:
+        """Get the credit balance and billing mode for a user or organization.
+
+        Args:
+            namespace (`str`, *optional*):
+                Organization name. If not provided, gets the balance for the authenticated user.
+            token (`bool` or `str`, *optional*):
+                A valid user access token. A fine-grained token must have the "Billing > Read billing usage and
+                payment method status" permission and an OAuth token must have the `read-billing` scope.
+
+        Returns:
+            [`CreditsInfo`]: The credit balance and billing mode.
+        """
+        path = (
+            f"{self.endpoint}/api/organizations/{namespace}/billing/credits"
+            if namespace is not None
+            else f"{self.endpoint}/api/settings/billing/credits"
+        )
+        response = get_session().get(path, headers=self._build_hf_headers(token=token))
+        hf_raise_for_status(response)
+        return CreditsInfo(response.json())
+
+    def create_credits_purchase_link(
+        self, amount_usd: int, *, namespace: str | None = None, token: bool | str | None = None
+    ) -> CreditsPurchaseLink:
+        """Create a link to purchase prepaid credits for a user or organization.
+
+        Creating a link does not charge the account. The link is also sent by email to the token owner.
+
+        Args:
+            amount_usd (`int`): Amount in USD to purchase.
+            namespace (`str`, *optional*): Organization name. If not provided, creates a link for the authenticated user.
+            token (`bool` or `str`, *optional*):
+                A valid user access token with billing write permission. An OAuth token must have the `write-billing`
+                scope.
+
+        Returns:
+            [`CreditsPurchaseLink`]: Link to confirm the purchase.
+        """
+        path = (
+            f"{self.endpoint}/api/organizations/{namespace}/billing/prepaid-credits/purchase-link"
+            if namespace is not None
+            else f"{self.endpoint}/api/settings/billing/prepaid-credits/purchase-link"
+        )
+        response = get_session().post(
+            path, json={"amountUsd": amount_usd}, headers=self._build_hf_headers(token=token)
+        )
+        hf_raise_for_status(response)
+        return CreditsPurchaseLink(**response.json())
+
     @validate_hf_hub_args
     def request_space_hardware(
         self,
@@ -15605,6 +15656,8 @@ delete_space_variable = api.delete_space_variable
 get_space_runtime = api.get_space_runtime
 list_spaces_hardware = api.list_spaces_hardware
 get_zero_gpu_quota = api.get_zero_gpu_quota
+get_credits = api.get_credits
+create_credits_purchase_link = api.create_credits_purchase_link
 request_space_hardware = api.request_space_hardware
 set_space_sleep_time = api.set_space_sleep_time
 pause_space = api.pause_space

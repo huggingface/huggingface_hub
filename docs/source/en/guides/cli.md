@@ -238,6 +238,27 @@ This command logs you out. In practice, it will delete all tokens stored on your
 
 This command will not log you out if you are logged in using the `HF_TOKEN` environment variable (see [reference](../package_reference/environment_variables#hftoken)). If that is the case, you must unset the environment variable in your machine configuration.
 
+## hf billing
+
+Check your credit balance and billing mode:
+
+```bash
+>>> hf billing credits info
+```
+
+For an organization, pass `--namespace`:
+
+```bash
+>>> hf billing credits info --namespace my-org
+```
+
+Create a prepaid credits purchase link. Creating the link does not charge your account; open it to confirm the purchase.
+The same link is also sent by email to the token owner.
+
+```bash
+>>> hf billing credits purchase-link 50
+```
+
 ## hf download
 
 Use the `hf download` command to download files from the Hub directly. Internally, it uses the same [`hf_hub_download`] and [`snapshot_download`] helpers described in the [Download](./download) guide and prints the returned path to the terminal. In the examples below, we will walk through the most common use cases. For a full list of available options, you can run:

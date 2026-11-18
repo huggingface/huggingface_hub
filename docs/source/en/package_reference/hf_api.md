@@ -53,6 +53,18 @@ models = hf_api.list_models()
 
 [[autodoc]] huggingface_hub.BucketUrl
 
+### CreditBalance
+
+[[autodoc]] huggingface_hub.CreditBalance
+
+### CreditsInfo
+
+[[autodoc]] huggingface_hub.CreditsInfo
+
+### CreditsPurchaseLink
+
+[[autodoc]] huggingface_hub.CreditsPurchaseLink
+
 ### DatasetLeaderboardEntry
 
 [[autodoc]] huggingface_hub.hf_api.DatasetLeaderboardEntry
