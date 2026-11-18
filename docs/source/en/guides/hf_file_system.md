@@ -169,7 +169,7 @@ The same workflow can also be used for [Dask](https://docs.dask.org/en/stable/ho
   >>> df = duckdb.query(f"SELECT * FROM '{fs_query_file}' LIMIT 10").df()
   ```
 
-* Using the Hub as an array store with [Zarr](https://zarr.readthedocs.io/en/stable/tutorial.html#io-with-fsspec):
+* Using the Hub as an array store with [Zarr](https://zarr.readthedocs.io/en/stable/user-guide/storage/#remote-store):
 
   ```python
   >>> import numpy as np
