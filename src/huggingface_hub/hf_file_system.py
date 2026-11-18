@@ -1294,10 +1294,10 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         else:
             out = None
             parent_path = self._parent(path)
-            if not expand_info and parent_path not in self.dircache:
+            if not refresh and not expand_info and parent_path not in self.dircache:
                 # Fill the cache with cheap call
                 self.ls(parent_path)
-            if parent_path in self.dircache:
+            if not refresh and parent_path in self.dircache:
                 # Check if the path is in the cache
                 out1 = [o for o in self.dircache[parent_path] if o["name"] == path]
                 if not out1:
