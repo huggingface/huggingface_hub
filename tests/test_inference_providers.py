@@ -22,6 +22,7 @@ from huggingface_hub.inference._providers.deepinfra import (
     DeepInfraAutomaticSpeechRecognitionTask,
     DeepInfraFeatureExtractionTask,
     DeepInfraTextToSpeechTask,
+    DeepInfraTextToVideoTask,
 )
 from huggingface_hub.inference._providers.fal_ai import (
     _POLLING_INTERVAL,
@@ -445,6 +446,67 @@ class TestDeepInfraProvider:
             "model": "Qwen/Qwen3-Embedding-0.6B",
         }
         assert helper.get_response(response) == [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]
+
+    def test_text_to_video_url(self):
+        helper = DeepInfraTextToVideoTask()
+        url = helper._prepare_url("hf_token", "Wan-AI/Wan2.1-T2V-14B")
+        assert url == "https://router.huggingface.co/deepinfra/v1/openai/videos"
+
+    def test_text_to_video_payload(self):
+        helper = DeepInfraTextToVideoTask()
+        payload = helper._prepare_payload_as_dict(
+            "a cat playing piano",
+            {"seed": 42, "guidance_scale": None},
+            InferenceProviderMapping(
+                provider="deepinfra",
+                hf_model_id="Wan-AI/Wan2.1-T2V-14B",
+                providerId="Wan-AI/Wan2.1-T2V-14B",
+                task="text-to-video",
+                status="live",
+            ),
+        )
+        assert payload == {"seed": 42, "prompt": "a cat playing piano", "model": "Wan-AI/Wan2.1-T2V-14B"}
+
+    def test_text_to_video_model_not_overridable(self):
+        helper = DeepInfraTextToVideoTask()
+        payload = helper._prepare_payload_as_dict(
+            "a cat",
+            {"model": "attacker/model", "prompt": "attacker prompt"},
+            InferenceProviderMapping(
+                provider="deepinfra",
+                hf_model_id="Wan-AI/Wan2.1-T2V-14B",
+                providerId="Wan-AI/Wan2.1-T2V-14B",
+                task="text-to-video",
+                status="live",
+            ),
+        )
+        assert payload["model"] == "Wan-AI/Wan2.1-T2V-14B"
+        assert payload["prompt"] == "a cat"
+
+    def test_text_to_video_response(self, mocker):
+        helper = DeepInfraTextToVideoTask()
+        mock_session = mocker.patch("huggingface_hub.inference._providers.deepinfra.get_session")
+        mocker.patch("huggingface_hub.inference._providers.deepinfra.time.sleep")
+        mocker.patch("huggingface_hub.inference._providers.deepinfra.hf_raise_for_status")
+        mock_session.return_value.get.side_effect = [
+            mocker.Mock(json=lambda: {"id": "vid_1", "status": "succeeded", "data": [{"url": "https://cdn/vid_1.mp4"}]}),
+            mocker.Mock(content=b"video_content"),
+        ]
+        request_params = RequestParameters(
+            url="https://router.huggingface.co/deepinfra/v1/openai/videos",
+            headers={},
+            task="text-to-video",
+            model="Wan-AI/Wan2.1-T2V-14B",
+            data=None,
+            json=None,
+        )
+        result = helper.get_response({"id": "vid_1", "status": "processing"}, request_params)
+        assert result == b"video_content"
+        # The first poll appends the job id to the submit URL.
+        assert (
+            mock_session.return_value.get.call_args_list[0][0][0]
+            == "https://router.huggingface.co/deepinfra/v1/openai/videos/vid_1"
+        )
 
 
 class TestFalAIProvider:
