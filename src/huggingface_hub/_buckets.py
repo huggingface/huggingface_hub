@@ -389,7 +389,8 @@ def _parse_filter_file(filter_file: str) -> list[tuple[str, str]]:
     - Empty lines and lines starting with "#" are ignored
     """
     rules = []
-    with open(filter_file) as f:
+    # "utf-8-sig" also strips the BOM that some Windows editors write (e.g. PowerShell 5's `Out-File`)
+    with open(filter_file, encoding="utf-8-sig") as f:
         for line in f:
             line = line.strip()
             if not line or line.startswith("#"):
