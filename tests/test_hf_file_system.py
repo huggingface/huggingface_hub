@@ -1030,6 +1030,28 @@ _FAKE_REPO = f"datasets/{_FAKE_REPO_ID}"
 _FAKE_LAST_COMMIT = {"id": "oid", "title": "title", "date": "2025-01-01T00:00:00.000Z"}
 
 
+def test_info_refresh_bypasses_parent_listing_cache():
+    new_file = RepoFile(path="new.txt", size=3, oid="abc")
+    with (
+        patch.object(HfApi, "repo_info"),
+        patch.object(HfApi, "list_repo_tree", return_value=[]),
+        patch.object(HfApi, "get_paths_info", return_value=[new_file]) as get_paths_info,
+    ):
+        fs = HfFileSystem(skip_instance_cache=True)
+        assert fs.ls("alice/demo", detail=False) == []
+
+        with pytest.raises(FileNotFoundError):
+            fs.info("alice/demo/new.txt")
+        assert get_paths_info.call_count == 0
+
+        assert fs.info("alice/demo/new.txt", refresh=True) == {
+            "name": "alice/demo/new.txt",
+            "size": 3,
+            "type": "file",
+        }
+        assert get_paths_info.call_count == 1
+
+
 class FakeTreeApi:
     """Mock of the parts of `HfApi` used by `HfFileSystem` to list the tree of a repository.
 
