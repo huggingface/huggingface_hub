@@ -383,9 +383,26 @@ def repo_settings(
             help="The gated status for the repository.",
         ),
     ] = None,
-    private: PrivateOpt = None,
-    public: PublicOpt = None,
-    protected: ProtectedOpt = None,
+    private: Annotated[
+        bool | None,
+        Option(
+            help="Make the repo private.",
+        ),
+    ] = None,
+    public: Annotated[
+        bool | None,
+        Option(
+            "--public",
+            help="Make the repo public.",
+        ),
+    ] = None,
+    protected: Annotated[
+        bool | None,
+        Option(
+            "--protected",
+            help="Make the Space protected (Spaces only).",
+        ),
+    ] = None,
     token: TokenOpt = None,
     repo_type: RepoTypeOpt = RepoType.model,
 ) -> None:
