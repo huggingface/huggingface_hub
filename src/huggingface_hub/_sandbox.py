@@ -38,7 +38,7 @@ from ._sandbox_cache import (
     save_pool_cache,
 )
 from ._space_api import Volume
-from .errors import HfHubHTTPError, SandboxCommandError, SandboxError
+from .errors import HfHubHTTPError, JobNotFoundError, SandboxCommandError, SandboxError
 from .hf_api import HfApi, JobInfo
 from .utils import get_token, logging
 from .utils._parsing import parse_duration
@@ -2276,6 +2276,9 @@ class SandboxPool:
                 reason = f"its job exposes {exposed!r}, not the cached URL"
             else:
                 return True
+        except JobNotFoundError:
+            # inspect_job raises JobNotFoundError (HfHubHTTPError), not HTTPStatusError.
+            reason = "its job no longer exists"
         except httpx2.HTTPStatusError as e:
             if e.response.status_code != 404:
                 raise SandboxError(f"Could not confirm cached host {ch.job_id}; retry later.") from e
