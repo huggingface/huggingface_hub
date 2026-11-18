@@ -53,6 +53,7 @@ import hashlib
 import logging
 import os
 import time
+from contextlib import nullcontext
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath, PureWindowsPath
 
@@ -293,7 +294,7 @@ def get_local_upload_paths(local_dir: Path, filename: str) -> LocalUploadFilePat
     )
 
 
-def read_download_metadata(local_dir: Path, filename: str) -> LocalDownloadFileMetadata | None:
+def read_download_metadata(local_dir: Path, filename: str, *, lock: bool = True) -> LocalDownloadFileMetadata | None:
     """Read metadata about a file in the local directory related to a download process.
 
     Args:
@@ -301,48 +302,48 @@ def read_download_metadata(local_dir: Path, filename: str) -> LocalDownloadFileM
             Path to the local directory in which files are downloaded.
         filename (`str`):
             Path of the file in the repo.
+        lock (`bool`, *optional*):
+            Whether to acquire the file lock. Set to `False` if the caller already holds it.
 
     Return:
         `[LocalDownloadFileMetadata]` or `None`: the metadata if it exists, `None` otherwise.
     """
     paths = get_local_download_paths(local_dir, filename)
-    with WeakFileLock(paths.lock_path):
-        return _read_download_metadata(local_dir, filename)
-
-
-def _read_download_metadata(local_dir: Path, filename: str) -> LocalDownloadFileMetadata | None:
-    """Caller must hold the download metadata lock."""
-    paths = get_local_download_paths(local_dir, filename)
-    if paths.metadata_path.exists():
-        try:
-            with paths.metadata_path.open() as f:
-                commit_hash = f.readline().strip()
-                etag = f.readline().strip()
-                timestamp = float(f.readline().strip())
-                metadata = LocalDownloadFileMetadata(
-                    filename=filename,
-                    commit_hash=commit_hash,
-                    etag=etag,
-                    timestamp=timestamp,
-                )
-        except Exception as e:
-            # remove the metadata file if it is corrupted / not the right format
-            logger.warning(f"Invalid metadata file {paths.metadata_path}: {e}. Removing it from disk and continue.")
+    with WeakFileLock(paths.lock_path) if lock else nullcontext():
+        if paths.metadata_path.exists():
             try:
-                paths.metadata_path.unlink()
+                with paths.metadata_path.open() as f:
+                    commit_hash = f.readline().strip()
+                    etag = f.readline().strip()
+                    timestamp = float(f.readline().strip())
+                    metadata = LocalDownloadFileMetadata(
+                        filename=filename,
+                        commit_hash=commit_hash,
+                        etag=etag,
+                        timestamp=timestamp,
+                    )
             except Exception as e:
-                logger.warning(f"Could not remove corrupted metadata file {paths.metadata_path}: {e}")
-            return None
+                # remove the metadata file if it is corrupted / not the right format
+                logger.warning(
+                    f"Invalid metadata file {paths.metadata_path}: {e}. Removing it from disk and continue."
+                )
+                try:
+                    paths.metadata_path.unlink()
+                except Exception as e:
+                    logger.warning(f"Could not remove corrupted metadata file {paths.metadata_path}: {e}")
+                return None
 
-        try:
-            # check if the file exists and hasn't been modified since the metadata was saved
-            stat = paths.file_path.stat()
-            if stat.st_mtime - 1 <= metadata.timestamp:  # allow 1s difference as stat.st_mtime might not be precise
-                return metadata
-            logger.info(f"Ignored metadata for '{filename}' (outdated). Will re-compute hash.")
-        except FileNotFoundError:
-            # file does not exist => metadata is outdated
-            return None
+            try:
+                # check if the file exists and hasn't been modified since the metadata was saved
+                stat = paths.file_path.stat()
+                if (
+                    stat.st_mtime - 1 <= metadata.timestamp
+                ):  # allow 1s difference as stat.st_mtime might not be precise
+                    return metadata
+                logger.info(f"Ignored metadata for '{filename}' (outdated). Will re-compute hash.")
+            except FileNotFoundError:
+                # file does not exist => metadata is outdated
+                return None
     return None
 
 
@@ -431,23 +432,19 @@ def read_upload_metadata(local_dir: Path, filename: str) -> LocalUploadFileMetad
     return LocalUploadFileMetadata(size=paths.file_path.stat().st_size)
 
 
-def write_download_metadata(local_dir: Path, filename: str, commit_hash: str, etag: str) -> None:
+def write_download_metadata(local_dir: Path, filename: str, commit_hash: str, etag: str, *, lock: bool = True) -> None:
     """Write metadata about a file in the local directory related to a download process.
 
     Args:
         local_dir (`Path`):
             Path to the local directory in which files are downloaded.
+        lock (`bool`, *optional*):
+            Whether to acquire the file lock. Set to `False` if the caller already holds it.
     """
     paths = get_local_download_paths(local_dir, filename)
-    with WeakFileLock(paths.lock_path):
-        return _write_download_metadata(local_dir, filename, commit_hash, etag)
-
-
-def _write_download_metadata(local_dir: Path, filename: str, commit_hash: str, etag: str) -> None:
-    """Caller must hold the download metadata lock."""
-    paths = get_local_download_paths(local_dir, filename)
-    with paths.metadata_path.open("w") as f:
-        f.write(f"{commit_hash}\n{etag}\n{time.time()}\n")
+    with WeakFileLock(paths.lock_path) if lock else nullcontext():
+        with paths.metadata_path.open("w") as f:
+            f.write(f"{commit_hash}\n{etag}\n{time.time()}\n")
 
 
 def _huggingface_dir(local_dir: Path) -> Path:

@@ -19,11 +19,10 @@ from tqdm import tqdm as base_tqdm
 from . import constants
 from ._local_folder import (
     _create_cachedir_tag,
-    _read_download_metadata,
     _validate_relative_filename,
-    _write_download_metadata,
     get_local_download_paths,
     read_download_metadata,
+    write_download_metadata,
 )
 from ._revision import ResolvedRevision
 from ._tree_cache import read_tree_cache, tree_cache_folder_for_local_dir
@@ -1429,12 +1428,14 @@ def _hf_hub_download_to_local_dir(
     # Serialize the file checks, replacement and metadata update. Another caller may
     # have completed the download while we were fetching Hub metadata.
     with WeakFileLock(paths.lock_path):
-        local_metadata = _read_download_metadata(local_dir=local_dir, filename=filename)
+        local_metadata = read_download_metadata(local_dir=local_dir, filename=filename, lock=False)
         # Local file exists => check if it's up-to-date
         if not force_download and paths.file_path.is_file():
             # etag matches => update metadata and return file
             if local_metadata is not None and local_metadata.etag == etag:
-                _write_download_metadata(local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag)
+                write_download_metadata(
+                    local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag, lock=False
+                )
                 if dry_run:
                     return DryRunFileInfo(
                         commit_hash=commit_hash,
@@ -1454,8 +1455,8 @@ def _hf_hub_download_to_local_dir(
                 with open(paths.file_path, "rb") as f:
                     file_hash = sha_fileobj(f).hex()
                 if file_hash == etag:
-                    _write_download_metadata(
-                        local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag
+                    write_download_metadata(
+                        local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag, lock=False
                     )
                     if dry_run:
                         return DryRunFileInfo(
@@ -1490,13 +1491,17 @@ def _hf_hub_download_to_local_dir(
                         will_download=False,
                     )
                 paths.file_path.parent.mkdir(parents=True, exist_ok=True)
+                # Copy to a temp file then atomically replace, so readers never see a partial file and a failed copy
+                # keeps the previous one. Unique name to not clobber a resumable `<etag>.incomplete` HTTP download.
                 tmp_path = paths.incomplete_path(etag).with_name(f"{uuid.uuid4().hex}.incomplete")
                 try:
                     shutil.copyfile(cached_path, tmp_path)
                     os.replace(tmp_path, paths.file_path)
                 finally:
                     tmp_path.unlink(missing_ok=True)
-                _write_download_metadata(local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag)
+                write_download_metadata(
+                    local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag, lock=False
+                )
                 return str(paths.file_path)
 
         if dry_run:
@@ -1524,7 +1529,7 @@ def _hf_hub_download_to_local_dir(
             tqdm_class=tqdm_class,
         )
 
-        _write_download_metadata(local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag)
+        write_download_metadata(local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag, lock=False)
         return str(paths.file_path)
 
 
