@@ -3891,9 +3891,9 @@ $ hf repos settings [OPTIONS] REPO_ID
 **Options**:
 
 * `--gated [auto|manual|false]`: The gated status for the repository.
-* `--private / --no-private`: Whether to create a private repo if repo doesn't exist on the Hub. Ignored if the repo already exists.
-* `--public`: Whether to make the repo public. Ignored if the repo already exists.
-* `--protected`: Whether to make the Space protected (Spaces only). Ignored if the repo already exists.
+* `--private / --no-private`: Make the repo private.
+* `--public`: Make the repo public.
+* `--protected`: Make the Space protected (Spaces only).
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--help`: Show this message and exit.
@@ -4722,7 +4722,7 @@ $ hf spaces info [OPTIONS] SPACE_ID
 **Options**:
 
 * `--revision TEXT`: Git revision id which can be a branch name, a tag, or a commit hash.
-* `--expand TEXT`: Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=likes,tags'. Valid: author, cardData, createdAt, datasets, disabled, lastModified, likes, models, private, region, resourceGroup, runtime, sdk, sha, siblings, subdomain, tags, trendingScore, usedStorage.
+* `--expand TEXT`: Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=likes,tags'. Valid: author, cardData, createdAt, datasets, disabled, lastModified, likes, models, private, region, resourceGroup, runtime, sdk, sha, siblings, subdomain, tags, trendingScore, usedStorage, visibility.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -4759,7 +4759,7 @@ $ hf spaces list [OPTIONS] [REPO_ID]
 * `--filter TEXT`: Filter by tags (e.g. 'text-classification'). Can be used multiple times.
 * `--sort [created_at|last_modified|likes|trending_score]`: Sort results.
 * `--limit INTEGER`: Limit the number of results.  [default: 30]
-* `--expand TEXT`: Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=likes,tags'. Valid: author, cardData, createdAt, datasets, disabled, lastModified, likes, models, private, region, resourceGroup, runtime, sdk, sha, siblings, subdomain, tags, trendingScore, usedStorage.
+* `--expand TEXT`: Comma-separated properties to return. When used, only the listed properties (and id) are returned. Example: '--expand=likes,tags'. Valid: author, cardData, createdAt, datasets, disabled, lastModified, likes, models, private, region, resourceGroup, runtime, sdk, sha, siblings, subdomain, tags, trendingScore, usedStorage, visibility.
 * `-h, --human-readable`: Show sizes in human readable format (only for listing files).
 * `--tree`: List files in tree format (only for listing files).
 * `-R, --recursive`: List files recursively (only for listing files).
@@ -5701,7 +5701,10 @@ Learn more
 
 ### `hf webhooks update`
 
-Update an existing webhook. Only provided options are changed.
+Update an existing webhook.
+
+Provide the complete watched list, domains and destination, including values that have not changed.
+Provide either --url or --job-id.
 
 Job secrets passed with --secrets replace stored values with the same name; others are kept.
 
@@ -5717,10 +5720,10 @@ $ hf webhooks update [OPTIONS] WEBHOOK_ID
 
 **Options**:
 
+* `--watch TEXT`: Complete list of items to watch, in type:name format. Repeatable.  [required]
+* `--domain [repo|discussion]`: Complete list of domains to watch: repo or discussion. Repeatable.  [required]
 * `--url TEXT`: New URL to send webhook payloads to.
 * `--job-id TEXT`: ID of the source Job to trigger (can be the current one). Required with --secrets / --secrets-file.
-* `--watch TEXT`: New list of items to watch, in 'type:name' format. Repeatable. Replaces the entire existing watched list.
-* `--domain [repo|discussion]`: New list of domains to watch: 'repo' or 'discussion'. Repeatable.
 * `--secret TEXT`: New secret used to sign webhook payloads.
 * `-s, --secrets TEXT`: Set secret environment variables. Prefer `--secrets SECRET` to read the value from your environment (e.g. `--secrets HF_TOKEN` to pass your Hugging Face token); `--secrets SECRET=value` puts the value in your shell history.
 * `--secrets-file TEXT`: Read in a file of secret environment variables. Use `-` to read them from stdin.
@@ -5728,10 +5731,9 @@ $ hf webhooks update [OPTIONS] WEBHOOK_ID
 * `--help`: Show this message and exit.
 
 Examples
-  $ hf webhooks update abc123 --url https://new-url.com/hook
-  $ hf webhooks update abc123 --watch model:gpt2 --domain repo
-  $ hf webhooks update abc123 --secret newsecret
-  $ hf webhooks update abc123 --job-id 687f911eaea852de79c4a50a --secrets HF_TOKEN
+  $ hf webhooks update abc123 --url https://new-url.com/hook --watch model:gpt2 --domain repo
+  $ hf webhooks update abc123 --url https://example.com/hook --watch user:julien-c --domain repo --secret newsecret
+  $ hf webhooks update abc123 --job-id 687f911eaea852de79c4a50a --watch user:julien-c --domain repo --secrets HF_TOKEN
 
 Learn more
   Use `hf <command> --help` for more information about a command.

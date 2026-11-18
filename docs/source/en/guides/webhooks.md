@@ -62,7 +62,7 @@ for webhook in webhooks:
 
 ### Updating a Webhook
 
-If you need to change the configuration of an existing webhook, such as the URL or the events it watches, you can update it using [`update_webhook`].
+If you need to change the configuration of an existing webhook, such as the URL or the events it watches, you can update it using [`update_webhook`]. 
 
 ```python
 from huggingface_hub import update_webhook
@@ -124,7 +124,7 @@ All of the above operations are also available from the `hf` command-line interf
 >>> hf webhooks create --job-id <job_id> --watch bucket:my-org/my-bucket --secrets HF_TOKEN
 
 # Update an existing webhook
->>> hf webhooks update <webhook_id> --url https://new-url.com/hook
+>>> hf webhooks update <webhook_id> --url https://new-url.com/hook --watch model:bert-base-uncased --domain repo
 
 # Enable / disable a webhook
 >>> hf webhooks enable <webhook_id>

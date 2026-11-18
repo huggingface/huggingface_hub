@@ -91,6 +91,9 @@ class TestWaitForJob:
         # Registry host and namespace are dropped, last component + tag is kept.
         ("pytorch/pytorch:2.6.0-cuda12.4-cudnn9-devel", "pytorch-2-6-0-cuda12-4-cudnn9-devel"),
         ("ghcr.io/astral-sh/uv:python3.12-bookworm", "uv-python3-12-bookworm"),
+        # The digest of a digest-pinned image is dropped (it would push the name past the Hub's limit).
+        ("docker.io/org/env-data-agent-train@sha256:" + "7b3f" * 16, "env-data-agent-train"),
+        ("org/env:v1@sha256:" + "7b3f" * 16, "env-v1"),
         # Space references keep the `namespace/repo` id (sanitized), for every supported prefix.
         ("hf.co/spaces/lhoestq/duckdb", "lhoestq-duckdb"),
         ("https://huggingface.co/spaces/lhoestq/duckdb", "lhoestq-duckdb"),
@@ -119,6 +122,18 @@ def test_default_job_name_from_image(image: str, expected: str) -> None:
 def test_default_job_name_from_script(script: str, expected: str) -> None:
     # The base name is derived from the script; a short hash of the command line is appended.
     assert _default_job_name_from_script(script, []).startswith(expected + "-")
+
+
+def test_default_job_name_fits_hub_limit() -> None:
+    # The Hub rejects a `name` label over 100 characters, so long bases are truncated before the hash.
+    long_image = _default_job_name_from_image("org/image:" + "x" * 200, [])
+    long_script = _default_job_name_from_script("y" * 200 + ".py", [])
+    assert len(long_image) == len(long_script) == 100
+    assert long_image.startswith("image-xxx")
+    # Images differing only by digest share the base but not the hash.
+    a = _default_job_name_from_image("org/env@sha256:" + "a" * 64, [])
+    b = _default_job_name_from_image("org/env@sha256:" + "b" * 64, [])
+    assert a.startswith("env-") and b.startswith("env-") and a != b
 
 
 def test_default_job_name_hash_groups_and_splits_by_command() -> None:

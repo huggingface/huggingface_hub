@@ -585,6 +585,16 @@ def _short_invocation_hash(parts: list[str]) -> str:
     return hashlib.sha256("\x00".join(parts).encode()).hexdigest()[:8]
 
 
+# The Hub rejects a Job whose `name` label is longer than this.
+_MAX_JOB_NAME_LENGTH = 100
+
+
+def _default_job_name(base: str, hash_parts: list[str]) -> str:
+    """Sanitized `base` plus the invocation hash, with `base` truncated so the name stays within the Hub's limit."""
+    suffix = "-" + _short_invocation_hash(hash_parts)
+    return _sanitize_job_name(base)[: _MAX_JOB_NAME_LENGTH - len(suffix)].rstrip("-") + suffix
+
+
 def _default_job_name_from_image(image: str, command: list[str], *, config_parts: list[str] | None = None) -> str:
     """Derive a default Job name from a Docker image or Space reference and its command.
 
@@ -592,17 +602,22 @@ def _default_job_name_from_image(image: str, command: list[str], *, config_parts
     e.g. python:3.12 + [foo, --truc]             -> python-3-12-1a2b3c4d
          hf.co/spaces/lhoestq/duckdb             -> lhoestq-duckdb-<hash>
          pytorch/pytorch:2.6.0-cuda12.4-...      -> pytorch-2-6-0-cuda12-4-...-<hash>
+         org/my-env@sha256:<digest>              -> my-env-<hash>
+
+    The digest of a digest-pinned image is left out of the name (it is still part of the hash), and
+    the name is truncated to the Hub's limit on the `name` label.
 
     `config_parts` adds the rest of the resolved launch configuration (flavor, env, ...) to the hash.
     The CLI passes it so that the name reflects the values actually submitted.
     """
     for prefix in _SPACE_IMAGE_PREFIXES:
         if image.startswith(prefix):
-            base = _sanitize_job_name(image[len(prefix) :] or image)
+            base = image[len(prefix) :] or image
             break
     else:
-        base = _sanitize_job_name(image.rstrip("/").split("/")[-1] or image)  # drop registry host and namespace
-    return f"{base}-{_short_invocation_hash([image, *command, *(config_parts or [])])}"
+        # Drop the digest, then the registry host and namespace.
+        base = image.split("@", 1)[0].rstrip("/").split("/")[-1] or image
+    return _default_job_name(base, [image, *command, *(config_parts or [])])
 
 
 def _default_job_name_from_script(
@@ -622,8 +637,7 @@ def _default_job_name_from_script(
     name = script.split("?", 1)[0].split("#", 1)[0].rstrip("/").split("/")[-1]
     if name.endswith(".py"):
         name = name[: -len(".py")]
-    base = _sanitize_job_name(name or script)
-    return f"{base}-{_short_invocation_hash([script, *script_args, *(config_parts or [])])}"
+    return _default_job_name(name or script, [script, *script_args, *(config_parts or [])])
 
 
 def _build_expose_payload(expose: list[int] | None, expose_public: list[int] | None) -> dict[str, list[int]]:

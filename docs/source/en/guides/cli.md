@@ -146,7 +146,7 @@ Most `hf` commands accept the same set of global formatting flags. They are docu
 | `-q`, `--quiet` | `--format quiet` | Print only IDs (one per line). Useful for piping IDs into other commands. |
 | `--no-truncate` | — | Show full values in human tables instead of shortening long values with `...`. The table may overflow the terminal width. Use `--format json` for structured output of list/dict columns. |
 
-`auto` (the default) picks `human` for an interactive terminal and `agent` when the CLI is invoked by an AI agent. `human` adds colors and pretty tables; `agent` produces tab-separated values without truncation; `json` emits a compact JSON object or array. Mixing two output-mode flags (e.g. `--json` together with `--format table`) raises a usage error.
+`auto` (the default) picks `human` for an interactive terminal and `agent` when the CLI is invoked by an AI agent. `human` adds colors and pretty tables; `agent` produces tab-separated values without truncation; `json` emits a compact JSON object or array. Mixing two output-mode flags (e.g. `--json` together with `--format human`) raises a usage error.
 
 Human tables auto-fit your terminal width: the widest columns are shortened only when the natural widths overflow the screen (so on a wide terminal you usually see full values without `...`). Pass `--no-truncate` to force full values regardless of width; use `--format json` for structured output of list/dict columns.
 
@@ -2467,16 +2467,15 @@ The `--watch` option uses the format `type:name` where type is one of `model`, `
 ### Update a webhook
 
 ```bash
->>> hf webhooks update wh-abc123 --url https://new-url.com/hook
->>> hf webhooks update wh-abc123 --watch model:gpt2 --domain repo
+>>> hf webhooks update wh-abc123 --url https://new-url.com/hook --watch model:gpt2 --domain repo
 ```
 
-Only the provided options are changed. Note that `--watch` replaces the entire watched list when specified.
+Every update must include the complete watched list, domains, and destination (`--url` or `--job-id`), including values that are unchanged. `--watch` and `--domain` replace the entire existing lists.
 
 To update the secrets of a Job-triggered webhook, pass `--job-id` together with `--secrets`. Listed secrets replace the stored values and all other secrets are kept:
 
 ```bash
->>> hf webhooks update wh-abc123 --job-id 687f911eaea852de79c4a50a --secrets HF_TOKEN
+>>> hf webhooks update wh-abc123 --job-id 687f911eaea852de79c4a50a --watch user:julien-c --domain repo --secrets HF_TOKEN
 ```
 
 ### Enable / disable a webhook
@@ -2519,7 +2518,9 @@ Use `hf endpoints` to list, deploy, describe, and manage Inference Endpoints dir
 >>> hf endpoints catalog deploy --repo openai/gpt-oss-120b --name my-endpoint
 
 # Deploy an endpoint from the Hugging Face Hub
->>> hf endpoints deploy my-endpoint --repo gpt2 --framework pytorch --accelerator cpu --instance-size x2 --instance-type intel-icl
+>>> hf endpoints deploy my-endpoint --repo gpt2 --framework pytorch \
+      --accelerator cpu --vendor aws --region us-east-1 \
+      --instance-size x2 --instance-type intel-icl
 
 # List catalog entries
 >>> hf endpoints catalog ls
