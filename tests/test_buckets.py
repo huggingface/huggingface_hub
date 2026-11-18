@@ -21,15 +21,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from huggingface_hub import HfApi
-from huggingface_hub._buckets import (
-    BucketFile,
-    BucketInfo,
-    FilterMatcher,
-    SyncOperation,
-    SyncPlan,
-    _execute_plan,
-    _parse_filter_file,
-)
+from huggingface_hub._buckets import BucketFile, BucketInfo, FilterMatcher, SyncOperation, SyncPlan, _execute_plan
 from huggingface_hub._jobs_api import _derive_job_volume_name
 from huggingface_hub.errors import BucketBatchError, BucketNotFoundError, EntryNotFoundError, HfHubHTTPError
 
