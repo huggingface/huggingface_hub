@@ -23,6 +23,7 @@ filesystem before use, and any missing or unreadable manifest makes garbage coll
 leak the shared blob rather than risk deleting referenced content.
 """
 
+import errno
 import os
 import re
 import secrets
@@ -333,10 +334,21 @@ def _shared_blob_lock(store_path: Path) -> Generator[None, None, None]:
                 pass
     finally:
         os.close(fd)
-    lock = FileLock(lock_path, mode=0o666)
+    try:
+        # Newer filelock versions otherwise switch to SoftFileLock internally. That cannot
+        # distinguish the lock file created above from another process's marker.
+        lock = FileLock(lock_path, mode=0o666, fallback_to_soft=False)
+    except TypeError:  # filelock < 4.2.1
+        lock = FileLock(lock_path, mode=0o666)
     try:
         lock.acquire()
     except NotImplementedError:
+        # SoftFileLock uses file existence as the lock, so it cannot reuse the flock file above.
+        lock = SoftFileLock(f"{lock_path}.soft", mode=0o666)
+        lock.acquire(timeout=_SOFT_LOCK_TIMEOUT)
+    except OSError as e:
+        if e.errno != errno.ENOSYS:
+            raise
         # SoftFileLock uses file existence as the lock, so it cannot reuse the flock file above.
         lock = SoftFileLock(f"{lock_path}.soft", mode=0o666)
         lock.acquire(timeout=_SOFT_LOCK_TIMEOUT)
