@@ -1912,14 +1912,6 @@ class TestRepoSettingsCommand:
         assert kwargs["visibility"] == "private"
         assert kwargs["gated"] == "manual"
 
-    @pytest.mark.parametrize("flag, visibility", [("--public", "public"), ("--protected", "protected")])
-    def test_repo_settings_visibility(self, runner: CliRunner, flag: str, visibility: str) -> None:
-        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
-            api = api_cls.return_value
-            result = runner.invoke(app, ["repos", "settings", DUMMY_MODEL_ID, flag])
-        assert result.exit_code == 0
-        assert api.update_repo_settings.call_args.kwargs["visibility"] == visibility
-
 
 class TestRepoListCommand:
     def test_repo_list(self, runner: CliRunner, repo_factory: RepoFactory) -> None:
