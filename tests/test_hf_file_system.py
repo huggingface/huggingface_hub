@@ -16,6 +16,7 @@ import fsspec
 import pytest
 
 from huggingface_hub import HfApi, constants, hf_file_system
+from huggingface_hub._buckets import BucketFile
 from huggingface_hub.errors import BucketNotFoundError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.hf_api import RepoFile, RepoFolder
 from huggingface_hub.hf_file_system import (
@@ -933,6 +934,79 @@ def test_bucket_file_left_open_in_transaction_is_uploaded():
             f = fs.open("hf://buckets/username/my_bucket/file.txt", "wb")
             f.write(b"hello")
     assert uploaded == {"file.txt": b"hello"}
+
+
+def test_bucket_info_with_stale_cached_listing():
+    # Regression test: `info()` on a bucket file must not raise FileNotFoundError when the
+    # cached parent listing is stale (e.g. the file was just written). On a cache miss, the
+    # listing is refreshed once before giving up.
+    fs = HfFileSystem(skip_instance_cache=True)
+    parent_path = "buckets/username/my_bucket/data"
+    file_path = parent_path + "/file.txt"
+    file_entry = {
+        "name": file_path,
+        "size": 5,
+        "type": "file",
+        "xet_hash": "abc123",
+        "mtime": None,
+        "uploaded_at": None,
+    }
+
+    def _ls(path, detail=True, refresh=False, **kwargs):
+        if refresh:
+            fs.dircache[path] = [file_entry]
+        return fs.dircache.get(path, [])
+
+    with mock_bucket_info(fs), patch.object(fs, "ls", side_effect=_ls):
+        # Prime the cache with a stale listing that does not contain the file yet
+        fs.dircache[parent_path] = [{**file_entry, "name": parent_path + "/other.txt"}]
+        info = fs.info(file_path)
+    assert info["name"] == file_path
+    assert info["size"] == 5
+
+
+def test_bucket_info_falls_back_to_get_bucket_paths_info():
+    # If even the refreshed listing lags behind, `info()` falls back to a direct lookup with
+    # `get_bucket_paths_info` instead of raising FileNotFoundError.
+    fs = HfFileSystem(skip_instance_cache=True)
+    parent_path = "buckets/username/my_bucket/data"
+    file_path = parent_path + "/file.txt"
+
+    def _ls(path, detail=True, refresh=False, **kwargs):
+        fs.dircache[path] = []
+        return []
+
+    bucket_file = BucketFile(type="file", path="data/file.txt", size=5, xetHash="abc123")
+    with (
+        mock_bucket_info(fs),
+        patch.object(fs, "ls", side_effect=_ls),
+        patch.object(fs._api, "get_bucket_paths_info", return_value=iter([bucket_file])) as mock_get_info,
+    ):
+        info = fs.info(file_path)
+    mock_get_info.assert_called_once_with("username/my_bucket", ["data/file.txt"])
+    assert info["name"] == file_path
+    assert info["size"] == 5
+    assert info["type"] == "file"
+    assert info["xet_hash"] == "abc123"
+
+
+def test_bucket_info_missing_file_still_raises():
+    # A genuinely missing bucket file still raises FileNotFoundError after both fallbacks miss.
+    fs = HfFileSystem(skip_instance_cache=True)
+    parent_path = "buckets/username/my_bucket/data"
+    file_path = parent_path + "/missing.txt"
+
+    def _ls(path, detail=True, refresh=False, **kwargs):
+        fs.dircache[path] = []
+        return []
+
+    with (
+        mock_bucket_info(fs),
+        patch.object(fs, "ls", side_effect=_ls),
+        patch.object(fs._api, "get_bucket_paths_info", return_value=iter([])),
+    ):
+        with pytest.raises(FileNotFoundError):
+            fs.info(file_path)
 
 
 @pytest.mark.parametrize(

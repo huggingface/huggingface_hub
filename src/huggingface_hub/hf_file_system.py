@@ -1286,6 +1286,16 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
             # Fill the cache with cheap call
             self.ls(parent_path, refresh=refresh)
             out1 = [o for o in self.dircache[parent_path] if o["name"] == path]
+            if not out1 and not refresh:
+                # The cached listing may be stale (e.g. the file was just written and is not
+                # visible yet): retry once with a refreshed listing before giving up.
+                self.ls(parent_path, refresh=True)
+                out1 = [o for o in self.dircache[parent_path] if o["name"] == path]
+            if not out1:
+                # The listing may still lag behind: fall back to a direct lookup of the path.
+                paths_info = list(self._api.get_bucket_paths_info(resolved_path.bucket_id, [resolved_path.path]))
+                if paths_info:
+                    out1 = [_cache_info_from_path_info(paths_info[0], path)]
             if not out1:
                 _raise_file_not_found(path, None)
             out = out1[0]
