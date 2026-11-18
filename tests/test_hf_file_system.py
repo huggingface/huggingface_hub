@@ -16,6 +16,7 @@ import fsspec
 import pytest
 
 from huggingface_hub import HfApi, constants, hf_file_system
+from huggingface_hub._buckets import BucketFile
 from huggingface_hub.errors import BucketNotFoundError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.hf_api import RepoFile, RepoFolder
 from huggingface_hub.hf_file_system import (
@@ -942,6 +943,47 @@ def test_bucket_file_left_open_in_transaction_is_uploaded():
             f = fs.open("hf://buckets/username/my_bucket/file.txt", "wb")
             f.write(b"hello")
     assert uploaded == {"file.txt": b"hello"}
+
+
+def test_bucket_info_finds_file_missing_from_cached_parent_listing():
+    """Regression test for #5383.
+
+    A file written by another thread is missing from the parent listing cached by this instance, so
+    `info()` must look the path up directly instead of raising `FileNotFoundError`.
+    """
+    fs = HfFileSystem(skip_instance_cache=True)
+    old_file = BucketFile(type="file", path="old.txt", size=1, xetHash="old")
+    new_file = BucketFile(type="file", path="new.txt", size=3, xetHash="abc")
+    with (
+        mock_bucket_info(fs),
+        patch.object(fs._api, "list_bucket_tree", return_value=[old_file]),
+        patch.object(fs._api, "get_bucket_paths_info", return_value=[new_file]) as get_bucket_paths_info,
+    ):
+        assert fs.ls("hf://buckets/username/my_bucket", detail=False) == ["buckets/username/my_bucket/old.txt"]
+        assert fs.info("hf://buckets/username/my_bucket/new.txt") == {
+            "name": "buckets/username/my_bucket/new.txt",
+            "size": 3,
+            "type": "file",
+            "xet_hash": "abc",
+            "mtime": None,
+            "uploaded_at": None,
+        }
+    get_bucket_paths_info.assert_called_once_with("username/my_bucket", ["new.txt"])
+
+
+def test_bucket_info_raises_for_a_file_missing_from_the_bucket():
+    """A path that does not exist in the bucket still raises `FileNotFoundError`."""
+    fs = HfFileSystem(skip_instance_cache=True)
+    old_file = BucketFile(type="file", path="old.txt", size=1, xetHash="old")
+    with (
+        mock_bucket_info(fs),
+        patch.object(fs._api, "list_bucket_tree", return_value=[old_file]),
+        patch.object(fs._api, "get_bucket_paths_info", return_value=[]) as get_bucket_paths_info,
+    ):
+        assert fs.ls("hf://buckets/username/my_bucket", detail=False) == ["buckets/username/my_bucket/old.txt"]
+        with pytest.raises(FileNotFoundError):
+            fs.info("hf://buckets/username/my_bucket/missing.txt")
+        get_bucket_paths_info.assert_called_once_with("username/my_bucket", ["missing.txt"])
 
 
 @pytest.mark.parametrize(
