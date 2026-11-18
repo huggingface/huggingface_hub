@@ -233,6 +233,7 @@ ExpandSpaceProperty_T = Literal[
     "tags",
     "trendingScore",
     "usedStorage",
+    "visibility",
 ]
 
 ModelSort_T = Literal["created_at", "downloads", "last_modified", "likes", "trending_score"]
@@ -1200,6 +1201,8 @@ class SpaceInfo:
             Trending score of the Space.
         used_storage (`int`, *optional*):
             Size in bytes of the Space on the Hub.
+        visibility (`Literal["public", "private", "protected"]`, *optional*):
+            Visibility of the Space. Unlike `private`, this tells apart private and protected Spaces. Only available for Spaces (not models, datasets or buckets).
     """
 
     id: str
@@ -1224,6 +1227,7 @@ class SpaceInfo:
     tags: list[str] | None
     trending_score: int | None
     used_storage: int | None
+    visibility: RepoVisibility_T | None
 
     def __init__(self, **kwargs):
         self.id = kwargs.pop("id")
@@ -1234,6 +1238,7 @@ class SpaceInfo:
         last_modified = kwargs.pop("lastModified", None) or kwargs.pop("last_modified", None)
         self.last_modified = parse_datetime(last_modified) if last_modified else None
         self.private = kwargs.pop("private", None)
+        self.visibility = kwargs.pop("visibility", None)
         self.gated = kwargs.pop("gated", None)
         self.disabled = kwargs.pop("disabled", None)
         self.host = kwargs.pop("host", None)
@@ -2817,7 +2822,7 @@ class HfApi:
             expand (`list[ExpandSpaceProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `full` is passed.
-                Possible values are `"author"`, `"cardData"`, `"datasets"`, `"disabled"`, `"lastModified"`, `"createdAt"`, `"likes"`, `"models"`, `"private"`, `"region"`, `"runtime"`, `"sdk"`, `"siblings"`, `"sha"`, `"subdomain"`, `"tags"`, `"trendingScore"`, `"usedStorage"`, and `"resourceGroup"`.
+                Possible values are `"author"`, `"cardData"`, `"datasets"`, `"disabled"`, `"lastModified"`, `"createdAt"`, `"likes"`, `"models"`, `"private"`, `"region"`, `"runtime"`, `"sdk"`, `"siblings"`, `"sha"`, `"subdomain"`, `"tags"`, `"trendingScore"`, `"usedStorage"`, `"visibility"`, and `"resourceGroup"`.
             full (`bool`, *optional*):
                 Whether to fetch all Spaces data, including the `last_modified`, `siblings`
                 and `card_data` fields.
@@ -3387,7 +3392,7 @@ class HfApi:
             expand (`list[ExpandSpaceProperty_T]`, *optional*):
                 List properties to return in the response. When used, only the properties in the list will be returned.
                 This parameter cannot be used if `full` is passed.
-                Possible values are `"author"`, `"cardData"`, `"createdAt"`, `"datasets"`, `"disabled"`, `"lastModified"`, `"likes"`, `"models"`, `"private"`, `"region"`, `"runtime"`, `"sdk"`, `"siblings"`, `"sha"`, `"subdomain"`, `"tags"`, `"trendingScore"`, `"usedStorage"`, and `"resourceGroup"`.
+                Possible values are `"author"`, `"cardData"`, `"createdAt"`, `"datasets"`, `"disabled"`, `"lastModified"`, `"likes"`, `"models"`, `"private"`, `"region"`, `"runtime"`, `"sdk"`, `"siblings"`, `"sha"`, `"subdomain"`, `"tags"`, `"trendingScore"`, `"usedStorage"`, `"visibility"`, and `"resourceGroup"`.
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -9404,8 +9409,7 @@ class HfApi:
             ... )
             >>> endpoint.wait(timeout=300)
             # Run inference on the endpoint
-            >>> endpoint.client.text_generation(...)
-            TextClassificationOutputElement(label='positive', score=0.8983615040779114)
+            >>> endpoint.client.text_classification("The financial outlook is positive.")
             ```
 
         """
@@ -11323,13 +11327,16 @@ class HfApi:
         *,
         url: str | None = None,
         job_id: str | None = None,
-        watched: list[dict | WebhookWatchedItem] | None = None,
-        domains: list[constants.WEBHOOK_DOMAIN_T] | None = None,
+        watched: list[dict | WebhookWatchedItem],
+        domains: list[constants.WEBHOOK_DOMAIN_T],
         secret: str | None = None,
         secrets: dict[str, str] | None = None,
         token: bool | str | None = None,
     ) -> WebhookInfo:
         """Update an existing webhook.
+
+        Pass the complete watched list, domains and destination, including values that have not changed.
+        Provide exactly one of `url` or `job_id`.
 
         Args:
             webhook_id (`str`):
@@ -11338,10 +11345,10 @@ class HfApi:
                 The URL to which the payload will be sent.
             job_id (`str`, optional):
                 ID of the source Job to trigger with the webhook payload. Required when setting `secrets`.
-            watched (`list[WebhookWatchedItem]`, optional):
+            watched (`list[WebhookWatchedItem]`):
                 List of items to watch. It can be users, orgs, models, datasets, or spaces.
                 Refer to [`WebhookWatchedItem`] for more details. Watched items can also be provided as plain dictionaries.
-            domains (`list[Literal["repo", "discussion"]]`, optional):
+            domains (`list[Literal["repo", "discussion"]]`):
                 The domains to watch. This can include "repo", "discussion", or both.
             secret (`str`, optional):
                 A secret to sign the payload with, providing an additional layer of security.
@@ -11378,19 +11385,17 @@ class HfApi:
                 disabled=False,
             ```
         """
-        if watched is None:
-            watched = []
+        if not watched or not domains:
+            raise ValueError("`watched` and `domains` must both be non-empty.")
         watched_dicts = [asdict(item) if isinstance(item, WebhookWatchedItem) else item for item in watched]
 
-        update_json: dict = {"watched": watched_dicts}
-        if url is not None and job_id is not None:
-            raise ValueError("Set `url` or `job_id` but not both.")
+        update_json: dict = {"watched": watched_dicts, "domains": domains}
+        if bool(url) == bool(job_id):
+            raise ValueError("Set exactly one of `url` or `job_id`.")
         if url is not None:
             update_json["url"] = url
         if job_id is not None:
             update_json["jobSourceId"] = job_id
-        if domains is not None:
-            update_json["domains"] = domains
         if secret is not None:
             update_json["secret"] = secret
         if secrets is not None:
