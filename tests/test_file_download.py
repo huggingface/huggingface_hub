@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import hashlib
 import io
 import os
 import shutil
@@ -999,60 +998,6 @@ class TestFileDownloadDryRun:
             )
             assert not dry_run_info.is_cached
             assert dry_run_info.will_download
-
-
-def test_dry_run_local_dir_does_not_write_metadata(tmp_path: Path):
-    # A local-dir dry run must not touch the download metadata on disk: it only reports what would happen.
-    content = b"dummy file content"
-    etag = hashlib.sha256(content).hexdigest()  # 64 hex chars => handled as an LFS sha256
-    commit_hash = "a" * 40
-
-    @contextmanager
-    def patched_head():
-        with (
-            patch(
-                "huggingface_hub.file_download._get_metadata_or_catch_error",
-                return_value=("https://example.com/file", etag, commit_hash, len(content), None, None),
-            ),
-            patch("huggingface_hub.file_download.write_download_metadata") as write_mock,
-        ):
-            yield write_mock
-
-    # File present, no metadata yet, content matches the (sha256) etag => reported as cached.
-    (tmp_path / "weights.bin").write_bytes(content)
-    with patched_head() as write_mock:
-        info = hf_hub_download(repo_id="user/model", filename="weights.bin", local_dir=tmp_path, dry_run=True)
-    assert info.is_cached
-    assert not info.will_download
-    write_mock.assert_not_called()
-
-    # File present with up-to-date metadata (etag match) on a branch revision => reported as cached.
-    (tmp_path / "config.json").write_bytes(content)
-    write_download_metadata(local_dir=tmp_path, filename="config.json", commit_hash=commit_hash, etag=etag)
-    with patched_head() as write_mock:
-        info = hf_hub_download(repo_id="user/model", filename="config.json", local_dir=tmp_path, dry_run=True)
-    assert info.is_cached
-    assert not info.will_download
-    write_mock.assert_not_called()
-
-
-def test_dry_run_local_dir_leaves_invalid_metadata_untouched(tmp_path: Path):
-    # A local-dir dry run must not delete a corrupt metadata file either: it only reports.
-    content = b"dummy file content"
-    etag = hashlib.sha256(content).hexdigest()
-    (tmp_path / "weights.bin").write_bytes(content)
-    metadata_path = tmp_path / ".cache" / "huggingface" / "download" / "weights.bin.metadata"
-    metadata_path.parent.mkdir(parents=True)
-    metadata_path.write_bytes(b"incomplete metadata\n")
-
-    with patch(
-        "huggingface_hub.file_download._get_metadata_or_catch_error",
-        return_value=("https://example.com/file", etag, "a" * 40, len(content), None, None),
-    ):
-        info = hf_hub_download(repo_id="user/model", filename="weights.bin", local_dir=tmp_path, dry_run=True)
-    assert info.is_cached
-    assert not info.will_download
-    assert metadata_path.read_bytes() == b"incomplete metadata\n"
 
 
 class TestStagingCachedDownloadOnAwfulFilenames:

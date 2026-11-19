@@ -1337,7 +1337,7 @@ def _hf_hub_download_to_local_dir(
     """
     local_dir = Path(as_extended_path(local_dir))
     paths = get_local_download_paths(local_dir=local_dir, filename=filename)
-    local_metadata = read_download_metadata(local_dir=local_dir, filename=filename, dry_run=dry_run)
+    local_metadata = read_download_metadata(local_dir=local_dir, filename=filename)
 
     # Local file exists + metadata exists + commit_hash matches => return file
     if (
