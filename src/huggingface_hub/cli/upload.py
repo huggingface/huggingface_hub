@@ -111,7 +111,11 @@ def upload(
     ] = None,
     token: TokenOpt = None,
 ) -> None:
-    """Upload a file or a folder to the Hub. Recommended for single-commit uploads."""
+    """Upload a file or a folder to the Hub.
+
+    Folders with many files are split into several commits. If a folder upload is interrupted, re-run the same command
+    to resume it.
+    """
 
     if every is not None and every <= 0:
         raise click.BadParameter("--every must be a positive value", param_hint="every")
@@ -161,14 +165,21 @@ def upload(
             allow_patterns: list[str] | None
             ignore_patterns: list[str] | None
             if os.path.isfile(resolved_local_path):
-                # If file => watch entire folder + use allow_patterns
+                # If file => watch entire folder + use allow_patterns.
+                # `CommitScheduler` matches patterns against paths relative to `folder_path` and
+                # re-uploads them under `path_in_repo`, so the pattern is the file name and only
+                # the directory part of `path_in_repo` can be honoured.
                 folder_path = os.path.dirname(resolved_local_path)
-                pi = (
-                    resolved_path_in_repo[: -len(resolved_local_path)]
-                    if resolved_path_in_repo.endswith(resolved_local_path)
-                    else resolved_path_in_repo
-                )
-                allow_patterns = [resolved_local_path]
+                filename = os.path.basename(resolved_local_path)
+                pi, _, dest_filename = resolved_path_in_repo.rpartition("/")
+                # An empty or "." destination name means a directory, not a rename.
+                if dest_filename not in ("", ".", filename):
+                    out.warning(
+                        f"Scheduled uploads keep the local file name, so the file will be uploaded as"
+                        f" '{(pi + '/' if pi else '') + filename}' rather than '{resolved_path_in_repo}'."
+                        " Rename the local file to upload it under a different name."
+                    )
+                allow_patterns = [filename]
                 ignore_patterns = []
             else:
                 folder_path = resolved_local_path
@@ -258,12 +269,13 @@ def _resolve_upload_paths(
     repo_name = repo_id.split("/")[-1]
     resolved_include = include
 
-    if local_path is not None and any(c in local_path for c in ["*", "?", "["]):
+    # An existing path is never a wildcard, even if it contains glob characters (e.g. "model [v2].safetensors")
+    if local_path is not None and not os.path.exists(local_path) and any(c in local_path for c in ["*", "?", "["]):
         if include is not None:
             raise ValueError("Cannot set --include when local_path contains a wildcard.")
         if path_in_repo is not None and path_in_repo != ".":
             raise ValueError("Cannot set path_in_repo when local_path contains a wildcard.")
-        return ".", local_path, ["."]  # will be adjusted below; placeholder for type
+        return ".", ".", [local_path]
 
     if local_path is None and os.path.isfile(repo_name):
         return repo_name, repo_name, resolved_include

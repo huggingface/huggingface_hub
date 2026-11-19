@@ -8,20 +8,29 @@ on:
     paths-ignore:
       - "docs/**"
   pull_request:
-    types: [assigned, opened, synchronize, reopened]
+    types: [opened, synchronize, reopened]
     paths-ignore:
       - "docs/**"
 
+# Cancel superseded runs: a new push to a PR makes the previous run useless.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
 jobs:
   check-imports:
+    permissions:
+      contents: read
     # Catch missing dependencies: install only base requirements and verify all public imports work.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - name: Set up Python
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
         with:
-          python-version: "3.14"
+          python-version: "3.15"
       - name: Install base dependencies only
         run: |
           pip install --upgrade uv
@@ -33,29 +42,33 @@ jobs:
           python utils/check_imports.py
 
   build-ubuntu:
+    permissions:
+      contents: read
     runs-on:
       group: aws-general-8-plus
+    # A healthy full-suite job takes ~20min. Anything much longer means something is stuck: fail fast instead of
+    # burning a runner until GitHub's 6h limit.
+    timeout-minutes: 45
     env:
       UV_HTTP_TIMEOUT: 600 # max 10min to install deps
 
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.14"]
-        test_name: ["no hf_xet", "Inference only", "with hf_xet"]
+        python-version: ["3.10", "3.15"]
+        # Test suites are defined in tests/conftest.py (`pytest_collection_modifyitems`).
+        test_name: ["api", "transfer (hf_xet)", "transfer (no hf_xet)", "inference"]
         include:
-          - python-version: "3.14" # LFS not ran on 3.10
-            test_name: "lfs"
           - python-version: "3.10" # test torch~=1.11 on python 3.10 only.
             test_name: "Python 3.10, torch_1.11"
           - python-version: "3.12" # test torch latest on python 3.12 only.
             test_name: "torch_latest"
-          - python-version: "3.13" # gradio not supported on 3.14 -> test it on 3.13
+          - python-version: "3.13" # test gradio on python 3.13 only.
             test_name: "gradio"
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -73,14 +86,9 @@ jobs:
 
           case "${{ matrix.test_name }}" in
 
-            "no hf_xet" | "Inference only")
+            inference)
               sudo apt update
               sudo apt install -y libsndfile1-dev
-              ;;
-
-            lfs)
-              git config --global user.email "ci@dummy.com"
-              git config --global user.name "ci"
               ;;
 
             gradio)
@@ -92,18 +100,15 @@ jobs:
               uv pip install --upgrade torch
               ;;
 
-            "Python 3.9, torch_1.11")
+            "Python 3.10, torch_1.11")
               uv pip install "huggingface_hub[torch] @ ."
               uv pip install torch~=1.11
               ;;
 
           esac
 
-          # Xet policy (see `xet_mode` fixture in tests/conftest.py):
-          # - "with hf_xet" job: hf_xet installed (comes with `huggingface_hub[testing]`). Runs `-m 'not no_xet'` => `xet` tests + unmarked tests with Xet.
-          # - all other jobs: hf_xet uninstalled. Run `-m 'not xet'` => `no_xet` tests + unmarked tests without Xet.
-          # Unmarked tests therefore run both with and without Xet and must work regardless.
-          if [[ "${{ matrix.test_name }}" != "with hf_xet" ]]; then
+          # hf_xet comes with `huggingface_hub[testing]`. Only the "transfer (no hf_xet)" job runs without it.
+          if [[ "${{ matrix.test_name }}" == "transfer (no hf_xet)" ]]; then
             uv pip uninstall hf_xet
           fi
 
@@ -112,25 +117,20 @@ jobs:
         working-directory: ./src # For code coverage to work
         run: |
           source ../.venv/bin/activate
-          PYTEST="python -m pytest --cov=./huggingface_hub --cov-report=xml:../coverage.xml --vcr-record=none --reruns 8 --reruns-delay 2 --only-rerun '(OSError|FileNotFoundError|Timeout|HTTPError.*409|HTTPError.*502|HTTPError.*504|not less than or equal to 0.01)'"
+          PYTEST="python -m pytest --cov=./huggingface_hub --cov-report=xml:../coverage.xml --vcr-record=none --reruns 3 --reruns-delay 2 --only-rerun '(OSError|FileNotFoundError|Timeout|HTTPError.*409|HTTPError.*502|HTTPError.*504)'"
 
           case "${{ matrix.test_name }}" in
 
-            "Inference only")
-              # Run inference tests concurrently
-              PYTEST="$PYTEST ../tests -m 'inference' -n 4"
-              echo $PYTEST
-              eval $PYTEST
+            api | inference)
+              eval "$PYTEST ../tests -m ${{ matrix.test_name }} -n 4"
             ;;
 
-            "no hf_xet")
-              PYTEST="$PYTEST ../tests -m 'not xet and not inference' -n 4"
-              echo $PYTEST
-              eval $PYTEST
+            "transfer (hf_xet)")
+              eval "$PYTEST ../tests -m transfer -n 4"
             ;;
 
-            lfs)
-              eval "RUN_GIT_LFS_TESTS=1 $PYTEST ../tests -k 'Largefiles'"
+            "transfer (no hf_xet)")
+              eval "$PYTEST ../tests -m 'transfer and not xet' -n 4"
             ;;
 
             gradio)
@@ -142,27 +142,22 @@ jobs:
             eval "$PYTEST ../tests/test_serialization.py"
             ;;
 
-            "with hf_xet")
-              # `xet` tests + unmarked tests, all with hf_xet installed.
-              # Inference tests are excluded: they have their own job and don't depend on Xet.
-              PYTEST="$PYTEST ../tests -m 'not no_xet and not inference' -n 4"
-              echo $PYTEST
-              eval $PYTEST
-            ;;
-
           esac
 
       # Upload code coverage
       - name: Upload coverage reports to Codecov with GitHub Action
-        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f  # v7.0.0
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5  # v7.1.1
         with:
           files: ./coverage.xml
           verbose: true
 
   build-windows:
+    permissions:
+      contents: read
     # (almost) Duplicate config compared to `build-ubuntu` but running on Windows.
     # Please make sure to keep it updated as well.
     runs-on: windows-latest
+    timeout-minutes: 30
     env:
       DISABLE_SYMLINKS_IN_WINDOWS_TESTS: 1
       UV_HTTP_TIMEOUT: 600 # max 10min to install deps
@@ -170,13 +165,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.14"]
-        test_name: ["no hf_xet", "with hf_xet"]
+        python-version: ["3.10", "3.15"]
+        test_name: ["api", "transfer (hf_xet)", "transfer (no hf_xet)", "inference"]
 
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1  # v6.3.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -192,11 +187,8 @@ jobs:
         run: |
           uv pip install "huggingface_hub[testing] @ ."
 
-          # Xet policy (see `xet_mode` fixture in tests/conftest.py):
-          # - "with hf_xet" job: hf_xet installed (comes with `huggingface_hub[testing]`). Runs `-m 'not no_xet'` => `xet` tests + unmarked tests with Xet.
-          # - all other jobs: hf_xet uninstalled. Run `-m 'not xet'` => `no_xet` tests + unmarked tests without Xet.
-          # Unmarked tests therefore run both with and without Xet and must work regardless.
-          if ("${{ matrix.test_name }}" -ne "with hf_xet") {
+          # hf_xet comes with `huggingface_hub[testing]`. Only the "transfer (no hf_xet)" job runs without it.
+          if ("${{ matrix.test_name }}" -eq "transfer (no hf_xet)") {
             uv pip uninstall hf_xet
           }
 
@@ -211,26 +203,22 @@ jobs:
             "--cov=./huggingface_hub",
             "--cov-report=xml:../coverage.xml",
             "--vcr-record=none",
-            "--reruns", "8",
+            "--reruns", "3",
             "--reruns-delay", "2",
-            "--only-rerun", "(OSError|FileNotFoundError|Timeout|HTTPError.*409|HTTPError.*502|HTTPError.*504|not less than or equal to 0.01)",
+            "--only-rerun", "(OSError|FileNotFoundError|Timeout|HTTPError.*409|HTTPError.*502|HTTPError.*504)",
             "../tests"
           )
 
           switch ("${{ matrix.test_name }}") {
-            "with hf_xet" {
-              # `xet` tests + unmarked tests, all with hf_xet installed.
-              # Inference tests already run in "no hf_xet" and don't depend on Xet.
-              python $PYTEST_ARGS -m "not no_xet and not inference"
-            }
-            "no hf_xet" {
-              python $PYTEST_ARGS -m "not xet"
-            }
+            "api" { python $PYTEST_ARGS -m "api" }
+            "transfer (hf_xet)" { python $PYTEST_ARGS -m "transfer" }
+            "transfer (no hf_xet)" { python $PYTEST_ARGS -m "transfer and not xet" }
+            "inference" { python $PYTEST_ARGS -m "inference" }
           }
 
       # Upload code coverage
       - name: Upload coverage reports to Codecov with GitHub Action
-        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f  # v7.0.0
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5  # v7.1.1
         with:
           files: ./coverage.xml
           verbose: true

@@ -13,7 +13,7 @@ from huggingface_hub import HfApi, hf_hub_download
 from huggingface_hub.hub_mixin import ModelHubMixin
 from huggingface_hub.utils import SoftTemporaryDirectory
 
-from .testing_constants import ENDPOINT_STAGING, TOKEN, USER
+from .testing_constants import ENDPOINT_STAGING, TOKEN
 from .testing_utils import repo_name
 
 
@@ -352,8 +352,8 @@ class TestHubMixin:
         model = DummyModelConfigAsDataclass.from_pretrained(save_directory)
         assert model._hub_mixin_config == CONFIG_AS_DATACLASS
 
-    def test_push_to_hub(self, api: HfApi, tmp_path):
-        repo_id = f"{USER}/{repo_name('push_to_hub')}"
+    def test_push_to_hub(self, api: HfApi, new_repo_id: str, tmp_path):
+        repo_id = new_repo_id
         DummyModelConfigAsDataclass(CONFIG_AS_DATACLASS).push_to_hub(repo_id=repo_id, token=TOKEN)
 
         # Test model id exists
@@ -376,9 +376,6 @@ class TestHubMixin:
 
         for cls in (DummyModelConfigAsDict, DummyModelConfigAsOptionalDict):
             assert cls.from_pretrained(**from_pretrained_kwargs)._hub_mixin_config == CONFIG_AS_DICT
-
-        # Delete repo
-        api.delete_repo(repo_id=repo_id)
 
     def test_save_pretrained_do_not_overwrite_new_config(self, tmp_path):
         """Regression test for https://github.com/huggingface/huggingface_hub/issues/2102.

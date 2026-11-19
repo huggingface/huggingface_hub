@@ -189,8 +189,16 @@ class TestCacheLayoutIfSymlinksNotSupported:
 
         # Test delete older revision strategy
         strategy_delete_revision = report.delete_revisions(OLDER_REVISION)
-        assert strategy_delete_revision.blobs == {file.blob_path for file in older_revision.files}
+        # Only the file in the blobs dir is deleted explicitly. The one in the snapshot dir is
+        # removed along with the snapshot dir itself (but its size is still counted).
+        assert strategy_delete_revision.blobs == {
+            file.blob_path
+            for file in older_revision.files
+            if older_revision.snapshot_path not in file.blob_path.parents
+        }
+        assert strategy_delete_revision.expected_freed_size == older_revision.size_on_disk
         assert strategy_delete_revision.snapshots == {older_revision.snapshot_path}
         assert len(strategy_delete_revision.refs) == 0
         assert len(strategy_delete_revision.repos) == 0
         strategy_delete_revision.execute()  # Execute without error
+        assert not older_revision.snapshot_path.exists()

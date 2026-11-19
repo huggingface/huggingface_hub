@@ -39,6 +39,10 @@ falls back to installing the repo as a Python package.
 A shell script extension is the simplest type. You only need a GitHub repository with an executable file
 named `hf-<name>` at the root.
 
+> [!WARNING]
+> Shell script extensions are not supported on Windows. If your extension must work on Windows, make it a
+> [Python extension](#create-a-python-extension) instead.
+
 ### Minimal example
 
 Create a repository named `hf-hello` on GitHub with a single file:
@@ -99,7 +103,7 @@ hf-hello/
 ```toml
 [build-system]
 requires = ["setuptools>=64"]
-build-backend = "setuptools.backends._legacy:_Backend"
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "hf-hello"
@@ -243,6 +247,10 @@ Once an extension is installed, you can update it to the latest version publishe
 ```
 
 `hf extensions update` only updates extensions that are already installed. If the extension is not installed, an error is raised. Extensions already up to date are skipped.
+
+An extension's version is the commit it was installed from, shown as a short SHA in the `VERSION` column of `hf extensions list`. The `LATEST` column is checked when no newer commit is available on GitHub, and running an outdated extension prints a hint suggesting `hf extensions update <name>`. To stay within GitHub's rate limits for unauthenticated requests, `hf` looks up the latest commit of each extension at most once a day. Set `HF_HUB_DISABLE_UPDATE_CHECK=1` to disable these checks.
+
+If a Python extension stops working because the Python it was installed with was removed (e.g. after a Homebrew upgrade), `hf extensions update <name>` recreates its virtual environment.
 
 ## Naming rules
 

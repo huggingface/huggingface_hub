@@ -97,10 +97,10 @@ def format_timesince(ts: float) -> str:
     Vaguely inspired by Django's `timesince` formatter.
     """
     _TIMESINCE_CHUNKS = (
-        # Label, divider, max value
-        ("second", 1, 60),
-        ("minute", 60, 60),
-        ("hour", 60 * 60, 24),
+        # Label, divider, max value shown before rolling over to the next unit (e.g. 59 -> "1 minute ago" at 60s)
+        ("second", 1, 59),
+        ("minute", 60, 59),
+        ("hour", 60 * 60, 23),
         ("day", 60 * 60 * 24, 6),
         ("week", 60 * 60 * 24 * 7, 6),
         ("month", 60 * 60 * 24 * 30, 11),

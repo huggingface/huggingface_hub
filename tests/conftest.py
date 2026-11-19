@@ -16,6 +16,7 @@ from .testing_constants import (
     ENDPOINT_PRODUCTION_URL_SCHEME,
     ENDPOINT_STAGING,
     TOKEN,
+    USER,
 )
 from .testing_utils import repo_name
 
@@ -43,23 +44,60 @@ def reset_oauth_refresh_state():
     yield
 
 
+SUITES = ("api", "transfer", "inference")
+_INVALID_MARKERS = pytest.StashKey[str]()
+
+
+@pytest.hookimpl(tryfirst=True)  # before `-m` deselection, so that it sees the markers added here
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    """Assign each test to exactly one CI suite, selectable with `pytest -m <suite>`.
+
+    - `transfer`: upload/download logic. CI runs it both with and without `hf_xet`.
+      `xet` and `no_xet` tests are transfer tests restricted to one mode: they get the `transfer` marker automatically.
+    - `inference`: InferenceClient, providers and types.
+    - `api`: everything else. Added automatically to tests without a suite marker.
+
+    Invalid combinations make the test fail (see `pytest_runtest_setup`).
+    """
+    for item in items:
+        markers = {marker.name for marker in item.iter_markers()}
+        if {"xet", "no_xet"} <= markers:
+            item.stash[_INVALID_MARKERS] = "A test cannot be marked with both `xet` and `no_xet`."
+        if markers & {"xet", "no_xet"} and "transfer" not in markers:
+            item.add_marker(pytest.mark.transfer)
+            markers.add("transfer")
+        match sorted(markers.intersection(SUITES)):
+            case []:
+                item.add_marker(pytest.mark.api)
+            case [_]:
+                pass
+            case suites:
+                item.stash[_INVALID_MARKERS] = (
+                    f"A test must belong to exactly one suite, got {', '.join(suites)}"
+                    " (`xet` and `no_xet` imply `transfer`)."
+                )
+
+
+def pytest_runtest_setup(item: pytest.Item) -> None:
+    # Fail the test itself rather than the collection: a collection error is unreadable with pytest-xdist.
+    if (error := item.stash.get(_INVALID_MARKERS, None)) is not None:
+        pytest.fail(error, pytrace=False)
+
+
 @pytest.fixture(autouse=True)
 def xet_mode(request: SubRequest, monkeypatch: pytest.MonkeyPatch) -> None:
     """Make Xet usage explicit and deterministic, locally and in CI.
 
-    Three modes:
     - `@pytest.mark.xet`: test requires `hf_xet` => skipped when it is not installed,
       Xet force-enabled otherwise.
     - `@pytest.mark.no_xet`: test must run without `hf_xet` (e.g. legacy LFS behavior)
       => skipped when it is installed.
-    - unmarked: test must work regardless of Xet => nothing is forced; the test runs
-      with whatever the environment provides. CI runs unmarked tests both with and
-      without `hf_xet` installed.
+    - unmarked: nothing is forced; the test runs with whatever the environment provides.
+
+    In CI, `transfer` tests run both with and without `hf_xet`, other tests only with `hf_xet` (the default install).
     """
     xet = request.node.get_closest_marker("xet") is not None
     no_xet = request.node.get_closest_marker("no_xet") is not None
-    if xet and no_xet:
-        pytest.fail("A test cannot be marked with both `xet` and `no_xet`.")
     if xet:
         if not is_package_available("hf_xet"):
             pytest.skip("Test requires `hf_xet` (marked with `pytest.mark.xet`)")
@@ -101,8 +139,7 @@ def disable_symlinks_on_windows_ci(monkeypatch: pytest.MonkeyPatch) -> None:
 
     if os.name == "nt" and os.environ.get("DISABLE_SYMLINKS_IN_WINDOWS_TESTS"):
         monkeypatch.setattr(
-            huggingface_hub.file_download,
-            "_are_symlinks_supported_in_dir",
+            "huggingface_hub.file_download._are_symlinks_supported_in_dir",
             FakeSymlinkDict(),
         )
 
@@ -151,8 +188,8 @@ def expect_deprecation_marker(request: SubRequest) -> Generator[None, None, None
     Each argument is a function name; the test must emit a `FutureWarning` mentioning it (the suite runs
     with `-Werror::FutureWarning`, so an unraised warning fails the test). Example:
     ```py
-    @pytest.mark.deprecated("duplicate_space", "duplicate_repo")
-    def test_duplicate_space(...): ...
+    @pytest.mark.deprecated("some_deprecated_method")
+    def test_some_deprecated_method(...): ...
     ```
     """
     function_names = [name for marker in request.node.iter_markers("deprecated") for name in marker.args]
@@ -193,7 +230,7 @@ class RepoFactory(Protocol):
     The created repo is automatically deleted when the test ends.
     """
 
-    def __call__(self, repo_type: str = "model", **kwargs) -> RepoUrl: ...
+    def __call__(self, repo_type: str = "model", repo_id: str | None = None, **kwargs) -> RepoUrl: ...
 
 
 @pytest.fixture
@@ -205,21 +242,28 @@ def repo_factory(api: HfApi) -> Generator[RepoFactory, None, None]:
     def test_something(api: HfApi, repo_factory):
         repo_url = repo_factory()              # a model repo
         dataset_url = repo_factory("dataset")  # a dataset repo
+        named_url = repo_factory(repo_id=repo_name("CaSe"))  # when the repo name matters
+        other_url = repo_factory(token=OTHER_TOKEN)  # created (and deleted) with another token
     ```
     """
-    created: list[tuple[str, str]] = []
+    created: list[tuple[str, str, str | None]] = []
 
-    def _factory(repo_type: str = "model", **kwargs) -> RepoUrl:
+    def _factory(repo_type: str = "model", repo_id: str | None = None, **kwargs) -> RepoUrl:
         if repo_type == "space" and "space_sdk" not in kwargs:
             kwargs["space_sdk"] = "gradio"
-        repo_url = api.create_repo(repo_id=repo_name(prefix=repo_type), repo_type=repo_type, **kwargs)
-        created.append((repo_url.repo_id, repo_type))
+        repo_url = api.create_repo(repo_id=repo_id or repo_name(prefix=repo_type), repo_type=repo_type, **kwargs)
+        created.append((repo_url.repo_id, repo_type, kwargs.get("token")))
         return repo_url
 
     yield _factory
 
-    for repo_id, repo_type in created:
-        try:
-            api.delete_repo(repo_id=repo_id, repo_type=repo_type)
-        except Exception:
-            pass
+    for repo_id, repo_type, token in created:
+        api.delete_repo(repo_id=repo_id, repo_type=repo_type, token=token, missing_ok=True)
+
+
+@pytest.fixture
+def new_repo_id(api: HfApi) -> Generator[str, None, None]:
+    """Id of a model repo that doesn't exist yet (e.g. created by `push_to_hub`). Deleted when the test ends."""
+    repo_id = f"{USER}/{repo_name()}"
+    yield repo_id
+    api.delete_repo(repo_id=repo_id, missing_ok=True)

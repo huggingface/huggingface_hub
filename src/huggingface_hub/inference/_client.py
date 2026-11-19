@@ -40,6 +40,8 @@ from collections.abc import Iterable
 from contextlib import ExitStack
 from typing import TYPE_CHECKING, Any, Literal, Optional, Union, overload
 
+import httpx2
+
 from huggingface_hub import constants
 from huggingface_hub.errors import BadRequestError, HfHubHTTPError, InferenceTimeoutError
 from huggingface_hub.inference._common import (
@@ -107,7 +109,6 @@ from huggingface_hub.utils import (
     hf_raise_for_status,
     validate_hf_hub_args,
 )
-from huggingface_hub.utils._auth import get_token
 
 
 if TYPE_CHECKING:
@@ -135,7 +136,7 @@ class InferenceClient:
             Note: for better compatibility with OpenAI's client, `model` has been aliased as `base_url`. Those 2
             arguments are mutually exclusive. If a URL is passed as `model` or `base_url` for chat completion, the `(/v1)/chat/completions` suffix path will be appended to the URL.
         provider (`str`, *optional*):
-            Name of the provider to use for inference. Can be `"cerebras"`, `"cohere"`, `"deepinfra"`, `"fal-ai"`, `"featherless-ai"`, `"fireworks-ai"`, `"groq"`, `"hf-inference"`, `"novita"`, `"nscale"`, `"openai"`, `"ovhcloud"`, `"publicai"`, `"replicate"`, `"scaleway"`, `"together"`, `"wavespeed"` or `"zai-org"`.
+            Name of the provider to use for inference. Can be `"baseten"`, `"cerebras"`, `"cohere"`, `"deepinfra"`, `"fal-ai"`, `"featherless-ai"`, `"fireworks-ai"`, `"groq"`, `"hf-inference"`, `"novita"`, `"nscale"`, `"openai"`, `"ovhcloud"`, `"publicai"`, `"replicate"`, `"scaleway"`, `"together"`, `"wavespeed"` or `"zai-org"`.
             Defaults to "auto": automatic routing, which defaults to "fastest" provider; you can
             switch to "cheapest" or "preferred" provider order at https://hf.co/settings/inference-providers.
             If model is a URL or `base_url` is passed, then `provider` is not used.
@@ -193,20 +194,7 @@ class InferenceClient:
             )
         token = token if token is not None else api_key
         if isinstance(token, bool):
-            # Legacy behavior: previously it was possible to pass `token=False` to disable authentication. This is not
-            # supported anymore as authentication is required. Better to explicitly raise here rather than risking
-            # sending the locally saved token without the user knowing about it.
-            if token is False:
-                raise ValueError(
-                    "Cannot use `token=False` to disable authentication as authentication is required to run Inference."
-                )
-            warnings.warn(
-                "Using `token=True` to automatically use the locally saved token is deprecated and will be removed in a future release. "
-                "Please use `token=None` instead (default).",
-                DeprecationWarning,
-            )
-            token = get_token()
-
+            raise TypeError("`token` must be a string or `None`.")
         self.model: str | None = base_url or model
         self.token: str | None = token
 
@@ -269,30 +257,38 @@ class InferenceClient:
             request_parameters.headers["Accept"] = "image/png"
 
         try:
-            response = self.exit_stack.enter_context(
-                get_session().stream(
-                    "POST",
-                    request_parameters.url,
-                    json=request_parameters.json,
-                    content=request_parameters.data,
-                    headers=request_parameters.headers,
-                    cookies=self.cookies,
-                    timeout=self.timeout,
-                )
+            response_cm = get_session().stream(
+                "POST",
+                request_parameters.url,
+                json=request_parameters.json,
+                content=request_parameters.data,
+                headers=request_parameters.headers,
+                cookies=self.cookies,
+                timeout=self.timeout,
             )
-            hf_raise_for_status(response)
             if stream:
+                response = self.exit_stack.enter_context(response_cm)
+                hf_raise_for_status(response)
                 return response.iter_lines()
-            else:
+            with response_cm as response:
+                hf_raise_for_status(response)
                 return response.read()
-        except TimeoutError as error:
-            # Convert any `TimeoutError` to a `InferenceTimeoutError`
+        except httpx2.TimeoutException as error:
+            # Convert any httpx timeout to a `InferenceTimeoutError`
             raise InferenceTimeoutError(f"Inference call timed out: {request_parameters.url}") from error  # type: ignore
         except HfHubHTTPError as error:
             if error.response.status_code == 422 and request_parameters.task != "unknown":
                 msg = str(error.args[0])
                 if len(error.response.text) > 0:
                     msg += f"{os.linesep}{error.response.text}{os.linesep}"
+                error.args = (msg,) + error.args[1:]
+            if error.response.status_code == 504 and not stream and request_parameters.task == "conversational":
+                msg = str(error.args[0])
+                msg += (
+                    f"{os.linesep}Note: the request timed out before the model finished generating."
+                    " If you are generating long outputs (e.g. long reasoning traces), pass `stream=True`"
+                    " to receive tokens as they are generated and avoid hitting this timeout."
+                )
                 error.args = (msg,) + error.args[1:]
             raise
 
@@ -1967,7 +1963,6 @@ class InferenceClient:
         return_full_text: bool | None = None,
         seed: int | None = None,
         stop: list[str] | None = None,
-        stop_sequences: list[str] | None = None,  # Deprecated, use `stop` instead
         temperature: float | None = None,
         top_k: int | None = None,
         top_n_tokens: int | None = None,
@@ -1997,7 +1992,6 @@ class InferenceClient:
         return_full_text: bool | None = None,
         seed: int | None = None,
         stop: list[str] | None = None,
-        stop_sequences: list[str] | None = None,  # Deprecated, use `stop` instead
         temperature: float | None = None,
         top_k: int | None = None,
         top_n_tokens: int | None = None,
@@ -2027,7 +2021,6 @@ class InferenceClient:
         return_full_text: bool | None = None,  # Manual default value
         seed: int | None = None,
         stop: list[str] | None = None,
-        stop_sequences: list[str] | None = None,  # Deprecated, use `stop` instead
         temperature: float | None = None,
         top_k: int | None = None,
         top_n_tokens: int | None = None,
@@ -2057,7 +2050,6 @@ class InferenceClient:
         return_full_text: bool | None = None,
         seed: int | None = None,
         stop: list[str] | None = None,
-        stop_sequences: list[str] | None = None,  # Deprecated, use `stop` instead
         temperature: float | None = None,
         top_k: int | None = None,
         top_n_tokens: int | None = None,
@@ -2087,7 +2079,6 @@ class InferenceClient:
         return_full_text: bool | None = None,
         seed: int | None = None,
         stop: list[str] | None = None,
-        stop_sequences: list[str] | None = None,  # Deprecated, use `stop` instead
         temperature: float | None = None,
         top_k: int | None = None,
         top_n_tokens: int | None = None,
@@ -2116,7 +2107,6 @@ class InferenceClient:
         return_full_text: bool | None = None,
         seed: int | None = None,
         stop: list[str] | None = None,
-        stop_sequences: list[str] | None = None,  # Deprecated, use `stop` instead
         temperature: float | None = None,
         top_k: int | None = None,
         top_n_tokens: int | None = None,
@@ -2171,8 +2161,6 @@ class InferenceClient:
                 Random sampling seed
             stop (`list[str]`, *optional*):
                 Stop generating tokens if a member of `stop` is generated.
-            stop_sequences (`list[str]`, *optional*):
-                Deprecated argument. Use `stop` instead.
             temperature (`float`, *optional*):
                 The value used to module the logits distribution.
             top_n_tokens (`int`, *optional*):
@@ -2315,15 +2303,6 @@ class InferenceClient:
                 " the output from the server will be truncated."
             )
             decoder_input_details = False
-
-        if stop_sequences is not None:
-            warnings.warn(
-                "`stop_sequences` is a deprecated argument for `text_generation` task"
-                " and will be removed in version '0.28.0'. Use `stop` instead.",
-                FutureWarning,
-            )
-        if stop is None:
-            stop = stop_sequences  # use deprecated arg if provided
 
         # Build payload
         parameters = {
@@ -3121,8 +3100,6 @@ class InferenceClient:
                 The input text to classify.
             candidate_labels (`list[str]`):
                 The set of possible class labels to classify the text into.
-            labels (`list[str]`, *optional*):
-                (deprecated) List of strings. Each string is the verbalization of a possible label for the input text.
             multi_label (`bool`, *optional*):
                 Whether multiple candidate labels can be true. If false, the scores are normalized such that the sum of
                 the label likelihoods for each sequence is 1. If true, the labels are considered independent and
@@ -3178,7 +3155,7 @@ class InferenceClient:
         >>> client = InferenceClient()
         >>> client.zero_shot_classification(
         ...    text="I really like our dinner and I'm very happy. I don't like the weather though.",
-        ...    labels=["positive", "negative", "pessimistic", "optimistic"],
+        ...    candidate_labels=["positive", "negative", "pessimistic", "optimistic"],
         ...    multi_label=True,
         ...    hypothesis_template="This text is {} towards the weather"
         ... )
@@ -3214,8 +3191,6 @@ class InferenceClient:
         *,
         model: str | None = None,
         hypothesis_template: str | None = None,
-        # deprecated argument
-        labels: list[str] = None,  # type: ignore
     ) -> list[ZeroShotImageClassificationOutputElement]:
         """
         Provide input image and text labels to predict text labels for the image.
@@ -3225,8 +3200,6 @@ class InferenceClient:
                 The input image to caption. It can be raw bytes, an image file, a URL to an online image, or a PIL Image.
             candidate_labels (`list[str]`):
                 The candidate labels for this image
-            labels (`list[str]`, *optional*):
-                (deprecated) List of string possible labels. There must be at least 2 labels.
             model (`str`, *optional*):
                 The model to use for inference. Can be a model ID hosted on the Hugging Face Hub or a URL to a deployed
                 Inference Endpoint. This parameter overrides the model defined at the instance level. If not provided, the default recommended zero-shot image classification model will be used.
@@ -3250,7 +3223,7 @@ class InferenceClient:
 
         >>> client.zero_shot_image_classification(
         ...     "https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Cute_dog.jpg/320px-Cute_dog.jpg",
-        ...     labels=["dog", "cat", "horse"],
+        ...     candidate_labels=["dog", "cat", "horse"],
         ... )
         [ZeroShotImageClassificationOutputElement(label='dog', score=0.956),...]
         ```

@@ -12,14 +12,18 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import time
 import warnings
+from collections.abc import Iterator
+from datetime import datetime, timezone
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from huggingface_hub import HfApi
-from huggingface_hub._buckets import BucketFile, BucketInfo
+from huggingface_hub._buckets import BucketFile, BucketInfo, FilterMatcher, SyncOperation, SyncPlan, _execute_plan
 from huggingface_hub._jobs_api import _derive_job_volume_name
-from huggingface_hub.errors import BucketNotFoundError, EntryNotFoundError, HfHubHTTPError
+from huggingface_hub.errors import BucketBatchError, BucketNotFoundError, EntryNotFoundError, HfHubHTTPError
 
 from .testing_constants import ENDPOINT_STAGING, ENTERPRISE_ORG, ENTERPRISE_TOKEN, OTHER_TOKEN, TOKEN, USER
 from .testing_utils import repo_name
@@ -67,47 +71,51 @@ def _init_bucket(api: HfApi, bucket_id: str, private: bool = False) -> str:
 
 
 @pytest.fixture(scope="module")
-def bucket_read(api: HfApi) -> str:
+def bucket_read(api: HfApi) -> Iterator[str]:
     """Bucket for read-only tests."""
-    return _init_bucket(api, bucket_name())
-
-
-@pytest.fixture(scope="module")
-def bucket_read_private(api: HfApi) -> str:
-    """Private bucket for read-only tests."""
-    return _init_bucket(api, bucket_name(), private=True)
-
-
-@pytest.fixture(scope="module")
-def bucket_read_other(api_other: HfApi) -> str:
-    """Bucket for read-only tests with other user."""
-    bucket = api_other.create_bucket(bucket_name())
-    return bucket.bucket_id
-
-
-@pytest.fixture(scope="module")
-def bucket_read_private_other(api_other: HfApi) -> str:
-    """Private bucket for read-only tests with other user."""
-    bucket = api_other.create_bucket(bucket_name(), private=True)
-    return bucket.bucket_id
-
-
-@pytest.fixture(scope="function")
-def bucket_write(api: HfApi) -> str:
-    """Bucket for read-write tests (rebuilt every test)."""
-    bucket = api.create_bucket(bucket_name())
-    return bucket.bucket_id
-
-
-@pytest.fixture(scope="function")
-def bucket_write_2(api: HfApi) -> str:
-    """Second bucket for read-write tests (rebuilt every test)."""
-    bucket = api.create_bucket(bucket_name())
-    return bucket.bucket_id
-
-
-def test_create_bucket(api: HfApi):
     bucket_id = f"{USER}/{bucket_name()}"
+    try:
+        yield _init_bucket(api, bucket_id)
+    finally:
+        api.delete_bucket(bucket_id, missing_ok=True)
+
+
+@pytest.fixture(scope="module")
+def bucket_read_private(api: HfApi) -> Iterator[str]:
+    """Private bucket for read-only tests."""
+    bucket_id = f"{USER}/{bucket_name()}"
+    try:
+        yield _init_bucket(api, bucket_id, private=True)
+    finally:
+        api.delete_bucket(bucket_id, missing_ok=True)
+
+
+@pytest.fixture(scope="function")
+def bucket_write(api: HfApi) -> Iterator[str]:
+    """Bucket for read-write tests (rebuilt every test)."""
+    bucket_id = api.create_bucket(bucket_name()).bucket_id
+    yield bucket_id
+    api.delete_bucket(bucket_id, missing_ok=True)
+
+
+@pytest.fixture(scope="function")
+def bucket_write_2(api: HfApi) -> Iterator[str]:
+    """Second bucket for read-write tests (rebuilt every test)."""
+    bucket_id = api.create_bucket(bucket_name()).bucket_id
+    yield bucket_id
+    api.delete_bucket(bucket_id, missing_ok=True)
+
+
+@pytest.fixture(scope="function")
+def new_bucket_id(api: HfApi) -> Iterator[str]:
+    """Id of a bucket that doesn't exist yet. Deleted at the end of the test if the test created it."""
+    bucket_id = f"{USER}/{bucket_name()}"
+    yield bucket_id
+    api.delete_bucket(bucket_id, missing_ok=True)
+
+
+def test_create_bucket(api: HfApi, new_bucket_id: str):
+    bucket_id = new_bucket_id
     bucket_url = api.create_bucket(bucket_id)
     assert bucket_url.bucket_id == bucket_id
 
@@ -121,8 +129,16 @@ def test_create_bucket(api: HfApi):
     assert bucket_url == bucket_url_2
 
 
-def test_create_bucket_enterprise_org(api_enterprise: HfApi, api_other: HfApi):
+@pytest.fixture(scope="function")
+def new_enterprise_bucket_id(api_enterprise: HfApi) -> Iterator[str]:
+    """Same as `new_bucket_id` but in the enterprise org."""
     bucket_id = f"{ENTERPRISE_ORG}/{bucket_name()}"
+    yield bucket_id
+    api_enterprise.delete_bucket(bucket_id, missing_ok=True)
+
+
+def test_create_bucket_enterprise_org(api_enterprise: HfApi, api_other: HfApi, new_enterprise_bucket_id: str):
+    bucket_id = new_enterprise_bucket_id
     bucket_url = api_enterprise.create_bucket(bucket_id)
     assert bucket_url.bucket_id == bucket_id
 
@@ -135,10 +151,15 @@ def test_create_bucket_enterprise_org(api_enterprise: HfApi, api_other: HfApi):
         api_other.bucket_info(bucket_id)
 
 
-def test_create_bucket_implicit_namespace(api: HfApi):
-    name = bucket_name()
+def test_create_bucket_implicit_namespace(api: HfApi, new_bucket_id: str):
+    name = new_bucket_id.split("/")[1]
     bucket_url = api.create_bucket(name)
-    assert bucket_url.bucket_id == f"{USER}/{name}"
+    assert bucket_url.bucket_id == new_bucket_id
+
+
+def test_create_bucket_with_visibility(api: HfApi, new_bucket_id: str):
+    bucket_url = api.create_bucket(new_bucket_id, visibility="private")
+    assert api.bucket_info(bucket_url.bucket_id).private
 
 
 def test_bucket_info(api: HfApi, api_other: HfApi, api_unauth: HfApi, bucket_read: str):
@@ -231,17 +252,23 @@ def test_delete_bucket_cannot_do_implicit_namespace(api: HfApi):
     assert exc_info.value.response.status_code == 404
 
 
-def test_move_bucket_rename(api: HfApi, bucket_write: str):
+def test_move_bucket_rename(api: HfApi, bucket_write: str, new_bucket_id: str):
     """Test renaming a bucket within the same namespace."""
-    new_bucket_id = f"{USER}/{bucket_name()}"
     api.move_bucket(from_id=bucket_write, to_id=new_bucket_id)
 
     # New bucket should exist
     info = api.bucket_info(new_bucket_id)
     assert info.id == new_bucket_id
 
-    # Clean up - delete the renamed bucket
-    api.delete_bucket(new_bucket_id)
+
+def test_update_bucket_settings(api: HfApi, bucket_write: str):
+    assert api.bucket_info(bucket_write).private is False
+
+    api.update_bucket_settings(bucket_write, private=True)
+    assert api.bucket_info(bucket_write).private is True
+
+    api.update_bucket_settings(bucket_write, private=False)
+    assert api.bucket_info(bucket_write).private is False
 
 
 def test_list_bucket_tree_on_public_bucket(api: HfApi, bucket_read: str):
@@ -314,10 +341,15 @@ def test_download_bucket_files_raises_on_missing_when_requested(api: HfApi, buck
 def test_copy_files_bucket_to_same_bucket_file(api: HfApi, bucket_write: str, tmp_path):
     api.batch_bucket_files(bucket_write, add=[(b"bucket-content", "source.txt")])
 
-    api.copy_files(
-        f"hf://buckets/{bucket_write}/source.txt",
-        f"hf://buckets/{bucket_write}/copied.txt",
-    )
+    mtime = 1700000000.123
+    with patch("huggingface_hub._buckets.time.time", return_value=mtime):
+        api.copy_files(
+            f"hf://buckets/{bucket_write}/source.txt",
+            f"hf://buckets/{bucket_write}/copied.txt",
+        )
+
+    copied = next(entry for entry in api.list_bucket_tree(bucket_write) if entry.path == "copied.txt")
+    assert copied.mtime == datetime.fromtimestamp(mtime, tz=timezone.utc)
 
     output_path = tmp_path / "copied.txt"
     api.download_bucket_files(bucket_write, [("copied.txt", str(output_path))])
@@ -326,6 +358,7 @@ def test_copy_files_bucket_to_same_bucket_file(api: HfApi, bucket_write: str, tm
 
 def test_copy_files_bucket_to_different_bucket_folder(api: HfApi, bucket_write: str, bucket_write_2: str, tmp_path):
     api.batch_bucket_files(bucket_write, add=[(b"a", "logs/a.txt"), (b"b", "logs/sub/b.txt"), (b"c", "other/c.txt")])
+    time.sleep(1)  # hub-ci: give the server time to propagate the write before reading it back
 
     api.copy_files(
         f"hf://buckets/{bucket_write}/logs",
@@ -345,8 +378,8 @@ def test_copy_files_bucket_to_different_bucket_folder(api: HfApi, bucket_write: 
     assert b_path.read_bytes() == b"b"
 
 
-def test_copy_files_repo_to_bucket_with_revision(api: HfApi, bucket_write: str, tmp_path):
-    repo_id = api.create_repo(repo_id=repo_name(prefix="copy-files")).repo_id
+def test_copy_files_repo_to_bucket_with_revision(api: HfApi, bucket_write: str, repo_factory, tmp_path):
+    repo_id = repo_factory().repo_id
     branch = "copy-files-branch"
     api.upload_file(repo_id=repo_id, path_in_repo="main.txt", path_or_fileobj=b"main")
     api.create_branch(repo_id=repo_id, branch=branch)
@@ -362,8 +395,8 @@ def test_copy_files_repo_to_bucket_with_revision(api: HfApi, bucket_write: str, 
     assert output_path.read_bytes() == b"branch"
 
 
-def test_copy_files_bucket_to_repo_raises(api: HfApi, bucket_write: str):
-    repo_id = api.create_repo(repo_id=repo_name(prefix="copy-files-dst")).repo_id
+def test_copy_files_bucket_to_repo_raises(api: HfApi, bucket_write: str, repo_factory):
+    repo_id = repo_factory().repo_id
     api.batch_bucket_files(bucket_write, add=[(b"x", "x.txt")])
     with pytest.raises(ValueError, match="Bucket-to-repo copy is not supported"):
         api.copy_files(f"hf://buckets/{bucket_write}/x.txt", f"hf://{repo_id}/x.txt")
@@ -531,7 +564,7 @@ def test_copy_files_folder_to_bucket_root(api: HfApi, bucket_write: str, bucket_
 )
 def test_bucket_add_file_content_type(source, destination, expected_content_type, tmp_path):
     """Test that _BucketAddFile resolves content_type correctly."""
-    from huggingface_hub.hf_api import _BucketAddFile
+    from huggingface_hub._buckets import _BucketAddFile
 
     # If source is a str path, create a temp file so os.path.getmtime works
     if isinstance(source, str):
@@ -605,3 +638,60 @@ def test_sync_job_volume_empty_dir_uploads_placeholder(api: HfApi, tmp_path):
         if isinstance(entry, BucketFile)
     }
     assert files == {f"{volume.path}/.keep"}
+
+
+def test_execute_plan_rejects_path_traversal(tmp_path):
+    # A crafted plan must not touch files outside the destination via a traversing op path.
+    dest = tmp_path / "dest"
+    dest.mkdir()
+    outside = tmp_path / "outside.txt"
+    outside.write_text("keep me")
+    api = MagicMock()
+    plan = SyncPlan(
+        source="hf://buckets/user/bucket",
+        dest=str(dest),
+        timestamp="2026-01-01T00:00:00+00:00",
+        operations=[SyncOperation(action="delete", path="../outside.txt", size=7)],
+    )
+    with pytest.raises(ValueError, match="Invalid filename"):
+        _execute_plan(plan, api)
+    assert outside.exists()  # not deleted
+
+
+@pytest.mark.parametrize(
+    "kwargs, path, expected",
+    [
+        # Case-sensitive on every platform (fnmatch.fnmatch ignores case on Windows)
+        ({"exclude_patterns": ["*.LOG"]}, "debug.log", True),
+        ({"exclude_patterns": ["*.log"]}, "debug.log", False),
+        ({"include_patterns": ["Data/*"]}, "data/x.bin", False),
+        ({"filter_rules": [("-", "*.TMP")]}, "a.tmp", True),
+        # Backslashes in patterns are treated as path separators
+        ({"include_patterns": ["data\\*"]}, "data/x.bin", True),
+        ({"filter_rules": [("-", "logs\\*")]}, "logs/a.txt", False),
+    ],
+)
+def test_filter_matcher(kwargs, path, expected):
+    assert FilterMatcher(**kwargs).matches(path) is expected
+
+
+def test_batch_bucket_files_raises_on_failed_operations(api: HfApi, bucket_write: str, mocker):
+    api.batch_bucket_files(bucket_write, add=[(b"content", "file.txt")])
+    xet_hash = next(iter(api.list_bucket_tree(bucket_write))).xet_hash
+    bogus_copy = ("bucket", bucket_write, "0" * 64, "bogus.txt")
+
+    with pytest.raises(BucketBatchError) as exc_info:
+        api.batch_bucket_files(bucket_write, copy=[("bucket", bucket_write, xet_hash, "copy.txt"), bogus_copy])
+    assert exc_info.value.response.status_code == 200
+    assert [failure["path"] for failure in exc_info.value.failures] == ["bogus.txt"]
+    assert {file.path for file in api.list_bucket_tree(bucket_write)} == {"file.txt", "copy.txt"}
+
+    with pytest.raises(BucketBatchError) as exc_info:
+        api.batch_bucket_files(bucket_write, copy=[bogus_copy])
+    assert exc_info.value.response.status_code == 422
+
+    mocker.patch("huggingface_hub.hf_api._BUCKET_BATCH_ADD_CHUNK_SIZE", 1)  # one request per operation
+    with pytest.raises(BucketBatchError) as exc_info:
+        api.batch_bucket_files(bucket_write, copy=[bogus_copy, ("bucket", bucket_write, xet_hash, "copy2.txt")])
+    assert [failure["path"] for failure in exc_info.value.failures] == ["bogus.txt"]
+    assert {file.path for file in api.list_bucket_tree(bucket_write)} == {"file.txt", "copy.txt", "copy2.txt"}

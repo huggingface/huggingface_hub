@@ -9,6 +9,7 @@ Check out the [`HfApi`] documentation page for the reference of methods to manag
 - Get collection content: [`get_collection`]
 - Create new collection: [`create_collection`]
 - Update a collection: [`update_collection_metadata`]
+- Update a collection's resource group: [`update_collection_resource_group`]
 - Delete a collection: [`delete_collection`]
 - Add an item to a collection: [`add_collection_item`]
 - Update an item in a collection: [`update_collection_item`]

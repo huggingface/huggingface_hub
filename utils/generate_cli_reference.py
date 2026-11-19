@@ -1,5 +1,6 @@
 import argparse
 import re
+import sys
 from difflib import unified_diff
 from pathlib import Path
 
@@ -22,6 +23,10 @@ WARNING_HEADER = """<!--
 def get_docs_for_click(
     *, obj: click.Command, ctx: click.Context, indent: int = 0, name: str = "", call_prefix: str = ""
 ) -> str:
+    if materialize := getattr(obj, "materialize", None):
+        obj = materialize()
+        ctx = click.Context(obj, parent=ctx.parent, info_name=ctx.info_name)
+
     """Render Markdown reference for a Click command tree.
 
     Ported from ``typer.cli.get_docs_for_click`` (rich/HTML branches dropped) so the
@@ -63,7 +68,8 @@ def get_docs_for_click(
         if commands:
             docs += "**Commands**:\n\n"
             for _, sub in commands:
-                short_help = sub.get_short_help_str()
+                # Click's default limit is 45 chars; keep the full first sentence like `hf --help` does.
+                short_help = sub.get_short_help_str(limit=sys.maxsize)
                 docs += f"* `{sub.name}`" + (f": {short_help}" if short_help else "") + "\n"
             docs += "\n"
         for _, sub in commands:

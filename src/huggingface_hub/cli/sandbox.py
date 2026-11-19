@@ -51,11 +51,13 @@ from ._cli_utils import (
 )
 from ._framework import Argument, Option
 from ._output import out
-from .jobs import FlavorOpt, NamespaceOpt
+from .jobs import FlavorOpt, LabelsOpt, NamespaceOpt, _parse_labels_map
 
 
-sandbox_cli = typer_factory(help="Run and manage sandboxes on Hugging Face Jobs.")
-pool_cli = typer_factory(help="Warm pools of host VMs and spawn cheap shared sandboxes from them.")
+sandbox_cli = typer_factory(help="Run and manage experimental sandboxes on Hugging Face Jobs.")
+pool_cli = typer_factory(
+    help="Warm host VM pools and spawn experimental shared sandboxes for workloads within the same trust boundary."
+)
 sandbox_cli.add_group(pool_cli, name="pool")
 process_cli = typer_factory(help="List and stop background processes running in a sandbox.")
 sandbox_cli.add_group(process_cli, name="process")
@@ -79,6 +81,7 @@ def _connect(sandbox_id: str, *, namespace: str | None, token: str | None) -> It
         "hf sandbox create",
         "hf sandbox create ubuntu:24.04",
         "hf sandbox create --flavor a10g-small",
+        "hf sandbox create --label controller-run=run-42",
         "hf sandbox create --pool pool-ab12cd34ef56 --env LOG_LEVEL=debug",
     ],
 )
@@ -95,6 +98,7 @@ def sandbox_create(
     ] = None,
     env: EnvOpt = None,
     secrets: SecretsOpt = None,
+    label: LabelsOpt = None,
     env_file: EnvFileOpt = None,
     secrets_file: SecretsFileOpt = None,
     volume: VolumesOpt = None,
@@ -118,7 +122,13 @@ def sandbox_create(
         if image is not None or flavor is not None or volume:
             raise CLIError("--pool fixes the image/flavor (and volumes aren't supported); drop those options.")
         if secrets or secrets_file:
-            raise CLIError("--pool can't encrypt secrets; pass them with --env/--env-file instead.")
+            raise CLIError(
+                "--pool has no encrypted-secrets channel. Pass the values with --env/--env-file: on a pooled "
+                "sandbox they are delivered to the host at creation and are not stored in the job metadata, "
+                "but they are not encrypted at rest."
+            )
+        if label:
+            raise CLIError("--label is only supported for dedicated sandboxes.")
         sbx = SandboxPool.connect(pool, namespace=namespace, token=token).create(
             env=parse_env_map(env, env_file),
             idle_timeout=idle,
@@ -138,6 +148,7 @@ def sandbox_create(
         volumes=parse_volumes(volume),
         namespace=namespace,
         forward_hf_token=forward_hf_token,
+        labels=_parse_labels_map(label),
         token=token,
     )
     # Release the HTTP client (the sandbox keeps running)
@@ -189,6 +200,7 @@ def sandbox_exec(
             timeout=exec_timeout,
             on_stdout=write_stdout,
             on_stderr=write_stderr,
+            capture_output=False,
             check=False,
         )
     if result.timed_out:

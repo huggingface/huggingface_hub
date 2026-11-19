@@ -19,7 +19,7 @@ from collections import deque
 from collections.abc import Iterator
 from typing import Literal, TypedDict
 
-import httpx
+import httpx2
 
 from ..utils._headers import build_hf_headers
 from ..utils._http import hf_raise_for_status
@@ -61,7 +61,7 @@ class ReloadClient:
     ):
         base_host = host.replace(subdomain, f"{subdomain}--{HOT_RELOADING_PORT}")
         self.replica_hash = replica_hash
-        self.client = httpx.Client(
+        self.client = httpx2.Client(
             base_url=f"{base_host}/--replicas/+{replica_hash}",
             headers=build_hf_headers(token=token),
             timeout=CLIENT_TIMEOUT,

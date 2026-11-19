@@ -1,7 +1,7 @@
 from unittest.mock import Mock
 
 import pytest
-from httpx import Request, Response
+from httpx2 import Request, Response
 
 from huggingface_hub.errors import (
     BadRequestError,
@@ -44,6 +44,15 @@ class TestErrorUtils:
 
         assert context.value.response.status_code == 401
         assert "Request ID: 123" in str(context.value)
+
+    def test_hf_raise_for_status_401_kernel_url(self) -> None:
+        response = Response(status_code=401, headers={X_REQUEST_ID: "123"})
+        response.request = Request(method="GET", url="https://huggingface.co/api/kernels/username/reponame")
+        with pytest.raises(RepositoryNotFoundError, match="Repository Not Found") as context:
+            hf_raise_for_status(response)
+
+        assert context.value.repo_type == "kernel"
+        assert context.value.repo_id == "username/reponame"
 
     def test_hf_raise_for_status_401_repo_url_invalid_token(self) -> None:
         response = Response(
@@ -332,9 +341,9 @@ class TestHfHubHTTPError:
 def test_repo_api_regex(url: str, should_match: bool) -> None:
     """Test the regex used to match repo API URLs."""
     if should_match:
-        assert REPO_API_REGEX.match(url)
+        assert REPO_API_REGEX.search(url)
     else:
-        assert REPO_API_REGEX.match(url) is None
+        assert REPO_API_REGEX.search(url) is None
 
 
 def test_hf_hub_http_error_inherits_from_os_error() -> None:

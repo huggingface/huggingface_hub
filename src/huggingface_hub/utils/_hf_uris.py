@@ -617,7 +617,7 @@ def _parse_repo_body(
             raise HfUriError(uri=raw, msg=f"Repository id must be 'namespace/name', got '{repo_id}'.")
         # Special refs like 'refs/pr/10' contain '/' and must be matched eagerly,
         # otherwise we would split them at the first '/' and treat the rest as a path.
-        match = _SPECIAL_REFS_REVISION_REGEX.match(rev_and_path)
+        match = _SPECIAL_REFS_REVISION_REGEX.search(rev_and_path)
         if match is not None:
             revision = match.group()
             path_in_repo = rev_and_path[len(revision) :].removeprefix("/")

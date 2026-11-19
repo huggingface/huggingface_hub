@@ -27,14 +27,15 @@ from ._typing import CallableT
 
 REPO_ID_REGEX = re.compile(
     r"""
-    ^
-    (\b[\w\-.]+\b/)? # optional namespace (username or organization)
+    (\b[\w\-.]{1,96}\b/)? # optional namespace (username or organization)
     \b               # starts with a word boundary
     [\w\-.]{1,96}    # repo_name: alphanumeric + . _ -
     \b               # ends with a word boundary
-    $
     """,
-    flags=re.VERBOSE,
+    # `\w` matches Unicode word characters by default, but the allowed charset is
+    # ASCII-only (see the "Rules" docstring below and the internal Hub validation
+    # it mirrors), so `café` or `文件夹` would otherwise pass this regex unrejected.
+    flags=re.VERBOSE | re.ASCII,
 )
 
 
@@ -134,7 +135,7 @@ def validate_repo_id(repo_id: str | None) -> None:
             f" '{repo_id}'. Use `repo_type` argument if needed."
         )
 
-    if not REPO_ID_REGEX.match(repo_id):
+    if not REPO_ID_REGEX.fullmatch(repo_id):
         raise HFValidationError(
             "Repo id must use alphanumeric chars, '-', '_' or '.'."
             " The name cannot start or end with '-' or '.' and the maximum length is 96:"
@@ -156,17 +157,16 @@ def smoothly_deprecate_legacy_arguments(fn_name: str, kwargs: dict[str, Any]) ->
 
     List of deprecated arguments:
         - `proxies`:
-            To set up proxies, user must either use the HTTP_PROXY environment variable or configure the `httpx.Client`
+            To set up proxies, user must either use the HTTP_PROXY environment variable or configure the `httpx2.Client`
             manually using the [`set_client_factory`] function.
 
             In huggingface_hub 0.x, `proxies` was a dictionary directly passed to `requests.request`.
-            In huggingface_hub 1.x, we migrated to `httpx` which does not support `proxies` the same way.
+            Since huggingface_hub 1.x, per-request `proxies` are no longer supported.
             In particular, it is not possible to configure proxies on a per-request basis. The solution is to configure
             it globally using the [`set_client_factory`] function or using the HTTP_PROXY environment variable.
 
             For more details, see:
-            - https://www.python-httpx.org/advanced/proxies/
-            - https://www.python-httpx.org/compatibility/#proxy-keys.
+            - https://httpx2.pydantic.dev/advanced/proxies/
 
         - `resume_download`: deprecated without replacement. `huggingface_hub` always resumes downloads whenever possible.
         - `force_filename`: deprecated without replacement. Filename is always the same as on the Hub.
@@ -179,8 +179,8 @@ def smoothly_deprecate_legacy_arguments(fn_name: str, kwargs: dict[str, Any]) ->
     if proxies is not None:
         warnings.warn(
             f"The `proxies` argument is ignored in `{fn_name}`. To set up proxies, use the HTTP_PROXY / HTTPS_PROXY"
-            " environment variables or configure the `httpx.Client` manually using `huggingface_hub.set_client_factory`."
-            " See https://www.python-httpx.org/advanced/proxies/ for more details."
+            " environment variables or configure the `httpx2.Client` manually using `huggingface_hub.set_client_factory`."
+            " See https://httpx2.pydantic.dev/advanced/proxies/ for more details."
         )
 
     # resume_download

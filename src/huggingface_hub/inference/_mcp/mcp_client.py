@@ -210,17 +210,21 @@ class MCPClient:
         logger.debug("Initializing session...")
         await session.initialize()
 
-        # List available tools
+        # List available tools, following `nextCursor` since servers may paginate tools/list
         response = await session.list_tools()
-        logger.debug("Connected to server with tools:", [tool.name for tool in response.tools])
+        tools: list[mcp_types.Tool] = list(response.tools)
+        while response.nextCursor:
+            response = await session.list_tools(cursor=response.nextCursor)
+            tools.extend(response.tools)
+        logger.debug("Connected to server with tools:", [tool.name for tool in tools])
 
         # Filter tools based on allowed_tools configuration
-        filtered_tools = response.tools
+        filtered_tools = tools
 
         if allowed_tools is not None:
-            filtered_tools = [tool for tool in response.tools if tool.name in allowed_tools]
+            filtered_tools = [tool for tool in tools if tool.name in allowed_tools]
             logger.debug(
-                f"Tool filtering applied. Using {len(filtered_tools)} of {len(response.tools)} available tools: {[tool.name for tool in filtered_tools]}"
+                f"Tool filtering applied. Using {len(filtered_tools)} of {len(tools)} available tools: {[tool.name for tool in filtered_tools]}"
             )
 
         for tool in filtered_tools:

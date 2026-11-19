@@ -32,6 +32,11 @@ If you want to report a bug or suggest a technical improvement, **please open an
 A well-written issue with concrete details (*what* is wrong or missing, *why* it matters, *how* you'd expect it to work)
 is the most helpful thing you can do. It helps us prioritize, design the right solution, and ship a fix quickly.
 
+For every bug-related issue or pull request, **you must state in the description how the bug was discovered**:
+was it encountered while using the library in a real-life situation (briefly describe the use case), or found through
+static code analysis (for example, reading the code or using an analysis tool)? If a finding from static analysis was
+later reproduced, still state that it was originally found through static analysis.
+
 In practice, **we prefer to implement most code changes ourselves**. As maintainers we can iterate fast, keep the code
 consistent, and ship fixes in a single pass. We will typically pick up issues and open a PR on our side when the timing
 is right. This is not about gatekeeping. It is simply how we work most efficiently on a fast-moving codebase, and it
@@ -221,43 +226,28 @@ We use `pytest` to run the tests. From the root of the repository:
 
 ```bash
 $ pytest tests/                          # run all tests (slow, many require network)
-$ pytest tests/test_repository.py        # run a specific test file
+$ pytest tests/test_utils_sha.py         # run a specific test file
 $ pytest tests -k tag                    # run tests matching a name
 ```
 
-#### Xet vs non-Xet tests
+#### Test suites
 
-Whether a test depends on Xet is declared explicitly with markers, enforced by the
-`xet_mode` fixture in `tests/conftest.py`:
+Each test belongs to exactly one suite. CI runs each suite in its own job, on Ubuntu and Windows, with Python 3.10 and 3.15. Suites are declared with markers and enforced in `tests/conftest.py`:
 
-- `@pytest.mark.xet` — the test **requires** `hf_xet` (e.g. Buckets, Xet upload/download).
-  It is skipped when `hf_xet` is not installed and runs with Xet force-enabled otherwise.
-  Mark a whole module with `pytestmark = pytest.mark.xet`.
-- `@pytest.mark.no_xet` — the test **must run without** `hf_xet` (e.g. legacy LFS
-  behavior). It is skipped when `hf_xet` is installed.
-- unmarked — the test must work **regardless of Xet**. Nothing is forced: it runs with
-  whatever your environment provides. In CI, unmarked tests run twice: once with
-  `hf_xet` installed ("with hf_xet" job) and once without (other jobs). If an unmarked
-  test only passes in one mode, mark it `xet` or `no_xet` accordingly.
+- `api` (default) — everything that doesn't transfer files: repo, discussion, collection and settings APIs, CLI output, utils, etc. Tests without a suite marker get it automatically, so there is nothing to add.
+- `@pytest.mark.transfer` — the test covers upload or download logic, which **behaves differently without** `hf_xet`: LFS upload, HTTP download, file streaming, `upload_folder` without the Xet pipeline, etc. CI runs it twice: once with `hf_xet` installed and once without. Use it for tests that target the transfer logic itself, not for tests that merely upload or download a file as part of their setup.
+- `@pytest.mark.inference` — `InferenceClient`, providers and types. Mark a whole module with `pytestmark = pytest.mark.inference` (this is how the `test_inference_*.py` files are tagged).
 
-```bash
-$ pytest tests -m xet                    # only Xet-required tests (needs hf_xet)
-$ pytest tests -m no_xet                 # only legacy tests (skipped if hf_xet installed)
-$ pytest tests -m "not xet"              # what CI runs without hf_xet installed
-$ pytest tests -m "not no_xet"           # what CI runs with hf_xet installed
-```
+Two markers restrict a `transfer` test to one Xet mode. They imply `transfer`, so there is no need to add both:
 
-#### Inference tests
+- `@pytest.mark.xet` — the test **requires** `hf_xet` (e.g. Buckets, Xet upload/download). It is skipped when `hf_xet` is not installed and runs with Xet force-enabled otherwise. Mark a whole module with `pytestmark = pytest.mark.xet`.
+- `@pytest.mark.no_xet` — the test **must run without** `hf_xet` (e.g. legacy LFS behavior). It is skipped when `hf_xet` is installed.
 
-Inference tests (client, providers, types, endpoints) are declared with the `inference`
-marker and run in their own CI job, separate from the Xet jobs above:
-
-- `@pytest.mark.inference` — the test belongs to the Inference suite. Mark a whole module
-  with `pytestmark = pytest.mark.inference` (this is how the `test_inference_*.py` files
-  are tagged).
-- unmarked — everything else.
+A test that ends up in several suites (e.g. `inference` + `xet`), or that is marked both `xet` and `no_xet`, fails with an explicit error.
 
 ```bash
-$ pytest tests -m inference              # only inference tests (the dedicated CI job)
-$ pytest tests -m "not inference"        # everything except inference tests
+$ pytest tests -m api                       # "api" CI job
+$ pytest tests -m transfer                  # "transfer (hf_xet)" CI job
+$ pytest tests -m "transfer and not xet"    # "transfer (no hf_xet)" CI job (uninstall hf_xet first)
+$ pytest tests -m inference                 # "inference" CI job
 ```

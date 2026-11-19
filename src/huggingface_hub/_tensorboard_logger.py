@@ -21,28 +21,22 @@ from .repocard import ModelCard
 from .utils import experimental
 
 
-# Depending on user's setup, SummaryWriter can come either from 'tensorboardX'
-# or from 'torch.utils.tensorboard'. Both are compatible so let's try to load
-# from either of them.
-try:
-    from tensorboardX import SummaryWriter as _RuntimeSummaryWriter
-
-    is_summary_writer_available = True
-except ImportError:
+def _load_summary_writer():
+    """Load a SummaryWriter implementation only when an HFSummaryWriter is instantiated."""
     try:
-        from torch.utils.tensorboard import SummaryWriter as _RuntimeSummaryWriter
-
-        is_summary_writer_available = True
+        from tensorboardX import SummaryWriter
     except ImportError:
-        # Dummy class to avoid failing at import. Will raise on instance creation.
-        class _DummySummaryWriter:
-            pass
+        try:
+            from torch.utils.tensorboard import SummaryWriter
+        except ImportError:
+            raise ImportError(
+                "You must have `tensorboard` installed to use `HFSummaryWriter`. Please run `pip install --upgrade"
+                " tensorboardX` first."
+            ) from None
+    return SummaryWriter
 
-        _RuntimeSummaryWriter = _DummySummaryWriter  # type: ignore[assignment]  # ty: ignore[conflicting-declarations]
-        is_summary_writer_available = False
 
-
-class HFSummaryWriter(_RuntimeSummaryWriter):
+class HFSummaryWriter:
     """
     Wrapper around the tensorboard's `SummaryWriter` to push training logs to the Hub.
 
@@ -115,11 +109,6 @@ class HFSummaryWriter(_RuntimeSummaryWriter):
 
     @experimental
     def __new__(cls, *args, **kwargs) -> "HFSummaryWriter":
-        if not is_summary_writer_available:
-            raise ImportError(
-                "You must have `tensorboard` installed to use `HFSummaryWriter`. Please run `pip install --upgrade"
-                " tensorboardX` first."
-            )
         return super().__new__(cls)
 
     def __init__(
@@ -139,7 +128,8 @@ class HFSummaryWriter(_RuntimeSummaryWriter):
         **kwargs,
     ):
         # Initialize SummaryWriter
-        super().__init__(logdir=logdir, **kwargs)
+        self._summary_writer = _load_summary_writer()(logdir=logdir, **kwargs)
+        self.logdir = self._summary_writer.logdir
 
         # Check logdir has been correctly initialized and fail early otherwise. In practice, SummaryWriter takes care of it.
         if not isinstance(self.logdir, str):
@@ -182,8 +172,16 @@ class HFSummaryWriter(_RuntimeSummaryWriter):
             card.data["tags"] = tags
             card.push_to_hub(repo_id=self.repo_id, repo_type=self.repo_type)
 
+    def __getattr__(self, name: str):
+        """Forward the SummaryWriter API to the lazily-created writer."""
+        return getattr(self._summary_writer, name)
+
+    def __enter__(self) -> "HFSummaryWriter":
+        self._summary_writer.__enter__()
+        return self
+
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Push to hub in a non-blocking way when exiting the logger's context manager."""
-        super().__exit__(exc_type, exc_val, exc_tb)
+        self._summary_writer.__exit__(exc_type, exc_val, exc_tb)
         future = self.scheduler.trigger()
         future.result()

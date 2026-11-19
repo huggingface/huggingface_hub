@@ -522,9 +522,13 @@ def _validate_literal(name: str, value: Any, args: tuple[Any, ...]) -> None:
 
 
 def _validate_list(name: str, value: Any, args: tuple[Any, ...]) -> None:
-    """Validate list[T] type."""
+    """Validate list or list[T] type."""
     if not isinstance(value, list):
         raise TypeError(f"Field '{name}' expected a list, got {type(value).__name__}")
+
+    # If no type argument is provided (i.e., bare `typing.List`), skip item validation
+    if not args:
+        return
 
     # Validate each item in the list
     item_type = args[0]
@@ -536,9 +540,13 @@ def _validate_list(name: str, value: Any, args: tuple[Any, ...]) -> None:
 
 
 def _validate_dict(name: str, value: Any, args: tuple[Any, ...]) -> None:
-    """Validate dict[K, V] type."""
+    """Validate dict or dict[K, V] type."""
     if not isinstance(value, dict):
         raise TypeError(f"Field '{name}' expected a dict, got {type(value).__name__}")
+
+    # If no type arguments are provided (i.e., bare `typing.Dict`), skip key/value validation
+    if not args:
+        return
 
     # Validate keys and values
     key_type, value_type = args
@@ -574,9 +582,13 @@ def _validate_tuple(name: str, value: Any, args: tuple[Any, ...]) -> None:
 
 
 def _validate_set(name: str, value: Any, args: tuple[Any, ...]) -> None:
-    """Validate set[T] type."""
+    """Validate set or set[T] type."""
     if not isinstance(value, set):
         raise TypeError(f"Field '{name}' expected a set, got {type(value).__name__}")
+
+    # If no type argument is provided (i.e., bare `typing.Set`), skip item validation
+    if not args:
+        return
 
     # Validate each item in the set
     item_type = args[0]

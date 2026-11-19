@@ -11,6 +11,10 @@ output-format = "concise"
 # Minimize noise from optional/extra dependencies not installed in CI or local
 unresolved-import = "ignore"
 unresolved-attribute = "ignore"
+# New rule names (ty 0.0.100 split `unresolved-attribute`); old names kept for older local ty versions
+import-not-found = "ignore"
+missing-attribute = "ignore"
+missing-union-attribute = "ignore"
 
 # Keep type: ignore comments for mypy compatibility
 unused-ignore-comment = "ignore"
@@ -28,6 +32,10 @@ call-non-callable = "ignore"
 missing-argument = "ignore"
 deprecated = "ignore"
 
+[tool.ty.analysis]
+# hf_xet is a compiled extension without type stubs: ty cannot see its members (`missing-module-member` since ty 0.0.105)
+replace-imports-with-any = ["hf_xet"]
+
 [tool.ty.src]
 exclude = ["src/huggingface_hub/cli/spaces.py"] # TypedDict not yet fully supported by ty
 
@@ -35,17 +43,16 @@ exclude = ["src/huggingface_hub/cli/spaces.py"] # TypedDict not yet fully suppor
 # Add the specified `OPTS` to the set of command line arguments as if they had
 # been specified by the user.
 addopts = "-Werror::FutureWarning --log-cli-level=INFO -sv --durations=0 --strict-markers"
-# Custom markers. Xet policy (enforced by the `xet_mode` fixture in tests/conftest.py):
-# tests marked `xet` require `hf_xet` (skipped if not installed, Xet force-enabled);
-# tests marked `no_xet` must run without `hf_xet` (skipped if installed);
-# unmarked tests must work regardless of Xet and run in both CI jobs (with and
-# without `hf_xet` installed).
+# Custom markers. Each test belongs to exactly one CI suite: `api`, `transfer` or `inference` (enforced by
+# `pytest_collection_modifyitems` in tests/conftest.py). Xet policy is enforced by the `xet_mode` fixture.
 markers = [
-    "xet: test requires the `hf_xet` package; Xet is force-enabled (skipped if `hf_xet` is not installed)",
-    "no_xet: test must run without `hf_xet`; skipped if `hf_xet` is installed",
-    "inference: inference test (client, providers, types); runs in the dedicated 'Inference only' CI job",
+    "api: suite for tests that don't depend on Xet (repos, discussions, CLI output, utils, etc.); added automatically to tests with no suite marker",
+    "transfer: suite for upload/download tests (LFS, Xet, file streaming); runs in CI both with and without `hf_xet`",
+    "inference: suite for inference tests (client, providers, types)",
+    "xet: transfer test that requires `hf_xet`; Xet is force-enabled (skipped if `hf_xet` is not installed). Implies `transfer`",
+    "no_xet: transfer test that must run without `hf_xet`; skipped if `hf_xet` is installed. Implies `transfer`",
     "production: test runs against the production Hub endpoint (patches `ENDPOINT` and the download URL template, like the former `with_production_testing` decorator)",
-    "deprecated: test is expected to emit a `FutureWarning` mentioning the given function name(s), e.g. `@pytest.mark.deprecated('duplicate_space')`",
+    "deprecated: test is expected to emit a `FutureWarning` mentioning the given function name(s), e.g. `@pytest.mark.deprecated('some_deprecated_method')`",
     "git_lfs: test requires git-lfs; skipped unless the `RUN_GIT_LFS_TESTS` environment variable is truthy",
 ]
 # The defined variables will be added to the environment before any tests are
@@ -83,7 +90,10 @@ line-length = 119
 # Ignored rules:
 # "E501" -> line length violation
 lint.ignore = ["E501"]
-lint.select = ["E", "F", "I", "W"]
+lint.select = ["E", "F", "I", "TID251", "W"]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"re.match".msg = "`re.match` is soft-deprecated (it only anchors the prefix). Use `re.fullmatch` for a whole-string match, or `re.search` with an explicit `^` anchor for a prefix match."
 
 [tool.ruff.lint.isort]
 known-first-party = ["huggingface_hub"]

@@ -208,15 +208,18 @@ def download(
         if isinstance(result, DryRunFileInfo):
             result = [result]
         will_download = [r for r in result if r.will_download]
+        total_size = (
+            None if any(r.file_size is None for r in will_download) else sum(r.file_size or 0 for r in will_download)
+        )
         out.text(
             f"[dry-run] Will download {len(will_download)} files"
             f" (out of {len(result)})"
-            f" totalling {_format_size(sum(r.file_size for r in will_download))}."
+            f" totalling {_format_size(total_size) if total_size is not None else 'an unknown size'}."
         )
         items = [
             {
                 "file": info.filename,
-                "size": _format_size(info.file_size) if info.will_download else "-",
+                "size": _format_size(info.file_size) if info.will_download and info.file_size is not None else "-",
             }
             for info in sorted(result, key=lambda x: x.filename)
         ]

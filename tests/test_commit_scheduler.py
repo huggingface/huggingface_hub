@@ -23,10 +23,7 @@ class TestCommitScheduler:
         except AttributeError:
             pass
 
-        try:  # try delete temporary repo
-            self.api.delete_repo(self.repo_name)
-        except Exception:
-            pass
+        self.api.delete_repo(self.repo_name, missing_ok=True)
 
     def test_mocked_push_to_hub(self, mocker, tmp_path: Path) -> None:
         push_to_hub_mock: MagicMock = mocker.patch("huggingface_hub._commit_scheduler.CommitScheduler.push_to_hub")
@@ -204,7 +201,7 @@ class TestPartialFileIO:
         assert file.read(20) == b"12345"
 
     def test_partial_file_len(self) -> None:
-        """Useful for httpx internally."""
+        """Useful for httpx2 internally."""
         file = PartialFileIO(self.file_path, size_limit=5)
         assert len(file) == 5
 
@@ -214,7 +211,7 @@ class TestPartialFileIO:
     def test_partial_file_fileno(self) -> None:
         """We explicitly do not implement fileno() to avoid misuse.
 
-        httpx tries to use it to check file size which we don't want for PartialFileIO.
+        httpx2 tries to use it to check file size which we don't want for PartialFileIO.
         """
         file = PartialFileIO(self.file_path, size_limit=5)
         with pytest.raises(AttributeError):

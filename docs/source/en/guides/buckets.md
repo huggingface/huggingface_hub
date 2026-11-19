@@ -172,6 +172,33 @@ username/logs
 ]
 ```
 
+### Change bucket visibility
+
+Use [`update_bucket_settings`] to switch an existing bucket between private and public.
+
+```py
+>>> from huggingface_hub import update_bucket_settings
+
+# Make a bucket private
+>>> update_bucket_settings("username/my-bucket", private=True)
+
+# Make it public again
+>>> update_bucket_settings("username/my-bucket", private=False)
+```
+
+Or via CLI:
+
+```bash
+# Make a bucket private
+>>> hf buckets settings username/my-bucket --private
+✓ Bucket settings updated
+  bucket_id: username/my-bucket
+  private: True
+
+# Make it public again
+>>> hf buckets settings username/my-bucket --public
+```
+
 ### Delete a bucket
 
 Use [`delete_bucket`] to delete a bucket. This operation is irreversible.
@@ -340,6 +367,11 @@ sub/
 > [!TIP]
 > The `hf buckets list` command accepts both short format (`username/my-bucket/sub`) and full handle (`hf://buckets/username/my-bucket/sub`) as arguments.
 
+> [!TIP]
+> Listing a bucket with [`HfFileSystem`] caches its content. Pass `HfFileSystem(live_follow=True)` to have the
+> listings refreshed as files are added, updated and deleted in the bucket by other peers, see
+> [the filesystem guide](./hf_file_system#keep-listings-fresh).
+
 ## Upload files
 
 ### Upload with Python
@@ -394,7 +426,7 @@ You can also delete files while uploading others.
 ```
 
 > [!WARNING]
-> Calls to [`batch_bucket_files`] are non-transactional. If an error occurs during the process, some files may have been uploaded, copied, or deleted while others haven't.
+> Calls to [`batch_bucket_files`] are non-transactional. If an error occurs during the process, some files may have been uploaded, copied, or deleted while others haven't. When the server reports that some operations failed, a [`BucketBatchError`] is raised with the failed paths on its `failures` attribute.
 
 ### Upload a single file with the CLI
 

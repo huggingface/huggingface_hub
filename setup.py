@@ -12,16 +12,17 @@ def get_version() -> str:
 
 
 # hf-xet version used in both install_requires and extras["hf_xet"]
-HF_XET_VERSION = "hf-xet>=1.5.1,<2.0.0"
+HF_XET_VERSION = "hf-xet>=1.6.0,<2.0.0"
 
 install_requires = [
     "click>=8.4.2,<9.0.0",  # 8.4.0/8.4.1 shipped a broken fish completion script
     "filelock>=3.10.0",
     "fsspec>=2023.5.0",
-    f"{HF_XET_VERSION}; platform_machine=='x86_64' or platform_machine=='amd64' or platform_machine=='AMD64' or platform_machine=='arm64' or platform_machine=='aarch64'",
-    "httpx>=0.23.0, <1",
+    f"{HF_XET_VERSION}; platform_machine=='x86_64' or platform_machine=='amd64' or platform_machine=='AMD64' or platform_machine=='arm64' or platform_machine=='ARM64' or platform_machine=='aarch64'",
+    "httpx2>=2.0.0, <3",
     "packaging>=20.9",
     "pyyaml>=5.1",
+    "tomli>=1.1.0; python_version<'3.11'",  # stdlib `tomllib` from 3.11 onwards.
     "tqdm>=4.42.1",
     "typing-extensions>=4.1.0",  # to be able to import TypeAlias, dataclass_transform
 ]
@@ -29,9 +30,8 @@ install_requires = [
 extras = {}
 
 extras["oauth"] = [
-    "authlib>=1.3.2",  # minimum version to include https://github.com/lepture/authlib/pull/644
+    "authlib>=1.8.0",  # first version supporting httpx2
     "fastapi",
-    "httpx",  # required for authlib but not included in its dependencies
     "itsdangerous",  # required for starlette SessionMiddleware
 ]
 
@@ -40,36 +40,33 @@ extras["torch"] = [
     "safetensors[torch]",
 ]
 extras["fastai"] = [
-    "toml",
     "fastai>=2.4",
     "fastcore>=1.3.27",
 ]
 
 extras["hf_xet"] = [HF_XET_VERSION]
 
-extras["mcp"] = ["mcp>=1.8.0"]
+extras["mcp"] = ["mcp>=1.9.4, <2.0.0"]  # list_tools(cursor=...) only paginates correctly from 1.9.4
 
-extras["testing"] = (
-    extras["oauth"]
-    + [
-        "jedi",
-        "Jinja2",
-        "pytest>=8.4.2",  # we need https://github.com/pytest-dev/pytest/pull/12436
-        "pytest-cov",
-        "pytest-env",
-        "pytest-xdist",
-        "pytest-vcr",  # to mock Inference
-        "pytest-asyncio",  # for AsyncInferenceClient
-        "pytest-rerunfailures<16.0",  # to rerun flaky tests in CI
-        "pytest-mock",
-        "urllib3<2.0",  # VCR.py broken with urllib3 2.0 (see https://urllib3.readthedocs.io/en/stable/v2-migration-guide.html)
-        "soundfile",
-        "Pillow",
-        "numpy",  # for embeddings
-        "duckdb",  # for datasets SQL end-to-end tests
-        "fastapi",  # To build the documentation
-    ]
-)
+extras["testing"] = extras["oauth"] + [
+    "jedi",
+    "Jinja2",
+    "pytest>=8.4.2",  # we need https://github.com/pytest-dev/pytest/pull/12436
+    "pytest-cov",
+    "pytest-env",
+    "pytest-xdist",
+    "pytest-vcr",  # to mock Inference
+    "pytest-asyncio",  # for AsyncInferenceClient
+    # 16.2 clears fixture finalizers when rerunning a test whose fixture failed at setup.
+    # Without it, any flaky fixture (e.g. a 502 from hub-ci) makes the rerun itself crash on pytest>=9.
+    "pytest-rerunfailures>=16.2",  # to rerun flaky tests in CI
+    "pytest-mock",
+    "soundfile",
+    "Pillow",
+    "numpy",  # for embeddings
+    "duckdb; python_version < '3.15'",  # for datasets SQL end-to-end tests (no 3.15 wheels yet)
+    "fastapi",  # To build the documentation
+]
 
 extras["gradio"] = [
     "gradio>=5.0.0",
@@ -82,7 +79,6 @@ extras["typing"] = [
     "typing-extensions>=4.8.0",
     "types-PyYAML",
     "types-simplejson",
-    "types-toml",
     "types-tqdm",
     "types-urllib3",
 ]
@@ -115,7 +111,6 @@ setup(
     entry_points={
         "console_scripts": [
             "hf=huggingface_hub.cli.hf:main",
-            "huggingface-cli=huggingface_hub.cli.deprecated_cli:main",
             "tiny-agents=huggingface_hub.inference._mcp.cli:app",
         ],
         "fsspec.specs": "hf=huggingface_hub.HfFileSystem",
@@ -135,6 +130,7 @@ setup(
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
         "Programming Language :: Python :: 3.14",
+        "Programming Language :: Python :: 3.15",
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
     ],
     include_package_data=True,

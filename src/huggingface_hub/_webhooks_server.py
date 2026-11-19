@@ -25,14 +25,8 @@ from .utils import experimental, is_fastapi_available, is_gradio_available
 
 if TYPE_CHECKING:
     import gradio as gr
-    from fastapi import Request
-
-if is_fastapi_available():
     from fastapi import FastAPI, Request
     from fastapi.responses import JSONResponse
-else:
-    # Will fail at runtime if FastAPI is not available
-    FastAPI = Request = JSONResponse = None  # type: ignore
 
 
 _global_app: Optional["WebhooksServer"] = None  # ty: ignore[invalid-type-form]
@@ -99,6 +93,7 @@ class WebhooksServer:
                 "You must have `fastapi` installed to use `WebhooksServer`. Please run `pip install --upgrade fastapi`"
                 " first."
             )
+        _load_fastapi()
         return super().__new__(cls)
 
     def __init__(
@@ -306,6 +301,13 @@ def _get_global_app() -> WebhooksServer:  # ty: ignore[invalid-type-form]
     if _global_app is None:
         _global_app = WebhooksServer()
     return _global_app
+
+
+def _load_fastapi() -> None:
+    global FastAPI, JSONResponse, Request
+
+    from fastapi import FastAPI, Request
+    from fastapi.responses import JSONResponse
 
 
 def _warn_on_empty_secret(webhook_secret: str | None) -> None:

@@ -33,6 +33,18 @@ def test_collect_local_files_lists_all(tmp_path: Path) -> None:
     assert mapping["c.bin"].read_bytes() == b"y"
 
 
+def test_collect_local_files_skips_local_dir_metadata(tmp_path: Path) -> None:
+    # `hf download --local-dir` writes its metadata under `.cache/huggingface/`; it is never part of the repo
+    (tmp_path / "config.json").write_text("{}")
+    (tmp_path / ".cache" / "huggingface" / "download").mkdir(parents=True)
+    (tmp_path / ".cache" / "huggingface" / ".gitignore").write_text("*")
+    (tmp_path / ".cache" / "huggingface" / "CACHEDIR.TAG").write_text("tag")
+    (tmp_path / ".cache" / "huggingface" / "download" / "config.json.metadata").write_text("meta")
+    (tmp_path / ".cache" / "other.txt").write_text("kept")
+
+    assert sorted(collect_local_files(tmp_path)) == [".cache/other.txt", "config.json"]
+
+
 @pytest.mark.parametrize(
     "algorithm,data,expected_fn",
     [

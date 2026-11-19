@@ -16,17 +16,27 @@
 import itertools
 import multiprocessing
 import multiprocessing.pool
+import shlex
 import shutil
 import time
-from collections.abc import Callable, Iterable
-from fnmatch import fnmatch
+from collections.abc import Callable, Collection, Generator, Iterable
+from contextlib import contextmanager
+from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path
 from queue import Empty, Queue
 from typing import Annotated, Any, TypeVar
 from urllib.parse import urlsplit
 
-from huggingface_hub import HfApi, JobHardware, JobInfo, JobStage, Volume, constants
-from huggingface_hub._jobs_api import TERMINAL_JOB_STAGES
+import httpx2
+
+from huggingface_hub import HfApi, JobHardware, JobInfo, JobNetwork, JobStage, Volume, constants
+from huggingface_hub._jobs_api import (
+    DEFAULT_UV_IMAGE,
+    TERMINAL_JOB_STAGES,
+    _default_job_name_from_image,
+    _default_job_name_from_script,
+)
 from huggingface_hub.errors import CLIError
 from huggingface_hub.utils import logging
 from huggingface_hub.utils._cache_manager import _format_size
@@ -36,20 +46,26 @@ from huggingface_hub.utils._parsing import format_duration, parse_duration
 from ._cli_utils import (
     EnvFileOpt,
     EnvOpt,
+    FormatOpt,
+    JsonOpt,
+    QuietOpt,
     SecretsFileOpt,
     SecretsOpt,
     SoftChoice,
     SshDryRunOpt,
     SshIdentityFileOpt,
     TokenOpt,
+    _get_extended_environ,
     exec_ssh,
     get_hf_api,
     parse_env_map,
     parse_volumes,
+    set_output_format,
     typer_factory,
 )
 from ._framework import Argument, Option
-from ._output import _dataclass_to_dict, out
+from ._output import OutputFormat, _dataclass_to_dict, out
+from ._uv_script_header import TABLE_NAME, UvScriptHeader, load_uv_script
 
 
 logger = logging.get_logger(__name__)
@@ -127,6 +143,301 @@ def _parse_and_sync_job_volumes(
     return result
 
 
+@dataclass
+class _UvJobConfig:
+    """Resolved launch configuration of a UV Job: CLI flags merged with the script's `[tool.hf-jobs]` table."""
+
+    script: str
+    """What is passed to the Jobs API. Same as the CLI argument, except for a URL script (downloaded locally)."""
+
+    script_args: list[str] = field(default_factory=list)
+    image: str | None = None
+    flavor: str | None = None
+    python: str | None = None
+    timeout: str | None = None
+    namespace: str | None = None
+    network_group: str | None = None
+    env: dict[str, str | None] = field(default_factory=dict)
+    secrets: dict[str, str | None] = field(default_factory=dict)
+    labels: dict[str, str] = field(default_factory=dict)
+    volume_specs: list[str] = field(default_factory=list)
+    volumes: list[Volume] | None = None
+    network_aliases: list[str] = field(default_factory=list)
+
+    from_script: set[str] = field(default_factory=set)
+    """Keys whose value comes from the script's `[tool.hf-jobs]` table, for display purposes."""
+
+
+@contextmanager
+def _resolve_uv_job_config(
+    *,
+    api: HfApi,
+    script: str,
+    script_args: list[str] | None,
+    dependencies: list[str] | None,
+    image: str | None,
+    flavor: str | None,
+    python: str | None,
+    env: list[str] | None,
+    env_file: str | None,
+    secrets: list[str] | None,
+    secrets_file: str | None,
+    timeout: str | None,
+    attempts: int | None,
+    name: str | None,
+    label: list[str] | None,
+    volume: list[str] | None,
+    namespace: str | None,
+    network_group: str | None,
+    network_aliases: list[str] | None,
+    dry_run: bool,
+) -> Generator[_UvJobConfig, None, None]:
+    """Merge the CLI flags with the `[tool.hf-jobs]` table the script carries, if any.
+
+    An explicit CLI flag always wins over the script; `env`, `labels`, `secrets` and `volumes` are merged
+    entry by entry (by key, by name and by mount path respectively), so a script value and a CLI value
+    only ever conflict when they target the same entry. `network_aliases` is the exception: the aliases
+    a Job claims form a set, so `--network-alias` replaces the script's list rather than adding to it.
+
+    A URL script is downloaded to a temporary file that lives until the `with` block exits: submit the
+    Job inside the block.
+    """
+    with load_uv_script(script) as source:
+        header = source.header or UvScriptHeader()
+        from_script: set[str] = set()
+
+        def pick(key: str, cli_value: str | None) -> str | None:
+            """Keep the CLI value, and fall back to the script's."""
+            if cli_value is not None:
+                return cli_value
+            if (script_value := getattr(header, key)) is not None:
+                from_script.add(key)
+                return script_value
+            return None
+
+        image = pick("image", image)
+        flavor = pick("flavor", flavor)
+        python = pick("python", python)
+        timeout = pick("timeout", timeout)
+        namespace = pick("namespace", namespace)
+        network_group = pick("network_group", network_group)
+
+        if not network_aliases and header.network_aliases:
+            from_script.add("network_aliases")
+            network_aliases = header.network_aliases
+
+        env_map = parse_env_map(env, env_file)
+        script_env = {key: value for key, value in header.env.items() if key not in env_map}
+        from_script.update(f"env.{key}" for key in script_env)
+        env_map = {**script_env, **env_map}
+
+        secrets_map = _parse_secrets_map(secrets, secrets_file, dry_run=dry_run)
+        script_secrets = _resolve_script_secrets(header.secrets, secrets_map, dry_run=dry_run)
+        from_script.update(f"secrets.{key}" for key in script_secrets)
+        secrets_map = {**script_secrets, **secrets_map}
+
+        labels_map = _parse_labels_map(label, name=name) or {}
+        # `name = ...` in the script's table is shorthand for the `name` label.
+        script_labels = {**header.labels, **({"name": header.name} if header.name is not None else {})}
+        script_labels = {key: value for key, value in script_labels.items() if key not in labels_map}
+        from_script.update(f"labels.{key}" for key in script_labels)
+        labels_map = {**script_labels, **labels_map}
+
+        volume_specs, script_volume_specs = _merge_volume_specs(volume or [], header.volumes)
+        from_script.update(f"volumes.{spec}" for spec in script_volume_specs)
+
+        config = _UvJobConfig(
+            script=source.script,
+            script_args=script_args or [],
+            image=image,
+            flavor=flavor,
+            python=python,
+            timeout=timeout,
+            namespace=namespace,
+            network_group=network_group,
+            env=env_map,
+            secrets=secrets_map,
+            labels=labels_map,
+            volume_specs=volume_specs,
+            # A dry run must not have side effects: local directories are only synced to a bucket for real runs.
+            volumes=None if dry_run else _parse_and_sync_job_volumes(volume_specs, api=api, namespace=namespace),
+            network_aliases=network_aliases or [],
+            from_script=from_script,
+        )
+        if "name" not in config.labels:
+            # `script` (not `config.script`) so that a URL keeps naming the Job after the URL, not after
+            # the temporary file it was downloaded to.
+            config.labels["name"] = _default_job_name_from_script(
+                script,
+                config.script_args,
+                config_parts=_name_hash_parts(
+                    flavor=config.flavor,
+                    timeout=config.timeout,
+                    namespace=config.namespace,
+                    env=config.env,
+                    secrets=config.secrets,
+                    volume_specs=config.volume_specs,
+                    network_group=config.network_group,
+                    network_aliases=config.network_aliases,
+                    extra=[
+                        config.image or DEFAULT_UV_IMAGE,
+                        config.python or "",
+                        *(dependencies or []),
+                        *([str(attempts)] if attempts is not None else []),
+                    ],
+                ),
+            )
+        yield config
+
+
+def _parse_secrets_map(
+    secrets: list[str] | None, secrets_file: str | None, *, dry_run: bool = False
+) -> dict[str, str | None]:
+    """Parse `--secrets`/`--secrets-file`, failing if a bare `--secrets NAME` is not set locally.
+
+    Same behavior as for the secrets requested by a script (see `_resolve_script_secrets`): a missing secret
+    is an error rather than silently dropped, except in `--dry-run` where it is displayed as `<not set>`.
+    """
+    secrets_map = parse_env_map(secrets, secrets_file)
+    missing = [name for value in secrets or [] if "=" not in value and (name := value.strip()) not in secrets_map]
+    if missing and not dry_run:
+        raise CLIError(
+            f"The following secret(s) are not set in your environment: {', '.join(missing)}."
+            f" Export them locally (e.g. `export {missing[0]}=...`) or use `--secrets-file` otherwise."
+        )
+    return {**secrets_map, **dict.fromkeys(missing)}
+
+
+def _resolve_script_secrets(
+    names: list[str], cli_secrets: dict[str, str | None], *, dry_run: bool = False
+) -> dict[str, str | None]:
+    """Resolve the secrets requested by a script from the caller's environment.
+
+    A script only lists secret *names*: values always come from whoever runs it (`HF_TOKEN` also
+    resolves from `hf auth login`). A requested secret that is not set locally is an error rather than
+    an empty value: forgetting to export a secret before launching is easy, and debugging the Job that
+    results from it is not.
+
+    In `--dry-run` a missing secret is not an error but a `None` value, displayed as `<not set>` in the
+    summary: nothing is submitted, so the point is to see the full configuration of a script - including
+    one whose secrets are not provisioned locally (yet).
+    """
+    if not names:
+        return {}
+    environ = _get_extended_environ()
+    resolved: dict[str, str | None] = {}
+    missing: list[str] = []
+    for name in names:
+        if name in cli_secrets:  # an explicit `--secrets NAME=...` wins
+            continue
+        if name in environ:
+            resolved[name] = environ[name]
+        else:
+            missing.append(name)
+    if missing and not dry_run:
+        raise CLIError(
+            f"The script requires the following secret(s), which are not set in your environment: {', '.join(missing)}."
+            f" Export them locally (e.g. `export {missing[0]}=...`) or use `--secrets-file` otherwise."
+        )
+    if resolved:
+        out.warning(
+            f"The script's [{TABLE_NAME}] table requests {', '.join(resolved)}: the value(s) from your local"
+            f" environment {'would be' if dry_run else 'will be'} sent to the Job."
+        )
+    return {**resolved, **dict.fromkeys(missing)}
+
+
+def _merge_volume_specs(cli_specs: list[str], script_specs: list[str]) -> tuple[list[str], list[str]]:
+    """Merge `-v` specs with the ones from the script. Returns `(all specs, specs from the script)`.
+
+    A CLI mount overrides the script's mount at the same path.
+    """
+    cli_mount_paths = {_split_mount(spec, raw=spec)[1] for spec in cli_specs}
+    kept = [spec for spec in script_specs if _split_mount(spec, raw=spec)[1] not in cli_mount_paths]
+    return kept + cli_specs, kept
+
+
+def _name_hash_parts(
+    *,
+    flavor: str | None,
+    timeout: str | None,
+    namespace: str | None,
+    env: dict[str, str | None],
+    secrets: dict[str, str | None],
+    volume_specs: list[str],
+    network_group: str | None = None,
+    network_aliases: list[str] | None = None,
+    extra: list[str] | None = None,
+) -> list[str]:
+    """The resolved launch values hashed into a Job's default name, on top of its image/script.
+
+    Same inputs for `hf jobs run` and `hf jobs uv run`, so that both name Jobs after what they actually
+    submit (`extra` carries what is specific to UV runs). Env *values* are part of the hash since they
+    change what the Job does; secrets only contribute their names, never their values.
+    """
+    return [
+        flavor or JobHardware.CPU_BASIC.value,
+        timeout or "",
+        namespace or "",
+        network_group or "",
+        *(extra or []),
+        *(f"{key}={value}" for key, value in sorted(env.items())),
+        *sorted(secrets),
+        *volume_specs,
+        *(network_aliases or []),
+    ]
+
+
+_FROM_SCRIPT = " (from script)"
+
+
+def _print_job_summary(values: dict[str, Any], *, from_script: Collection[str] = (), dry_run: bool = False) -> None:
+    """Echo the launch configuration of a Job before submitting it.
+
+    Printed on every run, so that what is sent to the Jobs API is always visible - in particular the
+    values injected by a script's `[tool.hf-jobs]` table, which are marked as such. Goes to stderr for a
+    real run, and to stdout for `--dry-run`, where it is the output of the command.
+    """
+    rows = [
+        (key, _format_job_value(key, value, from_script))
+        for key, value in values.items()
+        if value not in (None, "", [], {}, False)
+    ]
+    width = max(len(key) for key, _ in rows)
+    lines = ["Job configuration:"]
+    for key, value in rows:
+        value += _FROM_SCRIPT if key in from_script else ""
+        # Only the first line of a multi-line value is prefixed with the key.
+        lines += [
+            f"  {(key if index == 0 else '').ljust(width)}  {line}" for index, line in enumerate(value.split("\n"))
+        ]
+    summary = "\n".join(lines)
+    if dry_run:
+        out.text(f"{summary}\n(dry run) Job not submitted.")
+    else:
+        out.log(summary)
+
+
+def _format_job_value(key: str, value: Any, from_script: Collection[str]) -> str:
+    """Format config entries, redacting secrets and marking values inherited from the script."""
+    match key:
+        case "env":
+            # Keep long prompts or JSON values readable in the summary.
+            entries = {}
+            for name, item in value.items():
+                text = item or ""
+                entries[name] = f"{name}={text[:59] + '…' if len(text) > 60 else text}"
+        case "secrets":
+            entries = {name: f"{name}={'***' if item is not None else '<not set>'}" for name, item in value.items()}
+        case "labels":
+            entries = {name: f"{name}={item}" for name, item in value.items()}
+        case "volumes":
+            entries = {spec: spec for spec in value}
+        case _:
+            return str(value)
+    return "\n".join(text + (_FROM_SCRIPT if f"{key}.{name}" in from_script else "") for name, text in entries.items())
+
+
 STATS_UPDATE_MIN_INTERVAL = 0.1  # we set a limit here since there is one update per second per job
 
 # Common job-related options
@@ -165,7 +476,7 @@ NameOpt = Annotated[
     str | None,
     Option(
         "--name",
-        help="Name the Job. Stored as the `name` label. Names do not have to be unique. Defaults to the image or script name plus a short hash of the command.",
+        help="Name the Job. Stored as the `name` label. Names do not have to be unique. Defaults to the image or script name plus a short hash of the resolved launch configuration.",
     ),
 ]
 
@@ -174,6 +485,11 @@ TimeoutOpt = Annotated[
     Option(
         help="Max duration: int with s (seconds, default), m (minutes), h (hours) or d (days).",
     ),
+]
+
+AttemptsOpt = Annotated[
+    int | None,
+    Option("--attempts", min=1, help="Maximum attempts, including the first run. Defaults to 1."),
 ]
 
 DetachOpt = Annotated[
@@ -185,10 +501,26 @@ DetachOpt = Annotated[
     ),
 ]
 
+DryRunOpt = Annotated[
+    bool,
+    Option(
+        "--dry-run",
+        help="Print the resolved Job configuration without submitting the Job.",
+    ),
+]
+
 NamespaceOpt = Annotated[
     str | None,
     Option(
         help="The namespace where the job will be running. Defaults to the current user's namespace.",
+    ),
+]
+
+ResourceGroupIdOpt = Annotated[
+    str | None,
+    Option(
+        "--resource-group-id",
+        help="The ID of the resource group to create the Job in. Used to control access to resources within an organization and for cost attribution/spending-limit features.",
     ),
 ]
 
@@ -200,11 +532,36 @@ ExposeOpt = Annotated[
     ),
 ]
 
+ExposePublicOpt = Annotated[
+    list[int] | None,
+    Option(
+        "--expose-public",
+        help="Expose a container port through the jobs proxy without authentication. Repeat the flag for multiple ports. No need to also pass the port with `--expose`.",
+    ),
+]
+
+
 SshEnabledOpt = Annotated[
     bool,
     Option(
         "--ssh",
         help="Make the job's container reachable over SSH. Connect with `hf jobs ssh <job_id>`. Requires an SSH public key registered on https://huggingface.co/settings/keys.",
+    ),
+]
+
+NetworkGroupOpt = Annotated[
+    str | None,
+    Option(
+        "--network-group",
+        help="Join a network group. Jobs in the same namespace and resource group sharing a group are placed together and reach each other on every port. Inside each member, `$HF_NETWORK_GROUP_HOSTNAME` resolves to every member. Lowercase alphanumerics and dashes, 46 characters max.",
+    ),
+]
+
+NetworkAliasOpt = Annotated[
+    list[str] | None,
+    Option(
+        "--network-alias",
+        help="Claim an alias in the network group. Members reach the jobs claiming it at `${HF_NETWORK_GROUP_PREFIX}<alias>`. Repeat the flag for several aliases. Lowercase alphanumerics and dashes, 34 characters max, unique within the job. Requires `--network-group`.",
     ),
 ]
 
@@ -242,7 +599,7 @@ ConcurrencyOpt = Annotated[
 ScheduleArg = Annotated[
     str,
     Argument(
-        help="One of annually, yearly, monthly, weekly, daily, hourly, or a CRON schedule expression.",
+        help="One of @annually, @yearly, @monthly, @weekly, @daily, @hourly, or a CRON schedule expression.",
     ),
 ]
 
@@ -307,16 +664,65 @@ JobVolumesOpt = Annotated[
 jobs_cli = typer_factory(help="Run and manage Jobs on the Hub.")
 
 
+def _wait_while_scheduling(api: HfApi, job: JobInfo) -> None:
+    """Wait while the Job is scheduling, showing why (e.g. waiting for hardware) and for how long."""
+    status = out.status()
+    start = time.monotonic()
+    try:
+        while job.status.stage == JobStage.SCHEDULING:
+            for _ in range(2):  # refresh the timer every second, poll the Job every 2s
+                status.update(
+                    f"{job.status.message or 'Scheduling'} ({format_duration(int(time.monotonic() - start))})"
+                )
+                time.sleep(1)
+            job = api.inspect_job(job_id=job.id, namespace=job.owner.name)
+    except httpx2.HTTPError:
+        pass  # best effort: if a poll fails, start streaming the logs right away
+    finally:
+        status.update("")
+
+
 def _stream_logs_and_check_status(api: HfApi, job: JobInfo) -> None:
     """Stream Job logs until the Job ends, then fail the command if the Job did not complete successfully."""
-    for log in api.fetch_job_logs(job_id=job.id, namespace=job.owner.name, follow=True):
-        out.text(log)
-    # The log stream can end while the Job is still scheduling or shutting down: settle the final state.
-    final = api.wait_for_job(job_id=job.id, namespace=job.owner.name)
+    try:
+        _wait_while_scheduling(api, job)
+        for log in api.fetch_job_logs(job_id=job.id, namespace=job.owner.name, follow=True):
+            out.text(log)
+        # The stream can still end before the Job does (e.g. on a malformed response): settle the final state.
+        final = api.wait_for_job(job_id=job.id, namespace=job.owner.name)
+    except KeyboardInterrupt:
+        job_ref = f"{job.owner.name}/{job.id}"
+        out.hint(
+            f"Job {job_ref} was not canceled. Use `hf jobs logs -f {job_ref}` to follow it again,"
+            f" or `hf jobs cancel {job_ref}` to cancel it."
+        )
+        raise
     if final.status.stage != JobStage.COMPLETED:
         message = f": {final.status.message}" if final.status.message else ""
         raise CLIError(f"Job {final.id} finished with stage '{final.status.stage}'{message}")
     out.text(f"Job {final.id} completed")
+
+
+def _hint_or_follow_started_job(api: HfApi, job: JobInfo, *, detach: bool) -> None:
+    """Print hints about how to reach a started Job, then stream its logs unless `detach` is set."""
+    job_ref = f"{job.owner.name}/{job.id}"
+    if isinstance(job.status.expose_urls, list):
+        urls = "\n".join(f"  {url}" for url in job.status.expose_urls)
+        out.hint(f"Exposed ports are reachable at:\n{urls}")
+    if isinstance(job.status.ssh_url, str):
+        out.hint(f"Use `hf jobs ssh {job_ref}` to open an SSH session into the job.")
+    if isinstance(job.network, JobNetwork):
+        group = job.network.group
+        out.hint(
+            f"Joined network group '{group}'. Jobs of this namespace and resource group started with "
+            f"`--network-group {group}` reach each other at `$HF_NETWORK_GROUP_HOSTNAME` (every member) "
+            "or `${HF_NETWORK_GROUP_PREFIX}<alias>` (members claiming an alias)."
+        )
+    if detach:
+        out.hint(f"Use `hf jobs logs -f {job_ref}` to stream logs, or `hf jobs inspect {job_ref}` to check status.")
+        out.hint(f"Use `hf jobs wait {job_ref}` to block until it finishes.")
+        return
+    _stream_logs_and_check_status(api, job)
 
 
 @jobs_cli.command(
@@ -342,48 +748,96 @@ def jobs_run(
     secrets_file: SecretsFileOpt = None,
     flavor: FlavorOpt = None,
     timeout: TimeoutOpt = None,
+    attempts: AttemptsOpt = None,
     detach: DetachOpt = False,
+    dry_run: DryRunOpt = False,
     expose: ExposeOpt = None,
+    expose_public: ExposePublicOpt = None,
     ssh: SshEnabledOpt = False,
+    network_group: NetworkGroupOpt = None,
+    network_alias: NetworkAliasOpt = None,
+    resource_group_id: ResourceGroupIdOpt = None,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
+    format: FormatOpt = None,
+    json_output: JsonOpt = False,
+    quiet: QuietOpt = False,
 ) -> None:
     """Run a Job."""
+    set_output_format(format, json_output, quiet)
     env_map = parse_env_map(env, env_file)
-    secrets_map = parse_env_map(secrets, secrets_file)
+    secrets_map = _parse_secrets_map(secrets, secrets_file, dry_run=dry_run)
+    labels_map = _parse_labels_map(label, name=name) or {}
+    labels_map.setdefault(
+        "name",
+        _default_job_name_from_image(
+            image,
+            command,
+            config_parts=_name_hash_parts(
+                flavor=flavor,
+                timeout=timeout,
+                extra=[str(attempts)] if attempts is not None else None,
+                namespace=namespace,
+                env=env_map,
+                secrets=secrets_map,
+                volume_specs=volume or [],
+                network_group=network_group,
+                network_aliases=network_alias,
+            ),
+        ),
+    )
 
     api = get_hf_api(token=token)
+    volumes = None if dry_run else _parse_and_sync_job_volumes(volume, api=api, namespace=namespace)
+    _print_job_summary(
+        {
+            "image": image,
+            "command": shlex.join(command),
+            "flavor": flavor or JobHardware.CPU_BASIC.value,
+            "timeout": timeout,
+            "attempts": attempts,
+            "env": env_map,
+            "secrets": secrets_map,
+            "volumes": volume or [],
+            "labels": labels_map,
+            "expose": " ".join(str(port) for port in expose or []),
+            "expose_public": " ".join(str(port) for port in expose_public or []),
+            "ssh": ssh,
+            "network_group": network_group,
+            "network_aliases": " ".join(network_alias or []),
+            "resource_group_id": resource_group_id,
+            "namespace": namespace,
+        },
+        dry_run=dry_run,
+    )
+    if dry_run:
+        return
     job = api.run_job(
         image=image,
         command=command,
         env=env_map,
         secrets=secrets_map,
-        labels=_parse_labels_map(label, name=name),
-        volumes=_parse_and_sync_job_volumes(volume, api=api, namespace=namespace),
+        labels=labels_map,
+        volumes=volumes,
         flavor=flavor,
         timeout=timeout,
+        attempts=attempts,
         expose=expose,
+        expose_public=expose_public,
         ssh=ssh,
+        network_group=network_group,
+        network_aliases=network_alias,
+        resource_group_id=resource_group_id,
         namespace=namespace,
     )
-    out.result("Job started", id=job.id, url=job.url)
+    out.result("Job started", id=job.id, name=(job.labels or {}).get("name"), url=job.url)
     if not _has_explicit_name(name, label):
         auto_name = (job.labels or {}).get("name")
         out.hint(
             f"Job auto-named '{auto_name}'. Pass `--name` or run "
             f"`hf jobs labels {job.owner.name}/{job.id} --name NAME` to rename it."
         )
-    if isinstance(job.status.expose_urls, list):
-        urls = "\n".join(f"  {url}" for url in job.status.expose_urls)
-        out.hint(f"Exposed ports are reachable at (requires an HF token with read access to the job):\n{urls}")
-    if isinstance(job.status.ssh_url, str):
-        out.hint(f"Use `hf jobs ssh {job.owner.name}/{job.id}` to open an SSH session into the job.")
-    if detach:
-        job_ref = f"{job.owner.name}/{job.id}"
-        out.hint(f"Use `hf jobs logs -f {job_ref}` to stream logs, or `hf jobs inspect {job_ref}` to check status.")
-        out.hint(f"Use `hf jobs wait {job_ref}` to block until it finishes.")
-        return
-    _stream_logs_and_check_status(api, job)
+    _hint_or_follow_started_job(api, job, detach=detach)
 
 
 @jobs_cli.command(
@@ -431,23 +885,13 @@ def jobs_logs(
     logs = api.fetch_job_logs(job_id=job_id, namespace=namespace, follow=follow, tail=tail)
     for log in logs:
         out.text(log)
+    job_ref = f"{namespace}/{job_id}" if namespace else job_id
     if follow:
-        job_ref = f"{namespace}/{job_id}" if namespace else job_id
         out.hint(f"Stream ended. Run `hf jobs inspect {job_ref}` to check the final status (e.g. COMPLETED or ERROR).")
-
-
-def _matches_filters(job_properties: dict[str, str], filters: list[tuple[str, str, str]]) -> bool:
-    """Check if scheduled job matches all specified filters."""
-    for key, op_str, pattern in filters:
-        value = job_properties.get(key)
-        if value is None:
-            if op_str == "!=":
-                continue
-            return False
-        match = fnmatch(value.lower(), pattern.lower())
-        if (op_str == "=" and not match) or (op_str == "!=" and match):
-            return False
-    return True
+    else:
+        out.hint(
+            f"If the job is still running, use `hf jobs logs -f {job_ref}` to stream new logs until it completes."
+        )
 
 
 def _clear_line(n: int) -> None:
@@ -457,41 +901,68 @@ def _clear_line(n: int) -> None:
         print(LINE_UP, end=LINE_CLEAR)
 
 
+def _format_job_stats_rows(job_id: str, metrics: dict[str, Any], table_headers: list[str]) -> list[list[str | int]]:
+    row: list[str | int] = [
+        job_id,
+        f"{metrics['cpu_usage_pct']}%",
+        round(metrics["cpu_millicores"] / 1000.0, 1),
+        f"{round(100 * metrics['memory_used_bytes'] / metrics['memory_total_bytes'], 2)}%",
+        f"{_format_size(metrics['memory_used_bytes'])}B / {_format_size(metrics['memory_total_bytes'])}B",
+        f"{_format_size(metrics['rx_bps'])}bps / {_format_size(metrics['tx_bps'])}bps",
+    ]
+    if metrics["gpus"] and isinstance(metrics["gpus"], dict):
+        rows: list[list[str | int]] = [row] + [[""] * len(row) for _ in range(len(metrics["gpus"]) - 1)]
+        for row, gpu_id in zip(rows, sorted(metrics["gpus"])):
+            gpu = metrics["gpus"][gpu_id]
+            row += [
+                f"{gpu['utilization']}%",
+                f"{round(100 * gpu['memory_used_bytes'] / gpu['memory_total_bytes'], 2)}%",
+                f"{_format_size(gpu['memory_used_bytes'])}B / {_format_size(gpu['memory_total_bytes'])}B",
+            ]
+        return rows
+    row += ["N/A"] * (len(table_headers) - len(row))
+    return [row]
+
+
 def _get_jobs_stats_rows(
     job_id: str, metrics_stream: Iterable[dict[str, Any]], table_headers: list[str]
 ) -> Iterable[tuple[bool, str, list[list[str | int]]]]:
     for metrics in metrics_stream:
-        row = [
-            job_id,
-            f"{metrics['cpu_usage_pct']}%",
-            round(metrics["cpu_millicores"] / 1000.0, 1),
-            f"{round(100 * metrics['memory_used_bytes'] / metrics['memory_total_bytes'], 2)}%",
-            f"{_format_size(metrics['memory_used_bytes'])}B / {_format_size(metrics['memory_total_bytes'])}B",
-            f"{_format_size(metrics['rx_bps'])}bps / {_format_size(metrics['tx_bps'])}bps",
-        ]
-        if metrics["gpus"] and isinstance(metrics["gpus"], dict):
-            rows = [row] + [[""] * len(row)] * (len(metrics["gpus"]) - 1)
-            for row, gpu_id in zip(rows, sorted(metrics["gpus"])):
-                gpu = metrics["gpus"][gpu_id]
-                row += [
-                    f"{gpu['utilization']}%",
-                    f"{round(100 * gpu['memory_used_bytes'] / gpu['memory_total_bytes'], 2)}%",
-                    f"{_format_size(gpu['memory_used_bytes'])}B / {_format_size(gpu['memory_total_bytes'])}B",
-                ]
-        else:
-            row += ["N/A"] * (len(table_headers) - len(row))
-            rows = [row]
-        yield False, job_id, rows
+        yield False, job_id, _format_job_stats_rows(job_id, metrics, table_headers)
     yield True, job_id, []
 
 
-@jobs_cli.command("stats", examples=["hf jobs stats <job_id>"])
+@jobs_cli.command(
+    "stats",
+    examples=[
+        "hf jobs stats",
+        "hf jobs stats <job_id>",
+        "hf jobs stats -f <job_id>",
+    ],
+)
 def jobs_stats(
     job_ids: JobIdsArg = None,
+    follow: Annotated[
+        bool,
+        Option(
+            "-f",
+            "--follow",
+            help="Follow stats output (live view until the Jobs complete). Without this flag, a single snapshot is printed.",
+        ),
+    ] = False,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
 ) -> None:
-    """Fetch the resource usage statistics and metrics of Jobs"""
+    """Fetch the resource usage statistics and metrics of Jobs.
+
+    By default, prints a snapshot of the current stats and exits (non-blocking).
+    Use --follow/-f to display live stats until the Jobs complete.
+    """
+    if follow and out.mode != OutputFormat.human:
+        raise CLIError(
+            f"`--follow` displays a live terminal view and is not supported with '{out.mode.value}' output."
+            " Run without `--follow` to get a snapshot."
+        )
     if job_ids is not None:
         parsed_ids = []
         for job_id in job_ids:
@@ -508,7 +979,8 @@ def jobs_stats(
             if (job.status.stage if job.status else "UNKNOWN") in ("RUNNING", "UPDATING")
         ]
     if len(job_ids) == 0:
-        out.text("No running jobs found")
+        out.table([])
+        out.hint("No running jobs. Use `hf jobs ps -a` to list finished (and failed) jobs.")
         return
     table_headers = [
         "JOB ID",
@@ -521,6 +993,27 @@ def jobs_stats(
         "GPU MEM %",
         "GPU MEM USAGE",
     ]
+    if not follow:
+
+        def fetch_latest_metrics(job_id: str) -> dict[str, Any] | None:
+            return next(iter(api.fetch_job_metrics(job_id=job_id, namespace=namespace)), None)
+
+        with multiprocessing.pool.ThreadPool(len(job_ids)) as pool:
+            latest_metrics = pool.map(fetch_latest_metrics, job_ids)
+        items = []
+        for job_id, metrics in zip(job_ids, latest_metrics):
+            if metrics is None:
+                out.warning(f"No stats available for Job {job_id}. Is it running?")
+            else:
+                items.append({"job_id": job_id, **metrics})
+        if out.mode == OutputFormat.human and items:
+            rows = [row for item in items for row in _format_job_stats_rows(item["job_id"], item, table_headers)]
+            out.text(_tabulate(rows, headers=table_headers))
+            job_refs = " ".join(f"{namespace}/{item['job_id']}" for item in items)
+            out.hint(f"Use `hf jobs stats -f {job_refs}` to follow live stats.")
+        else:
+            out.table(items, id_key="job_id")
+        return
     with multiprocessing.pool.ThreadPool(len(job_ids)) as pool:
         rows_per_job_id: dict[str, list[list[str | int]]] = {}
         for job_id in job_ids:
@@ -536,7 +1029,7 @@ def jobs_stats(
         kwargs_list = [
             {
                 "job_id": job_id,
-                "metrics_stream": api.fetch_job_metrics(job_id=job_id, namespace=namespace),
+                "metrics_stream": api.fetch_job_metrics(job_id=job_id, namespace=namespace, follow=True),
                 "table_headers": table_headers,
             }
             for job_id in job_ids
@@ -552,6 +1045,8 @@ def jobs_stats(
                 total_rows = [row for job_id in rows_per_job_id for row in rows_per_job_id[job_id]]
                 print(_tabulate(total_rows, headers=table_headers))
                 last_update_time = now
+    job_refs = " ".join(f"{namespace}/{job_id}" for job_id in job_ids)
+    out.hint(f"Stream ended. Run `hf jobs inspect {job_refs}` to check the final status (e.g. COMPLETED or ERROR).")
 
 
 @jobs_cli.command(
@@ -560,6 +1055,7 @@ def jobs_stats(
         "hf jobs ls",
         "hf jobs ls -a",
         "hf jobs ls --status running,scheduling",
+        "hf jobs ls --name training-v2",
         "hf jobs ls --label env=prod --label team=ml",
         "hf jobs ls --all --label hf-sandbox=1",
     ],
@@ -589,6 +1085,13 @@ def jobs_ps(
             help="Only show Jobs with the given `key=value` label. Repeat to require several labels, e.g. `--label env=prod --label team=ml`.",
         ),
     ] = None,
+    name: Annotated[
+        str | None,
+        Option(
+            "--name",
+            help="Only show Jobs with the given name (shortcut for `--label name=NAME`).",
+        ),
+    ] = None,
     limit: Annotated[
         int,
         Option(
@@ -598,14 +1101,6 @@ def jobs_ps(
     ] = 100,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
-    filter: Annotated[
-        list[str] | None,
-        Option(
-            "-f",
-            "--filter",
-            help="(Deprecated) Use `--status` and `--label` instead.",
-        ),
-    ] = None,
 ) -> None:
     """List Jobs.
 
@@ -613,12 +1108,6 @@ def jobs_ps(
     labels. A Job must match every filter to be listed.
     """
     api = get_hf_api(token=token)
-
-    if filter:
-        out.warning(
-            f"Ignoring filter '{filter}'."
-            " `-f`/`--filter` is deprecated and will be removed in a future release. Use `--status`/`--label`."
-        )
 
     if all and status:
         raise CLIError("`-a`/`--all` cannot be combined with `--status`.")
@@ -644,6 +1133,12 @@ def jobs_ps(
         key, value = item.split("=")
         labels[key] = value
 
+    # `--name` is a shortcut for the `name` label.
+    if name is not None:
+        if "name" in labels:
+            raise CLIError("Cannot filter by both `--name` and `--label name=...`.")
+        labels["name"] = name
+
     jobs_iter = api.list_jobs(namespace=namespace, status=server_statuses, labels=labels or None)
 
     # Apply the display limit. Fetch one extra Job to detect (and warn about) truncation.
@@ -663,6 +1158,7 @@ def jobs_ps(
         durations = job_item.get("durations") or {}
         cmd = job_item.get("command") or []
         job_item["job_id"] = job_item.get("id", "")
+        job_item["name"] = (job_item.get("labels") or {}).get("name") or "N/A"
         job_item["image/space"] = job_item.get("docker_image") or "N/A"
         job_item["command"] = " ".join(cmd) if cmd else "N/A"
         job_item["created"] = job_item["created_at"][:19].replace("T", " ") if job_item.get("created_at") else "N/A"
@@ -672,7 +1168,7 @@ def jobs_ps(
 
     out.table(
         job_items,
-        headers=["job_id", "image/space", "command", "created", "status", "runtime"],
+        headers=["job_id", "name", "image/space", "command", "created", "status", "runtime"],
         id_key="job_id",
     )
     if truncated:
@@ -734,7 +1230,60 @@ def jobs_inspect(
     job_ids = parsed_ids
     api = get_hf_api(token=token)
     jobs = [api.inspect_job(job_id=job_id, namespace=namespace) for job_id in job_ids]
-    out.table([_dataclass_to_dict(job) for job in jobs])
+    out.table([_surface_name(_dataclass_to_dict(job), labels=job.labels) for job in jobs], id_key="id")
+
+
+@jobs_cli.command("rerun", examples=["hf jobs rerun <job_id>", "hf jobs rerun --detach <job_id>"])
+def jobs_rerun(
+    job_id: JobIdArg,
+    detach: DetachOpt = False,
+    namespace: NamespaceOpt = None,
+    token: TokenOpt = None,
+) -> None:
+    """Run a new Job with an existing Job's spec."""
+    job_id, namespace = _parse_namespace_from_job_id(job_id, namespace)
+    api = get_hf_api(token=token)
+    job = api.rerun_job(job_id=job_id, namespace=namespace)
+    out.result("Job started", id=job.id, name=(job.labels or {}).get("name"), url=job.url)
+    _hint_or_follow_started_job(api, job, detach=detach)
+
+
+@jobs_cli.command(
+    "expose",
+    examples=[
+        "hf jobs expose <job_id> 8000",
+        "hf jobs expose <job_id> 8000 --public 9000",
+        "hf jobs expose <job_id> --clear",
+    ],
+)
+def jobs_expose(
+    job_id: JobIdArg,
+    ports: Annotated[
+        list[int] | None,
+        Argument(
+            help="Ports to expose through the jobs proxy. Access requires an HF token with read access to the job's namespace."
+        ),
+    ] = None,
+    public: Annotated[
+        list[int] | None,
+        Option(
+            "--public",
+            help="Expose a port without authentication. Repeat the flag for multiple ports. No need to also pass the port as a positional argument.",
+        ),
+    ] = None,
+    clear: Annotated[bool, Option("--clear", help="Close all exposed ports.")] = False,
+    namespace: NamespaceOpt = None,
+    token: TokenOpt = None,
+) -> None:
+    """Replace exposed ports on a running Job."""
+    if clear and (ports or public):
+        raise CLIError("`--clear` cannot be combined with ports or `--public`.")
+    if not clear and not ports and not public:
+        raise CLIError("Pass at least one port or `--public` port, or `--clear` to close all ports.")
+    job_id, namespace = _parse_namespace_from_job_id(job_id, namespace)
+    api = get_hf_api(token=token)
+    job = api.update_job_expose(job_id=job_id, expose=ports, expose_public=public, namespace=namespace)
+    out.result("Exposed ports updated", id=job.id, ports=job.expose or [], public_ports=job.expose_public or [])
 
 
 @jobs_cli.command("cancel", examples=["hf jobs cancel <job_id>"])
@@ -847,7 +1396,7 @@ def jobs_labels(
     else:
         labels = _parse_labels_map(label, name=name) or {}
     job = api.update_job_labels(job_id=job_id, labels=labels, namespace=namespace)
-    out.result("Labels updated", id=job.id)
+    out.result("Labels updated", id=job.id, name=labels.get("name"))
 
 
 @jobs_cli.command(
@@ -906,9 +1455,10 @@ jobs_cli.add_group(uv_app, name="uv")
     examples=[
         "hf jobs uv run --name my-script my_script.py",
         "hf jobs uv run --detach my_script.py",
-        "hf jobs uv run ml_training.py --flavor a10g-small",
+        "hf jobs uv run --flavor a10g-small ml_training.py",
         "hf jobs uv run --with transformers train.py",
         "hf jobs uv run -v hf://org/my-model:/data -v hf://buckets/org/b:/mnt script.py",
+        "hf jobs uv run --dry-run script.py",
     ],
 )
 def jobs_uv_run(
@@ -924,53 +1474,114 @@ def jobs_uv_run(
     env_file: EnvFileOpt = None,
     secrets_file: SecretsFileOpt = None,
     timeout: TimeoutOpt = None,
+    attempts: AttemptsOpt = None,
     detach: DetachOpt = False,
+    dry_run: DryRunOpt = False,
     expose: ExposeOpt = None,
+    expose_public: ExposePublicOpt = None,
     ssh: SshEnabledOpt = False,
+    network_group: NetworkGroupOpt = None,
+    network_alias: NetworkAliasOpt = None,
+    resource_group_id: ResourceGroupIdOpt = None,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
     with_: WithOpt = None,
     python: PythonOpt = None,
+    format: FormatOpt = None,
+    json_output: JsonOpt = False,
+    quiet: QuietOpt = False,
 ) -> None:
     """Run a UV script (local file or URL) on HF infrastructure"""
-    env_map = parse_env_map(env, env_file)
-    secrets_map = parse_env_map(secrets, secrets_file)
-
+    set_output_format(format, json_output, quiet)
     api = get_hf_api(token=token)
-    job = api.run_uv_job(
+    with _resolve_uv_job_config(
+        api=api,
         script=script,
-        script_args=script_args or [],
+        script_args=script_args,
         dependencies=with_,
-        python=python,
         image=image,
-        env=env_map,
-        secrets=secrets_map,
-        labels=_parse_labels_map(label, name=name),
-        volumes=_parse_and_sync_job_volumes(volume, api=api, namespace=namespace),
         flavor=flavor,
+        python=python,
+        env=env,
+        env_file=env_file,
+        secrets=secrets,
+        secrets_file=secrets_file,
         timeout=timeout,
-        expose=expose,
-        ssh=ssh,
+        attempts=attempts,
+        name=name,
+        label=label,
+        volume=volume,
         namespace=namespace,
-    )
-    out.result("Job started", id=job.id, url=job.url)
-    if not _has_explicit_name(name, label):
+        network_group=network_group,
+        network_aliases=network_alias,
+        dry_run=dry_run,
+    ) as config:
+        _print_job_summary(
+            {
+                "script": script,
+                "args": shlex.join(config.script_args),
+                "with": " ".join(with_ or []),
+                "image": config.image or DEFAULT_UV_IMAGE,
+                "flavor": config.flavor or JobHardware.CPU_BASIC.value,
+                "python": config.python,
+                "timeout": config.timeout,
+                "attempts": attempts,
+                "env": config.env,
+                "secrets": config.secrets,
+                "volumes": config.volume_specs,
+                "labels": config.labels,
+                "expose": " ".join(str(port) for port in expose or []),
+                "expose_public": " ".join(str(port) for port in expose_public or []),
+                "ssh": ssh,
+                "network_group": config.network_group,
+                "network_aliases": " ".join(config.network_aliases),
+                "resource_group_id": resource_group_id,
+                "namespace": config.namespace,
+            },
+            from_script=config.from_script,
+            dry_run=dry_run,
+        )
+        if dry_run:
+            return
+        job = api.run_uv_job(
+            script=config.script,
+            script_args=config.script_args,
+            dependencies=with_,
+            python=config.python,
+            image=config.image,
+            env=config.env,
+            secrets=config.secrets,
+            labels=config.labels,
+            volumes=config.volumes,
+            flavor=config.flavor,
+            timeout=config.timeout,
+            attempts=attempts,
+            expose=expose,
+            expose_public=expose_public,
+            ssh=ssh,
+            network_group=config.network_group,
+            network_aliases=config.network_aliases or None,
+            resource_group_id=resource_group_id,
+            namespace=config.namespace,
+        )
+    out.result("Job started", id=job.id, name=(job.labels or {}).get("name"), url=job.url)
+    if not _has_explicit_name(name, label, config.from_script):
         auto_name = (job.labels or {}).get("name")
         out.hint(
             f"Job auto-named '{auto_name}'. Pass `--name` or run "
             f"`hf jobs labels {job.owner.name}/{job.id} --name NAME` to rename it."
         )
-    if isinstance(job.status.expose_urls, list):
-        urls = "\n".join(f"  {url}" for url in job.status.expose_urls)
-        out.hint(f"Exposed ports are reachable at (requires an HF token with read access to the job):\n{urls}")
-    if isinstance(job.status.ssh_url, str):
-        out.hint(f"Use `hf jobs ssh {job.owner.name}/{job.id}` to open an SSH session into the job.")
-    if detach:
-        job_ref = f"{job.owner.name}/{job.id}"
-        out.hint(f"Use `hf jobs logs -f {job_ref}` to stream logs, or `hf jobs inspect {job_ref}` to check status.")
-        out.hint(f"Use `hf jobs wait {job_ref}` to block until it finishes.")
-        return
-    _stream_logs_and_check_status(api, job)
+    _hint_or_follow_started_job(api, job, detach=detach)
+
+
+class ScheduledJobStatusFilter(str, Enum):
+    """Possible values for `hf jobs scheduled ls --status`.
+
+    Scheduled Jobs are not "running": they are either active (i.e. they will trigger new runs) or suspended.
+    """
+
+    ACTIVE = "active"
+    SUSPENDED = "suspended"
 
 
 scheduled_app = typer_factory(help="Create and manage scheduled Jobs on the Hub.")
@@ -997,15 +1608,64 @@ def scheduled_run(
     secrets_file: SecretsFileOpt = None,
     flavor: FlavorOpt = None,
     timeout: TimeoutOpt = None,
+    attempts: AttemptsOpt = None,
+    dry_run: DryRunOpt = False,
     expose: ExposeOpt = None,
+    expose_public: ExposePublicOpt = None,
+    resource_group_id: ResourceGroupIdOpt = None,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
+    format: FormatOpt = None,
+    json_output: JsonOpt = False,
+    quiet: QuietOpt = False,
 ) -> None:
     """Schedule a Job."""
+    set_output_format(format, json_output, quiet)
     env_map = parse_env_map(env, env_file)
-    secrets_map = parse_env_map(secrets, secrets_file)
+    secrets_map = _parse_secrets_map(secrets, secrets_file, dry_run=dry_run)
+    labels_map = _parse_labels_map(label, name=name) or {}
+    labels_map.setdefault(
+        "name",
+        _default_job_name_from_image(
+            image,
+            command,
+            config_parts=_name_hash_parts(
+                flavor=flavor,
+                timeout=timeout,
+                extra=[str(attempts)] if attempts is not None else None,
+                namespace=namespace,
+                env=env_map,
+                secrets=secrets_map,
+                volume_specs=volume or [],
+            ),
+        ),
+    )
 
     api = get_hf_api(token=token)
+    volumes = None if dry_run else _parse_and_sync_job_volumes(volume, api=api, namespace=namespace)
+    _print_job_summary(
+        {
+            "schedule": schedule,
+            "suspend": suspend,
+            "concurrency": concurrency,
+            "image": image,
+            "command": shlex.join(command),
+            "flavor": flavor or JobHardware.CPU_BASIC.value,
+            "timeout": timeout,
+            "attempts": attempts,
+            "env": env_map,
+            "secrets": secrets_map,
+            "volumes": volume or [],
+            "labels": labels_map,
+            "expose": " ".join(str(port) for port in expose or []),
+            "expose_public": " ".join(str(port) for port in expose_public or []),
+            "resource_group_id": resource_group_id,
+            "namespace": namespace,
+        },
+        dry_run=dry_run,
+    )
+    if dry_run:
+        return
     scheduled_job = api.create_scheduled_job(
         image=image,
         command=command,
@@ -1014,14 +1674,17 @@ def scheduled_run(
         concurrency=concurrency,
         env=env_map,
         secrets=secrets_map,
-        labels=_parse_labels_map(label, name=name),
-        volumes=_parse_and_sync_job_volumes(volume, api=api, namespace=namespace),
+        labels=labels_map,
+        volumes=volumes,
         flavor=flavor,
         timeout=timeout,
+        attempts=attempts,
         expose=expose,
+        expose_public=expose_public,
+        resource_group_id=resource_group_id,
         namespace=namespace,
     )
-    out.result("Scheduled Job created", id=scheduled_job.id)
+    out.result("Scheduled Job created", id=scheduled_job.id, name=(scheduled_job.job_spec.labels or {}).get("name"))
     if not _has_explicit_name(name, label):
         auto_name = (scheduled_job.job_spec.labels or {}).get("name")
         out.hint(
@@ -1031,55 +1694,108 @@ def scheduled_run(
     out.hint(f"Use `hf jobs scheduled inspect {scheduled_job.owner.name}/{scheduled_job.id}` to view its details.")
 
 
-@scheduled_app.command("list | ls | ps", examples=["hf jobs scheduled ls"])
+@scheduled_app.command(
+    "list | ls | ps",
+    examples=[
+        "hf jobs scheduled ls",
+        "hf jobs scheduled ls -a",
+        "hf jobs scheduled ls --status suspended",
+        "hf jobs scheduled ls --name daily-script",
+        "hf jobs scheduled ls --label env=prod --label team=ml",
+    ],
+)
 def scheduled_ps(
     all: Annotated[
         bool,
         Option(
             "-a",
             "--all",
-            help="Show all scheduled Jobs (default hides suspended)",
+            help="Show all scheduled Jobs (default hides suspended). Cannot be combined with --status.",
         ),
     ] = False,
-    namespace: NamespaceOpt = None,
-    token: TokenOpt = None,
-    filter: Annotated[
+    status: Annotated[
         list[str] | None,
         Option(
-            "-f",
-            "--filter",
-            help="Filter output based on conditions provided (format: key=value)",
+            "--status",
+            click_type=SoftChoice(ScheduledJobStatusFilter),
+            help=(
+                "Only show scheduled Jobs with the given status. Comma-separated or repeated, e.g."
+                " `--status suspended`."
+            ),
         ),
     ] = None,
+    label: Annotated[
+        list[str] | None,
+        Option(
+            "-l",
+            "--label",
+            help=(
+                "Only show scheduled Jobs with the given `key=value` label. Repeat to require several labels, e.g."
+                " `--label env=prod --label team=ml`."
+            ),
+        ),
+    ] = None,
+    name: Annotated[
+        str | None,
+        Option(
+            "--name",
+            help="Only show scheduled Jobs with the given name (shortcut for `--label name=NAME`).",
+        ),
+    ] = None,
+    namespace: NamespaceOpt = None,
+    token: TokenOpt = None,
 ) -> None:
-    """List scheduled Jobs"""
-    api = get_hf_api(token=token)
-    scheduled_jobs = api.list_scheduled_jobs(namespace=namespace)
-    filters: list[tuple[str, str, str]] = []
-    for f in filter or []:
-        if "=" in f:
-            key, value = f.split("=", 1)
-            # Negate predicate in case of key!=value
-            if key.endswith("!"):
-                op = "!="
-                key = key[:-1]
-            else:
-                op = "="
-            filters.append((key.lower(), op, value.lower()))
-        else:
-            out.warning(f"Ignoring invalid filter format '{f}'. Use key=value format.")
+    """List scheduled Jobs.
 
-    # Filter scheduled jobs (operating on ScheduledJobInfo objects to preserve existing filter behavior)
+    Use `--status` to filter by status (`active` or `suspended`) and `--label` to filter by `key=value` labels.
+    A scheduled Job must match every filter to be listed.
+    """
+    api = get_hf_api(token=token)
+
+    if all and status:
+        raise CLIError("`-a`/`--all` cannot be combined with `--status`.")
+
+    # Status filtering (default to active scheduled Jobs, unless `--all` or `--status` is provided).
+    raw_statuses: list[str] = []
+    for value in status or []:
+        raw_statuses.extend(part.strip().lower() for part in value.split(",") if part.strip())
+
+    unknown_statuses = [s for s in raw_statuses if s not in tuple(ScheduledJobStatusFilter)]
+    if unknown_statuses:
+        raise CLIError(
+            f"Invalid status filter(s) {unknown_statuses}: expected one of"
+            f" {[s.value for s in ScheduledJobStatusFilter]}."
+        )
+
+    if raw_statuses:
+        show_active = ScheduledJobStatusFilter.ACTIVE in raw_statuses
+        show_suspended = ScheduledJobStatusFilter.SUSPENDED in raw_statuses
+    else:
+        show_active = True
+        show_suspended = all
+
+    # Labels filtering
+    labels: dict[str, str] = {}
+    for raw_label in label or []:
+        if "=" not in raw_label:
+            raise CLIError(f"Invalid label filter '{raw_label}': must be in the form 'key=value'")
+        key, value = raw_label.split("=", 1)
+        labels[key] = value
+
+    # `--name` is a shortcut for the `name` label.
+    if name is not None:
+        if "name" in labels:
+            raise CLIError("Cannot filter by both `--name` and `--label name=...`.")
+        labels["name"] = name
+
+    scheduled_jobs = api.list_scheduled_jobs(namespace=namespace, labels=labels or None)
+
     filtered_jobs = []
     for scheduled_job in scheduled_jobs:
         suspend = scheduled_job.suspend or False
-        if not all and suspend:
+        if suspend and not show_suspended:
             continue
-        image_or_space = scheduled_job.job_spec.docker_image or "N/A"
-        cmd = scheduled_job.job_spec.command or []
-        command_str = " ".join(cmd) if cmd else "N/A"
-        props = {"id": scheduled_job.id, "image": image_or_space, "suspend": str(suspend), "command": command_str}
-        if not _matches_filters(props, filters):
+        if not suspend and not show_active:
             continue
         filtered_jobs.append(scheduled_job)
 
@@ -1091,6 +1807,7 @@ def scheduled_ps(
         status_dict = item.get("status") or {}
         last_job = status_dict.get("last_job")
         cmd = job_spec.get("command") or []
+        item["name"] = (job_spec.get("labels") or {}).get("name") or "N/A"
         item["image/space"] = job_spec.get("docker_image") or "N/A"
         item["command"] = " ".join(cmd) if cmd else "N/A"
         item["last_run"] = last_job["at"][:19].replace("T", " ") if last_job and last_job.get("at") else "N/A"
@@ -1102,12 +1819,17 @@ def scheduled_ps(
 
     out.table(
         items,
-        headers=["id", "schedule", "image/space", "command", "last_run", "next_run", "suspend"],
+        headers=["id", "name", "schedule", "image/space", "command", "last_run", "next_run", "suspend"],
         id_key="id",
     )
-    if not items and filters:
-        filters_msg = ", ".join(f"{k}{o}{v}" for k, o, v in filters)
-        out.text(f"No scheduled jobs matched filters: {filters_msg}")
+    if not items:
+        if raw_statuses or labels:
+            filters_msg = ", ".join(
+                [*(f"status={s}" for s in raw_statuses), *(f"label={k}={v}" for k, v in labels.items())]
+            )
+            out.text(f"No scheduled jobs matched filters: {filters_msg}")
+        elif not all:
+            out.hint("No active scheduled jobs. Use `-a`/`--all` to include suspended ones.")
     if items:
         first_item_id = items[0]["id"]
         out.hint(f"Use `hf jobs scheduled inspect {first_item_id}` to view details about a scheduled job.")
@@ -1136,7 +1858,7 @@ def scheduled_inspect(
         api.inspect_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=namespace)
         for scheduled_job_id in scheduled_job_ids
     ]
-    out.table([_dataclass_to_dict(scheduled_job) for scheduled_job in scheduled_jobs])
+    out.table([_surface_name(_dataclass_to_dict(sj), labels=sj.job_spec.labels) for sj in scheduled_jobs], id_key="id")
 
 
 @scheduled_app.command("delete", examples=["hf jobs scheduled delete <id>"])
@@ -1177,6 +1899,21 @@ def scheduled_resume(
     api = get_hf_api(token=token)
     api.resume_scheduled_job(scheduled_job_id=scheduled_job_id, namespace=namespace)
     out.result("Scheduled Job resumed", id=scheduled_job_id)
+
+
+@scheduled_app.command("reschedule", examples=['hf jobs scheduled reschedule <id> "0 9 * * 1"'])
+def scheduled_reschedule(
+    scheduled_job_id: ScheduledJobIdArg,
+    schedule: ScheduleArg,
+    namespace: NamespaceOpt = None,
+    token: TokenOpt = None,
+) -> None:
+    """Change when a scheduled Job runs."""
+    scheduled_job_id, namespace = _parse_namespace_from_job_id(scheduled_job_id, namespace)
+    api = get_hf_api(token=token)
+    job = api.update_scheduled_job_schedule(scheduled_job_id=scheduled_job_id, schedule=schedule, namespace=namespace)
+    out.result("Scheduled Job rescheduled", id=job.id, schedule=job.schedule)
+    out.hint(f"Use `hf jobs scheduled inspect {job.owner.name}/{job.id}` to see its next run.")
 
 
 @scheduled_app.command("trigger", examples=["hf jobs scheduled trigger <id>"])
@@ -1231,7 +1968,7 @@ def scheduled_labels(
     scheduled_job = api.update_scheduled_job_labels(
         scheduled_job_id=scheduled_job_id, labels=labels, namespace=namespace
     )
-    out.result("Labels updated", id=scheduled_job.id)
+    out.result("Labels updated", id=scheduled_job.id, name=labels.get("name"))
 
 
 scheduled_uv_app = typer_factory(help="Schedule UV scripts on HF infrastructure.")
@@ -1262,37 +1999,100 @@ def scheduled_uv_run(
     env_file: EnvFileOpt = None,
     secrets_file: SecretsFileOpt = None,
     timeout: TimeoutOpt = None,
+    attempts: AttemptsOpt = None,
+    dry_run: DryRunOpt = False,
     expose: ExposeOpt = None,
+    expose_public: ExposePublicOpt = None,
+    resource_group_id: ResourceGroupIdOpt = None,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
     with_: WithOpt = None,
     python: PythonOpt = None,
+    format: FormatOpt = None,
+    json_output: JsonOpt = False,
+    quiet: QuietOpt = False,
 ) -> None:
     """Run a UV script (local file or URL) on HF infrastructure"""
-    env_map = parse_env_map(env, env_file)
-    secrets_map = parse_env_map(secrets, secrets_file)
-
+    set_output_format(format, json_output, quiet)
     api = get_hf_api(token=token)
-    job = api.create_scheduled_uv_job(
+    with _resolve_uv_job_config(
+        api=api,
         script=script,
-        script_args=script_args or [],
-        schedule=schedule,
-        suspend=suspend,
-        concurrency=concurrency,
+        script_args=script_args,
         dependencies=with_,
-        python=python,
         image=image,
-        env=env_map,
-        secrets=secrets_map,
-        labels=_parse_labels_map(label, name=name),
-        volumes=_parse_and_sync_job_volumes(volume, api=api, namespace=namespace),
         flavor=flavor,
+        python=python,
+        env=env,
+        env_file=env_file,
+        secrets=secrets,
+        secrets_file=secrets_file,
         timeout=timeout,
-        expose=expose,
+        attempts=attempts,
+        name=name,
+        label=label,
+        volume=volume,
         namespace=namespace,
-    )
-    out.result("Scheduled Job created", id=job.id)
-    if not _has_explicit_name(name, label):
+        # Scheduled Jobs have no network group: a script asking for one is an error, not a silent drop.
+        network_group=None,
+        network_aliases=None,
+        dry_run=dry_run,
+    ) as config:
+        if config.network_group or config.network_aliases:
+            raise CLIError(
+                f"Scheduled Jobs do not support network groups: remove 'network_group'/'network_aliases' from the"
+                f" script's [{TABLE_NAME}] table to schedule it."
+            )
+        _print_job_summary(
+            {
+                "schedule": schedule,
+                "suspend": suspend,
+                "concurrency": concurrency,
+                "script": script,
+                "args": shlex.join(config.script_args),
+                "with": " ".join(with_ or []),
+                "image": config.image or DEFAULT_UV_IMAGE,
+                "flavor": config.flavor or JobHardware.CPU_BASIC.value,
+                "python": config.python,
+                "timeout": config.timeout,
+                "attempts": attempts,
+                "env": config.env,
+                "secrets": config.secrets,
+                "volumes": config.volume_specs,
+                "labels": config.labels,
+                "expose": " ".join(str(port) for port in expose or []),
+                "expose_public": " ".join(str(port) for port in expose_public or []),
+                "resource_group_id": resource_group_id,
+                "namespace": config.namespace,
+            },
+            from_script=config.from_script,
+            dry_run=dry_run,
+        )
+        if dry_run:
+            return
+        job = api.create_scheduled_uv_job(
+            script=config.script,
+            script_args=config.script_args,
+            schedule=schedule,
+            suspend=suspend,
+            concurrency=concurrency,
+            dependencies=with_,
+            python=config.python,
+            image=config.image,
+            env=config.env,
+            secrets=config.secrets,
+            labels=config.labels,
+            volumes=config.volumes,
+            flavor=config.flavor,
+            timeout=config.timeout,
+            attempts=attempts,
+            expose=expose,
+            expose_public=expose_public,
+            resource_group_id=resource_group_id,
+            namespace=config.namespace,
+        )
+    out.result("Scheduled Job created", id=job.id, name=(job.job_spec.labels or {}).get("name"))
+    if not _has_explicit_name(name, label, config.from_script):
         auto_name = (job.job_spec.labels or {}).get("name")
         out.hint(
             f"Scheduled Job auto-named '{auto_name}'. Pass `--name` or run "
@@ -1304,9 +2104,25 @@ def scheduled_uv_run(
 ### UTILS
 
 
-def _has_explicit_name(name: str | None, label: list[str] | None) -> bool:
-    """Whether the user explicitly named the Job (via `--name` or a `name=` label)."""
-    return name is not None or any(item.split("=", 1)[0] == "name" for item in label or [])
+def _surface_name(item: dict[str, Any], *, labels: dict[str, str] | None) -> dict[str, Any]:
+    """Promote the `name` label to a top-level `name` field for display.
+
+    The `name` is kept inside `labels` too (the dataclasses and API payloads are unchanged); this
+    only makes it a first-class column/field in command outputs. No-op when there is no name.
+    """
+    name = (labels or {}).get("name")
+    if name is None:
+        return item
+    return {"name": name, **item}
+
+
+def _has_explicit_name(name: str | None, label: list[str] | None, from_script: Collection[str] = ()) -> bool:
+    """Whether the Job was named on purpose: via `--name`, a `name=` label, or the script's `[tool.hf-jobs]` table."""
+    return (
+        name is not None
+        or "labels.name" in from_script
+        or any(item.split("=", 1)[0] == "name" for item in label or [])
+    )
 
 
 def _parse_labels_map(labels: list[str] | None, *, name: str | None = None) -> dict[str, str] | None:

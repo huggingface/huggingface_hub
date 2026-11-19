@@ -21,12 +21,12 @@ from pathlib import Path
 from typing import Iterable
 from unittest.mock import Mock, patch
 
-import httpx
+import httpx2
 import pytest
 
 from huggingface_hub import HfApi, constants
 from huggingface_hub._local_folder import write_download_metadata
-from huggingface_hub.errors import EntryNotFoundError, GatedRepoError, LocalEntryNotFoundError
+from huggingface_hub.errors import EntryNotFoundError, FileMetadataError, GatedRepoError, LocalEntryNotFoundError
 from huggingface_hub.file_download import (
     _CACHED_NO_EXIST,
     HfFileMetadata,
@@ -68,6 +68,52 @@ DATASET_ID = SAMPLE_DATASET_IDENTIFIER
 DATASET_REVISION_ID_ONE_SPECIFIC_COMMIT = "e25d55a1c4933f987c46cc75d8ffadd67f257c61"
 # One particular commit for DATASET_ID
 DATASET_SAMPLE_PY_FILE = "custom_squad.py"
+
+
+@pytest.mark.parametrize("use_local_dir", [False, True])
+@pytest.mark.parametrize("xet_mode", ["no_metadata", "disabled", "not_installed", "enabled"])
+def test_download_without_head_content_length(tmp_path: Path, use_local_dir: bool, xet_mode: str) -> None:
+    content = b"content"
+
+    def _mock_head(*, url: str, **kwargs) -> httpx2.Response:
+        headers = {constants.HUGGINGFACE_HEADER_X_REPO_COMMIT: "a" * 40, "ETag": '"etag"'}
+        if xet_mode != "no_metadata":
+            headers[constants.HUGGINGFACE_HEADER_X_XET_HASH] = "b" * 64
+            headers[constants.HUGGINGFACE_HEADER_X_XET_REFRESH_ROUTE] = "https://huggingface.co/xet-refresh"
+        return httpx2.Response(
+            200,
+            headers=headers,
+            request=httpx2.Request("HEAD", url),
+        )
+
+    @contextmanager
+    def _mock_get(*args, **kwargs):
+        yield httpx2.Response(
+            200,
+            headers={"Content-Length": str(len(content))},
+            content=content,
+            request=httpx2.Request("GET", "https://huggingface.co/user/repo/resolve/main/file.txt"),
+        )
+
+    download_kwargs = {"cache_dir": tmp_path / "cache"}
+    if use_local_dir:
+        download_kwargs["local_dir"] = tmp_path / "local"
+
+    with (
+        patch("huggingface_hub.file_download._httpx2_follow_hub_redirects_with_backoff", side_effect=_mock_head),
+        patch("huggingface_hub.file_download.http_stream_backoff", side_effect=_mock_get) as mock_get,
+        patch("huggingface_hub.constants.HF_HUB_DISABLE_XET", xet_mode == "disabled"),
+        patch("huggingface_hub.utils._runtime.is_package_available", return_value=xet_mode != "not_installed"),
+    ):
+        if xet_mode == "enabled":
+            with pytest.raises(LocalEntryNotFoundError) as exc:
+                hf_hub_download("user/repo", "file.txt", **download_kwargs)
+            assert isinstance(exc.value.__cause__, FileMetadataError)
+            mock_get.assert_not_called()
+            return
+        path = hf_hub_download("user/repo", "file.txt", **download_kwargs)
+
+    assert Path(path).read_bytes() == content
 
 
 class TestDiskUsageWarning:
@@ -162,6 +208,8 @@ class TestStagingDownload:
         api.move_repo(repo_id_after, repo_id_before)
 
 
+# Downloads LFS files: plain HTTP instead of Xet without `hf_xet`.
+@pytest.mark.transfer
 @pytest.mark.production
 class TestCachedDownload:
     def test_file_not_found_locally_and_network_disabled(self):
@@ -187,8 +235,8 @@ class TestCachedDownload:
                     local_files_only=True,
                 )
 
-    def test_private_repo_and_file_cached_locally(self, api: HfApi):
-        repo_id = api.create_repo(repo_id=repo_name(), private=True, token=TOKEN).repo_id
+    def test_private_repo_and_file_cached_locally(self, api: HfApi, repo_factory: RepoFactory):
+        repo_id = repo_factory(private=True).repo_id
         api.upload_file(path_or_fileobj=b"content", path_in_repo="config.json", repo_id=repo_id, token=TOKEN)
 
         with SoftTemporaryDirectory() as tmpdir:
@@ -625,6 +673,8 @@ class TestCachedDownload:
             )
 
 
+# Downloads LFS files: plain HTTP instead of Xet without `hf_xet`.
+@pytest.mark.transfer
 class TestHfHubDownloadToLocalDir:
     # `cache_dir` is a temporary directory
     # `local_dir` is a subdirectory in which files will be downloaded
@@ -661,21 +711,23 @@ class TestHfHubDownloadToLocalDir:
         api = HfApi(endpoint=constants.ENDPOINT, token=TOKEN)
         request.cls.api = api
         request.cls.repo_id = api.create_repo(repo_id=repo_name()).repo_id
-        commit_1 = api.upload_file(
-            path_or_fileobj=b"content", path_in_repo=request.cls.file_name, repo_id=request.cls.repo_id
-        )
-        commit_2 = api.upload_file(
-            path_or_fileobj=b"content", path_in_repo=request.cls.lfs_name, repo_id=request.cls.repo_id
-        )
+        try:
+            commit_1 = api.upload_file(
+                path_or_fileobj=b"content", path_in_repo=request.cls.file_name, repo_id=request.cls.repo_id
+            )
+            commit_2 = api.upload_file(
+                path_or_fileobj=b"content", path_in_repo=request.cls.lfs_name, repo_id=request.cls.repo_id
+            )
 
-        info = api.get_paths_info(repo_id=request.cls.repo_id, paths=[request.cls.file_name, request.cls.lfs_name])
-        info = {item.path: item for item in info}
-        request.cls.commit_hash_1 = commit_1.oid
-        request.cls.commit_hash_2 = commit_2.oid
-        request.cls.file_etag = info[request.cls.file_name].blob_id
-        request.cls.lfs_etag = info[request.cls.lfs_name].lfs.sha256
-        yield
-        api.delete_repo(repo_id=request.cls.repo_id)
+            info = api.get_paths_info(repo_id=request.cls.repo_id, paths=[request.cls.file_name, request.cls.lfs_name])
+            info = {item.path: item for item in info}
+            request.cls.commit_hash_1 = commit_1.oid
+            request.cls.commit_hash_2 = commit_2.oid
+            request.cls.file_etag = info[request.cls.file_name].blob_id
+            request.cls.lfs_etag = info[request.cls.lfs_name].lfs.sha256
+            yield
+        finally:
+            api.delete_repo(repo_id=request.cls.repo_id, missing_ok=True)
 
     @contextmanager
     def with_patch_head(self):
@@ -965,16 +1017,18 @@ class TestStagingCachedDownloadOnAwfulFilenames:
         api = HfApi(endpoint=constants.ENDPOINT, token=TOKEN)
         request.cls.api = api
         request.cls.repo_url = api.create_repo(repo_id=repo_name("awful_filename"))
-        request.cls.expected_resolve_url = (
-            f"{request.cls.repo_url}/resolve/main/subfolder/to%3F/awful%3Ffilename%25you%3Ashould%2Cnever.give"
-        )
-        api.upload_file(
-            path_or_fileobj=b"content",
-            path_in_repo=request.cls.filepath,
-            repo_id=request.cls.repo_url.repo_id,
-        )
-        yield
-        api.delete_repo(repo_id=request.cls.repo_url.repo_id)
+        try:
+            request.cls.expected_resolve_url = (
+                f"{request.cls.repo_url}/resolve/main/subfolder/to%3F/awful%3Ffilename%25you%3Ashould%2Cnever.give"
+            )
+            api.upload_file(
+                path_or_fileobj=b"content",
+                path_in_repo=request.cls.filepath,
+                repo_id=request.cls.repo_url.repo_id,
+            )
+            yield
+        finally:
+            api.delete_repo(repo_id=request.cls.repo_url.repo_id, missing_ok=True)
 
     def test_hf_hub_url_on_awful_filepath(self):
         assert hf_hub_url(self.repo_url.repo_id, self.filepath) == self.expected_resolve_url
@@ -1001,12 +1055,18 @@ class TestStagingCachedDownloadOnAwfulFilenames:
 
 
 class TestHfHubDownloadRelativePaths:
-    """Regression test for HackerOne report 1928845.
+    """Regression test for HackerOne report 1928845 and its absolute/UNC follow-up (CVE-2026-15717).
 
-    Issue was that any file outside of the local dir could be overwritten (Windows only).
+    Issue was that a malicious repo could overwrite files outside of the cache/local dir on Windows
+    clients: a crafted filename (`..\\` traversal, absolute `C:\\...`, drive-relative `D:foo`, root-relative
+    `\\foo`, or UNC `\\\\host\\share\\...`) escapes the target directory when joined onto it. The UNC form
+    additionally makes the Windows client authenticate to the attacker's SMB server, leaking a NetNTLMv2
+    hash.
 
-    In the end, multiple protections have been added to prevent this (..\\ in filename forbidden on Windows, always check
-    the filepath is in local_dir/snapshot_dir).
+    Protection is a single validation (`_validate_relative_filename`) applied on both the cache and the
+    `local_dir` download paths, interpreting the filename under both POSIX and Windows rules on all
+    platforms (so a file materialized on Linux cannot escape when later consumed on Windows), backed by
+    the `_get_pointer_path` containment check in the cache path.
     """
 
     @pytest.fixture(scope="class", autouse=True)
@@ -1014,20 +1074,22 @@ class TestHfHubDownloadRelativePaths:
         api = HfApi(endpoint=constants.ENDPOINT, token=TOKEN)
         request.cls.api = api
         request.cls.repo_id = api.create_repo(repo_id=repo_name()).repo_id
-        api.upload_file(
-            path_or_fileobj=b"content", path_in_repo="folder/..\\..\\..\\file", repo_id=request.cls.repo_id
-        )
-        yield
-        api.delete_repo(repo_id=request.cls.repo_id)
+        try:
+            api.upload_file(
+                path_or_fileobj=b"content", path_in_repo="folder/..\\..\\..\\file", repo_id=request.cls.repo_id
+            )
+            yield
+        finally:
+            api.delete_repo(repo_id=request.cls.repo_id, missing_ok=True)
 
-    @pytest.mark.skipif(os.name == "nt", reason="Windows paths cannot contain '\\..\\'.")
     def test_download_folder_file_in_cache_dir(self, tmp_path: Path) -> None:
-        hf_hub_download(self.repo_id, "folder/..\\..\\..\\file", cache_dir=tmp_path)
+        with pytest.raises(ValueError, match="Invalid filename"):
+            hf_hub_download(self.repo_id, "folder/..\\..\\..\\file", cache_dir=tmp_path)
 
-    @pytest.mark.skipif(os.name == "nt", reason="Windows paths cannot contain '\\..\\'.")
     def test_download_folder_file_to_local_dir(self, tmp_path: Path) -> None:
         with SoftTemporaryDirectory() as local_dir:
-            hf_hub_download(self.repo_id, "folder/..\\..\\..\\file", cache_dir=tmp_path, local_dir=local_dir)
+            with pytest.raises(ValueError, match="Invalid filename"):
+                hf_hub_download(self.repo_id, "folder/..\\..\\..\\file", cache_dir=tmp_path, local_dir=local_dir)
 
     def test_get_pointer_path_and_valid_relative_filename(self) -> None:
         # Cannot happen because of other protections, but just in case.
@@ -1043,21 +1105,27 @@ class TestHfHubDownloadRelativePaths:
 
 
 class TestHttpGet:
+    def test_http_get_validates_content_length_when_expected_size_is_missing(self):
+        with pytest.raises(OSError, match="file should be of size 100 but has size 50"):
+            self._http_get_with_mocked_responses(
+                [self._mock_response(headers={"Content-Length": "100"}, iter_bytes=iter([b"A" * 50]))]
+            )
+
     def test_http_get_with_ssl_and_timeout_error(self, caplog):
         def _iter_content_1() -> Iterable[bytes]:
             yield b"0" * 10
             yield b"0" * 10
-            raise httpx.ConnectError("Fake ConnectError")
+            raise httpx2.ConnectError("Fake ConnectError")
 
         def _iter_content_2() -> Iterable[bytes]:
             yield b"0" * 10
-            raise httpx.TimeoutException("Fake TimeoutException")
+            raise httpx2.TimeoutException("Fake TimeoutException")
 
         def _iter_content_3() -> Iterable[bytes]:
             yield b"0" * 10
             yield b"0" * 10
             yield b"0" * 10
-            raise httpx.ConnectError("Fake ConnectionError")
+            raise httpx2.ConnectError("Fake ConnectionError")
 
         def _iter_content_4() -> Iterable[bytes]:
             yield b"0" * 10
@@ -1134,17 +1202,17 @@ class TestHttpGet:
         def _iter_content_1() -> Iterable[bytes]:
             yield b"0" * 10
             yield b"0" * 10
-            raise httpx.ConnectError("Fake ConnectError")
+            raise httpx2.ConnectError("Fake ConnectError")
 
         def _iter_content_2() -> Iterable[bytes]:
             yield b"0" * 10
-            raise httpx.TimeoutException("Fake TimeoutException")
+            raise httpx2.TimeoutException("Fake TimeoutException")
 
         def _iter_content_3() -> Iterable[bytes]:
             yield b"0" * 10
             yield b"0" * 10
             yield b"0" * 10
-            raise httpx.ConnectError("Fake ConnectionError")
+            raise httpx2.ConnectError("Fake ConnectionError")
 
         def _iter_content_4() -> Iterable[bytes]:
             yield b"0" * 10
@@ -1192,7 +1260,7 @@ class TestHttpGet:
 
         def _iter_content_1() -> Iterable[bytes]:
             yield b"A" * 30
-            raise httpx.TimeoutException("Fake timeout")
+            raise httpx2.TimeoutException("Fake timeout")
 
         def _iter_content_2() -> Iterable[bytes]:
             # Server ignores Range, returns full content
@@ -1301,7 +1369,7 @@ class TestHttpGet:
 
         def _fail_after(data: bytes):
             yield data
-            raise httpx.TimeoutException("timeout")
+            raise httpx2.TimeoutException("timeout")
 
         temp_file = self._http_get_with_mocked_responses(
             [
@@ -1335,7 +1403,7 @@ class TestHttpGet:
 
         def _fail_after(data: bytes):
             yield data
-            raise httpx.TimeoutException("timeout")
+            raise httpx2.TimeoutException("timeout")
 
         temp_file = self._http_get_with_mocked_responses(
             [
@@ -1453,20 +1521,20 @@ class TestNormalizeEtag:
     @pytest.mark.production
     def test_resolve_endpoint_on_regular_file(self):
         url = "https://huggingface.co/gpt2/resolve/e7da7f221d5bf496a48136c0cd264e630fe9fcc8/README.md"
-        response = httpx.head(url, headers=build_hf_headers(user_agent="is_ci/true"))
+        response = httpx2.head(url, headers=build_hf_headers(user_agent="is_ci/true"))
         assert self._get_etag_and_normalize(response) == "a16a55fda99d2f2e7b69cce5cf93ff4ad3049930"
 
     @pytest.mark.production
     def test_resolve_endpoint_on_lfs_file(self):
         url = "https://huggingface.co/gpt2/resolve/e7da7f221d5bf496a48136c0cd264e630fe9fcc8/pytorch_model.bin"
-        response = httpx.head(url, headers=build_hf_headers(user_agent="is_ci/true"))
+        response = httpx2.head(url, headers=build_hf_headers(user_agent="is_ci/true"))
         assert (
             self._get_etag_and_normalize(response)
             == "7c5d3f4b8b76583b422fcb9189ad6c89d5d97a094541ce8932dce3ecabde1421"
         )
 
     @staticmethod
-    def _get_etag_and_normalize(response: httpx.Response) -> str:
+    def _get_etag_and_normalize(response: httpx2.Response) -> str:
         return _normalize_etag(
             response.headers.get(constants.HUGGINGFACE_HEADER_X_LINKED_ETAG) or response.headers.get("ETag")
         )

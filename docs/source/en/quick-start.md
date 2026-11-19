@@ -24,10 +24,8 @@ For more details, check out the [installation](installation) guide.
 > The `huggingface_hub` also ships with a [`hf` CLI](./guides/cli) that lets you interact with the Hub directly from the terminal.
 > If you're using AI agents (Claude Code, Codex, Cursor, ...), install the Skill to let your agent use the CLI:
 > ```bash
-> # for Codex, Cursor, OpenCode, Pi and other agents that load skills from `.agents/skills`
+> # works with Claude Code, Codex, Cursor, OpenCode, Pi and any agent that loads skills from `.agents/skills`
 > hf skills add
-> # includes the above + Claude Code
-> hf skills add --claude
 > ```
 > Check out the [Hugging Face CLI for AI Agents](https://huggingface.co/docs/hub/agents-cli) guide for more details.
 

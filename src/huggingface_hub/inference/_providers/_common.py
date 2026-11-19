@@ -266,6 +266,37 @@ class BaseConversationalTask(TaskProviderHelper):
     def __init__(self, provider: str, base_url: str):
         super().__init__(provider=provider, base_url=base_url, task="conversational")
 
+    def prepare_request(
+        self,
+        *,
+        inputs: Any,
+        parameters: dict[str, Any],
+        headers: dict,
+        model: str | None,
+        api_key: str | None,
+        extra_payload: dict[str, Any] | None = None,
+    ) -> RequestParameters:
+        # With a HF token, the router resolves `model:provider` server-side, no Hub mapping lookup.
+        # Provider keys still call the provider directly.
+        api_key = self._prepare_api_key(api_key)
+        if self.provider != "auto" and api_key.startswith("hf_") and model is not None:
+            return AutoRouterConversationalTask().prepare_request(
+                inputs=inputs,
+                parameters=parameters,
+                headers=headers,
+                model=f"{model}:{self.provider}",
+                api_key=api_key,
+                extra_payload=extra_payload,
+            )
+        return super().prepare_request(
+            inputs=inputs,
+            parameters=parameters,
+            headers=headers,
+            model=model,
+            api_key=api_key,
+            extra_payload=extra_payload,
+        )
+
     def _prepare_route(self, mapped_model: str, api_key: str) -> str:
         return "/v1/chat/completions"
 
@@ -275,7 +306,18 @@ class BaseConversationalTask(TaskProviderHelper):
         parameters: dict,
         provider_mapping_info: InferenceProviderMapping,
     ) -> dict | None:
-        return filter_none({"messages": inputs, **parameters, "model": provider_mapping_info.provider_id})
+        # `model` is serialized first so that a router/proxy can resolve the target provider from a
+        # small prefix of the request body instead of buffering the whole payload — `messages` can
+        # hold megabytes of base64-encoded images.
+        # `parameters` also carries a caller-supplied "model" (see `InferenceClient.chat_completion`),
+        # which must not take precedence over the provider-mapped id: drop it from the spread.
+        return filter_none(
+            {
+                "model": provider_mapping_info.provider_id,
+                "messages": inputs,
+                **{key: value for key, value in parameters.items() if key != "model"},
+            }
+        )
 
 
 class AutoRouterConversationalTask(BaseConversationalTask):

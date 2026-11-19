@@ -121,7 +121,14 @@ class HFInferenceConversational(HFInferenceTask):
                 "type": "json_object",
                 "value": response_format["json_schema"]["schema"],
             }
-        return {**payload, "model": payload_model, "messages": inputs}
+        # Same ordering rationale as `BaseConversationalTask`: `model` first so it can be read from a
+        # small prefix of the body, and dropped from the `payload` spread so the already-resolved
+        # `payload_model` wins.
+        return {
+            "model": payload_model,
+            "messages": inputs,
+            **{key: value for key, value in payload.items() if key != "model"},
+        }
 
     def _prepare_url(self, api_key: str, mapped_model: str) -> str:
         base_url = (
@@ -169,16 +176,9 @@ def _check_supported_task(model: str, task: str) -> None:
     model_info = HfApi().model_info(model)
     pipeline_tag = model_info.pipeline_tag
     tags = model_info.tags or []
-    is_conversational = "conversational" in tags
     if task in ("text-generation", "conversational"):
         if pipeline_tag == "text-generation":
-            # text-generation + conversational tag -> both tasks allowed
-            if is_conversational:
-                return
-            # text-generation without conversational tag -> only text-generation allowed
-            if task == "text-generation":
-                return
-            raise ValueError(f"Model '{model}' doesn't support task '{task}'.")
+            return
 
     if pipeline_tag == "text2text-generation":
         if task == "text-generation":
@@ -186,8 +186,8 @@ def _check_supported_task(model: str, task: str) -> None:
         raise ValueError(f"Model '{model}' doesn't support task '{task}'.")
 
     if pipeline_tag == "image-text-to-text":
-        if is_conversational and task == "conversational":
-            return  # Only conversational allowed if tagged as conversational
+        if task == "conversational":
+            return
         raise ValueError("Non-conversational image-text-to-text task is not supported.")
 
     if (

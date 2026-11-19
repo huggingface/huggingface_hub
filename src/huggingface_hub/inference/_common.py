@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, BinaryIO, Literal, NoReturn, Union, overload
 
-import httpx
+import httpx2
 
 from huggingface_hub.errors import (
     GenerationError,
@@ -350,7 +350,7 @@ def _format_chat_completion_stream_output(
     return ChatCompletionStreamOutput.parse_obj_as_instance(json_payload)
 
 
-async def _async_yield_from(client: httpx.AsyncClient, response: httpx.Response) -> AsyncIterable[str]:
+async def _async_yield_from(client: httpx2.AsyncClient, response: httpx2.Response) -> AsyncIterable[str]:
     async for line in response.aiter_lines():
         yield line.strip()
 
@@ -396,8 +396,8 @@ def raise_text_generation_error(http_error: HfHubHTTPError) -> NoReturn:
     Try to parse text-generation-inference error message and raise HTTPError in any case.
 
     Args:
-        error (`HTTPError`):
-            The HTTPError that have been raised.
+        http_error (`HfHubHTTPError`):
+            The HTTPError that has been raised.
     """
     # Try to parse a Text Generation Inference error
     if http_error.response is None:

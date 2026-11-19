@@ -7,6 +7,11 @@ Specifications are available at https://github.com/huggingface/hub-docs/blob/mai
 from dataclasses import dataclass
 from typing import Any
 
+from .utils import logging
+
+
+logger = logging.get_logger(__name__)
+
 
 @dataclass
 class EvalResultEntry:
@@ -191,6 +196,9 @@ def parse_eval_result_entries(data: list[dict[str, Any]]) -> list[EvalResultEntr
     """
     entries = []
     for item in data:
+        if "error" in item:  # file failed server-side validation
+            logger.warning(f"Skipping invalid eval results file '{item.get('filename')}': {item['error']}")
+            continue
         entry_data = item.get("data", item)
         dataset = entry_data.get("dataset", {})
         source = entry_data.get("source", {})

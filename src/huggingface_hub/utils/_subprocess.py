@@ -108,7 +108,7 @@ def run_interactive_subprocess(
             The folder in which to run the command. Defaults to current working
             directory (from `os.getcwd()`).
         kwargs (`dict[str]`):
-            Keyword arguments to be passed to the `subprocess.run` underlying command.
+            Keyword arguments to be passed to the `subprocess.Popen` underlying command.
 
     Returns:
         `tuple[IO[str], IO[str]]`: A tuple with `stdin` and `stdout` to interact
@@ -116,13 +116,13 @@ def run_interactive_subprocess(
 
     Example:
     ```python
-    with _interactive_subprocess("git credential-store get") as (stdin, stdout):
+    with run_interactive_subprocess("git credential-store get") as (stdin, stdout):
         # Write to stdin
-        stdin.write("url=hf.co\nusername=obama\n".encode("utf-8"))
+        stdin.write("url=https://huggingface.co\nusername=hf_user\n\n")
         stdin.flush()
 
         # Read from stdout
-        output = stdout.read().decode("utf-8")
+        output = stdout.read()
     ```
     """
     if isinstance(command, str):

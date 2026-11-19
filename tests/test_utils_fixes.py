@@ -1,5 +1,7 @@
+import errno
 import logging
 from pathlib import Path
+from unittest.mock import patch
 
 import filelock
 import pytest
@@ -30,16 +32,32 @@ class TestTemporaryDirectory:
 
 
 class TestWeakFileLock:
+    def test_lock_falls_back_when_flock_returns_enosys(self, tmp_path: Path) -> None:
+        lock_file = tmp_path / ".lock"
+
+        def raise_enosys(**_: object) -> None:
+            lock_file.touch()
+            raise OSError(errno.ENOSYS, "Function not implemented")
+
+        with patch("huggingface_hub.utils._fixes.FileLock.acquire", side_effect=raise_enosys):
+            with WeakFileLock(lock_file):
+                pass
+
+        assert lock_file.exists()
+        assert not Path(f"{lock_file}.soft").exists()
+
     def test_lock_log_every(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
     ) -> None:
         monkeypatch.setattr("huggingface_hub.constants.FILELOCK_LOG_EVERY_SECONDS", 0.1)
         lock_file = tmp_path / ".lock"
 
+        # Wait 10x the log interval but only assert on the first 3 messages: on a loaded CI runner
+        # a poll can take much longer than the interval, so we can't expect all 10 of them.
         with caplog.at_level(logging.INFO, logger="huggingface_hub.utils._fixes"):
             with WeakFileLock(lock_file):
                 with pytest.raises(filelock.Timeout) as exc_info:
-                    with WeakFileLock(lock_file, timeout=0.3):
+                    with WeakFileLock(lock_file, timeout=1.0):
                         pass
                 assert exc_info.value.lock_file == str(lock_file)
 
