@@ -524,6 +524,9 @@ class ModelHubMixin:
                 if param.name not in model_kwargs and param.name in config:
                     model_kwargs[param.name] = config[param.name]
 
+            # Keep the config as a dict to inject it as kwargs below (`config` might be decoded as a dataclass)
+            config_dict = config
+
             # Check if `config` argument was passed at init
             if "config" in cls._hub_mixin_init_parameters and "config" not in model_kwargs:
                 # Decode `config` argument if it was passed
@@ -536,10 +539,10 @@ class ModelHubMixin:
             # Inject config if `**kwargs` are expected
             if is_dataclass(cls):
                 for key in cls.__dataclass_fields__:
-                    if key not in model_kwargs and key in config:
-                        model_kwargs[key] = config[key]
+                    if key not in model_kwargs and key in config_dict:
+                        model_kwargs[key] = config_dict[key]
             elif any(param.kind == inspect.Parameter.VAR_KEYWORD for param in cls._hub_mixin_init_parameters.values()):
-                for key, value in config.items():  # type: ignore[union-attr]
+                for key, value in config_dict.items():
                     if key not in model_kwargs:
                         model_kwargs[key] = value
 

@@ -76,6 +76,11 @@ class DummyModelWithKwargs(BaseModel, ModelHubMixin):
         pass
 
 
+class DummyModelConfigAsDataclassWithKwargs(BaseModel, ModelHubMixin):
+    def __init__(self, config: ConfigAsDataclass, **kwargs):
+        pass
+
+
 class DummyModelFromPretrainedExpectsConfig(ModelHubMixin):
     def _save_pretrained(self, save_directory: Path) -> None:
         return
@@ -291,6 +296,18 @@ class TestHubMixin:
         # 'something' is passed to __init__ both as kwarg and in config.
         init_kwargs = init_call_mock.call_args_list[0].kwargs
         assert init_kwargs["something"] == "else"
+
+    def test_init_accepts_kwargs_with_dataclass_config(self, tmp_path):
+        DummyModelConfigAsDataclassWithKwargs(CONFIG_AS_DATACLASS).save_pretrained(tmp_path)
+
+        with patch.object(DummyModelConfigAsDataclassWithKwargs, "_from_pretrained") as from_pretrained_mock:
+            DummyModelConfigAsDataclassWithKwargs.from_pretrained(tmp_path)
+
+        # config is decoded as a dataclass and its values are also passed as kwargs.
+        kwargs = from_pretrained_mock.call_args_list[0].kwargs
+        assert kwargs["config"] == CONFIG_AS_DATACLASS
+        assert kwargs["foo"] == 20
+        assert kwargs["bar"] == "qux"
 
     def test_save_pretrained_with_push_to_hub(self, tmp_path):
         repo_id = repo_name("save")
