@@ -1313,7 +1313,8 @@ def _hf_hub_download_to_cache_dir(
                     expected_size=expected_size,
                     replace_existing=force_download,
                 )
-        if not os.path.exists(pointer_path):
+        # Without symlinks, the snapshot holds a copy of the blob: republish it on force_download.
+        if not os.path.exists(pointer_path) or (force_download and not os.path.islink(pointer_path)):
             # A shared blob is a symlink: if the snapshot symlink fails, copy through it instead of moving it away.
             _create_symlink(blob_path, pointer_path, new_blob=not blob_is_shared)
 
