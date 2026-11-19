@@ -1292,10 +1292,10 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         else:
             out = None
             parent_path = self._parent(path)
-            if not expand_info and parent_path not in self.dircache:
+            if not refresh and not expand_info and parent_path not in self.dircache:
                 # Fill the cache with cheap call
                 self.ls(parent_path)
-            if parent_path in self.dircache:
+            if not refresh and parent_path in self.dircache:
                 # Check if the path is in the cache
                 out1 = [o for o in self.dircache[parent_path] if o["name"] == path]
                 if not out1:
@@ -1648,6 +1648,8 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
 
 
 class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
+    """Read-only binary stream. For text reads, use ``fs.open(path, mode="r", block_size=0)``."""
+
     def __init__(
         self,
         fs: HfFileSystem,
@@ -1662,7 +1664,7 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
             raise ValueError(f"HfFileSystemStreamFile only supports block_size=0 but got {block_size}")
         if cache_type != "none":
             raise ValueError(f"HfFileSystemStreamFile only supports cache_type='none' but got {cache_type}")
-        if "w" in mode:
+        if mode != "rb":
             raise ValueError(f"HfFileSystemStreamFile only supports reading but got mode='{mode}'")
         # Let a missing repo/revision/file surface as FileNotFoundError (as the buffered
         # `HfFileSystemFile` does) instead of an AttributeError on `self.resolved_path` below.

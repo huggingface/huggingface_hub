@@ -25,6 +25,7 @@ import click
 from huggingface_hub import constants
 from huggingface_hub.errors import CLIError
 from huggingface_hub.hf_api import _ATTACHMENT_CONTENT_TYPES, HfApi
+from huggingface_hub.utils import get_session, hf_raise_for_status
 
 from ._cli_utils import (
     AuthorOpt,
@@ -557,7 +558,12 @@ def discussion_diff(
         discussion_num=num,
         repo_type=repo_type.value,
     )
-    if details.diff:
-        out.text(details.diff)
+    diff = details.diff
+    if not diff and details.diff_url:
+        resp = get_session().get(details.diff_url, headers=api._build_hf_headers(token=token))
+        hf_raise_for_status(resp)
+        diff = resp.text
+    if diff:
+        out.text(diff)
     else:
         out.text("No diff available.")
