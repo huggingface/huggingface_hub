@@ -986,6 +986,29 @@ def test_bucket_info_raises_for_a_file_missing_from_the_bucket():
         get_bucket_paths_info.assert_called_once_with("username/my_bucket", ["missing.txt"])
 
 
+@pytest.mark.parametrize("error_type", [TimeoutError, ConnectionError])
+def test_bucket_info_lookup_error_does_not_poison_retry(error_type):
+    """A failed fallback lookup propagates and leaves the cached listing untouched."""
+    fs = HfFileSystem(skip_instance_cache=True)
+    path = "hf://buckets/username/my_bucket/new.txt"
+    old_file = BucketFile(type="file", path="old.txt", size=1, xetHash="old")
+    new_file = BucketFile(type="file", path="new.txt", size=3, xetHash="abc")
+    error = error_type("temporary lookup failure")
+    with (
+        mock_bucket_info(fs),
+        patch.object(fs._api, "list_bucket_tree", return_value=[old_file]) as listing,
+        patch.object(fs._api, "get_bucket_paths_info", side_effect=[error, [new_file]]) as lookup,
+    ):
+        before = fs.ls("hf://buckets/username/my_bucket", detail=True)
+        with pytest.raises(error_type) as caught:
+            fs.info(path)
+        assert caught.value is error
+        assert fs.dircache["buckets/username/my_bucket"] == before
+        assert fs.info(path)["size"] == 3
+        assert lookup.call_count == 2
+        listing.assert_called_once()
+
+
 @pytest.mark.parametrize(
     ("not_supported_path", "expected_error"),
     [
