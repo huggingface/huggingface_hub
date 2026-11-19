@@ -438,3 +438,39 @@ def test_resume(mock: Mock):
     mock.return_value = InferenceEndpoint.from_raw(MOCK_INITIALIZING, namespace="foo")
     endpoint.resume()
     mock.assert_called_once_with(namespace="foo", name="my-endpoint-name", token=None, running_ok=True)
+
+
+@patch("huggingface_hub.hf_api.get_session")
+@patch(
+    "huggingface_hub.hf_api.HfApi.whoami",
+    return_value={"type": "user", "name": "alice", "orgs": [{"name": "acme"}]},
+)
+def test_list_inference_endpoints_all_namespaces_uses_client(_mock_whoami: Mock, mock_get_session: Mock):
+    """Test every request made for `namespace="*"` is authenticated with the token of the `HfApi` instance."""
+    mock_get_session.return_value.get.return_value = Mock(status_code=200, json=lambda: {"items": [MOCK_RUNNING]})
+    api = HfApi(token="hf_my_token")
+
+    endpoints = api.list_inference_endpoints(namespace="*")
+
+    calls = mock_get_session.return_value.get.call_args_list
+    assert [call.args[0].rsplit("/", 1)[-1] for call in calls] == ["alice", "acme"]
+    assert all(call.kwargs["headers"]["authorization"] == "Bearer hf_my_token" for call in calls)
+    assert len(endpoints) == 2
+    assert all(endpoint._api is api and endpoint._token == "hf_my_token" for endpoint in endpoints)
+
+
+@pytest.mark.parametrize(
+    "method", ["get_inference_endpoint", "pause_inference_endpoint", "scale_to_zero_inference_endpoint"]
+)
+@patch("huggingface_hub.hf_api.get_session")
+def test_returned_endpoint_keeps_client(mock_get_session: Mock, method: str):
+    """Test an `InferenceEndpoint` returned by `HfApi` keeps the client and token it was created from."""
+    response = Mock(status_code=200, json=lambda: MOCK_RUNNING)
+    mock_get_session.return_value.get.return_value = response
+    mock_get_session.return_value.post.return_value = response
+    api = HfApi(token="hf_my_token")
+
+    endpoint = getattr(api, method)("my-endpoint-name", namespace="foo")
+
+    assert endpoint._api is api
+    assert endpoint._token == "hf_my_token"

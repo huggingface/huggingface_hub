@@ -32,6 +32,11 @@ If you want to report a bug or suggest a technical improvement, **please open an
 A well-written issue with concrete details (*what* is wrong or missing, *why* it matters, *how* you'd expect it to work)
 is the most helpful thing you can do. It helps us prioritize, design the right solution, and ship a fix quickly.
 
+For every bug-related issue or pull request, **you must state in the description how the bug was discovered**:
+was it encountered while using the library in a real-life situation (briefly describe the use case), or found through
+static code analysis (for example, reading the code or using an analysis tool)? If a finding from static analysis was
+later reproduced, still state that it was originally found through static analysis.
+
 In practice, **we prefer to implement most code changes ourselves**. As maintainers we can iterate fast, keep the code
 consistent, and ship fixes in a single pass. We will typically pick up issues and open a PR on our side when the timing
 is right. This is not about gatekeeping. It is simply how we work most efficiently on a fast-moving codebase, and it
@@ -221,7 +226,7 @@ We use `pytest` to run the tests. From the root of the repository:
 
 ```bash
 $ pytest tests/                          # run all tests (slow, many require network)
-$ pytest tests/test_repository.py        # run a specific test file
+$ pytest tests/test_utils_sha.py         # run a specific test file
 $ pytest tests -k tag                    # run tests matching a name
 ```
 
