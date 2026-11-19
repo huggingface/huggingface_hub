@@ -418,7 +418,9 @@ class _UploadPipeline:
         self.abort_event = threading.Event()
         # Batches whose xet upload-commit is still running. On failure, only these are aborted: the
         # process-wide xet session is shared with unrelated transfers (other uploads, downloads).
+        # Mutated by both the coordinator and the committer threads, hence the lock.
         self._inflight_batches: set[_Batch] = set()
+        self._inflight_lock = threading.Lock()
         self.display = _LiveDisplay(total_files=len(add_operations), enabled=not are_progress_bars_disabled())
 
         # All xet uploads share the same token refresh URL. With `create_pr`, the final ref is not
@@ -456,7 +458,9 @@ class _UploadPipeline:
             self._coordinator_loop()
         except BaseException as e:
             self.abort_event.set()
-            for batch in list(self._inflight_batches):
+            with self._inflight_lock:
+                inflight = list(self._inflight_batches)
+            for batch in inflight:
                 self._abort_batch(batch)
             if isinstance(e, KeyboardInterrupt):
                 abort_xet_session()
@@ -521,7 +525,8 @@ class _UploadPipeline:
                         batch.xet_commit = self.xet_session.new_upload_commit(
                             progress_callback=self.display.new_xet_callback(), **self.xet_commit_kwargs
                         )
-                        self._inflight_batches.add(batch)
+                        with self._inflight_lock:
+                            self._inflight_batches.add(batch)
                     # Upload starts immediately in the background. sha256 is computed by hf_xet
                     # while chunking, unless already known (e.g. resumed operations).
                     sha_arg = op.upload_info.sha256.hex() if op.upload_info.is_hashed else hf_xet.COMPUTE_SHA256
@@ -557,7 +562,8 @@ class _UploadPipeline:
         self._abort_batch(batch)
 
     def _abort_batch(self, batch: _Batch) -> None:
-        self._inflight_batches.discard(batch)
+        with self._inflight_lock:
+            self._inflight_batches.discard(batch)
         if batch.xet_commit is not None:
             try:
                 batch.xet_commit.abort()
@@ -591,7 +597,8 @@ class _UploadPipeline:
         #    can only be referenced by a git commit once their xet upload-commit is finalized.
         if batch.xet_commit is not None:
             batch.xet_commit.wait_to_finish()
-            self._inflight_batches.discard(batch)
+            with self._inflight_lock:
+                self._inflight_batches.discard(batch)
             for op, handle in batch.handles:
                 if not op.upload_info.is_hashed:
                     op.upload_info.sha256 = bytes.fromhex(handle.result().xet_info.sha256)
