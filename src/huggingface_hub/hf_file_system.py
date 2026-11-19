@@ -91,6 +91,10 @@ class HfFileSystemResolvedBucketPath(HfFileSystemResolvedPath):
 _cached_base: Any = type(fsspec.AbstractFileSystem)
 
 
+# Key used in `_listings_generation` to mark the cached listings of every root (repo or bucket) outdated
+_ALL_ROOTS = ""
+
+
 def _cache_info_from_path_info(
     path_info: RepoFile | RepoFolder | BucketFile | BucketFolder, cache_path: str
 ) -> dict[str, Any]:
@@ -324,10 +328,9 @@ class _Cached(_cached_base):
     be made for a filesystem instance to be garbage collected.
 
     This is a slightly modified version of `fsspec.spec._Cached` to improve it.
-    In particular in `_tokenize` the pid isn't taken into account for the
-    `fs_token` used to identify cached instances. The `fs_token` logic is also
-    robust to defaults values and the order of the args. Finally new instances
-    reuse the states from sister instances in the main thread.
+    In particular in `_tokenize` neither the pid nor the thread is taken into account for the `fs_token` used
+    to identify cached instances: an instance is shared by every thread of the process using the same options.
+    The `fs_token` logic is also robust to defaults values and the order of the args.
     """
 
     def __init__(cls, *args, **kwargs):
@@ -337,6 +340,9 @@ class _Cached(_cached_base):
         # collecting instances when all other references are gone. To really
         # delete a FileSystem, the cache must be cleared.
         cls._cache = {}
+        # As instances are shared across threads, two threads creating an instance at the same time must not
+        # end up with two different ones (each with its own cache). Creation is cheap (no request).
+        cls._cache_lock = threading.RLock()
 
     def __call__(cls, *args, **kwargs):
         # Hack: override https://github.com/fsspec/filesystem_spec/blob/dcb167e8f50e6273d4cfdfc4cab8fc5aa4c958bf/fsspec/spec.py#L65
@@ -344,20 +350,13 @@ class _Cached(_cached_base):
         # HfFileSystem picks up defaults the same way other fsspec filesystems do.
         kwargs = apply_config(cls, kwargs)
         skip = kwargs.pop("skip_instance_cache", False)
-        fs_token = cls._tokenize(cls, threading.get_ident(), *args, **kwargs)
-        fs_token_main_thread = cls._tokenize(cls, threading.main_thread().ident, *args, **kwargs)
-        if not skip and cls.cachable and fs_token in cls._cache:
-            # reuse cached instance
-            cls._latest = fs_token
-            return cls._cache[fs_token]
-        else:
-            # create new instance
+        fs_token = cls._tokenize(*args, **kwargs)
+        with cls._cache_lock:
+            if not skip and cls.cachable and fs_token in cls._cache:
+                # reuse cached instance
+                cls._latest = fs_token
+                return cls._cache[fs_token]
             obj = type.__call__(cls, *args, **kwargs)
-            if not skip and cls.cachable and fs_token_main_thread in cls._cache:
-                # reuse the cache from the main thread instance in the new instance
-                instance_state = cls._cache[fs_token_main_thread]._get_instance_state()
-                for attr, state_value in instance_state.items():
-                    setattr(obj, attr, state_value)
             obj._fs_token_ = fs_token
             obj.storage_args = args
             obj.storage_options = kwargs
@@ -440,6 +439,10 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
     >>> from huggingface_hub import HfFileSystem
     >>> hffs = HfFileSystem(token=token)
     ```
+
+    An instance is cached per set of options and shared by every thread of the process, so `HfFileSystem()`
+    called from several threads returns the same one. A transaction only defers the writes of the thread that
+    runs it.
     """
 
     root_marker = ""
@@ -456,6 +459,8 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         live_follow: bool | None = None,
         **storage_options,
     ):
+        # Set before `super().__init__()` which starts using the `_intrans` and `_transaction` properties below
+        self._trans_local = threading.local()
         super().__init__(*args, **storage_options)
         self.endpoint = endpoint or constants.ENDPOINT
         self.token = token
@@ -464,7 +469,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         self.expand_info = expand_info
         self.max_workers = max_workers
         self.live_follow = live_follow
-        # Filled by the live-follow threads, applied by `_ls_tree` so that `dircache` is only mutated by its owner
+        # Filled by the live-follow threads, drained and applied by `_ls_tree` under `_dircache_lock`
         self._pending_bucket_changes: deque[tuple[str, list[BucketFileChange] | None]] = deque()
         # Maps (repo_type, repo_id, revision) to a 2-tuple with:
         #  * the 1st element indicating whether the repository and the revision exist
@@ -475,16 +480,43 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         # Note: special case for buckets: revision is always None
         # Maps parent directory path to path infos
         self.dircache: dict[str, list[dict[str, Any]]] = {}
+        # A listing is cached only once its (paginated and possibly parallel) request is over, so it can land
+        # after a change that already invalidated it. Every invalidation bumps a generation counter, per root
+        # (repository or bucket) and for all roots at once, and a listing whose generation moved while it was
+        # requested is not cached. The lock keeps the cache coherent when one instance is used by several
+        # threads; it is never held while requesting the Hub.
+        # See https://github.com/huggingface/huggingface_hub/issues/5383
+        self._dircache_lock = threading.RLock()
+        self._listings_generation: dict[str, int] = {}
+        self._generation_tick = 0
+
+    @property
+    def _intrans(self) -> bool:
+        # An instance is shared by all the threads using it, while a transaction only defers the writes of the
+        # thread running it: `_intrans` and `_transaction` are therefore per-thread.
+        return getattr(self._trans_local, "intrans", False)
+
+    @_intrans.setter
+    def _intrans(self, value: bool) -> None:
+        self._trans_local.intrans = value
+
+    @property
+    def _transaction(self) -> Any:
+        return getattr(self._trans_local, "transaction", None)
+
+    @_transaction.setter
+    def _transaction(self, value: Any) -> None:
+        self._trans_local.transaction = value
 
     @classmethod
-    def _tokenize(cls, threading_ident: int, *args, **kwargs) -> str:
+    def _tokenize(cls, *args, **kwargs) -> str:
         """Deterministic token for caching"""
         # make fs_token robust to default values and to kwargs order
         kwargs["endpoint"] = kwargs.get("endpoint") or constants.ENDPOINT
         kwargs["token"] = kwargs.get("token")
         kwargs = {key: kwargs[key] for key in sorted(kwargs)}
-        # contrary to fsspec, we don't include pid here
-        tokenize_args = (cls, threading_ident, args, kwargs)
+        # contrary to fsspec, we don't include pid here, nor the thread: an instance is shared across threads
+        tokenize_args = (cls, args, kwargs)
         h = md5(str(tokenize_args).encode())
         return h.hexdigest()
 
@@ -596,6 +628,34 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
             parsed.type, parsed.id, revision, parsed.path_in_repo, _raw_revision=raw_revision
         )
 
+    def _listing_generation(self, root: str) -> int:
+        """State of the cached listings of `root` (a repo or a bucket root): changes whenever one is dropped."""
+        with self._dircache_lock:
+            return max(self._listings_generation.get(root, 0), self._listings_generation.get(_ALL_ROOTS, 0))
+
+    def _invalidate_listings(self, root: str) -> None:
+        """Mark the cached listings of `root` outdated: the ones in flight must not be cached anymore."""
+        with self._dircache_lock:
+            self._generation_tick += 1
+            self._listings_generation[root] = self._generation_tick
+
+    def _cache_listings(self, listings: dict[str, list[dict[str, Any]]], root: str, generation: int) -> bool:
+        """
+        Write freshly listed entries to the cache, unless the Hub changed since they were requested: in that case
+        they are outdated and are simply not cached. The listing itself is still returned to the caller.
+        """
+        with self._dircache_lock:
+            if self._listing_generation(root) != generation:
+                return False
+            self.dircache.update(listings)
+            return True
+
+    def _drop_cached_subtree(self, prefix: str) -> None:
+        """Drop the cached listing of `prefix` (unresolved) and of every directory below it."""
+        with self._dircache_lock:
+            for cached_path in [path for path in self.dircache if path == prefix or path.startswith(prefix + "/")]:
+                self.dircache.pop(cached_path, None)
+
     def invalidate_cache(self, path: str | None = None) -> None:
         """
         Clear the cache for a given path.
@@ -608,6 +668,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
 
         """
         if not path:
+            self._invalidate_listings(_ALL_ROOTS)
             self.dircache.clear()
             self._repo_and_revision_exists_cache.clear()
             self._bucket_exists_cache.clear()
@@ -622,6 +683,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
                 self._bucket_exists_cache = {k: v for k, v in self._bucket_exists_cache.items() if v[0]}
                 return
             path = resolved_path.unresolve()
+            self._invalidate_listings(resolved_path.root)
             self._invalidate_dircache_ancestors(path)
 
             # Only clear repo cache if path is to repo root
@@ -638,19 +700,19 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
 
     def _invalidate_dircache_ancestors(self, path: str) -> None:
         """Drop the cached listing of a path (unresolved) and of every one of its parent directories."""
-        while path:
-            self.dircache.pop(path, None)
-            path = self._parent(path)
+        with self._dircache_lock:
+            while path:
+                self.dircache.pop(path, None)
+                path = self._parent(path)
 
     def _invalidate_bucket_tree(self, bucket_id: str) -> None:
         """Drop every cached listing belonging to a bucket."""
-        root = f"buckets/{bucket_id}"
-        for cached_path in [path for path in self.dircache if path == root or path.startswith(root + "/")]:
-            self.dircache.pop(cached_path, None)
+        self._invalidate_listings(f"buckets/{bucket_id}")
+        self._drop_cached_subtree(f"buckets/{bucket_id}")
 
     def _apply_bucket_changes(self, bucket_id: str, changes: Iterable[BucketFileChange]) -> None:
         """
-        Apply a batch of live-follow changes to the dircache. Called by `_ls_tree`, on the thread owning the instance.
+        Apply a batch of live-follow changes to the dircache. Called by `_ls_tree`.
 
         A change is applied as an invalidation of the cached listings of every parent directory of the changed
         path (up to the bucket root), plus the subtree under that path in case it was itself listed as a
@@ -659,10 +721,10 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         listed need nothing, their first listing is fresh.
         """
         root = f"buckets/{bucket_id}"
+        self._invalidate_listings(root)
         for change in changes:
             path = f"{root}/{change.path}"
-            for cached_path in [cached for cached in self.dircache if cached.startswith(path + "/")]:
-                self.dircache.pop(cached_path, None)
+            self._drop_cached_subtree(path)
             self._invalidate_dircache_ancestors(path)
 
     def _ensure_bucket_follower(self, bucket_id: str) -> None:
@@ -672,7 +734,7 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         with BUCKET_FOLLOWERS_LOCK:
             if key in BUCKET_FOLLOWERS and (subscribers := BUCKET_FOLLOWERS[key][1]):
                 if id(self) not in subscribers:
-                    # Joining a running follower: drop the listings this instance may have copied from a sibling
+                    # Joining a running follower: drop the listings cached before the subscription started
                     subscribers[id(self)] = self
                     self._invalidate_bucket_tree(bucket_id)
                 return
@@ -856,16 +918,20 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
 
         if self.live_follow and isinstance(resolved_path, HfFileSystemResolvedBucketPath):
             self._ensure_bucket_follower(resolved_path.bucket_id)
-            while self._pending_bucket_changes:
-                match self._pending_bucket_changes.popleft():
-                    case (bucket_id, None):
-                        self._invalidate_bucket_tree(bucket_id)
-                    case (bucket_id, changes):
-                        self._apply_bucket_changes(bucket_id, changes)
+            with self._dircache_lock:
+                while self._pending_bucket_changes:
+                    match self._pending_bucket_changes.popleft():
+                        case (bucket_id, None):
+                            self._invalidate_bucket_tree(bucket_id)
+                        case (bucket_id, changes):
+                            self._apply_bucket_changes(bucket_id, changes)
 
         out = []
-        if path in self.dircache and not refresh:
-            cached_path_infos = self.dircache[path]
+        # Stamped before anything is requested, checked when the listing lands: see `_cache_listings`
+        generation = self._listing_generation(root_path)
+        cached_listing = self.dircache.get(path)
+        if cached_listing is not None and not refresh:
+            cached_path_infos = cached_listing
             out.extend(cached_path_infos)
             dirs_not_in_dircache = []
             if recursive:
@@ -878,10 +944,11 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
                 while dirs_to_visit:
                     depth, dir_info = dirs_to_visit.popleft()
                     if maxdepth is None or depth <= maxdepth:
-                        if dir_info["name"] not in self.dircache:
+                        cached_subdir_infos = self.dircache.get(dir_info["name"])
+                        if cached_subdir_infos is None:
                             dirs_not_in_dircache.append(dir_info["name"])
                         else:
-                            cached_path_infos = self.dircache[dir_info["name"]]
+                            cached_path_infos = cached_subdir_infos
                             out.extend(cached_path_infos)
                             dirs_to_visit.extend(
                                 [
@@ -904,10 +971,8 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
                     common_path_depth = common_path[len(path) :].count("/")
                     maxdepth -= common_path_depth
                 out = [o for o in out if not o["name"].startswith(common_path + "/")]
-                for cached_path in list(self.dircache):
-                    if cached_path.startswith(common_path + "/"):
-                        self.dircache.pop(cached_path, None)
-                self.dircache.pop(common_path, None)
+                self._invalidate_listings(root_path)
+                self._drop_cached_subtree(common_path)
                 out.extend(
                     self._ls_tree(
                         common_path,
@@ -932,13 +997,13 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
                 # sub-tree, in parallel, to avoid waiting on thousands of sequential requests.
                 listing = _ParallelRepoTreeListing(self, expand_info=expand_info, maxdepth=maxdepth)
                 out = listing.run(resolved_path)
-                # replace cached listings, only once the listing is complete
-                self.dircache.update(listing.listings)
+                # replace cached listings, only once the listing is complete and hasn't been invalidated meanwhile
+                self._cache_listings(listing.listings, root_path, generation)
                 if out:
-                    self._drop_outdated_parent_listing(path)
+                    self._drop_outdated_parent_listing(path, root_path)
                 elif not listing.listings:
                     # Empty directory: `info()` on a child path reads `dircache[parent]`
-                    self.dircache[path] = []
+                    self._cache_listings({path: []}, root_path, generation)
                 return out
             else:
                 tree = self._api.list_repo_tree(
@@ -958,20 +1023,23 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
                 depth = cache_path[len(path) :].count("/")
                 if maxdepth is None or depth <= maxdepth:
                     out.append(cache_path_info)
-            # replace cached listings, only once the listing is complete
-            self.dircache.update(listings)
+            # replace cached listings, only once the listing is complete and hasn't been invalidated meanwhile
+            self._cache_listings(listings, root_path, generation)
             if out:
-                self._drop_outdated_parent_listing(path)
+                self._drop_outdated_parent_listing(path, root_path)
             else:
                 # Empty bucket: `info()` on a child path reads `dircache[parent]`
-                self.dircache[path] = []
+                self._cache_listings({path: []}, root_path, generation)
         return out
 
-    def _drop_outdated_parent_listing(self, path: str) -> None:
+    def _drop_outdated_parent_listing(self, path: str, root: str) -> None:
         # `path` was just listed from the Hub, so a cached parent listing without it is outdated
         parent_path = self._parent(path)
-        if parent_path in self.dircache and all(o["name"] != path for o in self.dircache[parent_path]):
-            del self.dircache[parent_path]
+        with self._dircache_lock:
+            parent_listing = self.dircache.get(parent_path)
+            if parent_listing is not None and all(o["name"] != path for o in parent_listing):
+                self.dircache.pop(parent_path, None)
+                self._invalidate_listings(root)
 
     def _list_bucket_tree_with_folders(
         self, bucket_id: str, prefix: str, recursive: bool
@@ -1285,7 +1353,8 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
             parent_path = self._parent(path)
             # Fill the cache with cheap call
             self.ls(parent_path, refresh=refresh)
-            out1 = [o for o in self.dircache[parent_path] if o["name"] == path]
+            # `.get` and not `[...]`: another thread may invalidate the listing between the call above and here
+            out1 = [o for o in self.dircache.get(parent_path, []) if o["name"] == path]
             if not out1:
                 _raise_file_not_found(path, None)
             out = out1[0]
@@ -1295,9 +1364,10 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
             if not refresh and not expand_info and parent_path not in self.dircache:
                 # Fill the cache with cheap call
                 self.ls(parent_path)
-            if not refresh and parent_path in self.dircache:
+            cached_parent_listing = self.dircache.get(parent_path) if not refresh else None
+            if cached_parent_listing is not None:
                 # Check if the path is in the cache
-                out1 = [o for o in self.dircache[parent_path] if o["name"] == path]
+                out1 = [o for o in cached_parent_listing if o["name"] == path]
                 if not out1:
                     _raise_file_not_found(path, None)
                 out = out1[0]
@@ -1539,11 +1609,13 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         )
 
     def _get_instance_state(self):
-        return {
-            "dircache": deepcopy(self.dircache),
-            "_repo_and_revision_exists_cache": deepcopy(self._repo_and_revision_exists_cache),
-            "_bucket_exists_cache": deepcopy(self._bucket_exists_cache),
-        }
+        # The lock is taken as another thread may be listing or writing while this state is copied
+        with self._dircache_lock:
+            return {
+                "dircache": deepcopy(self.dircache),
+                "_repo_and_revision_exists_cache": deepcopy(self._repo_and_revision_exists_cache),
+                "_bucket_exists_cache": deepcopy(self._bucket_exists_cache),
+            }
 
 
 class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
@@ -1823,6 +1895,13 @@ def reopen(fs: HfFileSystem, path: str, mode: str, block_size: int, cache_type: 
 
 def make_instance(cls, args, kwargs, instance_state):
     fs = cls(*args, **kwargs)
+    dircache = instance_state.pop("dircache", None)
+    if dircache:
+        with fs._dircache_lock:
+            # Unpickling in a process where an instance with the same options already lives returns that
+            # instance: its listings are the fresher ones, so only the missing ones are added here.
+            for path, path_infos in dircache.items():
+                fs.dircache.setdefault(path, path_infos)
     for attr, state_value in instance_state.items():
         setattr(fs, attr, state_value)
     return fs

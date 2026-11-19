@@ -105,6 +105,26 @@ A few things to know about it:
 - Following starts as soon as a bucket is listed, and one background connection is kept open per followed
   bucket, shared by all [`HfFileSystem`] instances. That is why the option is opt-in.
 
+Note: a listing is never cached when a change landed while it was being fetched, which is what happens when a
+thread writes to a folder exactly while another one lists it. A listing that is older than a change still makes
+`ls`, `find`, `glob` and `info` miss a path, as described above.
+
+## Using several threads
+
+An [`HfFileSystem`] instance is created once per set of options and is then shared by every thread of the
+process: `HfFileSystem()`, `fsspec.filesystem("hf")` and the instances created by libraries integrating `fsspec`
+all return the same object when they use the same endpoint and token. They share a single listing cache per
+bucket or repository, which is what makes a file written in one thread readable in another one right away.
+
+Listing and writing can happen concurrently in several threads: cached listings are only mutated under a lock,
+and a listing requested before a change is dropped rather than cached when it lands after it.
+
+Writes are not batched across threads though: a [transaction](#transactions) only defers the writes of the
+thread running it.
+
+Processes, on the other hand, share nothing: each one has its own instance and its own cache, which is why a
+file uploaded by another process is a change to pick up as described in [Keep listings fresh](#keep-listings-fresh).
+
 ## Transactions
 
 [`HfFileSystem`] supports [fsspec transactions](https://filesystem-spec.readthedocs.io/en/latest/features.html#transactions) for buckets only.
@@ -117,6 +137,9 @@ Files written inside a transaction are uploaded when the block ends. If the bloc
 ...     # not uploaded yet
 >>> # uploaded now
 ```
+
+As a transaction is a property of the thread running it, writes happening in another thread while a transaction
+is open are uploaded as usual: they are neither deferred nor rolled back by it.
 
 ## Integrations
 
