@@ -84,6 +84,10 @@ class TestUserAgentHeadersUtil:
     def test_user_agent_with_custom_agent_dict(self) -> None:
         assert self._get_user_agent(user_agent={"a": "b", "c": "d"}).endswith("a/b; c/d")
 
+    def test_user_agent_with_empty_custom_agent_string(self) -> None:
+        # Regression test for https://github.com/huggingface/huggingface_hub/issues/5304
+        assert self._get_user_agent(user_agent="") == self._get_user_agent()
+
     def test_user_agent_deduplicate(self) -> None:
         assert (
             _deduplicate_user_agent(
