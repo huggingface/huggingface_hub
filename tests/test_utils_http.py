@@ -787,6 +787,10 @@ class TestParseRepoInfoFromUrl:
             ("https://huggingface.co/datasets/user/repo/resolve/main/data.csv", ("dataset", "user/repo")),
             ("https://huggingface.co/spaces/user/repo/resolve/main/app.py", ("space", "user/repo")),
             ("https://huggingface.co/user/repo/resolve/main/file.txt?download=true", ("model", "user/repo")),
+            # Kernel repos
+            ("https://huggingface.co/api/kernels/user/repo", ("kernel", "user/repo")),
+            ("https://huggingface.co/api/kernels/user/repo/revision/main", ("kernel", "user/repo")),
+            ("https://huggingface.co/kernels/user/repo/resolve/main/build.toml", ("kernel", "user/repo")),
         ],
     )
     def test_query_params_and_download_urls(self, url, expected):

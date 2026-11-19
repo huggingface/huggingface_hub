@@ -178,7 +178,7 @@ REPO_API_REGEX = re.compile(
         ^https://[^/]+
         (
             # on /api/repo_type/repo_id
-            /api/(models|datasets|spaces)/(.+)
+            /api/(models|datasets|spaces|kernels)/(.+)
             |
             # or /repo_id/resolve/revision/...
             /(.+)/resolve/(.+)
@@ -202,8 +202,8 @@ BUCKET_API_REGEX = re.compile(
 _JOB_ID_FROM_URL_REGEX = re.compile(r"^https?://[^/]+/api/(?:scheduled-jobs|jobs)/[^/]+/([^/?]+)")
 
 # Regex to extract repo_type and repo_id from API URLs.
-# Captures: group(1) = repo_type plural (models/datasets/spaces), group(2) = first path segment, group(3) = optional second segment.
-_REPO_ID_FROM_URL_REGEX = re.compile(r"^https?://[^/]+/api/(models|datasets|spaces)/([^/?]+)(?:/([^/?]+))?")
+# Captures: group(1) = repo_type plural (models/datasets/spaces/kernels), group(2) = first path segment, group(3) = optional second segment.
+_REPO_ID_FROM_URL_REGEX = re.compile(r"^https?://[^/]+/api/(models|datasets|spaces|kernels)/([^/?]+)(?:/([^/?]+))?")
 
 # Regex to extract repo_type and repo_id from download URLs: /[{repo_type}s/]{repo_id}/resolve/...
 # Captures: group(1) = optional repo_type plural (datasets/spaces/kernels), group(2) = repo_id.
