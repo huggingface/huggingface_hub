@@ -560,7 +560,14 @@ def ls(
         else:
             revision_count = sum(len(repo.revisions) for repo in unique_repos)
             if filters or limit is not None:
-                total_size = sum(repo.size_on_disk for repo in unique_repos)
+                # Repos may reference the same cache-wide shared blob.
+                blobs = {
+                    file.blob_path.resolve(): file.size_on_disk
+                    for repo in unique_repos
+                    for rev in repo.revisions
+                    for file in rev.files
+                }
+                total_size = sum(blobs.values())
             else:
                 # Per-repo sizes double-count blobs shared across repos: report the physical total.
                 total_size = hf_cache_info.size_on_disk

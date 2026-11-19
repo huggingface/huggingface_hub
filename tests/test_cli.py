@@ -383,6 +383,34 @@ class TestCacheCommand:
             assert "1 incomplete download(s)" in result.output
             assert "hf cache prune" in result.output
 
+    @pytest.mark.skipif(os.name == "nt", reason="symlink syscalls are flaky on Windows CI runners")
+    @pytest.mark.parametrize("args", [["--limit", "5"], ["--filter", "type=model"]])
+    def test_ls_total_counts_shared_blobs_once(self, runner: CliRunner, args: list[str]) -> None:
+        with SoftTemporaryDirectory() as tmp_dir:
+            cache_dir = Path(tmp_dir)
+            shared_dir = cache_dir / "blobs"
+            (shared_dir / "ab").mkdir(parents=True)
+            (shared_dir / ".huggingface-shared-blobs").write_text("1\n")
+            payload = "ab" + "0" * 62
+            (shared_dir / "ab" / payload).write_bytes(b"x" * 1024 * 1024)
+
+            commit = "c" * 40
+            etag = "e" * 40
+            for repo_name in ("models--a--one", "models--b--two"):
+                repo_dir = cache_dir / repo_name
+                (repo_dir / "blobs").mkdir(parents=True)
+                (repo_dir / "blobs" / etag).symlink_to(Path("..") / ".." / "blobs" / "ab" / payload)
+                (repo_dir / "snapshots" / commit).mkdir(parents=True)
+                (repo_dir / "snapshots" / commit / "f.bin").symlink_to(Path("..") / ".." / "blobs" / etag)
+                (repo_dir / "refs").mkdir()
+                (repo_dir / "refs" / "main").write_text(commit)
+
+            result = runner.invoke(app, ["cache", "ls", "--cache-dir", str(cache_dir), *args])
+
+            assert result.exit_code == 0
+            assert "inconsistenc" not in result.output
+            assert "Found 2 repo(s) for a total of 2 revision(s) and 1.0M on disk." in result.output
+
     def test_verify_success(self, runner: CliRunner) -> None:
         repo_id = "user/model"
         verified_path = Path("/tmp/cache/user/model")
