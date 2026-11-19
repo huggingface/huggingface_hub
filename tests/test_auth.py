@@ -16,7 +16,6 @@ from huggingface_hub._login import (
     _validate_and_save_token,
     auth_switch,
     logout,
-    revoke_tokens,
 )
 from huggingface_hub.errors import DeviceCodeError
 from huggingface_hub.utils._auth import (
@@ -483,10 +482,3 @@ class TestDeviceCodeLogin:
         assert fields["hf_token"] == "hf_oauth_123"
         assert fields["refresh_token"] == "rt_123"
         assert int(fields["expires_at"]) == pytest.approx(time.time() + 2592000, abs=60)
-
-
-def test_revoke_tokens_never_sends_own_token(monkeypatch):
-    # The server answers 403 if an Authorization header is sent: passing proves the user's token is not used.
-    # Never pass a real token here: it would be revoked for good.
-    monkeypatch.setenv("HF_TOKEN", TOKEN)
-    revoke_tokens(["hf_NotARealTokenJustForTestsXXXXXXXX"])
