@@ -26,6 +26,7 @@ from . import constants
 from .errors import DeviceCodeError
 from .utils import (
     ANSI,
+    build_hf_headers,
     get_token,
     is_google_colab,
     is_notebook,
@@ -50,6 +51,9 @@ from .utils._auth import (
 )
 from .utils._http import get_session, hf_raise_for_status
 from .utils._oauth_device import OAuthTokenResponse, poll_device_token, request_device_code
+
+
+_REVOKE_TOKENS_BATCH_SIZE = 1000
 
 
 logger = logging.get_logger(__name__)
@@ -168,6 +172,7 @@ def revoke_tokens(tokens: list[str]) -> None:
     revocation request is accepted.
 
     The request is sent without any `Authorization` header, so your own token is never used (or revoked) by mistake.
+    Tokens are sent in batches of 1000.
 
     Args:
         tokens (`list[str]`):
@@ -183,9 +188,13 @@ def revoke_tokens(tokens: list[str]) -> None:
         raise ValueError("`tokens` must be a list of tokens, not a single string.")
     if not tokens:
         raise ValueError("No token to revoke.")
-    for i in range(0, len(tokens), 1000):  # server accepts up to 1000 credentials per request
+    headers = build_hf_headers()
+    headers.pop("authorization", None)
+    for i in range(0, len(tokens), _REVOKE_TOKENS_BATCH_SIZE):
         response = get_session().post(
-            f"{constants.ENDPOINT}/api/credentials/revoke", json={"credentials": tokens[i : i + 1000]}
+            f"{constants.ENDPOINT}/api/credentials/revoke",
+            headers=headers,
+            json={"credentials": tokens[i : i + _REVOKE_TOKENS_BATCH_SIZE]},
         )
         hf_raise_for_status(response)
 
