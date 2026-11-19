@@ -188,8 +188,7 @@ def revoke_tokens(tokens: list[str]) -> None:
         raise ValueError("`tokens` must be a list of tokens, not a single string.")
     if not tokens:
         raise ValueError("No token to revoke.")
-    headers = build_hf_headers()
-    headers.pop("authorization", None)
+    headers = build_hf_headers(token=False)
     for i in range(0, len(tokens), _REVOKE_TOKENS_BATCH_SIZE):
         response = get_session().post(
             f"{constants.ENDPOINT}/api/credentials/revoke",
