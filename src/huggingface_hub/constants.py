@@ -20,7 +20,7 @@ def _is_true(value: str | None) -> bool:
 
 
 def _as_int(value: str | None) -> int | None:
-    if value is None:
+    if not value:
         return None
     return int(value)
 
@@ -66,7 +66,7 @@ _staging_mode = _is_true(os.environ.get("HUGGINGFACE_CO_STAGING"))
 
 _HF_DEFAULT_ENDPOINT = "https://huggingface.co"
 _HF_DEFAULT_STAGING_ENDPOINT = "https://hub-ci.huggingface.co"
-ENDPOINT = os.getenv("HF_ENDPOINT", _HF_DEFAULT_ENDPOINT).rstrip("/")
+ENDPOINT = (os.getenv("HF_ENDPOINT") or _HF_DEFAULT_ENDPOINT).rstrip("/")
 HUGGINGFACE_CO_URL_TEMPLATE = ENDPOINT + "/{repo_id}/resolve/{revision}/{filename}"
 
 if _staging_mode:
@@ -158,12 +158,7 @@ WEBHOOK_DOMAIN_T = Literal["repo", "discussion"]
 # default cache
 default_home = os.path.join(os.path.expanduser("~"), ".cache")
 HF_HOME = os.path.expandvars(
-    os.path.expanduser(
-        os.getenv(
-            "HF_HOME",
-            os.path.join(os.getenv("XDG_CACHE_HOME", default_home), "huggingface"),
-        )
-    )
+    os.path.expanduser(os.getenv("HF_HOME") or os.path.join(os.getenv("XDG_CACHE_HOME", default_home), "huggingface"))
 )
 
 default_cache_path = os.path.join(HF_HOME, "hub")
@@ -247,14 +242,7 @@ HF_HUB_DISABLE_TELEMETRY = (
     or _is_true(os.environ.get("DO_NOT_TRACK"))  # https://donottrack.sh/
 )
 
-HF_TOKEN_PATH = os.path.expandvars(
-    os.path.expanduser(
-        os.getenv(
-            "HF_TOKEN_PATH",
-            os.path.join(HF_HOME, "token"),
-        )
-    )
-)
+HF_TOKEN_PATH = os.path.expandvars(os.path.expanduser(os.getenv("HF_TOKEN_PATH") or os.path.join(HF_HOME, "token")))
 HF_STORED_TOKENS_PATH = os.path.join(os.path.dirname(HF_TOKEN_PATH), "stored_tokens")
 
 if _staging_mode:
