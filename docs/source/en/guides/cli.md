@@ -2204,11 +2204,8 @@ Members are resolvable before they are ready, so connect with retries. Group nam
 Run UV scripts (Python scripts with inline dependencies) on HF infrastructure. UV scripts are Python scripts that include their dependencies directly in the file using a special comment syntax.
 
 ```bash
-# Run a UV script (creates temporary repo)
+# Run a local UV script (uploaded to your `jobs-artifacts` bucket)
 >>> hf jobs uv run my_script.py
-
-# Run with persistent repo
->>> hf jobs uv run --repo my-uv-scripts my_script.py
 
 # Run with GPU
 >>> hf jobs uv run --flavor t4-small ml_training.py
