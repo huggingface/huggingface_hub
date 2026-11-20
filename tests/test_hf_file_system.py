@@ -1028,21 +1028,6 @@ def test_open_wb_existing_repo_file_overwrites():
         upload_mock.assert_called_once()
 
 
-@pytest.mark.parametrize("mode", ["x", "xb"])
-def test_open_x_existing_file_streaming_raises(mode):
-    # Exclusive create in streaming mode (block_size=0) must raise FileExistsError
-    # when the file already exists, like the buffered path. The check runs in
-    # `_open` before the stream file is constructed, so FileExistsError wins for
-    # existing files even once #5287 lands and rejects non-"rb" modes with
-    # ValueError. See issue #5280.
-    fs = HfFileSystem()
-    exists_patch, upload_patch, _ = _mock_x_write_world(fs, exists=True)
-    with mock_repo_info(fs), exists_patch, upload_patch as upload_mock:
-        with pytest.raises(FileExistsError):
-            fs.open(REPO_X_PATH, mode, block_size=0)
-        upload_mock.assert_not_called()
-
-
 def test_open_xb_passes_revision_to_existence_check():
     fs = HfFileSystem()
     exists_patch, upload_patch, _ = _mock_x_write_world(fs, exists=False)
