@@ -350,9 +350,22 @@ def _format_chat_completion_stream_output(
     return ChatCompletionStreamOutput.parse_obj_as_instance(json_payload)
 
 
-async def _async_yield_from(client: httpx2.AsyncClient, response: httpx2.Response) -> AsyncIterable[str]:
+def _yield_from(_owner: object, response: httpx2.Response) -> Iterable[str]:
+    """Yield response lines while retaining the client that owns the stream."""
+    yield from response.iter_lines()
+
+
+async def _async_yield_from(owner: object, response: httpx2.Response) -> AsyncIterable[str]:
+    """Yield response lines while holding `owner`.
+
+    The streamed response is registered on the `AsyncInferenceClient` exit stack. The
+    iterator has to keep that client alive, or the first garbage collection closes the body.
+    `owner` stays a local of this generator until it finishes or is closed.
+    """
     async for line in response.aiter_lines():
         yield line.strip()
+    if owner is None:  # pragma: no cover
+        return
 
 
 # "TGI servers" are servers running with the `text-generation-inference` backend.
