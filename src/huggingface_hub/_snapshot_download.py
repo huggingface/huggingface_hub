@@ -22,6 +22,7 @@ from .file_download import (
     REGEX_COMMIT_HASH,
     DryRunFileInfo,
     _cache_commit_hash_for_specific_revision,
+    _validate_commit_hash,
     hf_hub_download,
     repo_folder_name,
 )
@@ -278,6 +279,7 @@ def snapshot_download(
                 # if we have internet connection we want to list files to download
                 repo_info = api.repo_info(repo_id=repo_id, repo_type=repo_type, revision=revision)
                 assert repo_info.sha is not None, "Repo info returned from server must have a revision sha."
+                _validate_commit_hash(repo_info.sha)
                 commit_hash = repo_info.sha
             tree_entries = read_tree_cache(tree_cache_folder, commit_hash)
             if tree_entries is None:
