@@ -1484,7 +1484,15 @@ def _hf_hub_download_to_local_dir(
                 )
             with WeakFileLock(paths.lock_path):
                 paths.file_path.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copyfile(cached_path, paths.file_path)
+                incomplete_path = paths.incomplete_path(etag)
+                tmp_path = incomplete_path.with_name(f"{incomplete_path.stem}.{uuid.uuid4().hex[:8]}.incomplete")
+                tmp_path = Path(as_extended_path(tmp_path))
+                tmp_path.parent.mkdir(parents=True, exist_ok=True)
+                try:
+                    shutil.copyfile(cached_path, tmp_path)
+                    _chmod_and_move(tmp_path, paths.file_path)
+                finally:
+                    tmp_path.unlink(missing_ok=True)
             write_download_metadata(local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag)
             return str(paths.file_path)
 
@@ -1501,7 +1509,6 @@ def _hf_hub_download_to_local_dir(
 
     # Otherwise, let's download the file!
     with WeakFileLock(paths.lock_path):
-        paths.file_path.unlink(missing_ok=True)  # delete outdated file first
         _download_to_tmp_and_move(
             incomplete_path=paths.incomplete_path(etag),
             destination_path=paths.file_path,
@@ -1509,7 +1516,8 @@ def _hf_hub_download_to_local_dir(
             headers=headers,
             expected_size=expected_size,
             filename=filename,
-            force_download=force_download,
+            # Always replace an existing local file once download succeeds (outdated file is kept intact on failure).
+            force_download=True,
             etag=etag,
             xet_file_data=xet_file_data,
             tqdm_class=tqdm_class,

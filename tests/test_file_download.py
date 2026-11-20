@@ -25,7 +25,7 @@ import httpx2
 import pytest
 
 from huggingface_hub import HfApi, constants
-from huggingface_hub._local_folder import write_download_metadata
+from huggingface_hub._local_folder import read_download_metadata, write_download_metadata
 from huggingface_hub.errors import EntryNotFoundError, FileMetadataError, GatedRepoError, LocalEntryNotFoundError
 from huggingface_hub.file_download import (
     _CACHED_NO_EXIST,
@@ -1553,6 +1553,140 @@ class TestExtraLargeFileDownloadPaths:
                     revision="main",
                     etag_timeout=10,
                 )
+
+
+class TestLocalDirAtomicRefresh:
+    """Offline tests ensuring failed refreshes into `local_dir` preserve existing files and metadata."""
+
+    OLD_COMMIT = "0" * 40
+    NEW_COMMIT = "1" * 40
+    OLD_ETAG = "old-etag"
+    NEW_ETAG = "new-etag"
+    URL = "https://huggingface.co/user/repo/resolve/main/file.txt"
+
+    def _remote_metadata(self, expected_size: int = 11):
+        return (self.URL, self.NEW_ETAG, self.NEW_COMMIT, expected_size, None, None)
+
+    def test_failed_download_preserves_existing_file_and_metadata(self, tmp_path: Path) -> None:
+        local_dir = tmp_path / "local"
+        local_dir.mkdir()
+        previous = local_dir / "file.txt"
+        previous.write_text("old content")
+        write_download_metadata(local_dir, "file.txt", commit_hash=self.OLD_COMMIT, etag=self.OLD_ETAG)
+        old_metadata = read_download_metadata(local_dir, "file.txt")
+        assert old_metadata is not None
+
+        with (
+            patch(
+                "huggingface_hub.file_download._get_metadata_or_catch_error",
+                return_value=self._remote_metadata(),
+            ),
+            patch("huggingface_hub.file_download.http_get", side_effect=OSError("simulated transfer failure")),
+            pytest.raises(OSError, match="simulated transfer failure"),
+        ):
+            hf_hub_download("user/repo", "file.txt", cache_dir=tmp_path / "cache", local_dir=local_dir)
+
+        assert previous.read_text() == "old content"
+        assert read_download_metadata(local_dir, "file.txt") == old_metadata
+        assert list((local_dir / ".cache").rglob("*.incomplete")) == []
+
+    def test_failed_cache_copy_preserves_existing_file_and_metadata(self, tmp_path: Path) -> None:
+        local_dir = tmp_path / "local"
+        local_dir.mkdir()
+        previous = local_dir / "file.txt"
+        previous.write_text("old content")
+        write_download_metadata(local_dir, "file.txt", commit_hash=self.OLD_COMMIT, etag=self.OLD_ETAG)
+        old_metadata = read_download_metadata(local_dir, "file.txt")
+        assert old_metadata is not None
+
+        cached_file = tmp_path / "cached_blob"
+        cached_file.write_text("new content")
+
+        def _partial_copy_fail(src, dst, *args, **kwargs):
+            Path(dst).write_bytes(b"partial")
+            raise OSError("disk full")
+
+        with (
+            patch(
+                "huggingface_hub.file_download._get_metadata_or_catch_error",
+                return_value=self._remote_metadata(),
+            ),
+            patch("huggingface_hub.file_download.try_to_load_from_cache", return_value=str(cached_file)),
+            patch("huggingface_hub.file_download.shutil.copyfile", side_effect=_partial_copy_fail),
+            pytest.raises(OSError, match="disk full"),
+        ):
+            hf_hub_download("user/repo", "file.txt", cache_dir=tmp_path / "cache", local_dir=local_dir)
+
+        assert previous.read_text() == "old content"
+        assert read_download_metadata(local_dir, "file.txt") == old_metadata
+        assert list((local_dir / ".cache").rglob("*.incomplete")) == []
+
+    def test_successful_refresh_overwrites_existing_file(self, tmp_path: Path) -> None:
+        local_dir = tmp_path / "local"
+        local_dir.mkdir()
+        previous = local_dir / "file.txt"
+        previous.write_text("old content")
+        write_download_metadata(local_dir, "file.txt", commit_hash=self.OLD_COMMIT, etag=self.OLD_ETAG)
+
+        def _fake_http_get(url, temp_file, **kwargs):
+            temp_file.write(b"new content")
+
+        with (
+            patch(
+                "huggingface_hub.file_download._get_metadata_or_catch_error",
+                return_value=self._remote_metadata(),
+            ),
+            patch("huggingface_hub.file_download.http_get", side_effect=_fake_http_get),
+        ):
+            returned = hf_hub_download("user/repo", "file.txt", cache_dir=tmp_path / "cache", local_dir=local_dir)
+
+        assert Path(returned) == previous
+        assert previous.read_text() == "new content"
+        metadata = read_download_metadata(local_dir, "file.txt")
+        assert metadata is not None
+        assert metadata.commit_hash == self.NEW_COMMIT
+        assert metadata.etag == self.NEW_ETAG
+
+    @pytest.mark.skipif(os.name == "nt", reason="No symlinks on Windows")
+    @pytest.mark.parametrize("from_cache", [False, True])
+    def test_successful_refresh_replaces_symlink_without_mutating_target(
+        self, tmp_path: Path, from_cache: bool
+    ) -> None:
+        local_dir = tmp_path / "local"
+        local_dir.mkdir()
+        target = tmp_path / "shared_target"
+        target.write_text("old content")
+        previous = local_dir / "file.txt"
+        previous.symlink_to(target)
+        write_download_metadata(local_dir, "file.txt", commit_hash=self.OLD_COMMIT, etag=self.OLD_ETAG)
+
+        cached_file = tmp_path / "cached_blob"
+        cached_file.write_text("new content")
+
+        def _fake_http_get(url, temp_file, **kwargs):
+            temp_file.write(b"new content")
+
+        with (
+            patch(
+                "huggingface_hub.file_download._get_metadata_or_catch_error",
+                return_value=self._remote_metadata(),
+            ),
+            patch(
+                "huggingface_hub.file_download.try_to_load_from_cache",
+                return_value=str(cached_file) if from_cache else None,
+            ),
+            patch("huggingface_hub.file_download.http_get", side_effect=_fake_http_get),
+        ):
+            returned = hf_hub_download("user/repo", "file.txt", cache_dir=tmp_path / "cache", local_dir=local_dir)
+
+        assert Path(returned) == previous
+        assert not previous.is_symlink()
+        assert previous.read_text() == "new content"
+        assert target.read_text() == "old content"
+        metadata = read_download_metadata(local_dir, "file.txt")
+        assert metadata is not None
+        assert metadata.commit_hash == self.NEW_COMMIT
+        assert metadata.etag == self.NEW_ETAG
 
 
 def _recursive_chmod(path: str, mode: int) -> None:
