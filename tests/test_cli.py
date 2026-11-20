@@ -4838,6 +4838,17 @@ class TestVolume:
             )
 
 
+class TestJobSpecTimeout:
+    @pytest.mark.parametrize("timeout, expected", [(5400, 5400), ("5400", 5400), ("90m", 5400), ("1.5h", 5400)])
+    def test_valid_timeout(self, timeout: int | str, expected: int) -> None:
+        spec = _create_job_spec(image="img", command=["x"], env=None, secrets=None, flavor=None, timeout=timeout)
+        assert spec["timeoutSeconds"] == expected
+
+    def test_invalid_timeout_lists_valid_formats(self) -> None:
+        with pytest.raises(ValueError, match=r"Could not parse timeout '1h30m'.*'90m'"):
+            _create_job_spec(image="img", command=["x"], env=None, secrets=None, flavor=None, timeout="1h30m")
+
+
 class TestWebhooksCommand:
     def _make_webhook(self, **kwargs):
         from huggingface_hub.hf_api import WebhookInfo, WebhookWatchedItem

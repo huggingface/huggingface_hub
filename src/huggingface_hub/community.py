@@ -128,6 +128,8 @@ class DiscussionWithDetails(Discussion):
             the merge commit, `None` otherwise.
         diff (`str`, *optional*):
             The git diff if this is a Pull Request , `None` otherwise.
+        diff_url (`str`, *optional*):
+            URL to fetch the git diff if this is a Pull Request, `None` otherwise.
         endpoint (`str`):
             Endpoint of the Hub. Default is https://huggingface.co.
         git_reference (`str`, *optional*):
@@ -141,6 +143,7 @@ class DiscussionWithDetails(Discussion):
     target_branch: str | None
     merge_commit_oid: str | None
     diff: str | None
+    diff_url: str | None = None
 
 
 class DiscussionEventArgs(TypedDict):
