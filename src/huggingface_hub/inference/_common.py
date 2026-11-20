@@ -350,6 +350,11 @@ def _format_chat_completion_stream_output(
     return ChatCompletionStreamOutput.parse_obj_as_instance(json_payload)
 
 
+def _yield_from(_owner: object, response: httpx2.Response) -> Iterable[str]:
+    """Yield response lines while retaining the client that owns the stream."""
+    yield from response.iter_lines()
+
+
 async def _async_yield_from(owner: object, response: httpx2.Response) -> AsyncIterable[str]:
     """Yield response lines while holding `owner`.
 

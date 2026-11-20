@@ -58,6 +58,7 @@ from huggingface_hub.inference._common import (
     _set_unsupported_text_generation_kwargs,
     _stream_chat_completion_response,
     _stream_text_generation_response,
+    _yield_from,
     raise_text_generation_error,
 )
 from huggingface_hub.inference._generated.types import (
@@ -237,14 +238,6 @@ class InferenceClient:
     def close(self):
         self.exit_stack.close()
 
-    def _stream_lines(self, response: httpx2.Response) -> Iterable[str]:
-        """Yield response lines while holding this client.
-
-        Dropping the client closes `exit_stack`, which closes the streamed response.
-        """
-        for line in response.iter_lines():
-            yield line
-
     @overload
     def _inner_post(  # type: ignore[misc]
         self, request_parameters: RequestParameters, *, stream: Literal[False] = ...
@@ -281,7 +274,7 @@ class InferenceClient:
                 # reference `self`, so a caller that only keeps the iterator (a helper that
                 # builds the client and returns the stream) collects the client and closes
                 # the stream on the next chunk.
-                return self._stream_lines(response)
+                return _yield_from(self, response)
             with response_cm as response:
                 hf_raise_for_status(response)
                 return response.read()
