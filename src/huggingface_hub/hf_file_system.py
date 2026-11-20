@@ -1271,9 +1271,10 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
             if isinstance(resolved_path, HfFileSystemResolvedRepositoryPath):
                 out["last_commit"] = None
             if isinstance(resolved_path, HfFileSystemResolvedRepositoryPath) and expand_info:
+                # Commits are sorted by date (last commit first)
                 last_commit = self._api.list_repo_commits(
                     resolved_path.repo_id, repo_type=resolved_path.repo_type, revision=resolved_path.revision
-                )[-1]
+                )[0]
                 out = {
                     **out,
                     "tree_id": None,  # TODO: tree_id of the root directory?

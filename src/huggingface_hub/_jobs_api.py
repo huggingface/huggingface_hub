@@ -685,10 +685,16 @@ def _create_job_spec(
     # timeout is optional
     if timeout:
         time_units_factors = {"s": 1, "m": 60, "h": 3600, "d": 3600 * 24}
-        if isinstance(timeout, str) and timeout[-1] in time_units_factors:
-            job_spec["timeoutSeconds"] = int(float(timeout[:-1]) * time_units_factors[timeout[-1]])
-        else:
-            job_spec["timeoutSeconds"] = int(timeout)
+        try:
+            if isinstance(timeout, str) and timeout[-1] in time_units_factors:
+                job_spec["timeoutSeconds"] = int(float(timeout[:-1]) * time_units_factors[timeout[-1]])
+            else:
+                job_spec["timeoutSeconds"] = int(timeout)
+        except ValueError:
+            raise ValueError(
+                f"Could not parse timeout '{timeout}'. Use a number of seconds or a number followed by a single"
+                " unit s, m, h or d, for example '5400', '90m' or '2h'."
+            ) from None
     if attempts is not None:
         job_spec["attempts"] = attempts
     # labels are optional
