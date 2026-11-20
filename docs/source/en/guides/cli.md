@@ -758,7 +758,7 @@ To filter by prefix, append the prefix to the bucket path:
 Use `hf cp` to copy a single file between your local machine, repositories, and buckets. The source and destination can each be a local path, an `hf://` URI (repo or bucket), or `-` (stdin/stdout).
 
 > [!TIP]
-> `hf cp` is also exposed as `hf repos cp` and `hf buckets cp` — all three are the exact same command. Use whichever reads best for your workflow.
+> `hf cp` accepts both repositories and buckets. The grouped commands restrict the remote endpoint: use `hf repos cp` for a repository or `hf buckets cp` for a bucket. For downloads, the source determines which command to use. For uploads and copies between Hub locations, use the destination.
 
 To upload a file (local → repo or bucket):
 
