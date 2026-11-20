@@ -1031,12 +1031,12 @@ The default table output includes subset, split, and parquet file URL from the H
 
 ### Run SQL on dataset parquet
 
-Use `hf datasets sql` to execute raw SQL queries with DuckDB against dataset parquet URLs.
-Discover URLs first with `hf datasets parquet`, then query them directly with `read_parquet(...)`.
+Use `hf datasets sql` to execute raw SQL queries with DuckDB against dataset parquet files.
+Query them directly with `hf_dataset(...)`.
 
 ```bash
->>> hf datasets sql "SELECT COUNT(*) AS rows FROM read_parquet('https://huggingface.co/api/datasets/cfahlgren1/hub-stats/parquet/models/train/0.parquet')"
->>> hf datasets sql "SELECT * FROM read_parquet('https://huggingface.co/api/datasets/cfahlgren1/hub-stats/parquet/models/train/0.parquet') LIMIT 5" --format json
+>>> hf datasets sql "SELECT COUNT(*) AS rows FROM hf_dataset('cfahlgren1/hub-stats', config:='models');"
+>>> hf datasets sql "SELECT * FROM hf_dataset('cfahlgren1/hub-stats', config:='models') LIMIT 5" --format json
 ```
 
 Install DuckDB first if needed:
