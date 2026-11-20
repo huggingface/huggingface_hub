@@ -1461,20 +1461,21 @@ class TestCreateSymlink:
 
             # Symlink already exists when it tries to create it (most probably from a
             # concurrent access) but do not raise exception
-            def _are_symlinks_supported(cache_dir: str) -> bool:
-                os.symlink(src, dst)
-                return True
+            symlink = os.symlink
 
-            mock_are_symlinks_supported.side_effect = _are_symlinks_supported
+            def concurrent_symlink(source, destination):
+                symlink(src, dst)
+                symlink(source, destination)
+
+            mock_symlink = mocker.patch("huggingface_hub.file_download.os.symlink", side_effect=concurrent_symlink)
             _create_symlink(src, dst)
 
-            # Symlink already exists but pointing to a different source file. This should
-            # never happen in the context of HF cache system -> raise exception
-            def _are_symlinks_supported(cache_dir: str) -> bool:
-                os.symlink(other, dst)
-                return True
+            # An unrelated symlink created concurrently must still raise.
+            def concurrent_other_symlink(source, destination):
+                symlink(other, dst)
+                symlink(source, destination)
 
-            mock_are_symlinks_supported.side_effect = _are_symlinks_supported
+            mock_symlink.side_effect = concurrent_other_symlink
             with pytest.raises(FileExistsError):
                 _create_symlink(src, dst)
 
