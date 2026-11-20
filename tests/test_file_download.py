@@ -34,6 +34,7 @@ from huggingface_hub.file_download import (
     _create_symlink,
     _get_pointer_path,
     _normalize_etag,
+    _replace_no_matter_what,
     get_hf_file_metadata,
     hf_hub_download,
     hf_hub_url,
@@ -1687,6 +1688,55 @@ class TestLocalDirAtomicRefresh:
         assert metadata is not None
         assert metadata.commit_hash == self.NEW_COMMIT
         assert metadata.etag == self.NEW_ETAG
+
+    @pytest.mark.parametrize("from_cache", [False, True])
+    def test_directory_collision_raises_and_preserves_directory(self, tmp_path: Path, from_cache: bool) -> None:
+        local_dir = tmp_path / "local"
+        existing_dir = local_dir / "file.txt"
+        existing_dir.mkdir(parents=True)
+        child = existing_dir / "child.txt"
+        child.write_text("keep")
+
+        cached_file = tmp_path / "cached_blob"
+        cached_file.write_text("new content")
+
+        with (
+            patch(
+                "huggingface_hub.file_download._get_metadata_or_catch_error",
+                return_value=self._remote_metadata(),
+            ),
+            patch(
+                "huggingface_hub.file_download.try_to_load_from_cache",
+                return_value=str(cached_file) if from_cache else None,
+            ),
+            patch("huggingface_hub.file_download.http_get") as mock_http_get,
+            patch("huggingface_hub.file_download.shutil.copyfile") as mock_copyfile,
+            pytest.raises(IsADirectoryError),
+        ):
+            hf_hub_download("user/repo", "file.txt", cache_dir=tmp_path / "cache", local_dir=local_dir)
+
+        mock_http_get.assert_not_called()
+        mock_copyfile.assert_not_called()
+        assert existing_dir.is_dir()
+        assert child.read_text() == "keep"
+        assert list(local_dir.glob(".file.txt.*.old")) == []
+
+    def test_replace_no_matter_what_rejects_directory_destination(self, tmp_path: Path) -> None:
+        src = tmp_path / "src.txt"
+        src.write_text("new content")
+        dst = tmp_path / "existing_dir"
+        dst.mkdir()
+        child = dst / "child.txt"
+        child.write_text("keep")
+
+        with pytest.raises(IsADirectoryError):
+            _replace_no_matter_what(src, dst)
+
+        assert dst.is_dir()
+        assert child.read_text() == "keep"
+        assert src.read_text() == "new content"
+        assert list(tmp_path.glob(".existing_dir.*.old")) == []
+        assert list(tmp_path.glob(".existing_dir.*.new")) == []
 
 
 def _recursive_chmod(path: str, mode: int) -> None:

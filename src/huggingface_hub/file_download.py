@@ -1483,6 +1483,8 @@ def _hf_hub_download_to_local_dir(
                     will_download=False,
                 )
             with WeakFileLock(paths.lock_path):
+                if paths.file_path.is_dir() and not paths.file_path.is_symlink():
+                    raise IsADirectoryError(errno.EISDIR, os.strerror(errno.EISDIR), str(paths.file_path))
                 paths.file_path.parent.mkdir(parents=True, exist_ok=True)
                 incomplete_path = paths.incomplete_path(etag)
                 tmp_path = incomplete_path.with_name(f"{incomplete_path.stem}.{uuid.uuid4().hex[:8]}.incomplete")
@@ -1509,6 +1511,8 @@ def _hf_hub_download_to_local_dir(
 
     # Otherwise, let's download the file!
     with WeakFileLock(paths.lock_path):
+        if paths.file_path.is_dir() and not paths.file_path.is_symlink():
+            raise IsADirectoryError(errno.EISDIR, os.strerror(errno.EISDIR), str(paths.file_path))
         _download_to_tmp_and_move(
             incomplete_path=paths.incomplete_path(etag),
             destination_path=paths.file_path,
@@ -2111,6 +2115,8 @@ def _replace_no_matter_what(src: Path, dst: Path) -> None:
     Some mounts reject replace-over-existing: stage the new file next to `dst`, move the old entry aside
     and restore it if the final move fails.
     """
+    if dst.is_dir() and not dst.is_symlink():
+        raise IsADirectoryError(errno.EISDIR, os.strerror(errno.EISDIR), str(dst))
     try:
         os.replace(src, dst)
     except OSError:
