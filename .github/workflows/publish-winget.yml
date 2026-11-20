@@ -18,6 +18,8 @@ jobs:
     permissions:
       contents: read
     runs-on: windows-latest
+    # WINGET_GITHUB_TOKEN lives in this environment (deployments restricted to `main`), not as a repo secret.
+    environment: winget
     env:
       RELEASE_TAG: ${{ inputs.tag || github.event.release.tag_name }}
       GH_TOKEN: ${{ github.token }}

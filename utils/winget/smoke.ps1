@@ -48,6 +48,7 @@ Get-ChildItem $manifestDir -Filter '*.yaml' | ForEach-Object {
     (Get-Content $_.FullName -Raw) -replace '(?m)^PackageVersion: .*', 'PackageVersion: 0.0.1' |
         Set-Content (Join-Path $oldManifestDir $_.Name)
 }
+$installed = Join-Path $env:LOCALAPPDATA 'Microsoft/WinGet/Links/hf.exe'
 try {
     # Wait until the local asset server is ready.
     for ($attempt = 0; $attempt -lt 20; $attempt++) {
@@ -60,7 +61,6 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Invalid WinGet manifests' }
     winget install --manifest $oldManifestDir --accept-package-agreements --accept-source-agreements --disable-interactivity
     if ($LASTEXITCODE -ne 0) { throw 'WinGet install failed' }
-    $installed = Join-Path $env:LOCALAPPDATA 'Microsoft/WinGet/Links/hf.exe'
     Invoke-Hf $installed @('version')
     Invoke-Hf $installed @('update')
     winget upgrade --manifest $manifestDir --accept-package-agreements --accept-source-agreements --disable-interactivity
@@ -68,7 +68,8 @@ try {
     Invoke-Hf $installed @('--help')
 } finally {
     # Throwing here would hide the original error: report cleanup failures and check them below.
-    winget uninstall --id HuggingFace.hf --exact --accept-source-agreements --disable-interactivity
+    # A package installed from a local manifest isn't matched by `--id` (no source correlation): uninstall by manifest.
+    winget uninstall --manifest $manifestDir --accept-source-agreements --disable-interactivity
     $uninstallExit = $LASTEXITCODE
     Stop-Process -Id $server.Id
 }

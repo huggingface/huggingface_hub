@@ -52,9 +52,11 @@ is a draft. Do not replace published ZIPs: manifests pin their SHA256.
 
 3. Submit those three YAML files to `microsoft/winget-pkgs` and address Microsoft's
    validation/review feedback. The proposed package identifier is `HuggingFace.hf`.
-4. For automatic submissions after the first accepted package, configure
-   `WINGET_GITHUB_TOKEN` as a repository secret (a Winget-Create compatible classic
-   GitHub token with `public_repo` access), then set repository variable
+4. For automatic submissions after the first accepted package, create a `winget`
+   environment restricted to the `main` branch and add `WINGET_GITHUB_TOKEN` to it as
+   an environment secret (a Winget-Create compatible classic GitHub token with
+   `public_repo` access, owned by a dedicated bot account without write access to
+   the organization), then set repository variable
    `WINGET_PUBLISH=true`. `publish-winget.yml` submits on stable release publication;
    it can also be dispatched with a public stable tag to retry a failed submission.
    Keep the variable unset until ready to submit. Never run this workflow with PR secrets.
