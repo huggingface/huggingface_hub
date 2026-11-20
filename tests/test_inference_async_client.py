@@ -45,7 +45,12 @@ from huggingface_hub import (
 from huggingface_hub.inference._common import ValidationError as TextGenerationValidationError
 from huggingface_hub.inference._common import _get_unsupported_text_generation_kwargs
 
-from .test_inference_client import CHAT_COMPLETE_NON_TGI_MODEL, CHAT_COMPLETION_MESSAGES, CHAT_COMPLETION_MODEL
+from .test_inference_client import (
+    CHAT_COMPLETE_NON_TGI_MODEL,
+    CHAT_COMPLETION_MESSAGES,
+    CHAT_COMPLETION_MODEL,
+    _streaming_chat_server,
+)
 
 
 pytestmark = pytest.mark.inference
@@ -437,3 +442,16 @@ async def test_use_async_with_inference_client():
         async with AsyncInferenceClient():
             pass
     mock_close.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_chat_completion_stream_without_reference_to_client() -> None:
+    """The stream must not be closed when the client that created it is garbage collected."""
+
+    async def stream_reply(base_url: str):
+        client = AsyncInferenceClient(base_url=base_url)
+        return await client.chat_completion(CHAT_COMPLETION_MESSAGES, model="m", stream=True)
+
+    with _streaming_chat_server() as base_url:
+        output = [chunk.choices[0].delta.content async for chunk in await stream_reply(base_url)]
+    assert "".join(output) == "Hello there"
