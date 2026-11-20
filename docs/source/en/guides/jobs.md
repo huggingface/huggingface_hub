@@ -638,12 +638,12 @@ To remove all labels, pass `--clear`:
 Run UV scripts (Python scripts with inline dependencies) on HF infrastructure:
 
 ```python
-# Run a UV script (creates temporary repo)
+# Run a local UV script (uploaded to your `jobs-artifacts` bucket)
 >>> from huggingface_hub import run_uv_job
 >>> run_uv_job("my_script.py")
 
 # Run with GPU
->>> run_uv_job("ml_training.py", flavor="gpu-t4-small")
+>>> run_uv_job("ml_training.py", flavor="t4-small")
 
 # Run with dependencies
 >>> run_uv_job("inference.py", dependencies=["transformers", "torch"])
