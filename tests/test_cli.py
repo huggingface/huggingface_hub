@@ -3481,6 +3481,51 @@ class TestJobsCommand:
         )
         api.fetch_job_logs.assert_not_called()
 
+    @pytest.mark.parametrize(
+        "labels, extra_args, expected",
+        [
+            (
+                {"name": "my-run"},
+                [],
+                "tag them all with `--label group=687f911e` (with a unique `--name` per Job) so they are grouped in the UI. "
+                "Tag this one too: `hf jobs labels my-user/687f911eaea852de79c4a50a --name my-run --label group=687f911e`.",
+            ),
+            (
+                {"name": "my-run", "sweep": "lr"},
+                ["--label", "sweep=lr"],
+                "reuse `--label sweep=lr` (with a unique `--name` per Job) so they are grouped in the UI.",
+            ),
+        ],
+    )
+    def test_run_hints_agents_to_group_jobs(
+        self, runner: CliRunner, labels: dict[str, str], extra_args: list[str], expected: str
+    ) -> None:
+        job = Mock(id="687f911eaea852de79c4a50a", url="https://huggingface.co/jobs/my-user/687f911eaea852de79c4a50a")
+        job.owner.name = "my-user"
+        job.labels = labels
+        with (
+            patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
+            patch("huggingface_hub.cli._cli_utils._get_extended_environ", return_value={}),
+            patch("huggingface_hub.cli.jobs.is_agent", return_value=True),
+        ):
+            api_cls.return_value.run_job.return_value = job
+            result = runner.invoke(app, ["jobs", "run", "--detach", "--name", "my-run", *extra_args, "ubuntu", "ls"])
+        assert result.exit_code == 0
+        assert f"If you launch more Jobs in this session, {expected}" in result.stderr
+
+    def test_run_no_group_hint_for_humans(self, runner: CliRunner) -> None:
+        job = Mock(id="687f911eaea852de79c4a50a", url="https://huggingface.co/jobs/my-user/687f911eaea852de79c4a50a")
+        job.labels = {"name": "my-run"}
+        with (
+            patch("huggingface_hub.cli.jobs.get_hf_api") as api_cls,
+            patch("huggingface_hub.cli._cli_utils._get_extended_environ", return_value={}),
+            patch("huggingface_hub.cli.jobs.is_agent", return_value=False),
+        ):
+            api_cls.return_value.run_job.return_value = job
+            result = runner.invoke(app, ["jobs", "run", "--detach", "--name", "my-run", "ubuntu", "ls"])
+        assert result.exit_code == 0
+        assert "If you launch more Jobs" not in result.stderr
+
     def test_create_scheduled_job(self, runner: CliRunner) -> None:
         scheduled_job = Mock(id="my-job-id")
         with (
