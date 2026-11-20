@@ -1868,13 +1868,18 @@ class PaperInfo:
         self.submitted_at = parse_datetime(submitted_at) if submitted_at else None
         submitted_by = kwargs.pop("submittedBy", None) or kwargs.pop("submittedOnDailyBy", None)
         self.submitted_by = User(**submitted_by) if submitted_by else None
-        self.ai_summary = kwargs.pop("ai_summary", None)
-        self.ai_keywords = kwargs.pop("ai_keywords", None)
+        ai_summary = kwargs.pop("ai_summary", None)
+        self.ai_summary = ai_summary if ai_summary is not None else paper.pop("ai_summary", None)
+        ai_keywords = kwargs.pop("ai_keywords", None)
+        self.ai_keywords = ai_keywords if ai_keywords is not None else paper.pop("ai_keywords", None)
         organization = kwargs.pop("organization", None)
         self.organization = Organization(**organization) if organization else None
-        self.project_page = kwargs.pop("projectPage", None)
-        self.github_repo = kwargs.pop("githubRepo", None)
-        self.github_stars = kwargs.pop("githubStars", None)
+        project_page = kwargs.pop("projectPage", None)
+        self.project_page = project_page if project_page is not None else paper.pop("projectPage", None)
+        github_repo = kwargs.pop("githubRepo", None)
+        self.github_repo = github_repo if github_repo is not None else paper.pop("githubRepo", None)
+        github_stars = kwargs.pop("githubStars", None)
+        self.github_stars = github_stars if github_stars is not None else paper.pop("githubStars", None)
         linked_models = kwargs.pop("linkedModels", None)
         self.linked_models = [ModelInfo(**m) for m in linked_models] if linked_models is not None else None
         self.num_total_models = kwargs.pop("numTotalModels", None)
@@ -7424,6 +7429,11 @@ class HfApi:
         target_branch = discussion_details["changes"]["base"] if is_pull_request else None
         conflicting_files = discussion_details["filesWithConflicts"] if is_pull_request else None
         merge_commit_oid = discussion_details["changes"].get("mergeCommitId", None) if is_pull_request else None
+        diff_url = (
+            fix_hf_endpoint_in_url(discussion_details["diffUrl"], endpoint=self.endpoint)
+            if discussion_details.get("diffUrl")
+            else None
+        )
 
         return DiscussionWithDetails(
             title=discussion_details["title"],
@@ -7439,6 +7449,7 @@ class HfApi:
             target_branch=target_branch,
             merge_commit_oid=merge_commit_oid,
             diff=discussion_details.get("diff"),
+            diff_url=diff_url,
             endpoint=self.endpoint,
         )
 
