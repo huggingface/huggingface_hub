@@ -1483,8 +1483,18 @@ def _hf_hub_download_to_local_dir(
                     will_download=False,
                 )
             with WeakFileLock(paths.lock_path):
+                if paths.file_path.is_dir() and not paths.file_path.is_symlink():
+                    raise IsADirectoryError(errno.EISDIR, os.strerror(errno.EISDIR), str(paths.file_path))
                 paths.file_path.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copyfile(cached_path, paths.file_path)
+                incomplete_path = paths.incomplete_path(etag)
+                tmp_path = incomplete_path.with_name(f"{incomplete_path.stem}.{uuid.uuid4().hex[:8]}.incomplete")
+                tmp_path = Path(as_extended_path(tmp_path))
+                tmp_path.parent.mkdir(parents=True, exist_ok=True)
+                try:
+                    shutil.copyfile(cached_path, tmp_path)
+                    _chmod_and_move(tmp_path, paths.file_path)
+                finally:
+                    tmp_path.unlink(missing_ok=True)
             write_download_metadata(local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag)
             return str(paths.file_path)
 
@@ -1501,7 +1511,8 @@ def _hf_hub_download_to_local_dir(
 
     # Otherwise, let's download the file!
     with WeakFileLock(paths.lock_path):
-        paths.file_path.unlink(missing_ok=True)  # delete outdated file first
+        if paths.file_path.is_dir() and not paths.file_path.is_symlink():
+            raise IsADirectoryError(errno.EISDIR, os.strerror(errno.EISDIR), str(paths.file_path))
         _download_to_tmp_and_move(
             incomplete_path=paths.incomplete_path(etag),
             destination_path=paths.file_path,
@@ -1509,7 +1520,8 @@ def _hf_hub_download_to_local_dir(
             headers=headers,
             expected_size=expected_size,
             filename=filename,
-            force_download=force_download,
+            # Always replace an existing local file once download succeeds (outdated file is kept intact on failure).
+            force_download=True,
             etag=etag,
             xet_file_data=xet_file_data,
             tqdm_class=tqdm_class,
@@ -2103,6 +2115,8 @@ def _replace_no_matter_what(src: Path, dst: Path) -> None:
     Some mounts reject replace-over-existing: stage the new file next to `dst`, move the old entry aside
     and restore it if the final move fails.
     """
+    if dst.is_dir() and not dst.is_symlink():
+        raise IsADirectoryError(errno.EISDIR, os.strerror(errno.EISDIR), str(dst))
     try:
         os.replace(src, dst)
     except OSError:
