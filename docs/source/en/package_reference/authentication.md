@@ -31,3 +31,7 @@ For more details about authentication, check out [this section](../quick-start#a
 ## auth_list
 
 [[autodoc]] auth_list
+
+## revoke_tokens
+
+[[autodoc]] revoke_tokens
