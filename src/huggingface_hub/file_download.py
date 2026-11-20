@@ -1910,6 +1910,7 @@ def _xet_file_metadata_from_tree_cache(
         or entry.xet_hash is None
         or not is_valid_xet_hash(entry.xet_hash)
         or entry.lfs_sha256 is None
+        or not _is_safe_path_component(entry.lfs_sha256)
         or entry.lfs_size is None
     ):
         return None
