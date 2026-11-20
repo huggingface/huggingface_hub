@@ -1273,9 +1273,10 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
             if isinstance(resolved_path, HfFileSystemResolvedRepositoryPath):
                 out["last_commit"] = None
             if isinstance(resolved_path, HfFileSystemResolvedRepositoryPath) and expand_info:
+                # Commits are sorted by date (last commit first)
                 last_commit = self._api.list_repo_commits(
                     resolved_path.repo_id, repo_type=resolved_path.repo_type, revision=resolved_path.revision
-                )[-1]
+                )[0]
                 out = {
                     **out,
                     "tree_id": None,  # TODO: tree_id of the root directory?
@@ -1650,6 +1651,8 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
 
 
 class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
+    """Read-only binary stream. For text reads, use ``fs.open(path, mode="r", block_size=0)``."""
+
     def __init__(
         self,
         fs: HfFileSystem,
@@ -1664,7 +1667,7 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
             raise ValueError(f"HfFileSystemStreamFile only supports block_size=0 but got {block_size}")
         if cache_type != "none":
             raise ValueError(f"HfFileSystemStreamFile only supports cache_type='none' but got {cache_type}")
-        if "w" in mode:
+        if mode != "rb":
             raise ValueError(f"HfFileSystemStreamFile only supports reading but got mode='{mode}'")
         # Let a missing repo/revision/file surface as FileNotFoundError (as the buffered
         # `HfFileSystemFile` does) instead of an AttributeError on `self.resolved_path` below.

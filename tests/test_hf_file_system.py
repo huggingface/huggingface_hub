@@ -116,6 +116,15 @@ class _HfFileSystemBaseROTests(_HfFileSystemBaseTests):
             assert f.read() == b"dummy binary data"
             assert f.read() == b""
 
+    @pytest.mark.parametrize("mode", ["x", "xb"])
+    def test_stream_file_rejects_exclusive_write_modes(self, mode):
+        with pytest.raises(ValueError, match="only supports reading"):
+            self.hffs.open(
+                self.hf_path + "/data/binary_data.bin",
+                mode=mode,
+                block_size=0,
+            )
+
     def test_stream_file_retry(self):
         with self.hffs.open(self.hf_path + "/data/binary_data.bin", block_size=0) as f:
             assert isinstance(f, HfFileSystemStreamFile)
@@ -1132,6 +1141,19 @@ def test_hf_file_system_file_can_handle_gzipped_file():
     with fs.open("datasets/allenai/math_qa/math_qa.py", "r", encoding="utf-8") as f:
         out = f.read()
     assert "class MathQa" in out
+
+
+@pytest.mark.production
+def test_info_root_directory_last_commit_on_real_repo():
+    fs = HfFileSystem(endpoint=constants.ENDPOINT)
+    # Pinned revision so that new commits on the repo don't break the test
+    revision = "607a30d783dfa663caf39e06633721c8d4cfcd7e"
+    path = f"openai-community/gpt2@{revision}"
+
+    info = fs.info(path, expand_info=True)
+    assert info["last_commit"].oid == revision
+    assert info["last_commit"].title == "Adds the tokenizer configuration file (#80)"
+    assert fs.modified(path) == datetime.datetime(2024, 2, 19, 10, 57, 45, tzinfo=datetime.timezone.utc)
 
 
 _FAKE_REPO_ID = "fake/repo"
