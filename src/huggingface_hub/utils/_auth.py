@@ -303,6 +303,7 @@ def _refresh_oauth_token_if_needed(token: str) -> str:
                     _save_token(
                         token=new_token,
                         token_name=token_name,
+                        display_name=fields.get("display_name"),
                         # The server may rotate the refresh token; keep the old one if it doesn't.
                         refresh_token=response.get("refresh_token") or refresh_token,
                         expires_at=new_expires_at,
@@ -364,7 +365,7 @@ def get_stored_tokens() -> dict[str, str]:
     If the file does not exist, an empty dictionary is returned.
 
     Returns: `dict[str, str]`
-        Key is the token name and value is the token.
+        Keys are local names (e.g. `alice:laptop` for a named personal access token) and values are tokens.
     """
     return {token_name: fields.get("hf_token", "") for token_name, fields in _read_stored_tokens_full().items()}
 
@@ -422,7 +423,12 @@ def _get_token_by_name(token_name: str) -> str | None:
 
 
 def _save_token(
-    token: str, token_name: str, *, refresh_token: str | None = None, expires_at: int | None = None
+    token: str,
+    token_name: str,
+    *,
+    display_name: str | None = None,
+    refresh_token: str | None = None,
+    expires_at: int | None = None,
 ) -> None:
     """
     Save the given token.
@@ -432,7 +438,9 @@ def _save_token(
         token (`str`):
             The token to save.
         token_name (`str`):
-            The name of the token.
+            The local name of the token.
+        display_name (`str`, *optional*):
+            The name on the Hub, used to look up an account-qualified entry by its short name.
         refresh_token (`str`, *optional*):
             OAuth refresh token used to renew the access token when it expires.
         expires_at (`int`, *optional*):
@@ -440,6 +448,16 @@ def _save_token(
     """
     stored_tokens = _read_stored_tokens_full()
     fields = {"hf_token": token}
+    if display_name is not None:
+        # A legacy display name could itself look like "username:name".
+        existing = stored_tokens.get(token_name)
+        if existing and "display_name" not in existing and existing.get("hf_token") != token:
+            raise ValueError(
+                f"A different legacy token is saved as '{token_name}'. Log in with that token to migrate it first."
+            )
+        # Migrate the same token from a legacy or renamed entry without guessing its owner.
+        stored_tokens = {name: entry for name, entry in stored_tokens.items() if entry.get("hf_token") != token}
+        fields["display_name"] = display_name
     if refresh_token is not None:
         fields["refresh_token"] = refresh_token
     if expires_at is not None:
