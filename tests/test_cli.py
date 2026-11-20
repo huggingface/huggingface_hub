@@ -2030,6 +2030,36 @@ class TestAuthLoginCommand:
 
 
 class TestAuthSwitchCommand:
+    def test_switch_and_logout_with_shared_display_name(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.hf_api.whoami") as whoami:
+            for account in ("alice", "bob"):
+                whoami.return_value = {"name": account, "auth": {"accessToken": {"displayName": "laptop"}}}
+                assert runner.invoke(app, ["auth", "login", "--token", f"hf_{account}"]).exit_code == 0
+
+        listed = runner.invoke(app, ["auth", "list"])
+        assert listed.exit_code == 0
+        assert "alice:laptop" in listed.stdout
+        assert "bob:laptop" in listed.stdout
+        for command in ("switch", "logout"):
+            result = runner.invoke(app, ["auth", command, "--token-name", "laptop"])
+            assert result.exit_code != 0
+            assert "Choose a qualified name: alice:laptop, bob:laptop" in str(result.exception)
+        assert Path(constants.HF_TOKEN_PATH).read_text() == "hf_bob"
+
+        with (
+            patch("huggingface_hub.cli.auth.sys") as terminal,
+            patch("huggingface_hub._login.select_choice", return_value=0) as choose,
+        ):
+            terminal.stdin.isatty.return_value = True
+            terminal.stdout.isatty.return_value = True
+            assert runner.invoke(app, ["auth", "switch", "--token-name", "laptop", "--format", "human"]).exit_code == 0
+        choose.assert_called_once_with("Choose a token named 'laptop':", ["alice:laptop", "bob:laptop"])
+        assert Path(constants.HF_TOKEN_PATH).read_text() == "hf_alice"
+        with patch("huggingface_hub._login.unset_git_credential"):
+            assert runner.invoke(app, ["auth", "logout", "--token-name", "alice:laptop"]).exit_code == 0
+        assert runner.invoke(app, ["auth", "switch", "--token-name", "laptop"]).exit_code == 0
+        assert Path(constants.HF_TOKEN_PATH).read_text() == "hf_bob"
+
     def test_switch_requires_token_name_in_non_interactive_mode(self, runner: CliRunner) -> None:
         with patch("huggingface_hub.cli.auth.get_stored_tokens", return_value={"a": "hf_a", "b": "hf_b"}):
             result = runner.invoke(app, ["auth", "switch", "--format", "json"])

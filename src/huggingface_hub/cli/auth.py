@@ -13,6 +13,7 @@
 # limitations under the License.
 """Contains commands to authenticate to the Hugging Face Hub and interact with your repositories."""
 
+import sys
 from typing import Annotated
 
 import click
@@ -20,7 +21,7 @@ import click
 from huggingface_hub.constants import ENDPOINT
 from huggingface_hub.hf_api import whoami
 
-from .._login import _save_oauth_token, auth_list, auth_switch, login, logout
+from .._login import _logout, _resolve_token_name, _save_oauth_token, _switch_to_token, auth_list, login
 from ..errors import CLIError
 from ..utils import get_stored_tokens, get_token, logging, select_choice
 from ..utils._oauth_device import poll_device_token, request_device_code
@@ -91,16 +92,23 @@ def auth_login(
 
 @auth_cli.command(
     "logout",
-    examples=["hf auth logout", "hf auth logout --token-name my-token"],
+    examples=["hf auth logout", "hf auth logout --token-name alice:laptop"],
 )
 def auth_logout(
     token_name: Annotated[
         str | None,
-        Option(help="Name of token to logout"),
+        Option(help="Stored token name or unique display name to log out from."),
     ] = None,
 ) -> None:
     """Logout from a specific token."""
-    logout(token_name=token_name)
+    _logout(_resolve_cli_token_name(token_name) if token_name else None)
+
+
+def _resolve_cli_token_name(token_name: str) -> str:
+    interactive = (
+        out.mode == OutputFormat.human and sys.stdin is not None and sys.stdin.isatty() and sys.stdout.isatty()
+    )
+    return _resolve_token_name(token_name, interactive=interactive)
 
 
 def _select_token_name() -> str | None:
@@ -117,13 +125,13 @@ def _select_token_name() -> str | None:
 
 @auth_cli.command(
     "switch",
-    examples=["hf auth switch", "hf auth switch --token-name my-token"],
+    examples=["hf auth switch", "hf auth switch --token-name alice:laptop"],
 )
 def auth_switch_cmd(
     token_name: Annotated[
         str | None,
         Option(
-            help="Name of the token to switch to",
+            help="Stored token name or unique display name to switch to.",
         ),
     ] = None,
     add_to_git_credential: Annotated[
@@ -136,10 +144,12 @@ def auth_switch_cmd(
     """Switch between access tokens."""
     if token_name is None:
         token_name = _select_token_name()
+    else:
+        token_name = _resolve_cli_token_name(token_name)
     if token_name is None:
         print("No token name provided. Aborting.")
         raise click.exceptions.Exit()
-    auth_switch(token_name, add_to_git_credential=add_to_git_credential)
+    _switch_to_token(token_name, add_to_git_credential=add_to_git_credential)
 
 
 @auth_cli.command("list | ls", examples=["hf auth list"])

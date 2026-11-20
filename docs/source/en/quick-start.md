@@ -88,7 +88,7 @@ Alternatively, you can programmatically log in using [`login`] in a notebook or 
 >>> login()
 ```
 
-You can only be logged in to one account at a time. Logging in to a new account will automatically log you out of the previous one. To determine your currently active account, simply run the `hf auth whoami` command.
+Logging in makes that account's token active and keeps your other tokens available locally. Run `hf auth whoami` to see which account you're using.
 
 > [!WARNING]
 > Once logged in, all requests to the Hub - even methods that don't necessarily require authentication - will use your access token by default. If you want to disable the implicit use of your token, you should set `HF_HUB_DISABLE_IMPLICIT_TOKEN=1` as an environment variable (see [reference](../package_reference/environment_variables#hfhubdisableimplicittoken)).
@@ -103,8 +103,7 @@ hf auth switch
 
 This command will prompt you to select a token by its name from a list of saved tokens. Once selected, the chosen token becomes the _active_ token, and it will be used for all interactions with the Hub.
 
-
-You can list all available access tokens on your machine with `hf auth list`.
+Run `hf auth list` to see the saved names. Personal access tokens are saved as `username:token_name`, so you can use `hf auth switch --token-name alice:laptop` even if another account also has a token named `laptop`.
 
 ### Environment variable
 
