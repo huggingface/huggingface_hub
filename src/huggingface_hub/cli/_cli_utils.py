@@ -1135,6 +1135,10 @@ def _check_cli_update(library: Literal["huggingface_hub", "transformers"]) -> No
     if constants.HF_HUB_DISABLE_UPDATE_CHECK:
         return
 
+    # WinGet's catalog can lag behind PyPI. Let WinGet check its own available versions.
+    if library == "huggingface_hub" and installation_method() == "winget":
+        return
+
     current_version = importlib.metadata.version(library)
 
     # Skip if current version is a pre-release or dev version
@@ -1214,6 +1218,9 @@ def run_update(*, exclude_skill: bool = False) -> int:
             "Cannot determine how to update huggingface_hub (unknown installation method). Please update manually."
         )
     return subprocess.call(cmd)
+
+
+WINGET_UPDATE_COMMAND = "winget upgrade --id HuggingFace.hf --exact --source winget"
 
 
 def _get_huggingface_hub_update_command(*, exclude_skill: bool = False) -> list[str] | None:
