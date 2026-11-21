@@ -116,6 +116,10 @@ _RECOMMENDED_MODELS_FOR_VCR = {
     "replicate": {
         "text-to-image": "ByteDance/SDXL-Lightning",
     },
+    "textclf": {
+        "text-generation": "meta-llama/Llama-3.1-8B-Instruct",
+        "conversational": "meta-llama/Llama-3.1-8B-Instruct",
+    },
 }
 
 CHAT_COMPLETION_MODEL = "HuggingFaceH4/zephyr-7b-beta"
