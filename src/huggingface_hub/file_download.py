@@ -297,9 +297,9 @@ def hf_hub_url(
 
 def _get_file_length_from_http_response(response: httpx2.Response) -> int | None:
     """
-    Get the length of the file from the HTTP response headers.
+    Get the length of the response body from the HTTP response headers.
 
-    This function extracts the file size from the HTTP response headers, either from the
+    This function extracts the number of bytes in the returned range or full response, either from the
     `Content-Range` or `Content-Length` header, if available (in that order).
 
     Args:
@@ -307,7 +307,7 @@ def _get_file_length_from_http_response(response: httpx2.Response) -> int | None
             The HTTP response object.
 
     Returns:
-        `int` or `None`: The length of the file in bytes, or None if not available.
+        `int` or `None`: The length of the response body in bytes, or None if not available.
     """
 
     # If HTTP response contains compressed body (e.g. gzip), the `Content-Length` header will
@@ -321,7 +321,8 @@ def _get_file_length_from_http_response(response: httpx2.Response) -> int | None
 
     content_range = response.headers.get("Content-Range")
     if content_range is not None:
-        return int(content_range.rsplit("/")[-1])
+        range_start, range_end = content_range.split(" ", 1)[1].split("/", 1)[0].split("-")
+        return int(range_end) - int(range_start) + 1
 
     content_length = response.headers.get("Content-Length")
     if content_length is not None:
@@ -417,6 +418,9 @@ def http_get(
                 resume_size = 0
 
             total: int | None = _get_file_length_from_http_response(response)
+            if total is not None:
+                # Include bytes already received, relative to the requested range rather than the remote file.
+                total += resume_size
             if expected_size is None:
                 expected_size = total
             elif total is None:

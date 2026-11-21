@@ -1105,11 +1105,92 @@ class TestHfHubDownloadRelativePaths:
 
 
 class TestHttpGet:
-    def test_http_get_validates_content_length_when_expected_size_is_missing(self):
+    @pytest.mark.parametrize(
+        "status_code,headers",
+        [
+            (200, {"Content-Length": "100"}),
+            (206, {"Content-Length": "100", "Content-Range": "bytes 50-149/200"}),
+        ],
+    )
+    def test_http_get_validates_content_length_when_expected_size_is_missing(self, status_code, headers):
         with pytest.raises(OSError, match="file should be of size 100 but has size 50"):
             self._http_get_with_mocked_responses(
-                [self._mock_response(headers={"Content-Length": "100"}, iter_bytes=iter([b"A" * 50]))]
+                [self._mock_response(status_code=status_code, headers=headers, iter_bytes=iter([b"A" * 50]))],
+                headers={"Range": "bytes=50-149"},
             )
+
+    @pytest.mark.parametrize(
+        "range_header,content_range,content",
+        [
+            ("bytes=1-3", "bytes 1-3/6", b"bcd"),
+            ("bytes=2-", "bytes 2-5/6", b"cdef"),
+            ("bytes=-3", "bytes 3-5/6", b"def"),
+        ],
+    )
+    def test_http_get_with_partial_content(self, range_header, content_range, content):
+        tracker, tqdm_class = self._make_aggregated_tqdm()
+        temp_file = self._http_get_with_mocked_responses(
+            [
+                self._mock_response(
+                    status_code=206,
+                    headers={"Content-Length": str(len(content)), "Content-Range": content_range},
+                    iter_bytes=iter([content]),
+                )
+            ],
+            headers={"Range": range_header},
+            tqdm_class=tqdm_class,
+        )
+
+        assert temp_file.getvalue() == content
+        assert tracker.total == len(content)
+        assert tracker.n == len(content)
+
+    def test_http_get_resumes_partial_content_without_expected_size(self):
+        tracker, tqdm_class = self._make_aggregated_tqdm()
+        temp_file = io.BytesIO(b"b")
+        temp_file.seek(0, os.SEEK_END)
+
+        with patch("huggingface_hub.file_download.http_stream_backoff") as mock_stream:
+            mock_stream.return_value.__enter__.return_value = self._mock_response(
+                status_code=206,
+                headers={"Content-Length": "2", "Content-Range": "bytes 2-3/6"},
+                iter_bytes=iter([b"cd"]),
+            )
+            http_get("fake_url", temp_file, headers={"Range": "bytes=1-3"}, resume_size=1, tqdm_class=tqdm_class)
+
+        assert temp_file.getvalue() == b"bcd"
+        assert mock_stream.call_args.kwargs["headers"]["Range"] == "bytes=2-3"
+        assert tracker.total == 3
+        assert tracker.n == 3
+
+    def test_http_get_retries_partial_content(self):
+        tracker, tqdm_class = self._make_aggregated_tqdm()
+
+        def _fail_after_first_byte():
+            yield b"b"
+            raise httpx2.TimeoutException("timeout")
+
+        temp_file = self._http_get_with_mocked_responses(
+            [
+                self._mock_response(
+                    status_code=206,
+                    headers={"Content-Length": "3", "Content-Range": "bytes 1-3/6"},
+                    iter_bytes=_fail_after_first_byte(),
+                ),
+                self._mock_response(
+                    status_code=206,
+                    headers={"Content-Length": "2", "Content-Range": "bytes 2-3/6"},
+                    iter_bytes=iter([b"cd"]),
+                ),
+            ],
+            headers={"Range": "bytes=1-3"},
+            tqdm_class=tqdm_class,
+        )
+
+        assert temp_file.getvalue() == b"bcd"
+        assert tracker.instances == 1
+        assert tracker.total == 3
+        assert tracker.n == 3
 
     def test_http_get_with_ssl_and_timeout_error(self, caplog):
         def _iter_content_1() -> Iterable[bytes]:
