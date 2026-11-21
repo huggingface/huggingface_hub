@@ -1,3 +1,4 @@
+import threading
 import time
 
 import pytest
@@ -177,6 +178,44 @@ class TestHfFileSystemBucketRW(_HfFileSystemBucketChecks, _HfFileSystemBaseRWTes
                     f.write(b"new text data")
                 raise ValueError("Interrupted")
         assert self.hf_path + "/data/new_text_data.txt" not in self.hffs.glob(self.hf_path + "/data/*")
+
+    def test_transaction_only_defers_the_writes_of_its_own_thread(self):
+        """Regression test for https://github.com/huggingface/huggingface_hub/issues/5383.
+
+        An instance is shared by all the threads using it: a transaction running in one thread must neither
+        defer nor roll back a write happening in another one.
+        """
+        written_by_main_thread = self.hf_path + "/data/from_main_thread.txt"
+        written_in_transaction = self.hf_path + "/data/from_transaction_thread.txt"
+        transaction_started = threading.Event()
+        let_transaction_end = threading.Event()
+
+        def transaction_thread():
+            try:
+                with self.hffs.transaction:
+                    with self.hffs.open(written_in_transaction, "w") as f:
+                        f.write("in transaction")
+                    transaction_started.set()
+                    let_transaction_end.wait(30)
+                    raise ValueError("Interrupted")
+            except ValueError:
+                pass  # the transaction discarded the file it was holding
+
+        thread = threading.Thread(target=transaction_thread, daemon=True)
+        thread.start()
+        assert transaction_started.wait(30)
+        try:
+            assert not self.hffs._intrans  # the transaction is not running on this thread
+            with self.hffs.open(written_by_main_thread, "w") as f:
+                f.write("from main thread")
+            assert written_by_main_thread in self.hffs.glob(self.hf_path + "/data/*")
+        finally:
+            let_transaction_end.set()
+            thread.join(30)
+
+        # rolling back the transaction discarded its own write only
+        assert written_by_main_thread in self.hffs.glob(self.hf_path + "/data/*")
+        assert written_in_transaction not in self.hffs.glob(self.hf_path + "/data/*")
 
 
 class TestHfFileSystemBucketLiveFollow:

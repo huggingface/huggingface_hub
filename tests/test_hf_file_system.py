@@ -427,10 +427,9 @@ class _HfFileSystemBaseROTests(_HfFileSystemBaseTests):
         # 1. The pre-pickle fs must hit an endpoint where `text_file` actually exists, so the initial
         #    `isfile` call resolves cleanly and populates exactly one cache entry. Going against
         #    production would 404 and trigger the namespace fallback in `resolve_path`, adding 2 entries.
-        # 2. The pre-pickle fs must NOT be shared via fsspec's instance cache with any sibling test
-        #    (e.g. the bucket-based `test_pickle` inherited by `HfFileSystemBucketROTests`), otherwise
-        #    leftover `_bucket_exists_cache` / `dircache` entries from that test leak into this one
-        #    via the main-thread state-inheritance path in `_Cached.__call__`.
+        # 2. The pre-pickle fs must NOT be shared via fsspec's instance cache with any sibling test,
+        #    otherwise leftover `_bucket_exists_cache` / `dircache` entries from that test leak into the
+        #    unpickled instance (unpickling returns the instance cached for those options, if any).
         # `skip_instance_cache=True` guarantees a fresh instance regardless of what earlier tests ran.
         fs = HfFileSystem(endpoint=ENDPOINT_STAGING, token=TOKEN, skip_instance_cache=True)
         fs.isfile(self.text_file)
@@ -993,6 +992,11 @@ def _get_fs_token_and_dircache(fs):
     return fs._fs_token, fs.dircache
 
 
+def _cached_fs(_):
+    fs = HfFileSystem()
+    return fs._fs_token, fs.dircache
+
+
 def test_cache():
     HfFileSystem.clear_instance_cache()
     fs = HfFileSystem()
@@ -1021,7 +1025,21 @@ def test_cache():
         (fs_token, dircache), (_, another_dircache) = pool.map(_get_fs_token_and_dircache, [fs, another_fs])
         assert dircache == fs.dircache
         assert another_dircache != fs.dircache
-        assert fs_token != fs._fs_token  # use a different instance for thread safety
+        # an instance is shared by all the threads of the process, unlike a process which gets its own
+        assert fs_token == fs._fs_token
+
+
+def test_instance_is_shared_between_threads():
+    """Threads using the same options share a single instance, and therefore a single cache."""
+    HfFileSystem.clear_instance_cache()
+    fs = HfFileSystem()
+    fs.dircache = {"dummy": []}
+
+    with multiprocessing.pool.ThreadPool() as pool:
+        results = pool.map(_cached_fs, [0, 1, 2])
+
+    assert all(fs_token == fs._fs_token for fs_token, _ in results)
+    assert all(dircache is fs.dircache for _, dircache in results)
 
 
 @pytest.mark.production
@@ -1165,6 +1183,90 @@ def _fake_fs(files: dict[str, int], max_workers: int, **fake_kwargs) -> tuple[Hf
     fs = HfFileSystem(endpoint="https://fake.example.com", skip_instance_cache=True, max_workers=max_workers)
     fs._api = api
     return fs, api
+
+
+def test_outdated_listing_is_not_cached():
+    """Regression test for https://github.com/huggingface/huggingface_hub/issues/5383.
+
+    A listing is cached once its request is over, so it can land after a change that already invalidated it
+    (a file written meanwhile, from this instance or from another process). Such an outdated listing must be
+    dropped rather than resurrected in the cache.
+    """
+    fs, api = _fake_fs({"dir_a/file.txt": 1}, max_workers=1)
+    listed = threading.Event()
+    unblock = threading.Event()
+    real_list_repo_tree = api.list_repo_tree
+
+    def slow_list_repo_tree(*args, **kwargs):
+        entries = list(real_list_repo_tree(*args, **kwargs))  # response is fetched now...
+        listed.set()
+        unblock.wait(10)  # ...and only lands once the test says so
+        yield from entries
+
+    api.list_repo_tree = slow_list_repo_tree
+
+    thread = threading.Thread(target=lambda: fs.ls(f"{_FAKE_REPO}/dir_a", detail=False))
+    thread.start()
+    assert listed.wait(10)
+
+    fs.invalidate_cache(f"{_FAKE_REPO}/dir_a/new.txt")  # what committing `new.txt` does
+    unblock.set()
+    thread.join(10)
+
+    assert f"{_FAKE_REPO}/dir_a" not in fs.dircache  # the outdated listing was dropped, not resurrected
+
+    # A listing fetched after the change is cached as usual
+    assert fs.ls(f"{_FAKE_REPO}/dir_a", detail=False) == [f"{_FAKE_REPO}/dir_a/file.txt"]
+    assert f"{_FAKE_REPO}/dir_a" in fs.dircache
+
+
+def test_dircache_can_be_used_by_several_threads():
+    """Regression test for https://github.com/huggingface/huggingface_hub/issues/5383.
+
+    The cache is filled by whoever lists and dropped by whoever writes, and copying an instance (to pickle it or
+    to hand it over to a new thread) walks it. Doing any of those from several threads must neither raise nor
+    leave a corrupted cache behind.
+    """
+    nb_folders = 3000
+    fs, _ = _fake_fs(
+        {f"dir{i:04d}/file{j}.txt": j for i in range(nb_folders) for j in range(2)}, max_workers=1, delay=0.002
+    )
+    errors: list[Exception] = []
+
+    def run(fn, nb):
+        for index in range(nb):
+            try:
+                fn(index)
+            except Exception as e:
+                errors.append(e)
+
+    def folder(offset, index, step):
+        # spread the folders over the whole repo so that listings mostly miss the cache
+        return f"{_FAKE_REPO}/dir{(offset + index * step) % nb_folders:04d}"
+
+    threads = [
+        *[
+            threading.Thread(target=run, args=(lambda i, off=o: fs.ls(folder(off, i, 97), detail=False), 80))
+            for o in (0, 1000, 2000)
+        ],
+        *[
+            threading.Thread(
+                target=run, args=(lambda i, off=o: fs.invalidate_cache(f"{folder(off, i, 53)}/file0.txt"), 80)
+            )
+            for o in (500, 1500)
+        ],
+        *[threading.Thread(target=run, args=(lambda i: pickle.dumps(fs), 80)) for _ in range(2)],
+    ]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(60)
+
+    assert not errors
+    assert fs.ls(f"{_FAKE_REPO}/dir0007", detail=False) == [
+        f"{_FAKE_REPO}/dir0007/file0.txt",
+        f"{_FAKE_REPO}/dir0007/file1.txt",
+    ]
 
 
 def test_find_large_repo_is_listed_in_parallel():
