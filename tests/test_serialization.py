@@ -652,6 +652,24 @@ def test_load_state_dict_from_file(tmp_path: Path, torch_state_dict: dict[str, "
 
 
 @pytest.mark.skipif(not is_torch_available(), reason="Test requires torch")
+def test_load_state_dict_from_file_device_mapping(tmp_path: Path, torch_state_dict: dict[str, "torch.Tensor"], mocker):
+    """Test map_location device handling preserves device index."""
+    import torch
+
+    save_torch_state_dict(torch_state_dict, tmp_path)
+    mock_load = mocker.patch("safetensors.torch.load_file", return_value=torch_state_dict)
+
+    load_state_dict_from_file(tmp_path / "model.safetensors", map_location=torch.device("cuda:1"))
+    mock_load.assert_called_with(tmp_path / "model.safetensors", device="cuda:1")
+
+    load_state_dict_from_file(tmp_path / "model.safetensors", map_location="cuda:1")
+    mock_load.assert_called_with(tmp_path / "model.safetensors", device="cuda:1")
+
+    load_state_dict_from_file(tmp_path / "model.safetensors", map_location=torch.device("meta"))
+    mock_load.assert_called_with(tmp_path / "model.safetensors", device="cpu")
+
+
+@pytest.mark.skipif(not is_torch_available(), reason="Test requires torch")
 def test_load_sharded_state_dict(
     tmp_path: Path,
     torch_state_dict: dict[str, "torch.Tensor"],
