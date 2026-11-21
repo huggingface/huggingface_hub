@@ -151,6 +151,7 @@ from .text_generation import (
     TextGenerationStreamOutputToken,
     TypeEnum,
 )
+from .text_ranking import TextRankingInput, TextRankingInputData, TextRankingOutputElement
 from .text_to_audio import (
     TextToAudioEarlyStoppingEnum,
     TextToAudioGenerationParameters,
