@@ -1284,9 +1284,17 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
                 }
         elif isinstance(resolved_path, HfFileSystemResolvedBucketPath):
             parent_path = self._parent(path)
+            listing_was_cached = parent_path in self.dircache and not refresh
             # Fill the cache with cheap call
             self.ls(parent_path, refresh=refresh)
             out1 = [o for o in self.dircache[parent_path] if o["name"] == path]
+            if not out1 and listing_was_cached:
+                # Writes to a bucket happen from other threads or processes, which cannot invalidate the
+                # listings cached by this `HfFileSystem` instance. Look the path up directly before
+                # concluding it does not exist: this finds a file written since the listing was cached.
+                file_infos = list(self._api.get_bucket_paths_info(resolved_path.bucket_id, [resolved_path.path]))
+                if file_infos:
+                    out1 = [_cache_info_from_path_info(file_infos[0], path)]
             if not out1:
                 _raise_file_not_found(path, None)
             out = out1[0]
