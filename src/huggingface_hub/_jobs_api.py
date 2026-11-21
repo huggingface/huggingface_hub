@@ -634,7 +634,8 @@ def _default_job_name_from_script(
     hash. The CLI passes it so that the name reflects the values actually submitted, including those
     coming from a script's `[tool.hf-jobs]` header rather than from the command line.
     """
-    name = script.split("?", 1)[0].split("#", 1)[0].rstrip("/").split("/")[-1]
+    cleaned_script = script.split("?", 1)[0].split("#", 1)[0].rstrip("/\\")
+    name = re.split(r"[\\/]", cleaned_script)[-1]
     if name.endswith(".py"):
         name = name[: -len(".py")]
     return _default_job_name(name or script, [script, *script_args, *(config_parts or [])])
