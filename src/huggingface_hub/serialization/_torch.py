@@ -783,9 +783,9 @@ def _load_safetensors_file(
     if map_location is None:
         device = "cpu"  # `load_file`'s own default, spelled out so `device` is always a `str`
     else:
-        device = str(map_location.type) if hasattr(map_location, "type") else str(map_location)
+        device = str(map_location)
     # meta device is not supported with safetensors, falling back to CPU
-    if device == "meta":
+    if device == "meta" or getattr(map_location, "type", None) == "meta":
         logger.warning("Meta device is not supported with safetensors. Falling back to CPU device.")
         device = "cpu"
     return load_file(checkpoint_file, device=device)
