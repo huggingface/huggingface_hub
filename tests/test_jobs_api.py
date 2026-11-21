@@ -110,6 +110,8 @@ def test_default_job_name_from_image(image: str, expected: str) -> None:
         # Local script: keep the stem, drop the '.py' extension.
         ("my_script.py", "my_script"),
         ("./train.py", "train"),
+        (r".\train.py", "train"),
+        (r"C:\Users\alice\projects\sft\train.py", "train"),
         # URL: keep the last path component, drop query/fragment and extension.
         ("https://raw.githubusercontent.com/huggingface/trl/main/trl/scripts/sft.py", "sft"),
         ("https://example.co/a/sft.py?raw=1", "sft"),
@@ -119,6 +121,7 @@ def test_default_job_name_from_image(image: str, expected: str) -> None:
         ("my.weird.script.py", "my-weird-script"),
     ],
 )
+
 def test_default_job_name_from_script(script: str, expected: str) -> None:
     # The base name is derived from the script; a short hash of the command line is appended.
     assert _default_job_name_from_script(script, []).startswith(expected + "-")
