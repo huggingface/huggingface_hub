@@ -1,11 +1,10 @@
-import base64
 import time
 from abc import ABC
 from typing import Any
 from urllib.parse import urlparse
 
 from huggingface_hub.hf_api import InferenceProviderMapping
-from huggingface_hub.inference._common import RequestParameters, _as_dict
+from huggingface_hub.inference._common import RequestParameters, _as_dict, _as_url
 from huggingface_hub.inference._providers._common import TaskProviderHelper, filter_none
 from huggingface_hub.utils import get_session, hf_raise_for_status
 from huggingface_hub.utils.logging import get_logger
@@ -110,19 +109,7 @@ class WavespeedAIImageToImageTask(WavespeedAITask):
         parameters: dict,
         provider_mapping_info: InferenceProviderMapping,
     ) -> dict | None:
-        # Convert inputs to image (URL or base64)
-        if isinstance(inputs, str) and inputs.startswith(("http://", "https://")):
-            image = inputs
-        elif isinstance(inputs, str):
-            # If input is a file path, read it first
-            with open(inputs, "rb") as f:
-                file_content = f.read()
-            image_b64 = base64.b64encode(file_content).decode("utf-8")
-            image = f"data:image/jpeg;base64,{image_b64}"
-        else:
-            # If input is binary data
-            image_b64 = base64.b64encode(inputs).decode("utf-8")
-            image = f"data:image/jpeg;base64,{image_b64}"
+        image = _as_url(inputs, default_mime_type="image/jpeg")
 
         # Extract prompt from parameters if present
         prompt = parameters.pop("prompt", None)

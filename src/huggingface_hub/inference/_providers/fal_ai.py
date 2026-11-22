@@ -93,18 +93,7 @@ class FalAIAutomaticSpeechRecognitionTask(FalAITask):
     def _prepare_payload_as_dict(
         self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
     ) -> dict | None:
-        if isinstance(inputs, str) and inputs.startswith(("http://", "https://")):
-            # If input is a URL, pass it directly
-            audio_url = inputs
-        else:
-            # If input is a file path, read it first
-            if isinstance(inputs, str):
-                with open(inputs, "rb") as f:
-                    inputs = f.read()
-
-            audio_b64 = base64.b64encode(inputs).decode()
-            content_type = "audio/mpeg"
-            audio_url = f"data:{content_type};base64,{audio_b64}"
+        audio_url = _as_url(inputs, default_mime_type="audio/mpeg")
 
         return {"audio_url": audio_url, **filter_none(parameters)}
 

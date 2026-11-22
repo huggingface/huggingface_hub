@@ -1,8 +1,10 @@
 import base64
+import io
 import logging
 from unittest.mock import MagicMock, patch
 
 import pytest
+from PIL import Image
 from pytest import LogCaptureFixture
 
 from huggingface_hub import constants
@@ -462,12 +464,23 @@ class TestFalAIProvider:
         url = FalAITextToImageTask()._prepare_url("hf_token", "username/repo_name")
         assert url == "https://router.huggingface.co/fal-ai/username/repo_name"
 
-    def test_automatic_speech_recognition_payload(self):
+    def test_automatic_speech_recognition_payload(self, tmp_path):
         helper = FalAIAutomaticSpeechRecognitionTask()
         payload = helper._prepare_payload_as_dict("https://example.com/audio.mp3", {}, "username/repo_name")
         assert payload == {"audio_url": "https://example.com/audio.mp3"}
 
         payload = helper._prepare_payload_as_dict(b"dummy_audio_data", {}, "username/repo_name")
+        assert payload == {"audio_url": f"data:audio/mpeg;base64,{base64.b64encode(b'dummy_audio_data').decode()}"}
+
+        # Path input
+        audio_path = tmp_path / "audio.mp3"
+        audio_path.write_bytes(b"dummy_audio_data")
+        payload = helper._prepare_payload_as_dict(audio_path, {}, "username/repo_name")
+        assert payload == {"audio_url": f"data:audio/mpeg;base64,{base64.b64encode(b'dummy_audio_data').decode()}"}
+
+        # Opened file input
+        with open(audio_path, "rb") as f:
+            payload = helper._prepare_payload_as_dict(f, {}, "username/repo_name")
         assert payload == {"audio_url": f"data:audio/mpeg;base64,{base64.b64encode(b'dummy_audio_data').decode()}"}
 
     def test_automatic_speech_recognition_response(self):
@@ -2157,6 +2170,73 @@ class TestWavespeedAIProvider:
             "seed": -1,
         }
         mock_encode.assert_called_once_with(image_data)
+
+    def test_prepare_image_to_image_payload_from_path_and_file_object(self, tmp_path):
+        """Test payload preparation for image-to-image task with Path and opened file inputs."""
+        helper = WavespeedAIImageToImageTask()
+        image_path = tmp_path / "image.jpg"
+        image_path.write_bytes(b"dummy_image_data")
+        expected_image = f"data:image/jpeg;base64,{base64.b64encode(b'dummy_image_data').decode()}"
+        mapping = InferenceProviderMapping(
+            provider="wavespeed",
+            hf_model_id="HiDream-ai/HiDream-E1-Full",
+            providerId="wavespeed-ai/hidream-e1-full",
+            task="image-to-image",
+            status="live",
+        )
+
+        # Path input
+        payload = helper._prepare_payload_as_dict(image_path, {"prompt": "The leopard chases its prey"}, mapping)
+        assert payload == {"image": expected_image, "prompt": "The leopard chases its prey"}
+
+        # Opened file input
+        with open(image_path, "rb") as f:
+            payload = helper._prepare_payload_as_dict(f, {}, mapping)
+        assert payload == {"image": expected_image}
+
+    def test_prepare_image_to_image_payload_from_pil_image(self):
+        """Test payload preparation for image-to-image task with a PIL Image input."""
+        helper = WavespeedAIImageToImageTask()
+        buffer = io.BytesIO()
+        Image.new("RGB", (4, 4)).save(buffer, format="PNG")
+        buffer.seek(0)
+        pil_image = Image.open(buffer)
+
+        payload = helper._prepare_payload_as_dict(
+            pil_image,
+            {},
+            InferenceProviderMapping(
+                provider="wavespeed",
+                hf_model_id="HiDream-ai/HiDream-E1-Full",
+                providerId="wavespeed-ai/hidream-e1-full",
+                task="image-to-image",
+                status="live",
+            ),
+        )
+        assert payload is not None
+        assert payload["image"].startswith("data:image/png;base64,")
+
+    def test_prepare_image_to_video_payload_from_path(self, tmp_path):
+        """Test payload preparation for image-to-video task with a Path input."""
+        helper = WavespeedAIImageToVideoTask()
+        image_path = tmp_path / "image.jpg"
+        image_path.write_bytes(b"dummy_image_data")
+
+        payload = helper._prepare_payload_as_dict(
+            image_path,
+            {"prompt": "The leopard chases its prey"},
+            InferenceProviderMapping(
+                provider="wavespeed",
+                hf_model_id="Wan-AI/Wan2.1-I2V-14B-480P",
+                providerId="wavespeed-ai/wan-2.1/i2v-480p",
+                task="image-to-video",
+                status="live",
+            ),
+        )
+        assert payload == {
+            "image": f"data:image/jpeg;base64,{base64.b64encode(b'dummy_image_data').decode()}",
+            "prompt": "The leopard chases its prey",
+        }
 
     def test_prepare_urls(self):
         """Test URL preparation for different tasks."""
