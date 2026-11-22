@@ -544,9 +544,9 @@ Inside the job container, the following environment variables are automatically 
 | Variable | Description |
 |----------|-------------|
 | `JOB_ID` | The unique identifier of the current job. Use this to reference the job programmatically, for example to store outputs in a dataset with a unique name. |
-| `ACCELERATOR` | The type of accelerator available (e.g., `t4-medium`, `a10g-small`, `a100x4`). Empty if no accelerator. |
+| `ACCELERATOR` | The type of device: `cpu` for CPU flavors, `gpu` for GPU flavors. |
 | `CPU_CORES` | The number of CPU cores available to the job (e.g., `2`, `4`, `8`). |
-| `MEMORY` | The amount of memory available to the job (e.g., `16Gi`, `32Gi`). |
+| `MEMORY` | The amount of memory available to the job (e.g., `16.0G`, `32.0G`). |
 
 ```python
 # Access job environment information
@@ -638,12 +638,12 @@ To remove all labels, pass `--clear`:
 Run UV scripts (Python scripts with inline dependencies) on HF infrastructure:
 
 ```python
-# Run a UV script (creates temporary repo)
+# Run a local UV script (uploaded to your `jobs-artifacts` bucket)
 >>> from huggingface_hub import run_uv_job
 >>> run_uv_job("my_script.py")
 
 # Run with GPU
->>> run_uv_job("ml_training.py", flavor="gpu-t4-small")
+>>> run_uv_job("ml_training.py", flavor="t4-small")
 
 # Run with dependencies
 >>> run_uv_job("inference.py", dependencies=["transformers", "torch"])

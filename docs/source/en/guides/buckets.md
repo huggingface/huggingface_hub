@@ -433,7 +433,7 @@ You can also delete files while uploading others.
 Use `hf buckets cp` to upload a single file:
 
 > [!TIP]
-> `hf buckets cp` is an alias for the unified `hf cp` command (also exposed as `hf repos cp`). All three are identical, so any `hf buckets cp` example below also works with `hf cp`.
+> The examples below also work with `hf cp`. Use `hf buckets cp` when downloading from a bucket or copying into a bucket. The `hf repos cp` command requires a repository as the remote endpoint.
 
 ```bash
 # Upload to bucket root (uses local filename as remote name)
@@ -559,7 +559,7 @@ Use [`copy_files`] to copy files already hosted on the Hub to a Bucket:
 ... )
 ```
 
-The same is available from the CLI via the unified `hf cp` command (also exposed as `hf buckets cp` and `hf repos cp` — all three are identical):
+The same is available from the CLI via the unified `hf cp` command (or `hf buckets cp`, since the destination is a bucket):
 
 ```bash
 # Bucket to bucket
