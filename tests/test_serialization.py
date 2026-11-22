@@ -731,6 +731,20 @@ def test_load_torch_model_directory_does_not_contain_checkpoint(tmp_path):
         False,
     ],
 )
+
+@requires("torch")
+@requires("safetensors")
+def test_load_state_dict_from_file_preserves_device_index(tmp_path: Path, mocker: MockerFixture) -> None:
+    import torch
+
+    dummy_file = tmp_path / "model.safetensors"
+    dummy_file.touch()
+    mock_load_file = mocker.patch("huggingface_hub.serialization._torch.load_file", return_value={})
+
+    load_state_dict_from_file(dummy_file, map_location=torch.device("cuda:1"))
+    mock_load_file.assert_called_once_with(dummy_file, device="cuda:1")
+
+
 def test_load_sharded_model_strict_mode(tmp_path, torch_state_dict, dummy_model, strict):
     """Test loading model with strict mode behavior for both sharded and non-sharded checkpoints."""
 
