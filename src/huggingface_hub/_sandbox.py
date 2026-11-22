@@ -2277,11 +2277,6 @@ class SandboxPool:
             else:
                 return True
         except JobNotFoundError:
-            # inspect_job raises JobNotFoundError (HfHubHTTPError), not HTTPStatusError.
-            reason = "its job no longer exists"
-        except httpx2.HTTPStatusError as e:
-            if e.response.status_code != 404:
-                raise SandboxError(f"Could not confirm cached host {ch.job_id}; retry later.") from e
             reason = "its job no longer exists"
         except Exception as e:
             raise SandboxError(f"Could not confirm cached host {ch.job_id}; retry later.") from e

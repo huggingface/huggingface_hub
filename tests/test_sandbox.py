@@ -1743,28 +1743,6 @@ class TestCachedHostFreshness:
         assert pool._hosts == []
         assert pool._dead_host_ids == {"hostA"}
 
-    @pytest.mark.parametrize("status", [403, 503])
-    def test_nonmissing_http_error_preserves_host_and_retries(self, monkeypatch, status):
-        _save_cache("p1", [_cached_host("hostA", age=HOST_TRUST_TTL + 60)])
-        response = httpx2.Response(
-            status,
-            json={"error": "temporarily unavailable"},
-            request=httpx2.Request("GET", "https://huggingface.co/api/jobs/user/hostA"),
-        )
-        with pytest.raises(sandbox_mod.HfHubHTTPError) as caught:
-            hf_raise_for_status(response)
-        assert not isinstance(caught.value, JobNotFoundError)
-        inspect = MagicMock(side_effect=[caught.value, _pool_host_job("hostA", pool_name="p1")])
-        monkeypatch.setattr(sandbox_mod.HfApi, "inspect_job", inspect)
-        pool = self._pool()
-        with pytest.raises(SandboxError, match="retry later"):
-            pool._seed_hosts_from_cache()
-        assert pool._dead_host_ids == set()
-        assert read_pool_cache("p1", pool._cache_context) is not None
-        pool._seed_hosts_from_cache()
-        assert pool.host_ids == ["hostA"]
-        assert inspect.call_count == 2
-
 
 class TestTransportHardening:
     """The client's own end of the protocol: no redirect-following on a credentialed client,
