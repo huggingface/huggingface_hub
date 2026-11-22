@@ -3040,6 +3040,22 @@ class TestActivityApi:
         likes = self.api.list_liked_repos(user=OTHER_USER, token=TOKEN)
         assert likes.user == OTHER_USER
 
+    def test_list_repo_likers_includes_is_pro(self) -> None:
+        liker_data = {
+            "user": "test-user",
+            "fullname": "Test User",
+            "avatarUrl": "https://example.com/avatar.png",
+            "isPro": True,
+        }
+
+        with patch("huggingface_hub.hf_api.paginate", return_value=[liker_data]):
+            likers = list(self.api.list_repo_likers(repo_id="test-user/test-repo"))
+
+        assert len(likers) == 1
+        assert isinstance(likers[0], User)
+        assert likers[0].username == "test-user"
+        assert likers[0].is_pro is True
+
     @pytest.mark.production
     def test_list_repo_likers(self) -> None:
         # a repo with > 5000 likes
