@@ -22,6 +22,7 @@ from .file_download import (
     REGEX_COMMIT_HASH,
     DryRunFileInfo,
     _cache_commit_hash_for_specific_revision,
+    _raise_on_head_call_error,
     hf_hub_download,
     repo_folder_name,
 )
@@ -332,6 +333,9 @@ def snapshot_download(
                 "Dry run cannot be performed as the repository cannot be accessed. Please check your internet connection or authentication token."
             ) from api_call_error
 
+        if force_download:
+            _raise_on_head_call_error(api_call_error, force_download=True, local_files_only=local_files_only)
+
         # Try to get which commit hash corresponds to the specified revision
         if commit_hash is None:
             ref_path = os.path.join(storage_folder, "refs", revision)
@@ -430,7 +434,7 @@ def snapshot_download(
     # if passed revision is not identical to commit_hash
     # then revision has to be a branch name or tag name.
     # In that case store a ref (except if ResolvedRevision, in which case it's already done).
-    if not isinstance(revision, ResolvedRevision):
+    if not dry_run and not isinstance(revision, ResolvedRevision):
         try:
             # Skips the write if the ref is already up to date, and writes atomically otherwise so that
             # concurrent readers never observe a truncated (empty) ref file.
