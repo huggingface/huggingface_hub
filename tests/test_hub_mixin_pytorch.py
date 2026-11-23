@@ -240,6 +240,13 @@ class TestPytorchHubMixin:
         )
         assert model is not None
 
+    def test_from_pretrained_local_dir_fallback_pickle(self, tmp_path) -> None:
+        # Folders saved before safetensors became the default only contain `pytorch_model.bin`
+        state_dict = DummyModel().state_dict()
+        torch.save(state_dict, tmp_path / constants.PYTORCH_WEIGHTS_NAME)
+        model = DummyModel.from_pretrained(tmp_path)
+        assert torch.equal(model.l1.weight, state_dict["l1.weight"])
+
     def test_from_pretrained_model_id_and_revision(self, mocker: MockerFixture) -> None:
         """Regression test for #1313.
         See https://github.com/huggingface/huggingface_hub/issues/1313."""
