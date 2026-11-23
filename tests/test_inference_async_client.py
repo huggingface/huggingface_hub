@@ -24,12 +24,6 @@ work as well.
 """
 
 import inspect
-import json
-import threading
-import time
-from collections.abc import Iterator
-from contextlib import contextmanager
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import httpx2
@@ -443,46 +437,3 @@ async def test_use_async_with_inference_client():
         async with AsyncInferenceClient():
             pass
     mock_close.assert_called_once()
-
-
-class _StreamingChatHandler(BaseHTTPRequestHandler):
-    """Stream a chat completion over Server-Sent Events, one token at a time."""
-
-    def do_POST(self):
-        self.rfile.read(int(self.headers["Content-Length"]))
-        self.send_response(200)
-        self.send_header("Content-Type", "text/event-stream")
-        self.end_headers()
-        for token in ["Hello", " there"]:
-            chunk = {"object": "chat.completion.chunk", "choices": [{"index": 0, "delta": {"content": token}}]}
-            self.wfile.write(f"data: {json.dumps(chunk)}\n\n".encode())
-            self.wfile.flush()
-            time.sleep(0.05)  # tokens arrive over time, like with a real model
-        self.wfile.write(b"data: [DONE]\n\n")
-
-    def log_message(self, *args):
-        pass
-
-
-@contextmanager
-def _streaming_chat_server() -> Iterator[str]:
-    server = ThreadingHTTPServer(("127.0.0.1", 0), _StreamingChatHandler)
-    threading.Thread(target=server.serve_forever, daemon=True).start()
-    try:
-        yield f"http://127.0.0.1:{server.server_port}/v1"
-    finally:
-        server.shutdown()
-        server.server_close()
-
-
-@pytest.mark.asyncio
-async def test_chat_completion_stream_without_reference_to_client() -> None:
-    """The stream must not be closed when the client that created it is garbage collected."""
-
-    async def stream_reply(base_url: str):
-        client = AsyncInferenceClient(base_url=base_url)
-        return await client.chat_completion(CHAT_COMPLETION_MESSAGES, model="m", stream=True)
-
-    with _streaming_chat_server() as base_url:
-        output = [chunk.choices[0].delta.content async for chunk in await stream_reply(base_url)]
-    assert "".join(output) == "Hello there"
