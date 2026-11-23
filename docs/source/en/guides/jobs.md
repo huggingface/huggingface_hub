@@ -594,7 +594,7 @@ From the CLI, pass `--name` when creating a Job, or name an existing Job through
 >>> from huggingface_hub import run_job
 >>> run_job(
 ...     image="python:3.12",
-...     command=["python", "-c", "import os; print(os.environ['MY_SECRET'])"],
+...     command=["python", "--version"],
 ...     labels={"my-label": "my-value", "foo": "bar"},
 ... )
 ```
