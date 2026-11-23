@@ -944,6 +944,30 @@ def test_bucket_file_left_open_in_transaction_is_uploaded():
     assert uploaded == {"file.txt": b"hello"}
 
 
+def test_open_exclusive_create_existing_file_raises():
+    fs = HfFileSystem()
+    with (
+        mock_repo_info(fs),
+        patch.object(fs, "exists", return_value=True),
+        patch.object(fs._api, "upload_file") as upload_mock,
+    ):
+        with pytest.raises(FileExistsError):
+            fs.open("hf://datasets/username/my_dataset/file.txt", "xb")
+        upload_mock.assert_not_called()
+
+
+def test_open_exclusive_create_missing_file_uploads():
+    fs = HfFileSystem()
+    with (
+        mock_repo_info(fs),
+        patch.object(fs, "exists", return_value=False),
+        patch.object(fs._api, "upload_file") as upload_mock,
+    ):
+        with fs.open("hf://datasets/username/my_dataset/file.txt", "xb") as f:
+            f.write(b"first")
+        upload_mock.assert_called_once()
+
+
 @pytest.mark.parametrize(
     ("not_supported_path", "expected_error"),
     [
@@ -1032,6 +1056,19 @@ def test_hf_file_system_file_can_handle_gzipped_file():
     with fs.open("datasets/allenai/math_qa/math_qa.py", "r", encoding="utf-8") as f:
         out = f.read()
     assert "class MathQa" in out
+
+
+@pytest.mark.production
+def test_info_root_directory_last_commit_on_real_repo():
+    fs = HfFileSystem(endpoint=constants.ENDPOINT)
+    # Pinned revision so that new commits on the repo don't break the test
+    revision = "607a30d783dfa663caf39e06633721c8d4cfcd7e"
+    path = f"openai-community/gpt2@{revision}"
+
+    info = fs.info(path, expand_info=True)
+    assert info["last_commit"].oid == revision
+    assert info["last_commit"].title == "Adds the tokenizer configuration file (#80)"
+    assert fs.modified(path) == datetime.datetime(2024, 2, 19, 10, 57, 45, tzinfo=datetime.timezone.utc)
 
 
 _FAKE_REPO_ID = "fake/repo"

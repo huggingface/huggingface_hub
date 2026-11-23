@@ -3149,7 +3149,12 @@ class HfApi:
             repo_type = constants.REPO_TYPE_MODEL
         path = f"{self.endpoint}/api/{repo_type}s/{repo_id}/likers"
         for liker in paginate(path, params={}, headers=self._build_hf_headers(token=token)):
-            yield User(username=liker["user"], fullname=liker["fullname"], avatar_url=liker["avatarUrl"])
+            yield User(
+                username=liker["user"],
+                fullname=liker["fullname"],
+                avatar_url=liker["avatarUrl"],
+                is_pro=liker.get("isPro"),
+            )
 
     @validate_hf_hub_args
     def model_info(

@@ -767,6 +767,10 @@ class PyTorchModelHubMixin(ModelHubMixin):
         if os.path.isdir(model_id):
             print("Loading weights from local directory")
             model_file = os.path.join(model_id, constants.SAFETENSORS_SINGLE_FILE)
+            pickle_file = os.path.join(model_id, constants.PYTORCH_WEIGHTS_NAME)
+            # Same fallback as for Hub repos: folders saved before safetensors became the default only have pickle weights
+            if not os.path.isfile(model_file) and os.path.isfile(pickle_file):
+                return cls._load_as_pickle(model, pickle_file, map_location, strict)
             return cls._load_as_safetensor(model, model_file, map_location, strict)
         else:
             try:

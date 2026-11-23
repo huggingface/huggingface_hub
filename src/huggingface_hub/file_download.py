@@ -1433,9 +1433,6 @@ def _hf_hub_download_to_local_dir(
         if not force_download and paths.file_path.is_file():
             # etag matches => update metadata and return file
             if local_metadata is not None and local_metadata.etag == etag:
-                write_download_metadata(
-                    local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag, lock=False
-                )
                 if dry_run:
                     return DryRunFileInfo(
                         commit_hash=commit_hash,
@@ -1445,6 +1442,9 @@ def _hf_hub_download_to_local_dir(
                         local_path=str(paths.file_path),
                         will_download=False,
                     )
+                write_download_metadata(
+                    local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag, lock=False
+                )
                 return str(paths.file_path)
 
             # metadata is outdated + etag is a sha256
@@ -1455,9 +1455,6 @@ def _hf_hub_download_to_local_dir(
                 with open(paths.file_path, "rb") as f:
                     file_hash = sha_fileobj(f).hex()
                 if file_hash == etag:
-                    write_download_metadata(
-                        local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag, lock=False
-                    )
                     if dry_run:
                         return DryRunFileInfo(
                             commit_hash=commit_hash,
@@ -1467,6 +1464,9 @@ def _hf_hub_download_to_local_dir(
                             local_path=str(paths.file_path),
                             will_download=False,
                         )
+                    write_download_metadata(
+                        local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag, lock=False
+                    )
                     return str(paths.file_path)
 
         # Local file doesn't exist or etag isn't a match => retrieve file from remote (or cache)
@@ -1943,7 +1943,9 @@ def _xet_file_metadata_from_tree_cache(
     return (location, etag, commit_hash, file_size, xet_file_data, None)
 
 
-def _raise_on_head_call_error(head_call_error: Exception, force_download: bool, local_files_only: bool) -> NoReturn:
+def _raise_on_head_call_error(
+    head_call_error: Exception | None, force_download: bool, local_files_only: bool
+) -> NoReturn:
     """Raise an appropriate error when the HEAD call failed and we cannot locate a local file."""
     # No head call => we cannot force download.
     if force_download:
