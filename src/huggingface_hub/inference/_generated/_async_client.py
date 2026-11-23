@@ -279,7 +279,7 @@ class AsyncInferenceClient:
                     )
                 )
                 hf_raise_for_status(response)
-                return _async_yield_from(client, response)
+                return _async_yield_from(self, response)
             else:
                 response = await client.post(
                     request_parameters.url,
