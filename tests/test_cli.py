@@ -4426,6 +4426,24 @@ class TestBucketTransport:
                 token=None,
             )
 
+    def test_long_script_arg_is_not_checked_as_a_file(self) -> None:
+        """A script argument too long to be a file name (e.g. a JSON string) is passed through as is."""
+        from huggingface_hub.hf_api import HfApi
+
+        long_arg = json.dumps({"key": "x" * 300})
+        command, _, _, extra_volumes = HfApi()._create_uv_command_env_and_secrets(
+            script="https://example.com/script.py",
+            script_args=["--config-json", long_arg],
+            dependencies=None,
+            python=None,
+            env=None,
+            secrets=None,
+            namespace="test-user",
+            token=None,
+        )
+        assert command == ["uv", "run", "https://example.com/script.py", "--config-json", long_arg]
+        assert extra_volumes == []
+
     def test_raises_when_mount_path_taken(self, tmp_path: Path) -> None:
         """If a user volume already uses the reserved artifacts mount path, raise instead of silently falling back."""
         from huggingface_hub.hf_api import HfApi
