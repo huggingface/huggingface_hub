@@ -85,4 +85,7 @@ async def _async_prompt(exit_event: asyncio.Event, prompt: str = "» ") -> str:
             return ""
 
         line = await future
+        if not line:
+            # `readline` returns an empty string only at the end of input (an empty line is "\n")
+            raise EOFError
         return line.strip()

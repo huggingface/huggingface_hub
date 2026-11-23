@@ -109,7 +109,10 @@ async def run_agent(
                     ANSI.blue(f" • {input_id}") + f": {description}. (default: load from {env_variable_key}).",
                     end=" ",
                 )
-                user_input = (await _async_prompt(exit_event=exit_event)).strip()
+                try:
+                    user_input = (await _async_prompt(exit_event=exit_event)).strip()
+                except EOFError:
+                    user_input = ""  # end of input (e.g. Ctrl-D): fall back to the environment variable
                 if exit_event.is_set():
                     return
 
