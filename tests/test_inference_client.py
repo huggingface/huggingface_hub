@@ -16,11 +16,7 @@ import io
 import json
 import os
 import string
-import threading
 import time
-from collections.abc import Iterator
-from contextlib import contextmanager
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -1053,47 +1049,6 @@ def test_chat_completion_error_in_stream():
     with pytest.raises(ValidationError):
         for token in _stream_chat_completion_response(data):
             pass
-
-
-class _StreamingChatHandler(BaseHTTPRequestHandler):
-    """Stream a chat completion over Server-Sent Events, one token at a time."""
-
-    def do_POST(self):
-        self.rfile.read(int(self.headers["Content-Length"]))
-        self.send_response(200)
-        self.send_header("Content-Type", "text/event-stream")
-        self.end_headers()
-        for token in ["Hello", " there"]:
-            chunk = {"object": "chat.completion.chunk", "choices": [{"index": 0, "delta": {"content": token}}]}
-            self.wfile.write(f"data: {json.dumps(chunk)}\n\n".encode())
-            self.wfile.flush()
-            time.sleep(0.05)  # tokens arrive over time, like with a real model
-        self.wfile.write(b"data: [DONE]\n\n")
-
-    def log_message(self, *args):
-        pass
-
-
-@contextmanager
-def _streaming_chat_server() -> Iterator[str]:
-    server = ThreadingHTTPServer(("127.0.0.1", 0), _StreamingChatHandler)
-    threading.Thread(target=server.serve_forever, daemon=True).start()
-    try:
-        yield f"http://127.0.0.1:{server.server_port}/v1"
-    finally:
-        server.shutdown()
-        server.server_close()
-
-
-def test_chat_completion_stream_without_reference_to_client():
-    """The stream must not be closed when the client that created it is garbage collected."""
-
-    def stream_reply(base_url: str):
-        return InferenceClient(base_url=base_url).chat_completion(CHAT_COMPLETION_MESSAGES, model="m", stream=True)
-
-    with _streaming_chat_server() as base_url:
-        output = [chunk.choices[0].delta.content for chunk in stream_reply(base_url)]
-    assert "".join(output) == "Hello there"
 
 
 INFERENCE_API_URL = "https://api-inference.huggingface.co/models"

@@ -24,6 +24,12 @@ work as well.
 """
 
 import inspect
+import json
+import threading
+import time
+from collections.abc import Iterator
+from contextlib import contextmanager
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import httpx2
@@ -45,12 +51,7 @@ from huggingface_hub import (
 from huggingface_hub.inference._common import ValidationError as TextGenerationValidationError
 from huggingface_hub.inference._common import _get_unsupported_text_generation_kwargs
 
-from .test_inference_client import (
-    CHAT_COMPLETE_NON_TGI_MODEL,
-    CHAT_COMPLETION_MESSAGES,
-    CHAT_COMPLETION_MODEL,
-    _streaming_chat_server,
-)
+from .test_inference_client import CHAT_COMPLETE_NON_TGI_MODEL, CHAT_COMPLETION_MESSAGES, CHAT_COMPLETION_MODEL
 
 
 pytestmark = pytest.mark.inference
@@ -442,6 +443,36 @@ async def test_use_async_with_inference_client():
         async with AsyncInferenceClient():
             pass
     mock_close.assert_called_once()
+
+
+class _StreamingChatHandler(BaseHTTPRequestHandler):
+    """Stream a chat completion over Server-Sent Events, one token at a time."""
+
+    def do_POST(self):
+        self.rfile.read(int(self.headers["Content-Length"]))
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream")
+        self.end_headers()
+        for token in ["Hello", " there"]:
+            chunk = {"object": "chat.completion.chunk", "choices": [{"index": 0, "delta": {"content": token}}]}
+            self.wfile.write(f"data: {json.dumps(chunk)}\n\n".encode())
+            self.wfile.flush()
+            time.sleep(0.05)  # tokens arrive over time, like with a real model
+        self.wfile.write(b"data: [DONE]\n\n")
+
+    def log_message(self, *args):
+        pass
+
+
+@contextmanager
+def _streaming_chat_server() -> Iterator[str]:
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _StreamingChatHandler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        yield f"http://127.0.0.1:{server.server_port}/v1"
+    finally:
+        server.shutdown()
+        server.server_close()
 
 
 @pytest.mark.asyncio
