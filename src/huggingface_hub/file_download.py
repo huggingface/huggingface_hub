@@ -1496,7 +1496,7 @@ def _hf_hub_download_to_local_dir(
                 tmp_path = paths.incomplete_path(etag).with_name(f"{uuid.uuid4().hex}.incomplete")
                 try:
                     shutil.copyfile(cached_path, tmp_path)
-                    os.replace(tmp_path, paths.file_path)
+                    _chmod_and_move(tmp_path, paths.file_path)
                 finally:
                     tmp_path.unlink(missing_ok=True)
                 write_download_metadata(
