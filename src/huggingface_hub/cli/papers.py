@@ -39,7 +39,8 @@ def _parse_date(value: str | None) -> str | None:
     if value is None:
         return None
     if value.lower() == "today":
-        return datetime.date.today().isoformat()
+        # The Hub rejects dates after the current UTC date, which east of UTC can still be "yesterday"
+        return min(datetime.date.today(), datetime.datetime.now(datetime.timezone.utc).date()).isoformat()
     return value
 
 
