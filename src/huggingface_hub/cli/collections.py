@@ -32,6 +32,8 @@ CollectionSort = enum.Enum("CollectionSort", {s: s for s in _COLLECTION_SORT_OPT
 
 
 collections_cli = typer_factory(help="Interact with collections on the Hub.")
+resource_group_cli = typer_factory(help="Manage the resource group of an organization-owned collection.")
+collections_cli.add_group(resource_group_cli, name="resource-group")
 
 
 @collections_cli.command(
@@ -97,6 +99,7 @@ def collections_info(
         'hf collections create "My Models"',
         'hf collections create "My Models" --description "A collection of my favorite models" --private',
         'hf collections create "Org Collection" --namespace my-org',
+        'hf collections create "Org Collection" --namespace my-org --resource-group-id 66980ecfc1e12a49c8f0e42d',
     ],
 )
 def collections_create(
@@ -113,6 +116,12 @@ def collections_create(
         bool,
         Option(help="Create a private collection."),
     ] = False,
+    resource_group_id: Annotated[
+        str | None,
+        Option(
+            help="Resource group in which to create the collection. Only valid for organization-owned collections.",
+        ),
+    ] = None,
     exists_ok: Annotated[
         bool,
         Option(help="Do not raise an error if the collection already exists."),
@@ -126,6 +135,7 @@ def collections_create(
         namespace=namespace,
         description=description,
         private=private,
+        resource_group_id=resource_group_id,
         exists_ok=exists_ok,
     )
     out.result("Collection created", slug=collection.slug, url=collection.url)
@@ -291,3 +301,28 @@ def collections_delete_item(
         missing_ok=missing_ok,
     )
     out.result("Item deleted from collection", slug=collection_slug)
+
+
+@resource_group_cli.command(
+    "set", examples=["hf collections resource-group set my-org/my-collection 66980ecfc1e12a49c8f0e42d"]
+)
+def collections_resource_group_set(
+    collection_slug: Annotated[str, Argument(help="The collection slug (e.g., 'my-org/collection-slug').")],
+    resource_group_id: Annotated[str, Argument(help="The 24-character hexadecimal ID of the resource group.")],
+    token: TokenOpt = None,
+) -> None:
+    """Assign a collection to a resource group."""
+    api = get_hf_api(token=token)
+    api.update_collection_resource_group(collection_slug, resource_group_id=resource_group_id)
+    out.result("Collection assigned to resource group", slug=collection_slug, resource_group_id=resource_group_id)
+
+
+@resource_group_cli.command("clear", examples=["hf collections resource-group clear my-org/my-collection"])
+def collections_resource_group_clear(
+    collection_slug: Annotated[str, Argument(help="The collection slug (e.g., 'my-org/collection-slug').")],
+    token: TokenOpt = None,
+) -> None:
+    """Remove a collection from its current resource group."""
+    api = get_hf_api(token=token)
+    api.update_collection_resource_group(collection_slug, resource_group_id=None)
+    out.result("Collection removed from resource group", slug=collection_slug, resource_group_id=None)

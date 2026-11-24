@@ -303,6 +303,7 @@ $ hf buckets create [OPTIONS] BUCKET_ID
 
 * `--private`: Create a private bucket.
 * `--region [us|eu]`: Cloud region in which to create the bucket. Can be one of 'us' or 'eu'. Requires Team plan or above.
+* `--resource-group-id TEXT`: Resource group in which to create the bucket. Resource groups are only available for Team and Enterprise organizations.
 * `--exist-ok`: Do not raise an error if the bucket already exists.
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
@@ -314,6 +315,7 @@ Examples
   $ hf buckets create user/my-bucket --private
   $ hf buckets create user/my-bucket --exist-ok
   $ hf buckets create user/my-bucket --region us
+  $ hf buckets create my-org/my-bucket --resource-group-id 66980ecfc1e12a49c8f0e42d
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -746,6 +748,7 @@ $ hf collections [OPTIONS] COMMAND [ARGS]...
 * `delete-item`: Delete an item from a collection.
 * `info`: Get info about a collection on the Hub.
 * `list`: List collections on the Hub. [alias: ls]
+* `resource-group`: Manage the resource group of an organization-owned collection.
 * `update`: Update a collection's metadata on the Hub.
 * `update-item`: Update an item in a collection.
 
@@ -801,6 +804,7 @@ $ hf collections create [OPTIONS] TITLE
 * `--namespace TEXT`: The namespace (username or organization). Defaults to the authenticated user.
 * `--description TEXT`: A description for the collection (max 150 characters).
 * `--private / --no-private`: Create a private collection.  [default: no-private]
+* `--resource-group-id TEXT`: Resource group in which to create the collection. Only valid for organization-owned collections.
 * `--exists-ok / --no-exists-ok`: Do not raise an error if the collection already exists.  [default: no-exists-ok]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
@@ -809,6 +813,7 @@ Examples
   $ hf collections create "My Models"
   $ hf collections create "My Models" --description "A collection of my favorite models" --private
   $ hf collections create "Org Collection" --namespace my-org
+  $ hf collections create "Org Collection" --namespace my-org --resource-group-id 66980ecfc1e12a49c8f0e42d
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -915,6 +920,80 @@ Examples
   $ hf collections ls
   $ hf collections ls --owner nvidia
   $ hf collections ls --item models/teknium/OpenHermes-2.5-Mistral-7B --limit 10
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf collections resource-group`
+
+Manage the resource group of an organization-owned collection.
+
+**Usage**:
+
+```console
+$ hf collections resource-group [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `clear`: Remove a collection from its current resource group.
+* `set`: Assign a collection to a resource group.
+
+#### `hf collections resource-group clear`
+
+Remove a collection from its current resource group.
+
+**Usage**:
+
+```console
+$ hf collections resource-group clear [OPTIONS] COLLECTION_SLUG
+```
+
+**Arguments**:
+
+* `COLLECTION_SLUG`: The collection slug (e.g., 'my-org/collection-slug').  [required]
+
+**Options**:
+
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf collections resource-group clear my-org/my-collection
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+#### `hf collections resource-group set`
+
+Assign a collection to a resource group.
+
+**Usage**:
+
+```console
+$ hf collections resource-group set [OPTIONS] COLLECTION_SLUG RESOURCE_GROUP_ID
+```
+
+**Arguments**:
+
+* `COLLECTION_SLUG`: The collection slug (e.g., 'my-org/collection-slug').  [required]
+* `RESOURCE_GROUP_ID`: The 24-character hexadecimal ID of the resource group.  [required]
+
+**Options**:
+
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf collections resource-group set my-org/my-collection 66980ecfc1e12a49c8f0e42d
 
 Learn more
   Use `hf <command> --help` for more information about a command.

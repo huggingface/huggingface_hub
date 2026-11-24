@@ -55,6 +55,7 @@ buckets_cli = typer_factory(help="Commands to interact with buckets.")
         "hf buckets create user/my-bucket --private",
         "hf buckets create user/my-bucket --exist-ok",
         "hf buckets create user/my-bucket --region us",
+        "hf buckets create my-org/my-bucket --resource-group-id 66980ecfc1e12a49c8f0e42d",
     ],
 )
 def create(
@@ -76,6 +77,13 @@ def create(
         Option(
             "--region",
             help="Cloud region in which to create the bucket. Can be one of 'us' or 'eu'. Requires Team plan or above.",
+        ),
+    ] = None,
+    resource_group_id: Annotated[
+        str | None,
+        Option(
+            "--resource-group-id",
+            help="Resource group in which to create the bucket. Resource groups are only available for Team and Enterprise organizations.",
         ),
     ] = None,
     exist_ok: Annotated[
@@ -103,6 +111,7 @@ def create(
         bucket_id,
         private=private if private else None,
         region=region,
+        resource_group_id=resource_group_id,
         exist_ok=exist_ok,
     )
     out.result("Bucket created", uri=bucket_url.uri.to_uri(), url=bucket_url.url)
