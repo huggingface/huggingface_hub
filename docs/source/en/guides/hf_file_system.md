@@ -154,7 +154,7 @@ Some interesting integrations where [`HfFileSystem`] simplifies interacting with
   >>> df.to_csv("hf://buckets/my-username/my-bucket/test.csv")
   ```
 
-The same workflow can also be used for [Dask](https://docs.dask.org/en/stable/how-to/connect-to-remote-data.html) and [Polars](https://pola-rs.github.io/polars/py-polars/html/reference/io.html) DataFrames.
+The same workflow can also be used for [Dask](https://docs.dask.org/en/stable/how-to/connect-to-remote-data.html) and [Polars](https://docs.pola.rs/api/python/stable/reference/io.html) DataFrames.
 
 * Querying (remote) Hub files with [DuckDB](https://duckdb.org/docs/guides/python/filesystems):
 
