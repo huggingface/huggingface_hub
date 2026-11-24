@@ -10,7 +10,7 @@ Implement the methods that require custom handling. Check out the base implement
 
 If the provider supports multiple tasks that require different implementations, create dedicated subclasses for each task, following the pattern shown in `fal_ai.py`.
 
-For `text-generation` and `conversational` tasks, one can just inherit from `BaseTextGenerationTask` and `BaseConversationalTask` respectively (defined in `_common.py`) and override the methods if needed. Examples can be found in `fireworks_ai.py` and `together.py`.
+The `conversational` task needs no provider helper: chat goes through the Hugging Face router at `/v1/chat/completions`, with the model pinned as `model:provider`.
 
 ```py
 from typing import Any, Optional, Union

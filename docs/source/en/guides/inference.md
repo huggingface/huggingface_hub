@@ -188,7 +188,7 @@ For more details, refer to the [Inference Providers pricing documentation](https
 
 [`InferenceClient`]'s goal is to provide the easiest interface to run inference on Hugging Face models, on any provider. It has a simple API that supports the most common tasks.
 
-With a Hugging Face token, [`~InferenceClient.chat_completion`] goes through the Hugging Face router at `https://router.huggingface.co/v1/chat/completions`. Inference is powered by [OpenRouter](https://openrouter.ai), which picks a provider serving the model and retries on another one if it fails. Passing a `provider` pins it. With a provider API key, it calls that provider directly. To list the providers serving a model, check its model page on the Hub.
+With a Hugging Face token, [`~InferenceClient.chat_completion`] goes through the Hugging Face router at `https://router.huggingface.co/v1/chat/completions`. Inference is powered by [OpenRouter](https://openrouter.ai), which picks a provider serving the model and retries on another one if it fails. Passing a `provider` pins it: the model is sent as `model:provider` (e.g. `openai/gpt-oss-120b:groq`). To list the providers serving a model, check its model page on the Hub.
 
 For the providers supporting each task, check the [Inference Providers documentation](https://huggingface.co/docs/inference-providers/index).
 

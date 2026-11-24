@@ -2424,8 +2424,8 @@ class HfApi:
         # List models from the KerasHub library
         >>> api.list_models(filter="keras-hub")
 
-        # List models served by Cohere
-        >>> api.list_models(inference_provider="cohere")
+        # List models served by fal
+        >>> api.list_models(inference_provider="fal-ai")
 
         # List models with "bert" in their name
         >>> api.list_models(search="bert")
