@@ -10191,11 +10191,26 @@ class HfApi:
     # Billing Endpoints #
     #####################
 
-    def _billing_prefix(self, namespace: str | None, token: bool | str | None) -> str:
-        """Return the billing API prefix: `/settings` routes for the user's own account, `/organizations` otherwise."""
-        if namespace is not None and namespace != self.whoami(token=token, cache=True)["name"]:
-            return f"{self.endpoint}/api/organizations/{namespace}/billing"
-        return f"{self.endpoint}/api/settings/billing"
+    def _billing_request(
+        self, method: str, path: str, *, namespace: str | None, token: bool | str | None, **kwargs: Any
+    ) -> httpx2.Response:
+        """Call a billing route of the authenticated user (`/settings`) or of an organization (`/organizations`).
+
+        The server has no route that accepts both. When `namespace` is set, the organization route is tried first
+        (most common case). It answers 404 for a username: in that case only, and if `namespace` is the
+        authenticated user, the request is retried on the user route.
+        """
+        headers = self._build_hf_headers(token=token)
+        user_url = f"{self.endpoint}/api/settings/billing/{path}"
+        if namespace is None:
+            r = get_session().request(method, user_url, headers=headers, **kwargs)
+        else:
+            org_url = f"{self.endpoint}/api/organizations/{namespace}/billing/{path}"
+            r = get_session().request(method, org_url, headers=headers, **kwargs)
+            if r.status_code == 404 and namespace == self.whoami(token=token, cache=True)["name"]:
+                r = get_session().request(method, user_url, headers=headers, **kwargs)
+        hf_raise_for_status(r)
+        return r
 
     def get_credits(self, *, namespace: str | None = None, token: bool | str | None = None) -> CreditsInfo:
         """Get the credits balance of a user or an organization.
@@ -10224,10 +10239,7 @@ class HfApi:
             >>> credits = get_credits(namespace="my-org")
             ```
         """
-        r = get_session().get(
-            f"{self._billing_prefix(namespace, token)}/credits", headers=self._build_hf_headers(token=token)
-        )
-        hf_raise_for_status(r)
+        r = self._billing_request("GET", "credits", namespace=namespace, token=token)
         return CreditsInfo(**r.json())
 
     def create_credits_purchase_link(
@@ -10259,12 +10271,9 @@ class HfApi:
             >>> print(f"Open {link.url} to confirm the purchase.")
             ```
         """
-        r = get_session().post(
-            f"{self._billing_prefix(namespace, token)}/prepaid-credits/purchase-link",
-            headers=self._build_hf_headers(token=token),
-            json={"amountUsd": amount_usd},
+        r = self._billing_request(
+            "POST", "prepaid-credits/purchase-link", namespace=namespace, token=token, json={"amountUsd": amount_usd}
         )
-        hf_raise_for_status(r)
         return CreditsPurchaseLink(**r.json())
 
     ########################
