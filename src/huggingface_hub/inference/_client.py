@@ -138,7 +138,7 @@ class InferenceClient:
             arguments are mutually exclusive. If a URL is passed as `model` or `base_url` for chat completion, the `(/v1)/chat/completions` suffix path will be appended to the URL.
         provider (`str`, *optional*):
             Name of the provider to use for inference. Can be `"fal-ai"`, `"hf-inference"`, `"openai"`, `"replicate"` or `"wavespeed"`.
-            For chat completion, any provider serving the model can be passed (e.g. `"groq"`): the request goes through the Hugging Face router with the model pinned as `"model:provider"`.
+            For chat completion, any provider serving the model can be passed (e.g. `"deepinfra"`): the request goes through the Hugging Face router with the model pinned as `"model:provider"`.
             Defaults to "auto": automatic routing, which defaults to "fastest" provider; you can
             switch to "cheapest" or "preferred" provider order at https://hf.co/settings/inference-providers.
             If model is a URL or `base_url` is passed, then `provider` is not used.
@@ -710,11 +710,11 @@ class InferenceClient:
         ```py
         >>> from huggingface_hub import InferenceClient
         >>> client = InferenceClient(
-        ...     provider="groq",
+        ...     provider="deepinfra",
         ...     api_key="hf_...",  # Pass your HF token
         ... )
         >>> client.chat_completion(
-        ...     model="openai/gpt-oss-120b",
+        ...     model="moonshotai/Kimi-K3.1-Pro",
         ...     messages=[{"role": "user", "content": "What is the capital of France?"}],
         ... )
         ```
