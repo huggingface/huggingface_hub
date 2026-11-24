@@ -971,6 +971,28 @@ def test_bucket_info_finds_file_missing_from_cached_parent_listing():
     get_bucket_paths_info.assert_called_once_with("username/my_bucket", ["new.txt"])
 
 
+def test_bucket_info_drops_outdated_parent_listing_after_direct_lookup():
+    """A file found by the direct lookup invalidates the parent listing it was missing from."""
+    fs = HfFileSystem(skip_instance_cache=True)
+    old_file = BucketFile(type="file", path="old.txt", size=1, xetHash="old")
+    new_file = BucketFile(type="file", path="new.txt", size=3, xetHash="abc")
+    with (
+        mock_bucket_info(fs),
+        patch.object(fs._api, "list_bucket_tree", side_effect=[[old_file], [old_file, new_file]]) as listing,
+        patch.object(fs._api, "get_bucket_paths_info", return_value=[new_file]),
+    ):
+        assert fs.ls("hf://buckets/username/my_bucket", detail=False) == ["buckets/username/my_bucket/old.txt"]
+        fs.info("hf://buckets/username/my_bucket/new.txt")
+        # The direct lookup proved the cached listing was outdated, so it must not stay cached
+        assert "buckets/username/my_bucket" not in fs.dircache
+        # The next listing is fetched again and now includes the file
+        assert fs.ls("hf://buckets/username/my_bucket", detail=False) == [
+            "buckets/username/my_bucket/old.txt",
+            "buckets/username/my_bucket/new.txt",
+        ]
+        assert listing.call_count == 2
+
+
 def test_bucket_info_raises_for_a_file_missing_from_the_bucket():
     """A path that does not exist in the bucket still raises `FileNotFoundError`."""
     fs = HfFileSystem(skip_instance_cache=True)

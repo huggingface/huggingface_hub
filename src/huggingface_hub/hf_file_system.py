@@ -1296,6 +1296,8 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
                 file_infos = list(self._api.get_bucket_paths_info(resolved_path.bucket_id, [resolved_path.path]))
                 if file_infos:
                     out1 = [_cache_info_from_path_info(file_infos[0], path)]
+                    # The cached listing missed a file that does exist => drop it so the next `ls()` rebuilds it
+                    self._drop_outdated_parent_listing(path)
             if not out1:
                 _raise_file_not_found(path, None)
             out = out1[0]
