@@ -141,7 +141,10 @@ def get_provider_helper(provider: PROVIDER_OR_POLICY_T | None, task: str, model:
             return CONVERSATIONAL_AUTO_ROUTER
 
         provider_mapping = _fetch_inference_provider_mapping(model)
-        provider = next(iter(provider_mapping)).provider
+        # The Hub can still list providers this client no longer supports
+        provider = next((mapping.provider for mapping in provider_mapping if mapping.provider in PROVIDERS), None)
+        if provider is None:
+            raise ValueError(f"No Inference Provider available for model {model}.")
 
     provider_tasks = PROVIDERS.get(provider)  # type: ignore
     if task == "conversational" and "conversational" not in (provider_tasks or {}):
