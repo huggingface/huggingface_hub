@@ -156,6 +156,7 @@ R = TypeVar("R")  # Return type
 CollectionItemType_T = Literal["model", "dataset", "space", "paper", "collection", "bucket"]
 CollectionSort_T = Literal["lastModified", "trending", "upvotes"]
 RepoVisibility_T = Literal["public", "private", "protected"]
+ResourceGroupRepoType = Literal["model", "dataset", "space", "bucket", "container"]
 
 ExpandModelProperty_T = Literal[
     "author",
@@ -4928,6 +4929,47 @@ class HfApi:
             url=f"{self.endpoint}/api/{repo_type}s/{repo_id}/settings",
             headers=headers,
             json=payload,
+        )
+        hf_raise_for_status(r)
+
+    @validate_hf_hub_args
+    def update_repo_resource_group(
+        self,
+        repo_id: str,
+        resource_group_id: str | None,
+        *,
+        repo_type: ResourceGroupRepoType | None = None,
+        token: str | bool | None = None,
+    ) -> None:
+        """Assign an organization-owned repository to a resource group or remove its assignment.
+
+        Args:
+            repo_id (`str`):
+                ID of the repository, such as `"my-org/my-model"`.
+            resource_group_id (`str` or `None`):
+                The group's 24-character hexadecimal ID. Pass `None` to remove the repository from its current group.
+            repo_type (`str`, *optional*):
+                Repository type. Can be `"model"` (default), `"dataset"`, `"space"`, `"bucket"`, or `"container"`.
+            token (`str` or `bool`, *optional*):
+                A user access token. Defaults to the configured token. Pass `False` to disable authentication.
+
+        Example:
+
+        ```py
+        >>> from huggingface_hub import update_repo_resource_group
+        >>> update_repo_resource_group("my-org/my-model", "66980ecfc1e12a49c8f0e42d")
+        >>> update_repo_resource_group("my-org/my-model", None)
+        ```
+        """
+        if repo_type is None:
+            repo_type = "model"
+        if repo_type not in get_args(ResourceGroupRepoType):
+            raise ValueError(f"Invalid repo type, must be one of {get_args(ResourceGroupRepoType)}")
+
+        r = get_session().post(
+            f"{self.endpoint}/api/{repo_type}s/{repo_id}/resource-group",
+            headers=self._build_hf_headers(token=token),
+            json={"resourceGroupId": resource_group_id},
         )
         hf_raise_for_status(r)
 
@@ -15571,6 +15613,7 @@ get_dataset_tags = api.get_dataset_tags
 create_commit = api.create_commit
 create_repo = api.create_repo
 delete_repo = api.delete_repo
+update_repo_resource_group = api.update_repo_resource_group
 update_repo_settings = api.update_repo_settings
 move_repo = api.move_repo
 upload_file = api.upload_file

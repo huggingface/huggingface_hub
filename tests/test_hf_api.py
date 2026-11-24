@@ -280,6 +280,21 @@ class TestHfApiEndpoints:
         assert info.gated == "auto"
         assert info.private
 
+    @pytest.mark.parametrize("repo_type", [None, "dataset", "space", "bucket", "container"])
+    def test_update_repo_resource_group(self, api: HfApi, mocker, repo_type):
+        post = mocker.patch("huggingface_hub.hf_api.get_session").return_value.post
+        for group_id in ("66980ecfc1e12a49c8f0e42d", None):
+            api.update_repo_resource_group("my-org/my-repo", group_id, repo_type=repo_type, token=OTHER_TOKEN)
+            post.assert_called_with(
+                f"{api.endpoint}/api/{repo_type or 'model'}s/my-org/my-repo/resource-group",
+                headers=api._build_hf_headers(token=OTHER_TOKEN),
+                json={"resourceGroupId": group_id},
+            )
+
+    def test_update_repo_resource_group_invalid_type(self, api: HfApi):
+        with pytest.raises(ValueError, match="Invalid repo type"):
+            api.update_repo_resource_group("my-org/my-repo", None, repo_type="kernel")
+
 
 class TestCommitApi:
     @pytest.fixture(autouse=True)

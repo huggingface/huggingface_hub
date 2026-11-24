@@ -297,6 +297,18 @@ Or via CLI:
 >>> hf repos settings lysandre/test-private --private true
 ```
 
+### Change a repository's resource group
+
+Use [`update_repo_resource_group`] to assign an existing organization-owned repository to a group. The group ID is the last part of the group's URL in your organization's settings. Pass `None` to remove the assignment.
+
+```py
+>>> from huggingface_hub import update_repo_resource_group
+>>> update_repo_resource_group("my-org/my-data", "66980ecfc1e12a49c8f0e42d", repo_type="dataset")
+>>> update_repo_resource_group("my-org/my-data", None, repo_type="dataset")
+```
+
+The corresponding CLI commands are `hf repos resource-group set` and `hf repos resource-group clear`.
+
 ### Setup gated access
 
 To give more control over how repos are used, the Hub allows repo authors to enable **access requests** for their repos. User must agree to share their contact information (username and email address) with the repo authors to access the files when enabled. A repo with access requests enabled is called a **gated repo**.

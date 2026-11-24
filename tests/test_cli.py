@@ -1913,6 +1913,29 @@ class TestRepoSettingsCommand:
         assert kwargs["gated"] == "manual"
 
 
+class TestRepoResourceGroupCommand:
+    def test_set(self, runner: CliRunner) -> None:
+        group_id = "66980ecfc1e12a49c8f0e42d"
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
+            result = runner.invoke(app, ["repos", "resource-group", "set", "my-org/my-model", group_id, "--json"])
+        assert result.exit_code == 0, result.output
+        api_cls.return_value.update_repo_resource_group.assert_called_once_with(
+            repo_id="my-org/my-model", resource_group_id=group_id, repo_type="model"
+        )
+        assert json.loads(result.stdout) == {"repo_id": "my-org/my-model", "resource_group_id": group_id}
+
+    def test_clear(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
+            result = runner.invoke(
+                app, ["repos", "resource-group", "clear", "my-org/data", "--type", "bucket", "--token", "my-token"]
+            )
+        assert result.exit_code == 0, result.output
+        api_cls.assert_called_once_with(token="my-token")
+        api_cls.return_value.update_repo_resource_group.assert_called_once_with(
+            repo_id="my-org/data", resource_group_id=None, repo_type="bucket"
+        )
+
+
 class TestRepoListCommand:
     def test_repo_list(self, runner: CliRunner, repo_factory: RepoFactory) -> None:
         """Integration test: create repos, check `hf repos ls` with search + type filter."""

@@ -1504,6 +1504,17 @@ Datasets and Spaces:
 - `--gated`: one of `auto`, `manual`, `false`
 - `--private true|false`: set repository privacy
 
+### Change a repo's resource group
+
+Use `hf repos resource-group set` to assign an existing repo to one of your organization's resource groups. Copy the group ID from the end of its URL in your organization settings. To remove the assignment, use `clear`.
+
+```bash
+>>> hf repos resource-group set my-org/my-data 66980ecfc1e12a49c8f0e42d --type dataset
+>>> hf repos resource-group clear my-org/my-data --type dataset
+```
+
+The default type is `model`. Use `--type` for a `dataset`, `space`, `bucket`, or `container`.
+
 ### Delete files from a repo
 
 The `hf repos delete-files <repo_id>` sub-command allows you to delete files from a repository. Here are some usage examples.

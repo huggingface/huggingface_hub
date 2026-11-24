@@ -19,7 +19,7 @@ from typing import Annotated, cast
 from huggingface_hub import SpaceHardware
 from huggingface_hub.cli._cli_utils import SoftChoice
 from huggingface_hub.errors import CLIError, HfHubHTTPError, RepositoryNotFoundError, RevisionNotFoundError
-from huggingface_hub.hf_api import REPO_REGIONS
+from huggingface_hub.hf_api import REPO_REGIONS, ResourceGroupRepoType
 
 from ._city_game import run_city_game
 from ._cli_utils import (
@@ -100,8 +100,15 @@ SpaceSleepTimeOpt = Annotated[
 
 tag_cli = typer_factory(help="Manage tags for a repo on the Hub.")
 branch_cli = typer_factory(help="Manage branches for a repo on the Hub.")
+resource_group_cli = typer_factory(help="Manage the resource group of an organization-owned repo.")
 repos_cli.add_group(tag_cli, name="tag")
 repos_cli.add_group(branch_cli, name="branch")
+repos_cli.add_group(resource_group_cli, name="resource-group")
+
+ResourceGroupRepoTypeOpt = Annotated[
+    ResourceGroupRepoType,
+    Option("--type", "--repo-type", help="The type of repository."),
+]
 
 
 @repos_cli.command(
@@ -487,6 +494,31 @@ repos_cli.command(
         "hf repos cp hf://username/my-model/logs/ hf://username/archive-model/logs/",
     ],
 )(make_cp("repos"))
+
+
+@resource_group_cli.command("set", examples=["hf repos resource-group set my-org/my-model 66980ecfc1e12a49c8f0e42d"])
+def resource_group_set(
+    repo_id: RepoIdArg,
+    resource_group_id: Annotated[str, Argument(help="The 24-character hexadecimal ID of the resource group.")],
+    repo_type: ResourceGroupRepoTypeOpt = "model",
+    token: TokenOpt = None,
+) -> None:
+    """Assign a repo to a resource group."""
+    api = get_hf_api(token=token)
+    api.update_repo_resource_group(repo_id=repo_id, resource_group_id=resource_group_id, repo_type=repo_type)
+    out.result("Repo assigned to resource group", repo_id=repo_id, resource_group_id=resource_group_id)
+
+
+@resource_group_cli.command("clear", examples=["hf repos resource-group clear my-org/my-data --type dataset"])
+def resource_group_clear(
+    repo_id: RepoIdArg,
+    repo_type: ResourceGroupRepoTypeOpt = "model",
+    token: TokenOpt = None,
+) -> None:
+    """Remove a repo from its current resource group."""
+    api = get_hf_api(token=token)
+    api.update_repo_resource_group(repo_id=repo_id, resource_group_id=None, repo_type=repo_type)
+    out.result("Repo removed from resource group", repo_id=repo_id, resource_group_id=None)
 
 
 @branch_cli.command(
