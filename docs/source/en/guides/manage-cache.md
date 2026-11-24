@@ -543,6 +543,25 @@ HFCacheInfo(
 )
 ```
 
+**List downloaded model files**
+
+Run `hf cache ls --filter "type=model" -q` to print the IDs of locally cached model repositories.
+A repository can contain several weight files, including different GGUF quantizations.
+To see which files you have downloaded, list their paths within each cached revision:
+
+```py
+from huggingface_hub import scan_cache_dir
+
+for repo in sorted(scan_cache_dir().repos, key=lambda repo: repo.repo_id):
+    if repo.repo_type == "model":
+        for revision in sorted(repo.revisions, key=lambda revision: revision.commit_hash):
+            for file in sorted(revision.files, key=lambda file: file.file_path):
+                path = file.file_path.relative_to(revision.snapshot_path).as_posix()
+                print(repo.repo_id, revision.commit_hash, path)
+```
+
+The output includes partial snapshots. Each row identifies one locally cached file.
+
 ### Verify your cache
 
 `huggingface_hub` can verify that your cached files match the checksums on the Hub. Use `hf cache verify` CLI to validate file consistency for a specific revision of a specific repository:
