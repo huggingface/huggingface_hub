@@ -42,6 +42,9 @@ from ._generated.types import ChatCompletionStreamOutput, TextGenerationStreamOu
 if TYPE_CHECKING:
     from PIL.Image import Image
 
+    from ._client import InferenceClient
+    from ._generated._async_client import AsyncInferenceClient
+
 # TYPES
 UrlT = str
 PathT = Union[str, Path]
@@ -350,9 +353,18 @@ def _format_chat_completion_stream_output(
     return ChatCompletionStreamOutput.parse_obj_as_instance(json_payload)
 
 
-async def _async_yield_from(client: httpx2.AsyncClient, response: httpx2.Response) -> AsyncIterable[str]:
-    async for line in response.aiter_lines():
-        yield line.strip()
+# Streamed responses are entered in the client's exit stack and are closed when the client is garbage collected.
+# The stream keeps a reference to the client so that it isn't closed while being read.
+def _yield_from(client: "InferenceClient", response: httpx2.Response) -> Iterable[str]:
+    yield from response.iter_lines()
+
+
+async def _async_yield_from(client: "AsyncInferenceClient", response: httpx2.Response) -> AsyncIterable[str]:
+    try:
+        async for line in response.aiter_lines():
+            yield line.strip()
+    finally:
+        await response.aclose()
 
 
 # "TGI servers" are servers running with the `text-generation-inference` backend.
