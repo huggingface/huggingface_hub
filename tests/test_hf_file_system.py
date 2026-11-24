@@ -993,6 +993,25 @@ def test_bucket_info_drops_outdated_parent_listing_after_direct_lookup():
         assert listing.call_count == 2
 
 
+def test_bucket_info_finds_file_missing_from_a_lagging_fresh_listing():
+    """A freshly fetched listing can lag behind a write: the direct lookup still finds the file.
+
+    Covers the next `info()` after the outdated listing was dropped, e.g. `exists()` then `open()`.
+    """
+    fs = HfFileSystem(skip_instance_cache=True)
+    old_file = BucketFile(type="file", path="old.txt", size=1, xetHash="old")
+    new_file = BucketFile(type="file", path="new.txt", size=3, xetHash="abc")
+    with (
+        mock_bucket_info(fs),
+        patch.object(fs._api, "list_bucket_tree", return_value=[old_file]),
+        patch.object(fs._api, "get_bucket_paths_info", return_value=[new_file]) as get_bucket_paths_info,
+    ):
+        assert "buckets/username/my_bucket" not in fs.dircache
+        assert fs.exists("hf://buckets/username/my_bucket/new.txt")
+        assert fs.info("hf://buckets/username/my_bucket/new.txt")["size"] == 3
+    assert get_bucket_paths_info.call_count == 2
+
+
 def test_bucket_info_raises_for_a_file_missing_from_the_bucket():
     """A path that does not exist in the bucket still raises `FileNotFoundError`."""
     fs = HfFileSystem(skip_instance_cache=True)
