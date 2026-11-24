@@ -1594,6 +1594,80 @@ class RepoStorageInfo:
 
 
 @dataclass
+class CreditBalance:
+    """
+    Contains information about one credit balance of a user or an organization.
+
+    Part of [`CreditsInfo`].
+
+    Attributes:
+        type (`str`):
+            Type of credits: `"included"` (e.g. monthly credits of a PRO subscription), `"purchased"` or `"granted"`.
+        balance_usd (`float`):
+            Remaining credits, in USD.
+        name (`str`, *optional*):
+            Name of the balance, if any.
+        expires_at (`datetime`, *optional*):
+            Expiration date of the credits, if any.
+    """
+
+    type: Literal["included", "purchased", "granted"]
+    balance_usd: float
+    name: str | None = None
+    expires_at: datetime | None = None
+
+    def __init__(self, **kwargs: Any) -> None:
+        self.type = kwargs["type"]
+        self.balance_usd = kwargs["balanceUsd"]
+        self.name = kwargs.get("name")
+        self.expires_at = parse_datetime(expires_at) if (expires_at := kwargs.get("expiresAt")) else None
+
+
+@dataclass
+class CreditsInfo:
+    """
+    Contains information about the credits of a user or an organization.
+
+    Returned by [`HfApi.get_credits`].
+
+    Attributes:
+        balance_usd (`float`):
+            Total remaining credits, in USD.
+        billing_mode (`str`):
+            Billing mode of the account: `"prepaid"` or `"postpaid"`.
+        balances (`list[CreditBalance]`):
+            Detail of the credit balances.
+    """
+
+    balance_usd: float
+    billing_mode: Literal["prepaid", "postpaid"]
+    balances: list[CreditBalance]
+
+    def __init__(self, **kwargs: Any) -> None:
+        self.balance_usd = kwargs["balanceUsd"]
+        self.billing_mode = kwargs["billingMode"]
+        self.balances = [CreditBalance(**balance) for balance in kwargs.get("balances", [])]
+
+
+@dataclass
+class CreditsPurchaseLink:
+    """
+    Contains a link to purchase credits.
+
+    Returned by [`HfApi.create_credits_purchase_link`].
+
+    Attributes:
+        url (`str`):
+            URL to open in a browser to confirm the purchase. Nothing is charged until the purchase is confirmed.
+    """
+
+    url: str
+
+    def __init__(self, **kwargs: Any) -> None:
+        self.url = kwargs["url"]
+
+
+@dataclass
 class Organization:
     """
     Contains information about an organization on the Hub.
@@ -10113,6 +10187,86 @@ class HfApi:
                 " user."
             )
 
+    #####################
+    # Billing Endpoints #
+    #####################
+
+    def _billing_prefix(self, namespace: str | None, token: bool | str | None) -> str:
+        """Return the billing API prefix: `/settings` routes for the user's own account, `/organizations` otherwise."""
+        if namespace is not None and namespace != self.whoami(token=token, cache=True)["name"]:
+            return f"{self.endpoint}/api/organizations/{namespace}/billing"
+        return f"{self.endpoint}/api/settings/billing"
+
+    def get_credits(self, *, namespace: str | None = None, token: bool | str | None = None) -> CreditsInfo:
+        """Get the credits balance of a user or an organization.
+
+        Credits are used across Hugging Face products (Jobs, Inference Providers, Spaces, ...).
+
+        Args:
+            namespace (`str`, *optional*):
+                The user or organization to get the credits of. Defaults to the authenticated user.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                A fine-grained token must have the "Billing > Read billing usage and payment method status"
+                permission and an OAuth token must have the `read-billing` scope.
+
+        Returns:
+            [`CreditsInfo`]: The total balance, the billing mode and the detail of each credit balance.
+
+        Example:
+            ```py
+            >>> from huggingface_hub import get_credits
+            >>> credits = get_credits()
+            >>> credits.balance_usd
+            12.5
+            >>> credits = get_credits(namespace="my-org")
+            ```
+        """
+        r = get_session().get(
+            f"{self._billing_prefix(namespace, token)}/credits", headers=self._build_hf_headers(token=token)
+        )
+        hf_raise_for_status(r)
+        return CreditsInfo(**r.json())
+
+    def create_credits_purchase_link(
+        self, amount_usd: int, *, namespace: str | None = None, token: bool | str | None = None
+    ) -> CreditsPurchaseLink:
+        """Create a link to purchase prepaid credits for a user or an organization.
+
+        Nothing is charged: the purchase must be confirmed by opening the link in a browser. The same link is also
+        sent by email to the token owner. Useful for agents that need a human to add credits before continuing.
+
+        Args:
+            amount_usd (`int`):
+                The amount of credits to purchase, in USD. Allowed values are checked by the server.
+            namespace (`str`, *optional*):
+                The user or organization to purchase credits for. Defaults to the authenticated user.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                A fine-grained token or an OAuth token must have the billing write permission.
+
+        Returns:
+            [`CreditsPurchaseLink`]: The link to open to confirm the purchase.
+
+        Example:
+            ```py
+            >>> from huggingface_hub import create_credits_purchase_link
+            >>> link = create_credits_purchase_link(50)
+            >>> print(f"Open {link.url} to confirm the purchase.")
+            ```
+        """
+        r = get_session().post(
+            f"{self._billing_prefix(namespace, token)}/prepaid-credits/purchase-link",
+            headers=self._build_hf_headers(token=token),
+            json={"amountUsd": amount_usd},
+        )
+        hf_raise_for_status(r)
+        return CreditsPurchaseLink(**r.json())
+
     ########################
     # Collection Endpoints #
     ########################
@@ -15729,3 +15883,7 @@ batch_bucket_files = api.batch_bucket_files
 get_bucket_file_metadata = api.get_bucket_file_metadata
 download_bucket_files = api.download_bucket_files
 sync_bucket = api.sync_bucket
+
+# Billing API
+get_credits = api.get_credits
+create_credits_purchase_link = api.create_credits_purchase_link

@@ -4065,6 +4065,33 @@ class TestJobsCommand:
         assert [row[headers.index("GPU UTIL %")] for row in rows] == [f"{10 * (i + 1)}%" for i in range(num_gpus)]
 
 
+class TestBillingCreditsPurchaseLinkWait:
+    def _run(self, runner: CliRunner, balances: list[float]) -> tuple[Result, Mock]:
+        with (
+            patch("huggingface_hub.cli.billing.get_hf_api") as api_cls,
+            patch("huggingface_hub.cli.billing.time.sleep"),
+        ):
+            api = api_cls.return_value
+            api.get_credits.side_effect = [Mock(balance_usd=b) for b in balances]
+            api.create_credits_purchase_link.return_value = Mock(url="https://huggingface.co/purchase")
+            result = runner.invoke(app, ["billing", "credits", "purchase-link", "50", "--wait"])
+        return result, api
+
+    def test_wait_returns_once_balance_increases(self, runner: CliRunner) -> None:
+        # Balance read before the link, then decreases (usage) before increasing (purchase).
+        result, api = self._run(runner, [10.0, 9.5, 59.5])
+        assert result.exit_code == 0
+        assert "https://huggingface.co/purchase" in result.output
+        assert "balance_usd: 59.5" in result.output
+        assert api.get_credits.call_count == 3
+
+    def test_wait_timeout(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.billing._WAIT_TIMEOUT", 0):
+            result, _ = self._run(runner, [10.0])
+        assert result.exit_code == 1
+        assert isinstance(result.exception, CLIError)
+
+
 class TestJobsWaitCommand:
     def _job(self, job_id: str, stage: str) -> Mock:
         job = Mock(id=job_id)

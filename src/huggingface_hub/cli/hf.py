@@ -110,6 +110,7 @@ _LAZY_COMMANDS: list[tuple[str, str, str, dict[str, Any]]] = [
 
 _LAZY_GROUPS: list[tuple[str, str, str, dict[str, Any]]] = [
     ("auth", "auth", "auth_cli", {}),
+    ("billing", "billing", "billing_cli", {}),
     ("buckets", "buckets", "buckets_cli", {}),
     ("cache", "cache", "cache_cli", {}),
     ("collections", "collections", "collections_cli", {}),

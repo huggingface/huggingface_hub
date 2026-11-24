@@ -25,6 +25,7 @@ $ hf [OPTIONS] [COMMAND] [ARGS]...
 **Commands**:
 
 * `auth`: Manage authentication (login, logout, etc.).
+* `billing`: Manage billing on the Hub.
 * `buckets`: Commands to interact with buckets.
 * `cache`: Manage local cache directory.
 * `collections`: Interact with collections on the Hub.
@@ -212,6 +213,105 @@ $ hf auth whoami [OPTIONS]
 Examples
   $ hf auth whoami
   $ hf auth whoami --format json
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+## `hf billing`
+
+Manage billing on the Hub.
+
+**Usage**:
+
+```console
+$ hf billing [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `credits`: Check credits balance and purchase credits.
+
+### `hf billing credits`
+
+Check credits balance and purchase credits.
+
+**Usage**:
+
+```console
+$ hf billing credits [OPTIONS] COMMAND [ARGS]...
+```
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+**Commands**:
+
+* `info`: Show the credits balance of a user or an organization.
+* `purchase-link`: Create a link to purchase credits.
+
+#### `hf billing credits info`
+
+Show the credits balance of a user or an organization.
+
+With `--quiet`, only the total balance (in USD) is printed.
+
+**Usage**:
+
+```console
+$ hf billing credits info [OPTIONS]
+```
+
+**Options**:
+
+* `--namespace TEXT`: The user or organization to use. Defaults to the authenticated user.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf billing credits info
+  $ hf billing credits info --namespace my-org
+  $ hf billing credits info --format json
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+#### `hf billing credits purchase-link`
+
+Create a link to purchase credits. Nothing is charged until the purchase is confirmed in a browser.
+
+The link is also sent by email to the token owner. Useful for agents that need a human to add credits.
+With `--quiet`, only the URL is printed.
+
+**Usage**:
+
+```console
+$ hf billing credits purchase-link [OPTIONS] AMOUNT_USD
+```
+
+**Arguments**:
+
+* `AMOUNT_USD`: Amount of credits to purchase, in USD.  [required]
+
+**Options**:
+
+* `--namespace TEXT`: The user or organization to use. Defaults to the authenticated user.
+* `--wait`: Block until the credits balance increases (checked every 10s, for up to 15 minutes). Exits with a non-zero code on timeout.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf billing credits purchase-link 50
+  $ hf billing credits purchase-link 50 --namespace my-org
+  $ hf billing credits purchase-link 50 --wait
 
 Learn more
   Use `hf <command> --help` for more information about a command.
