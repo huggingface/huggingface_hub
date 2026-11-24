@@ -716,8 +716,9 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
             raise NotImplementedError("Appending to remote files is not yet supported.")
         if block_size == 0:
             return HfFileSystemStreamFile(self, path, mode=mode, revision=revision, **kwargs)
-        else:
-            return HfFileSystemFile(self, path, mode=mode, revision=revision, **kwargs)
+        if "x" in mode and self.exists(path, revision=revision, refresh=True):
+            raise FileExistsError(f"File already exists: {path}")
+        return HfFileSystemFile(self, path, mode=mode, revision=revision, **kwargs)
 
     def _rm(self, path: str, revision: str | None = None, **kwargs) -> None:
         resolved_path = self.resolve_path(path, revision=revision)

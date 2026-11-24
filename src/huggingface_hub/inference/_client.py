@@ -58,6 +58,7 @@ from huggingface_hub.inference._common import (
     _set_unsupported_text_generation_kwargs,
     _stream_chat_completion_response,
     _stream_text_generation_response,
+    _yield_from,
     raise_text_generation_error,
 )
 from huggingface_hub.inference._generated.types import (
@@ -269,7 +270,7 @@ class InferenceClient:
             if stream:
                 response = self.exit_stack.enter_context(response_cm)
                 hf_raise_for_status(response)
-                return response.iter_lines()
+                return _yield_from(self, response)
             with response_cm as response:
                 hf_raise_for_status(response)
                 return response.read()

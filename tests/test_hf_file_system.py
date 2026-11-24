@@ -1009,6 +1009,30 @@ def test_bucket_info_lookup_error_does_not_poison_retry(error_type):
         listing.assert_called_once()
 
 
+def test_open_exclusive_create_existing_file_raises():
+    fs = HfFileSystem()
+    with (
+        mock_repo_info(fs),
+        patch.object(fs, "exists", return_value=True),
+        patch.object(fs._api, "upload_file") as upload_mock,
+    ):
+        with pytest.raises(FileExistsError):
+            fs.open("hf://datasets/username/my_dataset/file.txt", "xb")
+        upload_mock.assert_not_called()
+
+
+def test_open_exclusive_create_missing_file_uploads():
+    fs = HfFileSystem()
+    with (
+        mock_repo_info(fs),
+        patch.object(fs, "exists", return_value=False),
+        patch.object(fs._api, "upload_file") as upload_mock,
+    ):
+        with fs.open("hf://datasets/username/my_dataset/file.txt", "xb") as f:
+            f.write(b"first")
+        upload_mock.assert_called_once()
+
+
 @pytest.mark.parametrize(
     ("not_supported_path", "expected_error"),
     [
