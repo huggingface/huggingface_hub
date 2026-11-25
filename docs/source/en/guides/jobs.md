@@ -548,7 +548,7 @@ Inside the job container, the following environment variables are automatically 
 | `HF_JOB_FLAVOR` | The hardware flavor of the job (e.g., `a10g-small`). |
 | `HF_JOB_GPU_COUNT` | The number of GPUs available to the job: `0` on CPU and Neuron flavors. |
 | `HF_JOB_DISK_GB` | The disk space available to the job, in GB (e.g., `110`). Unset when the flavor has no disk limit. |
-| `HF_JOB_TIMEOUT` | The job's timeout in seconds. It applies to each attempt and counts from the start of the attempt, image pull and volume mounts included. For information only: changing the variable doesn't change the timeout. |
+| `HF_JOB_TIMEOUT` | The job's timeout in seconds, set with `timeout` (see [Configure Job Timeout](#configure-job-timeout)). It applies to each attempt (see [Retry and rerun a Job](#retry-and-rerun-a-job)) and counts from the start of the attempt, image pull and volume mounts included. For information only: changing the variable doesn't change the timeout. |
 | `HF_JOB_IMAGE` | The Docker image of the job, as submitted (e.g., `python:3.12`). Only set for jobs that run a Docker image. |
 | `HF_JOB_SPACE_ID` | The ID of the Space whose image the job runs (e.g., `username/my-space`). Only set for jobs started from a Space (`hf.co/spaces/...`). |
 | `JOB_ID` | Same as `HF_JOB_ID`. |
