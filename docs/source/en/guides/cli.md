@@ -1574,6 +1574,33 @@ The default type is `model`. Use `--type` for a `dataset`, `space`, `bucket`, `c
 
 Taking an item out of a group (unassigning or moving it) requires being an admin of that group or of the organization. Adding it requires the admin, write or contributor role in the target group. Fine-grained tokens need the "Write to resource groups" permission on the organization.
 
+### Manage resource groups
+
+Use `hf resource-groups ls`, `info`, `create`, `update` and `delete` to manage the resource groups of an organization. Groups can be passed by name or by ID.
+
+```bash
+# List the groups you administer (all groups if you are an organization admin)
+>>> hf resource-groups ls --org my-org
+
+# Show a group: description, auto-join, spend limits, members and resources
+>>> hf resource-groups info research --org my-org
+
+# Create a group with members, repos and auto-join
+>>> hf resource-groups create research --org my-org --description "Research team" \
+    --user alice:admin --user bob:write \
+    --repo my-org/my-model --repo datasets/my-org/my-data \
+    --auto-join read --auto-join-scope read_plus
+
+# Rename it and set spend limits (in cents), or remove one
+>>> hf resource-groups update research --org my-org --name ml-research --spend-limit total=50000 --spend-limit jobs=10000
+>>> hf resource-groups update ml-research --org my-org --no-spend-limit jobs
+
+# Delete it (its items stay in the organization, without a group)
+>>> hf resource-groups delete ml-research --org my-org --yes
+```
+
+`hf resource-groups assign` also accepts a group name: it is looked up in the organization that owns the items. Members, invitations and per-group settings are not supported by the CLI yet.
+
 ## hf cache
 
 Use `hf cache` to manage your local Hugging Face cache directory. The cache stores models, datasets, Spaces and kernels downloaded from the Hub.

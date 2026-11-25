@@ -304,6 +304,70 @@ class TestHfApiEndpoints:
             json={"resourceGroupId": "66980ecfc1e12a49c8f0e42d"},
         )
 
+    def test_list_resource_groups(self, api: HfApi, mocker):
+        get = mocker.patch("huggingface_hub.hf_api.get_session").return_value.get
+        get.return_value.json.return_value = [
+            {
+                "id": "66980ecfc1e12a49c8f0e42d",
+                "name": "research",
+                "spendLimits": {"total": 100},
+                "users": [],
+                "resources": [],
+                "repos": [],
+            }
+        ]
+        groups = api.list_resource_groups("my-org", token=OTHER_TOKEN)
+        get.assert_called_once_with(
+            f"{api.endpoint}/api/organizations/my-org/resource-groups",
+            headers=api._build_hf_headers(token=OTHER_TOKEN),
+        )
+        assert groups[0].id == "66980ecfc1e12a49c8f0e42d"
+        assert groups[0].spend_limits == {"total": 100}
+        assert groups[0].auto_join is None
+
+    def test_create_resource_group(self, api: HfApi, mocker):
+        post = mocker.patch("huggingface_hub.hf_api.get_session").return_value.post
+        post.return_value.json.return_value = {"id": "66980ecfc1e12a49c8f0e42d", "name": "research"}
+        api.create_resource_group(
+            "my-org",
+            "research",
+            description="Research team",
+            users={"alice": "admin"},
+            repos=["my-org/m", "datasets/my-org/d", "spaces/my-org/s", "buckets/my-org/b", "containers/my-org/c"],
+            auto_join_role="read",
+            auto_join_scope="read_plus",
+        )
+        assert post.call_args.args == (f"{api.endpoint}/api/organizations/my-org/resource-groups",)
+        assert post.call_args.kwargs["json"] == {
+            "name": "research",
+            "description": "Research team",
+            "users": [{"user": "alice", "role": "admin"}],
+            "repos": [
+                {"type": "model", "name": "my-org/m"},
+                {"type": "dataset", "name": "my-org/d"},
+                {"type": "space", "name": "my-org/s"},
+                {"type": "bucket", "name": "my-org/b"},
+                {"type": "container", "name": "my-org/c"},
+            ],
+            "autoJoin": {"enabled": True, "role": "read", "scope": "read_plus"},
+        }
+
+    def test_update_resource_group(self, api: HfApi, mocker):
+        patch_ = mocker.patch("huggingface_hub.hf_api.get_session").return_value.patch
+        patch_.return_value.json.return_value = {"id": "66980ecfc1e12a49c8f0e42d", "name": "research"}
+        api.update_resource_group("my-org", "66980ecfc1e12a49c8f0e42d", spend_limits={"total": 50000, "jobs": None})
+        assert patch_.call_args.args == (
+            f"{api.endpoint}/api/organizations/my-org/resource-groups/66980ecfc1e12a49c8f0e42d",
+        )
+        assert patch_.call_args.kwargs["json"] == {"spendLimits": {"total": 50000, "jobs": None}}
+
+    def test_delete_resource_group(self, api: HfApi, mocker):
+        delete = mocker.patch("huggingface_hub.hf_api.get_session").return_value.delete
+        api.delete_resource_group("my-org", "66980ecfc1e12a49c8f0e42d")
+        assert delete.call_args.args == (
+            f"{api.endpoint}/api/organizations/my-org/resource-groups/66980ecfc1e12a49c8f0e42d",
+        )
+
 
 class TestCommitApi:
     @pytest.fixture(autouse=True)

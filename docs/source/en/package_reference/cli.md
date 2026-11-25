@@ -4036,7 +4036,12 @@ $ hf resource-groups [OPTIONS] COMMAND [ARGS]...
 **Commands**:
 
 * `assign`: Assign items to a resource group.
+* `create`: Create a resource group in an organization.
+* `delete`: Delete a resource group.
+* `info`: Show a resource group.
+* `list`: List the resource groups of an organization. [alias: ls]
 * `unassign`: Remove items from their resource group.
+* `update`: Update the name, description or spend limits of a resource group.
 
 ### `hf resource-groups assign`
 
@@ -4045,12 +4050,12 @@ Assign items to a resource group. An item already in another group is moved to t
 **Usage**:
 
 ```console
-$ hf resource-groups assign [OPTIONS] RESOURCE_GROUP_ID ITEMS...
+$ hf resource-groups assign [OPTIONS] GROUP ITEMS...
 ```
 
 **Arguments**:
 
-* `RESOURCE_GROUP_ID`: The 24-character hexadecimal ID of the resource group (last part of its settings URL).  [required]
+* `GROUP`: Name or 24-character hexadecimal ID of the resource group. A name is looked up in the organization that owns the items.  [required]
 * `ITEMS...`: The items to update: repo IDs (e.g. `my-org/my-model`), collection slugs or blog IDs (`my-org/my-post`).  [required]
 
 **Options**:
@@ -4061,8 +4066,134 @@ $ hf resource-groups assign [OPTIONS] RESOURCE_GROUP_ID ITEMS...
 
 Examples
   $ hf resource-groups assign 66980ecfc1e12a49c8f0e42d my-org/my-model
+  $ hf resource-groups assign research my-org/my-model
   $ hf resource-groups assign 66980ecfc1e12a49c8f0e42d my-org/data-1 my-org/data-2 --type dataset
   $ hf resource-groups assign 66980ecfc1e12a49c8f0e42d my-org/my-collection-64f9a55bb3115b4f513ec026 --type collection
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf resource-groups create`
+
+Create a resource group in an organization.
+
+**Usage**:
+
+```console
+$ hf resource-groups create [OPTIONS] NAME
+```
+
+**Arguments**:
+
+* `NAME`: Name of the resource group.  [required]
+
+**Options**:
+
+* `--org TEXT`: Name of the organization.  [required]
+* `--description TEXT`: Description of the resource group.
+* `--user TEXT`: Member to add, as `username:role` (role: admin, write, contributor, read, no_access or inherit). Can be used multiple times.
+* `--repo TEXT`: Repo to assign to the group. Prefix non-model repos by their type (e.g. `datasets/my-org/my-data`, `spaces/...`, `buckets/...`, `containers/...`). A repo already in another group is moved. Can be used multiple times.
+* `--auto-join [admin|write|contributor|read|no_access|inherit]`: Make organization members join the group automatically, with this role.
+* `--auto-join-scope [all|read_plus]`: Which members auto-join: all of them, or those with at least the read role (read_plus).
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf resource-groups create research --org my-org
+  $ hf resource-groups create research --org my-org --description "Research team" --user alice:admin --user bob:write
+  $ hf resource-groups create research --org my-org --repo my-org/my-model --repo datasets/my-org/my-data
+  $ hf resource-groups create research --org my-org --auto-join read --auto-join-scope read_plus
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf resource-groups delete`
+
+Delete a resource group. Its items stay in the organization, without a group.
+
+**Usage**:
+
+```console
+$ hf resource-groups delete [OPTIONS] GROUP
+```
+
+**Arguments**:
+
+* `GROUP`: Name or 24-character hexadecimal ID of the resource group.  [required]
+
+**Options**:
+
+* `--org TEXT`: Name of the organization.  [required]
+* `-y, --yes`: Skip confirmation prompt.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf resource-groups delete research --org my-org
+  $ hf resource-groups delete research --org my-org --yes
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf resource-groups info`
+
+Show a resource group.
+
+Prints its description, auto-join setting, spend limits, members and resources.
+Requires being an admin of the group or of the organization.
+
+**Usage**:
+
+```console
+$ hf resource-groups info [OPTIONS] GROUP
+```
+
+**Arguments**:
+
+* `GROUP`: Name or 24-character hexadecimal ID of the resource group.  [required]
+
+**Options**:
+
+* `--org TEXT`: Name of the organization.  [required]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf resource-groups info research --org my-org
+  $ hf resource-groups info 66980ecfc1e12a49c8f0e42d --org my-org
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf resource-groups list`
+
+List the resource groups of an organization. [alias: ls]
+
+Only the groups you administer are listed, or all of them if you are an admin of the organization.
+
+**Usage**:
+
+```console
+$ hf resource-groups list [OPTIONS]
+```
+
+**Options**:
+
+* `--org TEXT`: Name of the organization.  [required]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf resource-groups ls --org my-org
+  $ hf resource-groups ls --org my-org -q
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -4092,6 +4223,40 @@ $ hf resource-groups unassign [OPTIONS] ITEMS...
 Examples
   $ hf resource-groups unassign my-org/my-model
   $ hf resource-groups unassign my-org/data-1 my-org/data-2 --type dataset
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf resource-groups update`
+
+Update the name, description or spend limits of a resource group.
+
+**Usage**:
+
+```console
+$ hf resource-groups update [OPTIONS] GROUP
+```
+
+**Arguments**:
+
+* `GROUP`: Name or 24-character hexadecimal ID of the resource group.  [required]
+
+**Options**:
+
+* `--org TEXT`: Name of the organization.  [required]
+* `--name TEXT`: New name of the resource group.
+* `--description TEXT`: New description of the resource group.
+* `--spend-limit TEXT`: Spend limit to set, in cents, as `key=value` (key: total, inferenceProviders, spaces, jobs, endpoints). Can be used multiple times.
+* `--no-spend-limit TEXT`: Spend limit to remove (same keys). Can be used multiple times.
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf resource-groups update research --org my-org --name ml-research --description "ML research team"
+  $ hf resource-groups update research --org my-org --spend-limit total=50000 --spend-limit jobs=10000
+  $ hf resource-groups update research --org my-org --no-spend-limit jobs
 
 Learn more
   Use `hf <command> --help` for more information about a command.

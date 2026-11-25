@@ -157,6 +157,9 @@ CollectionItemType_T = Literal["model", "dataset", "space", "paper", "collection
 CollectionSort_T = Literal["lastModified", "trending", "upvotes"]
 RepoVisibility_T = Literal["public", "private", "protected"]
 ResourceGroupRepoType_T = Literal["model", "dataset", "space", "bucket", "container"]
+ResourceGroupRole_T = Literal["admin", "write", "contributor", "read", "no_access", "inherit"]
+ResourceGroupAutoJoinScope_T = Literal["all", "read_plus"]
+ResourceGroupSpendLimit_T = Literal["total", "inferenceProviders", "spaces", "jobs", "endpoints"]
 
 ExpandModelProperty_T = Literal[
     "author",
@@ -1595,6 +1598,53 @@ class RepoStorageInfo:
 
 
 @dataclass
+class ResourceGroup:
+    """
+    Contains information about a resource group of an organization.
+
+    Returned by [`list_resource_groups`], [`get_resource_group`], [`create_resource_group`] and
+    [`update_resource_group`].
+
+    Attributes:
+        id (`str`):
+            ID of the resource group, as a 24-character hexadecimal string.
+        name (`str`):
+            Name of the resource group.
+        description (`str`, *optional*):
+            Description of the resource group.
+        auto_join (`dict`, *optional*):
+            Auto-join setting of the group, e.g. `{"enabled": True, "role": "read", "scope": "all"}`.
+        spend_limits (`dict[str, int]`):
+            Spend limits of the group, in cents, keyed by `"total"`, `"inferenceProviders"`, `"spaces"`, `"jobs"`
+            and `"endpoints"`. Missing keys have no limit.
+        users (`list[dict]`):
+            Members of the group, with their role.
+        resources (`list[dict]`):
+            Items assigned to the group (repos, collections, blog posts, jobs).
+    """
+
+    id: str
+    name: str
+    description: str | None
+    auto_join: dict | None
+    spend_limits: dict[str, int]
+    users: list[dict]
+    resources: list[dict]
+
+    def __init__(self, **kwargs: Any) -> None:
+        self.id = kwargs.pop("id")
+        self.name = kwargs.pop("name")
+        self.description = kwargs.pop("description", None)
+        self.auto_join = kwargs.pop("autoJoin", None)
+        self.spend_limits = kwargs.pop("spendLimits", None) or {}
+        self.users = kwargs.pop("users", None) or []
+        self.resources = kwargs.pop("resources", None) or []
+
+        # forward compatibility
+        self.__dict__.update(**kwargs)
+
+
+@dataclass
 class Organization:
     """
     Contains information about an organization on the Hub.
@@ -2134,6 +2184,14 @@ def _safetensors_file_metadata_from_header(
             f"Failed to parse safetensors header for '{filename}' ({context_msg}): header format not recognized. "
             "Please make sure this is a correctly formatted safetensors file."
         ) from e
+
+
+def _resource_group_repo_payload(repo: str) -> dict[str, str]:
+    """Turn `"datasets/my-org/my-data"` into `{"type": "dataset", "name": "my-org/my-data"}` (no prefix: model)."""
+    prefix, _, name = repo.partition("/")
+    if name.count("/") == 1 and prefix.endswith("s") and prefix[:-1] in get_args(ResourceGroupRepoType_T):
+        return {"type": prefix[:-1], "name": name}
+    return {"type": constants.REPO_TYPE_MODEL, "name": repo}
 
 
 class HfApi:
@@ -11890,6 +11948,224 @@ class HfApi:
         return Organization(**r.json())
 
     @validate_hf_hub_args
+    def list_resource_groups(self, organization: str, *, token: bool | str | None = None) -> list[ResourceGroup]:
+        """List the resource groups of an organization.
+
+        Only the groups you administer are returned, or all groups if you are an admin of the organization.
+        Fine-grained tokens need the "Write to resource groups" permission on the organization (without it, the list
+        is empty).
+
+        Args:
+            organization (`str`):
+                Name of the organization.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            `list[ResourceGroup]`: the resource groups of the organization.
+
+        Example:
+
+        ```py
+        >>> from huggingface_hub import list_resource_groups
+        >>> [group.name for group in list_resource_groups("my-org")]
+        ['research', 'production']
+        ```
+        """
+        r = get_session().get(
+            f"{self.endpoint}/api/organizations/{organization}/resource-groups",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(r)
+        return [ResourceGroup(**group) for group in r.json()]
+
+    def get_resource_group(
+        self, organization: str, resource_group_id: str, *, token: bool | str | None = None
+    ) -> ResourceGroup:
+        """Get a resource group of an organization.
+
+        Requires being an admin of the group or of the organization.
+
+        Args:
+            organization (`str`):
+                Name of the organization.
+            resource_group_id (`str`):
+                ID of the resource group, as a 24-character hexadecimal string.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            [`ResourceGroup`]: the resource group, with its members and resources.
+        """
+        r = get_session().get(
+            f"{self.endpoint}/api/organizations/{organization}/resource-groups/{resource_group_id}",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(r)
+        return ResourceGroup(**r.json())
+
+    def create_resource_group(
+        self,
+        organization: str,
+        name: str,
+        *,
+        description: str | None = None,
+        users: dict[str, ResourceGroupRole_T] | None = None,
+        repos: list[str] | None = None,
+        auto_join_role: ResourceGroupRole_T | None = None,
+        auto_join_scope: ResourceGroupAutoJoinScope_T | None = None,
+        token: bool | str | None = None,
+    ) -> ResourceGroup:
+        """Create a resource group in an organization.
+
+        Args:
+            organization (`str`):
+                Name of the organization.
+            name (`str`):
+                Name of the resource group.
+            description (`str`, *optional*):
+                Description of the resource group.
+            users (`dict[str, str]`, *optional*):
+                Members to add to the group, as a mapping of username to role (`"admin"`, `"write"`, `"contributor"`,
+                `"read"`, `"no_access"` or `"inherit"`).
+            repos (`list[str]`, *optional*):
+                Repositories to assign to the group. Non-model repositories are prefixed by their type, e.g.
+                `"datasets/my-org/my-data"`, `"spaces/my-org/my-space"`, `"buckets/my-org/my-bucket"` or
+                `"containers/my-org/my-container"`. A repository already in another group is moved to this one.
+            auto_join_role (`str`, *optional*):
+                If set, organization members automatically join the group with this role.
+            auto_join_scope (`str`, *optional*):
+                Which members auto-join: `"all"` (default on the Hub) or `"read_plus"` (members with at least the read
+                role in the organization). Requires `auto_join_role`.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            [`ResourceGroup`]: the created resource group.
+
+        Example:
+
+        ```py
+        >>> from huggingface_hub import create_resource_group
+        >>> group = create_resource_group(
+        ...     "my-org", "research", users={"alice": "admin"}, repos=["my-org/my-model", "datasets/my-org/my-data"]
+        ... )
+        >>> group.id
+        '66980ecfc1e12a49c8f0e42d'
+        ```
+        """
+        if auto_join_scope is not None and auto_join_role is None:
+            raise ValueError("`auto_join_scope` requires `auto_join_role`.")
+        payload: dict[str, Any] = {"name": name}
+        if description is not None:
+            payload["description"] = description
+        if users:
+            payload["users"] = [{"user": user, "role": role} for user, role in users.items()]
+        if repos:
+            payload["repos"] = [_resource_group_repo_payload(repo) for repo in repos]
+        if auto_join_role is not None:
+            auto_join: dict[str, Any] = {"enabled": True, "role": auto_join_role}
+            if auto_join_scope is not None:
+                auto_join["scope"] = auto_join_scope
+            payload["autoJoin"] = auto_join
+        r = get_session().post(
+            f"{self.endpoint}/api/organizations/{organization}/resource-groups",
+            headers=self._build_hf_headers(token=token),
+            json=payload,
+        )
+        hf_raise_for_status(r)
+        return ResourceGroup(**r.json())
+
+    def update_resource_group(
+        self,
+        organization: str,
+        resource_group_id: str,
+        *,
+        name: str | None = None,
+        description: str | None = None,
+        spend_limits: dict[ResourceGroupSpendLimit_T, int | None] | None = None,
+        token: bool | str | None = None,
+    ) -> ResourceGroup:
+        """Update the name, description or spend limits of a resource group.
+
+        Requires being an admin of the group or of the organization.
+
+        Args:
+            organization (`str`):
+                Name of the organization.
+            resource_group_id (`str`):
+                ID of the resource group, as a 24-character hexadecimal string.
+            name (`str`, *optional*):
+                New name of the resource group.
+            description (`str`, *optional*):
+                New description of the resource group.
+            spend_limits (`dict[str, int | None]`, *optional*):
+                Spend limits to set, in cents, keyed by `"total"`, `"inferenceProviders"`, `"spaces"`, `"jobs"` or
+                `"endpoints"`. A `None` value removes that limit. Limits not listed are left unchanged.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            [`ResourceGroup`]: the updated resource group.
+
+        Example:
+
+        ```py
+        >>> from huggingface_hub import update_resource_group
+        >>> update_resource_group("my-org", "66980ecfc1e12a49c8f0e42d", spend_limits={"total": 50_000, "jobs": None})
+        ```
+        """
+        payload: dict[str, Any] = {}
+        if name is not None:
+            payload["name"] = name
+        if description is not None:
+            payload["description"] = description
+        if spend_limits:
+            payload["spendLimits"] = spend_limits
+        r = get_session().patch(
+            f"{self.endpoint}/api/organizations/{organization}/resource-groups/{resource_group_id}",
+            headers=self._build_hf_headers(token=token),
+            json=payload,
+        )
+        hf_raise_for_status(r)
+        return ResourceGroup(**r.json())
+
+    def delete_resource_group(
+        self, organization: str, resource_group_id: str, *, token: bool | str | None = None
+    ) -> None:
+        """Delete a resource group of an organization.
+
+        Requires being an admin of the organization.
+
+        Args:
+            organization (`str`):
+                Name of the organization.
+            resource_group_id (`str`):
+                ID of the resource group, as a 24-character hexadecimal string.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+        """
+        r = get_session().delete(
+            f"{self.endpoint}/api/organizations/{organization}/resource-groups/{resource_group_id}",
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(r)
+
     def list_organization_followers(self, organization: str, token: bool | str | None = None) -> Iterable[User]:
         """
         List followers of an organization on the Hub.
@@ -15781,6 +16057,11 @@ update_webhook = api.update_webhook
 # User API
 get_user_overview = api.get_user_overview
 get_organization_overview = api.get_organization_overview
+list_resource_groups = api.list_resource_groups
+get_resource_group = api.get_resource_group
+create_resource_group = api.create_resource_group
+update_resource_group = api.update_resource_group
+delete_resource_group = api.delete_resource_group
 list_organization_followers = api.list_organization_followers
 list_organization_members = api.list_organization_members
 list_user_followers = api.list_user_followers
