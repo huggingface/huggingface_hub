@@ -156,6 +156,7 @@ R = TypeVar("R")  # Return type
 CollectionItemType_T = Literal["model", "dataset", "space", "paper", "collection", "bucket"]
 CollectionSort_T = Literal["lastModified", "trending", "upvotes"]
 RepoVisibility_T = Literal["public", "private", "protected"]
+ResourceGroupRepoType = Literal["model", "dataset", "space", "bucket", "container"]
 
 ExpandModelProperty_T = Literal[
     "author",
@@ -1594,6 +1595,35 @@ class RepoStorageInfo:
 
 
 @dataclass
+class ResourceGroupInfo:
+    """
+    Contains information about the resource group a repository or collection is assigned to.
+
+    Returned by [`get_repo_resource_group`].
+
+    Attributes:
+        id (`str`):
+            ID of the resource group, as a 24-character hexadecimal string.
+        name (`str`):
+            Name of the resource group.
+        num_users (`int`, *optional*):
+            Number of users in the resource group.
+    """
+
+    id: str
+    name: str
+    num_users: int | None
+
+    def __init__(self, **kwargs: Any) -> None:
+        self.id = kwargs.pop("id")
+        self.name = kwargs.pop("name")
+        self.num_users = kwargs.pop("numUsers", None)
+
+        # forward compatibility
+        self.__dict__.update(**kwargs)
+
+
+@dataclass
 class Organization:
     """
     Contains information about an organization on the Hub.
@@ -2133,6 +2163,33 @@ def _safetensors_file_metadata_from_header(
             f"Failed to parse safetensors header for '{filename}' ({context_msg}): header format not recognized. "
             "Please make sure this is a correctly formatted safetensors file."
         ) from e
+
+
+def _validate_resource_group_repo_type(repo_type: str | None) -> str:
+    if repo_type is None:
+        return "model"
+    if repo_type not in get_args(ResourceGroupRepoType):
+        raise ValueError(f"Invalid repo type, must be one of {get_args(ResourceGroupRepoType)}")
+    return repo_type
+
+
+def _parse_resource_group_response(response: httpx2.Response) -> ResourceGroupInfo | None:
+    """Parse a `GET .../resource-group` response.
+
+    The Hub answers 404 when the item is not in any resource group ("Resource group not found" for repos, "This
+    collection is not in any resource group" for collections). Other 404s (repo or collection not found) are raised.
+    """
+    try:
+        hf_raise_for_status(response)
+    except HfHubHTTPError as e:
+        if (
+            not isinstance(e, RepositoryNotFoundError)
+            and response.status_code == 404
+            and "resource group" in (e.server_message or "").lower()
+        ):
+            return None
+        raise
+    return ResourceGroupInfo(**response.json())
 
 
 class HfApi:
@@ -4928,6 +4985,78 @@ class HfApi:
             url=f"{self.endpoint}/api/{repo_type}s/{repo_id}/settings",
             headers=headers,
             json=payload,
+        )
+        hf_raise_for_status(r)
+
+    @validate_hf_hub_args
+    def get_repo_resource_group(
+        self,
+        repo_id: str,
+        *,
+        repo_type: ResourceGroupRepoType | None = None,
+        token: str | bool | None = None,
+    ) -> ResourceGroupInfo | None:
+        """Get the resource group an organization-owned repository is assigned to.
+
+        Args:
+            repo_id (`str`):
+                ID of the repository, such as `"my-org/my-model"`.
+            repo_type (`str`, *optional*):
+                Repository type. Can be `"model"` (default), `"dataset"`, `"space"`, `"bucket"`, or `"container"`.
+            token (`str` or `bool`, *optional*):
+                A user access token. Defaults to the configured token. Pass `False` to disable authentication.
+
+        Returns:
+            [`ResourceGroupInfo`] or `None`: the resource group of the repository, or `None` if it is not assigned to
+            any group.
+
+        Example:
+
+        ```py
+        >>> from huggingface_hub import get_repo_resource_group
+        >>> get_repo_resource_group("my-org/my-model")
+        ResourceGroupInfo(id='66980ecfc1e12a49c8f0e42d', name='research', num_users=4)
+        ```
+        """
+        r = get_session().get(
+            f"{self.endpoint}/api/{_validate_resource_group_repo_type(repo_type)}s/{repo_id}/resource-group",
+            headers=self._build_hf_headers(token=token),
+        )
+        return _parse_resource_group_response(r)
+
+    @validate_hf_hub_args
+    def update_repo_resource_group(
+        self,
+        repo_id: str,
+        resource_group_id: str | None,
+        *,
+        repo_type: ResourceGroupRepoType | None = None,
+        token: str | bool | None = None,
+    ) -> None:
+        """Assign an organization-owned repository to a resource group or remove its assignment.
+
+        Args:
+            repo_id (`str`):
+                ID of the repository, such as `"my-org/my-model"`.
+            resource_group_id (`str` or `None`):
+                The group's 24-character hexadecimal ID. Pass `None` to remove the repository from its current group.
+            repo_type (`str`, *optional*):
+                Repository type. Can be `"model"` (default), `"dataset"`, `"space"`, `"bucket"`, or `"container"`.
+            token (`str` or `bool`, *optional*):
+                A user access token. Defaults to the configured token. Pass `False` to disable authentication.
+
+        Example:
+
+        ```py
+        >>> from huggingface_hub import update_repo_resource_group
+        >>> update_repo_resource_group("my-org/my-model", "66980ecfc1e12a49c8f0e42d")
+        >>> update_repo_resource_group("my-org/my-model", None)
+        ```
+        """
+        r = get_session().post(
+            f"{self.endpoint}/api/{_validate_resource_group_repo_type(repo_type)}s/{repo_id}/resource-group",
+            headers=self._build_hf_headers(token=token),
+            json={"resourceGroupId": resource_group_id},
         )
         hf_raise_for_status(r)
 
@@ -15571,6 +15700,8 @@ get_dataset_tags = api.get_dataset_tags
 create_commit = api.create_commit
 create_repo = api.create_repo
 delete_repo = api.delete_repo
+get_repo_resource_group = api.get_repo_resource_group
+update_repo_resource_group = api.update_repo_resource_group
 update_repo_settings = api.update_repo_settings
 move_repo = api.move_repo
 upload_file = api.upload_file
