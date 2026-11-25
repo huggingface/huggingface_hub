@@ -148,14 +148,14 @@ $ hf auth logout [OPTIONS]
 
 **Options**:
 
-* `--token-name TEXT`: Name of token to logout
+* `--token-name TEXT`: Stored token name or unique display name to log out from.
 * `--help`: Show this message and exit.
 
 Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf auth logout
-  $ hf auth logout --token-name my-token
+  $ hf auth logout --token-name alice:laptop
 
 Learn more
   Use `hf <command> --help` for more information about a command.
@@ -174,7 +174,7 @@ $ hf auth switch [OPTIONS]
 
 **Options**:
 
-* `--token-name TEXT`: Name of the token to switch to
+* `--token-name TEXT`: Stored token name or unique display name to switch to.
 * `--add-to-git-credential / --no-add-to-git-credential`: Save to git credential helper. Useful only if you plan to run git commands directly.  [default: no-add-to-git-credential]
 * `--help`: Show this message and exit.
 
@@ -182,7 +182,7 @@ Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf auth switch
-  $ hf auth switch --token-name my-token
+  $ hf auth switch --token-name alice:laptop
 
 Learn more
   Use `hf <command> --help` for more information about a command.

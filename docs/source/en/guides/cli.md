@@ -201,11 +201,11 @@ You can also choose to paste a [User Access Token](https://huggingface.co/docs/h
 # Or using an environment variable
 >>> hf auth login --token $HF_TOKEN --add-to-git-credential
 Token is valid (permission: write).
-The token `token_name` has been saved to /home/wauplin/.cache/huggingface/stored_tokens
+The token `wauplin:laptop` has been saved to /home/wauplin/.cache/huggingface/stored_tokens
 Your token has been saved in your configured git credential helpers (store).
 Your token has been saved to /home/wauplin/.cache/huggingface/token
 Login successful
-The current active token is: `token_name`
+The current active token is: `wauplin:laptop`
 ```
 
 When run by an AI agent (auto-detected, or with `--format agent`), the command never prompts: it runs the browser flow and prints plain instructions the agent can relay to its user, then waits for the authorization:
@@ -219,6 +219,16 @@ Login successful: logged in as wauplin (token saved as 'oauth-wauplin').
 `hf auth login` is interactive, so `--format json` and `--format quiet` are not supported: pass `--token` for scripted, non-interactive logins.
 
 For more details about authentication, check out [this section](../quick-start#authentication).
+
+## hf auth switch
+
+Run `hf auth list` to see the saved names. If two accounts each have a token named `laptop`, you can choose the account explicitly:
+
+```bash
+hf auth switch --token-name alice:laptop
+```
+
+Both `hf auth switch` and `hf auth logout` accept a short name like `laptop` when it identifies a single token. If several tokens match, the CLI prompts you to choose in a terminal or lists the qualified names for use in scripts. Tokens saved by older versions keep their original names until you log in again with the same token.
 
 ## hf auth whoami
 

@@ -124,11 +124,16 @@ def logout(token_name: str | None = None) -> None:
 
     Args:
         token_name (`str`, *optional*):
-            Name of the access token to logout from. If `None`, will log out from all saved access tokens.
+            Local token name (e.g. `alice:laptop`) or a unique display name. If `None`, log out from all saved tokens.
     Raises:
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError):
-            If the access token name is not found.
+            If the access token name is ambiguous.
     """
+    _logout(_resolve_token_name(token_name) if token_name else None)
+
+
+def _logout(token_name: str | None) -> None:
+    """Log out from an exact stored name, or from all tokens."""
     if get_token() is None and not get_stored_tokens():  # No active token and no saved access tokens
         logger.warning("Not logged in!")
         return
@@ -164,7 +169,7 @@ def auth_switch(token_name: str, add_to_git_credential: bool = False) -> None:
 
     Args:
         token_name (`str`):
-            Name of the access token to switch to.
+            Local token name (e.g. `alice:laptop`) or a unique display name.
         add_to_git_credential (`bool`, defaults to `False`):
             If `True`, token will be set as git credential. If no git credential helper
             is configured, a warning will be displayed to the user. If `token` is `None`,
@@ -173,13 +178,13 @@ def auth_switch(token_name: str, add_to_git_credential: bool = False) -> None:
 
     Raises:
         [`ValueError`](https://docs.python.org/3/library/exceptions.html#ValueError):
-            If the access token name is not found.
+            If the access token name is missing or ambiguous.
     """
-    token = _get_token_by_name(token_name)
-    if not token:
-        raise ValueError(f"Access token {token_name} not found in {constants.HF_STORED_TOKENS_PATH}")
-    # Write token to HF_TOKEN_PATH
-    _set_active_token(token_name, add_to_git_credential)
+    _switch_to_token(_resolve_token_name(token_name), add_to_git_credential)
+
+
+def _switch_to_token(token_name: str, add_to_git_credential: bool) -> None:
+    token = _set_active_token(token_name, add_to_git_credential)
     logger.info(f"The current active token is: {token_name}")
     token_from_environment = _get_token_from_environment()
     if token_from_environment is not None and token_from_environment != token:
@@ -405,8 +410,8 @@ def _validate_and_save_token(
 ) -> tuple[str, str]:
     """Validate a token against the Hub, save it to the stored tokens file and set it as active.
 
-    The token is stored under its `displayName` from the whoami response, or `oauth-{username}`
-    for OAuth tokens (which have no display name).
+    Named tokens are stored as `{username}:{displayName}`. OAuth tokens without a display name
+    are stored as `oauth-{username}`.
 
     Args:
         token (`str`):
@@ -435,10 +440,17 @@ def _validate_and_save_token(
     else:
         logger.info("Token is valid.")
 
-    token_name = access_token_info.get("displayName") or f"oauth-{username}"
+    display_name = access_token_info.get("displayName") or None
+    token_name = f"{username}:{display_name}" if display_name else f"oauth-{username}"
 
     # Store token locally
-    _save_token(token=token, token_name=token_name, refresh_token=refresh_token, expires_at=expires_at)
+    _save_token(
+        token=token,
+        token_name=token_name,
+        display_name=display_name,
+        refresh_token=refresh_token,
+        expires_at=expires_at,
+    )
     # Set active token
     _set_active_token(token_name=token_name, add_to_git_credential=add_to_git_credential)
     logger.info("Login successful.")
@@ -449,6 +461,28 @@ def _validate_and_save_token(
     else:
         logger.info(f"The current active token is: `{token_name}`")
     return token_name, username
+
+
+def _resolve_token_name(token_name: str, *, interactive: bool = False) -> str:
+    """Resolve a local name or a unique display name, including entries saved before qualification."""
+    stored_tokens = _read_stored_tokens_full()
+    if "display_name" in stored_tokens.get(token_name, {}):
+        # A fully qualified name can itself be another token's display name.
+        return token_name
+    matches = [
+        name
+        for name, fields in stored_tokens.items()
+        if name == token_name or fields.get("display_name") == token_name
+    ]
+    if len(matches) > 1:
+        if interactive:
+            return matches[select_choice(f"Choose a token named '{token_name}':", matches)]
+        qualified = [name for name in matches if name != token_name]
+        message = f"Token name '{token_name}' is ambiguous. Choose a qualified name: {', '.join(qualified)}."
+        if token_name in matches:
+            message += f" To select the existing '{token_name}' entry, run the command interactively."
+        raise ValueError(message)
+    return matches[0] if matches else token_name
 
 
 def _logout_from_token(token_name: str) -> None:
@@ -486,7 +520,7 @@ def _format_expiration(expires_at: str | None) -> str:
 def _set_active_token(
     token_name: str,
     add_to_git_credential: bool,
-) -> None:
+) -> str:
     """Set the active access token.
 
     Args:
@@ -508,6 +542,7 @@ def _set_active_token(
     # Write token to HF_TOKEN_PATH
     _write_secret(Path(constants.HF_TOKEN_PATH), token)
     logger.info(f"Your token has been saved to {constants.HF_TOKEN_PATH}")
+    return token
 
 
 def _is_git_credential_helper_configured() -> bool:

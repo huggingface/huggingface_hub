@@ -149,10 +149,43 @@ class TestLogin:
     def test_login_success(self, mock_whoami):
         token_name, username = _validate_and_save_token(TOKEN, add_to_git_credential=False)
 
-        assert token_name == "test_token"
+        assert token_name == "testuser:test_token"
         assert username == "testuser"
-        assert _get_token_by_name("test_token") == TOKEN
+        assert _get_token_by_name("testuser:test_token") == TOKEN
         assert _get_token_from_file() == TOKEN
+
+    @patch("huggingface_hub.hf_api.whoami")
+    def test_legacy_entry_moves_only_when_its_token_logs_in(self, whoami):
+        _save_token(TOKEN, "laptop")
+        whoami.return_value = {"name": "bob", "auth": {"accessToken": {"displayName": "laptop"}}}
+        _validate_and_save_token(OTHER_TOKEN, add_to_git_credential=False)
+        assert get_stored_tokens() == {"laptop": TOKEN, "bob:laptop": OTHER_TOKEN}
+
+        with pytest.raises(ValueError, match="ambiguous.*bob:laptop"):
+            auth_switch("laptop")
+        assert _get_token_from_file() == OTHER_TOKEN
+        whoami.return_value = {"name": "alice", "auth": {"accessToken": {"displayName": "laptop"}}}
+        _validate_and_save_token(TOKEN, add_to_git_credential=False)
+        assert get_stored_tokens() == {"alice:laptop": TOKEN, "bob:laptop": OTHER_TOKEN}
+
+    @patch("huggingface_hub.hf_api.whoami")
+    def test_legacy_display_name_can_contain_colons(self, whoami):
+        _save_token(TOKEN, "alice:laptop")
+        whoami.return_value = {"name": "alice", "auth": {"accessToken": {"displayName": "laptop"}}}
+        with pytest.raises(ValueError, match="different legacy token"):
+            _validate_and_save_token(OTHER_TOKEN, add_to_git_credential=False)
+        assert get_stored_tokens() == {"alice:laptop": TOKEN}
+
+        whoami.return_value = {"name": "bob", "auth": {"accessToken": {"displayName": "alice:laptop"}}}
+        _validate_and_save_token(TOKEN, add_to_git_credential=False)
+        assert get_stored_tokens() == {"bob:alice:laptop": TOKEN}
+        auth_switch("alice:laptop")
+        assert _get_token_from_file() == TOKEN
+        whoami.return_value = {"name": "alice", "auth": {"accessToken": {"displayName": "laptop"}}}
+        _validate_and_save_token(OTHER_TOKEN, add_to_git_credential=False)
+        auth_switch("bob:alice:laptop")
+        auth_switch("alice:laptop")
+        assert _get_token_from_file() == OTHER_TOKEN
 
     @patch(
         "huggingface_hub.hf_api.whoami",
