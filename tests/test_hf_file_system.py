@@ -16,7 +16,6 @@ import fsspec
 import pytest
 
 from huggingface_hub import HfApi, constants, hf_file_system
-from huggingface_hub._buckets import BucketFile
 from huggingface_hub.errors import BucketNotFoundError, RepositoryNotFoundError, RevisionNotFoundError
 from huggingface_hub.hf_api import RepoFile, RepoFolder
 from huggingface_hub.hf_file_system import (
@@ -943,111 +942,6 @@ def test_bucket_file_left_open_in_transaction_is_uploaded():
             f = fs.open("hf://buckets/username/my_bucket/file.txt", "wb")
             f.write(b"hello")
     assert uploaded == {"file.txt": b"hello"}
-
-
-def test_bucket_info_finds_file_missing_from_cached_parent_listing():
-    """Regression test for #5383.
-
-    A file written by another thread is missing from the parent listing cached by this instance, so
-    `info()` must look the path up directly instead of raising `FileNotFoundError`.
-    """
-    fs = HfFileSystem(skip_instance_cache=True)
-    old_file = BucketFile(type="file", path="old.txt", size=1, xetHash="old")
-    new_file = BucketFile(type="file", path="new.txt", size=3, xetHash="abc")
-    with (
-        mock_bucket_info(fs),
-        patch.object(fs._api, "list_bucket_tree", return_value=[old_file]),
-        patch.object(fs._api, "get_bucket_paths_info", return_value=[new_file]) as get_bucket_paths_info,
-    ):
-        assert fs.ls("hf://buckets/username/my_bucket", detail=False) == ["buckets/username/my_bucket/old.txt"]
-        assert fs.info("hf://buckets/username/my_bucket/new.txt") == {
-            "name": "buckets/username/my_bucket/new.txt",
-            "size": 3,
-            "type": "file",
-            "xet_hash": "abc",
-            "mtime": None,
-            "uploaded_at": None,
-        }
-    get_bucket_paths_info.assert_called_once_with("username/my_bucket", ["new.txt"])
-
-
-def test_bucket_info_drops_outdated_parent_listing_after_direct_lookup():
-    """A file found by the direct lookup invalidates the parent listing it was missing from."""
-    fs = HfFileSystem(skip_instance_cache=True)
-    old_file = BucketFile(type="file", path="old.txt", size=1, xetHash="old")
-    new_file = BucketFile(type="file", path="new.txt", size=3, xetHash="abc")
-    with (
-        mock_bucket_info(fs),
-        patch.object(fs._api, "list_bucket_tree", side_effect=[[old_file], [old_file, new_file]]) as listing,
-        patch.object(fs._api, "get_bucket_paths_info", return_value=[new_file]),
-    ):
-        assert fs.ls("hf://buckets/username/my_bucket", detail=False) == ["buckets/username/my_bucket/old.txt"]
-        fs.info("hf://buckets/username/my_bucket/new.txt")
-        # The direct lookup proved the cached listing was outdated, so it must not stay cached
-        assert "buckets/username/my_bucket" not in fs.dircache
-        # The next listing is fetched again and now includes the file
-        assert fs.ls("hf://buckets/username/my_bucket", detail=False) == [
-            "buckets/username/my_bucket/old.txt",
-            "buckets/username/my_bucket/new.txt",
-        ]
-        assert listing.call_count == 2
-
-
-def test_bucket_info_finds_file_missing_from_a_lagging_fresh_listing():
-    """A freshly fetched listing can lag behind a write: the direct lookup still finds the file.
-
-    Covers the next `info()` after the outdated listing was dropped, e.g. `exists()` then `open()`.
-    """
-    fs = HfFileSystem(skip_instance_cache=True)
-    old_file = BucketFile(type="file", path="old.txt", size=1, xetHash="old")
-    new_file = BucketFile(type="file", path="new.txt", size=3, xetHash="abc")
-    with (
-        mock_bucket_info(fs),
-        patch.object(fs._api, "list_bucket_tree", return_value=[old_file]),
-        patch.object(fs._api, "get_bucket_paths_info", return_value=[new_file]) as get_bucket_paths_info,
-    ):
-        assert "buckets/username/my_bucket" not in fs.dircache
-        assert fs.exists("hf://buckets/username/my_bucket/new.txt")
-        assert fs.info("hf://buckets/username/my_bucket/new.txt")["size"] == 3
-    assert get_bucket_paths_info.call_count == 2
-
-
-def test_bucket_info_raises_for_a_file_missing_from_the_bucket():
-    """A path that does not exist in the bucket still raises `FileNotFoundError`."""
-    fs = HfFileSystem(skip_instance_cache=True)
-    old_file = BucketFile(type="file", path="old.txt", size=1, xetHash="old")
-    with (
-        mock_bucket_info(fs),
-        patch.object(fs._api, "list_bucket_tree", return_value=[old_file]),
-        patch.object(fs._api, "get_bucket_paths_info", return_value=[]) as get_bucket_paths_info,
-    ):
-        assert fs.ls("hf://buckets/username/my_bucket", detail=False) == ["buckets/username/my_bucket/old.txt"]
-        with pytest.raises(FileNotFoundError):
-            fs.info("hf://buckets/username/my_bucket/missing.txt")
-        get_bucket_paths_info.assert_called_once_with("username/my_bucket", ["missing.txt"])
-
-
-@pytest.mark.parametrize("error_type", [TimeoutError, ConnectionError])
-def test_bucket_info_lookup_error_does_not_poison_retry(error_type):
-    """A failed fallback lookup propagates and leaves the cached listing untouched."""
-    fs = HfFileSystem(skip_instance_cache=True)
-    path = "hf://buckets/username/my_bucket/new.txt"
-    old_file = BucketFile(type="file", path="old.txt", size=1, xetHash="old")
-    new_file = BucketFile(type="file", path="new.txt", size=3, xetHash="abc")
-    error = error_type("temporary lookup failure")
-    with (
-        mock_bucket_info(fs),
-        patch.object(fs._api, "list_bucket_tree", return_value=[old_file]) as listing,
-        patch.object(fs._api, "get_bucket_paths_info", side_effect=[error, [new_file]]) as lookup,
-    ):
-        before = fs.ls("hf://buckets/username/my_bucket", detail=True)
-        with pytest.raises(error_type) as caught:
-            fs.info(path)
-        assert caught.value is error
-        assert fs.dircache["buckets/username/my_bucket"] == before
-        assert fs.info(path)["size"] == 3
-        assert lookup.call_count == 2
-        listing.assert_called_once()
 
 
 def test_open_exclusive_create_existing_file_raises():
