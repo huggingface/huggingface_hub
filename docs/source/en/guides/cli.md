@@ -1995,16 +1995,26 @@ secrets file should be readable by you only (`chmod 600`) — the CLI warns if i
 
 Inside the job container, the following environment variables are automatically available:
 
-| Variable      | Description                                                                                             |
-| ------------- | ------------------------------------------------------------------------------------------------------- |
-| `JOB_ID`      | The unique identifier of the current job. Use this to reference the job programmatically.               |
-| `ACCELERATOR` | The type of device: `cpu` for CPU flavors, `gpu` for GPU flavors.                                       |
-| `CPU_CORES`   | The number of CPU cores available to the job (e.g., `2`, `4`, `8`).                                     |
-| `MEMORY`      | The amount of memory available to the job (e.g., `16.0G`, `32.0G`).                                     |
+| Variable           | Description                                                                                                                                                                                                       |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `HF_JOB_ID`        | The unique identifier of the current job. Use this to reference the job programmatically, for example to store outputs in a dataset with a unique name.                                                           |
+| `HF_JOB_OWNER`     | The user or organization the job runs under.                                                                                                                                                                      |
+| `HF_JOB_FLAVOR`    | The hardware flavor of the job (e.g., `a10g-small`). Unset when the hardware has no flavor name.                                                                                                                  |
+| `HF_JOB_GPU_COUNT` | The number of GPUs available to the job: `0` on CPU and Neuron flavors.                                                                                                                                           |
+| `HF_JOB_DISK_GB`   | The disk space available to the job, in GB (e.g., `110`). Unset when the flavor has no disk limit.                                                                                                                |
+| `HF_JOB_TIMEOUT`   | The job's timeout in seconds. It applies to each attempt and counts from the start of the attempt, image pull and volume mounts included. For information only: changing the variable doesn't change the timeout. |
+| `HF_JOB_IMAGE`     | The Docker image of the job, as submitted (e.g., `python:3.12`). Only set for jobs that run a Docker image.                                                                                                       |
+| `HF_JOB_SPACE_ID`  | The Space whose image the job runs, as submitted (e.g., `username/my-space`). Only set for jobs that run a Space's image.                                                                                         |
+| `JOB_ID`           | Same as `HF_JOB_ID`.                                                                                                                                                                                              |
+| `ACCELERATOR`      | The type of device: `cpu` for CPU flavors, `gpu` for GPU flavors, `neuron` for Neuron flavors.                                                                                                                    |
+| `CPU_CORES`        | The number of CPU cores available to the job (e.g., `2`, `4`, `8`).                                                                                                                                               |
+| `MEMORY`           | The amount of memory available to the job (e.g., `16.0G`, `32.0G`).                                                                                                                                               |
+
+Prefer the `HF_JOB_*` names in new code: they are specific to Hugging Face Jobs, while names such as `JOB_ID` are also set by other platforms. `JOB_ID` keeps working. Every variable in this table is a default: a value you pass in the job's environment variables or secrets replaces it.
 
 ```bash
 # Access job environment information
->>> hf jobs run python:3.12 python -c "import os; print(f'Job: {os.environ.get(\"JOB_ID\")}, CPU: {os.environ.get(\"CPU_CORES\")}, Mem: {os.environ.get(\"MEMORY\")}')"
+>>> hf jobs run python:3.12 python -c "import os; print(f'Job: {os.environ.get(\"HF_JOB_ID\")}, Flavor: {os.environ.get(\"HF_JOB_FLAVOR\")}, CPU: {os.environ.get(\"CPU_CORES\")}, Mem: {os.environ.get(\"MEMORY\")}')"
 ```
 
 ### Job Timeout
