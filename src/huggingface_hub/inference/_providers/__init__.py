@@ -3,6 +3,11 @@ from typing import Literal, Union
 from huggingface_hub.utils import logging
 
 from ._common import AutoRouterConversationalTask, TaskProviderHelper, _fetch_inference_provider_mapping
+from .deepinfra import (
+    DeepInfraAutomaticSpeechRecognitionTask,
+    DeepInfraFeatureExtractionTask,
+    DeepInfraTextToSpeechTask,
+)
 from .fal_ai import (
     FalAIAutomaticSpeechRecognitionTask,
     FalAIImageSegmentationTask,
@@ -38,6 +43,7 @@ logger = logging.get_logger(__name__)
 
 
 PROVIDER_T = Literal[
+    "deepinfra",
     "fal-ai",
     "hf-inference",
     "openai",
@@ -50,6 +56,11 @@ PROVIDER_OR_POLICY_T = Union[PROVIDER_T, Literal["auto"], str]
 CONVERSATIONAL_AUTO_ROUTER = AutoRouterConversationalTask()
 
 PROVIDERS: dict[PROVIDER_T, dict[str, TaskProviderHelper]] = {
+    "deepinfra": {
+        "automatic-speech-recognition": DeepInfraAutomaticSpeechRecognitionTask(),
+        "feature-extraction": DeepInfraFeatureExtractionTask(),
+        "text-to-speech": DeepInfraTextToSpeechTask(),
+    },
     "fal-ai": {
         "automatic-speech-recognition": FalAIAutomaticSpeechRecognitionTask(),
         "text-to-image": FalAITextToImageTask(),
