@@ -551,12 +551,10 @@ Inside the job container, the following environment variables are automatically 
 | `HF_JOB_TIMEOUT` | The job's timeout in seconds, set with `timeout` (see [Configure Job Timeout](#configure-job-timeout)). It applies to each attempt (see [Retry and rerun a Job](#retry-and-rerun-a-job)) and counts from the start of the attempt, image pull and volume mounts included. For information only: changing the variable doesn't change the timeout. |
 | `HF_JOB_IMAGE` | The Docker image of the job, as submitted (e.g., `python:3.12`). Only set for jobs that run a Docker image. |
 | `HF_JOB_SPACE_ID` | The ID of the Space whose image the job runs (e.g., `username/my-space`). Only set for jobs started from a Space (`hf.co/spaces/...`). |
-| `JOB_ID` | Same as `HF_JOB_ID`. |
 | `ACCELERATOR` | The type of device: `cpu` for CPU flavors, `gpu` for GPU flavors, `neuron` for Neuron flavors. |
 | `CPU_CORES` | The number of CPU cores available to the job (e.g., `2`, `4`, `8`). |
 | `MEMORY` | The amount of memory available to the job (e.g., `16.0G`, `32.0G`). |
 
-Prefer the `HF_JOB_*` names in new code: they are specific to Hugging Face Jobs, while names such as `JOB_ID` are also set by other platforms. `JOB_ID` keeps working. Every variable in this table is a default: a value you pass in the job's environment variables or secrets replaces it.
 
 ```python
 # Access job environment information
