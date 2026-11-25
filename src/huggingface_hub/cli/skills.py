@@ -25,7 +25,7 @@ from huggingface_hub.errors import CLIError
 
 from ..utils import disable_progress_bars
 from . import _skills
-from ._cli_utils import TokenOpt, _has_local_formatting_option, get_hf_api, typer_factory
+from ._cli_utils import TokenOpt, _accepts_global_format_flags, get_hf_api, typer_factory
 from ._framework import Argument, Option
 from ._output import out
 from ._skills import DEFAULT_SKILL_ID
@@ -173,13 +173,6 @@ def _iter_optional_params(cmd: Command):
                 short_name = opt
         if long_name:
             yield p, long_name, short_name
-
-
-def _accepts_global_format_flags(cmd: Command) -> bool:
-    """Return True if the leaf command accepts the global '--format' / '--json' / '-q' flags."""
-    if cmd.context_settings.get("ignore_unknown_options"):
-        return False
-    return not _has_local_formatting_option(cmd)
 
 
 def _get_flag_names(cmd: Command, *, exclude: set[str] | None = None) -> list[str]:

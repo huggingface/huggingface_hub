@@ -6,6 +6,8 @@ from pathlib import Path
 
 import click
 
+from huggingface_hub.cli._cli_utils import _FORMATTING_OPTIONS_HELP_RECORDS, _accepts_global_format_flags
+
 
 PACKAGE_REFERENCE_PATH = Path(__file__).parents[1] / "docs" / "source" / "en" / "package_reference" / "cli.md"
 
@@ -53,7 +55,14 @@ def get_docs_for_click(
         if record is None:
             continue
         (args if param.param_type_name == "argument" else opts).append(record)
-    for header, records in (("Arguments", args), ("Options", opts)):
+    # Global formatting flags are consumed by the parent group, not declared on each command.
+    # Mirror the "Formatting options" section shown by `--help` (see `HFCliCommand.format_options`).
+    formatting_opts = (
+        _FORMATTING_OPTIONS_HELP_RECORDS
+        if not isinstance(obj, click.Group) and _accepts_global_format_flags(obj)
+        else []
+    )
+    for header, records in (("Arguments", args), ("Options", opts), ("Formatting options", formatting_opts)):
         if records:
             docs += f"**{header}**:\n\n"
             for param_name, param_help in records:
