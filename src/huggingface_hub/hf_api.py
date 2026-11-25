@@ -2174,13 +2174,19 @@ def _validate_resource_group_repo_type(repo_type: str | None) -> str:
 
 
 def _parse_resource_group_response(response: httpx2.Response) -> ResourceGroupInfo | None:
-    """Parse a `GET .../resource-group` response. The Hub answers 404 when the item has no resource group."""
+    """Parse a `GET .../resource-group` response.
+
+    The Hub answers 404 when the item is not in any resource group ("Resource group not found" for repos, "This
+    collection is not in any resource group" for collections). Other 404s (repo or collection not found) are raised.
+    """
     try:
         hf_raise_for_status(response)
-    except RepositoryNotFoundError:
-        raise
     except HfHubHTTPError as e:
-        if e.response.status_code == 404:
+        if (
+            not isinstance(e, RepositoryNotFoundError)
+            and response.status_code == 404
+            and "resource group" in (e.server_message or "").lower()
+        ):
             return None
         raise
     return ResourceGroupInfo(**response.json())

@@ -328,6 +328,13 @@ class TestHfApiEndpoints:
         with pytest.raises(RepositoryNotFoundError):
             api.get_repo_resource_group("my-org/my-repo")
 
+    def test_get_repo_resource_group_other_404_is_raised(self, api: HfApi, mocker):
+        mocker.patch("huggingface_hub.hf_api.get_session").return_value.get.return_value = httpx2.Response(
+            404, json={"error": "Not found"}, request=httpx2.Request("GET", "https://huggingface.co")
+        )
+        with pytest.raises(HfHubHTTPError):
+            api.get_repo_resource_group("my-org/my-repo")
+
     def test_update_repo_resource_group_invalid_type(self, api: HfApi):
         with pytest.raises(ValueError, match="Invalid repo type"):
             api.update_repo_resource_group("my-org/my-repo", None, repo_type="kernel")
