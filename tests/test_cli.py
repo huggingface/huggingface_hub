@@ -22,7 +22,7 @@ from huggingface_hub._space_api import Volume
 from huggingface_hub.cli import _skills, extensions, system
 from huggingface_hub.cli._cli_utils import RepoType, _get_huggingface_hub_update_command, parse_volumes
 from huggingface_hub.cli._output import OutputFormat, out
-from huggingface_hub.cli._uv_script_header import UvScriptHeader, parse_uv_script_header
+from huggingface_hub.cli._uv_script_header import UvScriptHeader, load_uv_script, parse_uv_script_header
 from huggingface_hub.cli.cache import CacheDeletionCounts
 from huggingface_hub.cli.download import download
 from huggingface_hub.cli.hf import app
@@ -4194,6 +4194,12 @@ print("hello")
     def test_invalid_table(self, table: str, expected_error: str) -> None:
         with pytest.raises(CLIError, match=re.escape(expected_error)):
             parse_uv_script_header(f"# /// script\n# [tool.hf-jobs]\n# {table}\n# ///")
+
+    def test_long_command_is_not_a_file(self) -> None:
+        """An argument too long to be a path is a command, not a crash (`Path.is_file` raises on Python < 3.14)."""
+        with load_uv_script("x" * 5000) as uv_script:
+            assert uv_script.script == "x" * 5000
+            assert uv_script.header is None
 
     def _write_script(self, tmp_path: Path, table: str) -> str:
         script_path = tmp_path / "script.py"
