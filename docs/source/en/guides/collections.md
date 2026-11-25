@@ -210,6 +210,21 @@ Finally, you can also remove an item using [`delete_collection_item`].
 >>> delete_collection_item(collection_slug=collection_slug, item_object_id=collection.items[0].item_object_id)
 ```
 
+## Change a collection's resource group
+
+An organization-owned collection can be assigned to one of the organization's resource groups. Use [`update_collection_resource_group`] to assign it (or move it to another group) and pass `None` to remove the assignment. [`get_collection_resource_group`] returns the current group, or `None` if the collection is not assigned to any.
+
+```py
+>>> from huggingface_hub import get_collection_resource_group, update_collection_resource_group
+>>> slug = "my-org/iccv-2023-64f9a55bb3115b4f513ec026"
+>>> update_collection_resource_group(slug, resource_group_id="66980ecfc1e12a49c8f0e42d")
+>>> get_collection_resource_group(slug)
+ResourceGroupInfo(id='66980ecfc1e12a49c8f0e42d', name='research', num_users=4)
+>>> update_collection_resource_group(slug, resource_group_id=None)
+```
+
+The corresponding CLI commands are `hf collections resource-group <slug>`, `hf collections resource-group assign` and `hf collections resource-group unassign`.
+
 ## Delete collection
 
 A collection can be deleted using [`delete_collection`].

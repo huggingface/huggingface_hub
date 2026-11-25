@@ -748,7 +748,7 @@ $ hf collections [OPTIONS] COMMAND [ARGS]...
 * `delete-item`: Delete an item from a collection.
 * `info`: Get info about a collection on the Hub.
 * `list`: List collections on the Hub. [alias: ls]
-* `resource-group`: Manage the resource group of an organization-owned collection.
+* `resource-group`: Show, assign or unassign the resource group of an organization-owned collection.
 * `update`: Update a collection's metadata on the Hub.
 * `update-item`: Update an item in a collection.
 
@@ -928,12 +928,12 @@ Learn more
 
 ### `hf collections resource-group`
 
-Manage the resource group of an organization-owned collection.
+Show, assign or unassign the resource group of an organization-owned collection.
 
 **Usage**:
 
 ```console
-$ hf collections resource-group [OPTIONS] COMMAND [ARGS]...
+$ hf collections resource-group COLLECTION_SLUG [OPTIONS] | COMMAND [ARGS]...
 ```
 
 **Options**:
@@ -942,44 +942,18 @@ $ hf collections resource-group [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
-* `clear`: Remove a collection from its current resource group.
-* `set`: Assign a collection to a resource group.
+* `assign`: Assign a collection to a resource group (moves it if it is already in another one).
+* `show`: Show the resource group a collection is assigned to.
+* `unassign`: Remove a collection from its resource group.
 
-#### `hf collections resource-group clear`
+#### `hf collections resource-group assign`
 
-Remove a collection from its current resource group.
-
-**Usage**:
-
-```console
-$ hf collections resource-group clear [OPTIONS] COLLECTION_SLUG
-```
-
-**Arguments**:
-
-* `COLLECTION_SLUG`: The collection slug (e.g., 'my-org/collection-slug').  [required]
-
-**Options**:
-
-* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--help`: Show this message and exit.
-
-Examples
-  $ hf collections resource-group clear my-org/my-collection
-
-Learn more
-  Use `hf <command> --help` for more information about a command.
-  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
-
-
-#### `hf collections resource-group set`
-
-Assign a collection to a resource group.
+Assign a collection to a resource group (moves it if it is already in another one).
 
 **Usage**:
 
 ```console
-$ hf collections resource-group set [OPTIONS] COLLECTION_SLUG RESOURCE_GROUP_ID
+$ hf collections resource-group assign [OPTIONS] COLLECTION_SLUG RESOURCE_GROUP_ID
 ```
 
 **Arguments**:
@@ -993,7 +967,62 @@ $ hf collections resource-group set [OPTIONS] COLLECTION_SLUG RESOURCE_GROUP_ID
 * `--help`: Show this message and exit.
 
 Examples
-  $ hf collections resource-group set my-org/my-collection 66980ecfc1e12a49c8f0e42d
+  $ hf collections resource-group assign my-org/my-collection-64f9a55bb3115b4f513ec026 66980ecfc1e12a49c8f0e42d
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+#### `hf collections resource-group show`
+
+Show the resource group a collection is assigned to. Default command: `hf collections resource-group <slug>`.
+
+**Usage**:
+
+```console
+$ hf collections resource-group show [OPTIONS] COLLECTION_SLUG
+```
+
+**Arguments**:
+
+* `COLLECTION_SLUG`: The collection slug (e.g., 'my-org/collection-slug').  [required]
+
+**Options**:
+
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf collections resource-group my-org/my-collection-64f9a55bb3115b4f513ec026
+  $ hf collections resource-group show my-org/my-collection-64f9a55bb3115b4f513ec026 --json
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+#### `hf collections resource-group unassign`
+
+Remove a collection from its resource group.
+
+**Usage**:
+
+```console
+$ hf collections resource-group unassign [OPTIONS] COLLECTION_SLUG
+```
+
+**Arguments**:
+
+* `COLLECTION_SLUG`: The collection slug (e.g., 'my-org/collection-slug').  [required]
+
+**Options**:
+
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf collections resource-group unassign my-org/my-collection-64f9a55bb3115b4f513ec026
 
 Learn more
   Use `hf <command> --help` for more information about a command.

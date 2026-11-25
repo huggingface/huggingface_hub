@@ -273,6 +273,7 @@ _SUBMOD_ATTRS = {
         "get_bucket_file_metadata",
         "get_bucket_paths_info",
         "get_collection",
+        "get_collection_resource_group",
         "get_dataset_leaderboard",
         "get_dataset_tags",
         "get_discussion_details",
@@ -1027,6 +1028,7 @@ __all__ = [
     "get_bucket_paths_info",
     "get_cached_repo_tree",
     "get_collection",
+    "get_collection_resource_group",
     "get_dataset_leaderboard",
     "get_dataset_tags",
     "get_discussion_details",
@@ -1495,6 +1497,7 @@ if TYPE_CHECKING:  # pragma: no cover
         get_bucket_file_metadata,  # noqa: F401
         get_bucket_paths_info,  # noqa: F401
         get_collection,  # noqa: F401
+        get_collection_resource_group,  # noqa: F401
         get_dataset_leaderboard,  # noqa: F401
         get_dataset_tags,  # noqa: F401
         get_discussion_details,  # noqa: F401

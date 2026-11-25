@@ -335,6 +335,34 @@ class TestHfApiEndpoints:
         with pytest.raises(HfHubHTTPError):
             api.get_repo_resource_group("my-org/my-repo")
 
+    def test_get_collection_resource_group(self, api: HfApi, mocker):
+        get = mocker.patch("huggingface_hub.hf_api.get_session").return_value.get
+        get.return_value = httpx2.Response(
+            200,
+            json={"id": "66980ecfc1e12a49c8f0e42d", "name": "research", "numUsers": 4},
+            request=httpx2.Request("GET", "https://huggingface.co"),
+        )
+        group = api.get_collection_resource_group("my-org/my-collection-64f9a55bb3115b4f513ec026", token=OTHER_TOKEN)
+        get.assert_called_once_with(
+            f"{api.endpoint}/api/collections/my-org/my-collection-64f9a55bb3115b4f513ec026/resource-group",
+            headers=api._build_hf_headers(token=OTHER_TOKEN),
+        )
+        assert group == ResourceGroupInfo(id="66980ecfc1e12a49c8f0e42d", name="research", numUsers=4)
+
+    @pytest.mark.parametrize(
+        "server_message, not_assigned",
+        [("This collection is not in any resource group", True), ("Collection not found", False)],
+    )
+    def test_get_collection_resource_group_404(self, api: HfApi, mocker, server_message, not_assigned):
+        mocker.patch("huggingface_hub.hf_api.get_session").return_value.get.return_value = httpx2.Response(
+            404, json={"error": server_message}, request=httpx2.Request("GET", "https://huggingface.co")
+        )
+        if not_assigned:
+            assert api.get_collection_resource_group("my-org/my-collection") is None
+        else:
+            with pytest.raises(HfHubHTTPError):
+                api.get_collection_resource_group("my-org/my-collection")
+
     def test_update_repo_resource_group_invalid_type(self, api: HfApi):
         with pytest.raises(ValueError, match="Invalid repo type"):
             api.update_repo_resource_group("my-org/my-repo", None, repo_type="kernel")

@@ -1966,6 +1966,50 @@ class TestRepoResourceGroupCommand:
         )
 
 
+class TestCollectionResourceGroupCommand:
+    slug = "my-org/my-collection-64f9a55bb3115b4f513ec026"
+    group_id = "66980ecfc1e12a49c8f0e42d"
+
+    @pytest.mark.parametrize("show", [[], ["show"]])
+    def test_show(self, runner: CliRunner, show: list[str]) -> None:
+        with patch("huggingface_hub.cli.collections.get_hf_api") as api_cls:
+            api_cls.return_value.get_collection_resource_group.return_value = ResourceGroupInfo(
+                id=self.group_id, name="research", numUsers=4
+            )
+            result = runner.invoke(app, ["collections", "resource-group", *show, self.slug, "--json"])
+        assert result.exit_code == 0, result.output
+        api_cls.return_value.get_collection_resource_group.assert_called_once_with(self.slug)
+        assert json.loads(result.stdout) == {
+            "resource_group_id": self.group_id,
+            "name": "research",
+            "num_users": 4,
+            "slug": self.slug,
+        }
+
+    def test_show_not_assigned(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.collections.get_hf_api") as api_cls:
+            api_cls.return_value.get_collection_resource_group.return_value = None
+            result = runner.invoke(app, ["collections", "resource-group", self.slug, "--json"])
+        assert result.exit_code == 0, result.output
+        assert json.loads(result.stdout) == {"resource_group_id": None, "slug": self.slug}
+
+    def test_assign(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.collections.get_hf_api") as api_cls:
+            result = runner.invoke(app, ["collections", "resource-group", "assign", self.slug, self.group_id])
+        assert result.exit_code == 0, result.output
+        api_cls.return_value.update_collection_resource_group.assert_called_once_with(
+            self.slug, resource_group_id=self.group_id
+        )
+
+    def test_unassign(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.collections.get_hf_api") as api_cls:
+            result = runner.invoke(app, ["collections", "resource-group", "unassign", self.slug])
+        assert result.exit_code == 0, result.output
+        api_cls.return_value.update_collection_resource_group.assert_called_once_with(
+            self.slug, resource_group_id=None
+        )
+
+
 class TestRepoListCommand:
     def test_repo_list(self, runner: CliRunner, repo_factory: RepoFactory) -> None:
         """Integration test: create repos, check `hf repos ls` with search + type filter."""

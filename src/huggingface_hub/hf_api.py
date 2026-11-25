@@ -10482,6 +10482,38 @@ class HfApi:
         hf_raise_for_status(r)
         return Collection(**{**r.json()["data"], "endpoint": self.endpoint})
 
+    def get_collection_resource_group(
+        self, collection_slug: str, *, token: bool | str | None = None
+    ) -> ResourceGroupInfo | None:
+        """Get the resource group an organization-owned collection is assigned to.
+
+        Args:
+            collection_slug (`str`):
+                Slug of the collection. Example: `"my-org/iccv-2023-64f9a55bb3115b4f513ec026"`.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Returns:
+            [`ResourceGroupInfo`] or `None`: the resource group of the collection, or `None` if it is not assigned to
+            any group.
+
+        Example:
+
+        ```py
+        >>> from huggingface_hub import get_collection_resource_group
+        >>> get_collection_resource_group("my-org/iccv-2023-64f9a55bb3115b4f513ec026")
+        ResourceGroupInfo(id='66980ecfc1e12a49c8f0e42d', name='research', num_users=4)
+        ```
+        """
+        r = get_session().get(
+            f"{self.endpoint}/api/collections/{collection_slug}/resource-group",
+            headers=self._build_hf_headers(token=token),
+        )
+        return _parse_resource_group_response(r)
+
     def update_collection_resource_group(
         self,
         collection_slug: str,
@@ -10489,7 +10521,7 @@ class HfApi:
         *,
         token: bool | str | None = None,
     ) -> None:
-        """Assign a collection to a resource group, or remove it from any resource group.
+        """Assign a collection to a resource group (or move it to another one), or remove it from any resource group.
 
         Only valid for organization-owned collections.
 
@@ -15787,6 +15819,7 @@ get_collection = api.get_collection
 list_collections = api.list_collections
 create_collection = api.create_collection
 update_collection_metadata = api.update_collection_metadata
+get_collection_resource_group = api.get_collection_resource_group
 update_collection_resource_group = api.update_collection_resource_group
 delete_collection = api.delete_collection
 add_collection_item = api.add_collection_item
