@@ -31,7 +31,7 @@ from huggingface_hub.cli.inference_endpoints import _build_custom_image
 from huggingface_hub.cli.jobs import _get_jobs_stats_rows, _parse_and_sync_job_volumes, _parse_namespace_from_job_id
 from huggingface_hub.cli.skills import build_skill_md
 from huggingface_hub.cli.upload import _resolve_upload_paths, upload
-from huggingface_hub.errors import CLIError, DeviceCodeError, HfHubHTTPError, HfUriError, RevisionNotFoundError
+from huggingface_hub.errors import CLIError, DeviceCodeError, HfUriError, RevisionNotFoundError
 from huggingface_hub.hf_api import ModelInfo
 from huggingface_hub.utils import (
     CachedFileInfo,
@@ -43,7 +43,7 @@ from huggingface_hub.utils import (
 from huggingface_hub.utils._verification import FolderVerification
 
 from .conftest import RepoFactory
-from .testing_constants import DUMMY_MODEL_ID, TOKEN
+from .testing_constants import DUMMY_MODEL_ID, ENTERPRISE_ORG, ENTERPRISE_RESOURCE_GROUP_ID, ENTERPRISE_TOKEN, TOKEN
 from .testing_utils import repo_name
 
 
@@ -1914,52 +1914,48 @@ class TestRepoSettingsCommand:
 
 
 class TestResourceGroupsCommand:
-    group_id = "66980ecfc1e12a49c8f0e42d"
+    """Real tests against hub-ci: ENTERPRISE_ORG has seeded resource groups and ENTERPRISE_TOKEN is an org admin."""
 
-    @pytest.mark.parametrize("item_type", ["model", "dataset", "space", "bucket", "container"])
-    def test_assign_repos(self, runner: CliRunner, item_type: str) -> None:
-        with patch("huggingface_hub.cli.resource_groups.get_hf_api") as api_cls:
+    def test_assign_unassign(self, runner: CliRunner, repo_factory: RepoFactory) -> None:
+        api = HfApi(token=ENTERPRISE_TOKEN)
+        repo_a = repo_factory("dataset", repo_id=f"{ENTERPRISE_ORG}/{repo_name()}", token=ENTERPRISE_TOKEN).repo_id
+        repo_b = repo_factory("dataset", repo_id=f"{ENTERPRISE_ORG}/{repo_name()}", token=ENTERPRISE_TOKEN).repo_id
+
+        def current_group(repo_id: str) -> str | None:
+            info = api.dataset_info(repo_id, expand=["resourceGroup"])
+            return info.resource_group["id"] if info.resource_group else None
+
+        with patch("huggingface_hub.cli.resource_groups.get_hf_api", return_value=api):
             result = runner.invoke(
                 app,
-                ["resource-groups", "assign", self.group_id, "my-org/a", "my-org/b", "--type", item_type, "--json"],
+                [
+                    "resource-groups",
+                    "assign",
+                    ENTERPRISE_RESOURCE_GROUP_ID,
+                    repo_a,
+                    repo_b,
+                    "--type",
+                    "dataset",
+                    "--json",
+                ],
             )
         assert result.exit_code == 0, result.output
-        api = api_cls.return_value
-        assert [c.args for c in api.update_repo_resource_group.call_args_list] == [
-            ("my-org/a", self.group_id),
-            ("my-org/b", self.group_id),
-        ]
-        assert all(c.kwargs == {"repo_type": item_type} for c in api.update_repo_resource_group.call_args_list)
         assert [json.loads(line) for line in result.stdout.splitlines()] == [
-            {"item": "my-org/a", "type": item_type, "resource_group_id": self.group_id},
-            {"item": "my-org/b", "type": item_type, "resource_group_id": self.group_id},
+            {"item": repo_a, "type": "dataset", "resource_group_id": ENTERPRISE_RESOURCE_GROUP_ID},
+            {"item": repo_b, "type": "dataset", "resource_group_id": ENTERPRISE_RESOURCE_GROUP_ID},
         ]
+        assert current_group(repo_a) == ENTERPRISE_RESOURCE_GROUP_ID
+        assert current_group(repo_b) == ENTERPRISE_RESOURCE_GROUP_ID
 
-    def test_unassign_collection_and_blog(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.resource_groups.get_hf_api") as api_cls:
-            result = runner.invoke(
-                app, ["resource-groups", "unassign", "my-org/col-64f9a55bb3115b4f513ec026", "--type", "collection"]
-            )
-            assert result.exit_code == 0, result.output
-            result = runner.invoke(app, ["resource-groups", "unassign", "my-org/my-post", "--type", "blog"])
-            assert result.exit_code == 0, result.output
-        api = api_cls.return_value
-        api.update_collection_resource_group.assert_called_once_with("my-org/col-64f9a55bb3115b4f513ec026", None)
-        api.update_blog_resource_group.assert_called_once_with("my-org/my-post", None)
-        api.update_repo_resource_group.assert_not_called()
-
-    def test_continue_on_failure(self, runner: CliRunner) -> None:
-        response = httpx2.Response(403, request=httpx2.Request("POST", "https://huggingface.co"))
-        with patch("huggingface_hub.cli.resource_groups.get_hf_api") as api_cls:
-            api_cls.return_value.update_repo_resource_group.side_effect = [
-                HfHubHTTPError("403 Forbidden: not allowed", response=response),
-                None,
-            ]
-            result = runner.invoke(app, ["resource-groups", "unassign", "my-org/a", "my-org/b", "--json"])
+        # repo_a is unassigned twice: the second one fails, the command continues with repo_b and exits with 1
+        api.unassign_resource_group_item(repo_a, item_type="dataset")
+        with patch("huggingface_hub.cli.resource_groups.get_hf_api", return_value=api):
+            result = runner.invoke(app, ["resource-groups", "unassign", repo_a, repo_b, "--type", "dataset", "--json"])
         assert result.exit_code == 1
-        assert api_cls.return_value.update_repo_resource_group.call_count == 2
-        assert "my-org/a: 403 Forbidden: not allowed" in result.stderr
-        assert json.loads(result.stdout) == {"item": "my-org/b", "type": "model", "resource_group_id": None}
+        assert f"{repo_a}: " in result.stderr
+        assert "not in a resource group" in result.stderr
+        assert json.loads(result.stdout) == {"item": repo_b, "type": "dataset", "resource_group_id": None}
+        assert current_group(repo_b) is None
 
     def test_assign_invalid_group_id(self, runner: CliRunner) -> None:
         with patch("huggingface_hub.cli.resource_groups.get_hf_api") as api_cls:

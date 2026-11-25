@@ -105,12 +105,10 @@ def _update_items(
     num_failed = 0
     for item in items:
         try:
-            if item_type == ResourceGroupItemType.collection:
-                api.update_collection_resource_group(item, resource_group_id)
-            elif item_type == ResourceGroupItemType.blog:
-                api.update_blog_resource_group(item, resource_group_id)
+            if resource_group_id is None:
+                api.unassign_resource_group_item(item, item_type=item_type.value)
             else:
-                api.update_repo_resource_group(item, resource_group_id, repo_type=item_type.value)
+                api.assign_resource_group_item(resource_group_id, item, item_type=item_type.value)
         except (HfHubHTTPError, HFValidationError) as error:
             num_failed += 1
             out.error(f"{item}: {format_known_exception(error) or error}")
