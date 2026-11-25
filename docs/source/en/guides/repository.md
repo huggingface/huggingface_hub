@@ -299,15 +299,17 @@ Or via CLI:
 
 ### Change a repository's resource group
 
-Use [`update_repo_resource_group`] to assign an existing organization-owned repository to a group. The group ID is the last part of the group's URL in your organization's settings. Pass `None` to remove the assignment.
+Use [`update_repo_resource_group`] to assign an existing organization-owned repository to a group, or to move it to another one. The group ID is the last part of the group's URL in your organization's settings. Pass `None` to remove the assignment. [`get_repo_resource_group`] returns the current group, or `None` if the repository is not assigned to any.
 
 ```py
->>> from huggingface_hub import update_repo_resource_group
+>>> from huggingface_hub import get_repo_resource_group, update_repo_resource_group
 >>> update_repo_resource_group("my-org/my-data", "66980ecfc1e12a49c8f0e42d", repo_type="dataset")
+>>> get_repo_resource_group("my-org/my-data", repo_type="dataset")
+ResourceGroupInfo(id='66980ecfc1e12a49c8f0e42d', name='research', num_users=4)
 >>> update_repo_resource_group("my-org/my-data", None, repo_type="dataset")
 ```
 
-The corresponding CLI commands are `hf repos resource-group set` and `hf repos resource-group clear`.
+The corresponding CLI commands are `hf repos resource-group <repo_id>`, `hf repos resource-group assign` and `hf repos resource-group unassign`.
 
 ### Setup gated access
 

@@ -37,6 +37,7 @@ from ._cli_utils import (
     SecretsOpt,
     TokenOpt,
     VolumesOpt,
+    default_command_group_factory,
     env_map_to_key_value_list,
     get_hf_api,
     parse_env_map,
@@ -100,7 +101,10 @@ SpaceSleepTimeOpt = Annotated[
 
 tag_cli = typer_factory(help="Manage tags for a repo on the Hub.")
 branch_cli = typer_factory(help="Manage branches for a repo on the Hub.")
-resource_group_cli = typer_factory(help="Manage the resource group of an organization-owned repo.")
+resource_group_cli = typer_factory(
+    help="Show, assign or unassign the resource group of an organization-owned repo.",
+    cls=default_command_group_factory("show", metavar="REPO_ID"),
+)
 repos_cli.add_group(tag_cli, name="tag")
 repos_cli.add_group(branch_cli, name="branch")
 repos_cli.add_group(resource_group_cli, name="resource-group")
@@ -496,26 +500,52 @@ repos_cli.command(
 )(make_cp("repos"))
 
 
-@resource_group_cli.command("set", examples=["hf repos resource-group set my-org/my-model 66980ecfc1e12a49c8f0e42d"])
-def resource_group_set(
+@resource_group_cli.command(
+    "show",
+    examples=["hf repos resource-group my-org/my-model", "hf repos resource-group show my-org/my-data --type dataset"],
+)
+def resource_group_show(
+    repo_id: RepoIdArg,
+    repo_type: ResourceGroupRepoTypeOpt = "model",
+    token: TokenOpt = None,
+) -> None:
+    """Show the resource group a repo is assigned to. Default command: `hf repos resource-group <repo_id>`."""
+    api = get_hf_api(token=token)
+    group = api.get_repo_resource_group(repo_id=repo_id, repo_type=repo_type)
+    if group is None:
+        out.result("Repo is not assigned to any resource group", resource_group_id=None, repo_id=repo_id)
+        return
+    out.result(
+        "Repo resource group",
+        resource_group_id=group.id,
+        name=group.name,
+        num_users=group.num_users,
+        repo_id=repo_id,
+    )
+
+
+@resource_group_cli.command(
+    "assign", examples=["hf repos resource-group assign my-org/my-model 66980ecfc1e12a49c8f0e42d"]
+)
+def resource_group_assign(
     repo_id: RepoIdArg,
     resource_group_id: Annotated[str, Argument(help="The 24-character hexadecimal ID of the resource group.")],
     repo_type: ResourceGroupRepoTypeOpt = "model",
     token: TokenOpt = None,
 ) -> None:
-    """Assign a repo to a resource group."""
+    """Assign a repo to a resource group (moves it if it is already in another one)."""
     api = get_hf_api(token=token)
     api.update_repo_resource_group(repo_id=repo_id, resource_group_id=resource_group_id, repo_type=repo_type)
     out.result("Repo assigned to resource group", repo_id=repo_id, resource_group_id=resource_group_id)
 
 
-@resource_group_cli.command("clear", examples=["hf repos resource-group clear my-org/my-data --type dataset"])
-def resource_group_clear(
+@resource_group_cli.command("unassign", examples=["hf repos resource-group unassign my-org/my-data --type dataset"])
+def resource_group_unassign(
     repo_id: RepoIdArg,
     repo_type: ResourceGroupRepoTypeOpt = "model",
     token: TokenOpt = None,
 ) -> None:
-    """Remove a repo from its current resource group."""
+    """Remove a repo from its resource group."""
     api = get_hf_api(token=token)
     api.update_repo_resource_group(repo_id=repo_id, resource_group_id=None, repo_type=repo_type)
     out.result("Repo removed from resource group", repo_id=repo_id, resource_group_id=None)

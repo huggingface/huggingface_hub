@@ -32,7 +32,7 @@ from huggingface_hub.cli.jobs import _get_jobs_stats_rows, _parse_and_sync_job_v
 from huggingface_hub.cli.skills import build_skill_md
 from huggingface_hub.cli.upload import _resolve_upload_paths, upload
 from huggingface_hub.errors import CLIError, DeviceCodeError, HfUriError, RevisionNotFoundError
-from huggingface_hub.hf_api import ModelInfo
+from huggingface_hub.hf_api import ModelInfo, ResourceGroupInfo
 from huggingface_hub.utils import (
     CachedFileInfo,
     CachedRepoInfo,
@@ -1914,20 +1914,50 @@ class TestRepoSettingsCommand:
 
 
 class TestRepoResourceGroupCommand:
-    def test_set(self, runner: CliRunner) -> None:
-        group_id = "66980ecfc1e12a49c8f0e42d"
-        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
-            result = runner.invoke(app, ["repos", "resource-group", "set", "my-org/my-model", group_id, "--json"])
-        assert result.exit_code == 0, result.output
-        api_cls.return_value.update_repo_resource_group.assert_called_once_with(
-            repo_id="my-org/my-model", resource_group_id=group_id, repo_type="model"
-        )
-        assert json.loads(result.stdout) == {"repo_id": "my-org/my-model", "resource_group_id": group_id}
+    group_id = "66980ecfc1e12a49c8f0e42d"
 
-    def test_clear(self, runner: CliRunner) -> None:
+    @pytest.mark.parametrize(
+        "args, repo_id, repo_type",
+        [
+            (["my-org/my-model"], "my-org/my-model", "model"),
+            (["my-org/my-data", "--type", "dataset"], "my-org/my-data", "dataset"),
+            (["--type", "bucket", "my-org/my-data"], "my-org/my-data", "bucket"),
+            (["spaces/my-org/my-space"], "my-org/my-space", "space"),
+            (["show", "my-org/my-model"], "my-org/my-model", "model"),
+        ],
+    )
+    def test_show(self, runner: CliRunner, args: list[str], repo_id: str, repo_type: str) -> None:
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
+            api_cls.return_value.get_repo_resource_group.return_value = ResourceGroupInfo(
+                id=self.group_id, name="research", numUsers=4
+            )
+            result = runner.invoke(app, ["repos", "resource-group", *args, "--json"])
+        assert result.exit_code == 0, result.output
+        api_cls.return_value.get_repo_resource_group.assert_called_once_with(repo_id=repo_id, repo_type=repo_type)
+        assert json.loads(result.stdout)["resource_group_id"] == self.group_id
+
+    def test_show_not_assigned(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
+            api_cls.return_value.get_repo_resource_group.return_value = None
+            result = runner.invoke(app, ["repos", "resource-group", "my-org/my-model", "--json"])
+        assert result.exit_code == 0, result.output
+        assert json.loads(result.stdout) == {"resource_group_id": None, "repo_id": "my-org/my-model"}
+
+    def test_assign(self, runner: CliRunner) -> None:
         with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
             result = runner.invoke(
-                app, ["repos", "resource-group", "clear", "my-org/data", "--type", "bucket", "--token", "my-token"]
+                app, ["repos", "resource-group", "assign", "my-org/my-model", self.group_id, "--json"]
+            )
+        assert result.exit_code == 0, result.output
+        api_cls.return_value.update_repo_resource_group.assert_called_once_with(
+            repo_id="my-org/my-model", resource_group_id=self.group_id, repo_type="model"
+        )
+        assert json.loads(result.stdout) == {"repo_id": "my-org/my-model", "resource_group_id": self.group_id}
+
+    def test_unassign(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
+            result = runner.invoke(
+                app, ["repos", "resource-group", "unassign", "my-org/data", "--type", "bucket", "--token", "my-token"]
             )
         assert result.exit_code == 0, result.output
         api_cls.assert_called_once_with(token="my-token")

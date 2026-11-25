@@ -125,6 +125,10 @@ models = hf_api.list_models()
 
 [[autodoc]] huggingface_hub.hf_api.RepoUrl
 
+### ResourceGroupInfo
+
+[[autodoc]] huggingface_hub.hf_api.ResourceGroupInfo
+
 ### SafetensorsRepoMetadata
 
 [[autodoc]] huggingface_hub.utils.SafetensorsRepoMetadata

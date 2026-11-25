@@ -3534,7 +3534,7 @@ $ hf repos [OPTIONS] COMMAND [ARGS]...
 * `duplicate`: Duplicate a repo on the Hub (model, dataset, or Space).
 * `list`: List all repos (models, datasets, spaces, buckets) with storage info. [alias: ls]
 * `move`: Move a repository from a namespace to another namespace.
-* `resource-group`: Manage the resource group of an organization-owned repo.
+* `resource-group`: Show, assign or unassign the resource group of an organization-owned repo.
 * `settings`: Update the settings of a repository.
 * `tag`: Manage tags for a repo on the Hub.
 
@@ -3877,12 +3877,12 @@ Learn more
 
 ### `hf repos resource-group`
 
-Manage the resource group of an organization-owned repo.
+Show, assign or unassign the resource group of an organization-owned repo.
 
 **Usage**:
 
 ```console
-$ hf repos resource-group [OPTIONS] COMMAND [ARGS]...
+$ hf repos resource-group REPO_ID [OPTIONS] | COMMAND [ARGS]...
 ```
 
 **Options**:
@@ -3891,45 +3891,18 @@ $ hf repos resource-group [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
-* `clear`: Remove a repo from its current resource group.
-* `set`: Assign a repo to a resource group.
+* `assign`: Assign a repo to a resource group (moves it if it is already in another one).
+* `show`: Show the resource group a repo is assigned to.
+* `unassign`: Remove a repo from its resource group.
 
-#### `hf repos resource-group clear`
+#### `hf repos resource-group assign`
 
-Remove a repo from its current resource group.
-
-**Usage**:
-
-```console
-$ hf repos resource-group clear [OPTIONS] REPO_ID
-```
-
-**Arguments**:
-
-* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
-
-**Options**:
-
-* `--type, --repo-type [model|dataset|space|bucket|container]`: The type of repository.  [default: model]
-* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
-* `--help`: Show this message and exit.
-
-Examples
-  $ hf repos resource-group clear my-org/my-data --type dataset
-
-Learn more
-  Use `hf <command> --help` for more information about a command.
-  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
-
-
-#### `hf repos resource-group set`
-
-Assign a repo to a resource group.
+Assign a repo to a resource group (moves it if it is already in another one).
 
 **Usage**:
 
 ```console
-$ hf repos resource-group set [OPTIONS] REPO_ID RESOURCE_GROUP_ID
+$ hf repos resource-group assign [OPTIONS] REPO_ID RESOURCE_GROUP_ID
 ```
 
 **Arguments**:
@@ -3944,7 +3917,64 @@ $ hf repos resource-group set [OPTIONS] REPO_ID RESOURCE_GROUP_ID
 * `--help`: Show this message and exit.
 
 Examples
-  $ hf repos resource-group set my-org/my-model 66980ecfc1e12a49c8f0e42d
+  $ hf repos resource-group assign my-org/my-model 66980ecfc1e12a49c8f0e42d
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+#### `hf repos resource-group show`
+
+Show the resource group a repo is assigned to. Default command: `hf repos resource-group <repo_id>`.
+
+**Usage**:
+
+```console
+$ hf repos resource-group show [OPTIONS] REPO_ID
+```
+
+**Arguments**:
+
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
+
+**Options**:
+
+* `--type, --repo-type [model|dataset|space|bucket|container]`: The type of repository.  [default: model]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf repos resource-group my-org/my-model
+  $ hf repos resource-group show my-org/my-data --type dataset
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+#### `hf repos resource-group unassign`
+
+Remove a repo from its resource group.
+
+**Usage**:
+
+```console
+$ hf repos resource-group unassign [OPTIONS] REPO_ID
+```
+
+**Arguments**:
+
+* `REPO_ID`: The ID of the repo (e.g. `username/repo-name` or `spaces/username/repo-name`).  [required]
+
+**Options**:
+
+* `--type, --repo-type [model|dataset|space|bucket|container]`: The type of repository.  [default: model]
+* `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf repos resource-group unassign my-org/my-data --type dataset
 
 Learn more
   Use `hf <command> --help` for more information about a command.

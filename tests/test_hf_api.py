@@ -28,6 +28,7 @@ from typing import Optional, Union, get_args
 from unittest.mock import Mock, patch
 from urllib.parse import urlparse
 
+import httpx2
 import pytest
 
 from huggingface_hub import HfApi, SpaceHardware, SpaceStage, constants
@@ -68,6 +69,7 @@ from huggingface_hub.hf_api import (
     PaperInfo,
     RepoSibling,
     RepoUrl,
+    ResourceGroupInfo,
     SpaceInfo,
     SpaceRuntime,
     SpaceSearchResult,
@@ -290,6 +292,41 @@ class TestHfApiEndpoints:
                 headers=api._build_hf_headers(token=OTHER_TOKEN),
                 json={"resourceGroupId": group_id},
             )
+
+    @pytest.mark.parametrize("repo_type", [None, "dataset", "bucket"])
+    def test_get_repo_resource_group(self, api: HfApi, mocker, repo_type):
+        get = mocker.patch("huggingface_hub.hf_api.get_session").return_value.get
+        get.return_value = httpx2.Response(
+            200,
+            json={"id": "66980ecfc1e12a49c8f0e42d", "name": "research", "numUsers": 4},
+            request=httpx2.Request("GET", "https://huggingface.co"),
+        )
+        group = api.get_repo_resource_group("my-org/my-repo", repo_type=repo_type, token=OTHER_TOKEN)
+        get.assert_called_once_with(
+            f"{api.endpoint}/api/{repo_type or 'model'}s/my-org/my-repo/resource-group",
+            headers=api._build_hf_headers(token=OTHER_TOKEN),
+        )
+        assert group == ResourceGroupInfo(id="66980ecfc1e12a49c8f0e42d", name="research", numUsers=4)
+        assert group.num_users == 4
+
+    def test_get_repo_resource_group_not_assigned(self, api: HfApi, mocker):
+        # The Hub answers 404 without error code when the repo has no resource group
+        mocker.patch("huggingface_hub.hf_api.get_session").return_value.get.return_value = httpx2.Response(
+            404,
+            json={"error": "Resource group not found"},
+            request=httpx2.Request("GET", "https://huggingface.co"),
+        )
+        assert api.get_repo_resource_group("my-org/my-repo") is None
+
+    def test_get_repo_resource_group_repo_not_found(self, api: HfApi, mocker):
+        mocker.patch("huggingface_hub.hf_api.get_session").return_value.get.return_value = httpx2.Response(
+            404,
+            headers={"X-Error-Code": "RepoNotFound"},
+            json={"error": "Repository not found"},
+            request=httpx2.Request("GET", "https://huggingface.co"),
+        )
+        with pytest.raises(RepositoryNotFoundError):
+            api.get_repo_resource_group("my-org/my-repo")
 
     def test_update_repo_resource_group_invalid_type(self, api: HfApi):
         with pytest.raises(ValueError, match="Invalid repo type"):
