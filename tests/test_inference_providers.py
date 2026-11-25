@@ -2289,6 +2289,53 @@ class TestWavespeedAIProvider:
         ):
             helper.get_response(submit, request_params)
 
+    @pytest.mark.parametrize("final_status", ["completed", "cancelled"])
+    def test_get_response_terminal_on_last_poll(self, mocker, final_status):
+        """Test terminal status reached on the last allowed poll."""
+        helper = WavespeedAITextToImageTask()
+        request_params = RequestParameters(
+            url="https://router.huggingface.co/wavespeed/api/v3/wavespeed-ai/flux-schnell",
+            task="text-to-image",
+            model="wavespeed-ai/flux-schnell",
+            json={},
+            data=None,
+            headers={"authorization": "Bearer hf_test_token"},
+        )
+        submit = {
+            "data": {
+                "id": "task-123",
+                "urls": {"get": "https://api.wavespeed.ai/api/v3/predictions/task-123/result"},
+            }
+        }
+        polls = []
+        for status in ["created", "processing", final_status]:
+            poll_response = MagicMock()
+            poll_response.json.return_value = {
+                "data": {"status": status, "outputs": ["https://api.wavespeed.ai/output.png"]}
+            }
+            polls.append(poll_response)
+        output_response = MagicMock(content=b"fake_image_bytes")
+
+        sleep_mock = mocker.patch("huggingface_hub.inference._providers.wavespeed.time.sleep")
+        mocker.patch("huggingface_hub.inference._providers.wavespeed.hf_raise_for_status")
+        mocker.patch("huggingface_hub.inference._providers.wavespeed._MAX_POLL_ATTEMPTS", 3)
+        session = mocker.patch("huggingface_hub.inference._providers.wavespeed.get_session").return_value
+        session.get.side_effect = [*polls, output_response]
+
+        if final_status == "completed":
+            assert helper.get_response(submit, request_params) == b"fake_image_bytes"
+            assert session.get.call_count == 4
+            assert session.get.call_args.args == ("https://api.wavespeed.ai/output.png",)
+        else:
+            with pytest.raises(ValueError, match=r"^WaveSpeed AI task cancelled$"):
+                helper.get_response(submit, request_params)
+            assert session.get.call_count == 3
+
+        assert sleep_mock.call_count == 3
+        for poll_call in session.get.call_args_list[:3]:
+            assert poll_call.args == ("https://router.huggingface.co/wavespeed/api/v3/predictions/task-123/result",)
+            assert poll_call.kwargs == {"headers": request_params.headers}
+
 
 class TestZaiProvider:
     def test_prepare_route(self):
