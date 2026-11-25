@@ -15,6 +15,7 @@ from huggingface_hub import constants
 from huggingface_hub.constants import ENDPOINT
 from huggingface_hub.errors import (
     BucketNotFoundError,
+    EgressLimitError,
     HfHubHTTPError,
     OfflineModeIsEnabled,
     RepositoryNotFoundError,
@@ -621,6 +622,23 @@ class TestBucketNotFoundError:
         response = self._make_response("https://huggingface.co/api/models/namespace/name")
         with pytest.raises(RepositoryNotFoundError):
             hf_raise_for_status(response)
+
+
+class TestEgressLimitError:
+    SERVER_MESSAGE = "You've downloaded 10 TB over the last 30 days. See https://huggingface.co/pricing"
+
+    @pytest.mark.parametrize("method", ["GET", "HEAD"])
+    def test_egress_limit_reached(self, method: str):
+        url = "https://huggingface.co/user/repo/resolve/main/model.safetensors"
+        response = httpx2.Response(
+            402,
+            headers={"X-Error-Code": "EgressLimitReached", "X-Error-Message": self.SERVER_MESSAGE},
+            request=httpx2.Request(method, url),
+        )
+        with pytest.raises(EgressLimitError) as exc_info:
+            hf_raise_for_status(response)
+        assert f"Egress limit reached for url: {url}." in str(exc_info.value)
+        assert self.SERVER_MESSAGE in str(exc_info.value)
 
 
 class TestRateLimitErrorMessage:
