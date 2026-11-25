@@ -8,8 +8,12 @@ on:
 env:
   HF_TOKEN: ${{ secrets.HUGGINGFACE_PRODUCTION_USER_TOKEN }}
 
+permissions: {}
+
 jobs:
   build:
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
 
     steps:
