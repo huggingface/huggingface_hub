@@ -4973,7 +4973,7 @@ class HfApi:
         ```
         """
         if repo_type is None:
-            repo_type = constants.REPO_TYPE_MODEL
+            repo_type = "model"
         if repo_type not in get_args(ResourceGroupRepoType_T):
             raise ValueError(f"Invalid repo type, must be one of {get_args(ResourceGroupRepoType_T)}")
         r = get_session().post(
