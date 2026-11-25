@@ -543,10 +543,18 @@ Inside the job container, the following environment variables are automatically 
 
 | Variable | Description |
 |----------|-------------|
-| `JOB_ID` | The unique identifier of the current job. Use this to reference the job programmatically, for example to store outputs in a dataset with a unique name. |
-| `ACCELERATOR` | The type of device: `cpu` for CPU flavors, `gpu` for GPU flavors. |
+| `HF_JOB_ID` | The unique identifier of the current job. Use this to reference the job programmatically, for example to store outputs in a dataset with a unique name. |
+| `HF_JOB_OWNER` | The user or organization the job runs under. |
+| `HF_JOB_FLAVOR` | The hardware flavor of the job (e.g., `a10g-small`). |
+| `HF_JOB_GPU_COUNT` | The number of GPUs available to the job: `0` on CPU and Neuron flavors. |
+| `HF_JOB_DISK_GB` | The disk space available to the job, in GB (e.g., `110`). Unset when the flavor has no disk limit. |
+| `HF_JOB_TIMEOUT` | The job's timeout in seconds, set with `timeout` (see [Configure Job Timeout](#configure-job-timeout)). It applies to each attempt (see [Retry and rerun a Job](#retry-and-rerun-a-job)) and counts from the start of the attempt, image pull and volume mounts included. For information only: changing the variable doesn't change the timeout. |
+| `HF_JOB_IMAGE` | The Docker image of the job, as submitted (e.g., `python:3.12`). Only set for jobs that run a Docker image. |
+| `HF_JOB_SPACE_ID` | The ID of the Space whose image the job runs (e.g., `username/my-space`). Only set for jobs started from a Space (`hf.co/spaces/...`). |
+| `ACCELERATOR` | The type of device: `cpu` for CPU flavors, `gpu` for GPU flavors, `neuron` for Neuron flavors. |
 | `CPU_CORES` | The number of CPU cores available to the job (e.g., `2`, `4`, `8`). |
 | `MEMORY` | The amount of memory available to the job (e.g., `16.0G`, `32.0G`). |
+
 
 ```python
 # Access job environment information
@@ -555,7 +563,8 @@ Inside the job container, the following environment variables are automatically 
 ...     image="python:3.12",
 ...     command=["python", "-c", """
 ... import os
-... print(f"Job ID: {os.environ.get('JOB_ID')}")
+... print(f"Job ID: {os.environ.get('HF_JOB_ID')}")
+... print(f"Flavor: {os.environ.get('HF_JOB_FLAVOR')}")
 ... print(f"Accelerator: {os.environ.get('ACCELERATOR', 'none')}")
 ... print(f"CPU cores: {os.environ.get('CPU_CORES')}")
 ... print(f"Memory: {os.environ.get('MEMORY')}")
