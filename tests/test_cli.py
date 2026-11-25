@@ -31,8 +31,8 @@ from huggingface_hub.cli.inference_endpoints import _build_custom_image
 from huggingface_hub.cli.jobs import _get_jobs_stats_rows, _parse_and_sync_job_volumes, _parse_namespace_from_job_id
 from huggingface_hub.cli.skills import build_skill_md
 from huggingface_hub.cli.upload import _resolve_upload_paths, upload
-from huggingface_hub.errors import CLIError, DeviceCodeError, HfUriError, RevisionNotFoundError
-from huggingface_hub.hf_api import ModelInfo, ResourceGroupInfo
+from huggingface_hub.errors import CLIError, DeviceCodeError, HfHubHTTPError, HfUriError, RevisionNotFoundError
+from huggingface_hub.hf_api import ModelInfo
 from huggingface_hub.utils import (
     CachedFileInfo,
     CachedRepoInfo,
@@ -1913,57 +1913,60 @@ class TestRepoSettingsCommand:
         assert kwargs["gated"] == "manual"
 
 
-class TestRepoResourceGroupCommand:
+class TestResourceGroupsCommand:
     group_id = "66980ecfc1e12a49c8f0e42d"
 
-    @pytest.mark.parametrize(
-        "args, repo_id, repo_type",
-        [
-            (["my-org/my-model"], "my-org/my-model", "model"),
-            (["my-org/my-data", "--type", "dataset"], "my-org/my-data", "dataset"),
-            (["--type", "bucket", "my-org/my-data"], "my-org/my-data", "bucket"),
-            (["spaces/my-org/my-space"], "my-org/my-space", "space"),
-            (["show", "my-org/my-model"], "my-org/my-model", "model"),
-        ],
-    )
-    def test_show(self, runner: CliRunner, args: list[str], repo_id: str, repo_type: str) -> None:
-        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
-            api_cls.return_value.get_repo_resource_group.return_value = ResourceGroupInfo(
-                id=self.group_id, name="research", numUsers=4
-            )
-            result = runner.invoke(app, ["repos", "resource-group", *args, "--json"])
-        assert result.exit_code == 0, result.output
-        api_cls.return_value.get_repo_resource_group.assert_called_once_with(repo_id=repo_id, repo_type=repo_type)
-        assert json.loads(result.stdout)["resource_group_id"] == self.group_id
-
-    def test_show_not_assigned(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
-            api_cls.return_value.get_repo_resource_group.return_value = None
-            result = runner.invoke(app, ["repos", "resource-group", "my-org/my-model", "--json"])
-        assert result.exit_code == 0, result.output
-        assert json.loads(result.stdout) == {"resource_group_id": None, "repo_id": "my-org/my-model"}
-
-    def test_assign(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
+    @pytest.mark.parametrize("item_type", ["model", "dataset", "space", "bucket", "container"])
+    def test_assign_repos(self, runner: CliRunner, item_type: str) -> None:
+        with patch("huggingface_hub.cli.resource_groups.get_hf_api") as api_cls:
             result = runner.invoke(
-                app, ["repos", "resource-group", "assign", "my-org/my-model", self.group_id, "--json"]
+                app,
+                ["resource-groups", "assign", self.group_id, "my-org/a", "my-org/b", "--type", item_type, "--json"],
             )
         assert result.exit_code == 0, result.output
-        api_cls.return_value.update_repo_resource_group.assert_called_once_with(
-            repo_id="my-org/my-model", resource_group_id=self.group_id, repo_type="model"
-        )
-        assert json.loads(result.stdout) == {"repo_id": "my-org/my-model", "resource_group_id": self.group_id}
+        api = api_cls.return_value
+        assert [c.args for c in api.update_repo_resource_group.call_args_list] == [
+            ("my-org/a", self.group_id),
+            ("my-org/b", self.group_id),
+        ]
+        assert all(c.kwargs == {"repo_type": item_type} for c in api.update_repo_resource_group.call_args_list)
+        assert [json.loads(line) for line in result.stdout.splitlines()] == [
+            {"item": "my-org/a", "type": item_type, "resource_group_id": self.group_id},
+            {"item": "my-org/b", "type": item_type, "resource_group_id": self.group_id},
+        ]
 
-    def test_unassign(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.repos.get_hf_api") as api_cls:
+    def test_unassign_collection_and_blog(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.resource_groups.get_hf_api") as api_cls:
             result = runner.invoke(
-                app, ["repos", "resource-group", "unassign", "my-org/data", "--type", "bucket", "--token", "my-token"]
+                app, ["resource-groups", "unassign", "my-org/col-64f9a55bb3115b4f513ec026", "--type", "collection"]
             )
-        assert result.exit_code == 0, result.output
-        api_cls.assert_called_once_with(token="my-token")
-        api_cls.return_value.update_repo_resource_group.assert_called_once_with(
-            repo_id="my-org/data", resource_group_id=None, repo_type="bucket"
-        )
+            assert result.exit_code == 0, result.output
+            result = runner.invoke(app, ["resource-groups", "unassign", "my-org/my-post", "--type", "blog"])
+            assert result.exit_code == 0, result.output
+        api = api_cls.return_value
+        api.update_collection_resource_group.assert_called_once_with("my-org/col-64f9a55bb3115b4f513ec026", None)
+        api.update_blog_resource_group.assert_called_once_with("my-org/my-post", None)
+        api.update_repo_resource_group.assert_not_called()
+
+    def test_continue_on_failure(self, runner: CliRunner) -> None:
+        response = httpx2.Response(403, request=httpx2.Request("POST", "https://huggingface.co"))
+        with patch("huggingface_hub.cli.resource_groups.get_hf_api") as api_cls:
+            api_cls.return_value.update_repo_resource_group.side_effect = [
+                HfHubHTTPError("403 Forbidden: not allowed", response=response),
+                None,
+            ]
+            result = runner.invoke(app, ["resource-groups", "unassign", "my-org/a", "my-org/b", "--json"])
+        assert result.exit_code == 1
+        assert api_cls.return_value.update_repo_resource_group.call_count == 2
+        assert "my-org/a: 403 Forbidden: not allowed" in result.stderr
+        assert json.loads(result.stdout) == {"item": "my-org/b", "type": "model", "resource_group_id": None}
+
+    def test_assign_invalid_group_id(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.resource_groups.get_hf_api") as api_cls:
+            result = runner.invoke(app, ["resource-groups", "assign", "research", "my-org/a"])
+        assert isinstance(result.exception, CLIError)
+        assert "Invalid resource group ID 'research'" in str(result.exception)
+        api_cls.assert_not_called()
 
 
 class TestRepoListCommand:

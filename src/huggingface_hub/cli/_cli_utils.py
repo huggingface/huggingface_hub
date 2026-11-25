@@ -589,25 +589,6 @@ def _enrich_usage_error(error: click.UsageError, label: str, items: list[tuple[s
     setattr(error, "message", error.message + "\n".join(lines))
 
 
-def default_command_group_factory(default_command: str, metavar: str) -> type[HFCliTyperGroup]:
-    """Return a Typer group class that runs `default_command` when the first argument is not a subcommand.
-
-    Lets `hf repos resource-group <repo_id>` run `hf repos resource-group show <repo_id>` while
-    `hf repos resource-group assign ...` still resolves the `assign` subcommand.
-    """
-
-    class DefaultCommandTyperGroup(HFCliTyperGroup):
-        def parse_args(self, ctx: click.Context, args: list[str]) -> list[str]:
-            if args and args[0] not in ctx.help_option_names and self.get_command(ctx, args[0]) is None:
-                args = [default_command, *args]
-            return super().parse_args(ctx, args)
-
-        def collect_usage_pieces(self, ctx: click.Context) -> list[str]:
-            return [f"{metavar} [OPTIONS] | COMMAND [ARGS]..."]
-
-    return DefaultCommandTyperGroup
-
-
 def fallback_typer_group_factory(
     fallback_handler: FallbackHandlerT,
     extra_commands_provider: Callable[[], list[tuple[str, str]]] | None = None,

@@ -211,7 +211,6 @@ _SUBMOD_ATTRS = {
         "RepoFolder",
         "RepoStorageInfo",
         "RepoUrl",
-        "ResourceGroupInfo",
         "SpaceInfo",
         "SpaceSearchResult",
         "SpaceTemplate",
@@ -283,7 +282,6 @@ _SUBMOD_ATTRS = {
         "get_organization_overview",
         "get_paths_info",
         "get_repo_discussions",
-        "get_repo_resource_group",
         "get_safetensors_metadata",
         "get_sharded_safetensors_metadata",
         "get_space_runtime",
@@ -366,6 +364,7 @@ _SUBMOD_ATTRS = {
         "sync_job_volume",
         "trigger_scheduled_job",
         "unlike",
+        "update_blog_resource_group",
         "update_bucket_settings",
         "update_collection_item",
         "update_collection_metadata",
@@ -848,7 +847,6 @@ __all__ = [
     "RepoStorageInfo",
     "RepoUrl",
     "ResolvedRevision",
-    "ResourceGroupInfo",
     "Sandbox",
     "SandboxCommandResult",
     "SandboxPool",
@@ -1038,7 +1036,6 @@ __all__ = [
     "get_organization_overview",
     "get_paths_info",
     "get_repo_discussions",
-    "get_repo_resource_group",
     "get_safetensors_metadata",
     "get_session",
     "get_sharded_safetensors_metadata",
@@ -1156,6 +1153,7 @@ __all__ = [
     "try_to_load_from_cache",
     "typer_factory",
     "unlike",
+    "update_blog_resource_group",
     "update_bucket_settings",
     "update_collection_item",
     "update_collection_metadata",
@@ -1433,7 +1431,6 @@ if TYPE_CHECKING:  # pragma: no cover
         RepoFolder,  # noqa: F401
         RepoStorageInfo,  # noqa: F401
         RepoUrl,  # noqa: F401
-        ResourceGroupInfo,  # noqa: F401
         SpaceInfo,  # noqa: F401
         SpaceSearchResult,  # noqa: F401
         SpaceTemplate,  # noqa: F401
@@ -1505,7 +1502,6 @@ if TYPE_CHECKING:  # pragma: no cover
         get_organization_overview,  # noqa: F401
         get_paths_info,  # noqa: F401
         get_repo_discussions,  # noqa: F401
-        get_repo_resource_group,  # noqa: F401
         get_safetensors_metadata,  # noqa: F401
         get_sharded_safetensors_metadata,  # noqa: F401
         get_space_runtime,  # noqa: F401
@@ -1588,6 +1584,7 @@ if TYPE_CHECKING:  # pragma: no cover
         sync_job_volume,  # noqa: F401
         trigger_scheduled_job,  # noqa: F401
         unlike,  # noqa: F401
+        update_blog_resource_group,  # noqa: F401
         update_bucket_settings,  # noqa: F401
         update_collection_item,  # noqa: F401
         update_collection_metadata,  # noqa: F401

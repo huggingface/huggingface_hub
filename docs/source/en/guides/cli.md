@@ -1504,18 +1504,6 @@ Datasets and Spaces:
 - `--gated`: one of `auto`, `manual`, `false`
 - `--private true|false`: set repository privacy
 
-### Change a repo's resource group
-
-Use `hf repos resource-group` to see which of your organization's resource groups a repo is assigned to. Use `assign` to assign it to a group (or move it to another one) and `unassign` to remove the assignment. A repo belongs to at most one resource group. Copy the group ID from the end of its URL in your organization settings.
-
-```bash
->>> hf repos resource-group my-org/my-data --type dataset
->>> hf repos resource-group assign my-org/my-data 66980ecfc1e12a49c8f0e42d --type dataset
->>> hf repos resource-group unassign my-org/my-data --type dataset
-```
-
-The default type is `model`. Use `--type` for a `dataset`, `space`, `bucket`, or `container`.
-
 ### Delete files from a repo
 
 The `hf repos delete-files <repo_id>` sub-command allows you to delete files from a repository. Here are some usage examples.
@@ -1567,6 +1555,24 @@ Use `hf repos branch` to create and delete branches for repositories on the Hub.
 
 > [!TIP]
 > All commands accept `--repo-type` (one of `model`, `dataset`, `space`) and `--token` if you need to authenticate explicitly. Use `--help` on any command to see all options.
+
+## hf resource-groups
+
+Resource groups let Enterprise organizations control which members can access a given set of repos, collections and blog posts. To learn more, check out the [Hub documentation](https://huggingface.co/docs/hub/en/security-resource-groups).
+
+### Assign items to a resource group
+
+Use `hf resource-groups assign` to assign one or more items to a resource group. The group ID is the last part of the group's URL in your organization settings (e.g. `https://huggingface.co/organizations/my-org/settings/resource-groups/66980ecfc1e12a49c8f0e42d`). An item belongs to at most one resource group: an item that is already in another group is moved to this one. Use `hf resource-groups unassign` to remove items from their group.
+
+```bash
+>>> hf resource-groups assign 66980ecfc1e12a49c8f0e42d my-org/my-model
+>>> hf resource-groups assign 66980ecfc1e12a49c8f0e42d my-org/data-1 my-org/data-2 --type dataset
+>>> hf resource-groups unassign my-org/data-1 my-org/data-2 --type dataset
+```
+
+The default type is `model`. Use `--type` for a `dataset`, `space`, `bucket`, `container`, `collection` (pass the collection slug) or `blog` (pass `<namespace>/<slug>`). Each item is updated with its own API call and gets its own result line. If an item fails, the command still processes the others, then exits with code 1.
+
+Taking an item out of a group (unassigning or moving it) requires being an admin of that group or of the organization. Adding it requires the admin, write or contributor role in the target group. Fine-grained tokens need the "Write to resource groups" permission on the organization.
 
 ## hf cache
 
