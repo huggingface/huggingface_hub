@@ -6,7 +6,8 @@ from pathlib import Path
 
 import click
 
-from huggingface_hub.cli._cli_utils import _FORMATTING_OPTIONS_HELP_RECORDS, _accepts_global_format_flags
+from huggingface_hub.cli._cli_utils import _FORMATTING_OPTIONS_HELP_RECORDS
+from huggingface_hub.cli.skills import _accepts_global_format_flags
 
 
 PACKAGE_REFERENCE_PATH = Path(__file__).parents[1] / "docs" / "source" / "en" / "package_reference" / "cli.md"
@@ -55,19 +56,14 @@ def get_docs_for_click(
         if record is None:
             continue
         (args if param.param_type_name == "argument" else opts).append(record)
-    # Global formatting flags are consumed by the parent group, not declared on each command.
-    # Mirror the "Formatting options" section shown by `--help` (see `HFCliCommand.format_options`).
-    formatting_opts = (
-        _FORMATTING_OPTIONS_HELP_RECORDS
-        if not isinstance(obj, click.Group) and _accepts_global_format_flags(obj)
-        else []
-    )
-    for header, records in (("Arguments", args), ("Options", opts), ("Formatting options", formatting_opts)):
+    for header, records in (("Arguments", args), ("Options", opts)):
         if records:
             docs += f"**{header}**:\n\n"
             for param_name, param_help in records:
                 docs += f"* `{param_name}`" + (f": {param_help}" if param_help else "") + "\n"
             docs += "\n"
+    if not isinstance(obj, click.Group) and _accepts_global_format_flags(obj):
+        docs += "Also accepts the global [formatting options](#formatting-options).\n\n"
 
     if obj.epilog:
         docs += f"{obj.epilog}\n\n"
@@ -81,9 +77,19 @@ def get_docs_for_click(
                 short_help = sub.get_short_help_str(limit=sys.maxsize)
                 docs += f"* `{sub.name}`" + (f": {short_help}" if short_help else "") + "\n"
             docs += "\n"
+        if indent == 0:
+            docs += _formatting_options_section()
         for _, sub in commands:
             docs += get_docs_for_click(obj=sub, ctx=ctx, indent=indent + 1, call_prefix=command_name)
     return docs
+
+
+def _formatting_options_section() -> str:
+    """Document the global formatting flags once, mirroring the "Formatting options" section of `--help`."""
+    docs = "## Formatting options\n\nMost commands accept these flags. Each command section says whether it does.\n\n"
+    for param_name, param_help in _FORMATTING_OPTIONS_HELP_RECORDS:
+        docs += f"* `{param_name}`: {param_help}\n"
+    return docs + "\n"
 
 
 def print_colored_diff(expected: str, current: str) -> None:

@@ -50,6 +50,15 @@ $ hf [OPTIONS] [COMMAND] [ARGS]...
 * `version`: Print information about the hf version.
 * `webhooks`: Manage webhooks on the Hub.
 
+## Formatting options
+
+Most commands accept these flags. Each command section says whether it does.
+
+* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
+* `--json`: JSON output. Equivalent to '--format json'.
+* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
+* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+
 ## `hf auth`
 
 Manage authentication (login, logout, etc.).
@@ -87,12 +96,7 @@ $ hf auth list [OPTIONS]
 
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf auth list
@@ -119,12 +123,7 @@ $ hf auth login [OPTIONS]
 * `--force / --no-force`: Force re-login even if already logged in.  [default: no-force]
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf auth login
@@ -152,12 +151,7 @@ $ hf auth logout [OPTIONS]
 * `--token-name TEXT`: Name of token to logout
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf auth logout
@@ -184,12 +178,7 @@ $ hf auth switch [OPTIONS]
 * `--add-to-git-credential / --no-add-to-git-credential`: Save to git credential helper. Useful only if you plan to run git commands directly.  [default: no-add-to-git-credential]
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf auth switch
@@ -214,12 +203,7 @@ $ hf auth token [OPTIONS]
 
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf auth token
@@ -244,12 +228,7 @@ $ hf auth whoami [OPTIONS]
 
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf auth whoami
@@ -312,12 +291,7 @@ $ hf buckets cp [OPTIONS] SRC [DST]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf buckets cp hf://buckets/username/my-bucket/config.json config.json
@@ -356,12 +330,7 @@ $ hf buckets create [OPTIONS] BUCKET_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf buckets create my-bucket
@@ -399,12 +368,7 @@ $ hf buckets delete [OPTIONS] BUCKET_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf buckets delete user/my-bucket
@@ -436,12 +400,7 @@ $ hf buckets info [OPTIONS] BUCKET_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf buckets info user/my-bucket
@@ -478,12 +437,7 @@ $ hf buckets list [OPTIONS] [ARGUMENT]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf buckets list
@@ -522,12 +476,7 @@ $ hf buckets move [OPTIONS] FROM_ID TO_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf buckets move user/old-bucket user/new-bucket
@@ -565,12 +514,7 @@ $ hf buckets remove [OPTIONS] ARGUMENT
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf buckets remove user/my-bucket/file.txt
@@ -605,12 +549,7 @@ $ hf buckets settings [OPTIONS] BUCKET_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf buckets settings user/my-bucket --private
@@ -654,12 +593,7 @@ $ hf buckets sync [OPTIONS] [SOURCE] [DEST]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf buckets sync ./data hf://buckets/user/my-bucket
@@ -717,12 +651,7 @@ $ hf cache list [OPTIONS]
 * `--show-warnings / --no-show-warnings`: Show warnings about cache inconsistencies.  [default: no-show-warnings]
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf cache ls
@@ -752,12 +681,7 @@ $ hf cache prune [OPTIONS]
 * `--dry-run / --no-dry-run`: Preview deletions without removing anything.  [default: no-dry-run]
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf cache prune
@@ -789,12 +713,7 @@ $ hf cache rm [OPTIONS] TARGETS...
 * `--dry-run / --no-dry-run`: Preview deletions without removing anything.  [default: no-dry-run]
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf cache rm model/gpt2
@@ -840,12 +759,7 @@ $ hf cache verify [OPTIONS] REPO_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf cache verify gpt2
@@ -905,12 +819,7 @@ $ hf collections add-item [OPTIONS] COLLECTION_SLUG ITEM_ID ITEM_TYPE:{model|dat
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf collections add-item username/my-collection moonshotai/kimi-k2 model
@@ -945,12 +854,7 @@ $ hf collections create [OPTIONS] TITLE
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf collections create "My Models"
@@ -982,12 +886,7 @@ $ hf collections delete [OPTIONS] COLLECTION_SLUG
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf collections delete username/my-collection
@@ -1019,12 +918,7 @@ $ hf collections delete-item [OPTIONS] COLLECTION_SLUG ITEM_OBJECT_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 ### `hf collections info`
 
@@ -1045,12 +939,7 @@ $ hf collections info [OPTIONS] COLLECTION_SLUG
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf collections info username/my-collection-slug
@@ -1079,12 +968,7 @@ $ hf collections list [OPTIONS]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf collections ls
@@ -1120,12 +1004,7 @@ $ hf collections update [OPTIONS] COLLECTION_SLUG
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf collections update username/my-collection --title "New Title"
@@ -1159,12 +1038,7 @@ $ hf collections update-item [OPTIONS] COLLECTION_SLUG ITEM_OBJECT_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf collections update-item username/my-collection ITEM_OBJECT_ID --note "Updated note"
@@ -1201,12 +1075,7 @@ $ hf cp [OPTIONS] SRC [DST]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf cp hf://username/my-model/config.json
@@ -1269,12 +1138,7 @@ $ hf datasets card [OPTIONS] DATASET_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf datasets card HuggingFaceFW/fineweb
@@ -1308,12 +1172,7 @@ $ hf datasets info [OPTIONS] DATASET_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf datasets info HuggingFaceFW/fineweb
@@ -1344,12 +1203,7 @@ $ hf datasets leaderboard [OPTIONS] DATASET_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf datasets leaderboard SWE-bench/SWE-bench_Verified
@@ -1393,12 +1247,7 @@ $ hf datasets list [OPTIONS] [REPO_ID]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf datasets ls
@@ -1435,12 +1284,7 @@ $ hf datasets parquet [OPTIONS] DATASET_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf datasets parquet cfahlgren1/hub-stats
@@ -1472,12 +1316,7 @@ $ hf datasets sql [OPTIONS] SQL
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf datasets sql "SELECT COUNT(*) AS rows FROM hf_dataset('cfahlgren1/hub-stats', config:='models')"
@@ -1538,12 +1377,7 @@ $ hf discussions close [OPTIONS] REPO_ID NUM
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf discussions close username/my-model 5
@@ -1578,12 +1412,7 @@ $ hf discussions comment [OPTIONS] REPO_ID NUM
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf discussions comment username/my-model 5 --body "Thanks for reporting!"
@@ -1620,12 +1449,7 @@ $ hf discussions create [OPTIONS] REPO_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf discussions create username/my-model --title "Bug report"
@@ -1660,12 +1484,7 @@ $ hf discussions diff [OPTIONS] REPO_ID NUM
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf discussions diff username/my-model 5
@@ -1700,12 +1519,7 @@ $ hf discussions edit [OPTIONS] REPO_ID NUM COMMENT_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf discussions edit username/my-model 5 abc123 --body "Updated comment."
@@ -1738,12 +1552,7 @@ $ hf discussions info [OPTIONS] REPO_ID NUM
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf discussions info username/my-model 5
@@ -1778,12 +1587,7 @@ $ hf discussions list [OPTIONS] REPO_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf discussions list username/my-model
@@ -1819,12 +1623,7 @@ $ hf discussions merge [OPTIONS] REPO_ID NUM
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf discussions merge username/my-model 5
@@ -1857,12 +1656,7 @@ $ hf discussions rename [OPTIONS] REPO_ID NUM NEW_TITLE
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf discussions rename username/my-model 5 "Updated title"
@@ -1895,12 +1689,7 @@ $ hf discussions reopen [OPTIONS] REPO_ID NUM
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf discussions reopen username/my-model 5
@@ -1940,12 +1729,7 @@ $ hf download [OPTIONS] REPO_ID [FILENAMES]...
 * `--max-workers INTEGER`: Maximum number of workers to use for downloading files. Default is 8.  [default: 8]
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf download meta-llama/Llama-3.2-1B-Instruct
@@ -2032,12 +1816,7 @@ $ hf endpoints catalog deploy [OPTIONS]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf endpoints catalog deploy --repo meta-llama/Llama-3.2-1B-Instruct
@@ -2072,12 +1851,7 @@ $ hf endpoints catalog list [OPTIONS]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf endpoints catalog ls
@@ -2109,12 +1883,7 @@ $ hf endpoints delete [OPTIONS] NAME
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf endpoints delete my-endpoint
@@ -2176,12 +1945,7 @@ $ hf endpoints deploy [OPTIONS] NAME
 * `--type [public|authenticated|private]`: Endpoint access type. Defaults to 'authenticated' (token-gated, publicly reachable).
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf endpoints deploy my-endpoint --repo gpt2 --framework pytorch ...
@@ -2212,12 +1976,7 @@ $ hf endpoints describe [OPTIONS] NAME
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf endpoints describe my-endpoint
@@ -2254,12 +2013,7 @@ $ hf endpoints hardware [OPTIONS]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf endpoints hardware
@@ -2286,12 +2040,7 @@ $ hf endpoints list [OPTIONS]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf endpoints ls
@@ -2326,12 +2075,7 @@ $ hf endpoints list-catalog [OPTIONS]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 ### `hf endpoints pause`
 
@@ -2353,12 +2097,7 @@ $ hf endpoints pause [OPTIONS] NAME
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf endpoints pause my-endpoint
@@ -2389,12 +2128,7 @@ $ hf endpoints resume [OPTIONS] NAME
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf endpoints resume my-endpoint
@@ -2424,12 +2158,7 @@ $ hf endpoints scale-to-zero [OPTIONS] NAME
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf endpoints scale-to-zero my-endpoint
@@ -2479,12 +2208,7 @@ $ hf endpoints update [OPTIONS] NAME
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf endpoints update my-endpoint --min-replica 2
@@ -2510,12 +2234,7 @@ $ hf env [OPTIONS]
 
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 ## `hf extensions`
 
@@ -2591,12 +2310,7 @@ $ hf extensions install [OPTIONS] REPO_ID
 * `--force`: Overwrite if already installed.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf extensions install hf-claude
@@ -2622,12 +2336,7 @@ $ hf extensions list [OPTIONS]
 
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf extensions list
@@ -2655,12 +2364,7 @@ $ hf extensions remove [OPTIONS] NAME
 
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf extensions remove claude
@@ -2684,12 +2388,7 @@ $ hf extensions search [OPTIONS]
 
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf extensions search
@@ -2717,12 +2416,7 @@ $ hf extensions update [OPTIONS] [NAME]
 
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf extensions update
@@ -2785,12 +2479,7 @@ $ hf jobs cancel [OPTIONS] JOB_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf jobs cancel <job_id>
@@ -2823,12 +2512,7 @@ $ hf jobs expose [OPTIONS] JOB_ID [PORTS]...
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf jobs expose <job_id> 8000
@@ -2854,12 +2538,7 @@ $ hf jobs hardware [OPTIONS]
 
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf jobs hardware
@@ -2889,12 +2568,7 @@ $ hf jobs inspect [OPTIONS] JOB_IDS...
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf jobs inspect <job_id>
@@ -2927,12 +2601,7 @@ $ hf jobs labels [OPTIONS] JOB_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf jobs labels <job_id> --name training-v2
@@ -2968,12 +2637,7 @@ $ hf jobs list | ls | ps [OPTIONS]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf jobs ls
@@ -3017,12 +2681,7 @@ $ hf jobs logs [OPTIONS] JOB_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf jobs logs <job_id>
@@ -3056,12 +2715,7 @@ $ hf jobs rerun [OPTIONS] JOB_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf jobs rerun <job_id>
@@ -3173,12 +2827,7 @@ $ hf jobs scheduled delete [OPTIONS] SCHEDULED_JOB_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf jobs scheduled delete <id>
@@ -3208,12 +2857,7 @@ $ hf jobs scheduled inspect [OPTIONS] SCHEDULED_JOB_IDS...
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf jobs scheduled inspect <id>
@@ -3246,12 +2890,7 @@ $ hf jobs scheduled labels [OPTIONS] SCHEDULED_JOB_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf jobs scheduled labels <id> --name daily-script
@@ -3286,12 +2925,7 @@ $ hf jobs scheduled list | ls | ps [OPTIONS]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf jobs scheduled ls
@@ -3326,12 +2960,7 @@ $ hf jobs scheduled reschedule [OPTIONS] SCHEDULED_JOB_ID SCHEDULE
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf jobs scheduled reschedule <id> "0 9 * * 1"
@@ -3361,12 +2990,7 @@ $ hf jobs scheduled resume [OPTIONS] SCHEDULED_JOB_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf jobs scheduled resume <id>
@@ -3445,12 +3069,7 @@ $ hf jobs scheduled suspend [OPTIONS] SCHEDULED_JOB_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf jobs scheduled suspend <id>
@@ -3480,12 +3099,7 @@ $ hf jobs scheduled trigger [OPTIONS] SCHEDULED_JOB_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf jobs scheduled trigger <id>
@@ -3592,12 +3206,7 @@ $ hf jobs ssh [OPTIONS] JOB_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf jobs ssh <job_id>
@@ -3633,12 +3242,7 @@ $ hf jobs stats [OPTIONS] [JOB_IDS]...
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf jobs stats
@@ -3752,12 +3356,7 @@ $ hf jobs wait [OPTIONS] JOB_IDS...
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf jobs wait <job_id>
@@ -3790,12 +3389,7 @@ $ hf lfs-enable-largefiles [OPTIONS] PATH
 
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 ## `hf lfs-multipart-upload`
 
@@ -3814,12 +3408,7 @@ $ hf lfs-multipart-upload [OPTIONS]
 
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 ## `hf models`
 
@@ -3862,12 +3451,7 @@ $ hf models card [OPTIONS] MODEL_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf models card google/gemma-4-31B-it
@@ -3901,12 +3485,7 @@ $ hf models info [OPTIONS] MODEL_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf models info meta-llama/Llama-3.2-1B-Instruct
@@ -3955,12 +3534,7 @@ $ hf models list [OPTIONS] [REPO_ID]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf models ls --sort downloads --limit 10
@@ -4020,12 +3594,7 @@ $ hf papers info [OPTIONS] PAPER_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf papers info 2601.15621
@@ -4056,12 +3625,7 @@ $ hf papers list [OPTIONS]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf papers ls
@@ -4095,12 +3659,7 @@ $ hf papers read [OPTIONS] PAPER_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf papers read 2601.15621
@@ -4130,12 +3689,7 @@ $ hf papers search [OPTIONS] QUERY
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf papers search "vision language"
@@ -4216,12 +3770,7 @@ $ hf repos branch create [OPTIONS] REPO_ID BRANCH
 * `--exist-ok / --no-exist-ok`: If set to True, do not raise an error if branch already exists.  [default: no-exist-ok]
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf repos branch create my-model dev
@@ -4253,12 +3802,7 @@ $ hf repos branch delete [OPTIONS] REPO_ID BRANCH
 * `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf repos branch delete my-model dev
@@ -4294,12 +3838,7 @@ $ hf repos cp [OPTIONS] SRC [DST]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf repos cp hf://username/my-model/config.json config.json
@@ -4352,12 +3891,7 @@ $ hf repos create [OPTIONS] REPO_ID
 * `-v, --volume TEXT`: Mount one or more volumes. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. TYPE is one of: models, datasets, spaces, buckets. TYPE defaults to models if omitted. models, datasets and spaces are always mounted read-only. buckets are read+write by default. E.g. -v hf://org/m:/data or -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf repos create my-model
@@ -4394,12 +3928,7 @@ $ hf repos delete [OPTIONS] REPO_ID
 * `-y, --yes`: Answer Yes to prompt automatically.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf repos delete my-model
@@ -4434,12 +3963,7 @@ $ hf repos delete-files [OPTIONS] REPO_ID PATTERNS...
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf repos delete-files my-model file.txt
@@ -4484,12 +4008,7 @@ $ hf repos duplicate [OPTIONS] FROM_ID [TO_ID]
 * `-v, --volume TEXT`: Mount one or more volumes. Format: hf://[TYPE/]SOURCE:/MOUNT_PATH[:ro]. TYPE is one of: models, datasets, spaces, buckets. TYPE defaults to models if omitted. models, datasets and spaces are always mounted read-only. buckets are read+write by default. E.g. -v hf://org/m:/data or -v hf://datasets/org/ds:/data or -v hf://buckets/org/b:/mnt:ro
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf repos duplicate openai/gdpval --type dataset
@@ -4521,12 +4040,7 @@ $ hf repos list [OPTIONS]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf repos ls
@@ -4559,12 +4073,7 @@ $ hf repos move [OPTIONS] FROM_ID TO_ID
 * `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf repos move old-namespace/my-model new-namespace/my-model
@@ -4598,12 +4107,7 @@ $ hf repos settings [OPTIONS] REPO_ID
 * `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf repos settings my-model --private
@@ -4658,12 +4162,7 @@ $ hf repos tag create [OPTIONS] REPO_ID TAG
 * `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf repos tag create my-model v1.0
@@ -4696,12 +4195,7 @@ $ hf repos tag delete [OPTIONS] REPO_ID TAG
 * `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf repos tag delete my-model v1.0
@@ -4731,12 +4225,7 @@ $ hf repos tag list [OPTIONS] REPO_ID
 * `--type, --repo-type [model|dataset|space|kernel]`: The type of repository (model, dataset, space, or kernel).  [default: model]
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf repos tag list my-model
@@ -4791,12 +4280,7 @@ $ hf sandbox cp [OPTIONS] SRC DST
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf sandbox cp data.csv <sandbox_id>:/data/data.csv
@@ -4842,12 +4326,7 @@ $ hf sandbox create [OPTIONS] [IMAGE]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf sandbox create
@@ -4920,12 +4399,7 @@ $ hf sandbox kill [OPTIONS] [SANDBOX_ID]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf sandbox kill <sandbox_id>
@@ -4981,12 +4455,7 @@ $ hf sandbox pool create [OPTIONS] [IMAGE]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf sandbox pool create
@@ -5019,12 +4488,7 @@ $ hf sandbox pool delete [OPTIONS] POOL_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf sandbox pool delete <pool_id>
@@ -5050,12 +4514,7 @@ $ hf sandbox pool ls [OPTIONS]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf sandbox pool ls
@@ -5105,12 +4564,7 @@ $ hf sandbox process kill [OPTIONS] SANDBOX_ID PID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf sandbox process kill <sandbox_id> <pid>
@@ -5140,12 +4594,7 @@ $ hf sandbox process ls [OPTIONS] SANDBOX_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf sandbox process ls <sandbox_id>
@@ -5239,12 +4688,7 @@ $ hf skills add [OPTIONS] [NAME]
 * `--force`: Overwrite existing skills in the destination.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf skills add
@@ -5272,12 +4716,7 @@ $ hf skills list [OPTIONS]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf skills list
@@ -5302,12 +4741,7 @@ $ hf skills preview [OPTIONS]
 
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 ### `hf skills update`
 
@@ -5329,12 +4763,7 @@ $ hf skills update [OPTIONS] [NAME]
 * `--dest PATH`: Update skills in a custom skills directory.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf skills update
@@ -5403,12 +4832,7 @@ $ hf spaces card [OPTIONS] SPACE_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf spaces card mteb/leaderboard
@@ -5447,12 +4871,7 @@ $ hf spaces dev-mode [OPTIONS] SPACE_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf spaces dev-mode my-user-name/deepsite
@@ -5477,12 +4896,7 @@ $ hf spaces hardware [OPTIONS]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf spaces hardware
@@ -5528,12 +4942,7 @@ $ hf spaces hot-reload [OPTIONS] SPACE_ID [FILENAME]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf spaces hot-reload username/repo-name app.py     # Open an interactive editor to the remote app.py file
@@ -5566,12 +4975,7 @@ $ hf spaces info [OPTIONS] SPACE_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf spaces info enzostvs/deepsite
@@ -5614,12 +5018,7 @@ $ hf spaces list [OPTIONS] [REPO_ID]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf spaces ls --limit 10
@@ -5660,12 +5059,7 @@ $ hf spaces logs [OPTIONS] SPACE_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf spaces logs username/my-space
@@ -5697,12 +5091,7 @@ $ hf spaces pause [OPTIONS] SPACE_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf spaces pause username/my-space
@@ -5732,12 +5121,7 @@ $ hf spaces restart [OPTIONS] SPACE_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf spaces restart username/my-space
@@ -5772,12 +5156,7 @@ $ hf spaces search [OPTIONS] QUERY
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf spaces search "generate image"
@@ -5830,12 +5209,7 @@ $ hf spaces secrets add [OPTIONS] SPACE_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf spaces secrets add username/my-space -s HF_TOKEN
@@ -5868,12 +5242,7 @@ $ hf spaces secrets delete [OPTIONS] SPACE_ID KEY
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf spaces secrets delete username/my-space HF_TOKEN
@@ -5903,12 +5272,7 @@ $ hf spaces secrets list [OPTIONS] SPACE_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf spaces secrets ls username/my-space
@@ -5939,12 +5303,7 @@ $ hf spaces settings [OPTIONS] SPACE_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf spaces settings username/my-space --sleep-time 300
@@ -5981,12 +5340,7 @@ $ hf spaces ssh [OPTIONS] SPACE_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf spaces ssh username/my-space
@@ -6017,12 +5371,7 @@ $ hf spaces templates [OPTIONS]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf spaces templates
@@ -6073,12 +5422,7 @@ $ hf spaces variables add [OPTIONS] SPACE_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf spaces variables add username/my-space -e DEBUG=1
@@ -6111,12 +5455,7 @@ $ hf spaces variables delete [OPTIONS] SPACE_ID KEY
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf spaces variables delete username/my-space DEBUG
@@ -6146,12 +5485,7 @@ $ hf spaces variables list [OPTIONS] SPACE_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf spaces variables ls username/my-space
@@ -6201,12 +5535,7 @@ $ hf spaces volumes delete [OPTIONS] SPACE_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf spaces volumes delete username/my-space
@@ -6236,12 +5565,7 @@ $ hf spaces volumes list [OPTIONS] SPACE_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf spaces volumes ls username/my-space
@@ -6271,12 +5595,7 @@ $ hf spaces volumes set [OPTIONS] SPACE_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf spaces volumes set username/my-space -v hf://models/username/my-model:/models
@@ -6311,12 +5630,7 @@ $ hf spaces wait [OPTIONS] SPACE_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf spaces wait username/my-space
@@ -6362,12 +5676,7 @@ $ hf spaces zero-gpu quota [OPTIONS]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf spaces zero-gpu quota
@@ -6410,12 +5719,7 @@ $ hf sync [OPTIONS] [SOURCE] [DEST]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 ## `hf update`
 
@@ -6431,12 +5735,7 @@ $ hf update [OPTIONS]
 
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 ## `hf upload`
 
@@ -6472,12 +5771,7 @@ $ hf upload [OPTIONS] REPO_ID [LOCAL_PATH] [PATH_IN_REPO]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf upload my-cool-model . .
@@ -6505,12 +5799,7 @@ $ hf version [OPTIONS]
 
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 ## `hf webhooks`
 
@@ -6561,12 +5850,7 @@ $ hf webhooks create [OPTIONS]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf webhooks create --url https://example.com/hook --watch model:bert-base-uncased
@@ -6599,12 +5883,7 @@ $ hf webhooks delete [OPTIONS] WEBHOOK_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf webhooks delete abc123
@@ -6634,12 +5913,7 @@ $ hf webhooks disable [OPTIONS] WEBHOOK_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf webhooks disable abc123
@@ -6668,12 +5942,7 @@ $ hf webhooks enable [OPTIONS] WEBHOOK_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf webhooks enable abc123
@@ -6702,12 +5971,7 @@ $ hf webhooks info [OPTIONS] WEBHOOK_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf webhooks info abc123
@@ -6732,12 +5996,7 @@ $ hf webhooks list [OPTIONS]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf webhooks ls
@@ -6780,12 +6039,7 @@ $ hf webhooks update [OPTIONS] WEBHOOK_ID
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
-**Formatting options**:
-
-* `--format [auto|human|agent|json|quiet]`: Output format. Defaults to 'auto' which picks 'agent' or 'human' based on the terminal.
-* `--json`: JSON output. Equivalent to '--format json'.
-* `-q, --quiet`: Quiet output (one ID per line). Equivalent to '--format quiet'.
-* `--no-truncate`: Do not truncate scalar values in human tables (list/dict columns stay shortened).
+Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf webhooks update abc123 --url https://new-url.com/hook --watch model:gpt2 --domain repo
