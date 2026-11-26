@@ -53,6 +53,7 @@ import hashlib
 import logging
 import os
 import time
+from contextlib import nullcontext
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath, PureWindowsPath
 
@@ -293,7 +294,7 @@ def get_local_upload_paths(local_dir: Path, filename: str) -> LocalUploadFilePat
     )
 
 
-def read_download_metadata(local_dir: Path, filename: str) -> LocalDownloadFileMetadata | None:
+def read_download_metadata(local_dir: Path, filename: str, *, lock: bool = True) -> LocalDownloadFileMetadata | None:
     """Read metadata about a file in the local directory related to a download process.
 
     Args:
@@ -301,12 +302,14 @@ def read_download_metadata(local_dir: Path, filename: str) -> LocalDownloadFileM
             Path to the local directory in which files are downloaded.
         filename (`str`):
             Path of the file in the repo.
+        lock (`bool`, *optional*):
+            Whether to acquire the file lock. Set to `False` if the caller already holds it.
 
     Return:
         `[LocalDownloadFileMetadata]` or `None`: the metadata if it exists, `None` otherwise.
     """
     paths = get_local_download_paths(local_dir, filename)
-    with WeakFileLock(paths.lock_path):
+    with WeakFileLock(paths.lock_path) if lock else nullcontext():
         if paths.metadata_path.exists():
             try:
                 with paths.metadata_path.open() as f:
@@ -429,15 +432,17 @@ def read_upload_metadata(local_dir: Path, filename: str) -> LocalUploadFileMetad
     return LocalUploadFileMetadata(size=paths.file_path.stat().st_size)
 
 
-def write_download_metadata(local_dir: Path, filename: str, commit_hash: str, etag: str) -> None:
+def write_download_metadata(local_dir: Path, filename: str, commit_hash: str, etag: str, *, lock: bool = True) -> None:
     """Write metadata about a file in the local directory related to a download process.
 
     Args:
         local_dir (`Path`):
             Path to the local directory in which files are downloaded.
+        lock (`bool`, *optional*):
+            Whether to acquire the file lock. Set to `False` if the caller already holds it.
     """
     paths = get_local_download_paths(local_dir, filename)
-    with WeakFileLock(paths.lock_path):
+    with WeakFileLock(paths.lock_path) if lock else nullcontext():
         with paths.metadata_path.open("w") as f:
             f.write(f"{commit_hash}\n{etag}\n{time.time()}\n")
 

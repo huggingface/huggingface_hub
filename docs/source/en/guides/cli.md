@@ -238,6 +238,18 @@ This command logs you out. In practice, it will delete all tokens stored on your
 
 This command will not log you out if you are logged in using the `HF_TOKEN` environment variable (see [reference](../package_reference/environment_variables#hftoken)). If that is the case, you must unset the environment variable in your machine configuration.
 
+## hf auth revoke
+
+If you come across a leaked token (in a repo, a log, a pasted snippet…), you can revoke it right away with `hf auth revoke`. Anyone holding the raw value of a token can revoke it: you don't need to be logged in, and the owner of the token gets an email. Your own token is never sent with this request.
+
+```bash
+>>> hf auth revoke hf_xxx hf_yyy
+✓ Revocation requested for 2 token(s)
+  count: 2
+```
+
+The Hub doesn't say whether a token existed: any valid token passed to the command is revoked. The same is available in Python with [`revoke_tokens`].
+
 ## hf download
 
 Use the `hf download` command to download files from the Hub directly. Internally, it uses the same [`hf_hub_download`] and [`snapshot_download`] helpers described in the [Download](./download) guide and prints the returned path to the terminal. In the examples below, we will walk through the most common use cases. For a full list of available options, you can run:
@@ -2417,6 +2429,20 @@ There are two separate channels, with different storage properties:
 warns about it on stderr, including in quiet mode. Pooled sandboxes reject `--secrets` outright: a pool has no
 encrypted-secrets channel, and `hf sandbox create --pool <id> -s KEY=value` errors out with a pointer to
 `--env`.
+
+### Restrict network access
+
+Pass `--network none` to block all outbound connections from the sandbox, or a comma-separated allowlist to allow only some destinations. Entries can be IP ranges, IPs and hostnames, with an optional port. Mounted volumes keep working. It works for pooled sandboxes too.
+
+```bash
+# No internet access
+>>> hf sandbox create --network none
+
+# Only an internal network range and the Hub
+>>> hf sandbox create --network 10.0.0.0/8,huggingface.co:443
+```
+
+See [Sandboxes without internet access](./sandbox#sandboxes-without-internet-access) for details.
 
 ## hf webhooks
 

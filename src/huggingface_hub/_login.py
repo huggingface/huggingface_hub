@@ -26,6 +26,7 @@ from . import constants
 from .errors import DeviceCodeError
 from .utils import (
     ANSI,
+    build_hf_headers,
     get_token,
     is_google_colab,
     is_notebook,
@@ -48,7 +49,11 @@ from .utils._auth import (
     _write_secret,
     get_stored_tokens,
 )
+from .utils._http import get_session, hf_raise_for_status
 from .utils._oauth_device import OAuthTokenResponse, poll_device_token, request_device_code
+
+
+_REVOKE_TOKENS_BATCH_SIZE = 1000
 
 
 logger = logging.get_logger(__name__)
@@ -157,6 +162,40 @@ def logout(token_name: str | None = None) -> None:
             "Token has been deleted from your machine but you are still logged in.\n"
             "To log out, you must clear out both `HF_TOKEN` and `HUGGING_FACE_HUB_TOKEN` environment variables."
         )
+
+
+def revoke_tokens(tokens: list[str]) -> None:
+    """Revoke Hugging Face access tokens, typically leaked ones.
+
+    Anyone holding the raw value of a token can revoke it: no authentication is needed and the owner of each token is
+    notified by email. The Hub doesn't tell whether a token existed, so this function returns nothing once the
+    revocation request is accepted.
+
+    The request is sent without any `Authorization` header, so your own token is never used (or revoked) by mistake.
+    Tokens are sent in batches of 1000.
+
+    Args:
+        tokens (`list[str]`):
+            The tokens to revoke (e.g. `["hf_xxx"]`).
+
+    Example:
+    ```py
+    >>> from huggingface_hub import revoke_tokens
+    >>> revoke_tokens(["hf_xxx"])
+    ```
+    """
+    if isinstance(tokens, str):
+        raise ValueError("`tokens` must be a list of tokens, not a single string.")
+    if not tokens:
+        raise ValueError("No token to revoke.")
+    headers = build_hf_headers(token=False)
+    for i in range(0, len(tokens), _REVOKE_TOKENS_BATCH_SIZE):
+        response = get_session().post(
+            f"{constants.ENDPOINT}/api/credentials/revoke",
+            headers=headers,
+            json={"credentials": tokens[i : i + _REVOKE_TOKENS_BATCH_SIZE]},
+        )
+        hf_raise_for_status(response)
 
 
 def auth_switch(token_name: str, add_to_git_credential: bool = False) -> None:
