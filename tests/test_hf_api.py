@@ -65,6 +65,7 @@ from huggingface_hub.hf_api import (
     InferenceProviderMapping,
     ModelInfo,
     Organization,
+    PaperInfo,
     RepoSibling,
     RepoUrl,
     SpaceInfo,
@@ -2599,19 +2600,25 @@ class TestHfApiPublicProduction:
             api.parse_safetensors_file_metadata("HuggingFaceH4/zephyr-7b-beta", "pytorch_model-00001-of-00008.bin")
 
     def test_inference_provider_mapping_model_info(self, api: HfApi):
-        model = api.model_info("deepseek-ai/DeepSeek-R1-0528", expand="inferenceProviderMapping")
+        model = api.model_info("black-forest-labs/FLUX.1-dev", expand="inferenceProviderMapping")
         mapping = model.inference_provider_mapping
         assert isinstance(mapping, list)
         assert len(mapping) > 0
         for item in mapping:
             assert isinstance(item, InferenceProviderMapping)
             assert item.provider is not None
-            assert item.hf_model_id == "deepseek-ai/DeepSeek-R1-0528"
+            assert item.hf_model_id == "black-forest-labs/FLUX.1-dev"
             assert item.provider_id is not None
 
     def test_inference_provider_mapping_list_models(self, api: HfApi):
         models = list(
-            api.list_models(author="deepseek-ai", expand="inferenceProviderMapping", limit=1, inference_provider="all")
+            api.list_models(
+                author="black-forest-labs",
+                search="FLUX.1-dev",
+                expand="inferenceProviderMapping",
+                limit=1,
+                inference_provider="all",
+            )
         )
         assert len(models) > 0
         mapping = models[0].inference_provider_mapping
@@ -4282,6 +4289,36 @@ class TestPaperApi:
     def test_daily_papers_limit(self) -> None:
         papers = list(self.api.list_daily_papers(date="2025-10-29", limit=10))
         assert len(papers) == 10
+
+    def test_paper_info_nested_metadata(self) -> None:
+        data = {
+            "title": "The Llama 3 Herd of Models",
+            "paper": {
+                "id": "2407.21783",
+                "authors": [{"name": "Meta AI"}],
+                "summary": "This paper presents...",
+                "upvotes": 100,
+                "projectPage": "https://ai.meta.com/llama/",
+                "githubRepo": "https://github.com/meta-llama/llama3",
+                "githubStars": 0,
+                "ai_summary": "AI summary text",
+                "ai_keywords": ["llama", "llm"],
+            },
+            "numComments": 5,
+        }
+        paper = PaperInfo(**data)
+        assert paper.id == "2407.21783"
+        assert paper.title == "The Llama 3 Herd of Models"
+        assert paper.project_page == "https://ai.meta.com/llama/"
+        assert paper.github_repo == "https://github.com/meta-llama/llama3"
+        assert paper.github_stars == 0
+        assert paper.ai_summary == "AI summary text"
+        assert paper.ai_keywords == ["llama", "llm"]
+
+        # Ensure explicit empty collections and zero values are preserved
+        empty_paper = PaperInfo(id="2407.21783", ai_keywords=[], github_stars=0)
+        assert empty_paper.ai_keywords == []
+        assert empty_paper.github_stars == 0
 
 
 class TestWebhookApi:

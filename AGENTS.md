@@ -105,7 +105,7 @@ Convention: stderr for prompts/warnings, stdout for data. Warnings go to stderr 
 
 **Generated docs**: `make style` auto-regenerates `docs/source/en/package_reference/cli.md` via `utils/generate_cli_reference.py`. Don't edit that file by hand.
 
-**Guides**: update the CLI guide `docs/sources/en/guides/cli.md` when adding / updating CLI commands. If the command is specific to a topic which has its own guide in `docs/sources/en/guides`, add a mention in the guide as well, using the same tone as the existing guide.
+**Guides**: update the CLI guide `docs/source/en/guides/cli.md` when adding / updating CLI commands. If the command is specific to a topic which has its own guide in `docs/source/en/guides`, add a mention in the guide as well, using the same tone as the existing guide.
 
 **CLI tests**: add tests in `tests/test_cli.py`. Try to group tests into classes when relevant. Do not add a test for each specific use case / parameter set. Usually testing the 1-2 main use cases is enough.
 
@@ -121,6 +121,7 @@ If CI fails on type checks that pass locally, the likely cause is a newer `ty` v
 
 ## Commits & PRs
 
+- **Bug discovery**: for every bug-related issue or PR, you must state in its description whether the bug was encountered while using the library in a real-life situation (briefly describe the use case) or found through static code analysis (e.g. reading the code or using an analysis tool). If a static-analysis finding was later reproduced, still state that it was originally found through static analysis.
 - **Commit message prefix**: use `[Area]` prefix matching the scope, e.g. `[CLI] Add ...`, `[CLI] Fix ...`, `[Inference] ...`.
 - **PR title**: short (under 70 chars), same `[Area]` prefix convention.
 - **PR description**: keep it casual. Include a `## Summary` with a few bullet points and real CLI/code **examples** from manual testing (copy-paste terminal output). No need for a formal "Test plan" section. Call out breaking changes explicitly if any. It is important to document any decision taken in the PR or instructions provided in the prompt while working on the PR, ideally with the rationale behind it.

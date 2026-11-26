@@ -159,6 +159,37 @@ class TestHfFileSystemBucketRW(_HfFileSystemBucketChecks, _HfFileSystemBaseRWTes
         finally:
             self.api.delete_repo(repo_id, repo_type="model")
 
+    def test_info_after_remote_write_with_stale_listing(self):
+        # Regression test for #5383: read-after-write of a file missing from the listing cached by this instance
+        data_path = f"{self.hf_path}/data"
+        self.hffs.ls(data_path)  # listing is now cached
+        self.api.batch_bucket_files(self.bucket_id, add=[(b"new data", "data/new.txt")])  # written by another client
+
+        assert self.hffs.info(f"{data_path}/new.txt")["size"] == 8
+        assert data_path not in self.hffs.dircache  # outdated listing is dropped
+        assert self.hffs.cat(f"{data_path}/new.txt") == b"new data"
+        with pytest.raises(FileNotFoundError):
+            self.hffs.info(f"{data_path}/missing.txt")
+
+    def test_write_file_in_transaction(self):
+        data = "new text data"
+        with self.hffs.transaction:
+            with self.hffs.open(self.hf_path + "/data/new_text_data.txt", "w") as f:
+                f.write(data)
+            # Not uploaded until the transaction is committed
+            assert self.hf_path + "/data/new_text_data.txt" not in self.hffs.glob(self.hf_path + "/data/*")
+        assert self.hf_path + "/data/new_text_data.txt" in self.hffs.glob(self.hf_path + "/data/*")
+        with self.hffs.open(self.hf_path + "/data/new_text_data.txt", "r") as f:
+            assert f.read() == data
+
+    def test_write_file_in_transaction_discarded_on_error(self):
+        with pytest.raises(ValueError):
+            with self.hffs.transaction:
+                with self.hffs.open(self.hf_path + "/data/new_text_data.txt", "wb") as f:
+                    f.write(b"new text data")
+                raise ValueError("Interrupted")
+        assert self.hf_path + "/data/new_text_data.txt" not in self.hffs.glob(self.hf_path + "/data/*")
+
 
 class TestHfFileSystemBucketLiveFollow:
     """

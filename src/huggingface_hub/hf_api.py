@@ -16,6 +16,7 @@ from __future__ import annotations
 import inspect
 import itertools
 import json
+import os
 import re
 import struct
 import time
@@ -1868,13 +1869,18 @@ class PaperInfo:
         self.submitted_at = parse_datetime(submitted_at) if submitted_at else None
         submitted_by = kwargs.pop("submittedBy", None) or kwargs.pop("submittedOnDailyBy", None)
         self.submitted_by = User(**submitted_by) if submitted_by else None
-        self.ai_summary = kwargs.pop("ai_summary", None)
-        self.ai_keywords = kwargs.pop("ai_keywords", None)
+        ai_summary = kwargs.pop("ai_summary", None)
+        self.ai_summary = ai_summary if ai_summary is not None else paper.pop("ai_summary", None)
+        ai_keywords = kwargs.pop("ai_keywords", None)
+        self.ai_keywords = ai_keywords if ai_keywords is not None else paper.pop("ai_keywords", None)
         organization = kwargs.pop("organization", None)
         self.organization = Organization(**organization) if organization else None
-        self.project_page = kwargs.pop("projectPage", None)
-        self.github_repo = kwargs.pop("githubRepo", None)
-        self.github_stars = kwargs.pop("githubStars", None)
+        project_page = kwargs.pop("projectPage", None)
+        self.project_page = project_page if project_page is not None else paper.pop("projectPage", None)
+        github_repo = kwargs.pop("githubRepo", None)
+        self.github_repo = github_repo if github_repo is not None else paper.pop("githubRepo", None)
+        github_stars = kwargs.pop("githubStars", None)
+        self.github_stars = github_stars if github_stars is not None else paper.pop("githubStars", None)
         linked_models = kwargs.pop("linkedModels", None)
         self.linked_models = [ModelInfo(**m) for m in linked_models] if linked_models is not None else None
         self.num_total_models = kwargs.pop("numTotalModels", None)
@@ -3144,7 +3150,12 @@ class HfApi:
             repo_type = constants.REPO_TYPE_MODEL
         path = f"{self.endpoint}/api/{repo_type}s/{repo_id}/likers"
         for liker in paginate(path, params={}, headers=self._build_hf_headers(token=token)):
-            yield User(username=liker["user"], fullname=liker["fullname"], avatar_url=liker["avatarUrl"])
+            yield User(
+                username=liker["user"],
+                fullname=liker["fullname"],
+                avatar_url=liker["avatarUrl"],
+                is_pro=liker.get("isPro"),
+            )
 
     @validate_hf_hub_args
     def model_info(
@@ -7424,6 +7435,11 @@ class HfApi:
         target_branch = discussion_details["changes"]["base"] if is_pull_request else None
         conflicting_files = discussion_details["filesWithConflicts"] if is_pull_request else None
         merge_commit_oid = discussion_details["changes"].get("mergeCommitId", None) if is_pull_request else None
+        diff_url = (
+            fix_hf_endpoint_in_url(discussion_details["diffUrl"], endpoint=self.endpoint)
+            if discussion_details.get("diffUrl")
+            else None
+        )
 
         return DiscussionWithDetails(
             title=discussion_details["title"],
@@ -7439,6 +7455,7 @@ class HfApi:
             target_branch=target_branch,
             merge_commit_oid=merge_commit_oid,
             diff=discussion_details.get("diff"),
+            diff_url=diff_url,
             endpoint=self.endpoint,
         )
 
@@ -9180,12 +9197,14 @@ class HfApi:
             user = self.whoami(token=token)
 
             # List personal endpoints first
-            endpoints: list[InferenceEndpoint] = list_inference_endpoints(namespace=self._get_namespace(token=token))
+            endpoints: list[InferenceEndpoint] = self.list_inference_endpoints(
+                namespace=self._get_namespace(token=token), token=token
+            )
 
             # Then list endpoints for all orgs the user belongs to and ignore 401 errors (no billing or no access)
             for org in user.get("orgs", []):
                 try:
-                    endpoints += list_inference_endpoints(namespace=org["name"], token=token)
+                    endpoints += self.list_inference_endpoints(namespace=org["name"], token=token)
                 except HfHubHTTPError as error:
                     if error.response.status_code == 401:  # Either no billing or user don't have access)
                         logger.debug("Cannot list Inference Endpoints for org '%s': %s", org["name"], error)
@@ -9203,7 +9222,7 @@ class HfApi:
         hf_raise_for_status(response)
 
         return [
-            InferenceEndpoint.from_raw(endpoint, namespace=namespace, token=token)
+            InferenceEndpoint.from_raw(endpoint, namespace=namespace, token=token, api=self)
             for endpoint in response.json()["items"]
         ]
 
@@ -9409,8 +9428,7 @@ class HfApi:
             ... )
             >>> endpoint.wait(timeout=300)
             # Run inference on the endpoint
-            >>> endpoint.client.text_generation(...)
-            TextClassificationOutputElement(label='positive', score=0.8983615040779114)
+            >>> endpoint.client.text_classification("The financial outlook is positive.")
             ```
 
         """
@@ -9502,7 +9520,7 @@ class HfApi:
         )
         hf_raise_for_status(response)
 
-        return InferenceEndpoint.from_raw(response.json(), namespace=namespace, token=token)
+        return InferenceEndpoint.from_raw(response.json(), namespace=namespace, token=token, api=self)
 
     @experimental
     @validate_hf_hub_args
@@ -9587,7 +9605,7 @@ class HfApi:
 
         response = get_session().post(url, headers=self._build_hf_headers(token=token), json=payload)
         hf_raise_for_status(response)
-        return InferenceEndpoint.from_raw(response.json()["endpoint"], namespace=namespace, token=token)
+        return InferenceEndpoint.from_raw(response.json()["endpoint"], namespace=namespace, token=token, api=self)
 
     @experimental
     @validate_hf_hub_args
@@ -9706,7 +9724,7 @@ class HfApi:
         )
         hf_raise_for_status(response)
 
-        return InferenceEndpoint.from_raw(response.json(), namespace=namespace, token=token)
+        return InferenceEndpoint.from_raw(response.json(), namespace=namespace, token=token, api=self)
 
     def update_inference_endpoint(
         self,
@@ -9894,7 +9912,7 @@ class HfApi:
         )
         hf_raise_for_status(response)
 
-        return InferenceEndpoint.from_raw(response.json(), namespace=namespace, token=token)
+        return InferenceEndpoint.from_raw(response.json(), namespace=namespace, token=token, api=self)
 
     def delete_inference_endpoint(
         self, name: str, *, namespace: str | None = None, token: bool | str | None = None
@@ -9957,7 +9975,7 @@ class HfApi:
         )
         hf_raise_for_status(response)
 
-        return InferenceEndpoint.from_raw(response.json(), namespace=namespace, token=token)
+        return InferenceEndpoint.from_raw(response.json(), namespace=namespace, token=token, api=self)
 
     def resume_inference_endpoint(
         self,
@@ -10003,7 +10021,7 @@ class HfApi:
             # Otherwise, raise the error
             raise
 
-        return InferenceEndpoint.from_raw(response.json(), namespace=namespace, token=token)
+        return InferenceEndpoint.from_raw(response.json(), namespace=namespace, token=token, api=self)
 
     def scale_to_zero_inference_endpoint(
         self, name: str, *, namespace: str | None = None, token: bool | str | None = None
@@ -10038,7 +10056,7 @@ class HfApi:
         )
         hf_raise_for_status(response)
 
-        return InferenceEndpoint.from_raw(response.json(), namespace=namespace, token=token)
+        return InferenceEndpoint.from_raw(response.json(), namespace=namespace, token=token, api=self)
 
     def list_inference_endpoints_hardware(
         self, *, namespace: str | None = None, token: bool | str | None = None
@@ -11328,13 +11346,16 @@ class HfApi:
         *,
         url: str | None = None,
         job_id: str | None = None,
-        watched: list[dict | WebhookWatchedItem] | None = None,
-        domains: list[constants.WEBHOOK_DOMAIN_T] | None = None,
+        watched: list[dict | WebhookWatchedItem],
+        domains: list[constants.WEBHOOK_DOMAIN_T],
         secret: str | None = None,
         secrets: dict[str, str] | None = None,
         token: bool | str | None = None,
     ) -> WebhookInfo:
         """Update an existing webhook.
+
+        Pass the complete watched list, domains and destination, including values that have not changed.
+        Provide exactly one of `url` or `job_id`.
 
         Args:
             webhook_id (`str`):
@@ -11343,10 +11364,10 @@ class HfApi:
                 The URL to which the payload will be sent.
             job_id (`str`, optional):
                 ID of the source Job to trigger with the webhook payload. Required when setting `secrets`.
-            watched (`list[WebhookWatchedItem]`, optional):
+            watched (`list[WebhookWatchedItem]`):
                 List of items to watch. It can be users, orgs, models, datasets, or spaces.
                 Refer to [`WebhookWatchedItem`] for more details. Watched items can also be provided as plain dictionaries.
-            domains (`list[Literal["repo", "discussion"]]`, optional):
+            domains (`list[Literal["repo", "discussion"]]`):
                 The domains to watch. This can include "repo", "discussion", or both.
             secret (`str`, optional):
                 A secret to sign the payload with, providing an additional layer of security.
@@ -11383,19 +11404,17 @@ class HfApi:
                 disabled=False,
             ```
         """
-        if watched is None:
-            watched = []
+        if not watched or not domains:
+            raise ValueError("`watched` and `domains` must both be non-empty.")
         watched_dicts = [asdict(item) if isinstance(item, WebhookWatchedItem) else item for item in watched]
 
-        update_json: dict = {"watched": watched_dicts}
-        if url is not None and job_id is not None:
-            raise ValueError("Set `url` or `job_id` but not both.")
+        update_json: dict = {"watched": watched_dicts, "domains": domains}
+        if bool(url) == bool(job_id):
+            raise ValueError("Set exactly one of `url` or `job_id`.")
         if url is not None:
             update_json["url"] = url
         if job_id is not None:
             update_json["jobSourceId"] = job_id
-        if domains is not None:
-            update_json["domains"] = domains
         if secret is not None:
             update_json["secret"] = secret
         if secrets is not None:
@@ -13763,12 +13782,14 @@ class HfApi:
             namespace = self.whoami(token=token)["name"]
 
         # Find the local files to pass to the job
-        local_files_to_include = {candidate for candidate in [script] + script_args if Path(candidate).is_file()}
+        # `os.path.isfile` returns False for arguments too long to be a path (e.g. a JSON string),
+        # while `Path.is_file` raises OSError on Python < 3.14
+        local_files_to_include = {candidate for candidate in [script] + script_args if os.path.isfile(candidate)}
         # Fail early for missing scripts or config files
         missing_local_files = {
             candidate
             for candidate in [script] + script_args
-            if not Path(candidate).is_file()
+            if not os.path.isfile(candidate)
             and Path(candidate).suffix in [".py", ".sh", ".yaml", ".yml", ".toml"]
             and not candidate.startswith("https://")
             and not candidate.startswith("http://")

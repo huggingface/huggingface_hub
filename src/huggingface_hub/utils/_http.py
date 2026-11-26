@@ -39,6 +39,7 @@ from ..errors import (
     BadRequestError,
     BucketNotFoundError,
     DisabledRepoError,
+    EgressLimitError,
     GatedRepoError,
     HfHubHTTPError,
     JobNotFoundError,
@@ -178,7 +179,7 @@ REPO_API_REGEX = re.compile(
         ^https://[^/]+
         (
             # on /api/repo_type/repo_id
-            /api/(models|datasets|spaces)/(.+)
+            /api/(models|datasets|spaces|kernels)/(.+)
             |
             # or /repo_id/resolve/revision/...
             /(.+)/resolve/(.+)
@@ -202,8 +203,8 @@ BUCKET_API_REGEX = re.compile(
 _JOB_ID_FROM_URL_REGEX = re.compile(r"^https?://[^/]+/api/(?:scheduled-jobs|jobs)/[^/]+/([^/?]+)")
 
 # Regex to extract repo_type and repo_id from API URLs.
-# Captures: group(1) = repo_type plural (models/datasets/spaces), group(2) = first path segment, group(3) = optional second segment.
-_REPO_ID_FROM_URL_REGEX = re.compile(r"^https?://[^/]+/api/(models|datasets|spaces)/([^/?]+)(?:/([^/?]+))?")
+# Captures: group(1) = repo_type plural (models/datasets/spaces/kernels), group(2) = first path segment, group(3) = optional second segment.
+_REPO_ID_FROM_URL_REGEX = re.compile(r"^https?://[^/]+/api/(models|datasets|spaces|kernels)/([^/?]+)(?:/([^/?]+))?")
 
 # Regex to extract repo_type and repo_id from download URLs: /[{repo_type}s/]{repo_id}/resolve/...
 # Captures: group(1) = optional repo_type plural (datasets/spaces/kernels), group(2) = repo_id.
@@ -851,6 +852,8 @@ def hf_raise_for_status(response: httpx2.Response, endpoint_name: str | None = N
     >     - [`~utils.EntryNotFoundError`]
     >         If the repository exists but the entry (e.g. the requested file) couldn't be
     >         find.
+    >     - [`~utils.EgressLimitError`]
+    >         If the account reached its egress (download) allowance.
     >     - [`~utils.BadRequestError`]
     >         If request failed with a HTTP 400 BadRequest error.
     >     - [`~utils.HfHubHTTPError`]
@@ -890,6 +893,12 @@ def hf_raise_for_status(response: httpx2.Response, endpoint_name: str | None = N
                 f"{response.status_code} Client Error." + "\n\n" + f"Cannot access gated repo for url {response.url}."
             )
             raise _format(GatedRepoError, message, response, repo_type=repo_type, repo_id=repo_id) from e
+
+        elif error_code == "EgressLimitReached":
+            message = (
+                f"{response.status_code} Client Error." + "\n\n" + f"Egress limit reached for url: {response.url}."
+            )
+            raise _format(EgressLimitError, message, response) from e
 
         elif error_message == "Access to this resource is disabled.":
             message = (

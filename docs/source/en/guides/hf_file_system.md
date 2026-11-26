@@ -105,6 +105,19 @@ A few things to know about it:
 - Following starts as soon as a bucket is listed, and one background connection is kept open per followed
   bucket, shared by all [`HfFileSystem`] instances. That is why the option is opt-in.
 
+## Transactions
+
+[`HfFileSystem`] supports [fsspec transactions](https://filesystem-spec.readthedocs.io/en/latest/features.html#transactions) for buckets only.
+Files written inside a transaction are uploaded when the block ends. If the block raises an error, nothing is uploaded:
+
+```python
+>>> with hffs.transaction:
+...     with hffs.open("buckets/my-username/my-bucket/checkpoints/last.ckpt", "wb") as f:
+...         f.write(data)
+...     # not uploaded yet
+>>> # uploaded now
+```
+
 ## Integrations
 
 The [`HfFileSystem`] can be used with any library that integrates `fsspec`, provided the URL follows the scheme:
@@ -141,7 +154,7 @@ Some interesting integrations where [`HfFileSystem`] simplifies interacting with
   >>> df.to_csv("hf://buckets/my-username/my-bucket/test.csv")
   ```
 
-The same workflow can also be used for [Dask](https://docs.dask.org/en/stable/how-to/connect-to-remote-data.html) and [Polars](https://pola-rs.github.io/polars/py-polars/html/reference/io.html) DataFrames.
+The same workflow can also be used for [Dask](https://docs.dask.org/en/stable/how-to/connect-to-remote-data.html) and [Polars](https://docs.pola.rs/api/python/stable/reference/io.html) DataFrames.
 
 * Querying (remote) Hub files with [DuckDB](https://duckdb.org/docs/guides/python/filesystems):
 
@@ -156,7 +169,7 @@ The same workflow can also be used for [Dask](https://docs.dask.org/en/stable/ho
   >>> df = duckdb.query(f"SELECT * FROM '{fs_query_file}' LIMIT 10").df()
   ```
 
-* Using the Hub as an array store with [Zarr](https://zarr.readthedocs.io/en/stable/tutorial.html#io-with-fsspec):
+* Using the Hub as an array store with [Zarr](https://zarr.readthedocs.io/en/stable/user-guide/storage/#remote-store):
 
   ```python
   >>> import numpy as np

@@ -758,7 +758,7 @@ To filter by prefix, append the prefix to the bucket path:
 Use `hf cp` to copy a single file between your local machine, repositories, and buckets. The source and destination can each be a local path, an `hf://` URI (repo or bucket), or `-` (stdin/stdout).
 
 > [!TIP]
-> `hf cp` is also exposed as `hf repos cp` and `hf buckets cp` — all three are the exact same command. Use whichever reads best for your workflow.
+> `hf cp` accepts both repositories and buckets. The grouped commands restrict the remote endpoint: use `hf repos cp` for a repository or `hf buckets cp` for a bucket. For downloads, the source determines which command to use. For uploads and copies between Hub locations, use the destination.
 
 To upload a file (local → repo or bucket):
 
@@ -1031,12 +1031,12 @@ The default table output includes subset, split, and parquet file URL from the H
 
 ### Run SQL on dataset parquet
 
-Use `hf datasets sql` to execute raw SQL queries with DuckDB against dataset parquet URLs.
-Discover URLs first with `hf datasets parquet`, then query them directly with `read_parquet(...)`.
+Use `hf datasets sql` to execute raw SQL queries with DuckDB against dataset parquet files.
+Query them directly with `hf_dataset(...)`.
 
 ```bash
->>> hf datasets sql "SELECT COUNT(*) AS rows FROM read_parquet('https://huggingface.co/api/datasets/cfahlgren1/hub-stats/parquet/models/train/0.parquet')"
->>> hf datasets sql "SELECT * FROM read_parquet('https://huggingface.co/api/datasets/cfahlgren1/hub-stats/parquet/models/train/0.parquet') LIMIT 5" --format json
+>>> hf datasets sql "SELECT COUNT(*) AS rows FROM hf_dataset('cfahlgren1/hub-stats', config:='models');"
+>>> hf datasets sql "SELECT * FROM hf_dataset('cfahlgren1/hub-stats', config:='models') LIMIT 5" --format json
 ```
 
 Install DuckDB first if needed:
@@ -1603,9 +1603,9 @@ model/microsoft/UserLM-8b be8f2069189bdf443e554c24e488ff3ff6952691    32.1G 4 da
 Found 1 repo(s) for a total of 1 revision(s) and 32.1G on disk.
 ```
 
-The command supports several output formats for scripting: `--format json` prints structured objects, `--format csv` writes comma-separated rows, and `--quiet` prints only IDs. Use `--sort` to order entries by `accessed`, `modified`, `name`, or `size` (append `:asc` or `:desc` to control order), and `--limit` to restrict results to the top N entries. Combine these with `--cache-dir` to target alternative cache locations. See the [Manage your cache](./manage-cache) guide for advanced workflows.
+The command supports several output formats for scripting: `--format json` prints structured objects and `--quiet` prints only IDs. Use `--sort` to order entries by `accessed`, `modified`, `name`, or `size` (append `:asc` or `:desc` to control order), and `--limit` to restrict results to the top N entries. Combine these with `--cache-dir` to target alternative cache locations. See the [Manage your cache](./manage-cache) guide for advanced workflows.
 
-Delete cache entries selected with `hf cache ls --q` by piping the IDs into `hf cache rm`:
+Delete cache entries selected with `hf cache ls -q` by piping the IDs into `hf cache rm`:
 
 ```bash
 >>> hf cache rm $(hf cache ls --filter "accessed>1y" -q) -y
@@ -1995,16 +1995,24 @@ secrets file should be readable by you only (`chmod 600`) — the CLI warns if i
 
 Inside the job container, the following environment variables are automatically available:
 
-| Variable      | Description                                                                                             |
-| ------------- | ------------------------------------------------------------------------------------------------------- |
-| `JOB_ID`      | The unique identifier of the current job. Use this to reference the job programmatically.               |
-| `ACCELERATOR` | The type of accelerator available (e.g., `t4-medium`, `a10g-small`, `a100x4`). Empty if no accelerator. |
-| `CPU_CORES`   | The number of CPU cores available to the job (e.g., `2`, `4`, `8`).                                     |
-| `MEMORY`      | The amount of memory available to the job (e.g., `16Gi`, `32Gi`).                                       |
+| Variable           | Description                                                                                                                                                                                                       |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `HF_JOB_ID`        | The unique identifier of the current job. Use this to reference the job programmatically, for example to store outputs in a dataset with a unique name.                                                           |
+| `HF_JOB_OWNER`     | The user or organization the job runs under.                                                                                                                                                                      |
+| `HF_JOB_FLAVOR`    | The hardware flavor of the job (e.g., `a10g-small`).                                                                                                                                                              |
+| `HF_JOB_GPU_COUNT` | The number of GPUs available to the job: `0` on CPU and Neuron flavors.                                                                                                                                           |
+| `HF_JOB_DISK_GB`   | The disk space available to the job, in GB (e.g., `110`). Unset when the flavor has no disk limit.                                                                                                                |
+| `HF_JOB_TIMEOUT`   | The job's timeout in seconds. It applies to each attempt and counts from the start of the attempt, image pull and volume mounts included. For information only: changing the variable doesn't change the timeout. |
+| `HF_JOB_IMAGE`     | The Docker image of the job, as submitted (e.g., `python:3.12`). Only set for jobs that run a Docker image.                                                                                                       |
+| `HF_JOB_SPACE_ID`  | The ID of the Space whose image the job runs (e.g., `username/my-space`). Only set for jobs started from a Space (`hf.co/spaces/...`).                                                                            |
+| `ACCELERATOR`      | The type of device: `cpu` for CPU flavors, `gpu` for GPU flavors, `neuron` for Neuron flavors.                                                                                                                    |
+| `CPU_CORES`        | The number of CPU cores available to the job (e.g., `2`, `4`, `8`).                                                                                                                                               |
+| `MEMORY`           | The amount of memory available to the job (e.g., `16.0G`, `32.0G`).                                                                                                                                               |
+
 
 ```bash
 # Access job environment information
->>> hf jobs run python:3.12 python -c "import os; print(f'Job: {os.environ.get(\"JOB_ID\")}, CPU: {os.environ.get(\"CPU_CORES\")}, Mem: {os.environ.get(\"MEMORY\")}')"
+>>> hf jobs run python:3.12 python -c "import os; print(f'Job: {os.environ.get(\"HF_JOB_ID\")}, Flavor: {os.environ.get(\"HF_JOB_FLAVOR\")}, CPU: {os.environ.get(\"CPU_CORES\")}, Mem: {os.environ.get(\"MEMORY\")}')"
 ```
 
 ### Job Timeout
@@ -2204,11 +2212,8 @@ Members are resolvable before they are ready, so connect with retries. Group nam
 Run UV scripts (Python scripts with inline dependencies) on HF infrastructure. UV scripts are Python scripts that include their dependencies directly in the file using a special comment syntax.
 
 ```bash
-# Run a UV script (creates temporary repo)
+# Run a local UV script (uploaded to your `jobs-artifacts` bucket)
 >>> hf jobs uv run my_script.py
-
-# Run with persistent repo
->>> hf jobs uv run --repo my-uv-scripts my_script.py
 
 # Run with GPU
 >>> hf jobs uv run --flavor t4-small ml_training.py
@@ -2481,16 +2486,15 @@ The `--watch` option uses the format `type:name` where type is one of `model`, `
 ### Update a webhook
 
 ```bash
->>> hf webhooks update wh-abc123 --url https://new-url.com/hook
->>> hf webhooks update wh-abc123 --watch model:gpt2 --domain repo
+>>> hf webhooks update wh-abc123 --url https://new-url.com/hook --watch model:gpt2 --domain repo
 ```
 
-Only the provided options are changed. Note that `--watch` replaces the entire watched list when specified.
+Every update must include the complete watched list, domains, and destination (`--url` or `--job-id`), including values that are unchanged. `--watch` and `--domain` replace the entire existing lists.
 
 To update the secrets of a Job-triggered webhook, pass `--job-id` together with `--secrets`. Listed secrets replace the stored values and all other secrets are kept:
 
 ```bash
->>> hf webhooks update wh-abc123 --job-id 687f911eaea852de79c4a50a --secrets HF_TOKEN
+>>> hf webhooks update wh-abc123 --job-id 687f911eaea852de79c4a50a --watch user:julien-c --domain repo --secrets HF_TOKEN
 ```
 
 ### Enable / disable a webhook
@@ -2519,8 +2523,7 @@ Use `--yes` to skip the confirmation prompt:
 
 ## hf endpoints
 
-Use `hf endpoints` to list, deploy, describe, and manage Inference Endpoints directly from the terminal. The legacy
-`hf inference-endpoints` alias remains available for compatibility.
+Use `hf endpoints` to list, deploy, describe, and manage Inference Endpoints directly from the terminal.
 
 ```bash
 # Lists endpoints in your namespace

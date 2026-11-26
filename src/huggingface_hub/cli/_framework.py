@@ -488,9 +488,9 @@ class HfArgument(click.Argument):
             var += "..."
         return var
 
-    def get_help_record(self, ctx: click.Context) -> tuple[str, str] | None:
-        if self.hidden:
-            return None
+    def get_help_record(self, ctx: click.Context) -> tuple[str, str]:
+        # Must return a tuple (Click >= 8.5.1 narrowed the signature): hidden arguments are
+        # skipped in ``_format_params`` instead.
         return self.make_metavar(ctx=ctx), _build_help_extra(self, ctx, self.help or "")
 
 
@@ -530,6 +530,8 @@ def _format_params(command: click.Command, ctx: click.Context, formatter: click.
     args: list[tuple[str, str]] = []
     opts: list[tuple[str, str]] = []
     for param in command.get_params(ctx):
+        if isinstance(param, HfArgument) and param.hidden:
+            continue
         record = param.get_help_record(ctx)
         if record is None:
             continue

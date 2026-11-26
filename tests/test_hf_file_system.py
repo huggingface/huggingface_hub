@@ -116,6 +116,15 @@ class _HfFileSystemBaseROTests(_HfFileSystemBaseTests):
             assert f.read() == b"dummy binary data"
             assert f.read() == b""
 
+    @pytest.mark.parametrize("mode", ["x", "xb"])
+    def test_stream_file_rejects_exclusive_write_modes(self, mode):
+        with pytest.raises(ValueError, match="only supports reading"):
+            self.hffs.open(
+                self.hf_path + "/data/binary_data.bin",
+                mode=mode,
+                block_size=0,
+            )
+
     def test_stream_file_retry(self):
         with self.hffs.open(self.hf_path + "/data/binary_data.bin", block_size=0) as f:
             assert isinstance(f, HfFileSystemStreamFile)
@@ -894,6 +903,71 @@ def test_stream_file_open_if_not_found():
             HfFileSystemStreamFile(fs, "hf://missing/repo/not_existing_file.txt")
 
 
+def test_repo_operations_in_transaction_not_supported():
+    # Repo writes, deletes and copies must not create commits inside a transaction
+    fs = HfFileSystem()
+    with (
+        mock_repo_info(fs),
+        patch.object(fs._api, "upload_file") as mock_upload_file,
+        patch.object(fs._api, "create_commit") as mock_create_commit,
+        patch.object(fs._api, "delete_file") as mock_delete_file,
+    ):
+        with fs.transaction:
+            for mode in ["w", "wb", "x", "xb"]:
+                with pytest.raises(NotImplementedError):
+                    fs.open("username/my_model/file.txt", mode)
+            with pytest.raises(NotImplementedError):
+                fs.cp_file("username/my_model/file.txt", "username/my_model/file_copy.txt")
+            with pytest.raises(NotImplementedError):
+                fs.rm_file("username/my_model/file.txt")
+            with pytest.raises(NotImplementedError):
+                fs.rm("username/my_model/file.txt")
+    mock_upload_file.assert_not_called()
+    mock_create_commit.assert_not_called()
+    mock_delete_file.assert_not_called()
+
+
+def test_bucket_file_left_open_in_transaction_is_uploaded():
+    # A file still open when the transaction ends must be flushed before upload
+    fs = HfFileSystem()
+    uploaded = {}
+
+    def _batch_bucket_files(bucket_id, add=None, **kwargs):
+        for src, dst in add or []:
+            with open(src, "rb") as f:
+                uploaded[dst] = f.read()
+
+    with mock_bucket_info(fs), patch.object(fs._api, "batch_bucket_files", side_effect=_batch_bucket_files):
+        with fs.transaction:
+            f = fs.open("hf://buckets/username/my_bucket/file.txt", "wb")
+            f.write(b"hello")
+    assert uploaded == {"file.txt": b"hello"}
+
+
+def test_open_exclusive_create_existing_file_raises():
+    fs = HfFileSystem()
+    with (
+        mock_repo_info(fs),
+        patch.object(fs, "exists", return_value=True),
+        patch.object(fs._api, "upload_file") as upload_mock,
+    ):
+        with pytest.raises(FileExistsError):
+            fs.open("hf://datasets/username/my_dataset/file.txt", "xb")
+        upload_mock.assert_not_called()
+
+
+def test_open_exclusive_create_missing_file_uploads():
+    fs = HfFileSystem()
+    with (
+        mock_repo_info(fs),
+        patch.object(fs, "exists", return_value=False),
+        patch.object(fs._api, "upload_file") as upload_mock,
+    ):
+        with fs.open("hf://datasets/username/my_dataset/file.txt", "xb") as f:
+            f.write(b"first")
+        upload_mock.assert_called_once()
+
+
 @pytest.mark.parametrize(
     ("not_supported_path", "expected_error"),
     [
@@ -984,9 +1058,44 @@ def test_hf_file_system_file_can_handle_gzipped_file():
     assert "class MathQa" in out
 
 
+@pytest.mark.production
+def test_info_root_directory_last_commit_on_real_repo():
+    fs = HfFileSystem(endpoint=constants.ENDPOINT)
+    # Pinned revision so that new commits on the repo don't break the test
+    revision = "607a30d783dfa663caf39e06633721c8d4cfcd7e"
+    path = f"openai-community/gpt2@{revision}"
+
+    info = fs.info(path, expand_info=True)
+    assert info["last_commit"].oid == revision
+    assert info["last_commit"].title == "Adds the tokenizer configuration file (#80)"
+    assert fs.modified(path) == datetime.datetime(2024, 2, 19, 10, 57, 45, tzinfo=datetime.timezone.utc)
+
+
 _FAKE_REPO_ID = "fake/repo"
 _FAKE_REPO = f"datasets/{_FAKE_REPO_ID}"
 _FAKE_LAST_COMMIT = {"id": "oid", "title": "title", "date": "2025-01-01T00:00:00.000Z"}
+
+
+def test_info_refresh_bypasses_parent_listing_cache():
+    new_file = RepoFile(path="new.txt", size=3, oid="abc")
+    with (
+        patch.object(HfApi, "repo_info"),
+        patch.object(HfApi, "list_repo_tree", return_value=[]),
+        patch.object(HfApi, "get_paths_info", return_value=[new_file]) as get_paths_info,
+    ):
+        fs = HfFileSystem(skip_instance_cache=True)
+        assert fs.ls("alice/demo", detail=False) == []
+
+        with pytest.raises(FileNotFoundError):
+            fs.info("alice/demo/new.txt")
+        assert get_paths_info.call_count == 0
+
+        assert fs.info("alice/demo/new.txt", refresh=True) == {
+            "name": "alice/demo/new.txt",
+            "size": 3,
+            "type": "file",
+        }
+        assert get_paths_info.call_count == 1
 
 
 class FakeTreeApi:

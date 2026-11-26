@@ -22,7 +22,6 @@ from typing import Literal, TypedDict
 import httpx2
 
 from ..utils._headers import build_hf_headers
-from ..utils._http import hf_raise_for_status
 from .sse_client import SSEClient
 from .types import ApiGetReloadEventSourceData, ApiGetReloadRequest
 
@@ -69,14 +68,19 @@ class ReloadClient:
 
     def get_reload(self, reload_id: str) -> Iterator[ApiGetReloadEventSourceData] | int:
         req = ApiGetReloadRequest(reloadId=reload_id)
-        with self.client.stream("POST", "/get-reload", json=req) as res:
-            if res.status_code != 200:
-                return res.status_code
-            hf_raise_for_status(res)
+        res = self.client.send(self.client.build_request("POST", "/get-reload", json=req), stream=True)
+        if res.status_code != 200:
+            res.close()
+            return res.status_code
+        return self._iter_events(res)
+
+    def _iter_events(self, res: httpx2.Response) -> Iterator[ApiGetReloadEventSourceData]:
+        try:
             for event in SSEClient(res.iter_bytes()).events():
                 if event.event == "message":
                     yield json.loads(event.data)
-        return None
+        finally:
+            res.close()
 
 
 def multi_replica_reload_events(

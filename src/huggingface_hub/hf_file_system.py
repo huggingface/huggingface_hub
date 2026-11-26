@@ -716,13 +716,17 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
             raise NotImplementedError("Appending to remote files is not yet supported.")
         if block_size == 0:
             return HfFileSystemStreamFile(self, path, mode=mode, revision=revision, **kwargs)
-        else:
-            return HfFileSystemFile(self, path, mode=mode, revision=revision, **kwargs)
+        if "x" in mode and self.exists(path, revision=revision, refresh=True):
+            raise FileExistsError(f"File already exists: {path}")
+        return HfFileSystemFile(self, path, mode=mode, revision=revision, **kwargs)
 
     def _rm(self, path: str, revision: str | None = None, **kwargs) -> None:
         resolved_path = self.resolve_path(path, revision=revision)
         if isinstance(resolved_path, HfFileSystemResolvedBucketPath):
             self._api.batch_bucket_files(resolved_path.bucket_id, delete=[resolved_path.path])
+        elif self._intrans:
+            # See https://github.com/huggingface/huggingface_hub/issues/1733
+            raise NotImplementedError("Transactional commits are only supported for buckets.")
         else:
             self._api.delete_file(
                 path_in_repo=resolved_path.path_in_repo,
@@ -763,6 +767,9 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
 
         """
         resolved_path = self.resolve_path(path, revision=revision)
+        if self._intrans and isinstance(resolved_path, HfFileSystemResolvedRepositoryPath):
+            # See https://github.com/huggingface/huggingface_hub/issues/1733
+            raise NotImplementedError("Transactional commits are only supported for buckets.")
         paths = self.expand_path(path, recursive=recursive, maxdepth=maxdepth, revision=revision)
         if isinstance(resolved_path, HfFileSystemResolvedBucketPath):
             delete = [self.resolve_path(path).path for path in paths if not self.isdir(path)]
@@ -1161,6 +1168,10 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
         if isinstance(resolved_path1, HfFileSystemResolvedBucketPath):
             raise NotImplementedError("Copy from buckets to repositories is not available yet")
 
+        if self._intrans:
+            # See https://github.com/huggingface/huggingface_hub/issues/1733
+            raise NotImplementedError("Transactional commits are only supported for buckets.")
+
         same_repo = (
             resolved_path1.repo_type == resolved_path2.repo_type and resolved_path1.repo_id == resolved_path2.repo_id
         )
@@ -1261,9 +1272,10 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
             if isinstance(resolved_path, HfFileSystemResolvedRepositoryPath):
                 out["last_commit"] = None
             if isinstance(resolved_path, HfFileSystemResolvedRepositoryPath) and expand_info:
+                # Commits are sorted by date (last commit first)
                 last_commit = self._api.list_repo_commits(
                     resolved_path.repo_id, repo_type=resolved_path.repo_type, revision=resolved_path.revision
-                )[-1]
+                )[0]
                 out = {
                     **out,
                     "tree_id": None,  # TODO: tree_id of the root directory?
@@ -1277,15 +1289,24 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
             self.ls(parent_path, refresh=refresh)
             out1 = [o for o in self.dircache[parent_path] if o["name"] == path]
             if not out1:
+                # A parent listing can miss a file that exists: writes from other threads, processes or machines
+                # cannot invalidate the listings cached by this instance, and a fresh listing can briefly lag
+                # behind a write. Look the path up directly before raising a false `FileNotFoundError`.
+                file_infos = list(self._api.get_bucket_paths_info(resolved_path.bucket_id, [resolved_path.path]))
+                if file_infos:
+                    out1 = [_cache_info_from_path_info(file_infos[0], path)]
+                    # The cached listing missed a file that does exist => drop it so the next `ls()` rebuilds it
+                    self._drop_outdated_parent_listing(path)
+            if not out1:
                 _raise_file_not_found(path, None)
             out = out1[0]
         else:
             out = None
             parent_path = self._parent(path)
-            if not expand_info and parent_path not in self.dircache:
+            if not refresh and not expand_info and parent_path not in self.dircache:
                 # Fill the cache with cheap call
                 self.ls(parent_path)
-            if parent_path in self.dircache:
+            if not refresh and parent_path in self.dircache:
                 # Check if the path is in the cache
                 out1 = [o for o in self.dircache[parent_path] if o["name"] == path]
                 if not out1:
@@ -1519,23 +1540,6 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
             if close_file:
                 outfile.close()
 
-    @property
-    def transaction(self):
-        """A context within which files are committed together upon exit
-
-        Requires the file class to implement `.commit()` and `.discard()`
-        for the normal and exception cases.
-        """
-        # Taken from https://github.com/fsspec/filesystem_spec/blob/3fbb6fee33b46cccb015607630843dea049d3243/fsspec/spec.py#L231
-        # See https://github.com/huggingface/huggingface_hub/issues/1733
-        raise NotImplementedError("Transactional commits are not supported.")
-
-    def start_transaction(self):
-        """Begin write transaction for deferring files, non-context version"""
-        # Taken from https://github.com/fsspec/filesystem_spec/blob/3fbb6fee33b46cccb015607630843dea049d3243/fsspec/spec.py#L241
-        # See https://github.com/huggingface/huggingface_hub/issues/1733
-        raise NotImplementedError("Transactional commits are not supported.")
-
     def __reduce__(self):
         # re-populate the instance cache at HfFileSystem._cache and re-populate the state of every instance
         return make_instance, (
@@ -1556,13 +1560,21 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
 class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
     def __init__(self, fs: HfFileSystem, path: str, revision: str | None = None, **kwargs):
         try:
-            self.resolved_path = fs.resolve_path(path, revision=revision)
+            resolved_path = fs.resolve_path(path, revision=revision)
         except FileNotFoundError as e:
             if "w" in kwargs.get("mode", ""):
                 raise FileNotFoundError(
                     f"{e}.\nMake sure the repository and revision exist before writing data."
                 ) from e
             raise
+        if (
+            "r" not in kwargs.get("mode", "")
+            and not kwargs.get("autocommit", True)
+            and isinstance(resolved_path, HfFileSystemResolvedRepositoryPath)
+        ):
+            # See https://github.com/huggingface/huggingface_hub/issues/1733
+            raise NotImplementedError("Transactional commits are only supported for buckets.")
+        self.resolved_path = resolved_path
         super().__init__(fs, self.resolved_path.unresolve(), **kwargs)
         self.fs: HfFileSystem
 
@@ -1591,25 +1603,43 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
         self.temp_file.write(block)
         if final:
             self.temp_file.close()
-            if isinstance(self.resolved_path, HfFileSystemResolvedBucketPath):
-                self.fs._api.batch_bucket_files(
-                    self.resolved_path.bucket_id, add=[(self.temp_file.name, self.resolved_path.path)]
-                )
-            else:
-                self.fs._api.upload_file(
-                    path_or_fileobj=self.temp_file.name,
-                    path_in_repo=self.resolved_path.path_in_repo,
-                    repo_id=self.resolved_path.repo_id,
-                    token=self.fs.token,
-                    repo_type=self.resolved_path.repo_type,
-                    revision=self.resolved_path.revision,
-                    commit_message=self.kwargs.get("commit_message"),
-                    commit_description=self.kwargs.get("commit_description"),
-                )
-            os.remove(self.temp_file.name)
-            self.fs.invalidate_cache(
-                path=self.resolved_path.unresolve(),
+            if self.autocommit:
+                self.commit()
+
+    def commit(self) -> None:
+        """Upload the temporary file to its final destination."""
+        if not self.forced:
+            # A transaction can commit a file that was never closed (e.g. under a compression wrapper)
+            self.close()
+        if isinstance(self.resolved_path, HfFileSystemResolvedBucketPath):
+            self.fs._api.batch_bucket_files(
+                self.resolved_path.bucket_id, add=[(self.temp_file.name, self.resolved_path.path)]
             )
+        else:
+            self.fs._api.upload_file(
+                path_or_fileobj=self.temp_file.name,
+                path_in_repo=self.resolved_path.path_in_repo,
+                repo_id=self.resolved_path.repo_id,
+                token=self.fs.token,
+                repo_type=self.resolved_path.repo_type,
+                revision=self.resolved_path.revision,
+                commit_message=self.kwargs.get("commit_message"),
+                commit_description=self.kwargs.get("commit_description"),
+            )
+        os.remove(self.temp_file.name)
+        self.fs.invalidate_cache(
+            path=self.resolved_path.unresolve(),
+        )
+
+    def discard(self) -> None:
+        """Delete the temporary file without uploading it."""
+        # Mark as closed so that a later `close()` does not write to a new temporary file
+        self.closed = True
+        if not hasattr(self, "temp_file"):
+            # Nothing was flushed yet
+            return
+        self.temp_file.close()
+        os.remove(self.temp_file.name)
 
     def read(self, length=-1):
         """Read remote file.
@@ -1629,6 +1659,8 @@ class HfFileSystemFile(fsspec.spec.AbstractBufferedFile):
 
 
 class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
+    """Read-only binary stream. For text reads, use ``fs.open(path, mode="r", block_size=0)``."""
+
     def __init__(
         self,
         fs: HfFileSystem,
@@ -1643,7 +1675,7 @@ class HfFileSystemStreamFile(fsspec.spec.AbstractBufferedFile):
             raise ValueError(f"HfFileSystemStreamFile only supports block_size=0 but got {block_size}")
         if cache_type != "none":
             raise ValueError(f"HfFileSystemStreamFile only supports cache_type='none' but got {cache_type}")
-        if "w" in mode:
+        if mode != "rb":
             raise ValueError(f"HfFileSystemStreamFile only supports reading but got mode='{mode}'")
         # Let a missing repo/revision/file surface as FileNotFoundError (as the buffered
         # `HfFileSystemFile` does) instead of an AttributeError on `self.resolved_path` below.

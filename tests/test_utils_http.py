@@ -15,6 +15,7 @@ from huggingface_hub import constants
 from huggingface_hub.constants import ENDPOINT
 from huggingface_hub.errors import (
     BucketNotFoundError,
+    EgressLimitError,
     HfHubHTTPError,
     OfflineModeIsEnabled,
     RepositoryNotFoundError,
@@ -623,6 +624,23 @@ class TestBucketNotFoundError:
             hf_raise_for_status(response)
 
 
+class TestEgressLimitError:
+    SERVER_MESSAGE = "You've downloaded 10 TB over the last 30 days. See https://huggingface.co/pricing"
+
+    @pytest.mark.parametrize("method", ["GET", "HEAD"])
+    def test_egress_limit_reached(self, method: str):
+        url = "https://huggingface.co/user/repo/resolve/main/model.safetensors"
+        response = httpx2.Response(
+            402,
+            headers={"X-Error-Code": "EgressLimitReached", "X-Error-Message": self.SERVER_MESSAGE},
+            request=httpx2.Request(method, url),
+        )
+        with pytest.raises(EgressLimitError) as exc_info:
+            hf_raise_for_status(response)
+        assert f"Egress limit reached for url: {url}." in str(exc_info.value)
+        assert self.SERVER_MESSAGE in str(exc_info.value)
+
+
 class TestRateLimitErrorMessage:
     def test_429_with_ratelimit_headers(self):
         """Test 429 error includes rate limit info when headers present."""
@@ -787,6 +805,10 @@ class TestParseRepoInfoFromUrl:
             ("https://huggingface.co/datasets/user/repo/resolve/main/data.csv", ("dataset", "user/repo")),
             ("https://huggingface.co/spaces/user/repo/resolve/main/app.py", ("space", "user/repo")),
             ("https://huggingface.co/user/repo/resolve/main/file.txt?download=true", ("model", "user/repo")),
+            # Kernel repos
+            ("https://huggingface.co/api/kernels/user/repo", ("kernel", "user/repo")),
+            ("https://huggingface.co/api/kernels/user/repo/revision/main", ("kernel", "user/repo")),
+            ("https://huggingface.co/kernels/user/repo/resolve/main/build.toml", ("kernel", "user/repo")),
         ],
     )
     def test_query_params_and_download_urls(self, url, expected):

@@ -545,15 +545,17 @@ def ls(
         unique_repos = {repo for repo, _ in entries}
         repo_count = len(unique_repos)
         if revisions:
-            revision_count = sum(1 for _, rev in entries if rev is not None)
-            total_size = sum(rev.size_on_disk for _, rev in entries if rev is not None)
+            selected_revisions = [rev for _, rev in entries if rev is not None]
         else:
-            revision_count = sum(len(repo.revisions) for repo in unique_repos)
-            if filters or limit is not None:
-                total_size = sum(repo.size_on_disk for repo in unique_repos)
-            else:
-                # Per-repo sizes double-count blobs shared across repos: report the physical total.
-                total_size = hf_cache_info.size_on_disk
+            selected_revisions = [rev for repo in unique_repos for rev in repo.revisions]
+        revision_count = len(selected_revisions)
+        if filters or limit is not None:
+            # Revisions may reference the same blob, including cache-wide shared blobs.
+            blobs = {file.blob_path.resolve(): file.size_on_disk for rev in selected_revisions for file in rev.files}
+            total_size = sum(blobs.values())
+        else:
+            # Per-repo sizes double-count blobs shared across repos: report the physical total.
+            total_size = hf_cache_info.size_on_disk
         out.text(
             ANSI.bold(
                 f"\nFound {repo_count} repo(s) for a total of {revision_count} revision(s)"

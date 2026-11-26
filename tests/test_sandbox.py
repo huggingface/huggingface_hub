@@ -30,7 +30,8 @@ from huggingface_hub._sandbox_cache import (
     read_pool_cache,
     save_pool_cache,
 )
-from huggingface_hub.errors import SandboxCommandError, SandboxError
+from huggingface_hub.errors import JobNotFoundError, SandboxCommandError, SandboxError
+from huggingface_hub.utils import hf_raise_for_status
 
 
 # A job nonce shaped like the real thing (minted by `token_hex(16)`): the public label the
@@ -1730,15 +1731,21 @@ class TestCachedHostFreshness:
         assert pool.host_ids == ["hostA"]
 
     def test_missing_job_is_pruned(self, monkeypatch):
+        # inspect_job never raises HTTPStatusError: hf_raise_for_status wraps a jobs 404
+        # as JobNotFoundError (HfHubHTTPError). That is the error we must prune on.
         _save_cache("p1", [_cached_host("hostA", age=HOST_TRUST_TTL + 60)])
-        response = httpx2.Response(404, request=httpx2.Request("GET", "https://huggingface.co/api/jobs/user/hostA"))
-        monkeypatch.setattr(
-            sandbox_mod.HfApi,
-            "inspect_job",
-            MagicMock(side_effect=httpx2.HTTPStatusError("missing", request=response.request, response=response)),
+        response = httpx2.Response(
+            404,
+            json={"error": "Job not found"},
+            request=httpx2.Request("GET", "https://huggingface.co/api/jobs/user/hostA"),
         )
+        with pytest.raises(JobNotFoundError) as exc_info:
+            hf_raise_for_status(response)
+        assert not isinstance(exc_info.value, httpx2.HTTPStatusError)
+        monkeypatch.setattr(sandbox_mod.HfApi, "inspect_job", MagicMock(side_effect=exc_info.value))
         pool = self._pool()
         pool._seed_hosts_from_cache()
+        assert pool._hosts == []
         assert pool._dead_host_ids == {"hostA"}
 
 
