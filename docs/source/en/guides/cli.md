@@ -1603,9 +1603,9 @@ model/microsoft/UserLM-8b be8f2069189bdf443e554c24e488ff3ff6952691    32.1G 4 da
 Found 1 repo(s) for a total of 1 revision(s) and 32.1G on disk.
 ```
 
-The command supports several output formats for scripting: `--format json` prints structured objects, `--format csv` writes comma-separated rows, and `--quiet` prints only IDs. Use `--sort` to order entries by `accessed`, `modified`, `name`, or `size` (append `:asc` or `:desc` to control order), and `--limit` to restrict results to the top N entries. Combine these with `--cache-dir` to target alternative cache locations. See the [Manage your cache](./manage-cache) guide for advanced workflows.
+The command supports several output formats for scripting: `--format json` prints structured objects and `--quiet` prints only IDs. Use `--sort` to order entries by `accessed`, `modified`, `name`, or `size` (append `:asc` or `:desc` to control order), and `--limit` to restrict results to the top N entries. Combine these with `--cache-dir` to target alternative cache locations. See the [Manage your cache](./manage-cache) guide for advanced workflows.
 
-Delete cache entries selected with `hf cache ls --q` by piping the IDs into `hf cache rm`:
+Delete cache entries selected with `hf cache ls -q` by piping the IDs into `hf cache rm`:
 
 ```bash
 >>> hf cache rm $(hf cache ls --filter "accessed>1y" -q) -y
@@ -1995,16 +1995,24 @@ secrets file should be readable by you only (`chmod 600`) — the CLI warns if i
 
 Inside the job container, the following environment variables are automatically available:
 
-| Variable      | Description                                                                                             |
-| ------------- | ------------------------------------------------------------------------------------------------------- |
-| `JOB_ID`      | The unique identifier of the current job. Use this to reference the job programmatically.               |
-| `ACCELERATOR` | The type of device: `cpu` for CPU flavors, `gpu` for GPU flavors.                                       |
-| `CPU_CORES`   | The number of CPU cores available to the job (e.g., `2`, `4`, `8`).                                     |
-| `MEMORY`      | The amount of memory available to the job (e.g., `16.0G`, `32.0G`).                                     |
+| Variable           | Description                                                                                                                                                                                                       |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `HF_JOB_ID`        | The unique identifier of the current job. Use this to reference the job programmatically, for example to store outputs in a dataset with a unique name.                                                           |
+| `HF_JOB_OWNER`     | The user or organization the job runs under.                                                                                                                                                                      |
+| `HF_JOB_FLAVOR`    | The hardware flavor of the job (e.g., `a10g-small`).                                                                                                                                                              |
+| `HF_JOB_GPU_COUNT` | The number of GPUs available to the job: `0` on CPU and Neuron flavors.                                                                                                                                           |
+| `HF_JOB_DISK_GB`   | The disk space available to the job, in GB (e.g., `110`). Unset when the flavor has no disk limit.                                                                                                                |
+| `HF_JOB_TIMEOUT`   | The job's timeout in seconds. It applies to each attempt and counts from the start of the attempt, image pull and volume mounts included. For information only: changing the variable doesn't change the timeout. |
+| `HF_JOB_IMAGE`     | The Docker image of the job, as submitted (e.g., `python:3.12`). Only set for jobs that run a Docker image.                                                                                                       |
+| `HF_JOB_SPACE_ID`  | The ID of the Space whose image the job runs (e.g., `username/my-space`). Only set for jobs started from a Space (`hf.co/spaces/...`).                                                                            |
+| `ACCELERATOR`      | The type of device: `cpu` for CPU flavors, `gpu` for GPU flavors, `neuron` for Neuron flavors.                                                                                                                    |
+| `CPU_CORES`        | The number of CPU cores available to the job (e.g., `2`, `4`, `8`).                                                                                                                                               |
+| `MEMORY`           | The amount of memory available to the job (e.g., `16.0G`, `32.0G`).                                                                                                                                               |
+
 
 ```bash
 # Access job environment information
->>> hf jobs run python:3.12 python -c "import os; print(f'Job: {os.environ.get(\"JOB_ID\")}, CPU: {os.environ.get(\"CPU_CORES\")}, Mem: {os.environ.get(\"MEMORY\")}')"
+>>> hf jobs run python:3.12 python -c "import os; print(f'Job: {os.environ.get(\"HF_JOB_ID\")}, Flavor: {os.environ.get(\"HF_JOB_FLAVOR\")}, CPU: {os.environ.get(\"CPU_CORES\")}, Mem: {os.environ.get(\"MEMORY\")}')"
 ```
 
 ### Job Timeout
@@ -2501,8 +2509,7 @@ Use `--yes` to skip the confirmation prompt:
 
 ## hf endpoints
 
-Use `hf endpoints` to list, deploy, describe, and manage Inference Endpoints directly from the terminal. The legacy
-`hf inference-endpoints` alias remains available for compatibility.
+Use `hf endpoints` to list, deploy, describe, and manage Inference Endpoints directly from the terminal.
 
 ```bash
 # Lists endpoints in your namespace
