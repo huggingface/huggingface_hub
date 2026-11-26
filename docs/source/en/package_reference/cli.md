@@ -78,6 +78,7 @@ $ hf auth [OPTIONS] COMMAND [ARGS]...
 * `list`: List all stored access tokens. [alias: ls]
 * `login`: Login from your browser, or using a token from huggingface.co/settings/tokens.
 * `logout`: Logout from a specific token.
+* `revoke`: Revoke access tokens, e.g. leaked ones.
 * `switch`: Switch between access tokens.
 * `token`: Print the current access token to stdout.
 * `whoami`: Find out which huggingface.co account you are logged in as.
@@ -156,6 +157,33 @@ Also accepts the global [formatting options](#formatting-options).
 Examples
   $ hf auth logout
   $ hf auth logout --token-name my-token
+
+Learn more
+  Use `hf <command> --help` for more information about a command.
+  Read the documentation at https://huggingface.co/docs/huggingface_hub/en/guides/cli
+
+
+### `hf auth revoke`
+
+Revoke access tokens, e.g. leaked ones. No authentication needed: the owner of each token is notified by email.
+
+**Usage**:
+
+```console
+$ hf auth revoke [OPTIONS] TOKENS...
+```
+
+**Arguments**:
+
+* `TOKENS...`: The token(s) to revoke.  [required]
+
+**Options**:
+
+* `--help`: Show this message and exit.
+
+Examples
+  $ hf auth revoke hf_xxx
+  $ hf auth revoke hf_xxx hf_yyy
 
 Learn more
   Use `hf <command> --help` for more information about a command.
