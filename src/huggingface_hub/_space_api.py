@@ -225,10 +225,10 @@ class SpaceRuntime:
     """
 
     stage: SpaceStage
-    hardware: SpaceHardware | None
-    requested_hardware: SpaceHardware | None
+    hardware: SpaceHardware | str | None
+    requested_hardware: SpaceHardware | str | None
     sleep_time: int | None
-    storage: SpaceStorage | None
+    storage: SpaceStorage | str | None
     dev_mode: bool
     hot_reloading: SpaceHotReloading | None
     volumes: list[Volume] | None
