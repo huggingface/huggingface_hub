@@ -27,6 +27,7 @@ from ._local_folder import (
 from ._revision import ResolvedRevision
 from ._tree_cache import read_tree_cache, tree_cache_folder_for_local_dir
 from .errors import (
+    EgressLimitError,
     FileMetadataError,
     GatedRepoError,
     HfHubHTTPError,
@@ -1948,10 +1949,10 @@ def _raise_on_head_call_error(
             "Cannot find the requested files in the disk cache and outgoing traffic has been disabled. To enable"
             " hf.co look-ups and downloads online, set 'local_files_only' to False."
         )
-    elif isinstance(head_call_error, (RepositoryNotFoundError, GatedRepoError)) or (
+    elif isinstance(head_call_error, (RepositoryNotFoundError, GatedRepoError, EgressLimitError)) or (
         isinstance(head_call_error, HfHubHTTPError) and head_call_error.response.status_code == 401
     ):
-        # Repo not found or gated => let's raise the actual error
+        # Repo not found, gated or egress limit reached => let's raise the actual error
         # Unauthorized => likely a token issue => let's raise the actual error
         raise head_call_error
     elif isinstance(head_call_error, FileMetadataError):

@@ -189,6 +189,7 @@ _SUBMOD_ATTRS = {
         "CacheNotFound",
         "CorruptedCacheException",
         "DisabledRepoError",
+        "EgressLimitError",
         "EntryNotFoundError",
         "FileMetadataError",
         "GatedRepoError",
@@ -260,6 +261,7 @@ if TYPE_CHECKING:  # pragma: no cover
         CacheNotFound,  # noqa: F401
         CorruptedCacheException,  # noqa: F401
         DisabledRepoError,  # noqa: F401
+        EgressLimitError,  # noqa: F401
         EntryNotFoundError,  # noqa: F401
         FileMetadataError,  # noqa: F401
         GatedRepoError,  # noqa: F401
