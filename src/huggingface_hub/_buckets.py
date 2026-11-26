@@ -949,6 +949,7 @@ def _execute_plan(plan: SyncPlan, api: "HfApi", verbose: bool = False, status: A
 
         # Collect download operations
         download_files: list[tuple[str | BucketFile, str | Path]] = []
+        download_mtimes: list[tuple[str, str]] = []  # (local file, remote mtime in ISO format)
         delete_files: list[str] = []
 
         for op in plan.operations:
@@ -964,6 +965,8 @@ def _execute_plan(plan: SyncPlan, api: "HfApi", verbose: bool = False, status: A
                 else:
                     remote_path = f"{prefix}/{op.path}" if prefix else op.path
                     download_files.append((remote_path, local_file))
+                if op.remote_mtime is not None:
+                    download_mtimes.append((local_file, op.remote_mtime))
             elif op.action == "delete":
                 local_file = os.path.join(local_path, op.path)
                 if verbose:
@@ -977,6 +980,13 @@ def _execute_plan(plan: SyncPlan, api: "HfApi", verbose: bool = False, status: A
             if status:
                 status.done(f"Downloading {len(download_files)} files")
             api.download_bucket_files(bucket_id, download_files)
+
+            # Keep the remote mtime (like `rsync -a`). Otherwise the next sync back to the bucket sees every
+            # downloaded file as "local newer" and uploads it again.
+            for local_file, remote_mtime in download_mtimes:
+                if os.path.exists(local_file):
+                    mtime = datetime.fromisoformat(remote_mtime).timestamp()
+                    os.utime(local_file, (mtime, mtime))
 
         # Execute deletes
         if status and delete_files:
