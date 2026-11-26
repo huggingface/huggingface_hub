@@ -155,7 +155,7 @@ By default, code in a sandbox can reach the internet. To run untrusted code, you
 ...     network="none",
 ...     volumes=[Volume(type="model", source="openai-community/gpt2", mount_path="/data")],
 ... )
->>> sbx.run("python -c \"import urllib.request; urllib.request.urlopen('https://example.com')\"").ok
+>>> sbx.run("python -c \"import urllib.request; urllib.request.urlopen('https://example.com')\"", check=False).ok
 False
 >>> sbx.run("cat /data/config.json").ok   # mounted volumes still work
 True
@@ -174,7 +174,7 @@ Or allow only some destinations. For example, let the sandbox reach a vLLM serve
 ...     },
 ... )
 >>> sbx.run("curl -s http://10.0.3.7:8000/v1/models")  # allowed
->>> sbx.run("curl -s https://example.com")             # refused
+>>> sbx.run("curl -s https://example.com", check=False)  # refused
 ```
 
 The policy applies to every command the sandbox runs, and to every process they start. It cannot be removed from inside the sandbox, even by root. A few things to know:

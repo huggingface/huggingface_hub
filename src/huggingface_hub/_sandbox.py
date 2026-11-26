@@ -764,8 +764,8 @@ class _SandboxServer:
     def cancel_job(self) -> None:
         self._api.cancel_job(job_id=self.job_id, namespace=self.owner)
 
-    def wait_ready(self, start_timeout: float) -> None:
-        """Poll /health until the server answers; fail fast (with logs) if the job dies."""
+    def wait_ready(self, start_timeout: float) -> dict[str, Any]:
+        """Poll /health until the server answers and return its payload; fail fast (with logs) if the job dies."""
         deadline = time.time() + start_timeout
         last_job_check = 0.0
         while time.time() < deadline:
@@ -773,7 +773,7 @@ class _SandboxServer:
                 response = self._client.get(self.base_url + "/health", timeout=httpx2.Timeout(5.0))
                 if response.status_code == 200:
                     _check_server_protocol(response, self.job_id)
-                    return
+                    return response.json()
             except httpx2.RequestError:
                 pass
             if time.time() - last_job_check > 2.0:
@@ -973,9 +973,8 @@ class Sandbox:
                 api=api,
                 max_connections=SandboxFiles.PARALLEL_MAX_WORKERS + 2,
             )
-            server.wait_ready(start_timeout)
+            health = server.wait_ready(start_timeout)
             if network is not None:
-                health = server.request("GET", "/health").json()
                 _check_network_applied(
                     network, health.get("network"), where=f"Sandbox job {job.id}", remedy="upgrade huggingface_hub"
                 )
