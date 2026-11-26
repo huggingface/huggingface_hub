@@ -106,7 +106,8 @@ _SPACE_IMAGE_PREFIXES = (
 
 @dataclass
 class JobStatus:
-    stage: JobStage
+    # Raw string from the server: compares equal to `JobStage` members, but unknown stages are kept as-is.
+    stage: JobStage | str
     message: str | None
     expose_urls: list[str] | None
     ssh_url: str | None
