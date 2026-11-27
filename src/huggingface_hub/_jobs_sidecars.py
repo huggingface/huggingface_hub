@@ -81,6 +81,17 @@ _VALID_SIDECAR_KEYS = (
 )
 _VALID_HEALTHCHECK_KEYS = ("http", "tcp", "interval", "timeout")
 _VALID_ON_EXIT_VALUES = ("fail", "ignore")
+# Flavors that can coexist in the same network group as the `cpu-basic` orchestrator.
+# Other GPU flavors (e.g. a100-*, h200*, rtx-pro-6000*) run in GPU-only pools without CPU nodes,
+# so the `cpu-basic` orchestrator must stay outside the network group to avoid pinning placement.
+_CPU_GROUP_COMPATIBLE_FLAVOR_PREFIXES = ("cpu-", "t4-", "a10g-", "l4x", "l40s")
+
+
+def _is_cpu_group_compatible_flavor(flavor: JobHardware | str | None) -> bool:
+    if flavor is None:
+        return True
+    value = flavor.value if isinstance(flavor, JobHardware) else str(flavor)
+    return value.startswith(_CPU_GROUP_COMPATIBLE_FLAVOR_PREFIXES)
 
 
 @dataclass(frozen=True)
@@ -685,6 +696,10 @@ def build_orchestrator_job_spec(
     net_group = network_group if network_group is not None else run_id
 
     instances = sidecars_config.expand_instances()
+    main_flavor = main_job_spec.get("flavor")
+    orch_in_network_group = _is_cpu_group_compatible_flavor(main_flavor) and all(
+        _is_cpu_group_compatible_flavor(inst.spec.flavor) for inst in instances
+    )
     main_timeout_secs = int(main_job_spec.get("timeoutSeconds") or DEFAULT_JOB_TIMEOUT_SECS)
     main_attempts = max(1, int(main_job_spec.get("attempts") or 1))
     max_startup = max(inst.spec.startup_timeout_secs for inst in instances)
@@ -756,11 +771,26 @@ def build_orchestrator_job_spec(
         if sc.secrets:
             sidecar_secrets_map[inst.instance_name] = {k: v for k, v in sc.secrets.items() if v is not None}
 
+        probe_mode = "private"
+        if sc.healthcheck is not None and not orch_in_network_group:
+            exposed_ports = set(sc.expose or []) | set(sc.expose_public or [])
+            if sc.healthcheck.kind == "http" and sc.healthcheck.port in exposed_ports:
+                probe_mode = "expose"
+            else:
+                raise ValueError(
+                    f"Sidecar '{sc.name}' configures a private healthcheck ({sc.healthcheck.format_short()}), "
+                    "which is not reachable from the `cpu-basic` orchestrator when the run uses GPU flavors "
+                    "outside the general CPU/GPU pool (e.g. `a100-*`, `h200*`, `rtx-pro-6000*`). Either add "
+                    f"`expose: [{sc.healthcheck.port}]` to probe over authenticated HTTPS (HTTP checks only), "
+                    "or omit `healthcheck` and let the main Job wait for readiness."
+                )
+
         sidecar_entries.append(
             {
                 "name": inst.instance_name,
                 "service_name": inst.service_name,
                 "probe_alias": inst.probe_alias,
+                "probe_mode": probe_mode,
                 "startup_timeout_secs": sc.startup_timeout_secs,
                 "readiness_timeout_secs": sc.readiness_timeout_secs,
                 "on_exit": sc.on_exit,
@@ -810,7 +840,7 @@ def build_orchestrator_job_spec(
             SIDECAR_GROUP_LABEL: run_id,
             SIDECAR_ROLE_LABEL: "orchestrator",
         },
-        network_group=net_group,
+        network_group=net_group if orch_in_network_group else None,
         resource_group_id=resource_group_id,
     )
     return run_id, orch_spec

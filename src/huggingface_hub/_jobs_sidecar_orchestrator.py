@@ -232,8 +232,14 @@ class _HubJobsClient:
         return lines[-tail:]
 
 
-def _probe_health(host: str, healthcheck: dict[str, Any]) -> tuple[bool, str]:
-    """Run one health check probe (`http` or `tcp`) against `host`."""
+def _probe_health(
+    host: str,
+    healthcheck: dict[str, Any],
+    *,
+    expose_url: str | None = None,
+    token: str | None = None,
+) -> tuple[bool, str]:
+    """Run one health check probe (`http` or `tcp`) against `host` or an authenticated `expose_url`."""
     kind = healthcheck["kind"]
     port = int(healthcheck["port"])
     timeout = float(healthcheck.get("probe_timeout_secs", 5.0))
@@ -247,8 +253,13 @@ def _probe_health(host: str, healthcheck: dict[str, Any]) -> tuple[bool, str]:
         path = str(healthcheck.get("path", "/"))
         if not path.startswith("/"):
             path = "/" + path
-        url = f"http://{host}:{port}{path}"
-        req = urllib.request.Request(url, method="GET")
+        if expose_url is not None:
+            url = f"{expose_url.rstrip('/')}{path}"
+            headers = {"Authorization": f"Bearer {token}"} if token else {}
+        else:
+            url = f"http://{host}:{port}{path}"
+            headers = {}
+        req = urllib.request.Request(url, headers=headers, method="GET")
         try:
             with urllib.request.urlopen(req, timeout=timeout) as resp:
                 status = getattr(resp, "status", 200)
@@ -257,9 +268,17 @@ def _probe_health(host: str, healthcheck: dict[str, Any]) -> tuple[bool, str]:
                 return False, f"{url} -> HTTP {status}"
         except urllib.error.HTTPError as exc:
             return False, f"{url} -> HTTP {exc.code}"
-        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        except (urllib.error.URLError, http.client.HTTPException, TimeoutError, OSError) as exc:
             return False, f"{url} -> {exc}"
     return False, f"Unknown healthcheck kind: {kind}"
+
+
+def _find_expose_url_for_port(expose_urls: list[str], port: int) -> str | None:
+    marker = f"--{port}."
+    for url in expose_urls:
+        if marker in url:
+            return url
+    return expose_urls[0] if len(expose_urls) == 1 else None
 
 
 def _job_stage(job: dict[str, Any] | None) -> str:
@@ -473,6 +492,7 @@ def run_orchestrator(
             futures = [pool.submit(_submit_sidecar, sc) for sc in sidecars]
             errors: list[str] = []
             logged_expose_urls: set[str] = set()
+            sidecar_expose_urls: dict[str, list[str]] = {}
             for fut in concurrent.futures.as_completed(futures):
                 try:
                     sc_name, info = fut.result()
@@ -481,6 +501,7 @@ def run_orchestrator(
                     jid = str(info["id"])
                     expose_urls = (info.get("status") or {}).get("exposeUrls") or []
                     if expose_urls:
+                        sidecar_expose_urls[sc_name] = list(expose_urls)
                         logged_expose_urls.add(sc_name)
                     expose_suffix = f" expose={','.join(expose_urls)}" if expose_urls else ""
                     _log(f"started sidecar '{sc_name}' id={jid} url={endpoint}/jobs/{namespace}/{jid}{expose_suffix}")
@@ -525,7 +546,7 @@ def run_orchestrator(
                 continue
 
             now = time.monotonic()
-            due_probes: list[tuple[str, str, dict[str, Any]]] = []
+            due_probes: list[tuple[str, str, dict[str, Any], str | None]] = []
 
             for sc in sidecars:
                 name = sc["name"]
@@ -570,15 +591,21 @@ def run_orchestrator(
                     continue
 
                 # Sidecar is RUNNING.
+                expose_urls = ((job or {}).get("status") or {}).get("exposeUrls") or []
+                if expose_urls:
+                    sidecar_expose_urls[name] = list(expose_urls)
                 if name not in running_since:
                     running_since[name] = now
-                    expose_urls = ((job or {}).get("status") or {}).get("exposeUrls") or []
                     if expose_urls and name not in logged_expose_urls:
                         logged_expose_urls.add(name)
                         _log(f"sidecar '{name}' exposed at {', '.join(expose_urls)}")
                     hc = sc.get("healthcheck")
                     if hc:
-                        target = f"{hc['kind']}://{prefix}{sc['probe_alias']}:{hc['port']}{hc.get('path', '')}"
+                        if sc.get("probe_mode") == "expose":
+                            matched = _find_expose_url_for_port(sidecar_expose_urls.get(name, []), int(hc["port"]))
+                            target = f"{matched}{hc.get('path', '')}" if matched else f"exposed port {hc['port']}"
+                        else:
+                            target = f"{hc['kind']}://{prefix}{sc['probe_alias']}:{hc['port']}{hc.get('path', '')}"
                         _log(f"sidecar '{name}' is RUNNING (probing {target})")
                     else:
                         _log(f"sidecar '{name}' is RUNNING (no healthcheck configured; marking ready)")
@@ -594,17 +621,35 @@ def run_orchestrator(
                 if now - last_probe_at.get(name, 0.0) >= interval:
                     last_probe_at[name] = now
                     host = probe_host_override or f"{prefix}{sc['probe_alias']}"
-                    due_probes.append((name, host, hc))
+                    expose_url: str | None = None
+                    if sc.get("probe_mode") == "expose" and probe_host_override is None:
+                        expose_url = _find_expose_url_for_port(sidecar_expose_urls.get(name, []), int(hc["port"]))
+                        if expose_url is None:
+                            last_probe_err[name] = f"waiting for exposed URL on port {hc['port']}"
+                            continue
+                    due_probes.append((name, host, hc, expose_url))
 
             # Run due health probes concurrently so many replicas don't serialize probe timeouts.
             if due_probes:
                 if len(due_probes) == 1:
-                    p_name, p_host, p_hc = due_probes[0]
-                    probe_results = [(p_name, _probe_health(p_host, p_hc))]
+                    p_name, p_host, p_hc, p_expose = due_probes[0]
+                    probe_results = [
+                        (p_name, _probe_health(p_host, p_hc, expose_url=p_expose, token=token if p_expose else None))
+                    ]
                 else:
                     with concurrent.futures.ThreadPoolExecutor(max_workers=min(16, len(due_probes))) as pool:
                         probe_futs = [
-                            (p_name, pool.submit(_probe_health, p_host, p_hc)) for p_name, p_host, p_hc in due_probes
+                            (
+                                p_name,
+                                pool.submit(
+                                    _probe_health,
+                                    p_host,
+                                    p_hc,
+                                    expose_url=p_expose,
+                                    token=token if p_expose else None,
+                                ),
+                            )
+                            for p_name, p_host, p_hc, p_expose in due_probes
                         ]
                         probe_results = [(p_name, fut.result()) for p_name, fut in probe_futs]
                 for p_name, (ok, detail) in probe_results:
@@ -644,9 +689,14 @@ def run_orchestrator(
                         if sc_name in healthy:
                             parts.append(f"{sc_name}=healthy")
                         else:
-                            st = _job_stage(jobs_by_id.get(sidecar_jobs[sc_name]))
-                            err = last_probe_err.get(sc_name)
-                            parts.append(f"{sc_name}={st} ({err})" if err and st == "RUNNING" else f"{sc_name}={st}")
+                            sc_job = jobs_by_id.get(sidecar_jobs[sc_name])
+                            st = _job_stage(sc_job)
+                            if st == "RUNNING":
+                                err = last_probe_err.get(sc_name)
+                                parts.append(f"{sc_name}={st} ({err})" if err else f"{sc_name}={st}")
+                            else:
+                                msg = _job_message(sc_job)
+                                parts.append(f"{sc_name}={st} ({msg})" if msg else f"{sc_name}={st}")
                     _log(f"waiting ({int(now - submit_time)}s): {', '.join(parts)}")
                 time.sleep(min(poll_interval_secs, 1.0))
 
