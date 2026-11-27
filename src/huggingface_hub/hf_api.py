@@ -157,7 +157,6 @@ CollectionItemType_T = Literal["model", "dataset", "space", "paper", "collection
 CollectionSort_T = Literal["lastModified", "trending", "upvotes"]
 RepoVisibility_T = Literal["public", "private", "protected"]
 ResourceGroupItemType_T = Literal["model", "dataset", "space", "bucket", "container", "collection", "blog"]
-_RESOURCE_GROUP_ITEM_TYPES = get_args(ResourceGroupItemType_T)
 _RESOURCE_GROUP_ITEM_PATHS: dict[str, str] = {
     "model": "models",
     "dataset": "datasets",
@@ -5032,8 +5031,8 @@ class HfApi:
         item_type: ResourceGroupItemType_T,
         token: bool | str | None,
     ) -> None:
-        if item_type not in _RESOURCE_GROUP_ITEM_TYPES:
-            raise ValueError(f"Invalid item type, must be one of {_RESOURCE_GROUP_ITEM_TYPES}")
+        if item_type not in _RESOURCE_GROUP_ITEM_PATHS:
+            raise ValueError(f"Invalid item type, must be one of {list(_RESOURCE_GROUP_ITEM_PATHS)}")
         path = _RESOURCE_GROUP_ITEM_PATHS[item_type]
         r = get_session().post(
             f"{self.endpoint}/api/{path}/{item_id}/resource-group",
