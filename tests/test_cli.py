@@ -1914,8 +1914,6 @@ class TestRepoSettingsCommand:
 
 
 class TestResourceGroupsCommand:
-    """Real tests against hub-ci: ENTERPRISE_ORG has seeded resource groups and ENTERPRISE_TOKEN is an org admin."""
-
     def test_assign_unassign(self, runner: CliRunner, repo_factory: RepoFactory) -> None:
         api = HfApi(token=ENTERPRISE_TOKEN)
         repo_id = repo_factory("dataset", repo_id=f"{ENTERPRISE_ORG}/{repo_name()}", token=ENTERPRISE_TOKEN).repo_id

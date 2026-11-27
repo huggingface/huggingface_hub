@@ -157,6 +157,16 @@ CollectionItemType_T = Literal["model", "dataset", "space", "paper", "collection
 CollectionSort_T = Literal["lastModified", "trending", "upvotes"]
 RepoVisibility_T = Literal["public", "private", "protected"]
 ResourceGroupItemType_T = Literal["model", "dataset", "space", "bucket", "container", "collection", "blog"]
+_RESOURCE_GROUP_ITEM_TYPES = get_args(ResourceGroupItemType_T)
+_RESOURCE_GROUP_ITEM_PATHS: dict[str, str] = {
+    "model": "models",
+    "dataset": "datasets",
+    "space": "spaces",
+    "bucket": "buckets",
+    "container": "containers",
+    "collection": "collections",
+    "blog": "blog",
+}
 
 ExpandModelProperty_T = Literal[
     "author",
@@ -5022,9 +5032,9 @@ class HfApi:
         item_type: ResourceGroupItemType_T,
         token: bool | str | None,
     ) -> None:
-        if item_type not in get_args(ResourceGroupItemType_T):
-            raise ValueError(f"Invalid item type, must be one of {get_args(ResourceGroupItemType_T)}")
-        path = {"collection": "collections", "blog": "blog"}.get(item_type, f"{item_type}s")
+        if item_type not in _RESOURCE_GROUP_ITEM_TYPES:
+            raise ValueError(f"Invalid item type, must be one of {_RESOURCE_GROUP_ITEM_TYPES}")
+        path = _RESOURCE_GROUP_ITEM_PATHS[item_type]
         r = get_session().post(
             f"{self.endpoint}/api/{path}/{item_id}/resource-group",
             headers=self._build_hf_headers(token=token),
