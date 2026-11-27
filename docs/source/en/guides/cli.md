@@ -1572,14 +1572,14 @@ Use `hf repos branch` to create and delete branches for repositories on the Hub.
 
 Resource groups let Enterprise organizations control which members can access a given set of repos, collections and blog posts. To learn more, check out the [Hub documentation](https://huggingface.co/docs/hub/en/security-resource-groups).
 
-### Assign items to a resource group
+### Assign an item to a resource group
 
-Use `hf resource-groups assign` to assign one or more items to a resource group. The group ID is the last part of the group's URL in your organization settings (e.g. `https://huggingface.co/organizations/my-org/settings/resource-groups/66980ecfc1e12a49c8f0e42d`). An item belongs to at most one resource group: an item that is already in another group is moved to this one. Use `hf resource-groups unassign` to remove items from their group.
+Use `hf resource-groups assign` to assign an item (a repo, a collection or a blog post) to a resource group, one item per call. The group ID is the last part of the group's URL in your organization settings (e.g. `https://huggingface.co/organizations/my-org/settings/resource-groups/66980ecfc1e12a49c8f0e42d`). An item belongs to at most one resource group: an item that is already in another group is moved to this one. Use `hf resource-groups unassign` to remove an item from its group.
 
 ```bash
 >>> hf resource-groups assign 66980ecfc1e12a49c8f0e42d my-org/my-model
->>> hf resource-groups assign 66980ecfc1e12a49c8f0e42d my-org/data-1 my-org/data-2 --type dataset
->>> hf resource-groups unassign my-org/data-1 my-org/data-2 --type dataset
+>>> hf resource-groups assign 66980ecfc1e12a49c8f0e42d my-org/my-data --type dataset
+>>> hf resource-groups unassign my-org/my-data --type dataset
 ```
 
 The default type is `model`. Use `--type` for a `dataset`, `space`, `bucket`, `container`, `collection` (pass the collection slug) or `blog` (pass `<namespace>/<slug>`). Each item is updated with its own API call and gets its own result line. If an item fails, the command still processes the others, then exits with code 1.
@@ -1611,7 +1611,7 @@ Use `hf resource-groups ls`, `info`, `create`, `update` and `delete` to manage t
 >>> hf resource-groups delete ml-research --org my-org --yes
 ```
 
-`hf resource-groups assign` also accepts a group name: it is looked up in the organization that owns the items. Members, invitations and per-group settings are not supported by the CLI yet.
+`hf resource-groups assign` also accepts a group name: it is looked up in the organization that owns the item. Members, invitations and per-group settings are not supported by the CLI yet.
 
 ## hf cache
 

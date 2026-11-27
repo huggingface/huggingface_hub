@@ -4282,32 +4282,32 @@ $ hf resource-groups [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
-* `assign`: Assign items to a resource group.
+* `assign`: Assign an item to a resource group.
 * `create`: Create a resource group in an organization.
 * `delete`: Delete a resource group.
 * `info`: Show a resource group.
 * `list`: List the resource groups of an organization. [alias: ls]
-* `unassign`: Remove items from their resource group.
+* `unassign`: Remove an item from its resource group.
 * `update`: Update the name, description or spend limits of a resource group.
 
 ### `hf resource-groups assign`
 
-Assign items to a resource group. An item already in another group is moved to this one.
+Assign an item to a resource group. An item already in another group is moved to this one.
 
 **Usage**:
 
 ```console
-$ hf resource-groups assign [OPTIONS] GROUP ITEMS...
+$ hf resource-groups assign [OPTIONS] GROUP ITEM
 ```
 
 **Arguments**:
 
-* `GROUP`: Name or 24-character hexadecimal ID of the resource group. A name is looked up in the organization that owns the items.  [required]
-* `ITEMS...`: The items to update: repo IDs (e.g. `my-org/my-model`), collection slugs or blog IDs (`my-org/my-post`).  [required]
+* `GROUP`: Name or 24-character hexadecimal ID of the resource group. A name is looked up in the organization that owns the item.  [required]
+* `ITEM`: The item to update: a repo ID (e.g. `my-org/my-model`), a collection slug or a blog ID (`my-org/my-post`).  [required]
 
 **Options**:
 
-* `--type [model|dataset|space|bucket|container|collection|blog]`: The type of the items. All items of one call share the same type.  [default: model]
+* `--type [model|dataset|space|bucket|container|collection|blog]`: The type of the item.  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -4316,7 +4316,7 @@ Also accepts the global [formatting options](#formatting-options).
 Examples
   $ hf resource-groups assign 66980ecfc1e12a49c8f0e42d my-org/my-model
   $ hf resource-groups assign research my-org/my-model
-  $ hf resource-groups assign 66980ecfc1e12a49c8f0e42d my-org/data-1 my-org/data-2 --type dataset
+  $ hf resource-groups assign 66980ecfc1e12a49c8f0e42d my-org/my-data --type dataset
   $ hf resource-groups assign 66980ecfc1e12a49c8f0e42d my-org/my-collection-64f9a55bb3115b4f513ec026 --type collection
 
 Learn more
@@ -4459,21 +4459,21 @@ Learn more
 
 ### `hf resource-groups unassign`
 
-Remove items from their resource group. An item belongs to at most one group, so no group is needed.
+Remove an item from its resource group. An item belongs to at most one group, so no group is needed.
 
 **Usage**:
 
 ```console
-$ hf resource-groups unassign [OPTIONS] ITEMS...
+$ hf resource-groups unassign [OPTIONS] ITEM
 ```
 
 **Arguments**:
 
-* `ITEMS...`: The items to update: repo IDs (e.g. `my-org/my-model`), collection slugs or blog IDs (`my-org/my-post`).  [required]
+* `ITEM`: The item to update: a repo ID (e.g. `my-org/my-model`), a collection slug or a blog ID (`my-org/my-post`).  [required]
 
 **Options**:
 
-* `--type [model|dataset|space|bucket|container|collection|blog]`: The type of the items. All items of one call share the same type.  [default: model]
+* `--type [model|dataset|space|bucket|container|collection|blog]`: The type of the item.  [default: model]
 * `--token TEXT`: A User Access Token generated from https://huggingface.co/settings/tokens.
 * `--help`: Show this message and exit.
 
@@ -4481,7 +4481,7 @@ Also accepts the global [formatting options](#formatting-options).
 
 Examples
   $ hf resource-groups unassign my-org/my-model
-  $ hf resource-groups unassign my-org/data-1 my-org/data-2 --type dataset
+  $ hf resource-groups unassign my-org/my-data --type dataset
 
 Learn more
   Use `hf <command> --help` for more information about a command.

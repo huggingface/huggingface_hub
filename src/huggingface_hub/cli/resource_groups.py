@@ -19,11 +19,10 @@ from typing import TYPE_CHECKING, Annotated, cast, get_args
 
 import click
 
-from huggingface_hub.errors import CLIError, HfHubHTTPError, HFValidationError
+from huggingface_hub.errors import CLIError
 from huggingface_hub.hf_api import ResourceGroupAutoJoinScope_T, ResourceGroupRole_T, ResourceGroupSpendLimit_T
 
 from ._cli_utils import TokenOpt, get_hf_api, typer_factory
-from ._errors import format_known_exception
 from ._framework import Argument, Option
 from ._output import out
 
@@ -48,16 +47,13 @@ AutoJoinScope = enum.Enum("AutoJoinScope", {s: s for s in get_args(ResourceGroup
 _SPEND_LIMIT_KEYS = get_args(ResourceGroupSpendLimit_T)
 _GROUP_ID_PATTERN = re.compile(r"[0-9a-f]{24}")
 
-ItemsArg = Annotated[
-    list[str],
+ItemArg = Annotated[
+    str,
     Argument(
-        help="The items to update: repo IDs (e.g. `my-org/my-model`), collection slugs or blog IDs (`my-org/my-post`).",
+        help="The item to update: a repo ID (e.g. `my-org/my-model`), a collection slug or a blog ID (`my-org/my-post`).",
     ),
 ]
-ItemTypeOpt = Annotated[
-    ResourceGroupItemType,
-    Option("--type", help="The type of the items. All items of one call share the same type."),
-]
+ItemTypeOpt = Annotated[ResourceGroupItemType, Option("--type", help="The type of the item.")]
 
 GroupArg = Annotated[str, Argument(help="Name or 24-character hexadecimal ID of the resource group.")]
 OrgOpt = Annotated[str, Option("--org", help="Name of the organization.")]
@@ -70,7 +66,7 @@ resource_groups_cli = typer_factory(help="Manage resource groups of an organizat
     examples=[
         "hf resource-groups assign 66980ecfc1e12a49c8f0e42d my-org/my-model",
         "hf resource-groups assign research my-org/my-model",
-        "hf resource-groups assign 66980ecfc1e12a49c8f0e42d my-org/data-1 my-org/data-2 --type dataset",
+        "hf resource-groups assign 66980ecfc1e12a49c8f0e42d my-org/my-data --type dataset",
         "hf resource-groups assign 66980ecfc1e12a49c8f0e42d my-org/my-collection-64f9a55bb3115b4f513ec026 --type collection",
     ],
 )
@@ -79,40 +75,35 @@ def assign(
         str,
         Argument(
             help="Name or 24-character hexadecimal ID of the resource group. A name is looked up in the organization"
-            " that owns the items."
+            " that owns the item."
         ),
     ],
-    items: ItemsArg,
+    item: ItemArg,
     item_type: ItemTypeOpt = ResourceGroupItemType.model,
     token: TokenOpt = None,
 ) -> None:
-    """Assign items to a resource group. An item already in another group is moved to this one."""
+    """Assign an item to a resource group. An item already in another group is moved to this one."""
     api = get_hf_api(token=token)
-    if not _GROUP_ID_PATTERN.fullmatch(group):
-        namespaces = {item.split("/")[0] for item in items}
-        if len(namespaces) > 1:
-            raise CLIError(
-                f"Cannot resolve resource group '{group}': the items belong to several namespaces"
-                f" ({', '.join(sorted(namespaces))}). Pass the group ID instead."
-            )
-        group = _resolve_group_id(api, namespaces.pop(), group)
-    _update_items(api, items, group, item_type, message="Assigned to resource group")
+    group_id = _resolve_group_id(api, item.split("/")[0], group)
+    api.assign_resource_group_item(group_id, item, item_type=item_type.value)
+    out.result("Assigned to resource group", item=item, type=item_type.value, resource_group_id=group_id)
 
 
 @resource_groups_cli.command(
     "unassign",
     examples=[
         "hf resource-groups unassign my-org/my-model",
-        "hf resource-groups unassign my-org/data-1 my-org/data-2 --type dataset",
+        "hf resource-groups unassign my-org/my-data --type dataset",
     ],
 )
 def unassign(
-    items: ItemsArg,
+    item: ItemArg,
     item_type: ItemTypeOpt = ResourceGroupItemType.model,
     token: TokenOpt = None,
 ) -> None:
-    """Remove items from their resource group. An item belongs to at most one group, so no group is needed."""
-    _update_items(get_hf_api(token=token), items, None, item_type, message="Removed from resource group")
+    """Remove an item from its resource group. An item belongs to at most one group, so no group is needed."""
+    get_hf_api(token=token).unassign_resource_group_item(item, item_type=item_type.value)
+    out.result("Removed from resource group", item=item, type=item_type.value, resource_group_id=None)
 
 
 @resource_groups_cli.command(
@@ -273,30 +264,6 @@ def delete(
     out.confirm(f"Delete resource group '{group}' ({group_id}) of '{organization}'?", yes=yes)
     api.delete_resource_group(organization, group_id)
     out.result("Resource group deleted", id=group_id, organization=organization)
-
-
-def _update_items(
-    api: "HfApi",
-    items: list[str],
-    resource_group_id: str | None,
-    item_type: ResourceGroupItemType,
-    message: str,
-) -> None:
-    """Update each item with one API call. Keeps going on failure and exits with code 1 if any item failed."""
-    num_failed = 0
-    for item in items:
-        try:
-            if resource_group_id is None:
-                api.unassign_resource_group_item(item, item_type=item_type.value)
-            else:
-                api.assign_resource_group_item(resource_group_id, item, item_type=item_type.value)
-        except (HfHubHTTPError, HFValidationError) as error:
-            num_failed += 1
-            out.error(f"{item}: {format_known_exception(error) or error}")
-            continue
-        out.result(message, item=item, type=item_type.value, resource_group_id=resource_group_id)
-    if num_failed > 0:
-        raise click.exceptions.Exit(code=1)
 
 
 def _resolve_group_id(api: "HfApi", organization: str, group: str) -> str:
