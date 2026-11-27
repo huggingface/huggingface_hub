@@ -4,7 +4,7 @@ import re
 import sys
 import warnings
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Generator, Optional
@@ -2359,6 +2359,32 @@ class TestPapersCommand:
             api = api_cls.return_value
             api.list_daily_papers.return_value = iter([])
             result = runner.invoke(app, ["papers", "ls", "--date", "2025-01-23"])
+
+        assert result.exit_code == 0, result.output
+        _, kwargs = api.list_daily_papers.call_args
+        assert kwargs["date"] == "2025-01-23"
+
+    @pytest.mark.parametrize(
+        "utc_now, local_tz",
+        [
+            # Tokyo, 07:30 on the 24th: still the 23rd in UTC, and the Hub rejects later dates
+            (datetime(2025, 1, 23, 22, 30, tzinfo=timezone.utc), timezone(timedelta(hours=9))),
+            # Los Angeles, 17:00 on the 23rd: already the 24th in UTC, the local date is kept
+            (datetime(2025, 1, 24, 1, 0, tzinfo=timezone.utc), timezone(timedelta(hours=-8))),
+        ],
+        ids=["ahead_of_utc", "behind_utc"],
+    )
+    def test_ls_with_date_today(self, runner: CliRunner, utc_now: datetime, local_tz: timezone) -> None:
+        with (
+            patch("huggingface_hub.cli.papers.get_hf_api") as api_cls,
+            patch("huggingface_hub.cli.papers.datetime") as mock_datetime,
+        ):
+            mock_datetime.timezone = timezone
+            mock_datetime.date.today.return_value = utc_now.astimezone(local_tz).date()
+            mock_datetime.datetime.now.side_effect = lambda tz=None: utc_now.astimezone(tz or local_tz)
+            api = api_cls.return_value
+            api.list_daily_papers.return_value = iter([])
+            result = runner.invoke(app, ["papers", "ls", "--date", "today"])
 
         assert result.exit_code == 0, result.output
         _, kwargs = api.list_daily_papers.call_args
