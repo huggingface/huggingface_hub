@@ -236,6 +236,7 @@ def run_orchestrator(
     network_prefix: str | None = None,
     probe_host_override: str | None = None,
     poll_interval_secs: float = 3.0,
+    heartbeat_interval_secs: float = 25.0,
     install_signal_handlers: bool = True,
 ) -> int:
     """Execute the full sidecar lifecycle and return the orchestrator exit code."""
@@ -306,12 +307,17 @@ def run_orchestrator(
         with concurrent.futures.ThreadPoolExecutor(max_workers=min(16, max(1, len(sidecars)))) as pool:
             futures = [pool.submit(_submit_sidecar, sc) for sc in sidecars]
             errors: list[str] = []
+            logged_expose_urls: set[str] = set()
             for fut in concurrent.futures.as_completed(futures):
                 try:
                     sc_name, info = fut.result()
                     jid = str(info["id"])
                     sidecar_jobs[sc_name] = jid
-                    _log(f"started sidecar '{sc_name}' id={jid} url={endpoint}/jobs/{namespace}/{jid}")
+                    expose_urls = (info.get("status") or {}).get("exposeUrls") or []
+                    if expose_urls:
+                        logged_expose_urls.add(sc_name)
+                    expose_suffix = f" expose={','.join(expose_urls)}" if expose_urls else ""
+                    _log(f"started sidecar '{sc_name}' id={jid} url={endpoint}/jobs/{namespace}/{jid}{expose_suffix}")
                 except Exception as exc:
                     errors.append(str(exc))
             if errors:
@@ -322,8 +328,10 @@ def run_orchestrator(
 
         # 2. Wait for all sidecars to reach RUNNING and pass health checks.
         submit_time = time.monotonic()
+        last_heartbeat = submit_time
         running_since: dict[str, float] = {}
         healthy: set[str] = set()
+        reported_ignored_dead: set[str] = set()
         last_probe_at: dict[str, float] = {}
         last_probe_err: dict[str, str] = {}
 
@@ -336,20 +344,27 @@ def run_orchestrator(
 
             for sc in sidecars:
                 name = sc["name"]
-                if name in healthy:
-                    continue
                 jid = sidecar_jobs[name]
                 job = jobs_by_id.get(jid)
                 stage = _job_stage(job)
 
                 if stage in TERMINAL_STAGES:
+                    if name in healthy and sc.get("on_exit", "fail") == "ignore":
+                        if name not in reported_ignored_dead:
+                            reported_ignored_dead.add(name)
+                            _log(f"Sidecar '{name}' ({jid}) exited with stage={stage} (on_exit=ignore; continuing).")
+                        continue
                     msg = _job_message(job)
                     detail = f" ({msg})" if msg else ""
-                    _log(f"ERROR: sidecar '{name}' ({jid}) exited before becoming ready: stage={stage}{detail}")
+                    phase = "while waiting for other sidecars" if name in healthy else "before becoming ready"
+                    _log(f"ERROR: sidecar '{name}' ({jid}) exited {phase}: stage={stage}{detail}")
                     _dump_failure_logs(client, name, jid)
                     cancelled = cleanup_all(exclude_ids={jid})
                     _log(f"Canceled {cancelled} remaining sidecar(s).")
                     return 1
+
+                if name in healthy:
+                    continue
 
                 if stage != "RUNNING":
                     startup_timeout = float(sc.get("startup_timeout_secs", 300.0))
@@ -367,6 +382,10 @@ def run_orchestrator(
                 # Sidecar is RUNNING.
                 if name not in running_since:
                     running_since[name] = now
+                    expose_urls = ((job or {}).get("status") or {}).get("exposeUrls") or []
+                    if expose_urls and name not in logged_expose_urls:
+                        logged_expose_urls.add(name)
+                        _log(f"sidecar '{name}' exposed at {', '.join(expose_urls)}")
                     hc = sc.get("healthcheck")
                     if hc:
                         target = f"{hc['kind']}://{prefix}{sc['probe_alias']}:{hc['port']}{hc.get('path', '')}"
@@ -406,6 +425,18 @@ def run_orchestrator(
                     return 1
 
             if len(healthy) < len(sidecars):
+                if heartbeat_interval_secs > 0 and now - last_heartbeat >= heartbeat_interval_secs:
+                    last_heartbeat = now
+                    parts: list[str] = []
+                    for sc in sidecars:
+                        sc_name = sc["name"]
+                        if sc_name in healthy:
+                            parts.append(f"{sc_name}=healthy")
+                        else:
+                            st = _job_stage(jobs_by_id.get(sidecar_jobs[sc_name]))
+                            err = last_probe_err.get(sc_name)
+                            parts.append(f"{sc_name}={st} ({err})" if err and st == "RUNNING" else f"{sc_name}={st}")
+                    _log(f"waiting ({int(now - submit_time)}s): {', '.join(parts)}")
                 time.sleep(min(poll_interval_secs, 1.0))
 
         # 3. Launch main Job.
@@ -416,7 +447,6 @@ def run_orchestrator(
         print(f"{MAIN_JOB_ID_PREFIX}{main_job_id} url={main_url}", flush=True)
 
         # 4. Supervise main Job and sidecars until main finishes or a required sidecar dies.
-        reported_ignored_dead: set[str] = set()
         while True:
             if terminated_by_signal.is_set():
                 return 143

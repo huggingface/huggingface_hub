@@ -323,7 +323,15 @@ def _start_fake_hub(state: _FakeHubState) -> tuple[ThreadingHTTPServer, str]:
                     job = {
                         "id": jid,
                         "labels": body.get("labels", {}),
-                        "status": {"stage": stage, "message": None},
+                        "status": {
+                            "stage": stage,
+                            "message": None,
+                            **(
+                                {"exposeUrls": [f"https://{jid}--{p}.hf.jobs" for p in body["expose"]["ports"]]}
+                                if body.get("expose") and body["expose"].get("ports")
+                                else {}
+                            ),
+                        },
                     }
                     state.jobs[jid] = job
                 payload = json.dumps(job).encode("utf-8")
@@ -476,6 +484,7 @@ def test_orchestrator_happy_path_http_and_tcp_probes_and_teardown(capsys: pytest
                     "spec": {
                         "dockerImage": "dask",
                         "command": ["sched"],
+                        "expose": {"ports": [8787], "portsPublic": []},
                         "labels": {SIDECAR_GROUP_LABEL: "sc-testgroup1", SIDECAR_ROLE_LABEL: "sidecar"},
                     },
                 },
@@ -507,6 +516,7 @@ def test_orchestrator_happy_path_http_and_tcp_probes_and_teardown(capsys: pytest
     assert main_spec["secrets"] == {"MAIN_S": "1"}
     out = capsys.readouterr().out
     assert f"[sidecars] main_job_id={main_ids[0]}" in out
+    assert "--8787.hf.jobs" in out
 
 
 def test_orchestrator_fails_fast_on_mid_run_sidecar_death_and_dumps_logs(capsys: pytest.CaptureFixture[str]) -> None:
@@ -666,6 +676,90 @@ def test_orchestrator_startup_timeout_cancels_scheduling_sidecar(capsys: pytest.
     assert len(state.created_specs) == 1
     assert state.cancelled_ids == ["job-1"]
     assert "timed out waiting to start" in capsys.readouterr().out
+
+
+def test_orchestrator_catches_already_healthy_sidecar_crash_during_startup_and_logs_heartbeat(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    state = _FakeHubState()
+    polls = {"count": 0}
+
+    def on_create(_jid: str, body: dict[str, Any]) -> str:
+        return "RUNNING" if body["labels"].get(SIDECAR_NAME_LABEL) == "fast" else "SCHEDULING"
+
+    def on_list(st: _FakeHubState) -> None:
+        polls["count"] += 1
+        if polls["count"] >= 3:
+            for jid, j in st.jobs.items():
+                if j["labels"].get(SIDECAR_NAME_LABEL) == "fast":
+                    j["status"] = {"stage": "ERROR", "message": "OOMKilled"}
+                    st.logs_by_id[jid] = ["fast died while slow was scheduling"]
+
+    state.on_create = on_create
+    state.on_list = on_list
+    hub_srv, endpoint = _start_fake_hub(state)
+    try:
+        manifest = _make_manifest(
+            endpoint,
+            [
+                {
+                    "name": "fast",
+                    "service_name": "fast",
+                    "probe_alias": "fast",
+                    "startup_timeout_secs": 10,
+                    "readiness_timeout_secs": 10,
+                    "on_exit": "fail",
+                    "healthcheck": None,
+                    "spec": {
+                        "dockerImage": "img",
+                        "command": ["run"],
+                        "labels": {
+                            SIDECAR_GROUP_LABEL: "sc-testgroup1",
+                            SIDECAR_ROLE_LABEL: "sidecar",
+                            SIDECAR_NAME_LABEL: "fast",
+                        },
+                    },
+                },
+                {
+                    "name": "slow",
+                    "service_name": "slow",
+                    "probe_alias": "slow",
+                    "startup_timeout_secs": 10,
+                    "readiness_timeout_secs": 10,
+                    "on_exit": "fail",
+                    "healthcheck": None,
+                    "spec": {
+                        "dockerImage": "img",
+                        "command": ["run"],
+                        "labels": {
+                            SIDECAR_GROUP_LABEL: "sc-testgroup1",
+                            SIDECAR_ROLE_LABEL: "sidecar",
+                            SIDECAR_NAME_LABEL: "slow",
+                        },
+                    },
+                },
+            ],
+        )
+        rc = run_orchestrator(
+            manifest,
+            token="hf_test",
+            probe_host_override="127.0.0.1",
+            poll_interval_secs=0.05,
+            heartbeat_interval_secs=0.04,
+            install_signal_handlers=False,
+        )
+    finally:
+        hub_srv.shutdown()
+
+    assert rc == 1
+    assert len(state.created_specs) == 2  # main was never created
+    slow_id = next(jid for jid, j in state.jobs.items() if j["labels"].get(SIDECAR_NAME_LABEL) == "slow")
+    assert state.cancelled_ids == [slow_id]
+    out = capsys.readouterr().out
+    assert "waiting (" in out
+    assert "fast=healthy, slow=SCHEDULING" in out
+    assert "exited while waiting for other sidecars" in out
+    assert "fast died while slow was scheduling" in out
 
 
 # ---------------------------------------------------------------------------
