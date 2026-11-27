@@ -14,6 +14,7 @@
 # limitations under the License.
 """Contains tests for the OAuth integration."""
 
+import re
 import time
 from dataclasses import asdict
 from unittest.mock import patch
@@ -98,9 +99,19 @@ def test_oauth_workflow(client: TestClient):
     # Make call to HF Hub
     assert location.startswith("https://hub-ci.huggingface.co/oauth/authorize")
     location_authorize = location
-    response_authorize = httpx2.get(
-        location_authorize, headers={"cookie": "token=huggingface-hub.js-cookie"}, follow_redirects=False
-    )
+    hub_cookie = {"cookie": "token=huggingface-hub.js-cookie"}
+    response_authorize = httpx2.get(location_authorize, headers=hub_cookie, follow_redirects=False)
+    if response_authorize.status_code == 200:
+        # No stored consent for "dummy-app" yet (e.g. hub-ci was reseeded): submit the consent form ("Authorize")
+        csrf = re.search(r'name="csrf" value="([^"]+)"', response_authorize.text)
+        assert csrf is not None
+        response_authorize = httpx2.post(
+            location_authorize,
+            data={"csrf": csrf.group(1)},
+            # same-origin form post: the Hub answers 403 without these headers
+            headers={**hub_cookie, "origin": "https://hub-ci.huggingface.co", "referer": location_authorize},
+            follow_redirects=False,
+        )
     assert response_authorize.status_code == 303
     assert "location" in response_authorize.headers
 
