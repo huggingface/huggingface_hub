@@ -257,6 +257,7 @@ $ hf auth whoami [OPTIONS]
 
 **Options**:
 
+* `--permissions`: Also show the role and permissions of the active token.
 * `--help`: Show this message and exit.
 
 Also accepts the global [formatting options](#formatting-options).
@@ -264,6 +265,7 @@ Also accepts the global [formatting options](#formatting-options).
 Examples
   $ hf auth whoami
   $ hf auth whoami --format json
+  $ hf auth whoami --permissions
 
 Learn more
   Use `hf <command> --help` for more information about a command.

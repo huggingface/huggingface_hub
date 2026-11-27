@@ -171,8 +171,39 @@ def auth_token() -> None:
     out.hint("Run `hf auth whoami` to see which account this token belongs to.")
 
 
-@auth_cli.command("whoami", examples=["hf auth whoami", "hf auth whoami --format json"])
-def auth_whoami() -> None:
+def _format_permission_list(permissions: list[str] | None) -> str:
+    """Join permissions, telling apart a list missing from the Hub response from an empty one."""
+    if permissions is None:
+        return "unavailable"
+    return ", ".join(permissions) or "(none)"
+
+
+def _format_fine_grained(fine_grained: dict) -> str:
+    """Format the grants of a fine-grained token, one line per user, org or repo they apply to."""
+    lines = [f"  global: {_format_permission_list(fine_grained.get('global'))}"]
+    if "canReadGatedRepos" in fine_grained:
+        lines.append(f"  can_read_gated_repos: {fine_grained['canReadGatedRepos']}")
+    if scoped := fine_grained.get("scoped"):
+        lines.append("  scoped:")
+        for grant in scoped:
+            entity = grant["entity"]
+            name = entity.get("name") or entity["_id"]
+            lines.append(f"    {entity['type']}/{name}: {_format_permission_list(grant['permissions'])}")
+    else:
+        lines.append(f"  scoped: {_format_permission_list(scoped)}")
+    return "\n".join(lines)
+
+
+@auth_cli.command(
+    "whoami",
+    examples=["hf auth whoami", "hf auth whoami --format json", "hf auth whoami --permissions"],
+)
+def auth_whoami(
+    permissions: Annotated[
+        bool,
+        Option("--permissions", help="Also show the role and permissions of the active token."),
+    ] = False,
+) -> None:
     """Find out which huggingface.co account you are logged in as."""
 
     token = get_token()
@@ -183,4 +214,18 @@ def auth_whoami() -> None:
     info = whoami(token)
     orgs = ",".join(org["name"] for org in info["orgs"]) or None
     endpoint = ENDPOINT if ENDPOINT != "https://huggingface.co" else None
-    out.result("Logged in", user=info["name"], orgs=orgs, endpoint=endpoint)
+    if not permissions:
+        out.result("Logged in", user=info["name"], orgs=orgs, endpoint=endpoint)
+        return
+
+    access_token = (info.get("auth") or {}).get("accessToken") or {}
+    role = access_token.get("role")
+    fine_grained = access_token.get("fineGrained") or {}
+    if out.mode == OutputFormat.json:
+        token_permissions = {"role": role, **fine_grained}
+        out.result("Logged in", user=info["name"], orgs=orgs, endpoint=endpoint, permissions=token_permissions)
+        return
+
+    out.result("Logged in", user=info["name"], orgs=orgs, endpoint=endpoint, role=role or "unavailable")
+    if role == "fineGrained":
+        out.text(_format_fine_grained(fine_grained))
