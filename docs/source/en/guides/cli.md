@@ -1568,6 +1568,51 @@ Use `hf repos branch` to create and delete branches for repositories on the Hub.
 > [!TIP]
 > All commands accept `--repo-type` (one of `model`, `dataset`, `space`) and `--token` if you need to authenticate explicitly. Use `--help` on any command to see all options.
 
+## hf resource-groups
+
+Resource groups let Enterprise organizations control which members can access a given set of repos, collections and blog posts. To learn more, check out the [Hub documentation](https://huggingface.co/docs/hub/en/security-resource-groups).
+
+### Assign an item to a resource group
+
+Use `hf resource-groups assign` to assign an item (a repo, a collection or a blog post) to a resource group, one item per call. The group ID is the last part of the group's URL in your organization settings (e.g. `https://huggingface.co/organizations/my-org/settings/resource-groups/66980ecfc1e12a49c8f0e42d`). An item belongs to at most one resource group: an item that is already in another group is moved to this one. Use `hf resource-groups unassign` to remove an item from its group.
+
+```bash
+>>> hf resource-groups assign 66980ecfc1e12a49c8f0e42d my-org/my-model
+>>> hf resource-groups assign 66980ecfc1e12a49c8f0e42d my-org/my-data --type dataset
+>>> hf resource-groups unassign my-org/my-data --type dataset
+```
+
+The default type is `model`. Use `--type` for a `dataset`, `space`, `bucket`, `container`, `collection` (pass the collection slug) or `blog` (pass `<namespace>/<slug>`). Each item is updated with its own API call and gets its own result line. If an item fails, the command still processes the others, then exits with code 1.
+
+Taking an item out of a group (unassigning or moving it) requires being an admin of that group or of the organization. Adding it requires the admin, write or contributor role in the target group. Fine-grained tokens need the "Write to resource groups" permission on the organization.
+
+### Manage resource groups
+
+Use `hf resource-groups ls`, `info`, `create`, `update` and `delete` to manage the resource groups of an organization. Groups can be passed by name or by ID.
+
+```bash
+# List the groups you administer (all groups if you are an organization admin)
+>>> hf resource-groups ls --org my-org
+
+# Show a group: description, auto-join, spend limits, members and resources
+>>> hf resource-groups info research --org my-org
+
+# Create a group with members, repos and auto-join
+>>> hf resource-groups create research --org my-org --description "Research team" \
+    --user alice:admin --user bob:write \
+    --repo my-org/my-model --repo datasets/my-org/my-data \
+    --auto-join read --auto-join-scope read_plus
+
+# Rename it and set spend limits (in cents), or remove one
+>>> hf resource-groups update research --org my-org --name ml-research --spend-limit total=50000 --spend-limit jobs=10000
+>>> hf resource-groups update ml-research --org my-org --no-spend-limit jobs
+
+# Delete it (its items stay in the organization, without a group)
+>>> hf resource-groups delete ml-research --org my-org --yes
+```
+
+`hf resource-groups assign` also accepts a group name: it is looked up in the organization that owns the item. Members, invitations and per-group settings are not supported by the CLI yet.
+
 ## hf cache
 
 Use `hf cache` to manage your local Hugging Face cache directory. The cache stores models, datasets, Spaces and kernels downloaded from the Hub.

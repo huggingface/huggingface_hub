@@ -212,6 +212,7 @@ _SUBMOD_ATTRS = {
         "RepoFolder",
         "RepoStorageInfo",
         "RepoUrl",
+        "ResourceGroup",
         "SpaceInfo",
         "SpaceSearchResult",
         "SpaceTemplate",
@@ -223,6 +224,7 @@ _SUBMOD_ATTRS = {
         "add_collection_item",
         "add_space_secret",
         "add_space_variable",
+        "assign_resource_group_item",
         "auth_check",
         "batch_bucket_files",
         "bucket_info",
@@ -240,6 +242,7 @@ _SUBMOD_ATTRS = {
         "create_inference_endpoint_from_catalog",
         "create_pull_request",
         "create_repo",
+        "create_resource_group",
         "create_scheduled_job",
         "create_scheduled_uv_job",
         "create_tag",
@@ -253,6 +256,7 @@ _SUBMOD_ATTRS = {
         "delete_folder",
         "delete_inference_endpoint",
         "delete_repo",
+        "delete_resource_group",
         "delete_scheduled_job",
         "delete_space_secret",
         "delete_space_variable",
@@ -283,6 +287,7 @@ _SUBMOD_ATTRS = {
         "get_organization_overview",
         "get_paths_info",
         "get_repo_discussions",
+        "get_resource_group",
         "get_safetensors_metadata",
         "get_sharded_safetensors_metadata",
         "get_space_runtime",
@@ -320,6 +325,7 @@ _SUBMOD_ATTRS = {
         "list_repo_likers",
         "list_repo_refs",
         "list_repo_tree",
+        "list_resource_groups",
         "list_scheduled_jobs",
         "list_space_templates",
         "list_spaces",
@@ -364,6 +370,7 @@ _SUBMOD_ATTRS = {
         "sync_bucket",
         "sync_job_volume",
         "trigger_scheduled_job",
+        "unassign_resource_group_item",
         "unlike",
         "update_bucket_settings",
         "update_collection_item",
@@ -373,6 +380,7 @@ _SUBMOD_ATTRS = {
         "update_job_expose",
         "update_job_labels",
         "update_repo_settings",
+        "update_resource_group",
         "update_scheduled_job_labels",
         "update_scheduled_job_schedule",
         "update_webhook",
@@ -846,6 +854,7 @@ __all__ = [
     "RepoStorageInfo",
     "RepoUrl",
     "ResolvedRevision",
+    "ResourceGroup",
     "Sandbox",
     "SandboxCommandResult",
     "SandboxPool",
@@ -961,6 +970,7 @@ __all__ = [
     "add_collection_item",
     "add_space_secret",
     "add_space_variable",
+    "assign_resource_group_item",
     "attach_huggingface_oauth",
     "auth_check",
     "auth_list",
@@ -984,6 +994,7 @@ __all__ = [
     "create_inference_endpoint_from_catalog",
     "create_pull_request",
     "create_repo",
+    "create_resource_group",
     "create_scheduled_job",
     "create_scheduled_uv_job",
     "create_tag",
@@ -997,6 +1008,7 @@ __all__ = [
     "delete_folder",
     "delete_inference_endpoint",
     "delete_repo",
+    "delete_resource_group",
     "delete_scheduled_job",
     "delete_space_secret",
     "delete_space_variable",
@@ -1035,6 +1047,7 @@ __all__ = [
     "get_organization_overview",
     "get_paths_info",
     "get_repo_discussions",
+    "get_resource_group",
     "get_safetensors_metadata",
     "get_session",
     "get_sharded_safetensors_metadata",
@@ -1082,6 +1095,7 @@ __all__ = [
     "list_repo_likers",
     "list_repo_refs",
     "list_repo_tree",
+    "list_resource_groups",
     "list_scheduled_jobs",
     "list_space_templates",
     "list_spaces",
@@ -1152,6 +1166,7 @@ __all__ = [
     "trigger_scheduled_job",
     "try_to_load_from_cache",
     "typer_factory",
+    "unassign_resource_group_item",
     "unlike",
     "update_bucket_settings",
     "update_collection_item",
@@ -1161,6 +1176,7 @@ __all__ = [
     "update_job_expose",
     "update_job_labels",
     "update_repo_settings",
+    "update_resource_group",
     "update_scheduled_job_labels",
     "update_scheduled_job_schedule",
     "update_webhook",
@@ -1430,6 +1446,7 @@ if TYPE_CHECKING:  # pragma: no cover
         RepoFolder,  # noqa: F401
         RepoStorageInfo,  # noqa: F401
         RepoUrl,  # noqa: F401
+        ResourceGroup,  # noqa: F401
         SpaceInfo,  # noqa: F401
         SpaceSearchResult,  # noqa: F401
         SpaceTemplate,  # noqa: F401
@@ -1441,6 +1458,7 @@ if TYPE_CHECKING:  # pragma: no cover
         add_collection_item,  # noqa: F401
         add_space_secret,  # noqa: F401
         add_space_variable,  # noqa: F401
+        assign_resource_group_item,  # noqa: F401
         auth_check,  # noqa: F401
         batch_bucket_files,  # noqa: F401
         bucket_info,  # noqa: F401
@@ -1458,6 +1476,7 @@ if TYPE_CHECKING:  # pragma: no cover
         create_inference_endpoint_from_catalog,  # noqa: F401
         create_pull_request,  # noqa: F401
         create_repo,  # noqa: F401
+        create_resource_group,  # noqa: F401
         create_scheduled_job,  # noqa: F401
         create_scheduled_uv_job,  # noqa: F401
         create_tag,  # noqa: F401
@@ -1471,6 +1490,7 @@ if TYPE_CHECKING:  # pragma: no cover
         delete_folder,  # noqa: F401
         delete_inference_endpoint,  # noqa: F401
         delete_repo,  # noqa: F401
+        delete_resource_group,  # noqa: F401
         delete_scheduled_job,  # noqa: F401
         delete_space_secret,  # noqa: F401
         delete_space_variable,  # noqa: F401
@@ -1501,6 +1521,7 @@ if TYPE_CHECKING:  # pragma: no cover
         get_organization_overview,  # noqa: F401
         get_paths_info,  # noqa: F401
         get_repo_discussions,  # noqa: F401
+        get_resource_group,  # noqa: F401
         get_safetensors_metadata,  # noqa: F401
         get_sharded_safetensors_metadata,  # noqa: F401
         get_space_runtime,  # noqa: F401
@@ -1538,6 +1559,7 @@ if TYPE_CHECKING:  # pragma: no cover
         list_repo_likers,  # noqa: F401
         list_repo_refs,  # noqa: F401
         list_repo_tree,  # noqa: F401
+        list_resource_groups,  # noqa: F401
         list_scheduled_jobs,  # noqa: F401
         list_space_templates,  # noqa: F401
         list_spaces,  # noqa: F401
@@ -1582,6 +1604,7 @@ if TYPE_CHECKING:  # pragma: no cover
         sync_bucket,  # noqa: F401
         sync_job_volume,  # noqa: F401
         trigger_scheduled_job,  # noqa: F401
+        unassign_resource_group_item,  # noqa: F401
         unlike,  # noqa: F401
         update_bucket_settings,  # noqa: F401
         update_collection_item,  # noqa: F401
@@ -1591,6 +1614,7 @@ if TYPE_CHECKING:  # pragma: no cover
         update_job_expose,  # noqa: F401
         update_job_labels,  # noqa: F401
         update_repo_settings,  # noqa: F401
+        update_resource_group,  # noqa: F401
         update_scheduled_job_labels,  # noqa: F401
         update_scheduled_job_schedule,  # noqa: F401
         update_webhook,  # noqa: F401

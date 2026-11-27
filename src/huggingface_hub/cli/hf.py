@@ -119,6 +119,7 @@ _LAZY_GROUPS: list[tuple[str, str, str, dict[str, Any]]] = [
     ("models", "models", "models_cli", {}),
     ("papers", "papers", "papers_cli", {}),
     ("repos", "repos", "repos_cli", {}),
+    ("resource-groups", "resource_groups", "resource_groups_cli", {}),
     ("sandbox", "sandbox", "sandbox_cli", {}),
     ("skills", "skills", "skills_cli", {}),
     ("spaces", "spaces", "spaces_cli", {}),

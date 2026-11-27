@@ -32,7 +32,7 @@ from huggingface_hub.cli.jobs import _get_jobs_stats_rows, _parse_and_sync_job_v
 from huggingface_hub.cli.skills import build_skill_md
 from huggingface_hub.cli.upload import _resolve_upload_paths, upload
 from huggingface_hub.errors import CLIError, DeviceCodeError, HfUriError, RevisionNotFoundError
-from huggingface_hub.hf_api import ModelInfo
+from huggingface_hub.hf_api import ModelInfo, ResourceGroup
 from huggingface_hub.utils import (
     CachedFileInfo,
     CachedRepoInfo,
@@ -43,7 +43,7 @@ from huggingface_hub.utils import (
 from huggingface_hub.utils._verification import FolderVerification
 
 from .conftest import RepoFactory
-from .testing_constants import DUMMY_MODEL_ID, TOKEN
+from .testing_constants import DUMMY_MODEL_ID, ENTERPRISE_ORG, ENTERPRISE_RESOURCE_GROUP_ID, ENTERPRISE_TOKEN, TOKEN
 from .testing_utils import repo_name
 
 
@@ -1911,6 +1911,169 @@ class TestRepoSettingsCommand:
         assert kwargs["repo_type"] == "dataset"
         assert kwargs["visibility"] == "private"
         assert kwargs["gated"] == "manual"
+
+
+class TestResourceGroupsCommand:
+    """Real tests against hub-ci: ENTERPRISE_ORG has seeded resource groups and ENTERPRISE_TOKEN is an org admin."""
+
+    group_id = "66980ecfc1e12a49c8f0e42d"
+
+    def test_assign_unassign(self, runner: CliRunner, repo_factory: RepoFactory) -> None:
+        api = HfApi(token=ENTERPRISE_TOKEN)
+        repo_id = repo_factory("dataset", repo_id=f"{ENTERPRISE_ORG}/{repo_name()}", token=ENTERPRISE_TOKEN).repo_id
+
+        def current_group() -> str | None:
+            info = api.dataset_info(repo_id, expand=["resourceGroup"])
+            return info.resource_group["id"] if info.resource_group else None
+
+        with patch("huggingface_hub.cli.resource_groups.get_hf_api", return_value=api):
+            result = runner.invoke(
+                app,
+                ["resource-groups", "assign", ENTERPRISE_RESOURCE_GROUP_ID, repo_id, "--type", "dataset", "--json"],
+            )
+            assert result.exit_code == 0, result.output
+            assert json.loads(result.stdout) == {
+                "item": repo_id,
+                "type": "dataset",
+                "resource_group_id": ENTERPRISE_RESOURCE_GROUP_ID,
+            }
+            assert current_group() == ENTERPRISE_RESOURCE_GROUP_ID
+
+            result = runner.invoke(app, ["resource-groups", "unassign", repo_id, "--type", "dataset", "--json"])
+            assert result.exit_code == 0, result.output
+            assert json.loads(result.stdout) == {"item": repo_id, "type": "dataset", "resource_group_id": None}
+            assert current_group() is None
+
+    def test_assign_single_item(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.resource_groups.get_hf_api") as api_cls:
+            result = runner.invoke(app, ["resource-groups", "assign", self.group_id, "my-org/a", "my-org/b"])
+        assert result.exit_code != 0
+        api_cls.return_value.assign_resource_group_item.assert_not_called()
+
+    def test_assign_by_name(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.resource_groups.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_resource_groups.return_value = [
+                ResourceGroup(id="0" * 24, name="other"),
+                ResourceGroup(id=self.group_id, name="research"),
+            ]
+            result = runner.invoke(app, ["resource-groups", "assign", "research", "my-org/a"])
+        assert result.exit_code == 0, result.output
+        api.list_resource_groups.assert_called_once_with("my-org")
+        api.assign_resource_group_item.assert_called_once_with(self.group_id, "my-org/a", item_type="model")
+
+    def test_unknown_group_name(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.resource_groups.get_hf_api") as api_cls:
+            api_cls.return_value.list_resource_groups.return_value = []
+            result = runner.invoke(app, ["resource-groups", "info", "research", "--org", "my-org"])
+        assert isinstance(result.exception, CLIError)
+        assert "No resource group named 'research' in 'my-org'" in str(result.exception)
+        api_cls.return_value.get_resource_group.assert_not_called()
+
+    def test_ls(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.resource_groups.get_hf_api") as api_cls:
+            api_cls.return_value.list_resource_groups.return_value = [
+                ResourceGroup(id=self.group_id, name="research", users=[{"name": "alice"}], resources=[])
+            ]
+            result = runner.invoke(app, ["resource-groups", "ls", "--org", "my-org", "--json"])
+        assert result.exit_code == 0, result.output
+        api_cls.return_value.list_resource_groups.assert_called_once_with("my-org")
+        assert json.loads(result.stdout) == [
+            {"id": self.group_id, "name": "research", "description": None, "users": 1, "resources": 0}
+        ]
+
+    def test_info_by_id(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.resource_groups.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.get_resource_group.return_value = ResourceGroup(id=self.group_id, name="research")
+            result = runner.invoke(app, ["resource-groups", "info", self.group_id, "--org", "my-org"])
+        assert result.exit_code == 0, result.output
+        api.list_resource_groups.assert_not_called()
+        api.get_resource_group.assert_called_once_with("my-org", self.group_id)
+        assert json.loads(result.stdout)["name"] == "research"
+
+    def test_create(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.resource_groups.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.create_resource_group.return_value = ResourceGroup(id=self.group_id, name="research")
+            result = runner.invoke(
+                app,
+                [
+                    "resource-groups", "create", "research", "--org", "my-org", "--description", "Research team",
+                    "--user", "alice:admin", "--user", "bob:write", "--repo", "my-org/m", "--repo", "datasets/my-org/d",
+                    "--auto-join", "read", "--auto-join-scope", "read_plus", "-q",
+                ],
+            )  # fmt: skip
+        assert result.exit_code == 0, result.output
+        api.create_resource_group.assert_called_once_with(
+            "my-org",
+            "research",
+            description="Research team",
+            users={"alice": "admin", "bob": "write"},
+            repos=["my-org/m", "datasets/my-org/d"],
+            auto_join_role="read",
+            auto_join_scope="read_plus",
+        )
+        assert result.stdout.strip() == self.group_id
+
+    @pytest.mark.parametrize(
+        "args, match",
+        [
+            (["--user", "alice"], "Expected `username:role`"),
+            (["--user", "alice:owner"], "Expected `username:role`"),
+            (["--auto-join-scope", "all"], "--auto-join-scope requires --auto-join"),
+        ],
+    )
+    def test_create_invalid(self, runner: CliRunner, args: list[str], match: str) -> None:
+        with patch("huggingface_hub.cli.resource_groups.get_hf_api") as api_cls:
+            result = runner.invoke(app, ["resource-groups", "create", "research", "--org", "my-org", *args])
+        assert result.exit_code != 0
+        assert match in result.output + str(result.exception)
+        api_cls.return_value.create_resource_group.assert_not_called()
+
+    def test_update(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.resource_groups.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.update_resource_group.return_value = ResourceGroup(id=self.group_id, name="ml-research")
+            result = runner.invoke(
+                app,
+                [
+                    "resource-groups", "update", self.group_id, "--org", "my-org", "--name", "ml-research",
+                    "--spend-limit", "total=50000", "--spend-limit", "jobs=10000", "--no-spend-limit", "endpoints",
+                ],
+            )  # fmt: skip
+        assert result.exit_code == 0, result.output
+        api.update_resource_group.assert_called_once_with(
+            "my-org",
+            self.group_id,
+            name="ml-research",
+            description=None,
+            spend_limits={"total": 50000, "jobs": 10000, "endpoints": None},
+        )
+
+    @pytest.mark.parametrize(
+        "args, match",
+        [
+            ([], "Nothing to update"),
+            (["--spend-limit", "gpu=10"], "Expected `key=cents`"),
+            (["--spend-limit", "jobs=-1"], "Expected `key=cents`"),
+            (["--spend-limit", "jobs=1", "--no-spend-limit", "jobs"], "both set and removed"),
+        ],
+    )
+    def test_update_invalid(self, runner: CliRunner, args: list[str], match: str) -> None:
+        with patch("huggingface_hub.cli.resource_groups.get_hf_api") as api_cls:
+            result = runner.invoke(app, ["resource-groups", "update", self.group_id, "--org", "my-org", *args])
+        assert result.exit_code != 0
+        assert match in result.output + str(result.exception)
+        api_cls.return_value.update_resource_group.assert_not_called()
+
+    def test_delete(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.resource_groups.get_hf_api") as api_cls:
+            api = api_cls.return_value
+            api.list_resource_groups.return_value = [ResourceGroup(id=self.group_id, name="research")]
+            result = runner.invoke(app, ["resource-groups", "delete", "research", "--org", "my-org", "--yes"])
+        assert result.exit_code == 0, result.output
+        api.delete_resource_group.assert_called_once_with("my-org", self.group_id)
 
 
 class TestRepoListCommand:
