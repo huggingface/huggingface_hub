@@ -12,6 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import json
 import os
 import time
 import warnings
@@ -576,6 +577,47 @@ def test_bucket_add_file_content_type(source, destination, expected_content_type
 
     entry = _BucketAddFile(source=source, destination=destination)
     assert entry.content_type == expected_content_type
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX file mode is not derived on Windows")
+def test_bucket_add_file_mode(tmp_path):
+    """Test that _BucketAddFile derives the POSIX mode from local files, following symlinks."""
+    from huggingface_hub._buckets import _BucketAddFile
+
+    script = tmp_path / "run.sh"
+    script.write_text("#!/bin/sh")
+    script.chmod(0o755)
+    link = tmp_path / "link.sh"
+    link.symlink_to(script)
+
+    assert _BucketAddFile(source=script, destination="run.sh").mode == 0o100755
+    assert _BucketAddFile(source=str(link), destination="link.sh").mode == 0o100755  # symlink followed
+    assert _BucketAddFile(source=script, destination="run.sh", mode=0o644).mode == 0o644  # explicit mode wins
+    assert _BucketAddFile(source=b"raw", destination="raw.bin").mode is None
+
+
+def test_batch_bucket_files_sends_mode(tmp_path):
+    from huggingface_hub._buckets import _BucketAddFile
+
+    api = HfApi(endpoint="https://hub.example", token="hf_fake")
+    ops = [
+        _BucketAddFile(source=b"a", destination="a.sh", xet_hash="hash-a", size=1, mode=0o100755),
+        _BucketAddFile(source=b"b", destination="b.txt", xet_hash="hash-b", size=1),
+    ]
+    with patch("huggingface_hub.hf_api.http_backoff") as mock_backoff:
+        mock_backoff.return_value.status_code = 200
+        mock_backoff.return_value.json.return_value = {"failed": []}
+        api._batch_bucket_files("user/bucket", add=ops)
+
+    lines = [json.loads(line) for line in mock_backoff.call_args.kwargs["content"].decode().splitlines()]
+    assert lines[0]["type"] == "addFile" and lines[0]["mode"] == 0o100755
+    assert "mode" not in lines[1]
+
+
+def test_bucket_file_mode():
+    entry = {"type": "file", "path": "run.sh", "size": 1, "xetHash": "abc"}
+    assert BucketFile(**entry, mode=0o100755).mode == 0o100755
+    assert BucketFile(**entry).mode is None
 
 
 def test_download_file_should_truncate_existing_one(api: HfApi, bucket_write: str, tmp_path):

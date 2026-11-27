@@ -14778,7 +14778,9 @@ class HfApi:
                 The ID of the bucket (e.g. `"username/my-bucket"`).
             add (`list` of `tuple`, *optional*):
                 Files to upload. Each element is a `(source, destination)` tuple where `source` is a path to a local
-                file (`str` or `Path`) or raw `bytes` content, and `destination` is the path in the bucket.
+                file (`str` or `Path`) or raw `bytes` content, and `destination` is the path in the bucket. When
+                uploading a local file, its modification time and POSIX file mode (permission bits, except on
+                Windows) are stored alongside it. Symlinks are followed and uploaded as regular files.
             copy (`list` of `tuple`, *optional*):
                 Files to copy by xet hash. Each element is a `(source_repo_type, source_repo_id, xet_hash,
                 destination)` tuple where:
@@ -15006,6 +15008,8 @@ class HfApi:
                     }
                     if op.content_type is not None:
                         payload["contentType"] = op.content_type
+                    if op.mode is not None:
+                        payload["mode"] = op.mode
                 elif isinstance(op, _BucketCopyFile):
                     payload = {
                         "type": "copyFile",
