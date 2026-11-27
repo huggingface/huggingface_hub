@@ -15,6 +15,7 @@ logger = get_logger(__name__)
 
 # Polling interval (in seconds)
 _POLLING_INTERVAL = 0.5
+_MAX_POLL_ATTEMPTS = 7200  # ~1 hour at _POLLING_INTERVAL
 
 
 class WavespeedAITask(TaskProviderHelper, ABC):
@@ -57,7 +58,7 @@ class WavespeedAITask(TaskProviderHelper, ABC):
         logger.info("Processing request, polling for results...")
 
         # Poll until task is completed
-        while True:
+        for _ in range(_MAX_POLL_ATTEMPTS):
             time.sleep(_POLLING_INTERVAL)
             result_response = get_session().get(result_url, headers=request_params.headers)
             hf_raise_for_status(result_response)
@@ -73,13 +74,18 @@ class WavespeedAITask(TaskProviderHelper, ABC):
 
                 output_url = task_result["outputs"][0]
                 return get_session().get(output_url).content
-            elif status == "failed":
-                error_msg = task_result.get("error", "Task failed with no specific error message")
-                raise ValueError(f"WaveSpeed AI task failed: {error_msg}")
+            elif status in ["failed", "cancelled", "timeout", "deleted"]:
+                error_msg = task_result.get("error")
+                suffix = f": {error_msg}" if error_msg else ""
+                raise ValueError(f"WaveSpeed AI task {status}{suffix}")
             elif status in ["processing", "created"]:
                 continue
             else:
                 raise ValueError(f"Unknown status: {status}")
+
+        raise ValueError(
+            f"Timed out while waiting for the result from WaveSpeed AI - aborting after {_MAX_POLL_ATTEMPTS} attempts"
+        )
 
 
 class WavespeedAITextToImageTask(WavespeedAITask):
