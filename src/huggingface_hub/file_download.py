@@ -724,7 +724,13 @@ def _create_symlink(src: str, dst: str, new_blob: bool = False) -> None:
         else:
             logger.debug(f"Symlink not supported. Copying file from {abs_src} to {abs_dst}")
             shutil.copyfile(abs_src, tmp_dst)
-        os.replace(tmp_dst, abs_dst)
+        try:
+            os.replace(tmp_dst, abs_dst)
+        except OSError:
+            if new_blob:
+                # The temporary file is the only copy of the blob: restore it so a retry doesn't download it again.
+                shutil.move(tmp_dst, abs_src, copy_function=_copy_no_matter_what)
+            raise
     finally:
         Path(tmp_dst).unlink(missing_ok=True)
 
