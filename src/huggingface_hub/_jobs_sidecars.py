@@ -21,6 +21,7 @@ import json
 import os
 import re
 import uuid
+import warnings
 import zlib
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -33,6 +34,7 @@ from huggingface_hub._jobs_api import JobHardware, _create_job_spec, _parse_job_
 from huggingface_hub._jobs_sidecar_orchestrator import MAIN_JOB_ID_PREFIX
 from huggingface_hub._space_api import Volume
 from huggingface_hub.errors import HfUriError
+from huggingface_hub.utils import parse_hf_mount
 from huggingface_hub.utils._auth import get_token
 from huggingface_hub.utils._parsing import parse_duration
 
@@ -47,7 +49,7 @@ DEFAULT_STARTUP_TIMEOUT_SECS = 5 * 60
 DEFAULT_READINESS_TIMEOUT_SECS = 10 * 60
 DEFAULT_HEALTH_INTERVAL_SECS = 2.0
 DEFAULT_HEALTH_PROBE_TIMEOUT_SECS = 5.0
-SAFETY_TIMEOUT_BUFFER_SECS = 5 * 60
+SAFETY_TIMEOUT_BUFFER_SECS = 15 * 60
 
 # Hub network groups support at most 100 members (sidecars + main + orchestrator).
 MAX_NETWORK_GROUP_MEMBERS = 100
@@ -315,7 +317,19 @@ def _parse_sidecar_volumes(raw: Any, *, sidecar_name: str) -> list[Volume]:
             volumes.append(entry)
         elif isinstance(entry, str):
             try:
-                volumes.append(Volume.from_uri(entry))
+                mount = parse_hf_mount(entry)
+                if mount.source.type == "kernel":
+                    raise HfUriError(uri=entry, msg="Volume type 'kernel' is not supported for sidecar mounts.")
+                volumes.append(
+                    Volume(
+                        type=mount.source.type,
+                        source=mount.source.id,
+                        mount_path=mount.mount_path,
+                        read_only=mount.read_only,
+                        path=mount.source.path_in_repo or None,
+                        revision=mount.source.revision or None,
+                    )
+                )
             except HfUriError as exc:
                 raise ValueError(f"Sidecar '{sidecar_name}': invalid volume '{entry}': {exc}") from exc
         else:
@@ -463,7 +477,12 @@ def load_sidecars(
     specs: dict[str, SidecarSpec] = {}
 
     for name, entry in sidecars_raw.items():
-        _validate_alias(str(name), context="sidecar name")
+        if not isinstance(name, str):
+            raise ValueError(
+                f"Sidecar names must be strings, got {type(name).__name__} ({name!r}). "
+                "Quote numeric or YAML-keyword names (e.g. '1' or 'on')."
+            )
+        _validate_alias(name, context="sidecar name")
         if not isinstance(entry, Mapping):
             raise ValueError(f"Sidecar '{name}' must be a mapping.")
         unknown = sorted(k for k in entry if k not in _VALID_SIDECAR_KEYS)
@@ -577,6 +596,23 @@ def load_sidecars(
         )
 
     config = SidecarsConfig(sidecars=specs, source_label=source_label)
+    # Check that expanded instance names and probe aliases do not collide across sidecars
+    # (e.g. `worker` with `replicas: 2` expands to `worker-0`, `worker-1`, colliding with a sidecar named `worker-0`).
+    instances = config.expand_instances()
+    seen_instances: dict[str, str] = {}
+    service_names = set(specs)
+    for inst in instances:
+        if inst.instance_name in seen_instances:
+            raise ValueError(
+                f"Sidecar instance name collision: '{inst.instance_name}' is defined by both "
+                f"'{seen_instances[inst.instance_name]}' and '{inst.service_name}'."
+            )
+        seen_instances[inst.instance_name] = inst.service_name
+        if inst.probe_alias != inst.service_name and inst.probe_alias in service_names:
+            raise ValueError(
+                f"Sidecar replica alias '{inst.probe_alias}' (from '{inst.service_name}') collides with "
+                f"sidecar '{inst.probe_alias}'."
+            )
     # Hub network groups cap total members at 100 (sidecars + main + orchestrator).
     total_members = config.total_instances + 2
     if total_members > MAX_NETWORK_GROUP_MEMBERS:
@@ -647,9 +683,10 @@ def build_orchestrator_job_spec(
 
     instances = sidecars_config.expand_instances()
     main_timeout_secs = int(main_job_spec.get("timeoutSeconds") or DEFAULT_JOB_TIMEOUT_SECS)
+    main_attempts = max(1, int(main_job_spec.get("attempts") or 1))
     max_startup = max(inst.spec.startup_timeout_secs for inst in instances)
     max_readiness = max(inst.spec.readiness_timeout_secs for inst in instances)
-    safety_floor_secs = max_startup + max_readiness + main_timeout_secs + SAFETY_TIMEOUT_BUFFER_SECS
+    safety_floor_secs = max_startup + max_readiness + (main_timeout_secs * main_attempts) + SAFETY_TIMEOUT_BUFFER_SECS
 
     # Strip secrets from main spec before placing in the non-secret manifest.
     main_spec_clean = dict(main_job_spec)
@@ -671,10 +708,22 @@ def build_orchestrator_job_spec(
     sidecar_entries: list[dict[str, Any]] = []
     sidecar_secrets_map: dict[str, dict[str, Any]] = {}
     max_sidecar_timeout = safety_floor_secs
+    warned_short_timeout: set[str] = set()
 
     for inst in instances:
         sc = inst.spec
-        sc_timeout = max(sc.timeout_secs or 0, safety_floor_secs)
+        if sc.timeout_secs is not None:
+            sc_timeout = sc.timeout_secs
+            if sc.on_exit == "fail" and sc_timeout < main_timeout_secs and sc.name not in warned_short_timeout:
+                warned_short_timeout.add(sc.name)
+                warnings.warn(
+                    f"Sidecar '{sc.name}' has explicit timeout ({sc_timeout}s) shorter than the main Job timeout "
+                    f"({main_timeout_secs}s); if the sidecar times out first, the run will be aborted.",
+                    UserWarning,
+                    stacklevel=3,
+                )
+        else:
+            sc_timeout = safety_floor_secs
         max_sidecar_timeout = max(max_sidecar_timeout, sc_timeout)
 
         sc_labels = {
@@ -727,6 +776,7 @@ def build_orchestrator_job_spec(
         "namespace": namespace,
         "group_id": group_id,
         "group_label_key": SIDECAR_GROUP_LABEL,
+        "role_label_key": SIDECAR_ROLE_LABEL,
         "poll_interval_secs": poll_interval_secs,
         "sidecars": sidecar_entries,
         "main": {"spec": main_spec_clean},

@@ -1036,8 +1036,22 @@ def parse_volumes(volumes: list[str] | None) -> "list[Volume] | None":
         return None
 
     from huggingface_hub import Volume
+    from huggingface_hub.utils import parse_hf_mount
 
-    return [Volume.from_uri(raw_spec) for raw_spec in volumes]
+    result: list[Volume] = []
+    for raw_spec in volumes:
+        mount = parse_hf_mount(raw_spec)
+        result.append(
+            Volume(
+                type=mount.source.type,
+                source=mount.source.id,
+                mount_path=mount.mount_path,
+                read_only=mount.read_only,
+                path=mount.source.path_in_repo or None,
+                revision=mount.source.revision or None,
+            )
+        )
+    return result
 
 
 def make_expand_properties_parser(valid_properties: Sequence[ExpandPropertyT]):

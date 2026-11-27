@@ -782,7 +782,27 @@ def _follow_sidecar_orchestrator(api: HfApi, orch_job: JobInfo, *, detach: bool)
         main_ref = f"{orch_job.owner.name}/{main_job_id}"
         out.hint(f"Main Job started ({main_ref}). Streaming main Job logs...")
         main_job = api.inspect_job(job_id=main_job_id, namespace=orch_job.owner.name)
-        _stream_logs_and_check_status(api, main_job)
+        try:
+            _stream_logs_and_check_status(api, main_job)
+        except CLIError:
+            try:
+                api.wait_for_job(job_id=orch_job.id, namespace=orch_job.owner.name, timeout=30)
+                orch_logs = list(
+                    api.fetch_job_logs(job_id=orch_job.id, namespace=orch_job.owner.name, follow=False, tail=40)
+                )
+                error_idx = next(
+                    (i for i, line in enumerate(orch_logs) if line.startswith("[sidecars] ERROR:")),
+                    None,
+                )
+                if error_idx is not None:
+                    out.hint(f"Sidecar orchestrator reported an error ({orch_ref}):")
+                    for line in orch_logs[error_idx:]:
+                        out.text(line)
+                else:
+                    out.hint(f"Inspect orchestrator logs with `hf jobs logs {orch_ref}`.")
+            except Exception:
+                out.hint(f"Inspect orchestrator logs with `hf jobs logs {orch_ref}`.")
+            raise
         # Wait briefly for the orchestrator to complete sidecar teardown.
         try:
             api.wait_for_job(job_id=orch_job.id, namespace=orch_job.owner.name, timeout=60)

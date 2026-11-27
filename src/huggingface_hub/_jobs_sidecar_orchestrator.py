@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import base64
 import concurrent.futures
+import email.utils
 import json
 import os
 import re
@@ -33,6 +34,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import zlib
+from datetime import datetime, timezone
 from typing import Any
 
 
@@ -40,10 +42,43 @@ TERMINAL_STAGES = frozenset({"COMPLETED", "CANCELED", "ERROR", "DELETED"})
 MAIN_JOB_ID_PREFIX = "[sidecars] main_job_id="
 _LINK_NEXT_RE = re.compile(r'<([^>]+)>;\s*rel="next"')
 _RETRYABLE_STATUS_CODES = frozenset({408, 429, 500, 502, 503, 504})
+_MAX_RETRY_AFTER_SECS = 60.0
+_SIGTERM_HTTP_TIMEOUT_SECS = 1.5
+
+
+class _TransientHubError(RuntimeError):
+    """Retryable Hub API or network error (5xx, 429, 408, timeouts, connection errors)."""
+
+
+class _PermanentHubError(RuntimeError):
+    """Non-retryable Hub API error (e.g. 400, 401, 403, 404, 422)."""
 
 
 def _log(message: str) -> None:
     print(f"[sidecars] {message}", flush=True)
+
+
+def _parse_retry_after(headers: Any) -> float | None:
+    """Parse an HTTP `Retry-After` header (seconds or HTTP-date) into a capped delay."""
+    if headers is None:
+        return None
+    raw = headers.get("Retry-After") or headers.get("retry-after")
+    if not raw:
+        return None
+    raw_str = str(raw).strip()
+    try:
+        delay = float(raw_str)
+    except ValueError:
+        try:
+            dt = email.utils.parsedate_to_datetime(raw_str)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            delay = (dt - datetime.now(timezone.utc)).total_seconds()
+        except Exception:
+            return None
+    if delay <= 0:
+        return 0.0
+    return min(delay, _MAX_RETRY_AFTER_SECS)
 
 
 class _HubJobsClient:
@@ -71,20 +106,33 @@ class _HubJobsClient:
         payload: dict[str, Any] | None = None,
         *,
         max_retries: int = 4,
+        retry_on_network_or_5xx: bool = True,
+        retry_on_429: bool = True,
+        timeout: float | None = None,
     ) -> tuple[Any, dict[str, str]]:
         data = json.dumps(payload).encode("utf-8") if payload is not None else None
         headers = self._headers(json_body=payload is not None)
+        req_timeout = self.request_timeout if timeout is None else timeout
         last_error: Exception | None = None
         for attempt in range(max_retries):
             req = urllib.request.Request(url, data=data, headers=headers, method=method)
             try:
-                with urllib.request.urlopen(req, timeout=self.request_timeout) as resp:
+                with urllib.request.urlopen(req, timeout=req_timeout) as resp:
                     raw = resp.read().decode("utf-8")
                     resp_headers = {k.lower(): v for k, v in resp.headers.items()}
                     return (json.loads(raw) if raw.strip() else None), resp_headers
             except urllib.error.HTTPError as exc:
                 last_error = exc
-                if exc.code in _RETRYABLE_STATUS_CODES and attempt + 1 < max_retries:
+                if exc.code == 429 and retry_on_429 and attempt + 1 < max_retries:
+                    delay = _parse_retry_after(exc.headers)
+                    time.sleep(min(2.0**attempt, 8.0) if delay is None else delay)
+                    continue
+                if (
+                    exc.code != 429
+                    and exc.code in _RETRYABLE_STATUS_CODES
+                    and retry_on_network_or_5xx
+                    and attempt + 1 < max_retries
+                ):
                     time.sleep(min(2.0**attempt, 8.0))
                     continue
                 body = ""
@@ -92,27 +140,36 @@ class _HubJobsClient:
                     body = exc.read().decode("utf-8", errors="replace")[:300]
                 except Exception:
                     pass
-                raise RuntimeError(f"HTTP {exc.code} on {method} {url}: {body or exc.reason}") from exc
+                err_cls = _TransientHubError if exc.code in _RETRYABLE_STATUS_CODES else _PermanentHubError
+                raise err_cls(f"HTTP {exc.code} on {method} {url}: {body or exc.reason}") from exc
             except (urllib.error.URLError, TimeoutError, OSError) as exc:
                 last_error = exc
-                if attempt + 1 < max_retries:
+                if retry_on_network_or_5xx and attempt + 1 < max_retries:
                     time.sleep(min(2.0**attempt, 8.0))
                     continue
-                raise RuntimeError(f"Network error on {method} {url}: {exc}") from exc
-        raise RuntimeError(f"Request failed on {method} {url}: {last_error}")
+                raise _TransientHubError(f"Network error on {method} {url}: {exc}") from exc
+        raise _TransientHubError(f"Request failed on {method} {url}: {last_error}")
 
     def create_job(self, job_spec: dict[str, Any]) -> dict[str, Any]:
+        # POST /api/jobs is not idempotent: retry only 429 (rejected before creation), never timeout/5xx.
         url = f"{self.endpoint}/api/jobs/{urllib.parse.quote(self.namespace, safe='')}"
-        data, _ = self._request_json("POST", url, job_spec)
+        data, _ = self._request_json("POST", url, job_spec, retry_on_network_or_5xx=False, retry_on_429=True)
         return data
 
-    def list_group_jobs(self, group_label_key: str, group_id: str) -> dict[str, dict[str, Any]]:
+    def list_group_jobs(
+        self,
+        group_label_key: str,
+        group_id: str,
+        *,
+        timeout: float | None = None,
+        max_retries: int = 4,
+    ) -> dict[str, dict[str, Any]]:
         """Fetch all Jobs in the sidecar group in O(1) paginated API call(s)."""
         query = urllib.parse.urlencode([("label", f"{group_label_key}={group_id}")])
         url: str | None = f"{self.endpoint}/api/jobs/{urllib.parse.quote(self.namespace, safe='')}?{query}"
         jobs_by_id: dict[str, dict[str, Any]] = {}
         while url:
-            data, headers = self._request_json("GET", url)
+            data, headers = self._request_json("GET", url, timeout=timeout, max_retries=max_retries)
             if isinstance(data, list):
                 for item in data:
                     if isinstance(item, dict) and "id" in item:
@@ -122,16 +179,22 @@ class _HubJobsClient:
             url = match.group(1) if match else None
         return jobs_by_id
 
-    def cancel_job(self, job_id: str) -> bool:
+    def cancel_job(self, job_id: str, *, timeout: float | None = None, max_retries: int = 4) -> bool:
         url = f"{self.endpoint}/api/jobs/{urllib.parse.quote(self.namespace, safe='')}/{urllib.parse.quote(job_id, safe='')}/cancel"
         try:
-            self._request_json("POST", url)
+            self._request_json("POST", url, timeout=timeout, max_retries=max_retries)
             return True
         except Exception as exc:
             _log(f"Warning: failed to cancel job {job_id}: {exc}")
             return False
 
-    def fetch_tail_logs(self, job_id: str, tail: int = 40, read_timeout: float = 4.0) -> list[str]:
+    def fetch_tail_logs(
+        self,
+        job_id: str,
+        tail: int = 40,
+        read_timeout: float = 4.0,
+        total_timeout: float = 5.0,
+    ) -> list[str]:
         """Best-effort fetch of the last `tail` log lines from the SSE `/logs` stream."""
         url = (
             f"{self.endpoint}/api/jobs/{urllib.parse.quote(self.namespace, safe='')}/"
@@ -139,9 +202,23 @@ class _HubJobsClient:
         )
         req = urllib.request.Request(url, headers=self._headers(), method="GET")
         lines: list[str] = []
+        deadline = time.monotonic() + total_timeout
         try:
-            with urllib.request.urlopen(req, timeout=read_timeout) as resp:
-                for raw_line in resp:
+            with urllib.request.urlopen(req, timeout=min(read_timeout, total_timeout)) as resp:
+                while True:
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        break
+                    raw_sock = getattr(getattr(resp, "fp", None), "raw", None)
+                    sock = getattr(raw_sock, "_sock", None)
+                    if sock is not None:
+                        try:
+                            sock.settimeout(min(read_timeout, remaining))
+                        except Exception:
+                            pass
+                    raw_line = resp.readline()
+                    if not raw_line:
+                        break
                     line = raw_line.decode("utf-8", errors="replace").strip()
                     if not line.startswith("data: {"):
                         continue
@@ -153,7 +230,7 @@ class _HubJobsClient:
                     if isinstance(text, str) and not text.startswith("===== Job started"):
                         lines.append(text)
         except Exception:
-            # SSE streams stay open for running jobs and end on read timeout once buffered lines flush.
+            # SSE streams stay open for running jobs and end on read timeout or wall-clock deadline.
             pass
         return lines[-tail:]
 
@@ -206,14 +283,21 @@ def _job_message(job: dict[str, Any] | None) -> str:
     return ""
 
 
-def _cancel_jobs_parallel(client: _HubJobsClient, job_ids: list[str]) -> int:
+def _cancel_jobs_parallel(
+    client: _HubJobsClient,
+    job_ids: list[str],
+    *,
+    timeout: float | None = None,
+    max_retries: int = 4,
+) -> int:
     unique_ids = list(dict.fromkeys(jid for jid in job_ids if jid))
     if not unique_ids:
         return 0
     cancelled = 0
     with concurrent.futures.ThreadPoolExecutor(max_workers=min(16, len(unique_ids))) as pool:
-        for ok in pool.map(client.cancel_job, unique_ids):
-            if ok:
+        futures = [pool.submit(client.cancel_job, jid, timeout=timeout, max_retries=max_retries) for jid in unique_ids]
+        for fut in futures:
+            if fut.result():
                 cancelled += 1
     return cancelled
 
@@ -244,6 +328,7 @@ def run_orchestrator(
     namespace = str(manifest["namespace"])
     group_id = str(manifest["group_id"])
     group_label_key = str(manifest.get("group_label_key", "hf-sidecar-group"))
+    role_label_key = str(manifest.get("role_label_key", "hf-sidecar-role"))
     sidecars: list[dict[str, Any]] = list(manifest["sidecars"])
     main_spec: dict[str, Any] = dict(manifest["main"]["spec"])
     child_secrets = child_secrets or {}
@@ -256,30 +341,86 @@ def run_orchestrator(
     client = _HubJobsClient(endpoint=endpoint, namespace=namespace, token=token)
 
     sidecar_jobs: dict[str, str] = {}  # instance_name -> job_id
+    sidecar_jobs_lock = threading.Lock()
     sidecar_meta: dict[str, dict[str, Any]] = {sc["name"]: sc for sc in sidecars}
     main_job_id: str | None = None
     terminated_by_signal = threading.Event()
     cleanup_lock = threading.Lock()
     cleaned_up = False
 
-    def cleanup_all(*, exclude_ids: set[str] | None = None) -> int:
+    def _is_orchestrator_job(job: dict[str, Any]) -> bool:
+        labels = job.get("labels")
+        return isinstance(labels, dict) and labels.get(role_label_key) == "orchestrator"
+
+    def _snapshot_tracked_ids(exclude: set[str]) -> list[str]:
+        with sidecar_jobs_lock:
+            ids = [jid for jid in sidecar_jobs.values() if jid not in exclude]
+        if main_job_id and main_job_id not in exclude:
+            ids.append(main_job_id)
+        return list(dict.fromkeys(ids))
+
+    def cleanup_all(*, exclude_ids: set[str] | None = None, fast: bool = False) -> int:
         nonlocal cleaned_up
         with cleanup_lock:
             if cleaned_up:
                 return 0
             cleaned_up = True
             exclude = exclude_ids or set()
-            to_cancel = [jid for jid in sidecar_jobs.values() if jid not in exclude]
-            if main_job_id and main_job_id not in exclude:
-                to_cancel.append(main_job_id)
-            if not to_cancel:
-                return 0
-            # Filter out jobs already known to be terminal when possible.
+            tracked = _snapshot_tracked_ids(exclude)
+
+            if fast:
+                # On SIGTERM the platform grace period is ~2s: fire tracked cancels immediately
+                # without waiting behind a list round-trip, while sweeping the group label concurrently
+                # to catch any untracked/in-flight jobs.
+                cancelled = 0
+                with concurrent.futures.ThreadPoolExecutor(max_workers=min(16, max(2, len(tracked) + 1))) as pool:
+                    list_future = pool.submit(
+                        client.list_group_jobs,
+                        group_label_key,
+                        group_id,
+                        timeout=_SIGTERM_HTTP_TIMEOUT_SECS,
+                        max_retries=1,
+                    )
+                    cancel_futures = [
+                        pool.submit(client.cancel_job, jid, timeout=_SIGTERM_HTTP_TIMEOUT_SECS, max_retries=1)
+                        for jid in tracked
+                    ]
+                    for fut in cancel_futures:
+                        if fut.result():
+                            cancelled += 1
+                    try:
+                        live = list_future.result()
+                    except Exception:
+                        live = {}
+                    tracked_set = set(tracked)
+                    extra_ids = [
+                        jid
+                        for jid, job in live.items()
+                        if jid not in exclude
+                        and jid not in tracked_set
+                        and not _is_orchestrator_job(job)
+                        and _job_stage(job) not in TERMINAL_STAGES
+                    ]
+                    if extra_ids:
+                        cancelled += _cancel_jobs_parallel(
+                            client, extra_ids, timeout=_SIGTERM_HTTP_TIMEOUT_SECS, max_retries=1
+                        )
+                return cancelled
+
+            # Normal teardown: cancel all non-terminal non-orchestrator jobs in the group label
+            # (catches any untracked/ghost jobs) plus any tracked jobs not yet visible in list.
             try:
                 live = client.list_group_jobs(group_label_key, group_id)
-                active_to_cancel = [jid for jid in to_cancel if _job_stage(live.get(jid)) not in TERMINAL_STAGES]
+                active_to_cancel = [
+                    jid
+                    for jid, job in live.items()
+                    if jid not in exclude and not _is_orchestrator_job(job) and _job_stage(job) not in TERMINAL_STAGES
+                ]
+                for jid in tracked:
+                    if jid not in live:
+                        active_to_cancel.append(jid)
             except Exception:
-                active_to_cancel = to_cancel
+                active_to_cancel = tracked
             return _cancel_jobs_parallel(client, active_to_cancel)
 
     if install_signal_handlers and threading.current_thread() is threading.main_thread():
@@ -287,7 +428,7 @@ def run_orchestrator(
         def _handle_sigterm(_signum: int, _frame: Any) -> None:
             _log("Received termination signal; canceling active group jobs...")
             terminated_by_signal.set()
-            count = cleanup_all()
+            count = cleanup_all(fast=True)
             _log(f"Canceled {count} job(s) on signal.")
             raise SystemExit(143)
 
@@ -297,12 +438,21 @@ def run_orchestrator(
         # 1. Submit all sidecars in parallel.
         _log(f"group={group_id} submitting {len(sidecars)} sidecar(s)...")
 
-        def _submit_sidecar(sc: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+        def _submit_sidecar(sc: dict[str, Any]) -> tuple[str, dict[str, Any] | None]:
+            if terminated_by_signal.is_set():
+                return sc["name"], None
             spec = dict(sc["spec"])
             sc_sec = sidecar_secrets.get(sc["name"])
             if sc_sec:
                 spec["secrets"] = sc_sec
-            return sc["name"], client.create_job(spec)
+            info = client.create_job(spec)
+            jid = str(info["id"])
+            with sidecar_jobs_lock:
+                sidecar_jobs[sc["name"]] = jid
+            # If SIGTERM arrived while this POST was in flight, cancel immediately in case cleanup_all already ran.
+            if terminated_by_signal.is_set():
+                client.cancel_job(jid, timeout=_SIGTERM_HTTP_TIMEOUT_SECS, max_retries=1)
+            return sc["name"], info
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=min(16, max(1, len(sidecars)))) as pool:
             futures = [pool.submit(_submit_sidecar, sc) for sc in sidecars]
@@ -311,8 +461,9 @@ def run_orchestrator(
             for fut in concurrent.futures.as_completed(futures):
                 try:
                     sc_name, info = fut.result()
+                    if info is None:
+                        continue
                     jid = str(info["id"])
-                    sidecar_jobs[sc_name] = jid
                     expose_urls = (info.get("status") or {}).get("exposeUrls") or []
                     if expose_urls:
                         logged_expose_urls.add(sc_name)
@@ -320,6 +471,8 @@ def run_orchestrator(
                     _log(f"started sidecar '{sc_name}' id={jid} url={endpoint}/jobs/{namespace}/{jid}{expose_suffix}")
                 except Exception as exc:
                     errors.append(str(exc))
+            if terminated_by_signal.is_set():
+                return 143
             if errors:
                 _log(f"ERROR: failed to submit sidecar(s): {'; '.join(errors)}")
                 cancelled = cleanup_all()
@@ -334,13 +487,30 @@ def run_orchestrator(
         reported_ignored_dead: set[str] = set()
         last_probe_at: dict[str, float] = {}
         last_probe_err: dict[str, str] = {}
+        consecutive_poll_errors = 0
 
         while len(healthy) < len(sidecars):
             if terminated_by_signal.is_set():
                 return 143
 
-            jobs_by_id = client.list_group_jobs(group_label_key, group_id)
+            try:
+                jobs_by_id = client.list_group_jobs(group_label_key, group_id)
+                if consecutive_poll_errors:
+                    _log(f"Hub API polling recovered after {consecutive_poll_errors} transient failure(s).")
+                    consecutive_poll_errors = 0
+            except _TransientHubError as exc:
+                consecutive_poll_errors += 1
+                backoff = min(poll_interval_secs * (2 ** min(consecutive_poll_errors - 1, 4)), 60.0)
+                if consecutive_poll_errors == 1 or consecutive_poll_errors % 5 == 0:
+                    _log(
+                        f"Warning: transient Hub API error while waiting for sidecars "
+                        f"(attempt {consecutive_poll_errors}, retrying in {backoff:.1f}s): {exc}"
+                    )
+                time.sleep(backoff)
+                continue
+
             now = time.monotonic()
+            due_probes: list[tuple[str, str, dict[str, Any]]] = []
 
             for sc in sidecars:
                 name = sc["name"]
@@ -349,7 +519,12 @@ def run_orchestrator(
                 stage = _job_stage(job)
 
                 if stage in TERMINAL_STAGES:
-                    if name in healthy and sc.get("on_exit", "fail") == "ignore":
+                    on_exit = sc.get("on_exit", "fail")
+                    fast_ignored_complete = (
+                        on_exit == "ignore" and stage == "COMPLETED" and sc.get("healthcheck") is None
+                    )
+                    if on_exit == "ignore" and (name in healthy or fast_ignored_complete):
+                        healthy.add(name)
                         if name not in reported_ignored_dead:
                             reported_ignored_dead.add(name)
                             _log(f"Sidecar '{name}' ({jid}) exited with stage={stage} (on_exit=ignore; continuing).")
@@ -358,9 +533,9 @@ def run_orchestrator(
                     detail = f" ({msg})" if msg else ""
                     phase = "while waiting for other sidecars" if name in healthy else "before becoming ready"
                     _log(f"ERROR: sidecar '{name}' ({jid}) exited {phase}: stage={stage}{detail}")
-                    _dump_failure_logs(client, name, jid)
                     cancelled = cleanup_all(exclude_ids={jid})
                     _log(f"Canceled {cancelled} remaining sidecar(s).")
+                    _dump_failure_logs(client, name, jid)
                     return 1
 
                 if name in healthy:
@@ -404,24 +579,45 @@ def run_orchestrator(
                 if now - last_probe_at.get(name, 0.0) >= interval:
                     last_probe_at[name] = now
                     host = probe_host_override or f"{prefix}{sc['probe_alias']}"
-                    ok, detail = _probe_health(host, hc)
-                    if ok:
-                        _log(f"sidecar '{name}' is healthy ({detail})")
-                        healthy.add(name)
-                        continue
-                    last_probe_err[name] = detail
+                    due_probes.append((name, host, hc))
 
+            # Run due health probes concurrently so many replicas don't serialize probe timeouts.
+            if due_probes:
+                if len(due_probes) == 1:
+                    p_name, p_host, p_hc = due_probes[0]
+                    probe_results = [(p_name, _probe_health(p_host, p_hc))]
+                else:
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=min(16, len(due_probes))) as pool:
+                        probe_futs = [
+                            (p_name, pool.submit(_probe_health, p_host, p_hc)) for p_name, p_host, p_hc in due_probes
+                        ]
+                        probe_results = [(p_name, fut.result()) for p_name, fut in probe_futs]
+                for p_name, (ok, detail) in probe_results:
+                    if ok:
+                        _log(f"sidecar '{p_name}' is healthy ({detail})")
+                        healthy.add(p_name)
+                    else:
+                        last_probe_err[p_name] = detail
+
+            # Check readiness timeouts after probes complete.
+            now = time.monotonic()
+            for sc in sidecars:
+                name = sc["name"]
+                if name in healthy or name not in running_since:
+                    continue
                 readiness_timeout = float(sc.get("readiness_timeout_secs", 600.0))
                 ready_elapsed = now - running_since[name]
                 if ready_elapsed > readiness_timeout:
+                    jid = sidecar_jobs[name]
                     err_hint = f" (last probe: {last_probe_err[name]})" if name in last_probe_err else ""
                     _log(
                         f"ERROR: sidecar '{name}' ({jid}) failed readiness check after "
                         f"{int(ready_elapsed)}s > readiness_timeout={int(readiness_timeout)}s{err_hint}."
                     )
-                    _dump_failure_logs(client, name, jid)
+                    # Cancel first so billing stops immediately and the SSE log stream closes.
                     cancelled = cleanup_all()
                     _log(f"Canceled {cancelled} sidecar(s).")
+                    _dump_failure_logs(client, name, jid)
                     return 1
 
             if len(healthy) < len(sidecars):
@@ -443,15 +639,34 @@ def run_orchestrator(
         _log("All sidecars ready; starting main job...")
         main_info = client.create_job(main_spec)
         main_job_id = str(main_info["id"])
+        if terminated_by_signal.is_set():
+            client.cancel_job(main_job_id, timeout=_SIGTERM_HTTP_TIMEOUT_SECS, max_retries=1)
+            return 143
         main_url = f"{endpoint}/jobs/{namespace}/{main_job_id}"
         print(f"{MAIN_JOB_ID_PREFIX}{main_job_id} url={main_url}", flush=True)
 
         # 4. Supervise main Job and sidecars until main finishes or a required sidecar dies.
+        consecutive_poll_errors = 0
         while True:
             if terminated_by_signal.is_set():
                 return 143
 
-            jobs_by_id = client.list_group_jobs(group_label_key, group_id)
+            try:
+                jobs_by_id = client.list_group_jobs(group_label_key, group_id)
+                if consecutive_poll_errors:
+                    _log(f"Hub API polling recovered after {consecutive_poll_errors} transient failure(s).")
+                    consecutive_poll_errors = 0
+            except _TransientHubError as exc:
+                consecutive_poll_errors += 1
+                backoff = min(poll_interval_secs * (2 ** min(consecutive_poll_errors - 1, 4)), 60.0)
+                if consecutive_poll_errors == 1 or consecutive_poll_errors % 5 == 0:
+                    _log(
+                        f"Warning: transient Hub API error while supervising main job "
+                        f"(attempt {consecutive_poll_errors}, retrying in {backoff:.1f}s): {exc}"
+                    )
+                time.sleep(backoff)
+                continue
+
             main_job = jobs_by_id.get(main_job_id)
             main_stage = _job_stage(main_job)
 
@@ -480,9 +695,9 @@ def run_orchestrator(
                 _log(
                     f"ERROR: sidecar '{name}' ({jid}) exited unexpectedly with stage={sc_stage}{detail}; aborting run."
                 )
-                _dump_failure_logs(client, name, jid)
                 cancelled = cleanup_all(exclude_ids={jid})
                 _log(f"Canceled {cancelled} active job(s) (main + remaining sidecars).")
+                _dump_failure_logs(client, name, jid)
                 return 1
 
             time.sleep(poll_interval_secs)

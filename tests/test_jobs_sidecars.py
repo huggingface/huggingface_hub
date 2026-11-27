@@ -274,9 +274,9 @@ def test_build_orchestrator_job_spec_isolates_secrets_and_sets_safety_timeouts()
     assert manifest["main"]["spec"]["labels"][SIDECAR_ROLE_LABEL] == "main"
     assert manifest["sidecars"][0]["spec"]["labels"][SIDECAR_NAME_LABEL] == "vllm"
 
-    # Safety timeout floor: startup(120) + readiness(180) + main(600) + buffer(300) = 1200s.
-    assert manifest["sidecars"][0]["spec"]["timeoutSeconds"] == 1200
-    assert orch_spec["timeoutSeconds"] == 1500
+    # Safety timeout floor: startup(120) + readiness(180) + main(600) + buffer(900) = 1800s.
+    assert manifest["sidecars"][0]["spec"]["timeoutSeconds"] == 1800
+    assert orch_spec["timeoutSeconds"] == 2700
     assert orch_spec["labels"] == {
         SIDECAR_GROUP_LABEL: group_id,
         SIDECAR_ROLE_LABEL: "orchestrator",
