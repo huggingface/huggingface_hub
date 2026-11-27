@@ -160,6 +160,7 @@ ResourceGroupRepoType_T = Literal["model", "dataset", "space", "bucket", "contai
 ResourceGroupRole_T = Literal["admin", "write", "contributor", "read", "no_access", "inherit"]
 ResourceGroupAutoJoinScope_T = Literal["all", "read_plus"]
 ResourceGroupSpendLimit_T = Literal["total", "inferenceProviders", "spaces", "jobs", "endpoints"]
+ResourceGroupItemType_T = Literal["model", "dataset", "space", "bucket", "container", "collection", "blog"]
 
 ExpandModelProperty_T = Literal[
     "author",
@@ -2483,8 +2484,8 @@ class HfApi:
         # List models from the KerasHub library
         >>> api.list_models(filter="keras-hub")
 
-        # List models served by Cohere
-        >>> api.list_models(inference_provider="cohere")
+        # List models served by fal
+        >>> api.list_models(inference_provider="fal-ai")
 
         # List models with "bert" in their name
         >>> api.list_models(search="bert")
@@ -3688,7 +3689,12 @@ class HfApi:
             ```
         """
 
-        from .file_download import REGEX_COMMIT_HASH, _cache_commit_hash_for_specific_revision, repo_folder_name
+        from .file_download import (
+            REGEX_COMMIT_HASH,
+            _cache_commit_hash_for_specific_revision,
+            _validate_commit_hash,
+            repo_folder_name,
+        )
 
         if repo_type is None:
             repo_type = constants.REPO_TYPE_MODEL
@@ -3713,6 +3719,7 @@ class HfApi:
             try:
                 sha = self.repo_info(repo_id=repo_id, repo_type=repo_type, revision=revision, token=token).sha
                 assert sha is not None, "Repo info returned from server must have a revision sha."
+                _validate_commit_hash(sha)
                 try:  # best-effort caching, e.g. cache folder might be read-only
                     _cache_commit_hash_for_specific_revision(
                         storage_folder, revision or constants.DEFAULT_REVISION, sha
@@ -4990,32 +4997,32 @@ class HfApi:
         )
         hf_raise_for_status(r)
 
-    @validate_hf_hub_args
-    def update_repo_resource_group(
+    def assign_resource_group_item(
         self,
-        repo_id: str,
-        resource_group_id: str | None,
+        resource_group_id: str,
+        item_id: str,
         *,
-        repo_type: ResourceGroupRepoType_T | None = None,
+        item_type: ResourceGroupItemType_T = "model",
         token: bool | str | None = None,
     ) -> None:
-        """Assign an organization-owned repository to a resource group, or remove it from its resource group.
+        """Assign an organization-owned item to a resource group.
 
-        Assigning an item that is already in a resource group silently moves it to the new group. Taking an item out of
-        a group (unassigning it or moving it) requires being an admin of that group or of the organization. Adding it to
-        a group requires the admin, write or contributor role in the target group. Fine-grained tokens need the "Write
-        to resource groups" permission on the organization, plus write access to the repository.
+        An item belongs to at most one resource group: assigning an item that is already in a group moves it to this
+        one. Adding an item to a group requires the admin, write or contributor role in that group. Moving it out of
+        its current group requires being an admin of that group or of the organization. Fine-grained tokens need the
+        "Write to resource groups" permission on the organization.
 
         To learn more about resource groups, see https://huggingface.co/docs/hub/en/security-resource-groups.
 
         Args:
-            repo_id (`str`):
-                ID of the repository, such as `"my-org/my-model"`.
-            resource_group_id (`str` or `None`):
-                The resource group to assign the repository to, as a 24-character hexadecimal string. If `None`, the
-                repository is removed from its resource group.
-            repo_type (`str`, *optional*):
-                Repository type. Can be `"model"` (default), `"dataset"`, `"space"`, `"bucket"` or `"container"`.
+            resource_group_id (`str`):
+                ID of the resource group, as a 24-character hexadecimal string.
+            item_id (`str`):
+                ID of the item: a repo ID (`"my-org/my-model"`), a collection slug
+                (`"my-org/my-collection-64f9a55bb3115b4f513ec026"`) or a blog post ID (`"my-org/my-post"`).
+            item_type (`str`, *optional*):
+                Type of the item. One of `"model"` (default), `"dataset"`, `"space"`, `"bucket"`, `"container"`,
+                `"collection"` or `"blog"`.
             token (`bool` or `str`, *optional*):
                 A valid user access token (string). Defaults to the locally saved
                 token, which is the recommended method for authentication (see
@@ -5025,17 +5032,60 @@ class HfApi:
         Example:
 
         ```py
-        >>> from huggingface_hub import update_repo_resource_group
-        >>> update_repo_resource_group("my-org/my-model", "66980ecfc1e12a49c8f0e42d")
-        >>> update_repo_resource_group("my-org/my-data", None, repo_type="dataset")
+        >>> from huggingface_hub import assign_resource_group_item
+        >>> assign_resource_group_item("66980ecfc1e12a49c8f0e42d", "my-org/my-model")
+        >>> assign_resource_group_item("66980ecfc1e12a49c8f0e42d", "my-org/my-data", item_type="dataset")
         ```
         """
-        if repo_type is None:
-            repo_type = "model"
-        if repo_type not in get_args(ResourceGroupRepoType_T):
-            raise ValueError(f"Invalid repo type, must be one of {get_args(ResourceGroupRepoType_T)}")
+        self._update_resource_group_item(item_id, resource_group_id, item_type=item_type, token=token)
+
+    def unassign_resource_group_item(
+        self,
+        item_id: str,
+        *,
+        item_type: ResourceGroupItemType_T = "model",
+        token: bool | str | None = None,
+    ) -> None:
+        """Remove an organization-owned item from its resource group.
+
+        An item belongs to at most one resource group, so no group is needed. Requires being an admin of the item's
+        group or of the organization. Fails if the item is not in a resource group.
+
+        Args:
+            item_id (`str`):
+                ID of the item: a repo ID (`"my-org/my-model"`), a collection slug
+                (`"my-org/my-collection-64f9a55bb3115b4f513ec026"`) or a blog post ID (`"my-org/my-post"`).
+            item_type (`str`, *optional*):
+                Type of the item. One of `"model"` (default), `"dataset"`, `"space"`, `"bucket"`, `"container"`,
+                `"collection"` or `"blog"`.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Example:
+
+        ```py
+        >>> from huggingface_hub import unassign_resource_group_item
+        >>> unassign_resource_group_item("my-org/my-model")
+        ```
+        """
+        self._update_resource_group_item(item_id, None, item_type=item_type, token=token)
+
+    def _update_resource_group_item(
+        self,
+        item_id: str,
+        resource_group_id: str | None,
+        *,
+        item_type: ResourceGroupItemType_T,
+        token: bool | str | None,
+    ) -> None:
+        if item_type not in get_args(ResourceGroupItemType_T):
+            raise ValueError(f"Invalid item type, must be one of {get_args(ResourceGroupItemType_T)}")
+        path = {"collection": "collections", "blog": "blog"}.get(item_type, f"{item_type}s")
         r = get_session().post(
-            f"{self.endpoint}/api/{repo_type}s/{repo_id}/resource-group",
+            f"{self.endpoint}/api/{path}/{item_id}/resource-group",
             headers=self._build_hf_headers(token=token),
             json={"resourceGroupId": resource_group_id},
         )
@@ -10503,48 +10553,6 @@ class HfApi:
         )
         hf_raise_for_status(r)
 
-    def update_blog_resource_group(
-        self,
-        blog_id: str,
-        resource_group_id: str | None,
-        *,
-        token: bool | str | None = None,
-    ) -> None:
-        """Assign an organization-owned blog post to a resource group, or remove it from its resource group.
-
-        Assigning an item that is already in a resource group silently moves it to the new group. Taking an item out of
-        a group (unassigning it or moving it) requires being an admin of that group or of the organization. Adding it to
-        a group requires the admin, write or contributor role in the target group. Fine-grained tokens need the "Write
-        to resource groups" permission on the organization.
-
-        To learn more about resource groups, see https://huggingface.co/docs/hub/en/security-resource-groups.
-
-        Args:
-            blog_id (`str`):
-                ID of the blog post, as `"<namespace>/<slug>"`. Example: `"my-org/my-blog-post"`.
-            resource_group_id (`str` or `None`):
-                The resource group to assign the blog post to, as a 24-character hexadecimal string. If `None`, the
-                blog post is removed from its resource group.
-            token (`bool` or `str`, *optional*):
-                A valid user access token (string). Defaults to the locally saved
-                token, which is the recommended method for authentication (see
-                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
-                To disable authentication, pass `False`.
-
-        Example:
-
-        ```py
-        >>> from huggingface_hub import update_blog_resource_group
-        >>> update_blog_resource_group("my-org/my-blog-post", "66980ecfc1e12a49c8f0e42d")
-        ```
-        """
-        r = get_session().post(
-            f"{self.endpoint}/api/blog/{blog_id}/resource-group",
-            headers=self._build_hf_headers(token=token),
-            json={"resourceGroupId": resource_group_id},
-        )
-        hf_raise_for_status(r)
-
     def delete_collection(
         self, collection_slug: str, *, missing_ok: bool = False, token: bool | str | None = None
     ) -> None:
@@ -15942,7 +15950,8 @@ create_commit = api.create_commit
 create_repo = api.create_repo
 delete_repo = api.delete_repo
 update_repo_settings = api.update_repo_settings
-update_repo_resource_group = api.update_repo_resource_group
+assign_resource_group_item = api.assign_resource_group_item
+unassign_resource_group_item = api.unassign_resource_group_item
 move_repo = api.move_repo
 upload_file = api.upload_file
 upload_folder = api.upload_folder
@@ -16028,7 +16037,6 @@ list_collections = api.list_collections
 create_collection = api.create_collection
 update_collection_metadata = api.update_collection_metadata
 update_collection_resource_group = api.update_collection_resource_group
-update_blog_resource_group = api.update_blog_resource_group
 delete_collection = api.delete_collection
 add_collection_item = api.add_collection_item
 update_collection_item = api.update_collection_item

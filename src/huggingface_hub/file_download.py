@@ -27,6 +27,7 @@ from ._local_folder import (
 from ._revision import ResolvedRevision
 from ._tree_cache import read_tree_cache, tree_cache_folder_for_local_dir
 from .errors import (
+    EgressLimitError,
     FileMetadataError,
     GatedRepoError,
     HfHubHTTPError,
@@ -658,11 +659,6 @@ def _create_symlink(src: str, dst: str, new_blob: bool = False) -> None:
     In case symlinks are not supported, a warning message is displayed to the user once when loading `huggingface_hub`.
     The warning message can be disabled with the `DISABLE_SYMLINKS_WARNING` environment variable.
     """
-    try:
-        os.remove(dst)
-    except OSError:
-        pass
-
     abs_src = os.path.abspath(os.path.expanduser(src))
     abs_dst = os.path.abspath(os.path.expanduser(dst))
     abs_dst_folder = os.path.dirname(abs_dst)
@@ -696,6 +692,10 @@ def _create_symlink(src: str, dst: str, new_blob: bool = False) -> None:
 
     # Symlinks are supported => let's create a symlink.
     if _support_symlinks:
+        try:
+            os.remove(dst)
+        except OSError:
+            pass
         src_rel_or_abs = relative_src or abs_src
         logger.debug(f"Creating pointer from {src_rel_or_abs} to {abs_dst}")
         try:
@@ -715,13 +715,25 @@ def _create_symlink(src: str, dst: str, new_blob: bool = False) -> None:
             # is supported on both volumes but not between them. Let's just make a hard copy in that case.
             pass
 
-    # Symlinks are not supported => let's move or copy the file.
-    if new_blob:
-        logger.debug(f"Symlink not supported. Moving file from {abs_src} to {abs_dst}")
-        shutil.move(abs_src, abs_dst, copy_function=_copy_no_matter_what)
-    else:
-        logger.debug(f"Symlink not supported. Copying file from {abs_src} to {abs_dst}")
-        shutil.copyfile(abs_src, abs_dst)
+    # Publish copies atomically: cache readers do not take the download lock and must
+    # never observe a partially copied snapshot file (including cross-device moves).
+    tmp_dst = f"{abs_dst}.{uuid.uuid4().hex}.tmp"
+    try:
+        if new_blob:
+            logger.debug(f"Symlink not supported. Moving file from {abs_src} to {abs_dst}")
+            shutil.move(abs_src, tmp_dst, copy_function=_copy_no_matter_what)
+        else:
+            logger.debug(f"Symlink not supported. Copying file from {abs_src} to {abs_dst}")
+            shutil.copyfile(abs_src, tmp_dst)
+        try:
+            os.replace(tmp_dst, abs_dst)
+        except OSError:
+            if new_blob:
+                # The temporary file is the only copy of the blob: restore it so a retry doesn't download it again.
+                shutil.move(tmp_dst, abs_src, copy_function=_copy_no_matter_what)
+            raise
+    finally:
+        Path(tmp_dst).unlink(missing_ok=True)
 
 
 def _cache_commit_hash_for_specific_revision(storage_folder: str, revision: str, commit_hash: str) -> None:
@@ -1271,6 +1283,11 @@ def _hf_hub_download_to_cache_dir(
     )
 
     with WeakFileLock(lock_path):
+        # Without symlinks, the first downloader moves the blob to the snapshot.
+        # A waiter must recheck the snapshot before downloading the missing blob again.
+        if not force_download and os.path.exists(pointer_path):
+            return pointer_path
+
         blob_reused_from_store = (
             shared_blob_hash is not None
             and not force_download
@@ -1303,7 +1320,8 @@ def _hf_hub_download_to_cache_dir(
                     expected_size=expected_size,
                     replace_existing=force_download,
                 )
-        if not os.path.exists(pointer_path):
+        # Without symlinks, the snapshot holds a copy of the blob: republish it on force_download.
+        if not os.path.exists(pointer_path) or (force_download and not os.path.islink(pointer_path)):
             # A shared blob is a symlink: if the snapshot symlink fails, copy through it instead of moving it away.
             _create_symlink(blob_path, pointer_path, new_blob=not blob_is_shared)
 
@@ -1425,30 +1443,14 @@ def _hf_hub_download_to_local_dir(
     assert commit_hash is not None, "commit_hash must have been retrieved from server"
     assert url_to_download is not None, "file location must have been retrieved from server"
 
-    # Local file exists => check if it's up-to-date
-    if not force_download and paths.file_path.is_file():
-        # etag matches => update metadata and return file
-        if local_metadata is not None and local_metadata.etag == etag:
-            if dry_run:
-                return DryRunFileInfo(
-                    commit_hash=commit_hash,
-                    file_size=expected_size,
-                    filename=filename,
-                    is_cached=True,
-                    local_path=str(paths.file_path),
-                    will_download=False,
-                )
-            write_download_metadata(local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag)
-            return str(paths.file_path)
-
-        # metadata is outdated + etag is a sha256
-        # => means it's an LFS file (large)
-        # => let's compute local hash and compare
-        # => if match, update metadata and return file
-        if local_metadata is None and REGEX_SHA256.fullmatch(etag) is not None:
-            with open(paths.file_path, "rb") as f:
-                file_hash = sha_fileobj(f).hex()
-            if file_hash == etag:
+    # Serialize the file checks, replacement and metadata update. Another caller may
+    # have completed the download while we were fetching Hub metadata.
+    with WeakFileLock(paths.lock_path):
+        local_metadata = read_download_metadata(local_dir=local_dir, filename=filename, lock=False)
+        # Local file exists => check if it's up-to-date
+        if not force_download and paths.file_path.is_file():
+            # etag matches => update metadata and return file
+            if local_metadata is not None and local_metadata.etag == etag:
                 if dry_run:
                     return DryRunFileInfo(
                         commit_hash=commit_hash,
@@ -1458,50 +1460,80 @@ def _hf_hub_download_to_local_dir(
                         local_path=str(paths.file_path),
                         will_download=False,
                     )
-                write_download_metadata(local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag)
+                write_download_metadata(
+                    local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag, lock=False
+                )
                 return str(paths.file_path)
 
-    # Local file doesn't exist or etag isn't a match => retrieve file from remote (or cache)
+            # metadata is outdated + etag is a sha256
+            # => means it's an LFS file (large)
+            # => let's compute local hash and compare
+            # => if match, update metadata and return file
+            if local_metadata is None and REGEX_SHA256.fullmatch(etag) is not None:
+                with open(paths.file_path, "rb") as f:
+                    file_hash = sha_fileobj(f).hex()
+                if file_hash == etag:
+                    if dry_run:
+                        return DryRunFileInfo(
+                            commit_hash=commit_hash,
+                            file_size=expected_size,
+                            filename=filename,
+                            is_cached=True,
+                            local_path=str(paths.file_path),
+                            will_download=False,
+                        )
+                    write_download_metadata(
+                        local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag, lock=False
+                    )
+                    return str(paths.file_path)
 
-    # If we are lucky enough, the file is already in the cache => copy it
-    if not force_download:
-        cached_path = try_to_load_from_cache(
-            repo_id=repo_id,
-            filename=filename,
-            cache_dir=cache_dir,
-            revision=commit_hash,
-            repo_type=repo_type,
-        )
-        if isinstance(cached_path, str):
-            if dry_run:
-                return DryRunFileInfo(
-                    commit_hash=commit_hash,
-                    file_size=expected_size,
-                    filename=filename,
-                    is_cached=True,
-                    local_path=str(paths.file_path),
-                    will_download=False,
-                )
-            with WeakFileLock(paths.lock_path):
+        # Local file doesn't exist or etag isn't a match => retrieve file from remote (or cache)
+
+        # If we are lucky enough, the file is already in the cache => copy it
+        if not force_download:
+            cached_path = try_to_load_from_cache(
+                repo_id=repo_id,
+                filename=filename,
+                cache_dir=cache_dir,
+                revision=commit_hash,
+                repo_type=repo_type,
+            )
+            if isinstance(cached_path, str):
+                if dry_run:
+                    return DryRunFileInfo(
+                        commit_hash=commit_hash,
+                        file_size=expected_size,
+                        filename=filename,
+                        is_cached=True,
+                        local_path=str(paths.file_path),
+                        will_download=False,
+                    )
                 paths.file_path.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copyfile(cached_path, paths.file_path)
-            write_download_metadata(local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag)
-            return str(paths.file_path)
+                # Copy to a temp file then atomically replace, so readers never see a partial file and a failed copy
+                # keeps the previous one. Unique name to not clobber a resumable `<etag>.incomplete` HTTP download.
+                tmp_path = paths.incomplete_path(etag).with_name(f"{uuid.uuid4().hex}.incomplete")
+                try:
+                    shutil.copyfile(cached_path, tmp_path)
+                    _chmod_and_move(tmp_path, paths.file_path)
+                finally:
+                    tmp_path.unlink(missing_ok=True)
+                write_download_metadata(
+                    local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag, lock=False
+                )
+                return str(paths.file_path)
 
-    if dry_run:
-        is_cached = paths.file_path.is_file()
-        return DryRunFileInfo(
-            commit_hash=commit_hash,
-            file_size=expected_size,
-            filename=filename,
-            is_cached=is_cached,
-            local_path=str(paths.file_path),
-            will_download=True,
-        )
+        if dry_run:
+            is_cached = paths.file_path.is_file()
+            return DryRunFileInfo(
+                commit_hash=commit_hash,
+                file_size=expected_size,
+                filename=filename,
+                is_cached=is_cached,
+                local_path=str(paths.file_path),
+                will_download=True,
+            )
 
-    # Otherwise, let's download the file!
-    with WeakFileLock(paths.lock_path):
-        paths.file_path.unlink(missing_ok=True)  # delete outdated file first
+        # Otherwise, let's download the file!
         _download_to_tmp_and_move(
             incomplete_path=paths.incomplete_path(etag),
             destination_path=paths.file_path,
@@ -1509,14 +1541,14 @@ def _hf_hub_download_to_local_dir(
             headers=headers,
             expected_size=expected_size,
             filename=filename,
-            force_download=force_download,
+            force_download=True,  # Existing destination may contain an outdated revision.
             etag=etag,
             xet_file_data=xet_file_data,
             tqdm_class=tqdm_class,
         )
 
-    write_download_metadata(local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag)
-    return str(paths.file_path)
+        write_download_metadata(local_dir=local_dir, filename=filename, commit_hash=commit_hash, etag=etag, lock=False)
+        return str(paths.file_path)
 
 
 @validate_hf_hub_args
@@ -1772,7 +1804,7 @@ def _get_metadata_or_catch_error(
                 if storage_folder is not None and relative_filename is not None:
                     # Cache the non-existence of the file
                     commit_hash = http_error.response.headers.get(constants.HUGGINGFACE_HEADER_X_REPO_COMMIT)
-                    if commit_hash is not None:
+                    if commit_hash is not None and _is_safe_path_component(commit_hash):
                         no_exist_file_path = Path(storage_folder) / ".no_exist" / commit_hash / relative_filename
                         if not no_exist_file_path.exists():
                             try:
@@ -1794,6 +1826,7 @@ def _get_metadata_or_catch_error(
                     " points to a Hub-compatible endpoint. Otherwise, check your firewall and proxy settings and make"
                     " sure your SSL certificates are updated."
                 )
+            _validate_commit_hash(commit_hash)
 
             # Etag must exist
             # If we don't have any of those, raise an error.
@@ -1802,6 +1835,8 @@ def _get_metadata_or_catch_error(
                 raise FileMetadataError(
                     "Distant resource does not have an ETag, we won't be able to reliably ensure reproducibility."
                 )
+            if not _is_safe_path_component(etag):
+                raise FileMetadataError(f"Invalid ETag returned by the server: '{etag}'.")
 
             # Xet downloads require a known size, but regular HTTP downloads can recover it from the GET response.
             expected_size = metadata.size
@@ -1907,6 +1942,7 @@ def _xet_file_metadata_from_tree_cache(
         or entry.xet_hash is None
         or not is_valid_xet_hash(entry.xet_hash)
         or entry.lfs_sha256 is None
+        or not _is_safe_path_component(entry.lfs_sha256)
         or entry.lfs_size is None
     ):
         return None
@@ -1948,10 +1984,10 @@ def _raise_on_head_call_error(
             "Cannot find the requested files in the disk cache and outgoing traffic has been disabled. To enable"
             " hf.co look-ups and downloads online, set 'local_files_only' to False."
         )
-    elif isinstance(head_call_error, (RepositoryNotFoundError, GatedRepoError)) or (
+    elif isinstance(head_call_error, (RepositoryNotFoundError, GatedRepoError, EgressLimitError)) or (
         isinstance(head_call_error, HfHubHTTPError) and head_call_error.response.status_code == 401
     ):
-        # Repo not found or gated => let's raise the actual error
+        # Repo not found, gated or egress limit reached => let's raise the actual error
         # Unauthorized => likely a token issue => let's raise the actual error
         raise head_call_error
     elif isinstance(head_call_error, FileMetadataError):
@@ -2149,6 +2185,20 @@ def _copy_no_matter_what(src: str, dst: str) -> None:
     except OSError:
         # Copy only file content
         shutil.copyfile(src, dst)
+
+
+# Commit hashes and etags returned by the server are used as file/folder names in the cache.
+# Format is not checked on purpose (so it can evolve), only that they cannot escape their folder.
+_SAFE_PATH_COMPONENT_REGEX = re.compile(r"[\w-]+", flags=re.ASCII)
+
+
+def _is_safe_path_component(value: str) -> bool:
+    return _SAFE_PATH_COMPONENT_REGEX.fullmatch(value) is not None
+
+
+def _validate_commit_hash(commit_hash: str) -> None:
+    if not _is_safe_path_component(commit_hash):
+        raise FileMetadataError(f"Invalid commit hash returned by the server: '{commit_hash}'.")
 
 
 def _get_pointer_path(storage_folder: str, revision: str, relative_filename: str) -> str:

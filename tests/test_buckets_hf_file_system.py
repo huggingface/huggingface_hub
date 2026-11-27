@@ -159,6 +159,18 @@ class TestHfFileSystemBucketRW(_HfFileSystemBucketChecks, _HfFileSystemBaseRWTes
         finally:
             self.api.delete_repo(repo_id, repo_type="model")
 
+    def test_info_after_remote_write_with_stale_listing(self):
+        # Regression test for #5383: read-after-write of a file missing from the listing cached by this instance
+        data_path = f"{self.hf_path}/data"
+        self.hffs.ls(data_path)  # listing is now cached
+        self.api.batch_bucket_files(self.bucket_id, add=[(b"new data", "data/new.txt")])  # written by another client
+
+        assert self.hffs.info(f"{data_path}/new.txt")["size"] == 8
+        assert data_path not in self.hffs.dircache  # outdated listing is dropped
+        assert self.hffs.cat(f"{data_path}/new.txt") == b"new data"
+        with pytest.raises(FileNotFoundError):
+            self.hffs.info(f"{data_path}/missing.txt")
+
     def test_write_file_in_transaction(self):
         data = "new text data"
         with self.hffs.transaction:

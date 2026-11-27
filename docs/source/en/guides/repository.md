@@ -299,12 +299,12 @@ Or via CLI:
 
 ### Change a repository's resource group
 
-Use [`update_repo_resource_group`] to assign an existing organization-owned repository to a resource group, or to move it to another one. Pass `None` to remove it from its group. Collections and blog posts have their own methods: [`update_collection_resource_group`] and [`update_blog_resource_group`].
+Use [`assign_resource_group_item`] to assign an existing organization-owned repository to a resource group, or to move it to another one, and [`unassign_resource_group_item`] to remove it from its group. The same methods work for collections and blog posts (`item_type="collection"` or `item_type="blog"`).
 
 ```py
->>> from huggingface_hub import update_repo_resource_group
->>> update_repo_resource_group("my-org/my-data", "66980ecfc1e12a49c8f0e42d", repo_type="dataset")
->>> update_repo_resource_group("my-org/my-data", None, repo_type="dataset")
+>>> from huggingface_hub import assign_resource_group_item, unassign_resource_group_item
+>>> assign_resource_group_item("66980ecfc1e12a49c8f0e42d", "my-org/my-data", item_type="dataset")
+>>> unassign_resource_group_item("my-org/my-data", item_type="dataset")
 ```
 
 Or via CLI, for one or more items at once:
