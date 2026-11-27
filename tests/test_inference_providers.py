@@ -249,6 +249,12 @@ class TestAutoRouterConversationalTask:
             "model": "openai/gpt-oss-120b:groq",
         }
 
+    def test_prepare_base_url_with_provider_key(self):
+        with pytest.raises(
+            ValueError, match="Calling 'together' directly with its own API key is no longer supported"
+        ):
+            AutoRouterConversationalTask("together")._prepare_base_url("together_key")
+
 
 class TestDeepInfraProvider:
     def test_automatic_speech_recognition_url(self):
@@ -1782,17 +1788,25 @@ def test_get_provider_helper_auto_non_conversational(mocker):
 
 
 def test_get_provider_helper_auto_skips_unsupported_providers(mocker):
-    """'auto' skips the providers listed by the Hub that this client doesn't support."""
+    """'auto' skips the providers listed by the Hub that this client doesn't support for the task."""
     mock_provider_b_helper = mocker.Mock(spec=TaskProviderHelper)
-    PROVIDERS["provider-b"] = {"test-task": mock_provider_b_helper}
+    mocker.patch.dict(
+        PROVIDERS,
+        {
+            "provider-a": {"other-task": mocker.Mock(spec=TaskProviderHelper)},
+            "provider-b": {"test-task": mock_provider_b_helper},
+        },
+    )
     mocker.patch(
         "huggingface_hub.inference._providers._fetch_inference_provider_mapping",
-        return_value=[mocker.Mock(provider="together"), mocker.Mock(provider="provider-b")],
+        return_value=[
+            mocker.Mock(provider="together"),
+            mocker.Mock(provider="provider-a"),
+            mocker.Mock(provider="provider-b"),
+        ],
     )
 
     assert get_provider_helper(provider="auto", task="test-task", model="test-model") is mock_provider_b_helper
-
-    PROVIDERS.pop("provider-b", None)
 
     mocker.patch(
         "huggingface_hub.inference._providers._fetch_inference_provider_mapping",

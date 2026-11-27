@@ -298,7 +298,11 @@ class AutoRouterConversationalTask(BaseConversationalTask):
         Usually not overwritten in subclasses."""
         # Route to the proxy if the api_key is a HF TOKEN
         if not api_key.startswith("hf_"):
-            raise ValueError("Cannot select auto-router when using non-Hugging Face API key.")
+            if self.provider == "auto":
+                raise ValueError("Cannot select auto-router when using non-Hugging Face API key.")
+            raise ValueError(
+                f"Calling '{self.provider}' directly with its own API key is no longer supported. Use a Hugging Face token instead."
+            )
         else:
             return self.base_url  # No `/auto` suffix in the URL
 

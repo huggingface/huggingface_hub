@@ -153,7 +153,9 @@ def get_provider_helper(provider: PROVIDER_OR_POLICY_T | None, task: str, model:
 
         provider_mapping = _fetch_inference_provider_mapping(model)
         # The Hub can still list providers this client no longer supports
-        provider = next((mapping.provider for mapping in provider_mapping if mapping.provider in PROVIDERS), None)
+        provider = next(
+            (mapping.provider for mapping in provider_mapping if task in PROVIDERS.get(mapping.provider, {})), None
+        )
         if provider is None:
             raise ValueError(f"No Inference Provider available for model {model}.")
 
