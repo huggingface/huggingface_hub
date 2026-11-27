@@ -10,8 +10,7 @@ FILENAME_CONFIG = "agent.json"
 PROMPT_FILENAMES = ("PROMPT.md", "AGENTS.md")
 
 DEFAULT_AGENT = {
-    "model": "Qwen/Qwen2.5-72B-Instruct",
-    "provider": "novita",
+    "model": "moonshotai/Kimi-K3.1-Pro",
     "servers": [
         {
             "type": "stdio",

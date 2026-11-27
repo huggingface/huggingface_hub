@@ -20,12 +20,12 @@ import click
 from huggingface_hub.constants import ENDPOINT
 from huggingface_hub.hf_api import whoami
 
-from .._login import _save_oauth_token, auth_list, auth_switch, login, logout
+from .._login import _save_oauth_token, auth_list, auth_switch, login, logout, revoke_tokens
 from ..errors import CLIError
 from ..utils import get_stored_tokens, get_token, logging, select_choice
 from ..utils._oauth_device import poll_device_token, request_device_code
 from ._cli_utils import TokenOpt, typer_factory
-from ._framework import Option
+from ._framework import Argument, Option
 from ._output import OutputFormat, out
 
 
@@ -101,6 +101,18 @@ def auth_logout(
 ) -> None:
     """Logout from a specific token."""
     logout(token_name=token_name)
+
+
+@auth_cli.command(
+    "revoke",
+    examples=["hf auth revoke hf_xxx", "hf auth revoke hf_xxx hf_yyy"],
+)
+def auth_revoke(
+    tokens: Annotated[list[str], Argument(help="The token(s) to revoke.")],
+) -> None:
+    """Revoke access tokens, e.g. leaked ones. No authentication needed: the owner of each token is notified by email."""
+    revoke_tokens(tokens)
+    out.result(f"Revocation requested for {len(tokens)} token(s)", count=len(tokens))
 
 
 def _select_token_name() -> str | None:

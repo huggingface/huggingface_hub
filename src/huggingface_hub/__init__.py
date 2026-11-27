@@ -46,7 +46,7 @@ import sys
 from typing import TYPE_CHECKING
 
 
-__version__ = "2.5.0.dev0"
+__version__ = "2.6.0.dev0"
 
 # Alphabetical order of definitions is ensured in tests
 # WARNING: any comment added in this dictionary definition will be lost when
@@ -104,6 +104,7 @@ _SUBMOD_ATTRS = {
         "login",
         "logout",
         "notebook_login",
+        "revoke_tokens",
     ],
     "_oauth": [
         "OAuthInfo",
@@ -1130,6 +1131,7 @@ __all__ = [
     "resume_inference_endpoint",
     "resume_scheduled_job",
     "revision_exists",
+    "revoke_tokens",
     "run_as_future",
     "run_job",
     "run_uv_job",
@@ -1328,6 +1330,7 @@ if TYPE_CHECKING:  # pragma: no cover
         login,  # noqa: F401
         logout,  # noqa: F401
         notebook_login,  # noqa: F401
+        revoke_tokens,  # noqa: F401
     )
     from ._oauth import (
         OAuthInfo,  # noqa: F401

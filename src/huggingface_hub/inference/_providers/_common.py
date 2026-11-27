@@ -22,20 +22,11 @@ HARDCODED_MODEL_INFERENCE_MAPPING: dict[str, dict[str, InferenceProviderMapping]
     #                                    provider_id="Qwen2.5-Coder-32B-Instruct",
     #                                    task="conversational",
     #                                    status="live")
-    "cerebras": {},
-    "cohere": {},
     "deepinfra": {},
     "fal-ai": {},
-    "fireworks-ai": {},
-    "groq": {},
     "hf-inference": {},
-    "nscale": {},
-    "ovhcloud": {},
     "replicate": {},
-    "scaleway": {},
-    "together": {},
     "wavespeed": {},
-    "zai-org": {},
 }
 
 
@@ -266,37 +257,6 @@ class BaseConversationalTask(TaskProviderHelper):
     def __init__(self, provider: str, base_url: str):
         super().__init__(provider=provider, base_url=base_url, task="conversational")
 
-    def prepare_request(
-        self,
-        *,
-        inputs: Any,
-        parameters: dict[str, Any],
-        headers: dict,
-        model: str | None,
-        api_key: str | None,
-        extra_payload: dict[str, Any] | None = None,
-    ) -> RequestParameters:
-        # With a HF token, the router resolves `model:provider` server-side, no Hub mapping lookup.
-        # Provider keys still call the provider directly.
-        api_key = self._prepare_api_key(api_key)
-        if self.provider != "auto" and api_key.startswith("hf_") and model is not None:
-            return AutoRouterConversationalTask().prepare_request(
-                inputs=inputs,
-                parameters=parameters,
-                headers=headers,
-                model=f"{model}:{self.provider}",
-                api_key=api_key,
-                extra_payload=extra_payload,
-            )
-        return super().prepare_request(
-            inputs=inputs,
-            parameters=parameters,
-            headers=headers,
-            model=model,
-            api_key=api_key,
-            extra_payload=extra_payload,
-        )
-
     def _prepare_route(self, mapped_model: str, api_key: str) -> str:
         return "/v1/chat/completions"
 
@@ -326,10 +286,11 @@ class AutoRouterConversationalTask(BaseConversationalTask):
 
     We let the Hugging Face router select the best provider for the model, based on availability and user preferences.
     This is a special case since the selection is done server-side (avoid 1 API call to fetch provider mapping).
+    Any other provider is pinned by sending the model as `model:provider`.
     """
 
-    def __init__(self):
-        super().__init__(provider="auto", base_url="https://router.huggingface.co")
+    def __init__(self, provider: str = "auto"):
+        super().__init__(provider=provider, base_url="https://router.huggingface.co")
 
     def _prepare_base_url(self, api_key: str) -> str:
         """Return the base URL to use for the request.
@@ -337,7 +298,11 @@ class AutoRouterConversationalTask(BaseConversationalTask):
         Usually not overwritten in subclasses."""
         # Route to the proxy if the api_key is a HF TOKEN
         if not api_key.startswith("hf_"):
-            raise ValueError("Cannot select auto-router when using non-Hugging Face API key.")
+            if self.provider == "auto":
+                raise ValueError("Cannot select auto-router when using non-Hugging Face API key.")
+            raise ValueError(
+                f"Calling '{self.provider}' directly with its own API key is no longer supported. Use a Hugging Face token instead."
+            )
         else:
             return self.base_url  # No `/auto` suffix in the URL
 
@@ -350,30 +315,12 @@ class AutoRouterConversationalTask(BaseConversationalTask):
             raise ValueError("Please provide an HF model ID.")
 
         return InferenceProviderMapping(
-            provider="auto",
+            provider=self.provider,
             hf_model_id=model,
-            providerId=model,
+            providerId=model if self.provider == "auto" else f"{model}:{self.provider}",
             status="live",
             task="conversational",
         )
-
-
-class BaseTextGenerationTask(TaskProviderHelper):
-    """
-    Base class for text-generation (completion) tasks.
-    The schema follows the OpenAI API format defined here: https://platform.openai.com/docs/api-reference/completions
-    """
-
-    def __init__(self, provider: str, base_url: str):
-        super().__init__(provider=provider, base_url=base_url, task="text-generation")
-
-    def _prepare_route(self, mapped_model: str, api_key: str) -> str:
-        return "/v1/completions"
-
-    def _prepare_payload_as_dict(
-        self, inputs: Any, parameters: dict, provider_mapping_info: InferenceProviderMapping
-    ) -> dict | None:
-        return filter_none({"prompt": inputs, **parameters, "model": provider_mapping_info.provider_id})
 
 
 @lru_cache(maxsize=None)

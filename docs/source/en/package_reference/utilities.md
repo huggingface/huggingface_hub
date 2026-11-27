@@ -223,6 +223,10 @@ user as possible.
 
 [[autodoc]] huggingface_hub.errors.GatedRepoError
 
+#### EgressLimitError
+
+[[autodoc]] huggingface_hub.errors.EgressLimitError
+
 #### RevisionNotFoundError
 
 [[autodoc]] huggingface_hub.errors.RevisionNotFoundError

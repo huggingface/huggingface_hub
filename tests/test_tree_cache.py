@@ -207,6 +207,26 @@ class TestTreeCacheSkipsHeadCall:
                 is None
             )
 
+    def test_unsafe_lfs_sha256_returns_none(self, tmp_path: Path):
+        # The LFS sha256 is used as a path under `blobs/`: an unsafe value falls back to the (validated) HEAD call.
+        storage_folder = str(tmp_path / repo_folder_name(repo_id="user/repo", repo_type="model"))
+        entry = TreeCacheEntry(
+            size=42, blob_id="blob-model", lfs_sha256="../../evil", lfs_size=1024, xet_hash=VALID_XET_HASH
+        )
+        write_tree_cache(storage_folder, COMMIT_HASH, {"model.safetensors": entry})
+        with patch("huggingface_hub.file_download.is_xet_available", return_value=True):
+            assert (
+                _xet_file_metadata_from_tree_cache(
+                    tree_cache_folder=storage_folder,
+                    repo_id="user/repo",
+                    repo_type="model",
+                    commit_hash=COMMIT_HASH,
+                    filename="model.safetensors",
+                    endpoint=None,
+                )
+                is None
+            )
+
     def test_no_tree_cache_returns_none(self, tmp_path: Path):  # not populated
         storage_folder = tmp_path / repo_folder_name(repo_id="user/repo", repo_type="model")
         with patch("huggingface_hub.file_download.is_xet_available", return_value=True):

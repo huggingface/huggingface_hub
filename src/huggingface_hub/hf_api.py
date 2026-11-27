@@ -2425,8 +2425,8 @@ class HfApi:
         # List models from the KerasHub library
         >>> api.list_models(filter="keras-hub")
 
-        # List models served by Cohere
-        >>> api.list_models(inference_provider="cohere")
+        # List models served by fal
+        >>> api.list_models(inference_provider="fal-ai")
 
         # List models with "bert" in their name
         >>> api.list_models(search="bert")
@@ -3630,7 +3630,12 @@ class HfApi:
             ```
         """
 
-        from .file_download import REGEX_COMMIT_HASH, _cache_commit_hash_for_specific_revision, repo_folder_name
+        from .file_download import (
+            REGEX_COMMIT_HASH,
+            _cache_commit_hash_for_specific_revision,
+            _validate_commit_hash,
+            repo_folder_name,
+        )
 
         if repo_type is None:
             repo_type = constants.REPO_TYPE_MODEL
@@ -3655,6 +3660,7 @@ class HfApi:
             try:
                 sha = self.repo_info(repo_id=repo_id, repo_type=repo_type, revision=revision, token=token).sha
                 assert sha is not None, "Repo info returned from server must have a revision sha."
+                _validate_commit_hash(sha)
                 try:  # best-effort caching, e.g. cache folder might be read-only
                     _cache_commit_hash_for_specific_revision(
                         storage_folder, revision or constants.DEFAULT_REVISION, sha

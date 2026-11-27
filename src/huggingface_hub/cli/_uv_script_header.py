@@ -16,6 +16,7 @@
 See the CLI guide for the header format and `cli/jobs.py` for the merge rules.
 """
 
+import os
 import re
 import sys
 from collections.abc import Generator
@@ -91,9 +92,10 @@ def load_uv_script(script: str) -> Generator[UvScript, None, None]:
                 script=str(local_path), header=parse_uv_script_header(local_path.read_text(encoding="utf-8"))
             )
         return
-    path = Path(script)
-    if path.is_file():
-        yield UvScript(script=script, header=parse_uv_script_header(path.read_text(encoding="utf-8")))
+    # `os.path.isfile` returns False for an argument too long to be a path,
+    # while `Path.is_file` raises OSError on Python < 3.14.
+    if os.path.isfile(script):
+        yield UvScript(script=script, header=parse_uv_script_header(Path(script).read_text(encoding="utf-8")))
         return
     yield UvScript(script=script)
 

@@ -22,7 +22,7 @@ from huggingface_hub._space_api import Volume
 from huggingface_hub.cli import _skills, extensions, system
 from huggingface_hub.cli._cli_utils import RepoType, _get_huggingface_hub_update_command, parse_volumes
 from huggingface_hub.cli._output import OutputFormat, out
-from huggingface_hub.cli._uv_script_header import UvScriptHeader, parse_uv_script_header
+from huggingface_hub.cli._uv_script_header import UvScriptHeader, load_uv_script, parse_uv_script_header
 from huggingface_hub.cli.cache import CacheDeletionCounts
 from huggingface_hub.cli.download import download
 from huggingface_hub.cli.hf import app
@@ -4247,6 +4247,12 @@ print("hello")
         with pytest.raises(CLIError, match=re.escape(expected_error)):
             parse_uv_script_header(f"# /// script\n# [tool.hf-jobs]\n# {table}\n# ///")
 
+    def test_long_command_is_not_a_file(self) -> None:
+        """An argument too long to be a path is a command, not a crash (`Path.is_file` raises on Python < 3.14)."""
+        with load_uv_script("x" * 5000) as uv_script:
+            assert uv_script.script == "x" * 5000
+            assert uv_script.header is None
+
     def _write_script(self, tmp_path: Path, table: str) -> str:
         script_path = tmp_path / "script.py"
         script_path.write_text(f"# /// script\n# [tool.hf-jobs]\n{table}\n# ///\nprint('hello')")
@@ -5243,6 +5249,22 @@ class TestWebhooksCommand:
             result = runner.invoke(app, ["webhooks", "delete", "wh-abc123"], input="n\n")
         assert result.exit_code != 0
         api_cls.return_value.delete_webhook.assert_not_called()
+
+
+class TestSandboxCreateNetwork:
+    def test_network_none_is_case_insensitive_and_shown(self, runner: CliRunner) -> None:
+        result, sandbox_cls = TestSecretHygiene._create_sandbox(runner, "--network", "None", "--format", "human")
+        assert result.exit_code == 0, result.output
+        assert sandbox_cls.create.call_args.kwargs["network"] == "none"
+        assert "network: none" in result.stdout
+
+    def test_allowlist_is_shown(self, runner: CliRunner) -> None:
+        result, sandbox_cls = TestSecretHygiene._create_sandbox(
+            runner, "--network", "10.0.0.0/8, huggingface.co:443", "--format", "human"
+        )
+        assert result.exit_code == 0, result.output
+        assert sandbox_cls.create.call_args.kwargs["network"] == {"allow": ["10.0.0.0/8", "huggingface.co:443"]}
+        assert "network: 10.0.0.0/8,huggingface.co:443" in result.stdout
 
 
 class TestSecretHygiene:
