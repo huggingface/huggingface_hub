@@ -17,12 +17,9 @@ import enum
 import re
 from typing import Annotated
 
-import click
-
-from huggingface_hub.errors import CLIError, HfHubHTTPError, HFValidationError
+from huggingface_hub.errors import CLIError
 
 from ._cli_utils import TokenOpt, get_hf_api, typer_factory
-from ._errors import format_known_exception
 from ._framework import Argument, Option
 from ._output import out
 
@@ -37,16 +34,13 @@ class ResourceGroupItemType(str, enum.Enum):
     blog = "blog"
 
 
-ItemsArg = Annotated[
-    list[str],
+ItemArg = Annotated[
+    str,
     Argument(
-        help="The items to update: repo IDs (e.g. `my-org/my-model`), collection slugs or blog IDs (`my-org/my-post`).",
+        help="The item to update: a repo ID (e.g. `my-org/my-model`), a collection slug or a blog ID (`my-org/my-post`).",
     ),
 ]
-ItemTypeOpt = Annotated[
-    ResourceGroupItemType,
-    Option("--type", help="The type of the items. All items of one call share the same type."),
-]
+ItemTypeOpt = Annotated[ResourceGroupItemType, Option("--type", help="The type of the item.")]
 
 resource_groups_cli = typer_factory(help="Manage resource groups of an organization on the Hub.")
 
@@ -55,7 +49,7 @@ resource_groups_cli = typer_factory(help="Manage resource groups of an organizat
     "assign",
     examples=[
         "hf resource-groups assign 66980ecfc1e12a49c8f0e42d my-org/my-model",
-        "hf resource-groups assign 66980ecfc1e12a49c8f0e42d my-org/data-1 my-org/data-2 --type dataset",
+        "hf resource-groups assign 66980ecfc1e12a49c8f0e42d my-org/my-data --type dataset",
         "hf resource-groups assign 66980ecfc1e12a49c8f0e42d my-org/my-collection-64f9a55bb3115b4f513ec026 --type collection",
     ],
 )
@@ -64,55 +58,32 @@ def assign(
         str,
         Argument(help="The 24-character hexadecimal ID of the resource group (last part of its settings URL)."),
     ],
-    items: ItemsArg,
+    item: ItemArg,
     item_type: ItemTypeOpt = ResourceGroupItemType.model,
     token: TokenOpt = None,
 ) -> None:
-    """Assign items to a resource group. An item already in another group is moved to this one."""
+    """Assign an item to a resource group. An item already in another group is moved to this one."""
     if not re.fullmatch(r"[0-9a-f]{24}", resource_group_id):
         raise CLIError(
             f"Invalid resource group ID '{resource_group_id}': expected a 24-character hexadecimal ID, as found at the"
             " end of the group's URL in your organization settings."
         )
-    _update_items(items, resource_group_id, item_type, token, message="Assigned to resource group")
+    get_hf_api(token=token).assign_resource_group_item(resource_group_id, item, item_type=item_type.value)
+    out.result("Assigned to resource group", item=item, type=item_type.value, resource_group_id=resource_group_id)
 
 
 @resource_groups_cli.command(
     "unassign",
     examples=[
         "hf resource-groups unassign my-org/my-model",
-        "hf resource-groups unassign my-org/data-1 my-org/data-2 --type dataset",
+        "hf resource-groups unassign my-org/my-data --type dataset",
     ],
 )
 def unassign(
-    items: ItemsArg,
+    item: ItemArg,
     item_type: ItemTypeOpt = ResourceGroupItemType.model,
     token: TokenOpt = None,
 ) -> None:
-    """Remove items from their resource group. An item belongs to at most one group, so no group is needed."""
-    _update_items(items, None, item_type, token, message="Removed from resource group")
-
-
-def _update_items(
-    items: list[str],
-    resource_group_id: str | None,
-    item_type: ResourceGroupItemType,
-    token: str | None,
-    message: str,
-) -> None:
-    """Update each item with one API call. Keeps going on failure and exits with code 1 if any item failed."""
-    api = get_hf_api(token=token)
-    num_failed = 0
-    for item in items:
-        try:
-            if resource_group_id is None:
-                api.unassign_resource_group_item(item, item_type=item_type.value)
-            else:
-                api.assign_resource_group_item(resource_group_id, item, item_type=item_type.value)
-        except (HfHubHTTPError, HFValidationError) as error:
-            num_failed += 1
-            out.error(f"{item}: {format_known_exception(error) or error}")
-            continue
-        out.result(message, item=item, type=item_type.value, resource_group_id=resource_group_id)
-    if num_failed > 0:
-        raise click.exceptions.Exit(code=1)
+    """Remove an item from its resource group. An item belongs to at most one group, so no group is needed."""
+    get_hf_api(token=token).unassign_resource_group_item(item, item_type=item_type.value)
+    out.result("Removed from resource group", item=item, type=item_type.value, resource_group_id=None)

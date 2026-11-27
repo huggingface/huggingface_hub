@@ -307,7 +307,7 @@ Use [`assign_resource_group_item`] to assign an existing organization-owned repo
 >>> unassign_resource_group_item("my-org/my-data", item_type="dataset")
 ```
 
-Or via CLI, for one or more items at once:
+Or via CLI, one item at a time:
 
 ```bash
 >>> hf resource-groups assign 66980ecfc1e12a49c8f0e42d my-org/my-data --type dataset

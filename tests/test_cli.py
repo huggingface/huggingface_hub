@@ -1918,44 +1918,37 @@ class TestResourceGroupsCommand:
 
     def test_assign_unassign(self, runner: CliRunner, repo_factory: RepoFactory) -> None:
         api = HfApi(token=ENTERPRISE_TOKEN)
-        repo_a = repo_factory("dataset", repo_id=f"{ENTERPRISE_ORG}/{repo_name()}", token=ENTERPRISE_TOKEN).repo_id
-        repo_b = repo_factory("dataset", repo_id=f"{ENTERPRISE_ORG}/{repo_name()}", token=ENTERPRISE_TOKEN).repo_id
+        repo_id = repo_factory("dataset", repo_id=f"{ENTERPRISE_ORG}/{repo_name()}", token=ENTERPRISE_TOKEN).repo_id
 
-        def current_group(repo_id: str) -> str | None:
+        def current_group() -> str | None:
             info = api.dataset_info(repo_id, expand=["resourceGroup"])
             return info.resource_group["id"] if info.resource_group else None
 
         with patch("huggingface_hub.cli.resource_groups.get_hf_api", return_value=api):
             result = runner.invoke(
                 app,
-                [
-                    "resource-groups",
-                    "assign",
-                    ENTERPRISE_RESOURCE_GROUP_ID,
-                    repo_a,
-                    repo_b,
-                    "--type",
-                    "dataset",
-                    "--json",
-                ],
+                ["resource-groups", "assign", ENTERPRISE_RESOURCE_GROUP_ID, repo_id, "--type", "dataset", "--json"],
             )
-        assert result.exit_code == 0, result.output
-        assert [json.loads(line) for line in result.stdout.splitlines()] == [
-            {"item": repo_a, "type": "dataset", "resource_group_id": ENTERPRISE_RESOURCE_GROUP_ID},
-            {"item": repo_b, "type": "dataset", "resource_group_id": ENTERPRISE_RESOURCE_GROUP_ID},
-        ]
-        assert current_group(repo_a) == ENTERPRISE_RESOURCE_GROUP_ID
-        assert current_group(repo_b) == ENTERPRISE_RESOURCE_GROUP_ID
+            assert result.exit_code == 0, result.output
+            assert json.loads(result.stdout) == {
+                "item": repo_id,
+                "type": "dataset",
+                "resource_group_id": ENTERPRISE_RESOURCE_GROUP_ID,
+            }
+            assert current_group() == ENTERPRISE_RESOURCE_GROUP_ID
 
-        # repo_a is unassigned twice: the second one fails, the command continues with repo_b and exits with 1
-        api.unassign_resource_group_item(repo_a, item_type="dataset")
-        with patch("huggingface_hub.cli.resource_groups.get_hf_api", return_value=api):
-            result = runner.invoke(app, ["resource-groups", "unassign", repo_a, repo_b, "--type", "dataset", "--json"])
-        assert result.exit_code == 1
-        assert f"{repo_a}: " in result.stderr
-        assert "not in a resource group" in result.stderr
-        assert json.loads(result.stdout) == {"item": repo_b, "type": "dataset", "resource_group_id": None}
-        assert current_group(repo_b) is None
+            result = runner.invoke(app, ["resource-groups", "unassign", repo_id, "--type", "dataset", "--json"])
+            assert result.exit_code == 0, result.output
+            assert json.loads(result.stdout) == {"item": repo_id, "type": "dataset", "resource_group_id": None}
+            assert current_group() is None
+
+    def test_assign_single_item(self, runner: CliRunner) -> None:
+        with patch("huggingface_hub.cli.resource_groups.get_hf_api") as api_cls:
+            result = runner.invoke(
+                app, ["resource-groups", "assign", ENTERPRISE_RESOURCE_GROUP_ID, "my-org/a", "my-org/b"]
+            )
+        assert result.exit_code != 0
+        api_cls.return_value.assign_resource_group_item.assert_not_called()
 
     def test_assign_invalid_group_id(self, runner: CliRunner) -> None:
         with patch("huggingface_hub.cli.resource_groups.get_hf_api") as api_cls:
