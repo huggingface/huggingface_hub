@@ -1787,7 +1787,7 @@ def _get_metadata_or_catch_error(
                 if storage_folder is not None and relative_filename is not None:
                     # Cache the non-existence of the file
                     commit_hash = http_error.response.headers.get(constants.HUGGINGFACE_HEADER_X_REPO_COMMIT)
-                    if commit_hash is not None:
+                    if commit_hash is not None and _is_safe_path_component(commit_hash):
                         no_exist_file_path = Path(storage_folder) / ".no_exist" / commit_hash / relative_filename
                         if not no_exist_file_path.exists():
                             try:
@@ -1809,6 +1809,7 @@ def _get_metadata_or_catch_error(
                     " points to a Hub-compatible endpoint. Otherwise, check your firewall and proxy settings and make"
                     " sure your SSL certificates are updated."
                 )
+            _validate_commit_hash(commit_hash)
 
             # Etag must exist
             # If we don't have any of those, raise an error.
@@ -1817,6 +1818,8 @@ def _get_metadata_or_catch_error(
                 raise FileMetadataError(
                     "Distant resource does not have an ETag, we won't be able to reliably ensure reproducibility."
                 )
+            if not _is_safe_path_component(etag):
+                raise FileMetadataError(f"Invalid ETag returned by the server: '{etag}'.")
 
             # Xet downloads require a known size, but regular HTTP downloads can recover it from the GET response.
             expected_size = metadata.size
@@ -1922,6 +1925,7 @@ def _xet_file_metadata_from_tree_cache(
         or entry.xet_hash is None
         or not is_valid_xet_hash(entry.xet_hash)
         or entry.lfs_sha256 is None
+        or not _is_safe_path_component(entry.lfs_sha256)
         or entry.lfs_size is None
     ):
         return None
@@ -2164,6 +2168,20 @@ def _copy_no_matter_what(src: str, dst: str) -> None:
     except OSError:
         # Copy only file content
         shutil.copyfile(src, dst)
+
+
+# Commit hashes and etags returned by the server are used as file/folder names in the cache.
+# Format is not checked on purpose (so it can evolve), only that they cannot escape their folder.
+_SAFE_PATH_COMPONENT_REGEX = re.compile(r"[\w-]+", flags=re.ASCII)
+
+
+def _is_safe_path_component(value: str) -> bool:
+    return _SAFE_PATH_COMPONENT_REGEX.fullmatch(value) is not None
+
+
+def _validate_commit_hash(commit_hash: str) -> None:
+    if not _is_safe_path_component(commit_hash):
+        raise FileMetadataError(f"Invalid commit hash returned by the server: '{commit_hash}'.")
 
 
 def _get_pointer_path(storage_folder: str, revision: str, relative_filename: str) -> str:
