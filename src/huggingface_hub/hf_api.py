@@ -3632,6 +3632,7 @@ class HfApi:
         from .file_download import (
             REGEX_COMMIT_HASH,
             _cache_commit_hash_for_specific_revision,
+            _detach_tracebacks,
             _validate_commit_hash,
             repo_folder_name,
         )
@@ -3677,6 +3678,9 @@ class HfApi:
                 if e.response.status_code < 500:
                     raise  # the Hub answered: repo/revision not found, missing permissions, ... => raise as is
                 error = e  # Hub is down => fallback on cache
+            # `error` outlives its `except` block => break the error -> traceback -> frame -> error cycle
+            if error is not None:
+                _detach_tracebacks(error)
 
         ref_path = Path(storage_folder) / "refs" / (revision or constants.DEFAULT_REVISION)
         if ref_path.is_file():
