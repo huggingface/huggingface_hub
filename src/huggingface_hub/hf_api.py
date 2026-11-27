@@ -22,7 +22,7 @@ import struct
 import time
 import warnings
 from collections import defaultdict
-from collections.abc import Callable, Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -64,6 +64,7 @@ from ._jobs_api import (
     _default_job_name_from_script,
     _derive_job_volume_name,
 )
+from ._jobs_sidecars import SidecarsConfig, build_orchestrator_job_spec, load_sidecars
 from ._revision import ResolvedRevision
 from ._space_api import (
     INTERMEDIATE_SPACE_STAGES,
@@ -12168,6 +12169,7 @@ class HfApi:
         network_group: str | None = None,
         network_aliases: list[str] | None = None,
         resource_group_id: str | None = None,
+        sidecars: SidecarsConfig | Path | str | Mapping[str, Any] | None = None,
         namespace: str | None = None,
         token: bool | str | None = None,
     ) -> JobInfo:
@@ -12245,6 +12247,13 @@ class HfApi:
                 organization and for cost attribution/spending-limit features. If not provided, the Job is created
                 outside of any resource group.
 
+            sidecars (`Path`, `str`, `dict`, or `SidecarsConfig`, *optional*):
+                *(Experimental)* Background sidecar Jobs to launch in the same network group and clean up when
+                the main Job exits. Accepts a path to an `hf-jobs.yaml` file or a dict mapping sidecar names
+                to their specs (or `{"sidecars": {...}, "defaults": {...}}`). When provided, a lightweight
+                orchestrator Job is started to manage sidecar readiness, main Job launch, and teardown, and
+                its [`JobInfo`] is returned.
+
             namespace (`str`, *optional*):
                 The namespace where the Job will be created. Defaults to the current user's namespace.
 
@@ -12286,6 +12295,28 @@ class HfApi:
             namespace = self.whoami(token=token)["name"]
         if name is None and not (labels and "name" in labels):
             name = _default_job_name_from_image(image, command)
+        if sidecars is not None:
+            return self._run_job_with_sidecars(
+                image=image,
+                command=command,
+                env=env,
+                secrets=secrets,
+                flavor=flavor,
+                timeout=timeout,
+                attempts=attempts,
+                name=name,
+                labels=labels,
+                volumes=volumes,
+                expose=expose,
+                expose_public=expose_public,
+                ssh=ssh,
+                network_group=network_group,
+                network_aliases=network_aliases,
+                resource_group_id=resource_group_id,
+                sidecars=sidecars,
+                namespace=namespace,
+                token=token,
+            )
         job_spec = _create_job_spec(
             image=image,
             command=command,
@@ -12307,6 +12338,86 @@ class HfApi:
         response = get_session().post(
             f"{self.endpoint}/api/jobs/{namespace}",
             json=job_spec,
+            headers=self._build_hf_headers(token=token),
+        )
+        hf_raise_for_status(response)
+        job_info = response.json()
+        return JobInfo(**job_info, endpoint=self.endpoint)
+
+    def _resolve_orchestrator_token(self, token: bool | str | None) -> str:
+        if token is False:
+            raise ValueError("Running Jobs with `sidecars` requires authentication (cannot use `token=False`).")
+        resolved = token if isinstance(token, str) else (self.token if isinstance(self.token, str) else get_token())
+        if not resolved:
+            raise ValueError(
+                "Running Jobs with `sidecars` requires an HF access token to manage sidecar Jobs. "
+                "Log in with `hf auth login` or pass `token=...`."
+            )
+        return resolved
+
+    def _run_job_with_sidecars(
+        self,
+        *,
+        image: str,
+        command: list[str],
+        env: dict[str, Any] | None,
+        secrets: dict[str, Any] | None,
+        flavor: JobHardware | str | None,
+        timeout: int | float | str | None,
+        attempts: int | None,
+        name: str | None,
+        labels: dict[str, str] | None,
+        volumes: list[Volume] | None,
+        expose: list[int] | None,
+        expose_public: list[int] | None,
+        ssh: bool,
+        network_group: str | None,
+        network_aliases: list[str] | None,
+        resource_group_id: str | None,
+        sidecars: SidecarsConfig | Path | str | Mapping[str, Any],
+        namespace: str,
+        token: bool | str | None,
+    ) -> JobInfo:
+        if not constants.HF_HUB_DISABLE_EXPERIMENTAL_WARNING:
+            warnings.warn(
+                "'sidecars' is experimental and might be subject to breaking changes in the future without prior "
+                "notice. You can disable this warning by setting `HF_HUB_DISABLE_EXPERIMENTAL_WARNING=1` as "
+                "environment variable.",
+                UserWarning,
+            )
+        sidecars_config = load_sidecars(sidecars)
+        orchestrator_token = self._resolve_orchestrator_token(token)
+        group_id = network_group or f"sc-{token_hex(5)}"
+        main_job_spec = _create_job_spec(
+            image=image,
+            command=command,
+            env=env,
+            secrets=secrets,
+            flavor=flavor,
+            timeout=timeout,
+            attempts=attempts,
+            name=name,
+            labels=labels,
+            volumes=volumes,
+            expose=expose,
+            expose_public=expose_public,
+            ssh=ssh,
+            network_group=group_id,
+            network_aliases=network_aliases,
+            resource_group_id=resource_group_id,
+        )
+        _, orch_spec = build_orchestrator_job_spec(
+            sidecars_config=sidecars_config,
+            main_job_spec=main_job_spec,
+            endpoint=self.endpoint,
+            namespace=namespace,
+            orchestrator_token=orchestrator_token,
+            network_group=group_id,
+            resource_group_id=resource_group_id,
+        )
+        response = get_session().post(
+            f"{self.endpoint}/api/jobs/{namespace}",
+            json=orch_spec,
             headers=self._build_hf_headers(token=token),
         )
         hf_raise_for_status(response)
@@ -12921,6 +13032,7 @@ class HfApi:
         network_group: str | None = None,
         network_aliases: list[str] | None = None,
         resource_group_id: str | None = None,
+        sidecars: SidecarsConfig | Path | str | Mapping[str, Any] | None = None,
         namespace: str | None = None,
         token: bool | str | None = None,
     ) -> JobInfo:
@@ -13009,6 +13121,13 @@ class HfApi:
                 organization and for cost attribution/spending-limit features. If not provided, the Job is created
                 outside of any resource group.
 
+            sidecars (`Path`, `str`, `dict`, or `SidecarsConfig`, *optional*):
+                *(Experimental)* Background sidecar Jobs to launch in the same network group and clean up when
+                the main Job exits. Accepts a path to an `hf-jobs.yaml` file or a dict mapping sidecar names
+                to their specs (or `{"sidecars": {...}, "defaults": {...}}`). When provided, a lightweight
+                orchestrator Job is started to manage sidecar readiness, main Job launch, and teardown, and
+                its [`JobInfo`] is returned.
+
             namespace (`str`, *optional*):
                 The namespace where the Job will be created. Defaults to the current user's namespace.
 
@@ -13095,6 +13214,7 @@ class HfApi:
             network_group=network_group,
             network_aliases=network_aliases,
             resource_group_id=resource_group_id,
+            sidecars=sidecars,
             namespace=namespace,
             token=token,
         )
