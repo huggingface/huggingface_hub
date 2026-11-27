@@ -399,6 +399,8 @@ Use [`batch_bucket_files`] to upload files to a bucket. You can upload from loca
 ... )
 ```
 
+When uploading from a local path, the file's modification time and POSIX permission bits (e.g. the executable bit, except on Windows) are stored in the bucket. They are exposed as `mtime` and `mode` on the [`BucketFile`] objects returned by [`list_bucket_tree`] and [`get_bucket_paths_info`].
+
 You can also copy xet files from another bucket or repository using the `copy` parameter. This is a server-side operation — no data is downloaded or re-uploaded:
 
 ```python

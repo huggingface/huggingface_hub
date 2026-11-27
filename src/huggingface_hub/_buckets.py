@@ -101,6 +101,7 @@ class _BucketAddFile:
 
     xet_hash: str | None = field(default=None)
     size: int | None = field(default=None)
+    mode: int | None = field(default=None)  # POSIX st_mode, e.g. 0o100755
     mtime: int = field(init=False)
     content_type: str | None = field(init=False)
 
@@ -111,9 +112,15 @@ class _BucketAddFile:
         if self.content_type is None:  # or default to destination path content type
             self.content_type = mimetypes.guess_type(self.destination)[0]
 
-        self.mtime = int(
-            os.path.getmtime(self.source) * 1000 if not isinstance(self.source, bytes) else time.time() * 1000
-        )
+        if isinstance(self.source, bytes):
+            self.mtime = int(time.time() * 1000)
+        else:
+            st = os.stat(self.source)
+            self.mtime = int(st.st_mtime * 1000)
+            # Like mtime, take the mode from the local file. Symlinks are followed (the uploaded content is the
+            # target's) so the file is always stored as a regular file. Windows has no meaningful permission bits.
+            if self.mode is None and os.name != "nt":
+                self.mode = stat.S_IFREG | stat.S_IMODE(st.st_mode)
 
 
 @dataclass
@@ -199,6 +206,24 @@ class BucketFile:
     Contains information about a file in a bucket on the Hub. This object is returned by [`list_bucket_tree`].
 
     Similar to [`RepoFile`] but for files in buckets.
+
+    Attributes:
+        type (`Literal["file"]`):
+            Always `"file"`.
+        path (`str`):
+            Path of the file in the bucket.
+        size (`int`):
+            Size of the file in bytes.
+        xet_hash (`str`):
+            Xet hash of the file content.
+        mtime (`datetime`, *optional*):
+            Modification time of the file, as set by the uploader.
+        uploaded_at (`datetime`, *optional*):
+            Date the file was uploaded to the bucket.
+        mode (`int`, *optional*):
+            POSIX file mode (`st_mode`) as set by the uploader, e.g. `0o100755`. Contains the permission bits and
+            optionally the file type bits (`stat.S_IFREG` for a regular file, `stat.S_IFLNK` for a symlink whose
+            content is the link target). `None` if the uploader didn't set it.
     """
 
     type: Literal["file"]
@@ -207,6 +232,7 @@ class BucketFile:
     xet_hash: str
     mtime: datetime | None
     uploaded_at: datetime | None
+    mode: int | None
 
     def __init__(self, **kwargs):
         self.type = kwargs.pop("type")
@@ -217,6 +243,7 @@ class BucketFile:
         self.mtime = parse_datetime(mtime) if mtime else None
         uploaded_at = kwargs.pop("uploadedAt", None)
         self.uploaded_at = parse_datetime(uploaded_at) if uploaded_at else None
+        self.mode = kwargs.pop("mode", None)
 
 
 @dataclass

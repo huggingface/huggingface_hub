@@ -114,6 +114,7 @@ def _cache_info_from_path_info(
             "xet_hash": path_info.xet_hash,
             "mtime": path_info.mtime,
             "uploaded_at": path_info.uploaded_at,
+            "mode": path_info.mode,
         }
     if isinstance(path_info, RepoFolder):
         return {
