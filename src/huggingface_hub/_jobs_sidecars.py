@@ -430,7 +430,9 @@ def load_sidecars(
     #   1. Full document: {"defaults": {...}, "sidecars": {"vllm": {...}}}
     #   2. Shorthand dict (Python API): {"vllm-1": {"image": ..., "command": ...}}
     is_full_doc = "sidecars" in raw_doc and (
-        not isinstance(raw_doc["sidecars"], Mapping) or "image" not in raw_doc["sidecars"]
+        source_label is not None
+        or not isinstance(raw_doc["sidecars"], Mapping)
+        or not isinstance(raw_doc["sidecars"].get("image"), str)
     )
     if is_full_doc:
         unknown_top = sorted(k for k in raw_doc if k not in _VALID_TOP_LEVEL_KEYS)

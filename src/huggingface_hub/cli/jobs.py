@@ -788,7 +788,7 @@ def _follow_sidecar_orchestrator(api: HfApi, orch_job: JobInfo, *, detach: bool)
             try:
                 api.wait_for_job(job_id=orch_job.id, namespace=orch_job.owner.name, timeout=30)
                 orch_logs = list(
-                    api.fetch_job_logs(job_id=orch_job.id, namespace=orch_job.owner.name, follow=False, tail=40)
+                    api.fetch_job_logs(job_id=orch_job.id, namespace=orch_job.owner.name, follow=False, tail=80)
                 )
                 error_idx = next(
                     (i for i, line in enumerate(orch_logs) if line.startswith("[sidecars] ERROR:")),

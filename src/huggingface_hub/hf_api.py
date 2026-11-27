@@ -12319,7 +12319,7 @@ class HfApi:
             job_spec = self._wrap_job_spec_with_sidecars(
                 main_job_spec=job_spec,
                 sidecars=sidecars,
-                network_group=effective_network_group,
+                network_group=network_group,
                 resource_group_id=resource_group_id,
                 namespace=namespace,
                 token=token,
