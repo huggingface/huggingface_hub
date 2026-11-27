@@ -727,7 +727,7 @@ def _load_cli_sidecars(sidecars: str | None, *, dry_run: bool = False) -> Sideca
     if sidecars is None:
         return None
     try:
-        return load_sidecars(
+        config = load_sidecars(
             sidecars,
             environ=_get_extended_environ(),
             allow_secret_values=False,
@@ -735,6 +735,15 @@ def _load_cli_sidecars(sidecars: str | None, *, dry_run: bool = False) -> Sideca
         )
     except ValueError as exc:
         raise CLIError(str(exc)) from exc
+    resolved_secrets = sorted(
+        {key for spec in config.sidecars.values() for key, val in spec.secrets.items() if val is not None}
+    )
+    if resolved_secrets:
+        out.warning(
+            f"The sidecars config '{sidecars}' requests {', '.join(resolved_secrets)}: the value(s) from your local"
+            f" environment {'would be' if dry_run else 'will be'} sent to the sidecar Job(s)."
+        )
+    return config
 
 
 def _follow_sidecar_orchestrator(api: HfApi, orch_job: JobInfo, *, detach: bool) -> None:

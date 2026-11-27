@@ -641,6 +641,22 @@ def _default_job_name_from_script(
     return _default_job_name(name or script, [script, *script_args, *(config_parts or [])])
 
 
+def _parse_job_timeout(timeout: int | float | str) -> int:
+    """Parse a Job timeout (seconds or `<number><s|m|h|d>`, e.g. `'90m'` or `'1.5h'`) into integer seconds."""
+    time_units_factors = {"s": 1, "m": 60, "h": 3600, "d": 3600 * 24}
+    try:
+        if isinstance(timeout, bool):
+            raise ValueError
+        if isinstance(timeout, str) and timeout and timeout[-1] in time_units_factors:
+            return int(float(timeout[:-1]) * time_units_factors[timeout[-1]])
+        return int(timeout)
+    except ValueError:
+        raise ValueError(
+            f"Could not parse timeout '{timeout}'. Use a number of seconds or a number followed by a single"
+            " unit s, m, h or d, for example '5400', '90m' or '2h'."
+        ) from None
+
+
 def _build_expose_payload(expose: list[int] | None, expose_public: list[int] | None) -> dict[str, list[int]]:
     # Public ports are exposed too: the server expects them in both lists (`portsPublic` must be a subset of `ports`).
     ports_public = list(dict.fromkeys(expose_public or []))
@@ -685,17 +701,7 @@ def _create_job_spec(
         job_spec["secrets"] = secrets
     # timeout is optional
     if timeout:
-        time_units_factors = {"s": 1, "m": 60, "h": 3600, "d": 3600 * 24}
-        try:
-            if isinstance(timeout, str) and timeout[-1] in time_units_factors:
-                job_spec["timeoutSeconds"] = int(float(timeout[:-1]) * time_units_factors[timeout[-1]])
-            else:
-                job_spec["timeoutSeconds"] = int(timeout)
-        except ValueError:
-            raise ValueError(
-                f"Could not parse timeout '{timeout}'. Use a number of seconds or a number followed by a single"
-                " unit s, m, h or d, for example '5400', '90m' or '2h'."
-            ) from None
+        job_spec["timeoutSeconds"] = _parse_job_timeout(timeout)
     if attempts is not None:
         job_spec["attempts"] = attempts
     # labels are optional

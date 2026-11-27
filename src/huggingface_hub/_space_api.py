@@ -16,7 +16,8 @@ from datetime import datetime
 from enum import Enum
 from typing import Literal
 
-from huggingface_hub.utils import HfMount, HfUri, parse_datetime
+from huggingface_hub.errors import HfUriError
+from huggingface_hub.utils import HfMount, HfUri, parse_datetime, parse_hf_mount
 
 
 class SpaceStage(str, Enum):
@@ -183,6 +184,21 @@ class Volume:
             mount_path=self.mount_path,
             read_only=self.read_only,
         ).to_uri()
+
+    @classmethod
+    def from_uri(cls, uri: str) -> "Volume":
+        """Parse an HF mount URI (`hf://[TYPE/]SOURCE[/PATH]:/MOUNT_PATH[:ro|:rw]`) into a [`Volume`]."""
+        mount = parse_hf_mount(uri)
+        if mount.source.type == "kernel":
+            raise HfUriError(uri=uri, msg="Volume type 'kernel' is not supported for mounts.")
+        return cls(
+            type=mount.source.type,
+            source=mount.source.id,
+            mount_path=mount.mount_path,
+            read_only=mount.read_only,
+            path=mount.source.path_in_repo or None,
+            revision=mount.source.revision or None,
+        )
 
 
 @dataclass

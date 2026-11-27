@@ -127,6 +127,7 @@ from .utils import (
     validate_hf_hub_args,
 )
 from .utils._auth import _get_token_from_environment, _get_token_from_file, _get_token_from_google_colab
+from .utils._experimental import warn_experimental
 from .utils._http import _httpx2_follow_hub_redirects_with_backoff, flag_as_download_call
 from .utils._runtime import is_xet_available
 from .utils._typing import CallableT
@@ -12295,28 +12296,7 @@ class HfApi:
             namespace = self.whoami(token=token)["name"]
         if name is None and not (labels and "name" in labels):
             name = _default_job_name_from_image(image, command)
-        if sidecars is not None:
-            return self._run_job_with_sidecars(
-                image=image,
-                command=command,
-                env=env,
-                secrets=secrets,
-                flavor=flavor,
-                timeout=timeout,
-                attempts=attempts,
-                name=name,
-                labels=labels,
-                volumes=volumes,
-                expose=expose,
-                expose_public=expose_public,
-                ssh=ssh,
-                network_group=network_group,
-                network_aliases=network_aliases,
-                resource_group_id=resource_group_id,
-                sidecars=sidecars,
-                namespace=namespace,
-                token=token,
-            )
+        effective_network_group = network_group or (f"sc-{token_hex(5)}" if sidecars is not None else None)
         job_spec = _create_job_spec(
             image=image,
             command=command,
@@ -12331,10 +12311,19 @@ class HfApi:
             expose=expose,
             expose_public=expose_public,
             ssh=ssh,
-            network_group=network_group,
+            network_group=effective_network_group,
             network_aliases=network_aliases,
             resource_group_id=resource_group_id,
         )
+        if sidecars is not None:
+            job_spec = self._wrap_job_spec_with_sidecars(
+                main_job_spec=job_spec,
+                sidecars=sidecars,
+                network_group=effective_network_group,
+                resource_group_id=resource_group_id,
+                namespace=namespace,
+                token=token,
+            )
         response = get_session().post(
             f"{self.endpoint}/api/jobs/{namespace}",
             json=job_spec,
@@ -12355,74 +12344,29 @@ class HfApi:
             )
         return resolved
 
-    def _run_job_with_sidecars(
+    def _wrap_job_spec_with_sidecars(
         self,
         *,
-        image: str,
-        command: list[str],
-        env: dict[str, Any] | None,
-        secrets: dict[str, Any] | None,
-        flavor: JobHardware | str | None,
-        timeout: int | float | str | None,
-        attempts: int | None,
-        name: str | None,
-        labels: dict[str, str] | None,
-        volumes: list[Volume] | None,
-        expose: list[int] | None,
-        expose_public: list[int] | None,
-        ssh: bool,
-        network_group: str | None,
-        network_aliases: list[str] | None,
-        resource_group_id: str | None,
+        main_job_spec: dict[str, Any],
         sidecars: SidecarsConfig | Path | str | Mapping[str, Any],
+        network_group: str | None,
+        resource_group_id: str | None,
         namespace: str,
         token: bool | str | None,
-    ) -> JobInfo:
-        if not constants.HF_HUB_DISABLE_EXPERIMENTAL_WARNING:
-            warnings.warn(
-                "'sidecars' is experimental and might be subject to breaking changes in the future without prior "
-                "notice. You can disable this warning by setting `HF_HUB_DISABLE_EXPERIMENTAL_WARNING=1` as "
-                "environment variable.",
-                UserWarning,
-            )
+    ) -> dict[str, Any]:
+        warn_experimental("sidecars")
         sidecars_config = load_sidecars(sidecars)
         orchestrator_token = self._resolve_orchestrator_token(token)
-        group_id = network_group or f"sc-{token_hex(5)}"
-        main_job_spec = _create_job_spec(
-            image=image,
-            command=command,
-            env=env,
-            secrets=secrets,
-            flavor=flavor,
-            timeout=timeout,
-            attempts=attempts,
-            name=name,
-            labels=labels,
-            volumes=volumes,
-            expose=expose,
-            expose_public=expose_public,
-            ssh=ssh,
-            network_group=group_id,
-            network_aliases=network_aliases,
-            resource_group_id=resource_group_id,
-        )
         _, orch_spec = build_orchestrator_job_spec(
             sidecars_config=sidecars_config,
             main_job_spec=main_job_spec,
             endpoint=self.endpoint,
             namespace=namespace,
             orchestrator_token=orchestrator_token,
-            network_group=group_id,
+            network_group=network_group,
             resource_group_id=resource_group_id,
         )
-        response = get_session().post(
-            f"{self.endpoint}/api/jobs/{namespace}",
-            json=orch_spec,
-            headers=self._build_hf_headers(token=token),
-        )
-        hf_raise_for_status(response)
-        job_info = response.json()
-        return JobInfo(**job_info, endpoint=self.endpoint)
+        return orch_spec
 
     def _fetch_running_job_sse(
         self,

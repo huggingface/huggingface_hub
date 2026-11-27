@@ -29,12 +29,11 @@ from typing import Any, Literal
 
 import yaml
 
-from huggingface_hub._jobs_api import JobHardware, _create_job_spec, _sanitize_job_name
+from huggingface_hub._jobs_api import JobHardware, _create_job_spec, _parse_job_timeout, _sanitize_job_name
 from huggingface_hub._jobs_sidecar_orchestrator import MAIN_JOB_ID_PREFIX
 from huggingface_hub._space_api import Volume
 from huggingface_hub.errors import HfUriError
 from huggingface_hub.utils._auth import get_token
-from huggingface_hub.utils._hf_uris import parse_hf_mount
 from huggingface_hub.utils._parsing import parse_duration
 
 
@@ -176,53 +175,40 @@ class SidecarsConfig:
         return instances
 
 
-def parse_timeout_secs(value: int | float | str, *, field_name: str = "timeout") -> int:
-    """Parse a positive duration (`300`, `5m`, `1.5h`) into integer seconds."""
-    if isinstance(value, bool):
+def _parse_positive_duration_secs(value: int | float | str, *, field_name: str) -> float:
+    """Parse a positive duration (`300`, `5m`, `1.5h`, `0.5s`) into seconds."""
+    if isinstance(value, bool) or not isinstance(value, (int, float, str)):
         raise ValueError(f"'{field_name}' must be a duration string (e.g. '5m') or number of seconds, got {value!r}.")
     if isinstance(value, (int, float)):
-        secs = int(value)
-    elif isinstance(value, str):
+        secs = float(value)
+    else:
         stripped = value.strip()
         if not stripped:
             raise ValueError(f"'{field_name}' cannot be empty.")
-        # Support fractional values like "1.5h" matching `_create_job_spec`, plus `parse_duration` units.
-        factors = {"s": 1, "m": 60, "h": 3600, "d": 3600 * 24}
         try:
+            # Handle fractional units (e.g. "0.5s", "1.5h") and standard `parse_duration` units.
+            factors = {"s": 1.0, "m": 60.0, "h": 3600.0, "d": 86400.0}
             if stripped[-1] in factors:
-                secs = int(float(stripped[:-1]) * factors[stripped[-1]])
+                secs = float(stripped[:-1]) * factors[stripped[-1]]
             else:
-                secs = parse_duration(stripped)
-        except ValueError as exc:
-            raise ValueError(
-                f"Invalid '{field_name}' value {value!r}. Use seconds or a duration like '30s', '5m', '2h'."
-            ) from exc
-    else:
-        raise ValueError(f"'{field_name}' must be a duration string or number of seconds, got {value!r}.")
+                secs = float(parse_duration(stripped))
+        except ValueError:
+            try:
+                secs = float(_parse_job_timeout(stripped))
+            except ValueError as exc:
+                raise ValueError(
+                    f"Invalid '{field_name}' value {value!r}. Use seconds or a duration like '30s', '5m', '2h'."
+                ) from exc
     if secs <= 0:
         raise ValueError(f"'{field_name}' must be positive, got {value!r}.")
     return secs
 
 
-def _parse_float_duration(value: int | float | str, *, field_name: str) -> float:
-    if isinstance(value, bool):
-        raise ValueError(f"'{field_name}' must be a positive duration, got {value!r}.")
-    if isinstance(value, (int, float)):
-        secs = float(value)
-    elif isinstance(value, str):
-        stripped = value.strip()
-        factors = {"s": 1.0, "m": 60.0, "h": 3600.0, "d": 86400.0}
-        try:
-            if stripped and stripped[-1] in factors:
-                secs = float(stripped[:-1]) * factors[stripped[-1]]
-            else:
-                secs = float(parse_duration(stripped))
-        except ValueError as exc:
-            raise ValueError(f"Invalid '{field_name}' value {value!r}.") from exc
-    else:
-        raise ValueError(f"'{field_name}' must be a positive duration, got {value!r}.")
+def parse_timeout_secs(value: int | float | str, *, field_name: str = "timeout") -> int:
+    """Parse a positive duration (`300`, `5m`, `1.5h`) into integer seconds."""
+    secs = int(_parse_positive_duration_secs(value, field_name=field_name))
     if secs <= 0:
-        raise ValueError(f"'{field_name}' must be positive, got {value!r}.")
+        raise ValueError(f"'{field_name}' must be at least 1 second, got {value!r}.")
     return secs
 
 
@@ -265,12 +251,12 @@ def _parse_healthcheck(raw: Any, *, sidecar_name: str) -> SidecarHealthCheck | N
         raise ValueError(f"Sidecar '{sidecar_name}': 'healthcheck' must define exactly one of 'http' or 'tcp'.")
 
     interval_secs = (
-        _parse_float_duration(raw["interval"], field_name=f"{sidecar_name}.healthcheck.interval")
+        _parse_positive_duration_secs(raw["interval"], field_name=f"{sidecar_name}.healthcheck.interval")
         if raw.get("interval") is not None
         else DEFAULT_HEALTH_INTERVAL_SECS
     )
     probe_timeout_secs = (
-        _parse_float_duration(raw["timeout"], field_name=f"{sidecar_name}.healthcheck.timeout")
+        _parse_positive_duration_secs(raw["timeout"], field_name=f"{sidecar_name}.healthcheck.timeout")
         if raw.get("timeout") is not None
         else DEFAULT_HEALTH_PROBE_TIMEOUT_SECS
     )
@@ -329,21 +315,9 @@ def _parse_sidecar_volumes(raw: Any, *, sidecar_name: str) -> list[Volume]:
             volumes.append(entry)
         elif isinstance(entry, str):
             try:
-                mount = parse_hf_mount(entry)
+                volumes.append(Volume.from_uri(entry))
             except HfUriError as exc:
                 raise ValueError(f"Sidecar '{sidecar_name}': invalid volume '{entry}': {exc}") from exc
-            if mount.source.type == "kernel":
-                raise ValueError(f"Sidecar '{sidecar_name}': volume type 'kernel' is not supported: '{entry}'.")
-            volumes.append(
-                Volume(
-                    type=mount.source.type,
-                    source=mount.source.id,
-                    mount_path=mount.mount_path,
-                    revision=mount.source.revision,
-                    read_only=mount.read_only,
-                    path=mount.source.path_in_repo or None,
-                )
-            )
         else:
             raise ValueError(
                 f"Sidecar '{sidecar_name}': volume entries must be hf:// strings or Volume objects, got {entry!r}."
