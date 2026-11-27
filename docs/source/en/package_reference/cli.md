@@ -181,6 +181,8 @@ $ hf auth revoke [OPTIONS] TOKENS...
 
 * `--help`: Show this message and exit.
 
+Also accepts the global [formatting options](#formatting-options).
+
 Examples
   $ hf auth revoke hf_xxx
   $ hf auth revoke hf_xxx hf_yyy

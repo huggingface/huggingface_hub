@@ -12,6 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import os
 import time
 import warnings
 from collections.abc import Iterator
@@ -656,6 +657,41 @@ def test_execute_plan_rejects_path_traversal(tmp_path):
     with pytest.raises(ValueError, match="Invalid filename"):
         _execute_plan(plan, api)
     assert outside.exists()  # not deleted
+
+
+def test_execute_plan_download_keeps_remote_mtime(tmp_path):
+    # Downloaded files must carry the remote mtime, otherwise a sync back to the bucket re-uploads them all.
+    dest = tmp_path / "dest"
+    remote_mtime = datetime(2026, 11, 23, 22, 11, 41, tzinfo=timezone.utc)
+
+    def fake_download(bucket_id, files):
+        for _, local_file in files:
+            with open(local_file, "w") as f:
+                f.write("content")
+
+    api = MagicMock()
+    api.download_bucket_files.side_effect = fake_download
+    plan = SyncPlan(
+        source="hf://buckets/user/bucket",
+        dest=str(dest),
+        timestamp="2026-01-01T00:00:00+00:00",
+        operations=[
+            SyncOperation(
+                action="download",
+                path="sub/file.txt",
+                size=7,
+                reason="new file",
+                remote_mtime=remote_mtime.isoformat(),
+            ),
+            SyncOperation(action="download", path="no_mtime.txt", size=7, reason="new file"),
+        ],
+    )
+
+    _execute_plan(plan, api)
+
+    assert os.path.getmtime(dest / "sub" / "file.txt") == remote_mtime.timestamp()
+    # Without a remote mtime the file keeps the download time
+    assert os.path.getmtime(dest / "no_mtime.txt") > remote_mtime.timestamp()
 
 
 @pytest.mark.parametrize(
