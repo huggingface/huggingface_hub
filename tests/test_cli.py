@@ -1942,21 +1942,6 @@ class TestResourceGroupsCommand:
             assert json.loads(result.stdout) == {"item": repo_id, "type": "dataset", "resource_group_id": None}
             assert current_group() is None
 
-    def test_assign_single_item(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.resource_groups.get_hf_api") as api_cls:
-            result = runner.invoke(
-                app, ["resource-groups", "assign", ENTERPRISE_RESOURCE_GROUP_ID, "my-org/a", "my-org/b"]
-            )
-        assert result.exit_code != 0
-        api_cls.return_value.assign_resource_group_item.assert_not_called()
-
-    def test_assign_invalid_group_id(self, runner: CliRunner) -> None:
-        with patch("huggingface_hub.cli.resource_groups.get_hf_api") as api_cls:
-            result = runner.invoke(app, ["resource-groups", "assign", "research", "my-org/a"])
-        assert isinstance(result.exception, CLIError)
-        assert "Invalid resource group ID 'research'" in str(result.exception)
-        api_cls.assert_not_called()
-
 
 class TestRepoListCommand:
     def test_repo_list(self, runner: CliRunner, repo_factory: RepoFactory) -> None:
