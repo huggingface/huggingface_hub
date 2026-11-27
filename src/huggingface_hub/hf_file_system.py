@@ -1289,6 +1289,15 @@ class HfFileSystem(fsspec.AbstractFileSystem, metaclass=_Cached):  # ty: ignore[
             self.ls(parent_path, refresh=refresh)
             out1 = [o for o in self.dircache[parent_path] if o["name"] == path]
             if not out1:
+                # A parent listing can miss a file that exists: writes from other threads, processes or machines
+                # cannot invalidate the listings cached by this instance, and a fresh listing can briefly lag
+                # behind a write. Look the path up directly before raising a false `FileNotFoundError`.
+                file_infos = list(self._api.get_bucket_paths_info(resolved_path.bucket_id, [resolved_path.path]))
+                if file_infos:
+                    out1 = [_cache_info_from_path_info(file_infos[0], path)]
+                    # The cached listing missed a file that does exist => drop it so the next `ls()` rebuilds it
+                    self._drop_outdated_parent_listing(path)
+            if not out1:
                 _raise_file_not_found(path, None)
             out = out1[0]
         else:

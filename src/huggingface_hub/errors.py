@@ -380,6 +380,29 @@ class DisabledRepoError(HfHubHTTPError):
     """
 
 
+# EGRESS LIMIT ERROR
+
+
+class EgressLimitError(HfHubHTTPError):
+    """
+    Raised when the Hub refuses a request because the account reached its egress (download) allowance.
+
+    The server message explains the current usage and how to get a higher allowance.
+
+    Example:
+
+    ```py
+    >>> from huggingface_hub import hf_hub_download
+    >>> hf_hub_download("username/my-model", "model.safetensors")
+    (...)
+    huggingface_hub.errors.EgressLimitError: 402 Client Error. (Request ID: Root=1-...)
+
+    Egress limit reached for url: https://huggingface.co/username/my-model/resolve/main/model.safetensors.
+    You've downloaded (...) over the last 30 days, compared to your account's egress allowance of (...).
+    ```
+    """
+
+
 # REVISION ERROR
 
 

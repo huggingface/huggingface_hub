@@ -224,7 +224,7 @@ class SpaceRuntime:
             runtime like number of replicas, number of cpu, memory size,...
     """
 
-    stage: SpaceStage
+    stage: SpaceStage | str
     hardware: SpaceHardware | None
     requested_hardware: SpaceHardware | None
     sleep_time: int | None

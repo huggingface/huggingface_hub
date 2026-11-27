@@ -39,6 +39,7 @@ from ..errors import (
     BadRequestError,
     BucketNotFoundError,
     DisabledRepoError,
+    EgressLimitError,
     GatedRepoError,
     HfHubHTTPError,
     JobNotFoundError,
@@ -851,6 +852,8 @@ def hf_raise_for_status(response: httpx2.Response, endpoint_name: str | None = N
     >     - [`~utils.EntryNotFoundError`]
     >         If the repository exists but the entry (e.g. the requested file) couldn't be
     >         find.
+    >     - [`~utils.EgressLimitError`]
+    >         If the account reached its egress (download) allowance.
     >     - [`~utils.BadRequestError`]
     >         If request failed with a HTTP 400 BadRequest error.
     >     - [`~utils.HfHubHTTPError`]
@@ -890,6 +893,12 @@ def hf_raise_for_status(response: httpx2.Response, endpoint_name: str | None = N
                 f"{response.status_code} Client Error." + "\n\n" + f"Cannot access gated repo for url {response.url}."
             )
             raise _format(GatedRepoError, message, response, repo_type=repo_type, repo_id=repo_id) from e
+
+        elif error_code == "EgressLimitReached":
+            message = (
+                f"{response.status_code} Client Error." + "\n\n" + f"Egress limit reached for url: {response.url}."
+            )
+            raise _format(EgressLimitError, message, response) from e
 
         elif error_message == "Access to this resource is disabled.":
             message = (
