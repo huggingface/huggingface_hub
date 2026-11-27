@@ -16,6 +16,7 @@ from __future__ import annotations
 import inspect
 import itertools
 import json
+import os
 import re
 import struct
 import time
@@ -3149,7 +3150,12 @@ class HfApi:
             repo_type = constants.REPO_TYPE_MODEL
         path = f"{self.endpoint}/api/{repo_type}s/{repo_id}/likers"
         for liker in paginate(path, params={}, headers=self._build_hf_headers(token=token)):
-            yield User(username=liker["user"], fullname=liker["fullname"], avatar_url=liker["avatarUrl"])
+            yield User(
+                username=liker["user"],
+                fullname=liker["fullname"],
+                avatar_url=liker["avatarUrl"],
+                is_pro=liker.get("isPro"),
+            )
 
     @validate_hf_hub_args
     def model_info(
@@ -13782,12 +13788,14 @@ class HfApi:
             namespace = self.whoami(token=token)["name"]
 
         # Find the local files to pass to the job
-        local_files_to_include = {candidate for candidate in [script] + script_args if Path(candidate).is_file()}
+        # `os.path.isfile` returns False for arguments too long to be a path (e.g. a JSON string),
+        # while `Path.is_file` raises OSError on Python < 3.14
+        local_files_to_include = {candidate for candidate in [script] + script_args if os.path.isfile(candidate)}
         # Fail early for missing scripts or config files
         missing_local_files = {
             candidate
             for candidate in [script] + script_args
-            if not Path(candidate).is_file()
+            if not os.path.isfile(candidate)
             and Path(candidate).suffix in [".py", ".sh", ".yaml", ".yml", ".toml"]
             and not candidate.startswith("https://")
             and not candidate.startswith("http://")

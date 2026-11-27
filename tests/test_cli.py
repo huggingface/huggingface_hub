@@ -4426,6 +4426,24 @@ class TestBucketTransport:
                 token=None,
             )
 
+    def test_long_script_arg_is_not_checked_as_a_file(self) -> None:
+        """A script argument too long to be a file name (e.g. a JSON string) is passed through as is."""
+        from huggingface_hub.hf_api import HfApi
+
+        long_arg = json.dumps({"key": "x" * 300})
+        command, _, _, extra_volumes = HfApi()._create_uv_command_env_and_secrets(
+            script="https://example.com/script.py",
+            script_args=["--config-json", long_arg],
+            dependencies=None,
+            python=None,
+            env=None,
+            secrets=None,
+            namespace="test-user",
+            token=None,
+        )
+        assert command == ["uv", "run", "https://example.com/script.py", "--config-json", long_arg]
+        assert extra_volumes == []
+
     def test_raises_when_mount_path_taken(self, tmp_path: Path) -> None:
         """If a user volume already uses the reserved artifacts mount path, raise instead of silently falling back."""
         from huggingface_hub.hf_api import HfApi
@@ -5173,6 +5191,22 @@ class TestWebhooksCommand:
             result = runner.invoke(app, ["webhooks", "delete", "wh-abc123"], input="n\n")
         assert result.exit_code != 0
         api_cls.return_value.delete_webhook.assert_not_called()
+
+
+class TestSandboxCreateNetwork:
+    def test_network_none_is_case_insensitive_and_shown(self, runner: CliRunner) -> None:
+        result, sandbox_cls = TestSecretHygiene._create_sandbox(runner, "--network", "None", "--format", "human")
+        assert result.exit_code == 0, result.output
+        assert sandbox_cls.create.call_args.kwargs["network"] == "none"
+        assert "network: none" in result.stdout
+
+    def test_allowlist_is_shown(self, runner: CliRunner) -> None:
+        result, sandbox_cls = TestSecretHygiene._create_sandbox(
+            runner, "--network", "10.0.0.0/8, huggingface.co:443", "--format", "human"
+        )
+        assert result.exit_code == 0, result.output
+        assert sandbox_cls.create.call_args.kwargs["network"] == {"allow": ["10.0.0.0/8", "huggingface.co:443"]}
+        assert "network: 10.0.0.0/8,huggingface.co:443" in result.stdout
 
 
 class TestSecretHygiene:

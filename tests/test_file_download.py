@@ -26,7 +26,13 @@ import pytest
 
 from huggingface_hub import HfApi, constants
 from huggingface_hub._local_folder import write_download_metadata
-from huggingface_hub.errors import EntryNotFoundError, FileMetadataError, GatedRepoError, LocalEntryNotFoundError
+from huggingface_hub.errors import (
+    EgressLimitError,
+    EntryNotFoundError,
+    FileMetadataError,
+    GatedRepoError,
+    LocalEntryNotFoundError,
+)
 from huggingface_hub.file_download import (
     _CACHED_NO_EXIST,
     HfFileMetadata,
@@ -114,6 +120,26 @@ def test_download_without_head_content_length(tmp_path: Path, use_local_dir: boo
         path = hf_hub_download("user/repo", "file.txt", **download_kwargs)
 
     assert Path(path).read_bytes() == content
+
+
+@pytest.mark.parametrize("use_local_dir", [False, True])
+def test_download_egress_limit_reached(tmp_path: Path, use_local_dir: bool) -> None:
+    """A 402 EgressLimitReached on the HEAD call is raised as is, not as a connection issue."""
+
+    def _mock_head(*, url: str, **kwargs) -> httpx2.Response:
+        return httpx2.Response(
+            402,
+            headers={"X-Error-Code": "EgressLimitReached", "X-Error-Message": "Egress allowance exceeded."},
+            request=httpx2.Request("HEAD", url),
+        )
+
+    download_kwargs = {"cache_dir": tmp_path / "cache"}
+    if use_local_dir:
+        download_kwargs["local_dir"] = tmp_path / "local"
+
+    with patch("huggingface_hub.file_download._httpx2_follow_hub_redirects_with_backoff", side_effect=_mock_head):
+        with pytest.raises(EgressLimitError, match="Egress allowance exceeded."):
+            hf_hub_download("user/repo", "file.txt", **download_kwargs)
 
 
 class TestDiskUsageWarning:
