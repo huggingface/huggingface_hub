@@ -413,12 +413,20 @@ For more details, check out the [download guide](./download.md#dry-run-mode).
 
 ### Specify cache directory
 
-If not using `--local-dir`, all files will be downloaded by default to the cache directory defined by the `HF_HOME` [environment variable](../package_reference/environment_variables#hfhome). You can specify a custom cache using `--cache-dir`:
+By default, `hf download` stores files in the shared Hub cache. Set [`HF_HUB_CACHE`](../package_reference/environment_variables#hfhubcache) to change the default cache directory, or pass `--cache-dir` for a single command. Use `--local-dir` to write files directly to a destination folder with its own download metadata. The CLI rejects commands that combine `--cache-dir` and `--local-dir`.
 
 ```bash
 >>> hf download adept/fuyu-8b --cache-dir ./path/to/cache
 ...
 ./path/to/cache/models--adept--fuyu-8b/snapshots/ddcacbcf5fdf9cc59ff01f6be6d6662624d9c745
+```
+
+To reuse a shared cache and also create a standalone copy, download to the cache first. On Linux or macOS, use `--quiet` to capture the cached file path and `cp -L` to copy the file contents even if that path is a symlink:
+
+```bash
+cached_file=$(hf download openai-community/gpt2 config.json --cache-dir ./shared-cache --quiet) &&
+  mkdir -p ./model &&
+  cp -L "$cached_file" ./model/config.json
 ```
 
 ### Specify a token
