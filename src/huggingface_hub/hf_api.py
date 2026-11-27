@@ -13979,7 +13979,7 @@ class HfApi:
             for remote_name, local_path in remote_to_local_file_names.items()
         ]
         self.batch_bucket_files(bucket_id=bucket_id, add=add_ops, token=token)
-        print(f"Your script and Job artifacts will be saved in this bucket: {bucket_url.url}")
+        logger.info(f"Your script and Job artifacts will be saved in this bucket: {bucket_url.url}")
 
         volume = Volume(
             type="bucket",
