@@ -677,9 +677,10 @@ def build_orchestrator_job_spec(
     """
     if network_group is not None:
         _validate_network_group(network_group)
-        group_id = network_group
-    else:
-        group_id = f"sc-{uuid.uuid4().hex[:10]}"
+    # Always use a unique per-run label ID for lifecycle/teardown isolation even when
+    # multiple runs explicitly share the same `--network-group`.
+    run_id = f"sc-{uuid.uuid4().hex[:10]}"
+    net_group = network_group if network_group is not None else run_id
 
     instances = sidecars_config.expand_instances()
     main_timeout_secs = int(main_job_spec.get("timeoutSeconds") or DEFAULT_JOB_TIMEOUT_SECS)
@@ -692,11 +693,11 @@ def build_orchestrator_job_spec(
     main_spec_clean = dict(main_job_spec)
     main_secrets = main_spec_clean.pop("secrets", None)
     main_labels = dict(main_spec_clean.get("labels") or {})
-    main_labels[SIDECAR_GROUP_LABEL] = group_id
+    main_labels[SIDECAR_GROUP_LABEL] = run_id
     main_labels[SIDECAR_ROLE_LABEL] = "main"
     main_spec_clean["labels"] = main_labels
     main_network = dict(main_spec_clean.get("network") or {})
-    main_network["group"] = group_id
+    main_network["group"] = net_group
     main_spec_clean["network"] = main_network
     if resource_group_id:
         main_spec_clean["resourceGroupId"] = resource_group_id
@@ -714,11 +715,11 @@ def build_orchestrator_job_spec(
         sc = inst.spec
         if sc.timeout_secs is not None:
             sc_timeout = sc.timeout_secs
-            if sc.on_exit == "fail" and sc_timeout < main_timeout_secs and sc.name not in warned_short_timeout:
+            if sc.on_exit == "fail" and sc_timeout <= main_timeout_secs and sc.name not in warned_short_timeout:
                 warned_short_timeout.add(sc.name)
                 warnings.warn(
-                    f"Sidecar '{sc.name}' has explicit timeout ({sc_timeout}s) shorter than the main Job timeout "
-                    f"({main_timeout_secs}s); if the sidecar times out first, the run will be aborted.",
+                    f"Sidecar '{sc.name}' has explicit timeout ({sc_timeout}s) not longer than the main Job timeout "
+                    f"({main_timeout_secs}s); because sidecars start before main, it may time out first and abort the run.",
                     UserWarning,
                     stacklevel=3,
                 )
@@ -728,13 +729,11 @@ def build_orchestrator_job_spec(
 
         sc_labels = {
             **sc.labels,
-            SIDECAR_GROUP_LABEL: group_id,
+            SIDECAR_GROUP_LABEL: run_id,
             SIDECAR_ROLE_LABEL: "sidecar",
             SIDECAR_NAME_LABEL: inst.instance_name,
         }
-        sc_job_name = sc_labels.pop("name", None) or _sanitize_job_name(
-            f"sidecar-{inst.instance_name}-{group_id[-6:]}"
-        )
+        sc_job_name = sc_labels.pop("name", None) or _sanitize_job_name(f"sidecar-{inst.instance_name}-{run_id[-6:]}")
         sc_job_spec = _create_job_spec(
             image=sc.image,
             command=sc.command,
@@ -748,7 +747,7 @@ def build_orchestrator_job_spec(
             expose=sc.expose,
             expose_public=sc.expose_public,
             ssh=sc.ssh,
-            network_group=group_id,
+            network_group=net_group,
             network_aliases=inst.network_aliases,
             resource_group_id=resource_group_id,
         )
@@ -774,7 +773,7 @@ def build_orchestrator_job_spec(
     manifest = {
         "endpoint": endpoint,
         "namespace": namespace,
-        "group_id": group_id,
+        "group_id": run_id,
         "group_label_key": SIDECAR_GROUP_LABEL,
         "role_label_key": SIDECAR_ROLE_LABEL,
         "poll_interval_secs": poll_interval_secs,
@@ -789,7 +788,7 @@ def build_orchestrator_job_spec(
         orch_secrets["HF_ORCHESTRATOR_SECRETS"] = json.dumps(child_secrets)
 
     orch_timeout = max_sidecar_timeout + SAFETY_TIMEOUT_BUFFER_SECS
-    orch_name = _sanitize_job_name(f"sidecars-orchestrator-{group_id[-6:]}")
+    orch_name = _sanitize_job_name(f"sidecars-orchestrator-{run_id[-6:]}")
     orch_spec = _create_job_spec(
         image=ORCHESTRATOR_IMAGE,
         command=[
@@ -806,10 +805,10 @@ def build_orchestrator_job_spec(
         timeout=orch_timeout,
         name=orch_name,
         labels={
-            SIDECAR_GROUP_LABEL: group_id,
+            SIDECAR_GROUP_LABEL: run_id,
             SIDECAR_ROLE_LABEL: "orchestrator",
         },
-        network_group=group_id,
+        network_group=net_group,
         resource_group_id=resource_group_id,
     )
-    return group_id, orch_spec
+    return run_id, orch_spec

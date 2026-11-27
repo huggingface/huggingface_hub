@@ -22,6 +22,7 @@ from __future__ import annotations
 import base64
 import concurrent.futures
 import email.utils
+import http.client
 import json
 import os
 import re
@@ -142,12 +143,18 @@ class _HubJobsClient:
                     pass
                 err_cls = _TransientHubError if exc.code in _RETRYABLE_STATUS_CODES else _PermanentHubError
                 raise err_cls(f"HTTP {exc.code} on {method} {url}: {body or exc.reason}") from exc
-            except (urllib.error.URLError, TimeoutError, OSError) as exc:
+            except (
+                urllib.error.URLError,
+                http.client.HTTPException,
+                json.JSONDecodeError,
+                TimeoutError,
+                OSError,
+            ) as exc:
                 last_error = exc
                 if retry_on_network_or_5xx and attempt + 1 < max_retries:
                     time.sleep(min(2.0**attempt, 8.0))
                     continue
-                raise _TransientHubError(f"Network error on {method} {url}: {exc}") from exc
+                raise _TransientHubError(f"Network/response error on {method} {url}: {exc}") from exc
         raise _TransientHubError(f"Request failed on {method} {url}: {last_error}")
 
     def create_job(self, job_spec: dict[str, Any]) -> dict[str, Any]:
@@ -205,17 +212,7 @@ class _HubJobsClient:
         deadline = time.monotonic() + total_timeout
         try:
             with urllib.request.urlopen(req, timeout=min(read_timeout, total_timeout)) as resp:
-                while True:
-                    remaining = deadline - time.monotonic()
-                    if remaining <= 0:
-                        break
-                    raw_sock = getattr(getattr(resp, "fp", None), "raw", None)
-                    sock = getattr(raw_sock, "_sock", None)
-                    if sock is not None:
-                        try:
-                            sock.settimeout(min(read_timeout, remaining))
-                        except Exception:
-                            pass
+                while time.monotonic() < deadline:
                     raw_line = resp.readline()
                     if not raw_line:
                         break
@@ -345,12 +342,17 @@ def run_orchestrator(
     sidecar_meta: dict[str, dict[str, Any]] = {sc["name"]: sc for sc in sidecars}
     main_job_id: str | None = None
     terminated_by_signal = threading.Event()
-    cleanup_lock = threading.Lock()
+    cleanup_lock = threading.RLock()
+    cleanup_in_progress = False
     cleaned_up = False
 
     def _is_orchestrator_job(job: dict[str, Any]) -> bool:
         labels = job.get("labels")
         return isinstance(labels, dict) and labels.get(role_label_key) == "orchestrator"
+
+    def _belongs_to_run(job: dict[str, Any]) -> bool:
+        labels = job.get("labels")
+        return isinstance(labels, dict) and labels.get(group_label_key) == group_id
 
     def _snapshot_tracked_ids(exclude: set[str]) -> list[str]:
         with sidecar_jobs_lock:
@@ -360,74 +362,87 @@ def run_orchestrator(
         return list(dict.fromkeys(ids))
 
     def cleanup_all(*, exclude_ids: set[str] | None = None, fast: bool = False) -> int:
-        nonlocal cleaned_up
+        nonlocal cleaned_up, cleanup_in_progress
         with cleanup_lock:
             if cleaned_up:
                 return 0
             cleaned_up = True
-            exclude = exclude_ids or set()
-            tracked = _snapshot_tracked_ids(exclude)
+            cleanup_in_progress = True
+            try:
+                exclude = exclude_ids or set()
+                tracked = _snapshot_tracked_ids(exclude)
 
-            if fast:
-                # On SIGTERM the platform grace period is ~2s: fire tracked cancels immediately
-                # without waiting behind a list round-trip, while sweeping the group label concurrently
-                # to catch any untracked/in-flight jobs.
-                cancelled = 0
-                with concurrent.futures.ThreadPoolExecutor(max_workers=min(16, max(2, len(tracked) + 1))) as pool:
-                    list_future = pool.submit(
-                        client.list_group_jobs,
-                        group_label_key,
-                        group_id,
-                        timeout=_SIGTERM_HTTP_TIMEOUT_SECS,
-                        max_retries=1,
-                    )
-                    cancel_futures = [
-                        pool.submit(client.cancel_job, jid, timeout=_SIGTERM_HTTP_TIMEOUT_SECS, max_retries=1)
-                        for jid in tracked
-                    ]
-                    for fut in cancel_futures:
-                        if fut.result():
-                            cancelled += 1
-                    try:
-                        live = list_future.result()
-                    except Exception:
-                        live = {}
+                if fast:
+                    # On SIGTERM the platform grace period is ~2s: fire tracked cancels immediately
+                    # without waiting behind a list round-trip, while sweeping the group label concurrently
+                    # to catch any untracked/in-flight jobs.
+                    cancelled = 0
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=min(16, max(2, len(tracked) + 1))) as pool:
+                        list_future = pool.submit(
+                            client.list_group_jobs,
+                            group_label_key,
+                            group_id,
+                            timeout=_SIGTERM_HTTP_TIMEOUT_SECS,
+                            max_retries=1,
+                        )
+                        cancel_futures = [
+                            pool.submit(client.cancel_job, jid, timeout=_SIGTERM_HTTP_TIMEOUT_SECS, max_retries=1)
+                            for jid in tracked
+                        ]
+                        for fut in cancel_futures:
+                            if fut.result():
+                                cancelled += 1
+                        try:
+                            live = list_future.result()
+                        except Exception:
+                            live = {}
+                        tracked_set = set(tracked)
+                        extra_ids = [
+                            jid
+                            for jid, job in live.items()
+                            if jid not in exclude
+                            and jid not in tracked_set
+                            and _belongs_to_run(job)
+                            and not _is_orchestrator_job(job)
+                            and _job_stage(job) not in TERMINAL_STAGES
+                        ]
+                        if extra_ids:
+                            cancelled += _cancel_jobs_parallel(
+                                client, extra_ids, timeout=_SIGTERM_HTTP_TIMEOUT_SECS, max_retries=1
+                            )
+                    return cancelled
+
+                # Normal teardown: cancel all non-terminal non-orchestrator jobs in this run's
+                # unique group label (catches any untracked/ghost jobs) plus any tracked jobs
+                # not yet visible in list.
+                try:
+                    live = client.list_group_jobs(group_label_key, group_id)
                     tracked_set = set(tracked)
-                    extra_ids = [
+                    active_to_cancel = [
                         jid
                         for jid, job in live.items()
                         if jid not in exclude
-                        and jid not in tracked_set
+                        and (_belongs_to_run(job) or jid in tracked_set)
                         and not _is_orchestrator_job(job)
                         and _job_stage(job) not in TERMINAL_STAGES
                     ]
-                    if extra_ids:
-                        cancelled += _cancel_jobs_parallel(
-                            client, extra_ids, timeout=_SIGTERM_HTTP_TIMEOUT_SECS, max_retries=1
-                        )
-                return cancelled
-
-            # Normal teardown: cancel all non-terminal non-orchestrator jobs in the group label
-            # (catches any untracked/ghost jobs) plus any tracked jobs not yet visible in list.
-            try:
-                live = client.list_group_jobs(group_label_key, group_id)
-                active_to_cancel = [
-                    jid
-                    for jid, job in live.items()
-                    if jid not in exclude and not _is_orchestrator_job(job) and _job_stage(job) not in TERMINAL_STAGES
-                ]
-                for jid in tracked:
-                    if jid not in live:
-                        active_to_cancel.append(jid)
-            except Exception:
-                active_to_cancel = tracked
-            return _cancel_jobs_parallel(client, active_to_cancel)
+                    for jid in tracked:
+                        if jid not in live:
+                            active_to_cancel.append(jid)
+                except Exception:
+                    active_to_cancel = tracked
+                return _cancel_jobs_parallel(client, active_to_cancel)
+            finally:
+                cleanup_in_progress = False
 
     if install_signal_handlers and threading.current_thread() is threading.main_thread():
 
         def _handle_sigterm(_signum: int, _frame: Any) -> None:
-            _log("Received termination signal; canceling active group jobs...")
             terminated_by_signal.set()
+            if cleanup_in_progress:
+                _log("Received termination signal while teardown is already in progress; letting cleanup finish.")
+                return
+            _log("Received termination signal; canceling active group jobs...")
             count = cleanup_all(fast=True)
             _log(f"Canceled {count} job(s) on signal.")
             raise SystemExit(143)
