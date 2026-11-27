@@ -421,6 +421,32 @@ jobs:
               --arg thread_ts "${{ needs.prepare.outputs.message_ts }}" \
               '{channel: $channel, text: $text, thread_ts: $thread_ts, unfurl_links: false}')" > /dev/null
 
+  build-windows-cli:
+    needs: prepare
+    if: ${{ needs.prepare.outputs.is_prerelease == 'false' }}
+    permissions:
+      contents: read
+    uses: ./.github/workflows/build-windows-cli.yml
+    with:
+      ref: ${{ needs.prepare.outputs.tag }}
+
+  publish-windows-cli:
+    needs: [prepare, build-windows-cli, release-notes]
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: hf-windows-x86_64
+          path: dist
+      - name: Attach Windows CLI and WinGet manifests to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+        run: gh release upload "$RELEASE_TAG" dist/*.zip dist/*.sha256
+
   # ============================================================
   # 4. RELEASE NOTES — manage GitHub releases
   #
@@ -1303,7 +1329,7 @@ jobs:
   # ============================================================
   slack-complete:
     permissions: {}
-    needs: [prepare, publish-pypi, publish-hf-cli, release-notes, slack-message, archive-release-notes, test-downstream, post-release, sync-hf-cli-skill, notify-prs]
+    needs: [prepare, publish-pypi, publish-hf-cli, build-windows-cli, publish-windows-cli, release-notes, slack-message, archive-release-notes, test-downstream, post-release, sync-hf-cli-skill, notify-prs]
     if: ${{ always() && needs.prepare.outputs.message_ts }}
     runs-on: ubuntu-latest
     steps:
@@ -1328,6 +1354,8 @@ jobs:
             "${{ needs.prepare.result }}" \
             "${{ needs.publish-pypi.result }}" \
             "${{ needs.publish-hf-cli.result }}" \
+            "${{ needs.build-windows-cli.result }}" \
+            "${{ needs.publish-windows-cli.result }}" \
             "${{ needs.release-notes.result }}" \
             "${{ needs.slack-message.result }}" \
             "${{ needs.archive-release-notes.result }}" \
