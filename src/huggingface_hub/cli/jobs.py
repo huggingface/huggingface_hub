@@ -973,11 +973,7 @@ def jobs_stats(
     if namespace is None:
         namespace = api.whoami()["name"]
     if job_ids is None:
-        job_ids = [
-            job.id
-            for job in api.list_jobs(namespace=namespace)
-            if (job.status.stage if job.status else "UNKNOWN") in ("RUNNING", "UPDATING")
-        ]
+        job_ids = [job.id for job in api.list_jobs(namespace=namespace, status=JobStage.RUNNING)]
     if len(job_ids) == 0:
         out.table([])
         out.hint("No running jobs. Use `hf jobs ps -a` to list finished (and failed) jobs.")
