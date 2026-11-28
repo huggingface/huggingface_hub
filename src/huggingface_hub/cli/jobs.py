@@ -38,7 +38,7 @@ from huggingface_hub._jobs_api import (
     _default_job_name_from_script,
 )
 from huggingface_hub.errors import CLIError
-from huggingface_hub.utils import logging
+from huggingface_hub.utils import is_agent, logging
 from huggingface_hub.utils._cache_manager import _format_size
 from huggingface_hub.utils._hf_uris import _split_mount
 from huggingface_hub.utils._parsing import format_duration, parse_duration
@@ -718,11 +718,33 @@ def _hint_or_follow_started_job(api: HfApi, job: JobInfo, *, detach: bool) -> No
             f"`--network-group {group}` reach each other at `$HF_NETWORK_GROUP_HOSTNAME` (every member) "
             "or `${HF_NETWORK_GROUP_PREFIX}<alias>` (members claiming an alias)."
         )
+    if is_agent():
+        _hint_group_labels(job)
     if detach:
         out.hint(f"Use `hf jobs logs -f {job_ref}` to stream logs, or `hf jobs inspect {job_ref}` to check status.")
         out.hint(f"Use `hf jobs wait {job_ref}` to block until it finishes.")
         return
     _stream_logs_and_check_status(api, job)
+
+
+def _hint_group_labels(job: JobInfo) -> None:
+    """Nudge agents to label all the Jobs of a session the same way, so they are grouped in the UI."""
+    labels = job.labels or {}
+    if group_labels := {key: value for key, value in labels.items() if key != "name"}:
+        flags = " ".join(
+            f"--label {key}={value}" if value else f"--label {key}" for key, value in group_labels.items()
+        )
+        out.hint(
+            f"If you launch more Jobs in this session, reuse `{flags}` (with a unique `--name` per Job) "
+            "so they are grouped in the UI."
+        )
+        return
+    group = f"group={job.id[:8]}"
+    rename = f" --name {name}" if (name := labels.get("name")) else ""
+    out.hint(
+        f"If you launch more Jobs in this session, tag them all with `--label {group}` (with a unique `--name` per Job) "
+        f"so they are grouped in the UI. Tag this one too: `hf jobs labels {job.owner.name}/{job.id}{rename} --label {group}`."
+    )
 
 
 @jobs_cli.command(
