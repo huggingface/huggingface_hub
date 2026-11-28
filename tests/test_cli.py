@@ -2067,7 +2067,26 @@ class TestAuthSwitchCommand:
 
 
 class TestAuthWhoamiCommand:
-    MOCK_WHOAMI = {"name": "testuser", "orgs": [{"name": "org1"}, {"name": "org2"}], "type": "user"}
+    MOCK_AUTH = {
+        "type": "access_token",
+        "accessToken": {
+            "displayName": "my-token",
+            "role": "fineGrained",
+            "createdAt": "2026-01-01T00:00:00.000Z",
+            "fineGrained": {
+                "canReadGatedRepos": True,
+                "global": ["discussion.write"],
+                "scoped": [
+                    {"entity": {"_id": "a" * 24, "type": "org", "name": "org1"}, "permissions": ["repo.content.read"]},
+                    {
+                        "entity": {"_id": "b" * 24, "type": "model", "name": "org1/my-model"},
+                        "permissions": ["repo.content.read", "repo.write"],
+                    },
+                ],
+            },
+        },
+    }
+    MOCK_WHOAMI = {"name": "testuser", "orgs": [{"name": "org1"}, {"name": "org2"}], "type": "user", "auth": MOCK_AUTH}
 
     def test_whoami_default_table(self, runner: CliRunner) -> None:
         with (
@@ -2079,6 +2098,7 @@ class TestAuthWhoamiCommand:
         assert "testuser" in result.stdout
         assert "org1" in result.stdout
         assert "org2" in result.stdout
+        assert "role:" not in result.stdout  # permissions are opt-in
 
     def test_whoami_format_json(self, runner: CliRunner) -> None:
         with (
@@ -2090,6 +2110,52 @@ class TestAuthWhoamiCommand:
         parsed = json.loads(result.stdout)
         assert parsed["user"] == "testuser"
         assert parsed["orgs"] == "org1,org2"
+        assert "permissions" not in parsed
+
+    @pytest.mark.parametrize(
+        "auth, expected",
+        [
+            (
+                MOCK_AUTH,
+                "  role: fineGrained\n"
+                "  global: discussion.write\n"
+                "  can_read_gated_repos: True\n"
+                "  scoped:\n"
+                "    org/org1: repo.content.read\n"
+                "    model/org1/my-model: repo.content.read, repo.write\n",
+            ),
+            ({"type": "access_token", "accessToken": {"role": "write"}}, "  role: write\n"),
+            ({"type": "oauth"}, "  role: unavailable\n"),
+            (
+                {
+                    "type": "access_token",
+                    "accessToken": {"role": "fineGrained", "fineGrained": {"canReadGatedRepos": False, "scoped": []}},
+                },
+                "  role: fineGrained\n  global: unavailable\n  can_read_gated_repos: False\n  scoped: (none)\n",
+            ),
+        ],
+        ids=["fine_grained", "classic_token", "no_permission_metadata", "missing_vs_empty_list"],
+    )
+    def test_whoami_permissions(self, runner: CliRunner, auth: dict, expected: str) -> None:
+        with (
+            patch("huggingface_hub.cli.auth.get_token", return_value="fake-token"),
+            patch("huggingface_hub.cli.auth.whoami", return_value={**self.MOCK_WHOAMI, "auth": auth}),
+        ):
+            result = runner.invoke(app, ["auth", "whoami", "--permissions"])
+        assert result.exit_code == 0
+        assert "user: testuser" in result.stdout
+        assert result.stdout.endswith(expected)
+
+    def test_whoami_permissions_json(self, runner: CliRunner) -> None:
+        with (
+            patch("huggingface_hub.cli.auth.get_token", return_value="fake-token"),
+            patch("huggingface_hub.cli.auth.whoami", return_value=self.MOCK_WHOAMI),
+        ):
+            result = runner.invoke(app, ["auth", "whoami", "--permissions", "--json"])
+        assert result.exit_code == 0
+        parsed = json.loads(result.stdout)
+        assert parsed["user"] == "testuser"
+        assert parsed["permissions"] == {"role": "fineGrained", **self.MOCK_AUTH["accessToken"]["fineGrained"]}
 
     def test_whoami_json_shorthand(self, runner: CliRunner) -> None:
         with (

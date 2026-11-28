@@ -222,15 +222,34 @@ For more details about authentication, check out [this section](../quick-start#a
 
 ## hf auth whoami
 
-If you want to know if you are logged in, you can use `hf auth whoami`. This command doesn't have any options and simply prints your username and the organizations you are a part of on the Hub:
+If you want to know if you are logged in, you can use `hf auth whoami`. This command prints your username and the organizations you are a part of on the Hub:
 
 ```bash
-hf auth whoami
-Wauplin
-orgs:  huggingface,eu-test,OAuthTesters,hf-accelerate,HFSmolCluster
+>>> hf auth whoami
+✓ Logged in
+  user: Wauplin
+  orgs: huggingface,eu-test,OAuthTesters,hf-accelerate,HFSmolCluster
 ```
 
 If you are not logged in, an error message will be printed.
+
+To check what the active token is allowed to do, for example when debugging a 403 error, add `--permissions`. It shows the role of the token (`read`, `write` or `fineGrained`). For a fine-grained token, it also lists its global permissions, whether it can read the gated repos you have access to, and its permissions on each user, organization or repo:
+
+```bash
+>>> hf auth whoami --permissions
+✓ Logged in
+  user: Wauplin
+  orgs: MyCoolOrganization
+  role: fineGrained
+  global: discussion.write, post.write
+  can_read_gated_repos: True
+  scoped:
+    user/Wauplin: repo.content.read, repo.write
+    org/MyCoolOrganization: repo.content.read
+    model/MyCoolOrganization/my-cool-model: repo.content.read, repo.write
+```
+
+Permission details that the Hub doesn't return are shown as `unavailable`. With `--format json`, they are returned in a `permissions` object that holds the token `role` and, for a fine-grained token, the `global`, `canReadGatedRepos` and `scoped` fields as returned by the Hub.
 
 ## hf auth logout
 
