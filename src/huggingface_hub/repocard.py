@@ -168,7 +168,9 @@ class RepoCard:
             ```
         """
 
-        if Path(repo_id_or_path).is_file():
+        # `os.path.isfile` returns False for a string too long to be a path,
+        # while `Path.is_file` raises OSError on Python < 3.14.
+        if os.path.isfile(repo_id_or_path):
             card_path = Path(repo_id_or_path)
         elif isinstance(repo_id_or_path, str):
             card_path = Path(

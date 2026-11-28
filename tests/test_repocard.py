@@ -37,7 +37,7 @@ from huggingface_hub import (
     metadata_save,
     metadata_update,
 )
-from huggingface_hub.errors import EntryNotFoundError
+from huggingface_hub.errors import EntryNotFoundError, HFValidationError
 from huggingface_hub.file_download import hf_hub_download
 from huggingface_hub.hf_api import HfApi
 from huggingface_hub.repocard import REGEX_YAML_BLOCK
@@ -556,6 +556,11 @@ class TestRepoCard:
             "metrics": ["acc"],
         }
         assert card.text.strip().startswith("# my-cool-model"), "Card text not loaded properly"
+
+    def test_load_repocard_too_long_for_a_path(self):
+        """A string too long to be a path is treated as a repo id (`Path.is_file` raises OSError on Python < 3.14)."""
+        with pytest.raises(HFValidationError):
+            RepoCard.load("x" * 5000)
 
     def test_change_repocard_data(self):
         sample_path = SAMPLE_CARDS_DIR / "sample_simple.md"
