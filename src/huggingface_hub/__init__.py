@@ -223,6 +223,7 @@ _SUBMOD_ATTRS = {
         "add_collection_item",
         "add_space_secret",
         "add_space_variable",
+        "assign_resource_group_item",
         "auth_check",
         "batch_bucket_files",
         "bucket_info",
@@ -364,6 +365,7 @@ _SUBMOD_ATTRS = {
         "sync_bucket",
         "sync_job_volume",
         "trigger_scheduled_job",
+        "unassign_resource_group_item",
         "unlike",
         "update_bucket_settings",
         "update_collection_item",
@@ -961,6 +963,7 @@ __all__ = [
     "add_collection_item",
     "add_space_secret",
     "add_space_variable",
+    "assign_resource_group_item",
     "attach_huggingface_oauth",
     "auth_check",
     "auth_list",
@@ -1152,6 +1155,7 @@ __all__ = [
     "trigger_scheduled_job",
     "try_to_load_from_cache",
     "typer_factory",
+    "unassign_resource_group_item",
     "unlike",
     "update_bucket_settings",
     "update_collection_item",
@@ -1441,6 +1445,7 @@ if TYPE_CHECKING:  # pragma: no cover
         add_collection_item,  # noqa: F401
         add_space_secret,  # noqa: F401
         add_space_variable,  # noqa: F401
+        assign_resource_group_item,  # noqa: F401
         auth_check,  # noqa: F401
         batch_bucket_files,  # noqa: F401
         bucket_info,  # noqa: F401
@@ -1582,6 +1587,7 @@ if TYPE_CHECKING:  # pragma: no cover
         sync_bucket,  # noqa: F401
         sync_job_volume,  # noqa: F401
         trigger_scheduled_job,  # noqa: F401
+        unassign_resource_group_item,  # noqa: F401
         unlike,  # noqa: F401
         update_bucket_settings,  # noqa: F401
         update_collection_item,  # noqa: F401

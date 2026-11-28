@@ -43,7 +43,7 @@ from huggingface_hub.utils import (
 from huggingface_hub.utils._verification import FolderVerification
 
 from .conftest import RepoFactory
-from .testing_constants import DUMMY_MODEL_ID, TOKEN
+from .testing_constants import DUMMY_MODEL_ID, ENTERPRISE_ORG, ENTERPRISE_RESOURCE_GROUP_ID, ENTERPRISE_TOKEN, TOKEN
 from .testing_utils import repo_name
 
 
@@ -1911,6 +1911,34 @@ class TestRepoSettingsCommand:
         assert kwargs["repo_type"] == "dataset"
         assert kwargs["visibility"] == "private"
         assert kwargs["gated"] == "manual"
+
+
+class TestResourceGroupsCommand:
+    def test_assign_unassign(self, runner: CliRunner, repo_factory: RepoFactory) -> None:
+        api = HfApi(token=ENTERPRISE_TOKEN)
+        repo_id = repo_factory("dataset", repo_id=f"{ENTERPRISE_ORG}/{repo_name()}", token=ENTERPRISE_TOKEN).repo_id
+
+        def current_group() -> str | None:
+            info = api.dataset_info(repo_id, expand=["resourceGroup"])
+            return info.resource_group["id"] if info.resource_group else None
+
+        with patch("huggingface_hub.cli.resource_groups.get_hf_api", return_value=api):
+            result = runner.invoke(
+                app,
+                ["resource-groups", "assign", ENTERPRISE_RESOURCE_GROUP_ID, repo_id, "--type", "dataset", "--json"],
+            )
+            assert result.exit_code == 0, result.output
+            assert json.loads(result.stdout) == {
+                "item": repo_id,
+                "type": "dataset",
+                "resource_group_id": ENTERPRISE_RESOURCE_GROUP_ID,
+            }
+            assert current_group() == ENTERPRISE_RESOURCE_GROUP_ID
+
+            result = runner.invoke(app, ["resource-groups", "unassign", repo_id, "--type", "dataset", "--json"])
+            assert result.exit_code == 0, result.output
+            assert json.loads(result.stdout) == {"item": repo_id, "type": "dataset", "resource_group_id": None}
+            assert current_group() is None
 
 
 class TestRepoListCommand:

@@ -158,6 +158,16 @@ R = TypeVar("R")  # Return type
 CollectionItemType_T = Literal["model", "dataset", "space", "paper", "collection", "bucket"]
 CollectionSort_T = Literal["lastModified", "trending", "upvotes"]
 RepoVisibility_T = Literal["public", "private", "protected"]
+ResourceGroupItemType_T = Literal["model", "dataset", "space", "bucket", "container", "collection", "blog"]
+_RESOURCE_GROUP_ITEM_PATHS: dict[str, str] = {
+    "model": "models",
+    "dataset": "datasets",
+    "space": "spaces",
+    "bucket": "buckets",
+    "container": "containers",
+    "collection": "collections",
+    "blog": "blog",
+}
 
 ExpandModelProperty_T = Literal[
     "author",
@@ -4936,6 +4946,100 @@ class HfApi:
             url=f"{self.endpoint}/api/{repo_type}s/{repo_id}/settings",
             headers=headers,
             json=payload,
+        )
+        hf_raise_for_status(r)
+
+    def assign_resource_group_item(
+        self,
+        resource_group_id: str,
+        item_id: str,
+        *,
+        item_type: ResourceGroupItemType_T = "model",
+        token: bool | str | None = None,
+    ) -> None:
+        """Assign an organization-owned item to a resource group.
+
+        An item belongs to at most one resource group: assigning an item that is already in a group moves it to this
+        one. Adding an item to a group requires the admin, write or contributor role in that group. Moving it out of
+        its current group requires being an admin of that group or of the organization. Fine-grained tokens need the
+        "Write to resource groups" permission on the organization.
+
+        To learn more about resource groups, see https://huggingface.co/docs/hub/en/security-resource-groups.
+
+        Args:
+            resource_group_id (`str`):
+                ID of the resource group, as a 24-character hexadecimal string.
+            item_id (`str`):
+                ID of the item: a repo ID (`"my-org/my-model"`), a collection slug
+                (`"my-org/my-collection-64f9a55bb3115b4f513ec026"`) or a blog post ID (`"my-org/my-post"`).
+            item_type (`str`, *optional*):
+                Type of the item. One of `"model"` (default), `"dataset"`, `"space"`, `"bucket"`, `"container"`,
+                `"collection"` or `"blog"`.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Example:
+
+        ```py
+        >>> from huggingface_hub import assign_resource_group_item
+        >>> assign_resource_group_item("66980ecfc1e12a49c8f0e42d", "my-org/my-model")
+        >>> assign_resource_group_item("66980ecfc1e12a49c8f0e42d", "my-org/my-data", item_type="dataset")
+        ```
+        """
+        self._update_resource_group_item(item_id, resource_group_id, item_type=item_type, token=token)
+
+    def unassign_resource_group_item(
+        self,
+        item_id: str,
+        *,
+        item_type: ResourceGroupItemType_T = "model",
+        token: bool | str | None = None,
+    ) -> None:
+        """Remove an organization-owned item from its resource group.
+
+        An item belongs to at most one resource group, so no group is needed. Requires being an admin of the item's
+        group or of the organization. Fails if the item is not in a resource group.
+
+        Args:
+            item_id (`str`):
+                ID of the item: a repo ID (`"my-org/my-model"`), a collection slug
+                (`"my-org/my-collection-64f9a55bb3115b4f513ec026"`) or a blog post ID (`"my-org/my-post"`).
+            item_type (`str`, *optional*):
+                Type of the item. One of `"model"` (default), `"dataset"`, `"space"`, `"bucket"`, `"container"`,
+                `"collection"` or `"blog"`.
+            token (`bool` or `str`, *optional*):
+                A valid user access token (string). Defaults to the locally saved
+                token, which is the recommended method for authentication (see
+                https://huggingface.co/docs/huggingface_hub/quick-start#authentication).
+                To disable authentication, pass `False`.
+
+        Example:
+
+        ```py
+        >>> from huggingface_hub import unassign_resource_group_item
+        >>> unassign_resource_group_item("my-org/my-model")
+        ```
+        """
+        self._update_resource_group_item(item_id, None, item_type=item_type, token=token)
+
+    def _update_resource_group_item(
+        self,
+        item_id: str,
+        resource_group_id: str | None,
+        *,
+        item_type: ResourceGroupItemType_T,
+        token: bool | str | None,
+    ) -> None:
+        if item_type not in _RESOURCE_GROUP_ITEM_PATHS:
+            raise ValueError(f"Invalid item type, must be one of {list(_RESOURCE_GROUP_ITEM_PATHS)}")
+        path = _RESOURCE_GROUP_ITEM_PATHS[item_type]
+        r = get_session().post(
+            f"{self.endpoint}/api/{path}/{item_id}/resource-group",
+            headers=self._build_hf_headers(token=token),
+            json={"resourceGroupId": resource_group_id},
         )
         hf_raise_for_status(r)
 
@@ -15642,6 +15746,8 @@ create_commit = api.create_commit
 create_repo = api.create_repo
 delete_repo = api.delete_repo
 update_repo_settings = api.update_repo_settings
+assign_resource_group_item = api.assign_resource_group_item
+unassign_resource_group_item = api.unassign_resource_group_item
 move_repo = api.move_repo
 upload_file = api.upload_file
 upload_folder = api.upload_folder

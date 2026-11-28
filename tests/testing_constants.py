@@ -14,6 +14,9 @@ OTHER_TOKEN = "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"
 ENTERPRISE_USER = "EnterpriseAdmin"
 ENTERPRISE_ORG = "EnterpriseOrgPrivate"
 ENTERPRISE_TOKEN = "hf_enterprise_admin_token"
+# Resource groups of ENTERPRISE_ORG, seeded on hub-ci with fixed IDs (resource group routes are blocked on hub-ci)
+ENTERPRISE_RESOURCE_GROUP_ID = "6ace3c4011bf35777f71a001"  # "hub-ci-resource-group"
+ENTERPRISE_OTHER_RESOURCE_GROUP_ID = "6ace3c4011bf35777f71a002"  # "hub-ci-other-resource-group"
 
 ENDPOINT_PRODUCTION = "https://huggingface.co"
 ENDPOINT_STAGING = "https://hub-ci.huggingface.co"

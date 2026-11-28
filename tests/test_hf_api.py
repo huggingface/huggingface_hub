@@ -98,6 +98,8 @@ from .testing_constants import (
     ENDPOINT_PRODUCTION,
     ENDPOINT_STAGING,
     ENTERPRISE_ORG,
+    ENTERPRISE_OTHER_RESOURCE_GROUP_ID,
+    ENTERPRISE_RESOURCE_GROUP_ID,
     ENTERPRISE_TOKEN,
     FULL_NAME,
     OTHER_TOKEN,
@@ -279,6 +281,53 @@ class TestHfApiEndpoints:
         info = api.dataset_info(repo_id)
         assert info.gated == "auto"
         assert info.private
+
+
+class TestResourceGroupItems:
+    def test_assign_move_unassign_repo(self, api: HfApi, repo_factory: RepoFactory) -> None:
+        repo_id = repo_factory("dataset", repo_id=f"{ENTERPRISE_ORG}/{repo_name()}", token=ENTERPRISE_TOKEN).repo_id
+
+        def current_group() -> str | None:
+            info = api.repo_info(repo_id, repo_type="dataset", expand=["resourceGroup"], token=ENTERPRISE_TOKEN)
+            return info.resource_group["id"] if info.resource_group else None
+
+        api.assign_resource_group_item(
+            ENTERPRISE_RESOURCE_GROUP_ID, repo_id, item_type="dataset", token=ENTERPRISE_TOKEN
+        )
+        assert current_group() == ENTERPRISE_RESOURCE_GROUP_ID
+
+        # Assigning to another group moves the repo
+        api.assign_resource_group_item(
+            ENTERPRISE_OTHER_RESOURCE_GROUP_ID, repo_id, item_type="dataset", token=ENTERPRISE_TOKEN
+        )
+        assert current_group() == ENTERPRISE_OTHER_RESOURCE_GROUP_ID
+
+        api.unassign_resource_group_item(repo_id, item_type="dataset", token=ENTERPRISE_TOKEN)
+        assert current_group() is None
+
+        # Unassigning an item that is not in a group fails
+        with pytest.raises(HfHubHTTPError, match="not in a resource group"):
+            api.unassign_resource_group_item(repo_id, item_type="dataset", token=ENTERPRISE_TOKEN)
+
+    def test_assign_unassign_collection(self, api: HfApi) -> None:
+        collection = api.create_collection(repo_name("collection"), namespace=ENTERPRISE_ORG, token=ENTERPRISE_TOKEN)
+        try:
+            api.assign_resource_group_item(
+                ENTERPRISE_RESOURCE_GROUP_ID, collection.slug, item_type="collection", token=ENTERPRISE_TOKEN
+            )
+            # Unassign only succeeds if the collection was in a group
+            api.unassign_resource_group_item(collection.slug, item_type="collection", token=ENTERPRISE_TOKEN)
+        finally:
+            api.delete_collection(collection.slug, token=ENTERPRISE_TOKEN)
+
+    def test_assign_unknown_group(self, api: HfApi, repo_factory: RepoFactory) -> None:
+        repo_id = repo_factory(repo_id=f"{ENTERPRISE_ORG}/{repo_name()}", token=ENTERPRISE_TOKEN).repo_id
+        with pytest.raises(HfHubHTTPError, match="Resource group not found"):
+            api.assign_resource_group_item("0" * 24, repo_id, token=ENTERPRISE_TOKEN)
+
+    def test_invalid_item_type(self, api: HfApi) -> None:
+        with pytest.raises(ValueError, match="Invalid item type"):
+            api.unassign_resource_group_item("my-org/my-repo", item_type="kernel")  # type: ignore[arg-type]
 
 
 class TestCommitApi:
