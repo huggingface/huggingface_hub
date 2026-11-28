@@ -781,6 +781,10 @@ def scan_cache_dir(cache_dir: str | Path | None = None) -> HFCacheInfo:
             continue
         if repo_path.name == "CACHEDIR.TAG":  # skip CACHEDIR.TAG file
             continue
+        # Skip the legacy cache-version marker written by Transformers' cache migration.
+        # Only a file is skipped: a directory with this name is still reported as invalid.
+        if repo_path.name == "version.txt" and repo_path.is_file():
+            continue
         if repo_path.name == _shared_blobs.SHARED_BLOBS_DIR_NAME and _shared_blobs.is_shared_blobs_dir(repo_path):
             continue
         try:

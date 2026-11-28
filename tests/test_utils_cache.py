@@ -240,6 +240,25 @@ class TestIgnoredCacheFiles:
         assert len(report.warnings) == 0
         assert len(report.repos) == 1
 
+    def test_ignore_legacy_version_txt_at_cache_root(self, tmp_path) -> None:
+        """A legacy Transformers `version.txt` marker at the cache root is not a repo."""
+        (tmp_path / "version.txt").write_text("1")
+
+        report = scan_cache_dir(tmp_path)
+
+        assert len(report.warnings) == 0
+        assert len(report.repos) == 0
+
+    def test_version_txt_directory_at_cache_root_is_still_reported(self, tmp_path) -> None:
+        """Only the marker file is skipped; a directory with that name is still invalid."""
+        repo_path = tmp_path / "version.txt"
+        repo_path.mkdir()
+
+        report = scan_cache_dir(tmp_path)
+
+        assert len(report.warnings) == 1
+        assert str(report.warnings[0]) == f"Repo path is not a valid HuggingFace cache directory: {repo_path}"
+
 
 @pytest.mark.production
 class TestCorruptedCacheUtils:
