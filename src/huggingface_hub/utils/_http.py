@@ -503,6 +503,7 @@ def _http_backoff_base(
         # Fetched on each attempt: a previous attempt may have closed the shared client (see `close_session` below),
         # and closed `httpx2.Client` objects cannot be reused.
         client = get_session()
+        response_yielded = False
         try:
             # If `data` is used and is a file object (or any IO), set back cursor to
             # initial position.
@@ -540,15 +541,19 @@ def _http_backoff_base(
             if stream:
                 with client.stream(method=method, url=url, **kwargs) as response:
                     if not _should_retry(response):
+                        response_yielded = True
                         yield response
                         return
             else:
                 response = client.request(method=method, url=url, **kwargs)
                 if not _should_retry(response):
+                    response_yielded = True
                     yield response
                     return
 
         except retry_on_exceptions as err:
+            if response_yielded:
+                raise
             logger.warning(f"'{err}' thrown while requesting {method} {url}")
 
             if isinstance(err, httpx2.ConnectError):

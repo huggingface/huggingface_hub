@@ -36,6 +36,7 @@ from huggingface_hub.utils._http import (
     get_session,
     hf_raise_for_status,
     http_backoff,
+    http_stream_backoff,
     parse_ratelimit_headers,
     set_client_factory,
 )
@@ -209,6 +210,107 @@ class TestHttpBackoff:
         assert self.mock_request.call_count == 2
         assert sleep_times == [2.0]
         assert response.status_code == 200
+
+
+class TestHttpStreamBackoff:
+    def test_stream_backoff_no_errors(self) -> None:
+        """Test normal streaming with `http_stream_backoff`."""
+
+        def handler(request: httpx2.Request) -> httpx2.Response:
+            return httpx2.Response(200, content=b"streamed content")
+
+        client = httpx2.Client(transport=httpx2.MockTransport(handler))
+        with patch("huggingface_hub.utils._http.get_session", return_value=client):
+            with http_stream_backoff("GET", URL) as response:
+                assert response.status_code == 200
+                assert response.read() == b"streamed content"
+
+    def test_stream_backoff_retries_on_connection_error(self) -> None:
+        """Test `http_stream_backoff` retries on connection error before yielding."""
+        calls = []
+
+        def handler(request: httpx2.Request) -> httpx2.Response:
+            calls.append(request)
+            if len(calls) == 1:
+                raise httpx2.ConnectTimeout("connection failed")
+            return httpx2.Response(200, content=b"streamed content")
+
+        client = httpx2.Client(transport=httpx2.MockTransport(handler))
+        with patch("huggingface_hub.utils._http.get_session", return_value=client), patch("time.sleep"):
+            with http_stream_backoff("GET", URL, base_wait_time=0.0, max_retries=2) as response:
+                assert response.status_code == 200
+                assert response.read() == b"streamed content"
+
+        assert len(calls) == 2
+
+    def test_stream_backoff_retries_on_status_code(self) -> None:
+        """Test `http_stream_backoff` retries on status code (e.g. 503) before yielding."""
+        calls = []
+
+        def handler(request: httpx2.Request) -> httpx2.Response:
+            calls.append(request)
+            if len(calls) == 1:
+                return httpx2.Response(503)
+            return httpx2.Response(200, content=b"recovered")
+
+        client = httpx2.Client(transport=httpx2.MockTransport(handler))
+        with patch("huggingface_hub.utils._http.get_session", return_value=client), patch("time.sleep"):
+            with http_stream_backoff(
+                "GET", URL, base_wait_time=0.0, max_retries=2, retry_on_status_codes=(503,)
+            ) as response:
+                assert response.status_code == 200
+                assert response.read() == b"recovered"
+
+        assert len(calls) == 2
+
+    @pytest.mark.parametrize(
+        "exception",
+        [
+            httpx2.ReadTimeout("mid-stream timeout"),
+            httpx2.RemoteProtocolError("server disconnected"),
+        ],
+    )
+    def test_stream_backoff_exception_after_yield_propagates_without_retry(self, exception: Exception) -> None:
+        """Test that retry_on_exceptions raised after yield propagate without retry or RuntimeError (Fixes #5455)."""
+        calls = []
+
+        def handler(request: httpx2.Request) -> httpx2.Response:
+            calls.append(request)
+            return httpx2.Response(200, content=b"data")
+
+        client = httpx2.Client(transport=httpx2.MockTransport(handler))
+        with patch("huggingface_hub.utils._http.get_session", return_value=client), patch("time.sleep") as mock_sleep:
+            with pytest.raises(type(exception)) as exc_info:
+                with http_stream_backoff("GET", URL, base_wait_time=0.0, max_retries=3) as response:
+                    assert response.status_code == 200
+                    raise exception
+
+        assert exc_info.value is exception
+        assert len(calls) == 1
+        mock_sleep.assert_not_called()
+
+    def test_stream_backoff_body_read_timeout_propagates_without_retry(self) -> None:
+        """Test that a ReadTimeout raised during body consumption inside the with block propagates cleanly (Fixes #5455)."""
+        calls = []
+
+        class MockTimeoutStream(httpx2.SyncByteStream):
+            def __iter__(self) -> Generator[bytes, None, None]:
+                yield b"chunk1"
+                raise httpx2.ReadTimeout("timeout during stream read")
+
+        def handler(request: httpx2.Request) -> httpx2.Response:
+            calls.append(request)
+            return httpx2.Response(200, stream=MockTimeoutStream())
+
+        client = httpx2.Client(transport=httpx2.MockTransport(handler))
+        with patch("huggingface_hub.utils._http.get_session", return_value=client), patch("time.sleep") as mock_sleep:
+            with pytest.raises(httpx2.ReadTimeout, match="timeout during stream read"):
+                with http_stream_backoff("GET", URL, base_wait_time=0.0, max_retries=3) as response:
+                    for _ in response.iter_bytes():
+                        pass
+
+        assert len(calls) == 1
+        mock_sleep.assert_not_called()
 
 
 class TestConfigureSession:
