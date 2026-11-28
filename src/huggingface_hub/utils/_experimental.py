@@ -20,6 +20,17 @@ from functools import wraps
 from .. import constants
 
 
+def warn_experimental(name: str) -> None:
+    """Emit a standard experimental `UserWarning` for `name` unless disabled via env var."""
+    if not constants.HF_HUB_DISABLE_EXPERIMENTAL_WARNING:
+        warnings.warn(
+            f"'{name}' is experimental and might be subject to breaking changes in the future without prior"
+            " notice. You can disable this warning by setting `HF_HUB_DISABLE_EXPERIMENTAL_WARNING=1` as"
+            " environment variable.",
+            UserWarning,
+        )
+
+
 def experimental(fn: Callable) -> Callable:
     """Decorator to flag a feature as experimental.
 
@@ -55,13 +66,7 @@ def experimental(fn: Callable) -> Callable:
 
     @wraps(fn)
     def _inner_fn(*args, **kwargs):
-        if not constants.HF_HUB_DISABLE_EXPERIMENTAL_WARNING:
-            warnings.warn(
-                f"'{name}' is experimental and might be subject to breaking changes in the future without prior notice."
-                " You can disable this warning by setting `HF_HUB_DISABLE_EXPERIMENTAL_WARNING=1` as environment"
-                " variable.",
-                UserWarning,
-            )
+        warn_experimental(name)
         return fn(*args, **kwargs)
 
     return _inner_fn

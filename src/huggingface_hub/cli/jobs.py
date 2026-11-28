@@ -37,6 +37,14 @@ from huggingface_hub._jobs_api import (
     _default_job_name_from_image,
     _default_job_name_from_script,
 )
+from huggingface_hub._jobs_sidecars import (
+    SIDECAR_GROUP_LABEL,
+    SIDECAR_ROLE_LABEL,
+    SidecarsConfig,
+    format_sidecars_summary,
+    load_sidecars,
+    parse_main_job_marker,
+)
 from huggingface_hub.errors import CLIError
 from huggingface_hub.utils import logging
 from huggingface_hub.utils._cache_manager import _format_size
@@ -565,6 +573,18 @@ NetworkAliasOpt = Annotated[
     ),
 ]
 
+SidecarsOpt = Annotated[
+    str | None,
+    Option(
+        "--sidecars",
+        help="[Experimental] Path to an `hf-jobs.yaml` file of sidecar Jobs launched in an auto-created network group "
+        "and cleaned up when the main Job exits. Reach sidecars at `${HF_NETWORK_GROUP_PREFIX}<name>` (no extra "
+        "`--network-group` needed). Schema: `sidecars: {<name>: {image, command, flavor?, replicas?, env?, "
+        "secrets?: [NAME], volumes?, healthcheck?: {http: '8000/health' | tcp: 8786}, startup_timeout?, "
+        "readiness_timeout?, on_exit?: fail|ignore}}` (optional top-level `defaults:`).",
+    ),
+]
+
 WithOpt = Annotated[
     list[str] | None,
     Option(
@@ -703,8 +723,107 @@ def _stream_logs_and_check_status(api: HfApi, job: JobInfo) -> None:
     out.text(f"Job {final.id} completed")
 
 
+def _load_cli_sidecars(sidecars: str | None, *, dry_run: bool = False) -> SidecarsConfig | None:
+    if sidecars is None:
+        return None
+    try:
+        config = load_sidecars(
+            sidecars,
+            environ=_get_extended_environ(),
+            allow_secret_values=False,
+            dry_run=dry_run,
+        )
+    except ValueError as exc:
+        raise CLIError(str(exc)) from exc
+    resolved_secrets = sorted(
+        {key for spec in config.sidecars.values() for key, val in spec.secrets.items() if val is not None}
+    )
+    if resolved_secrets:
+        out.warning(
+            f"The sidecars config '{sidecars}' requests {', '.join(resolved_secrets)}: the value(s) from your local"
+            f" environment {'would be' if dry_run else 'will be'} sent to the sidecar Job(s)."
+        )
+    return config
+
+
+def _follow_sidecar_orchestrator(api: HfApi, orch_job: JobInfo, *, detach: bool) -> None:
+    """Print hints or follow a sidecar orchestrator Job, handing off to main Job logs once started."""
+    orch_ref = f"{orch_job.owner.name}/{orch_job.id}"
+    group_id = (orch_job.labels or {}).get(SIDECAR_GROUP_LABEL) or (
+        orch_job.network.group if isinstance(orch_job.network, JobNetwork) else None
+    )
+    if group_id:
+        out.hint(
+            f"Sidecar group '{group_id}' started (orchestrator: {orch_ref}). "
+            f"List all Jobs with `hf jobs ps -a --label {SIDECAR_GROUP_LABEL}={group_id}`."
+        )
+    if detach:
+        out.hint(f"Use `hf jobs logs -f {orch_ref}` to follow sidecar startup/teardown logs.")
+        out.hint(f"Use `hf jobs cancel {orch_ref}` to stop the orchestrator and cancel active group Jobs.")
+        return
+
+    main_job_id: str | None = None
+    try:
+        _wait_while_scheduling(api, orch_job)
+        for log in api.fetch_job_logs(job_id=orch_job.id, namespace=orch_job.owner.name, follow=True):
+            out.text(log)
+            marker = parse_main_job_marker(log)
+            if marker is not None:
+                main_job_id = marker[0]
+                break
+    except KeyboardInterrupt:
+        out.hint(
+            f"Orchestrator {orch_ref} was not canceled. Use `hf jobs logs -f {orch_ref}` to follow it,"
+            f" or `hf jobs cancel {orch_ref}` to stop the group."
+        )
+        raise
+
+    if main_job_id is not None:
+        main_ref = f"{orch_job.owner.name}/{main_job_id}"
+        out.hint(f"Main Job started ({main_ref}). Streaming main Job logs...")
+        main_job = api.inspect_job(job_id=main_job_id, namespace=orch_job.owner.name)
+        try:
+            _stream_logs_and_check_status(api, main_job)
+        except CLIError:
+            try:
+                api.wait_for_job(job_id=orch_job.id, namespace=orch_job.owner.name, timeout=30)
+                orch_logs = list(
+                    api.fetch_job_logs(job_id=orch_job.id, namespace=orch_job.owner.name, follow=False, tail=80)
+                )
+                error_idx = next(
+                    (i for i, line in enumerate(orch_logs) if line.startswith("[sidecars] ERROR:")),
+                    None,
+                )
+                if error_idx is not None:
+                    out.hint(f"Sidecar orchestrator reported an error ({orch_ref}):")
+                    for line in orch_logs[error_idx:]:
+                        out.text(line)
+                else:
+                    out.hint(f"Inspect orchestrator logs with `hf jobs logs {orch_ref}`.")
+            except Exception:
+                out.hint(f"Inspect orchestrator logs with `hf jobs logs {orch_ref}`.")
+            raise
+        # Wait briefly for the orchestrator to complete sidecar teardown.
+        try:
+            api.wait_for_job(job_id=orch_job.id, namespace=orch_job.owner.name, timeout=60)
+            if group_id:
+                out.hint(f"Sidecars cleaned up for group '{group_id}'.")
+        except Exception:
+            pass
+        return
+
+    final = api.wait_for_job(job_id=orch_job.id, namespace=orch_job.owner.name)
+    if final.status.stage != JobStage.COMPLETED:
+        stage = final.status.stage.value if isinstance(final.status.stage, JobStage) else final.status.stage
+        message = f": {final.status.message}" if final.status.message else ""
+        raise CLIError(f"Sidecar orchestrator {final.id} finished with stage '{stage}'{message}")
+
+
 def _hint_or_follow_started_job(api: HfApi, job: JobInfo, *, detach: bool) -> None:
     """Print hints about how to reach a started Job, then stream its logs unless `detach` is set."""
+    if isinstance(job.labels, dict) and job.labels.get(SIDECAR_ROLE_LABEL) == "orchestrator":
+        _follow_sidecar_orchestrator(api, job, detach=detach)
+        return
     job_ref = f"{job.owner.name}/{job.id}"
     if isinstance(job.status.expose_urls, list):
         urls = "\n".join(f"  {url}" for url in job.status.expose_urls)
@@ -757,6 +876,7 @@ def jobs_run(
     network_group: NetworkGroupOpt = None,
     network_alias: NetworkAliasOpt = None,
     resource_group_id: ResourceGroupIdOpt = None,
+    sidecars: SidecarsOpt = None,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
     format: FormatOpt = None,
@@ -767,6 +887,7 @@ def jobs_run(
     set_output_format(format, json_output, quiet)
     env_map = parse_env_map(env, env_file)
     secrets_map = _parse_secrets_map(secrets, secrets_file, dry_run=dry_run)
+    sidecars_config = _load_cli_sidecars(sidecars, dry_run=dry_run)
     labels_map = _parse_labels_map(label, name=name) or {}
     labels_map.setdefault(
         "name",
@@ -805,6 +926,7 @@ def jobs_run(
             "ssh": ssh,
             "network_group": network_group,
             "network_aliases": " ".join(network_alias or []),
+            "sidecars": format_sidecars_summary(sidecars_config) if sidecars_config else None,
             "resource_group_id": resource_group_id,
             "namespace": namespace,
         },
@@ -828,10 +950,11 @@ def jobs_run(
         network_group=network_group,
         network_aliases=network_alias,
         resource_group_id=resource_group_id,
+        sidecars=sidecars_config,
         namespace=namespace,
     )
     out.result("Job started", id=job.id, name=(job.labels or {}).get("name"), url=job.url)
-    if not _has_explicit_name(name, label):
+    if not sidecars_config and not _has_explicit_name(name, label):
         auto_name = (job.labels or {}).get("name")
         out.hint(
             f"Job auto-named '{auto_name}'. Pass `--name` or run "
@@ -1483,6 +1606,7 @@ def jobs_uv_run(
     network_group: NetworkGroupOpt = None,
     network_alias: NetworkAliasOpt = None,
     resource_group_id: ResourceGroupIdOpt = None,
+    sidecars: SidecarsOpt = None,
     namespace: NamespaceOpt = None,
     token: TokenOpt = None,
     with_: WithOpt = None,
@@ -1493,6 +1617,7 @@ def jobs_uv_run(
 ) -> None:
     """Run a UV script (local file or URL) on HF infrastructure"""
     set_output_format(format, json_output, quiet)
+    sidecars_config = _load_cli_sidecars(sidecars, dry_run=dry_run)
     api = get_hf_api(token=token)
     with _resolve_uv_job_config(
         api=api,
@@ -1535,6 +1660,7 @@ def jobs_uv_run(
                 "ssh": ssh,
                 "network_group": config.network_group,
                 "network_aliases": " ".join(config.network_aliases),
+                "sidecars": format_sidecars_summary(sidecars_config) if sidecars_config else None,
                 "resource_group_id": resource_group_id,
                 "namespace": config.namespace,
             },
@@ -1562,10 +1688,11 @@ def jobs_uv_run(
             network_group=config.network_group,
             network_aliases=config.network_aliases or None,
             resource_group_id=resource_group_id,
+            sidecars=sidecars_config,
             namespace=config.namespace,
         )
     out.result("Job started", id=job.id, name=(job.labels or {}).get("name"), url=job.url)
-    if not _has_explicit_name(name, label, config.from_script):
+    if not sidecars_config and not _has_explicit_name(name, label, config.from_script):
         auto_name = (job.labels or {}).get("name")
         out.hint(
             f"Job auto-named '{auto_name}'. Pass `--name` or run "
