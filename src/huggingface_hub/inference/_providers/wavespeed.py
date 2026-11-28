@@ -24,6 +24,13 @@ class WavespeedAITask(TaskProviderHelper, ABC):
     def _prepare_route(self, mapped_model: str, api_key: str) -> str:
         return f"/api/v3/{mapped_model}"
 
+    @staticmethod
+    def _add_loras(payload: dict, provider_mapping_info: InferenceProviderMapping) -> None:
+        # Mirror @huggingface/inference (JS): when the Hub mapping advertises a LoRA adapter,
+        # WaveSpeed LoRA endpoints expect the LoRA's Hub repo id as `path`.
+        if provider_mapping_info.adapter == "lora":
+            payload["loras"] = [{"path": provider_mapping_info.hf_model_id, "scale": 1}]
+
     def get_response(
         self,
         response: bytes | dict,
@@ -92,7 +99,9 @@ class WavespeedAITextToImageTask(WavespeedAITask):
         parameters: dict,
         provider_mapping_info: InferenceProviderMapping,
     ) -> dict | None:
-        return {"prompt": inputs, **filter_none(parameters)}
+        payload: dict = {"prompt": inputs, **filter_none(parameters)}
+        self._add_loras(payload, provider_mapping_info)
+        return payload
 
 
 class WavespeedAITextToVideoTask(WavespeedAITextToImageTask):
@@ -126,10 +135,11 @@ class WavespeedAIImageToImageTask(WavespeedAITask):
 
         # Extract prompt from parameters if present
         prompt = parameters.pop("prompt", None)
-        payload = {"image": image, **filter_none(parameters)}
+        payload: dict = {"image": image, **filter_none(parameters)}
         if prompt is not None:
             payload["prompt"] = prompt
 
+        self._add_loras(payload, provider_mapping_info)
         return payload
 
 
