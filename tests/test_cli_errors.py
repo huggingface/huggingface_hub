@@ -8,12 +8,15 @@ from huggingface_hub.cli._errors import (
     _format_bucket_not_found,
     _format_entry_not_found,
     _format_gated_repo,
+    _format_incomplete_snapshot,
     _format_repo_not_found,
     _format_revision_not_found,
 )
 from huggingface_hub.errors import (
     BucketNotFoundError,
     GatedRepoError,
+    IncompleteSnapshotError,
+    OfflineModeIsEnabled,
     RemoteEntryNotFoundError,
     RepositoryNotFoundError,
     RevisionNotFoundError,
@@ -120,3 +123,17 @@ class TestFormatRevisionNotFound:
     def test_without_repo_id(self):
         err = _make_error(RevisionNotFoundError, repo_id=None, repo_type=None)
         assert _format_revision_not_found(err) == "Revision not found in repository. Check the revision parameter."
+
+
+class TestFormatIncompleteSnapshot:
+    def test_keeps_missing_files_when_chained_to_cause(self):
+        # With HF_HUB_OFFLINE=1, `snapshot_download` raises this error `from` an `OfflineModeIsEnabled` error.
+        err = IncompleteSnapshotError(
+            "The cached snapshot for 'user/repo' is incomplete: 1 file(s) are missing (config.json).",
+            snapshot_path="/cache/snapshots/abc",
+        )
+        err.__cause__ = OfflineModeIsEnabled("Cannot reach https://huggingface.co: offline mode is enabled.")
+        assert _format_incomplete_snapshot(err) == (
+            "Local entry not found. The cached snapshot for 'user/repo' is incomplete: 1 file(s) are missing"
+            " (config.json).\nIncomplete snapshot available at: /cache/snapshots/abc"
+        )
