@@ -24,6 +24,8 @@ work as well.
 """
 
 import inspect
+import json
+import warnings
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import httpx2
@@ -42,6 +44,7 @@ from huggingface_hub import (
     InferenceTimeoutError,
     TextGenerationOutputPrefillToken,
 )
+from huggingface_hub.errors import BadRequestError
 from huggingface_hub.inference._common import ValidationError as TextGenerationValidationError
 from huggingface_hub.inference._common import _get_unsupported_text_generation_kwargs
 
@@ -437,3 +440,96 @@ async def test_use_async_with_inference_client():
         async with AsyncInferenceClient():
             pass
     mock_close.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_async_unsupported_kwargs_isolated_by_client_model() -> None:
+    sent: list[tuple[str, dict]] = []
+
+    def handle_post(request_parameters):
+        url, payload = request_parameters.url, request_parameters.json
+        sent.append((url, dict(payload["parameters"])))
+        if url.startswith("http://plain") and "stop" in payload["parameters"]:
+            resp = httpx2.Response(400, request=httpx2.Request("POST", url))
+            raise BadRequestError(
+                "The following `model_kwargs` are not used by the model: ['stop', 'watermark']",
+                response=resp,
+            )
+        return json.dumps([{"generated_text": "ok"}]).encode()
+
+    def sync_fake_inner_post(client_self, request_parameters, *, stream=False):
+        return handle_post(request_parameters)
+
+    async def async_fake_inner_post(client_self, request_parameters, *, stream=False):
+        return handle_post(request_parameters)
+
+    non_tgi_async = AsyncInferenceClient(model="http://plain-transformers.local")
+    tgi_async = AsyncInferenceClient(model="http://tgi.local")
+    tgi_sync = InferenceClient(model="http://tgi.local")
+
+    with (
+        patch.object(AsyncInferenceClient, "_inner_post", async_fake_inner_post),
+        patch.object(InferenceClient, "_inner_post", sync_fake_inner_post),
+    ):
+        with pytest.warns(UserWarning, match="Ignoring following parameters: stop, watermark"):
+            result = await non_tgi_async.text_generation("hi", stop=["\n"], watermark=True)
+
+        assert result == "ok"
+        assert len(sent) == 2
+        assert sent[1] == ("http://plain-transformers.local", {})
+        assert _get_unsupported_text_generation_kwargs("http://plain-transformers.local") == ["stop", "watermark"]
+        assert _get_unsupported_text_generation_kwargs(None) == []
+
+        # Neither another AsyncInferenceClient nor a sync InferenceClient should drop parameters
+        sent.clear()
+        with warnings.catch_warnings(record=True) as recorded:
+            warnings.simplefilter("always")
+            async_tgi_result = await tgi_async.text_generation("hi", stop=["\n"], watermark=True)
+            sync_tgi_result = tgi_sync.text_generation("hi", stop=["\n"], watermark=True)
+
+        assert async_tgi_result == "ok"
+        assert sync_tgi_result == "ok"
+        assert recorded == []
+        assert sent == [
+            ("http://tgi.local", {"stop": ["\n"], "watermark": True}),
+            ("http://tgi.local", {"stop": ["\n"], "watermark": True}),
+        ]
+
+
+@pytest.mark.asyncio
+async def test_async_unsupported_kwargs_streaming_isolated_by_client_model() -> None:
+    sent: list[tuple[str, dict, bool]] = []
+
+    async def async_fake_inner_post(client_self, request_parameters, *, stream=False):
+        url, payload = request_parameters.url, request_parameters.json
+        sent.append((url, dict(payload["parameters"]), stream))
+        if url.startswith("http://plain") and "stop" in payload["parameters"]:
+            resp = httpx2.Response(400, request=httpx2.Request("POST", url))
+            raise BadRequestError(
+                "The following `model_kwargs` are not used by the model: ['stop', 'watermark']",
+                response=resp,
+            )
+        if stream:
+
+            async def _lines():
+                yield 'data:{"index":0,"token":{"id":1,"text":"ok","logprob":0.0,"special":false},"generated_text":"ok","details":null}'
+                yield "data: [DONE]"
+
+            return _lines()
+        return json.dumps([{"generated_text": "ok"}]).encode()
+
+    non_tgi_async = AsyncInferenceClient(model="http://plain-transformers.local")
+    tgi_async = AsyncInferenceClient(model="http://tgi.local")
+
+    with patch.object(AsyncInferenceClient, "_inner_post", async_fake_inner_post):
+        with pytest.warns(UserWarning, match="Ignoring following parameters: stop"):
+            assert await non_tgi_async.text_generation("hi", stop=["\n"]) == "ok"
+
+        with pytest.raises(ValueError, match="Cannot return output as a stream"):
+            await non_tgi_async.text_generation("hi", stream=True)
+
+        sent.clear()
+        stream_resp = await tgi_async.text_generation("hi", stream=True, stop=["\n"])
+        tokens = [token async for token in stream_resp]
+        assert tokens == ["ok"]
+        assert sent == [("http://tgi.local", {"stop": ["\n"]}, True)]

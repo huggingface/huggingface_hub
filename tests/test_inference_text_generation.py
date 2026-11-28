@@ -2,18 +2,22 @@
 # and https://github.com/huggingface/text-generation-inference/tree/main/clients/python)
 #
 # See './src/huggingface_hub/inference/_text_generation.py' for details.
+import asyncio
 import json
-from unittest.mock import MagicMock
+import warnings
+from unittest.mock import MagicMock, patch
 
+import httpx2
 import pytest
 
-from huggingface_hub import InferenceClient, TextGenerationOutputPrefillToken
-from huggingface_hub.errors import HfHubHTTPError
+from huggingface_hub import AsyncInferenceClient, InferenceClient, TextGenerationOutputPrefillToken
+from huggingface_hub.errors import BadRequestError, HfHubHTTPError
 from huggingface_hub.inference._common import (
     _UNSUPPORTED_TEXT_GENERATION_KWARGS,
     GenerationError,
     IncompleteGenerationError,
     OverloadedError,
+    _get_unsupported_text_generation_kwargs,
     raise_text_generation_error,
 )
 from huggingface_hub.inference._common import ValidationError as TextGenerationValidationError
@@ -172,3 +176,105 @@ class TestTextGenerationClientVCR:
             "animals_seen": 3,
             "location": "park",
         }
+
+
+class TestTextGenerationUnsupportedKwargs:
+    @pytest.fixture(autouse=True)
+    def clear_unsupported_kwargs(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr("huggingface_hub.inference._common._UNSUPPORTED_TEXT_GENERATION_KWARGS", {})
+
+    def test_unsupported_kwargs_isolated_by_client_model(self) -> None:
+        sent: list[tuple[str, dict]] = []
+
+        def fake_inner_post(client_self, request_parameters, *, stream=False):
+            url, payload = request_parameters.url, request_parameters.json
+            sent.append((url, dict(payload["parameters"])))
+            if url.startswith("http://plain") and "stop" in payload["parameters"]:
+                resp = httpx2.Response(400, request=httpx2.Request("POST", url))
+                raise BadRequestError(
+                    "The following `model_kwargs` are not used by the model: ['stop', 'watermark']",
+                    response=resp,
+                )
+            return json.dumps([{"generated_text": "ok"}]).encode()
+
+        non_tgi_client = InferenceClient(model="http://plain-transformers.local")
+        tgi_client = InferenceClient(model="http://tgi.local")
+        tgi_async_client = AsyncInferenceClient(model="http://tgi.local")
+
+        async def async_fake_inner_post(client_self, request_parameters, *, stream=False):
+            return fake_inner_post(client_self, request_parameters, stream=stream)
+
+        with (
+            patch.object(InferenceClient, "_inner_post", fake_inner_post),
+            patch.object(AsyncInferenceClient, "_inner_post", async_fake_inner_post),
+        ):
+            with pytest.warns(UserWarning, match="Ignoring following parameters: stop, watermark"):
+                result = non_tgi_client.text_generation("hi", stop=["\n"], watermark=True)
+
+            assert result == "ok"
+            # Initial failed request + single retry without unsupported kwargs (no redundant second failure)
+            assert len(sent) == 2
+            assert sent[1] == ("http://plain-transformers.local", {})
+            assert _get_unsupported_text_generation_kwargs("http://plain-transformers.local") == ["stop", "watermark"]
+            assert _get_unsupported_text_generation_kwargs(None) == []
+
+            sent.clear()
+            with warnings.catch_warnings(record=True) as recorded:
+                warnings.simplefilter("always")
+                tgi_result = tgi_client.text_generation("hi", stop=["\n"], watermark=True)
+                async_tgi_result = asyncio.run(tgi_async_client.text_generation("hi", stop=["\n"], watermark=True))
+
+            assert tgi_result == "ok"
+            assert async_tgi_result == "ok"
+            assert recorded == []
+            assert sent == [
+                ("http://tgi.local", {"stop": ["\n"], "watermark": True}),
+                ("http://tgi.local", {"stop": ["\n"], "watermark": True}),
+            ]
+
+            # Explicit model= override on the non-TGI client should also stay isolated
+            sent.clear()
+            with warnings.catch_warnings(record=True) as recorded:
+                warnings.simplefilter("always")
+                override_result = non_tgi_client.text_generation(
+                    "hi", model="http://tgi.local", stop=["\n"], watermark=True
+                )
+
+            assert override_result == "ok"
+            assert recorded == []
+            assert sent == [("http://tgi.local", {"stop": ["\n"], "watermark": True})]
+
+    def test_unsupported_kwargs_streaming_isolated_by_client_model(self) -> None:
+        sent: list[tuple[str, dict, bool]] = []
+
+        def fake_inner_post(client_self, request_parameters, *, stream=False):
+            url, payload = request_parameters.url, request_parameters.json
+            sent.append((url, dict(payload["parameters"]), stream))
+            if url.startswith("http://plain") and "stop" in payload["parameters"]:
+                resp = httpx2.Response(400, request=httpx2.Request("POST", url))
+                raise BadRequestError(
+                    "The following `model_kwargs` are not used by the model: ['stop', 'watermark']",
+                    response=resp,
+                )
+            if stream:
+                return iter(
+                    [
+                        'data:{"index":0,"token":{"id":1,"text":"ok","logprob":0.0,"special":false},"generated_text":"ok","details":null}',
+                        "data: [DONE]",
+                    ]
+                )
+            return json.dumps([{"generated_text": "ok"}]).encode()
+
+        non_tgi_client = InferenceClient(model="http://plain-transformers.local")
+        tgi_client = InferenceClient(model="http://tgi.local")
+
+        with patch.object(InferenceClient, "_inner_post", fake_inner_post):
+            with pytest.raises(ValueError, match="Cannot return output as a stream"):
+                non_tgi_client.text_generation("hi", stream=True, stop=["\n"])
+            # First request triggers fallback, retry immediately raises ValueError without a second POST
+            assert len(sent) == 1
+
+            sent.clear()
+            tokens = list(tgi_client.text_generation("hi", stream=True, stop=["\n"]))
+            assert tokens == ["ok"]
+            assert sent == [("http://tgi.local", {"stop": ["\n"]}, True)]

@@ -2358,8 +2358,10 @@ class AsyncInferenceClient:
             "watermark": watermark,
         }
 
+        model_id = model or self.model
+
         # Remove some parameters if not a TGI server
-        unsupported_kwargs = _get_unsupported_text_generation_kwargs(model)
+        unsupported_kwargs = _get_unsupported_text_generation_kwargs(model_id)
         if len(unsupported_kwargs) > 0:
             # The server does not support some parameters
             # => means it is not a TGI server
@@ -2389,7 +2391,6 @@ class AsyncInferenceClient:
                     " Please pass `stream=False` as input."
                 )
 
-        model_id = model or self.model
         provider_helper = get_provider_helper(self.provider, task="text-generation", model=model_id)
         request_parameters = provider_helper.prepare_request(
             inputs=prompt,
@@ -2407,7 +2408,7 @@ class AsyncInferenceClient:
             match = MODEL_KWARGS_NOT_USED_REGEX.search(str(e))
             if isinstance(e, BadRequestError) and match:
                 unused_params = [kwarg.strip("' ") for kwarg in match.group(1).split(",")]
-                _set_unsupported_text_generation_kwargs(model, unused_params)
+                _set_unsupported_text_generation_kwargs(model_id, unused_params)
                 return await self.text_generation(  # type: ignore
                     prompt=prompt,
                     details=details,
