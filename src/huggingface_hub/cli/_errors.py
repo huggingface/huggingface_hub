@@ -93,9 +93,8 @@ def _format_local_entry_not_found(error: LocalEntryNotFoundError) -> str:
 
 
 def _format_incomplete_snapshot(error: IncompleteSnapshotError) -> str:
-    msg = _format_local_entry_not_found(error)
-    msg += f"\nIncomplete snapshot available at: {error.snapshot_path}"
-    return msg
+    # The error message already lists the missing files and the root cause: don't replace it with the cause only.
+    return f"Local entry not found. {error}\nIncomplete snapshot available at: {error.snapshot_path}"
 
 
 def _format_revision_not_found(error: RevisionNotFoundError) -> str:
